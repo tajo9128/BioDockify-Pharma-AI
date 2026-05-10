@@ -22,7 +22,7 @@
             <div>
               <div class="section-title">Remote Link</div>
               <div class="section-description">
-                Create a temporary HTTPS link for this Agent Zero instance, then open it from another browser or scan it from your phone.
+                Create a temporary HTTPS link for this BioDockify instance, then open it from another browser or scan it from your phone.
               </div>
             </div>
           </header>
@@ -62,7 +62,7 @@
               <span class="material-symbols-outlined" aria-hidden="true">key</span>
               <div>
                 <div class="microsoft-login-title">Microsoft sign-in</div>
-                <div class="microsoft-login-copy">Approve the tunnel request, then Agent Zero will finish creating the link.</div>
+                <div class="microsoft-login-copy">Approve the tunnel request, then BioDockify will finish creating the link.</div>
               </div>
             </div>
             <a class="microsoft-login-link" :href="$store.tunnelStore.microsoftLoginUrl" target="_blank" rel="noopener noreferrer">
@@ -151,7 +151,7 @@
             <div class="remote-link-empty" x-show="!$store.tunnelStore.linkGenerated">
               <span class="material-symbols-outlined" aria-hidden="true">link</span>
               <strong>No remote link yet</strong>
-              <span>Create one when you want to reach Agent Zero from another device or share access temporarily.</span>
+              <span>Create one when you want to reach BioDockify from another device or share access temporarily.</span>
               <button
                 type="button"
                 class="btn btn-ok remote-link-primary"

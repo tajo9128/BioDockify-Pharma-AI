@@ -18,34 +18,9 @@
                 <div class="field-label">
                   <div class="field-title">RFC destination URL</div>
                   <div class="field-description">
-                    Base URL of the Dockerized Agent Zero instance used for remote function calls.
-                  </div>
-                </div>
-                <div class="field-control">
-                  <input type="text" x-model="$store.settings.settings.rfc_url" />
-                </div>
-              </div>
-            </div>
-          </template>
+Base URL of the Dockerized BioDockify instance used for remote function calls.
 
-          <div class="field">
-            <div class="field-label">
-              <div class="field-title">RFC password</div>
-              <div class="field-description">
-                Shared password required by both instances before remote calls are accepted.
-              </div>
-            </div>
-            <div class="field-control">
-              <input type="password" autocomplete="off" x-model="$store.settings.settings.rfc_password" />
-            </div>
-          </div>
-
-          <template x-if="!$store.settings.additional?.is_dockerized">
-            <div>
-              <div class="field">
-                <div class="field-label">
-                  <div class="field-title">RFC HTTP port</div>
-                  <div class="field-description">HTTP port exposed by the Dockerized Agent Zero instance.</div>
+                  <div class="field-description">HTTP port exposed by the Dockerized BioDockify instance.</div>
                 </div>
                 <div class="field-control">
                   <input type="number" x-model.number="$store.settings.settings.rfc_port_http" />

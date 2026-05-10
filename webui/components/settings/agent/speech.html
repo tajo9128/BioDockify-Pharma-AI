@@ -15,7 +15,7 @@
           <div class="field field-full">
             <div class="field-label">
               <div class="field-title">Microphone device</div>
-              <div class="field-description">Choose the input device Agent Zero listens to.</div>
+              <div class="field-description">Choose the input device BioDockify listens to.</div>
             </div>
             <div class="field-control">
               <x-component path="settings/speech/microphone.html"></x-component>
@@ -83,7 +83,7 @@
               <div class="field">
                 <div class="field-label">
                   <div class="field-title">End-of-speech delay</div>
-                  <div class="field-description">How long silence must last before Agent Zero treats your sentence as complete.</div>
+                  <div class="field-description">How long silence must last before BioDockify treats your sentence as complete.</div>
                 </div>
                 <div class="field-control">
                   <input type="number" x-model.number="$store.settings.settings.stt_silence_duration" />
@@ -93,7 +93,7 @@
               <div class="field">
                 <div class="field-label">
                   <div class="field-title">Microphone close delay</div>
-                  <div class="field-description">How long Agent Zero waits before closing the microphone after speech stops.</div>
+                  <div class="field-description">How long BioDockify waits before closing the microphone after speech stops.</div>
                 </div>
                 <div class="field-control">
                   <input type="number" x-model.number="$store.settings.settings.stt_waiting_timeout" />
