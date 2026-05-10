@@ -1,0 +1,20 @@
+# BioDockify AI - Core Requirements
+# ========================================
+# Lightweight AI Research Assistant
+
+fastapi>=0.110.0
+uvicorn>=0.29.0
+pydantic>=2.7.0
+httpx>=0.27.0
+python-multipart>=0.0.9
+
+# Lightweight AI
+litellm>=1.55.0
+
+# Web scraping
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# Utilities
+python-dotenv>=1.0.0
+jinja2>=3.1.0

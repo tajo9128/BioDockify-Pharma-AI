@@ -1,0 +1,164 @@
+<<<<<<< HEAD
+###############################################################################
+# Project‑specific exclusions / re‑includes
+###############################################################################
+
+# Obsolete
+memory/**
+instruments/**
+knowledge/custom/**
+
+# Logs, tmp, usr
+logs/*
+tmp/*
+usr/*
+
+
+# Keep .gitkeep markers anywhere
+!**/.gitkeep
+
+
+###############################################################################
+# Environment / tooling
+###############################################################################
+.conda/
+.cursor/
+.venv/
+.git/
+
+
+###############################################################################
+# Tests (root‑level only)
+###############################################################################
+/*.test.py
+
+
+###############################################################################
+# ─── LAST SECTION: universal junk / caches (MUST BE LAST) ───
+#   Put these at the *bottom* so they override any ! re‑includes above
+###############################################################################
+# OS / editor junk
+**/.DS_Store
+**/Thumbs.db
+
+# Python caches / compiled artefacts
+**/__pycache__/
+**/*.py[cod]
+**/*.pyo
+**/*.pyd
+
+# Environment files anywhere
+*.env
+=======
+# =============================================================================
+# BioDockify Docker Build - Ignore File
+# =============================================================================
+# Optimized for faster builds and smaller context
+
+# Version Control
+.git/
+.gitignore
+.github/
+.gitattributes
+
+# Build Artifacts
+dist/
+build/
+*.egg-info/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
+*.so
+
+# Node/Bun
+node_modules/
+.next/
+ui/node_modules/
+ui/.next/
+ui/out/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python Virtual Environments
+.venv/
+.venv311/
+venv/
+env/
+*.venv
+
+# IDE/Editor
+.idea/
+.vscode/
+.gemini/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Desktop App
+desktop/
+installer/
+
+# Tests
+tests/
+test_*.py
+*_test.py
+pytest.ini
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Development Files
+*.spec
+*.bak
+*.backup
+*.tmp
+local-*
+server_log.txt
+.pre-commit-config.yaml
+.pre-commit-hooks.yaml
+.bandit
+detect-secrets/
+
+# Data/Output Directories
+data/
+export/
+test_output/
+test_slides_output/
+mock_cloud_storage/
+library_data/
+data/test_chroma/
+data/vectors/
+data/deep_drive/
+benchmarks/results/
+
+# External Repos
+external_repos/
+Prismer_Repo/
+external/
+_external/
+
+# Lock files
+bun.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+>>>>>>> 3768e8a174058c75c6c7fdc6d99db17d246d1fed

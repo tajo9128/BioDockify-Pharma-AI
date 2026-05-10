@@ -1,0 +1,28 @@
+# ============================================================
+# BioDockify - Heavy AI/ML Dependencies
+# ============================================================
+# These are large packages (>500MB) installed at runtime to keep
+# the Docker image light.
+# ============================================================
+
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# TensorFlow & Deep Learning (CPU-only to save ~2GB)
+tensorflow-cpu==2.15.0
+transformers>=4.38.0
+torch==2.4.0+cpu
+torchvision==0.19.0+cpu
+
+# Chemistry & Molecular Analysis
+decimer>=2.2.0
+rdkit>=2023.9.4
+
+# Browser Automation (Requires binary download)
+playwright>=1.41.0
+
+# Vector Database & Embeddings
+
+
+# Multimedia Processing
+ffmpeg-python>=0.2.0
+imageio-ffmpeg>=0.4.9

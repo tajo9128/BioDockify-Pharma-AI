@@ -1,0 +1,90 @@
+<html>
+
+<head>
+    <title>Project LLM</title>
+    <script type="module">
+        import { store } from "/components/projects/projects-store.js";
+        import { store as modelConfigStore } from "/plugins/_model_config/webui/model-config-store.js";
+    </script>
+</head>
+
+<body>
+    <div x-data x-init="await $store.modelConfig.ensureLoaded()">
+        <template x-if="$store.projects && $store.projects.selectedProject && $store.projects.selectedProject.llm && $store.modelConfig._loaded">
+            <div>
+                <div class="projects-form-group">
+                    <label class="projects-form-label">Preset</label>
+                    <span class="projects-form-description">Pick a preset to copy its main and utility model settings into this project. Embeddings stay with the current project config.</span>
+                    <select class="projects-form-select"
+                        x-model="$store.projects.selectedProject.llm.preset_key"
+                        @change="$store.projects.applySelectedLlmPreset()">
+                        <option value="current">Current config</option>
+                        <optgroup label="Global presets">
+                            <template x-for="preset in $store.projects.selectedProject.llm.global_presets" :key="$store.projects.getLlmPresetKey(preset)">
+                                <option :value="$store.projects.getLlmPresetKey(preset)" x-text="preset.name"></option>
+                            </template>
+                        </optgroup>
+                        <optgroup label="This project's presets">
+                            <template x-for="preset in $store.projects.selectedProject.llm.project_presets" :key="$store.projects.getLlmPresetKey(preset)">
+                                <option :value="$store.projects.getLlmPresetKey(preset)" x-text="preset.name"></option>
+                            </template>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div class="projects-form-group">
+                    <label class="projects-form-label">Project preset</label>
+                    <template x-if="$store.projects.selectedProject._meta.creating">
+                        <span class="projects-form-description">Create or update a preset stored in this project's <strong>_model_config/presets.yaml</strong> when the project is saved.</span>
+                    </template>
+                    <template x-if="!$store.projects.selectedProject._meta.creating">
+                        <span class="projects-form-description">Create or update a preset stored in <strong><span x-text="$store.projects.getSelectedAbsPath('.a0proj','plugins','_model_config','presets.yaml')"></span></strong>.</span>
+                    </template>
+                    <div class="projects-input-with-button-wrapper">
+                        <input class="projects-form-input" type="text"
+                            x-model="$store.projects.selectedProject.llm.new_preset_name"
+                            placeholder="Preset name">
+                        <button type="button" class="button icon-button"
+                            :disabled="!$store.projects.selectedProject.llm.new_preset_name.trim()"
+                            @click="$store.projects.saveSelectedLlmProjectPreset()">
+                            <span class="icon material-symbols-outlined">save</span>
+                            <span>Save preset</span>
+                        </button>
+                    </div>
+                </div>
+
+                <template x-for="section in $store.modelConfig.MODEL_SECTIONS" :key="section.key">
+                    <div class="project-llm-model-section"
+                        @input.capture="$store.projects.markLlmCurrent()"
+                        @change.capture="$store.projects.markLlmCurrent()"
+                        x-data="{ get model() { return $store.projects.selectedProject.llm.config[section.key]; }, get modelType() { return section.key.replace('_model', ''); }, get providers() { return $store.modelConfig.getProviders(section.key); }, get searchType() { return $store.modelConfig.getSearchType(section.key); }, apiKeyMode: 'store' }">
+                        <div class="project-llm-section-title" x-text="section.title"></div>
+                        <div class="project-llm-section-description" x-text="section.desc"></div>
+                        <x-component path="/plugins/_model_config/webui/model-field.html"></x-component>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+</body>
+<style>
+    .project-llm-model-section {
+        border-top: 1px dashed var(--color-border);
+        margin-top: 1em;
+        padding-top: 1em;
+    }
+
+    .project-llm-section-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin-bottom: 0.25em;
+    }
+
+    .project-llm-section-description {
+        font-size: 0.8rem;
+        opacity: 0.75;
+        margin-bottom: 0.8em;
+    }
+</style>
+
+</html>

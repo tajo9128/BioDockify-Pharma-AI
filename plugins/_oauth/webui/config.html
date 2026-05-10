@@ -1,0 +1,501 @@
+<html>
+<head>
+  <title>OAuth Connections</title>
+  <script type="module">
+    import { store } from "/plugins/_oauth/webui/oauth-config-store.js";
+  </script>
+</head>
+
+<body>
+  <div x-data>
+    <template x-if="$store.oauthConfig && config">
+      <div
+        class="oauth"
+        x-init="$store.oauthConfig.init(config)"
+        x-effect="$store.oauthConfig.bindConfig(config)"
+        x-destroy="$store.oauthConfig.cleanup()"
+      >
+        <section class="oauth-hero" :class="$store.oauthConfig.connected() ? 'is-connected' : ''">
+          <div class="oauth-mark">
+            <span class="material-symbols-outlined" x-text="$store.oauthConfig.connected() ? 'check' : 'key'"></span>
+          </div>
+
+          <div class="oauth-copy">
+            <h2>Codex/ChatGPT</h2>
+            <p x-show="!$store.oauthConfig.connected() && !$store.oauthConfig.connecting">
+              Connect your account to unlock Codex models locally.
+            </p>
+            <p x-show="$store.oauthConfig.connected()">
+              Connected and ready.
+            </p>
+            <p x-show="$store.oauthConfig.connecting">
+              Finish sign-in in the browser tab.
+            </p>
+          </div>
+
+          <div class="oauth-primary">
+            <button
+              class="oauth-connect"
+              type="button"
+              @click="$store.oauthConfig.connectCodex()"
+              :disabled="$store.oauthConfig.connecting"
+              x-show="!$store.oauthConfig.connected()"
+            >
+              <span class="material-symbols-outlined" x-text="$store.oauthConfig.connecting ? 'progress_activity' : 'login'"></span>
+              <span x-text="$store.oauthConfig.connecting ? 'Waiting' : 'Connect'"></span>
+            </button>
+            <button
+              class="oauth-connect secondary"
+              type="button"
+              @click="$store.oauthConfig.loadModels()"
+              :disabled="$store.oauthConfig.loadingModels"
+              x-show="$store.oauthConfig.connected()"
+            >
+              <span class="material-symbols-outlined" x-text="$store.oauthConfig.loadingModels ? 'progress_activity' : 'view_list'"></span>
+              <span>Check Models</span>
+            </button>
+            <button
+              class="oauth-connect danger"
+              type="button"
+              @click="$store.oauthConfig.disconnectCodex()"
+              :disabled="$store.oauthConfig.disconnecting"
+              x-show="$store.oauthConfig.connected()"
+            >
+              <span class="material-symbols-outlined" x-text="$store.oauthConfig.disconnecting ? 'progress_activity' : 'link_off'"></span>
+              <span x-text="$store.oauthConfig.disconnecting ? 'Disconnecting' : 'Disconnect'"></span>
+            </button>
+          </div>
+        </section>
+
+        <section class="oauth-device" x-show="$store.oauthConfig.device">
+          <span>Enter this code</span>
+          <strong x-text="$store.oauthConfig.device?.user_code"></strong>
+          <button class="text-button" type="button" @click="$store.oauthConfig.cancelConnect()">
+            <span class="material-symbols-outlined">close</span>
+            <span>Cancel</span>
+          </button>
+        </section>
+
+        <section class="oauth-usage" x-show="$store.oauthConfig.connected() && $store.oauthConfig.usageWindows().length">
+          <template x-for="window in $store.oauthConfig.usageWindows()" :key="window.key">
+            <div class="oauth-usage-window">
+              <div class="oauth-usage-head">
+                <span>
+                  <span x-text="window.title"></span>
+                  <small x-show="$store.oauthConfig.formatWindowLabel(window)" x-text="$store.oauthConfig.formatWindowLabel(window)"></small>
+                </span>
+                <strong x-text="$store.oauthConfig.formatRemainingPercent(window)"></strong>
+              </div>
+              <div class="oauth-usage-bar" aria-hidden="true">
+                <i :style="{ width: $store.oauthConfig.usageWidth(window) }"></i>
+              </div>
+              <p x-show="$store.oauthConfig.formatReset(window)" x-text="`Resets in ${$store.oauthConfig.formatReset(window)}`"></p>
+            </div>
+          </template>
+        </section>
+
+        <section class="oauth-status-row">
+          <div>
+            <span>Status</span>
+            <strong x-text="$store.oauthConfig.statusLabel()"></strong>
+          </div>
+          <div x-show="$store.oauthConfig.status?.codex?.email">
+            <span>Account</span>
+            <strong x-text="$store.oauthConfig.status?.codex?.email"></strong>
+          </div>
+          <button class="oauth-icon-button" type="button" @click="$store.oauthConfig.loadStatus()" title="Refresh status" aria-label="Refresh status">
+            <span class="material-symbols-outlined">refresh</span>
+          </button>
+        </section>
+
+        <details class="oauth-advanced">
+          <summary>Advanced</summary>
+
+          <div class="oauth-details">
+            <div>
+              <span>Endpoint</span>
+              <code x-text="$store.oauthConfig.endpointUrl()"></code>
+            </div>
+            <div>
+              <span>Auth file</span>
+              <code x-text="$store.oauthConfig.status?.codex?.auth_file_path || 'Auto-discover'"></code>
+            </div>
+          </div>
+
+          <div class="oauth-grid">
+            <label>
+              <span>Auth file path</span>
+              <input type="text" x-model="$store.oauthConfig.codex().auth_file_path" placeholder="Auto-discover" />
+            </label>
+            <label>
+              <span>Issuer</span>
+              <input type="text" x-model="$store.oauthConfig.codex().issuer" />
+            </label>
+            <label>
+              <span>Token URL</span>
+              <input type="text" x-model="$store.oauthConfig.codex().token_url" />
+            </label>
+            <label>
+              <span>Base path</span>
+              <input type="text" x-model="$store.oauthConfig.codex().proxy_base_path" />
+            </label>
+            <label>
+              <span>Upstream URL</span>
+              <input type="text" x-model="$store.oauthConfig.codex().upstream_base_url" />
+            </label>
+            <label>
+              <span>Codex version</span>
+              <input type="text" x-model="$store.oauthConfig.codex().codex_version" placeholder="Auto" />
+            </label>
+            <label class="oauth-switch">
+              <span>Require proxy token</span>
+              <input type="checkbox" x-model="$store.oauthConfig.codex().require_proxy_token" />
+            </label>
+            <label>
+              <span>Proxy token</span>
+              <input type="password" x-model="$store.oauthConfig.codex().proxy_token" autocomplete="off" />
+            </label>
+          </div>
+        </details>
+
+        <div class="oauth-models" x-show="$store.oauthConfig.models.length">
+          <template x-for="model in $store.oauthConfig.models" :key="model">
+            <span x-text="model"></span>
+          </template>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <style>
+    .oauth {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      color: var(--color-text);
+    }
+
+    .oauth-hero {
+      display: grid;
+      grid-template-columns: 52px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 16px;
+      min-height: 118px;
+      padding: 18px;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--color-panel) 86%, transparent);
+    }
+
+    .oauth-mark {
+      display: grid;
+      width: 52px;
+      height: 52px;
+      place-items: center;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--color-border) 52%, transparent);
+    }
+
+    .oauth-mark .material-symbols-outlined {
+      font-size: 28px;
+    }
+
+    .oauth-hero.is-connected .oauth-mark {
+      color: #08120c;
+      background: #35d07f;
+    }
+
+    .oauth-copy h2 {
+      margin: 0 0 4px;
+      font-size: 1.35rem;
+      letter-spacing: 0;
+    }
+
+    .oauth-copy p {
+      margin: 0;
+      color: var(--color-text-secondary);
+      font-size: 0.88rem;
+      line-height: 1.4;
+    }
+
+    .oauth-primary {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .oauth-connect {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-width: 124px;
+      min-height: 40px;
+      padding: 0 16px;
+      border: 0;
+      border-radius: 8px;
+      background: #f5f7fa;
+      color: #111418;
+      font: inherit;
+      font-size: 0.88rem;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    .oauth-connect.secondary {
+      background: color-mix(in srgb, var(--color-border) 60%, transparent);
+      color: var(--color-text);
+    }
+
+    .oauth-connect.danger {
+      border: 1px solid color-mix(in srgb, #f06464 40%, var(--color-border));
+      background: color-mix(in srgb, #f06464 16%, var(--color-panel));
+      color: var(--color-text);
+    }
+
+    .oauth-connect:disabled {
+      cursor: default;
+      opacity: .65;
+    }
+
+    .oauth-device {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      border: 1px solid color-mix(in srgb, #f5f7fa 18%, var(--color-border));
+      border-radius: 8px;
+      background: color-mix(in srgb, #f5f7fa 7%, var(--color-panel));
+    }
+
+    .oauth-device span {
+      color: var(--color-text-secondary);
+      font-size: 0.84rem;
+      font-weight: 700;
+    }
+
+    .oauth-device strong {
+      font-size: 1.45rem;
+      letter-spacing: 0;
+    }
+
+    .oauth-usage {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      padding: 12px 14px;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+    }
+
+    .oauth-usage-window {
+      display: grid;
+      min-width: 0;
+      gap: 8px;
+    }
+
+    .oauth-usage-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .oauth-usage-head span {
+      display: inline-flex;
+      min-width: 0;
+      align-items: center;
+      gap: 6px;
+      color: var(--color-text-secondary);
+      font-size: 0.78rem;
+      font-weight: 750;
+    }
+
+    .oauth-usage-head small {
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--color-border) 55%, transparent);
+      color: var(--color-text-secondary);
+      font-size: 0.7rem;
+      line-height: 1;
+    }
+
+    .oauth-usage-head strong {
+      font-size: 0.92rem;
+      white-space: nowrap;
+    }
+
+    .oauth-usage-bar {
+      overflow: hidden;
+      height: 8px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--color-border) 54%, transparent);
+    }
+
+    .oauth-usage-bar i {
+      display: block;
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: #35d07f;
+      transition: width .22s ease;
+    }
+
+    .oauth-usage-window p {
+      margin: 0;
+      color: var(--color-text-secondary);
+      font-size: 0.74rem;
+    }
+
+    .oauth-status-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+    }
+
+    .oauth-status-row div {
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .oauth-status-row span,
+    .oauth-details span,
+    .oauth-grid label span {
+      color: var(--color-text-secondary);
+      font-size: 0.76rem;
+      font-weight: 700;
+    }
+
+    .oauth-status-row strong {
+      overflow: hidden;
+      font-size: 0.88rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .oauth-icon-button {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--color-text);
+      cursor: pointer;
+    }
+
+    .oauth-advanced {
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      padding: 0;
+    }
+
+    .oauth-advanced summary {
+      padding: 12px 14px;
+      color: var(--color-text-secondary);
+      font-size: 0.84rem;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    .oauth-details {
+      display: grid;
+      gap: 8px;
+      padding: 0 14px 14px;
+    }
+
+    .oauth-details div {
+      display: grid;
+      grid-template-columns: 84px minmax(0, 1fr);
+      align-items: center;
+      gap: 10px;
+    }
+
+    .oauth-details code {
+      overflow: hidden;
+      font-size: 0.76rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .oauth-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      padding: 0 14px 14px;
+    }
+
+    .oauth-grid label {
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .oauth-grid input[type="text"],
+    .oauth-grid input[type="password"] {
+      width: 100%;
+      min-height: 36px;
+      padding: 7px 10px;
+      border: 1px solid color-mix(in srgb, var(--color-border) 74%, transparent);
+      border-radius: 8px;
+      background: var(--color-input);
+      color: var(--color-text);
+      font: inherit;
+      font-size: 0.82rem;
+    }
+
+    .oauth-switch {
+      justify-content: center;
+    }
+
+    .oauth-switch input {
+      width: 18px;
+      height: 18px;
+      accent-color: #f5f7fa;
+    }
+
+    .oauth-models {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .oauth-models span {
+      padding: 5px 8px;
+      border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+      border-radius: 999px;
+      color: var(--color-text-secondary);
+      font-size: 0.76rem;
+    }
+
+    @media (max-width: 720px) {
+      .oauth-hero,
+      .oauth-device,
+      .oauth-usage,
+      .oauth-status-row,
+      .oauth-grid,
+      .oauth-details div {
+        grid-template-columns: 1fr;
+      }
+
+      .oauth-primary {
+        width: 100%;
+      }
+
+      .oauth-connect {
+        width: 100%;
+      }
+    }
+  </style>
+</body>
+</html>

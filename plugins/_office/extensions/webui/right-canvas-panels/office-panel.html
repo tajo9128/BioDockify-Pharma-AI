@@ -1,0 +1,15 @@
+<div
+  class="right-canvas-surface-panel office-canvas-surface"
+  data-surface-id="office"
+  :class="{
+    'is-active': $store.rightCanvas?.isSurfaceVisible('office'),
+    'is-mounted': $store.rightCanvas?.isSurfaceRendered('office')
+  }"
+  :aria-hidden="(!$store.rightCanvas?.isSurfaceVisible('office')).toString()"
+  x-effect="(() => {
+    const visible = Boolean($store.rightCanvas?.isSurfaceRendered('office'));
+    (globalThis.queueMicrotask || ((callback) => globalThis.setTimeout(callback, 0)))(() => $store.office?.setDesktopHostVisible?.(visible));
+  })()"
+>
+  <x-component path="/plugins/_office/webui/office-panel.html"></x-component>
+</div>

@@ -1,0 +1,45 @@
+{
+  "presentation": {
+    "title": "Introduction to Pharmacology",
+    "subtitle": "Week 1",
+    "slides": [
+      {
+        "slide_number": 1,
+        "title": "Introduction to Pharmacology",
+        "content": [
+          "Week 1",
+          "Understand the fundamental principles of Introduction to Pharmacology"
+        ],
+        "notes": "Introduction to Introduction to Pharmacology"
+      },
+      {
+        "slide_number": 2,
+        "title": "Learning Objectives",
+        "content": [
+          "Understand the fundamental principles of Introduction to Pharmacology",
+          "Analyze key theoretical frameworks in Introduction to Pharmacology",
+          "Apply Introduction to Pharmacology concepts to practical scenarios"
+        ],
+        "notes": "Objectives for today's lecture"
+      },
+      {
+        "slide_number": 3,
+        "title": "Key Concepts",
+        "content": [
+          "Core Concept 1: Foundation of Introduction to Pharmacology",
+          "Core Concept 2: Applications of Introduction to Pharmacology"
+        ],
+        "notes": "Core concepts to understand"
+      },
+      {
+        "slide_number": 4,
+        "title": "References",
+        "content": [
+          "Please provide specific references for this topic"
+        ],
+        "notes": "Key references"
+      }
+    ]
+  },
+  "created_at": "2026-02-14T04:39:57.822506"
+}

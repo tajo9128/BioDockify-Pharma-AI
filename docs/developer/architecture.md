@@ -1,0 +1,370 @@
+# Architecture Overview
+Agent Zero is built on a flexible and modular architecture designed for extensibility and customization. This section outlines the key components and the interactions between them.
+
+## System Architecture
+
+The user or Agent 0 is at the top of the hierarchy, delegating tasks to subordinate agents, which can further delegate to other agents. Each agent can utilize tools and access the shared assets (prompts, memory, knowledge, extensions and skills) to perform its tasks.
+
+## Runtime Architecture
+Agent Zero's runtime architecture is built around Docker containers:
+
+1. **Host System (your machine)**:
+   - Requires only Docker and a web browser
+   - Runs Docker Desktop or Docker Engine
+   - Handles container orchestration
+
+2. **Runtime Container**:
+   - Houses the complete Agent Zero framework
+   - Manages the Web UI and API endpoints
+   - Handles all core functionalities including code execution
+   - Provides a standardized environment across all platforms
+
+This architecture ensures:
+- Consistent environment across platforms
+- Simplified deployment and updates
+- Enhanced security through containerization
+- Reduced dependency requirements on host systems
+- Flexible deployment options for advanced users
+
+> [!NOTE]
+> The legacy approach of running Agent Zero directly on the host system (using Python, Conda, etc.) 
+> is still possible but requires Remote Function Calling (RFC) configuration through the Settings 
+> page. See the [development guide](development.md) for detailed instructions.
+
+## Implementation Details
+
+### Directory Structure
+| Directory | Description |
+| --- | --- |
+| `/docker` | Docker-related files for runtime container |
+| `/docs` | Documentation files and guides |
+| `/usr/skills` | Skills using the open SKILL.md standard (contextual expertise) |
+| `/agents` | Agent profiles (prompts, tools, extensions per profile) |
+| `/knowledge` | Knowledge base storage |
+| `/logs` | HTML CLI-style chat logs |
+| `/memory` | Persistent agent memory storage |
+| `/prompts` | Default system and tool prompt templates |
+| `/python` | Core Python codebase |
+| `/python/api` | API endpoints and interfaces |
+| `/python/extensions` | Modular extensions |
+| `/python/helpers` | Utility functions |
+| `/python/tools` | Tool implementations |
+| `/tmp` | Temporary runtime data |
+| `/usr/chats` | Saved chat history (JSON) |
+| `/usr/secrets.env` | Secrets store (not always included in backups) |
+| `/usr/projects` | Project workspaces and `.a0proj` metadata |
+| `/webui` | Web interface components |
+| `/webui/css` | Stylesheets |
+| `/webui/js` | JavaScript modules |
+| `/webui/public` | Static assets |
+
+### Key Files
+| File | Description |
+| --- | --- |
+| `usr/settings.json` | Main runtime settings (written by the Settings UI) |
+| `usr/secrets.env` | Secrets store (managed via Settings -> Secrets) |
+| `conf/model_providers.yaml` | Model provider defaults and settings |
+| `agent.py` | Core agent implementation |
+| `execute.py` | Framework initialization |
+| `models.py` | Model providers and configs |
+| `preload.py` | Pre-initialization routines |
+| `prepare.py` | Environment preparation |
+| `requirements.txt` | Python dependencies |
+| `run_ui.py` | Web UI launcher |
+
+> [!NOTE]
+> In the Docker runtime, the framework lives under `/a0` inside the container. Data persists as long as the container exists. For upgrades, prefer **Backup & Restore** instead of mapping the full `/a0` directory.
+
+## Core Components
+Agent Zero's architecture revolves around the following key components:
+
+### 1. Agents
+The core actors within the framework. Agents receive instructions, reason, make decisions, and utilize tools to achieve their objectives. Agents operate within a hierarchical structure, with superior agents delegating tasks to subordinate agents.
+
+#### Agent Hierarchy and Communication
+Agent Zero employs a hierarchical agent structure, where a top-level agent (often the user) can delegate tasks to subordinate agents. This hierarchy allows for the efficient breakdown of complex tasks into smaller, more manageable sub-tasks.
+
+Communication flows between agents through messages, which are structured according to the prompt templates. These messages typically include:
+
+| Argument | Description |
+| --- | --- |
+| `Thoughts:` | The agent's Chain of Thought and planning process |
+| `Tool name:` | The specific tool used by the agent |
+| `Responses or queries:` | Results, feedback or queries from tools or other agents |
+
+#### Interaction Flow
+A typical interaction flow within Agent Zero might look like this:
+
+1. The user provides an instruction to Agent 0
+2. Agent 0 initializes VectorDB and access memory
+3. Agent 0 analyzes the instruction and formulates a plan using `thoughts` argument, possibly involving the use of tools or the creation of sub-agents
+4. If necessary, Agent 0 delegates sub-tasks to subordinate agents
+5. Agents use tools to perform actions, both providing arguments and responses or queries
+6. Agents communicate results and feedback back up the hierarchy
+7. Agent 0 provides the final response to the user
+
+### 2. Tools
+Tools are functionalities that agents can leverage. These can include anything from web search and code execution to interacting with APIs or controlling external software. Agent Zero provides a mechanism for defining and integrating both built-in and custom tools.
+
+#### Built-in Tools
+Agent Zero comes with a set of built-in tools designed to help agents perform tasks efficiently:
+
+| Tool | Function |
+| --- | --- |
+| behavior_adjustment | Agent Zero use this tool to change its behavior according to a prior request from the user.
+| call_subordinate | Allows agents to delegate tasks to subordinate agents |
+| code_execution_tool | Allows agents to execute Python, Node.js, and Shell code in the terminal |
+| input | Allows agents to use the keyboard to interact with an active shell |
+| response_tool | Allows agents to output a response |
+| memory_tool | Enables agents to save, load, delete and forget information from memory |
+
+#### SearXNG Integration
+Agent Zero has integrated SearXNG as its primary search tool, replacing the previous knowledge tools (Perplexity and DuckDuckGo). This integration enhances the agent's ability to retrieve information while ensuring user privacy and customization.
+
+- Privacy-Focused Search
+SearXNG is an open-source metasearch engine that allows users to search multiple sources without tracking their queries. This integration ensures that user data remains private and secure while accessing a wide range of information.
+
+- Enhanced Search Capabilities
+The integration provides access to various types of content, including images, videos, and news articles, allowing users to gather comprehensive information on any topic.
+
+- Fallback Mechanism
+In cases where SearXNG might not return satisfactory results, Agent Zero can be configured to fall back on other sources or methods, ensuring that users always have access to information.
+
+> [!NOTE]
+> The Knowledge Tool is designed to work seamlessly with both online searches through 
+> SearXNG and local knowledge base queries, providing a comprehensive information 
+> retrieval system.
+
+#### Custom Tools
+Users can create custom tools to extend Agent Zero's capabilities. Custom tools can be integrated into the framework by defining a tool specification, which includes the tool's prompt. Place these prompt overrides in your agent profile:
+
+1. Create `agent.system.tool.$TOOL_NAME.md` in `agents/<agent_profile>/prompts/`
+2. Add the reference in `agent.system.tools.md` within the same prompt scope
+3. If needed, implement tool class in `python/tools` using `Tool` base class
+4. Follow existing patterns for consistency
+
+> [!NOTE]
+> Tools are always present in system prompt, so you should keep them to minimum.
+> To save yourself some tokens, use the [Skills module](#6-skills)
+> to add contextual expertise that is only loaded when relevant.
+
+### 3. Memory System
+The memory system is a critical component of Agent Zero, enabling the agent to learn and adapt from past interactions. It operates on a hybrid model where part of the memory is managed automatically by the framework while users can also manually input and extract information.
+
+#### Memory Structure
+The memory is categorized into four distinct areas:
+- **Storage and retrieval** of user-provided information (e.g., names, API keys)
+- **Fragments**: Contains pieces of information from previous conversations, updated automatically
+- **Solutions**: Stores successful solutions from past interactions for future reference
+- **Metadata**: Each memory entry includes metadata (IDs, timestamps), enabling efficient filtering and searching based on specific criteria
+
+#### Embeddings and Utility Model
+- Embeddings are generated locally using a small default model (tiny disk footprint).
+- The **utility model** handles summarization and memory extraction; it must be capable enough to distinguish durable knowledge from noise.
+
+#### Memory Management Best Practices
+- After important sessions, ask the agent to **“memorize learning opportunities from the current session.”**
+- For long-running workflows, **distill durable knowledge into prompts** rather than relying exclusively on memory.
+
+#### Messages History and Summarization
+
+Agent Zero employs a sophisticated message history and summarization system to maintain context effectively while optimizing memory usage. This system dynamically manages the information flow, ensuring relevant details are readily available while efficiently handling the constraints of context windows.
+
+- **Context Extraction:** The system identifies key information from previous messages that are vital for ongoing discussions. This process mirrors how humans recall important memories, allowing less critical details to fade.
+- **Summarization Process:** Using natural language processing through the utility model, Agent Zero condenses the extracted information into concise summaries. By summarizing past interactions, Agent Zero can quickly recall important facts about the whole chat, leading to more appropriate responses.
+- **Contextual Relevance:** The summarized context is prioritized based on its relevance to the current topic, ensuring users receive the most pertinent information.
+
+**Implementation Details:**
+
+- **Message Summaries**: Individual messages are summarized using a structured format that captures key information while reducing token usage.
+- **Dynamic Compression**: The system employs an intelligent compression strategy:
+  - Recent messages remain in their original form for immediate context.
+  - Older messages are gradually compressed into more concise summaries.
+  - Multiple compression levels allow for efficient context window usage.
+  - Original messages are preserved separately from summaries.
+- **Context Window Optimization**:
+  - Acts as a near-infinite short-term memory for single conversations.
+  - Dynamically adjusts compression ratios based on available space and settings.
+- **Bulk and Topic Summarization**:
+  - Groups related messages into thematic chunks for better organization.
+  - Generates concise summaries of multiple messages while preserving key context.
+  - Enables efficient navigation of long conversation histories.
+  - Maintains semantic connections between related topics.
+
+By dynamically adjusting context windows and summarizing past interactions, Agent Zero enhances both efficiency and user experience. This innovation not only reflects the framework's commitment to being dynamic and user-centric, but also draws inspiration from human cognitive processes, making AI interactions more relatable and effective. Just as humans forget trivial details, Agent Zero intelligently condenses information to enhance communication.
+
+> [!NOTE]
+> To maximize the effectiveness of context summarization, users should provide clear and specific instructions during interactions. This helps Agent Zero understand which details are most important to retain.
+
+### 4. Prompts
+The `prompts` directory contains various Markdown files that control agent behavior and communication. The most important file is `agent.system.main.md`, which acts as a central hub, referencing other prompt files.
+
+#### Core Prompt Files
+| Prompt File | Description |
+|---|---|
+| agent.system.main.role.md | Defines the agent's overall role and capabilities |
+| agent.system.main.communication.md | Specifies how the agent should communicate |
+| agent.system.main.solving.md | Describes the agent's approach to tasks |
+| agent.system.main.tips.md | Provides additional tips or guidance |
+| agent.system.main.specifics.md | Empty by default — override per profile for agent-specific instructions |
+| agent.system.main.behaviour.md | Controls dynamic behavior adjustments and rules |
+| agent.system.main.environment.md | Defines the runtime environment context |
+| agent.system.tools.md | Organizes and calls the individual tool prompt files |
+| agent.system.tool.*.md | Individual tool prompt files |
+
+#### Prompt Organization
+- **Default Prompts**: Located in `prompts/`, serve as the base configuration
+- **Custom Prompts (v0.9.7+)**: Place overrides in `agents/<agent_profile>/prompts/`
+- **Behavior Files**: Stored in memory as `behaviour.md`, containing dynamic rules
+- **Tool Prompts**: Organized in tool-specific files for modularity
+
+#### Custom Prompts (Post v0.9.7)
+1. Create or clone an existing agent profile under `agents/<agent_profile>/`
+2. Add only the prompt files you want to override in `agents/<agent_profile>/prompts/`
+3. Agent Zero merges these overrides with the default prompts automatically
+4. Select the **Agent Profile** in Settings to activate the overrides
+
+For user-created profiles, prefer `/a0/usr/agents/<agent_profile>/` so updates do not overwrite custom files. See the [Agent Profiles guide](../guides/agent-profiles.md) for the current `agent.yaml` structure, prompt override paths, and profile-specific `_model_config` model settings.
+
+#### Prompt Inheritance with `{{include original}}`
+When overriding a prompt, you can extend the original instead of replacing it entirely. Use `{{include original}}` to pull in the default version and add your changes on top:
+
+**Example:** `agents/developer/prompts/agent.system.main.communication.md`:
+```markdown
+{{include original}}
+
+- always explain your reasoning
+- include code snippets in responses
+```
+
+This finds `agent.system.main.communication.md` in the next directory up the hierarchy → includes the default from `prompts/` → appends the additions. Result:
+
+```markdown
+## Communication
+- be concise
+- use markdown formatting
+- ask clarifying questions when unsure
+
+- always explain your reasoning
+- include code snippets in responses
+```
+
+Overrides stay small and automatically inherit any future changes to the default.
+
+#### Dynamic Behavior System
+- **Behavior Adjustment**: 
+  - Agents can modify their behavior in real-time based on user instructions
+  - Behavior changes are automatically integrated into the system prompt
+  - Behavioral rules are merged intelligently, avoiding duplicates and conflicts
+
+- **Behavior Management Components**:
+  - `behaviour_adjustment.py`: Core tool for updating agent behavior
+  - `_20_behaviour_prompt.py`: Extension that injects behavior rules into system prompt
+  - Custom rules stored in the agent's memory directory as `behaviour.md`
+
+- **Behavior Update Process**:
+  1. User requests behavior changes (e.g., "respond in UK English")
+  2. System identifies behavioral instructions in conversation
+  3. New rules are merged with existing ruleset
+  4. Updated behavior is immediately applied
+
+- **Integration with System Prompt**:
+  - Behavior rules are injected at the start of the system prompt
+  - Rules are formatted in a structured markdown format
+  - Changes are applied without disrupting other components
+  - Maintains separation between core functionality and behavioral rules
+
+> [!NOTE]  
+> You can customize any of these files. Agent Zero will use files in `agents/<agent_profile>/prompts/` when present, and fall back to `prompts/` for everything else.
+
+> [!TIP]
+> The behavior system allows for dynamic adjustments without modifying the base prompt files.
+> Changes made through behavior rules persist across sessions while maintaining the core functionality.
+
+### 5. Knowledge
+Knowledge refers to the user-provided information and data that agents can leverage:
+
+- **Custom Knowledge**: Add files to `/knowledge/custom/main` directory manually or through the "Import Knowledge" button in the UI
+  - Supported formats: `.txt`, `.pdf`, `.csv`, `.html`, `.json`, `.md`
+  - Automatically imported and indexed
+  - Expandable format support
+
+- **Knowledge Base**: 
+  - Can include PDFs, databases, books, documentation
+  - `/docs` folder automatically added
+  - Used for answering questions and decision-making
+  - Supports RAG-augmented tasks
+
+### 6. Skills
+Skills provide contextual expertise using the **open SKILL.md standard** (originally developed by Anthropic). Skills are cross-platform and compatible with Claude Code, Cursor, Goose, OpenAI Codex CLI, GitHub Copilot, and more.
+
+#### Key Features
+- **YAML Frontmatter**: Structured metadata (name, description, tags, author)
+- **Cross-Platform**: Works with any AI agent that supports the SKILL.md standard
+- **Semantic Recall**: Skills are indexed in vector memory and loaded when contextually relevant
+- **Token Efficient**: Not in system prompt; loaded dynamically when needed
+- **Scripts Support**: Can reference `.sh`, `.py`, `.js`, `.ts` scripts
+
+#### SKILL.md Format
+```yaml
+---
+name: "my-skill"
+description: "What this skill does and when to use it"
+version: "1.0.0"
+author: "Your Name"
+tags: ["category", "purpose"]
+---
+
+# Skill Instructions
+
+Your detailed instructions here...
+
+## Examples
+- Example usage 1
+- Example usage 2
+```
+
+#### Directory Structure
+| Directory | Description |
+|-----------|-------------|
+| `/skills` | Default skills included with Agent Zero |
+| `/usr/skills` | Your custom skills (create folders here) |
+
+#### Adding Skills
+1. Create folder in `usr/skills` (e.g., `usr/skills/my-skill`)
+2. Add `SKILL.md` file with YAML frontmatter (required)
+3. Optionally add supporting scripts (`.sh`, `.py`, etc.)
+4. Optionally add `docs/` subfolder for additional documentation
+5. The agent will automatically discover the skill for list/search
+
+#### Using Skills
+Skills are surfaced via description/tag matching. You can also use the `skills_tool` to:
+- List all available skills
+- Load a specific skill by name
+- Read files from within a skill directory
+
+### 7. Extensions
+Extensions are a powerful feature of Agent Zero, designed to keep the main codebase clean and organized while allowing for greater flexibility and modularity.
+
+#### Structure
+Extensions can be found in `python/extensions` directory:
+- **Folder Organization**: Extensions are stored in designated subfolders corresponding to different aspects of the agent's message loop
+- **Execution Order**: Files are executed in alphabetical order for predictable behavior
+- **Naming Convention**: Files start with numbers to control execution order
+- **Modularity**: Each extension focuses on a specific functionality
+
+#### Types
+- **Message Loop Prompts**: Handle system messages and history construction
+- **Memory Management**: Handle recall and solution memorization
+- **System Integration**: Manage interaction with external systems
+
+#### Adding Extensions
+1. Create Python file in appropriate `python/extensions` subfolder
+2. Follow naming convention for execution order (start with number)
+3. Implement functionality following existing patterns
+4. Ensure compatibility with main system
+5. Test thoroughly before deployment
+
+> [!NOTE]  
+> Consider contributing valuable custom components to the main repository.
+> See [Contributing](../guides/contribution.md) for more information.

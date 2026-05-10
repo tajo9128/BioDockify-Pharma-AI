@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  headlessx:
+    image: saifyxpro/headlessx:latest
+    container_name: headlessx
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - MAX_CONCURRENT_SESSIONS=5
+      - SCROLL_TO_BOTTOM=true
+      # Security (Optional but recommended)
+      # - AUTH_TOKEN=your_secret_token_here
+    restart: unless-stopped
+    shm_size: '2gb' # Browser automation needs memory
+    # Cap resources to prevent system freeze
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G

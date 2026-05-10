@@ -1,0 +1,29 @@
+{
+  "snapshot_id": "snap_20260212_051720",
+  "label": "Pre-Execution: ",
+  "timestamp": "2026-02-12T05:17:20.258324+00:00",
+  "environment": {
+    "os": "Windows",
+    "os_release": "10",
+    "python_version": "3.11.9",
+    "cpu_arch": "AMD64",
+    "tools": {
+      "vina": "not_found",
+      "gnina": "not_found",
+      "python": "Python 3.11.9",
+      "gcc": "not_found",
+      "docker": "Docker version 29.2.0, build 0b9d198"
+    }
+  },
+  "dataset": {
+    "status": "none"
+  },
+  "parameters": {},
+  "workflow_state": {
+    "task_id": "task_20260209140549_b4cd12d3",
+    "phase": "initialization",
+    "progress": 0
+  },
+  "outputs": {},
+  "reproducibility_score": 30
+}

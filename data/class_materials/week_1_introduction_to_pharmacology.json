@@ -1,0 +1,58 @@
+{
+  "topic": "Introduction to Pharmacology",
+  "week": 1,
+  "content": {
+    "introduction": "Introduction to Introduction to Pharmacology\n\nThis lecture provides an overview of Introduction to Pharmacology, covering fundamental concepts, theoretical frameworks, and practical applications.",
+    "learning_objectives": [
+      "Understand the fundamental principles of Introduction to Pharmacology",
+      "Analyze key theoretical frameworks in Introduction to Pharmacology",
+      "Apply Introduction to Pharmacology concepts to practical scenarios"
+    ],
+    "key_concepts": [
+      {
+        "concept": "Core Concept 1: Foundation of Introduction to Pharmacology",
+        "definition": "Fundamental principles that form the basis of Introduction to Pharmacology",
+        "importance": "Critical"
+      },
+      {
+        "concept": "Core Concept 2: Applications of Introduction to Pharmacology",
+        "definition": "Practical applications in real-world scenarios",
+        "importance": "Connects theory to practice"
+      }
+    ],
+    "detailed_content": "Detailed Content\n\nBasics of pharmacology including drug-receptor interactions.\n\nKey Sections:\n1. Theoretical Background\n2. Practical Applications\n3. Current Research\n4. Critical Analysis",
+    "examples": [
+      {
+        "title": "Example 1: Basic Introduction to Pharmacology Application",
+        "description": "Fundamental example demonstrating core Introduction to Pharmacology concepts"
+      }
+    ],
+    "references": [
+      "Please provide specific references for this topic"
+    ],
+    "discussion_questions": [
+      "How does Introduction to Pharmacology relate to other concepts in this field?",
+      "What are the main challenges in implementing Introduction to Pharmacology in practice?",
+      "How has Introduction to Pharmacology evolved over time?"
+    ],
+    "homework": {
+      "title": "Homework Assignment: Introduction to Pharmacology",
+      "description": "Complete the following exercises to reinforce your understanding of Introduction to Pharmacology",
+      "exercises": [
+        {
+          "question": "Explain the fundamental principles of Introduction to Pharmacology",
+          "type": "short_answer",
+          "points": 10
+        },
+        {
+          "question": "Apply Introduction to Pharmacology concepts to solve a problem",
+          "type": "problem_solving",
+          "points": 20
+        }
+      ],
+      "due_date": "2026-02-21T04:39:57.822195",
+      "total_points": 30
+    }
+  },
+  "created_at": "2026-02-14T04:39:57.822217"
+}

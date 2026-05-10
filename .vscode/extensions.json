@@ -1,0 +1,11 @@
+{
+    "recommendations": [
+<<<<<<< HEAD
+        "usernamehw.errorlens",
+        "ms-python.debugpy",
+        "ms-python.python"
+=======
+        "kilocode.kilo-code"
+>>>>>>> 3768e8a174058c75c6c7fdc6d99db17d246d1fed
+    ]
+}

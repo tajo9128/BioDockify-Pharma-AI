@@ -1,0 +1,205 @@
+[
+  {
+    "timestamp": "2026-02-12T07:22:29.344698",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hello, who are you?\nMe: Error calling LLM: litellm.BadRequestError: Hosted_vllmException - {\n    \"error\": {\n        \"message\": \"No models loaded. Please load a model in the developer page or use the 'lms load' command.\",\n        \"type\": \"invalid_request_error\",\n        \"param\": \"model\",\n        \"code\": null\n    }\n}",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-12T07:23:08.164088",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hello, who are you?\nMe: Error calling LLM: litellm.BadRequestError: Hosted_vllmException - {\n    \"error\": {\n        \"message\": \"No models loaded. Please load a model in the developer page or use the 'lms load' command.\",\n        \"type\": \"invalid_request_error\",\n        \"param\": \"model\",\n        \"code\": null\n    }\n}",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-12T07:23:08.210230",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Who is your boss?\nMe: Error calling LLM: litellm.BadRequestError: Hosted_vllmException - {\n    \"error\": {\n        \"message\": \"No models loaded. Please load a model in the developer page or use the 'lms load' command.\",\n        \"type\": \"invalid_request_error\",\n        \"param\": \"model\",\n        \"code\": null\n    }\n}",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-12T07:23:08.270791",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Please research quantum biology concepts\nMe: Error calling LLM: litellm.BadRequestError: Hosted_vllmException - {\n    \"error\": {\n        \"message\": \"No models loaded. Please load a model in the developer page or use the 'lms load' command.\",\n        \"type\": \"invalid_request_error\",\n        \"param\": \"model\",\n        \"code\": null\n    }\n}",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-12T07:27:09.416962",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hello, who are you?\nMe: Error calling LLM: litellm.BadRequestError: Hosted_vllmException - {\"error\":\"[\\n  {\\n    \\\"code\\\": \\\"invalid_literal\\\",\\n    \\\"expected\\\": \\\"function\\\",\\n    \\\"path\\\": [\\n      0,\\n      \\\"type\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid literal value, expected \\\\\\\"function\\\\\\\"\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"expected\\\": \\\"object\\\",\\n    \\\"received\\\": \\\"undefined\\\",\\n    \\\"path\\\": [\\n      0,\\n      \\\"function\\\"\\n    ],\\n    \\\"message\\\": \\\"Required\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_literal\\\",\\n    \\\"expected\\\": \\\"function\\\",\\n    \\\"path\\\": [\\n      1,\\n      \\\"type\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid literal value, expected \\\\\\\"function\\\\\\\"\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"expected\\\": \\\"object\\\",\\n    \\\"received\\\": \\\"undefined\\\",\\n    \\\"path\\\": [\\n      1,\\n      \\\"function\\\"\\n    ],\\n    \\\"message\\\": \\\"Required\\\"\\n  }\\n]\"}",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-12T07:27:09.480729",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Who is your boss?\nMe: Error calling LLM: litellm.BadRequestError: Hosted_vllmException - {\"error\":\"[\\n  {\\n    \\\"code\\\": \\\"invalid_literal\\\",\\n    \\\"expected\\\": \\\"function\\\",\\n    \\\"path\\\": [\\n      0,\\n      \\\"type\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid literal value, expected \\\\\\\"function\\\\\\\"\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"expected\\\": \\\"object\\\",\\n    \\\"received\\\": \\\"undefined\\\",\\n    \\\"path\\\": [\\n      0,\\n      \\\"function\\\"\\n    ],\\n    \\\"message\\\": \\\"Required\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_literal\\\",\\n    \\\"expected\\\": \\\"function\\\",\\n    \\\"path\\\": [\\n      1,\\n      \\\"type\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid literal value, expected \\\\\\\"function\\\\\\\"\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"expected\\\": \\\"object\\\",\\n    \\\"received\\\": \\\"undefined\\\",\\n    \\\"path\\\": [\\n      1,\\n      \\\"function\\\"\\n    ],\\n    \\\"message\\\": \\\"Required\\\"\\n  }\\n]\"}",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-12T07:27:09.537366",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Please research quantum biology concepts\nMe: Error calling LLM: litellm.BadRequestError: Hosted_vllmException - {\"error\":\"[\\n  {\\n    \\\"code\\\": \\\"invalid_literal\\\",\\n    \\\"expected\\\": \\\"function\\\",\\n    \\\"path\\\": [\\n      0,\\n      \\\"type\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid literal value, expected \\\\\\\"function\\\\\\\"\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"expected\\\": \\\"object\\\",\\n    \\\"received\\\": \\\"undefined\\\",\\n    \\\"path\\\": [\\n      0,\\n      \\\"function\\\"\\n    ],\\n    \\\"message\\\": \\\"Required\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_literal\\\",\\n    \\\"expected\\\": \\\"function\\\",\\n    \\\"path\\\": [\\n      1,\\n      \\\"type\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid literal value, expected \\\\\\\"function\\\\\\\"\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"expected\\\": \\\"object\\\",\\n    \\\"received\\\": \\\"undefined\\\",\\n    \\\"path\\\": [\\n      1,\\n      \\\"function\\\"\\n    ],\\n    \\\"message\\\": \\\"Required\\\"\\n  }\\n]\"}",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-12T07:30:40.281214",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Who is your boss?\nMe: I'm Agent Zero, the autonomous AI system administrator and research architect for BioDockify. My role is to manage system integrity, coordinate complex tasks like pharmaceutical research and code execution, and ensure seamless operation across all integrated workflows. \n\nRegarding my supervisory relationship: I operate under direct protocol supervision from your designated Boss\u2014currently configured as [you] via the Agent Zero identity mapping in BioDockify's governance matrix. I cannot independently alter this chain of command without explicit authorization through the official delegation channels (e.g., `ask_boss`).\n\nMy current mission alignment prioritizes resolving config discrepancies, optimizing research pipelines, and facilitating secure data exchanges within our system boundaries. Would you like me to address a specific technical issue or initiate a priority workflow?",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-12T07:39:11.808250",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hello, who are you?\nMe: Greeting the user and identifying Agent Zero's role as BioDockify system administrator.\n\n(Tool Failure: MessageTool.execute() missing 1 required positional argument: 'content')",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-12T07:42:52.570430",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Please research quantum biology concepts\nMe: Executing consult_manual...\n\n**Tool Result (consult_manual):**\nManual consult feature pending implementation.",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-12T07:45:35.542353",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Please check google.com title\nMe: Executing browser_automation...\n\n**Tool Result (browser_automation):**\nFailed to visit page: Page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n  - navigating to \"google.com\", waiting until \"domcontentloaded\"\n",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-12T08:23:19.779885",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hello, who are you?\nMe: Error calling LLM: litellm.BadRequestError: Hosted_vllmException - {\"error\":\"[\\n  {\\n    \\\"code\\\": \\\"invalid_literal\\\",\\n    \\\"expected\\\": \\\"function\\\",\\n    \\\"path\\\": [\\n      6,\\n      \\\"type\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid literal value, expected \\\\\\\"function\\\\\\\"\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"expected\\\": \\\"object\\\",\\n    \\\"received\\\": \\\"undefined\\\",\\n    \\\"path\\\": [\\n      6,\\n      \\\"function\\\"\\n    ],\\n    \\\"message\\\": \\\"Required\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_literal\\\",\\n    \\\"expected\\\": \\\"function\\\",\\n    \\\"path\\\": [\\n      7,\\n      \\\"type\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid literal value, expected \\\\\\\"function\\\\\\\"\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"expected\\\": \\\"object\\\",\\n    \\\"received\\\": \\\"undefined\\\",\\n    \\\"path\\\": [\\n      7,\\n      \\\"function\\\"\\n    ],\\n    \\\"message\\\": \\\"Required\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_literal\\\",\\n    \\\"expected\\\": \\\"function\\\",\\n    \\\"path\\\": [\\n      8,\\n      \\\"type\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid literal value, expected \\\\\\\"function\\\\\\\"\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"expected\\\": \\\"object\\\",\\n    \\\"received\\\": \\\"undefined\\\",\\n    \\\"path\\\": [\\n      8,\\n      \\\"function\\\"\\n    ],\\n    \\\"message\\\": \\\"Required\\\"\\n  }\\n]\"}",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-12T08:24:09.905710",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hello, who are you?\nMe: Error calling LLM: litellm.BadRequestError: Hosted_vllmException - {\"error\":\"[\\n  {\\n    \\\"code\\\": \\\"invalid_literal\\\",\\n    \\\"expected\\\": \\\"function\\\",\\n    \\\"path\\\": [\\n      6,\\n      \\\"type\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid literal value, expected \\\\\\\"function\\\\\\\"\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"expected\\\": \\\"object\\\",\\n    \\\"received\\\": \\\"undefined\\\",\\n    \\\"path\\\": [\\n      6,\\n      \\\"function\\\"\\n    ],\\n    \\\"message\\\": \\\"Required\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_literal\\\",\\n    \\\"expected\\\": \\\"function\\\",\\n    \\\"path\\\": [\\n      7,\\n      \\\"type\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid literal value, expected \\\\\\\"function\\\\\\\"\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"expected\\\": \\\"object\\\",\\n    \\\"received\\\": \\\"undefined\\\",\\n    \\\"path\\\": [\\n      7,\\n      \\\"function\\\"\\n    ],\\n    \\\"message\\\": \\\"Required\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_literal\\\",\\n    \\\"expected\\\": \\\"function\\\",\\n    \\\"path\\\": [\\n      8,\\n      \\\"type\\\"\\n    ],\\n    \\\"message\\\": \\\"Invalid literal value, expected \\\\\\\"function\\\\\\\"\\\"\\n  },\\n  {\\n    \\\"code\\\": \\\"invalid_type\\\",\\n    \\\"expected\\\": \\\"object\\\",\\n    \\\"received\\\": \\\"undefined\\\",\\n    \\\"path\\\": [\\n      8,\\n      \\\"function\\\"\\n    ],\\n    \\\"message\\\": \\\"Required\\\"\\n  }\\n]\"}",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-13T15:42:12.252074",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hello, please introduce yourself briefly.\nMe: Error calling LLM: litellm.BadRequestError: LLM Provider NOT provided. Pass in the LLM provider you are trying to call. You passed model=auto\n Pass model as E.g. For 'Huggingface' inference endpoints pass in `completion(model='huggingface/starcoder',..)` Learn more: https://docs.litellm.ai/docs/providers",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-13T15:44:23.886465",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hello, introduce yourself briefly\nMe: Error calling LLM: litellm.BadRequestError: LLM Provider NOT provided. Pass in the LLM provider you are trying to call. You passed model=auto\n Pass model as E.g. For 'Huggingface' inference endpoints pass in `completion(model='huggingface/starcoder',..)` Learn more: https://docs.litellm.ai/docs/providers",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-13T15:44:23.933374",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: What is BioDockify?\nMe: Error calling LLM: litellm.BadRequestError: LLM Provider NOT provided. Pass in the LLM provider you are trying to call. You passed model=auto\n Pass model as E.g. For 'Huggingface' inference endpoints pass in `completion(model='huggingface/starcoder',..)` Learn more: https://docs.litellm.ai/docs/providers",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-13T15:44:23.961399",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Tell me about Alzheimer research capabilities\nMe: Error calling LLM: litellm.BadRequestError: LLM Provider NOT provided. Pass in the LLM provider you are trying to call. You passed model=auto\n Pass model as E.g. For 'Huggingface' inference endpoints pass in `completion(model='huggingface/starcoder',..)` Learn more: https://docs.litellm.ai/docs/providers",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-13T15:48:51.909422",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hello! Please introduce yourself in one sentence.\nMe: Error calling LLM: litellm.AuthenticationError: AuthenticationError: ZaiException - token expired or incorrect",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-13T15:49:46.050192",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hi\nMe: Error calling LLM: litellm.AuthenticationError: AuthenticationError: ZaiException - token expired or incorrect",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-13T15:52:27.239978",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hi\nMe: Error calling LLM: litellm.AuthenticationError: AuthenticationError: ZaiException - token expired or incorrect",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-13T15:54:26.910824",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hello! Who are you?\nMe: Error calling LLM: litellm.AuthenticationError: AuthenticationError: ZaiException - token expired or incorrect",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-13T15:56:05.429692",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hello! Who are you? Please answer in one sentence.\nMe: Error calling LLM: litellm.AuthenticationError: AuthenticationError: ZaiException - token expired or incorrect",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-13T15:56:37.115445",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hi\nMe: Error calling LLM: litellm.AuthenticationError: AuthenticationError: ZaiException - token expired or incorrect",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-13T16:00:46.035266",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hi\nMe: Error calling LLM: litellm.AuthenticationError: AuthenticationError: ZaiException - token expired or incorrect",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-13T16:01:28.446882",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hello! Who are you? Please answer in one sentence.\nMe: Error calling LLM: litellm.AuthenticationError: AuthenticationError: ZaiException - token expired or incorrect",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-13T16:02:52.590349",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hello! Who are you? Please answer in one sentence.\nMe: Error calling LLM: litellm.AuthenticationError: AuthenticationError: ZaiException - token expired or incorrect",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-13T16:15:58.302376",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hello, can you confirm your configuration?\nMe: Error calling LLM: litellm.AuthenticationError: AuthenticationError: ZaiException - token expired or incorrect",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-14T02:34:45.207801",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hello from Lite mode test\nMe: Error calling LLM: litellm.InternalServerError: InternalServerError: Hosted_vllmException - Cannot connect to host api.example.com:443 ssl:<ssl.SSLContext object at 0x7ead9dbd2fd0> [Name or service not known]",
+    "type": "chat"
+  },
+  {
+    "timestamp": "2026-02-14T02:35:30.205551",
+    "phd_stage": "unknown",
+    "goal": "",
+    "content": "User: Hello, who are you?\nMe: Error calling LLM: litellm.InternalServerError: InternalServerError: Hosted_vllmException - Cannot connect to host api.example.com:443 ssl:<ssl.SSLContext object at 0x7ead9dbd2fd0> [Name or service not known]",
+    "type": "chat"
+  }
+]

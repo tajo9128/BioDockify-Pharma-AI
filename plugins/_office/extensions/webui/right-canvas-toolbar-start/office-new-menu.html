@@ -1,0 +1,43 @@
+<style>
+  .right-canvas-toolbar > x-extension:has(.office-canvas-new-menu-host),
+  .right-canvas-toolbar > x-extension > x-component:has(.office-canvas-new-menu-host) {
+    display: contents;
+  }
+
+  .office-canvas-new-menu-host {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .office-canvas-new-menu-host[hidden] {
+    display: none;
+  }
+</style>
+
+<script type="module">
+  import { store as officeStore } from "/plugins/_office/webui/office-store.js";
+
+  function syncCanvasMenuVisibility(host) {
+    if (!host?.isConnected) return;
+    const rightCanvas = globalThis.Alpine?.store?.("rightCanvas");
+    host.hidden = !(rightCanvas?.isOpen && rightCanvas?.activeSurfaceId === "office");
+    globalThis.requestAnimationFrame?.(() => syncCanvasMenuVisibility(host));
+  }
+
+  function mountCanvasNewMenu() {
+    const hosts = globalThis.document.querySelectorAll("[data-office-canvas-new-menu-host]:not([data-office-mounted])");
+    for (const host of hosts) {
+      host.dataset.officeMounted = "1";
+      officeStore.installHeaderNewMenu(host);
+      syncCanvasMenuVisibility(host);
+    }
+  }
+
+  if (globalThis.requestAnimationFrame) {
+    globalThis.requestAnimationFrame(mountCanvasNewMenu);
+  } else {
+    globalThis.setTimeout(mountCanvasNewMenu, 0);
+  }
+</script>
+
+<div class="office-canvas-new-menu-host" data-office-canvas-new-menu-host hidden></div>

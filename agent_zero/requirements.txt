@@ -1,0 +1,8 @@
+# Python dependencies for Agent Zero
+# Add your LLM provider SDK here (e.g., openai, anthropic, etc.)
+
+# Optional: For production deployments
+# openai>=1.0.0
+# anthropic>=0.18.0
+# aiohttp>=3.9.0
+# numpy>=1.24.0

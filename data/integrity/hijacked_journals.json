@@ -1,0 +1,14 @@
+[
+    {
+        "title": "Renewable Energy",
+        "fake_url": "www.renewable-energy-journal.com",
+        "authentic_url": "www.journals.elsevier.com/renewable-energy",
+        "issn": "0960-1481"
+    },
+    {
+        "title": "Wulfenia",
+        "fake_url": "www.wulfeniajournal.com",
+        "authentic_url": "https://www.landesmuseum.ktn.gv.at/wulfenia",
+        "issn": "1561-882X"
+    }
+]

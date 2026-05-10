@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SiLA2Protocol id="38d41a2f-719a-479b-8857-1b991db5cb10" version="1.0">
+  <Metadata>
+    <Name>BioDockify Auto-Generated Protocol</Name>
+    <Description>Dispense protocol for identified candidates</Description>
+  </Metadata>
+  <Commands>
+  </Commands>
+</SiLA2Protocol>

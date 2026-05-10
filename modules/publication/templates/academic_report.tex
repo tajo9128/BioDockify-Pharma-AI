@@ -1,0 +1,46 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{bookmark}
+\usepackage{natbib}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{xcolor}
+
+% Margins
+\geometry{
+ a4paper,
+ total={170mm,257mm},
+ left=20mm,
+ top=20mm,
+}
+
+% Header/Footer
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{BioDockify AI Report}
+\lhead{\today}
+\rfoot{Page \thepage}
+
+% Title Format
+\title{ {{ title }} }
+\author{ {{ author }} \\ \textit{ {{ affiliation }} } }
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+{{ abstract }}
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% Main Content (Injected Markdown -> LaTeX)
+{{ content }}
+
+\end{document}

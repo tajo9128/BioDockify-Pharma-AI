@@ -1,0 +1,32 @@
+# BioDockify AI - Lightweight Production Docker Compose
+# =================================================
+version: '3.8'
+
+services:
+  biodockify:
+    image: tajo9128/biodockify-ai:latest
+    container_name: biodockify-ai
+    ports:
+      - "3000:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - PORT=3000
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - DEFAULT_PROVIDER=ollama
+      # Optional API Keys (set via environment or in Settings UI)
+      # - OPENAI_API_KEY=sk-...
+      # - ANTHROPIC_API_KEY=sk-ant-...
+      # - DEEPSEEK_API_KEY=sk-...
+      # - MOONSHOT_API_KEY=sk-...
+    volumes:
+      - biodockify_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  biodockify_data:

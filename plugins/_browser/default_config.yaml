@@ -1,0 +1,13 @@
+# Enabled unpacked Chromium extension directories.
+# Paths must be readable from the Agent Zero runtime itself.
+extension_paths: []
+
+# Page opened by new Browser sessions when no URL is provided.
+default_homepage: "about:blank"
+
+# When the Browser canvas is already open, keep it synced to agent Browser tool results.
+autofocus_active_page: true
+
+# Optional _model_config preset used by Browser-owned model helpers.
+# Empty uses the effective Main Model.
+model_preset: ""

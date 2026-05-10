@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  surfsense:
+    image: ghcr.io/modsetter/surfsense:latest
+    container_name: surfsense
+    ports:
+      - "3003:3000" # Frontend mapped to 3003 to avoid conflicts
+      - "8000:8000" # Backend API
+    volumes:
+      - surfsense-data:/data
+    environment:
+      - PORT=3000
+      - BACKEND_URL=http://localhost:8000
+      # Default embedding model (can be changed to OpenAI if user provides key)
+      # - EMBEDDING_MODEL=openai://text-embedding-ada-002 
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+
+volumes:
+  surfsense-data:

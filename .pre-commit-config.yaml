@@ -1,0 +1,33 @@
+repos:
+  # General security & quality
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-added-large-files
+        name: Prevent large file commits
+        args: [--maxkb=1000]
+      - id: check-merge-conflict
+        name: Check for merge conflicts
+      - id: check-json
+        name: Check JSON files
+      - id: check-yaml
+        name: Check YAML files
+      - id: detect-private-key
+        name: Detect private keys
+
+  # Python security (Bandit)
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.6
+    hooks:
+      - id: bandit
+        name: Security scanning with Bandit
+        args: [-r, api, agent_zero, modules, runtime]
+        files: \.py$
+
+  # Secrets detection
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        name: Detect hardcoded secrets
+        args: ['--baseline', '.secrets.baseline']

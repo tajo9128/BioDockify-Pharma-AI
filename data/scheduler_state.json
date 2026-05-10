@@ -1,0 +1,54 @@
+{
+  "queued": [
+    {
+      "id": "t1",
+      "title": "Task 1",
+      "description": "Desc 1",
+      "priority": 0,
+      "dependencies": [],
+      "status": "queued",
+      "result": null,
+      "error": null,
+      "started_at": null,
+      "completed_at": null,
+      "estimated_seconds": 3600,
+      "progress": 0.0,
+      "device_session_id": null
+    },
+    {
+      "id": "t2",
+      "title": "Task 2",
+      "description": "Desc 2",
+      "priority": 1,
+      "dependencies": [],
+      "status": "queued",
+      "result": null,
+      "error": null,
+      "started_at": null,
+      "completed_at": null,
+      "estimated_seconds": 3600,
+      "progress": 0.0,
+      "device_session_id": null
+    },
+    {
+      "id": "t3",
+      "title": "Task 3",
+      "description": "Desc 3",
+      "priority": 2,
+      "dependencies": [
+        "t1"
+      ],
+      "status": "queued",
+      "result": null,
+      "error": null,
+      "started_at": null,
+      "completed_at": null,
+      "estimated_seconds": 3600,
+      "progress": 0.0,
+      "device_session_id": null
+    }
+  ],
+  "running": [],
+  "paused": [],
+  "completed": []
+}

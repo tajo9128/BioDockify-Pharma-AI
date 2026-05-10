@@ -1,0 +1,91 @@
+name: BioDockify CI
+
+on:
+  push:
+    branches: [ "main", "development" ]
+  pull_request:
+    branches: [ "main", "development" ]
+  workflow_dispatch:
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # Install CPU-only Torch to save massive disk space (avoids 3GB+ CUDA libs)
+        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+        # Install CPU-only TensorFlow where possible (Linux only usually, but good practice)
+        pip install tensorflow-cpu==2.15.0 || pip install tensorflow==2.15.0
+        # Check root or api directory for requirements
+        if [ -f "requirements.txt" ]; then
+          pip install -r requirements.txt
+        elif [ -f "api/requirements.txt" ]; then
+          pip install -r api/requirements.txt
+        else
+          echo "Warning: requirements.txt not found in root or api/"
+        fi
+        
+        # Install heavy dependencies for integration tests (Playwright, etc.)
+        if [ -f "api/requirements_heavy.txt" ]; then
+          echo "Installing heavy dependencies for testing..."
+          pip install -r api/requirements_heavy.txt
+          pip install playwright
+          playwright install chromium
+        fi
+        
+        pip install pytest pytest-asyncio httpx requests psutil fastapi uvicorn neo4j
+
+    - name: Start Backend
+      run: |
+        python server.py &
+        echo "Waiting for backend to start..."
+        # Wait up to 90 seconds for port 3000 to be active
+        timeout 90s bash -c 'until curl -sf http://localhost:3000/api/health > /dev/null 2>&1; do sleep 2; done' || (echo "Backend failed to start" && exit 1)
+        echo "Backend is ready!"
+
+    - name: Run Backend Tests
+      env:
+        BIODOCKIFY_DATA_DIR: /tmp/biodockify_ci_tests
+        ANONYMIZED_TELEMETRY: "False"
+        CHROMA_TELEMETRY_ENABLED: "False"
+      run: |
+        mkdir -p /tmp/biodockify_ci_tests
+        # Only run if tests exist
+        if [ -d "tests" ]; then
+          export PYTHONPATH=$PYTHONPATH:.
+          pytest tests/
+        else
+          echo "No tests directory found, skipping"
+        fi
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./ui
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 20
+
+    - name: Install Dependencies
+      run: npm install
+
+    - name: Run Linter
+      run: npm run lint
+      continue-on-error: true # Warning for now until all lints fixed
+
+    # - name: Run Unit Tests
+    #   run: npm test

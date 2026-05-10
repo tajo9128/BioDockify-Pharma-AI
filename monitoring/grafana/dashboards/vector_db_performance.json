@@ -1,0 +1,23 @@
+{
+    "title": "BioDockify - Vector DB Performance",
+    "panels": [
+        {
+            "title": "ChromaDB Document Count",
+            "type": "stat",
+            "targets": [
+                {
+                    "expr": "chroma_document_count"
+                }
+            ]
+        },
+        {
+            "title": "Query Duration (P95)",
+            "type": "graph",
+            "targets": [
+                {
+                    "expr": "histogram_quantile(0.95, sum(chroma_query_duration_seconds_bucket) by (le))"
+                }
+            ]
+        }
+    ]
+}

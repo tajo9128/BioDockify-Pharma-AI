@@ -1,0 +1,105 @@
+<<<<<<< HEAD
+# Ignore common unwanted files globally
+**/.DS_Store
+**/.env
+**/__pycache__/
+*.py[cod]
+**/.conda/
+**/node_modules/
+
+#Ignore IDE files
+.cursor/
+.windsurf/
+
+# ignore test files in root dir
+/*.test.py
+
+# Ignore all contents of the virtual environment directory
+.venv/
+
+# obsolete folders
+/memory/
+/knowledge/custom/
+/instruments/
+
+# Handle logs directory
+logs/**
+!logs/**/
+
+# Handle tmp and usr directory
+tmp/**
+!tmp/**/
+
+# hack to keep .gitkeep but ignore nested repos
+# Ignore everything under usr
+usr/**
+# Ignore nested repos
+/usr/**/.git
+# Allow git to traverse directories
+!usr/**/
+# Re-ignore everything again
+usr/**/*
+# But allow .gitkeep files
+!usr/**/.gitkeep
+
+
+# Global rule to include .gitkeep files anywhere
+!**/.gitkeep
+
+# for browser-use
+agent_history.gif
+
+.agent/**
+.claude/**
+=======
+# System & Environment
+.DS_Store
+Thumbs.db
+.env
+.env.local
+.venv/
+.venv311/
+venv/
+env/
+__pycache__/
+*.py[cod]
+
+# Configuration & Secrets (CRITICAL)
+runtime/config.yaml
+runtime/secrets.yaml
+*.pem
+*.key
+
+# Node / Frontend
+node_modules/
+npm-debug.log
+yarn-error.log
+.next/
+out/
+build/
+dist/
+
+# Rust / Tauri
+desktop/tauri/src-tauri/target/
+desktop/tauri/src-tauri/Cargo.lock
+
+# Python / Backend
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Logs & Temporary
+logs/
+data/tasks/
+data/exports/
+data/test_chroma/
+data/vectors/
+data/deep_drive/
+benchmarks/results/
+external/
+*.log
+tmp/
+*_backup.tsx
+*.tar
+>>>>>>> 3768e8a174058c75c6c7fdc6d99db17d246d1fed

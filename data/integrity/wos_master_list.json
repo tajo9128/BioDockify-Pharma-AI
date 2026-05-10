@@ -1,0 +1,33 @@
+[
+    {
+        "title": "NATURE",
+        "issn": "0028-0836",
+        "eissn": "1476-4687",
+        "publisher": "NATURE PORTFOLIO",
+        "country": "ENGLAND",
+        "indexes": [
+            "SCIE",
+            "BIOSIS"
+        ]
+    },
+    {
+        "title": "SCIENCE",
+        "issn": "0036-8075",
+        "eissn": "1095-9203",
+        "publisher": "AMER ASSOC ADVANCEMENT SCIENCE",
+        "country": "USA",
+        "indexes": [
+            "SCIE"
+        ]
+    },
+    {
+        "title": "PLOS ONE",
+        "issn": "1932-6203",
+        "eissn": "",
+        "publisher": "PUBLIC LIBRARY SCIENCE",
+        "country": "USA",
+        "indexes": [
+            "SCIE"
+        ]
+    }
+]

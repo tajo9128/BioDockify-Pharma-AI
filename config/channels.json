@@ -1,0 +1,28 @@
+{
+  "telegram": {
+    "enabled": true,
+    "token": "555555555:AbsoluteTestToken",
+    "allowed_users": [
+      "77777"
+    ]
+  },
+  "whatsapp": {
+    "enabled": true,
+    "phone_id": "1234567890",
+    "access_token": "WA_ACCESS_TOKEN_TEST",
+    "verify_token": "WA_VERIFY_TOKEN_TEST",
+    "allowed_users": []
+  },
+  "discord": {
+    "enabled": true,
+    "token": "DISCORD_TOKEN_TEST",
+    "allowed_guilds": [
+      "GUILD_ID_1"
+    ]
+  },
+  "feishu": {
+    "enabled": false,
+    "app_id": "",
+    "app_secret": ""
+  }
+}

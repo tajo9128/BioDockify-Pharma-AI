@@ -1,0 +1,670 @@
+TY  - JOUR
+AU  - Binh, Le Nguyen
+AU  - Nhu, Nguyen Thanh
+AU  - Nhi, Pham Thi Uyen
+AU  - Son, Do Le Hoang
+AU  - Bach, Nguyen
+AU  - Huy, Hoang Quoc
+AU  - Le, Nguyen Quoc Khanh
+AU  - Kang, Jiunn-Horng
+AD  - College of Medicine, Taipei Medical University, Taipei, 11031, Taiwan.;
+      Department of Orthopedics and Trauma, Cho Ray Hospital, Ho Chi Minh City,
+      Vietnam.; AIBioMed Research Group, Taipei Medical University, Taipei,
+      11031, Taiwan.; SBH Ortho Clinic, Ho Chi Minh City, Vietnam.; College of
+      Medicine, Taipei Medical University, Taipei, 11031, Taiwan.; Faculty of
+      Medicine, Can Tho University of Medicine and Pharmacy, Can Tho, 94117,
+      Vietnam.; Ho Chi Minh City Hospital of Dermato-Venereology, Ho Chi Minh
+      City, Vietnam.; Department of Orthopedics and Trauma, Cho Ray Hospital, Ho
+      Chi Minh City, Vietnam.; Faculty of Medicine, Can Tho University of
+      Medicine and Pharmacy, Can Tho, 94117, Vietnam.; Faculty of Medicine, Can
+      Tho University of Medicine and Pharmacy, Can Tho, 94117, Vietnam.;
+      Department of Orthopedics, University Medical Center Ho Chi Minh City, 201
+      Nguyen Chi Thanh Street, District 5, Ho Chi Minh City, Vietnam.; AIBioMed
+      Research Group, Taipei Medical University, Taipei, 11031, Taiwan.
+      khanhlee@tmu.edu.tw.; In-Service Master Program in Artificial Intelligence
+      in Medicine, College of Medicine, Taiwan and AIBioMed Research Group,
+      Taipei Medical University, Taipei, 11031, Taiwan. khanhlee@tmu.edu.tw.;
+      Translational Imaging Research Center, Taipei Medical University Hospital,
+      Taipei, 11031, Taiwan. khanhlee@tmu.edu.tw.; College of Medicine, Taipei
+      Medical University, Taipei, 11031, Taiwan. jhk@tmu.edu.tw.; Department of
+      Physical Medicine and Rehabilitation, School of Medicine, College of
+      Medicine, Taipei Medical University, Taipei, 11031, Taiwan.
+      jhk@tmu.edu.tw.; Department of Physical Medicine and Rehabilitation,
+      Taipei Medical University Hospital, Taipei, 11031, Taiwan.
+      jhk@tmu.edu.tw.; Graduate Institute of Nanomedicine and Medical
+      Engineering, College of Biomedical Engineering, Taipei Medical University,
+      250 Wuxing Street, Xinyi District, Taipei, 11031, Taiwan. jhk@tmu.edu.tw.
+TI  - Impact of deep learning on pediatric elbow fracture detection: a
+      systematic review and meta-analysis
+T2  - Eur. J. Trauma Emerg. Surg.
+JF  - European journal of trauma and emergency surgery: official publication of the European Trauma Society
+VL  - 51
+IS  - 1
+SP  - 115
+PY  - 2025
+DA  - 2025/2/20
+AB  - OBJECTIVES: Pediatric elbow fractures are a common injury among children.
+      Recent advancements in artificial intelligence (AI), particularly deep
+      learning (DL), have shown promise in diagnosing these fractures. This
+      study systematically evaluated the performance of DL models in detecting
+      pediatric elbow fractures. MATERIALS AND METHODS: A comprehensive search
+      was conducted in PubMed (Medline), EMBASE, and IEEE Xplore for studies
+      published up to October 20, 2023. Studies employing DL models for
+      detecting elbow fractures in patients aged 0 to 16 years were included.
+      Key performance metrics, including sensitivity, specificity, and area
+      under the curve (AUC), were extracted. The study was registered in
+      PROSPERO (ID: CRD42023470558). RESULTS: The search identified 22 studies,
+      of which six met the inclusion criteria for the meta-analysis. The pooled
+      sensitivity of DL models for pediatric elbow fracture detection was 0.93
+      (95% CI: 0.91-0.96). Specificity values ranged from 0.84 to 0.92 across
+      studies, with a pooled estimate of 0.89 (95% CI: 0.85-0.92). The AUC
+      ranged from 0.91 to 0.99, with a pooled estimate of 0.95 (95% CI:
+      0.93-0.97). Further analysis highlighted the impact of preprocessing
+      techniques and the choice of model backbone architecture on performance.
+      CONCLUSION: DL models demonstrate exceptional accuracy in detecting
+      pediatric elbow fractures. For optimal performance, we recommend
+      leveraging backbone architectures like ResNet, combined with manual
+      preprocessing supervised by radiology and orthopedic experts.
+SN  - 1863-9933
+DO  - 10.1007/s00068-025-02779-w
+UR  - http://dx.doi.org/10.1007/s00068-025-02779-w
+UR  - https://www.ncbi.nlm.nih.gov/pubmed/39976732
+KW  - Convolutional neural network
+KW  - Deep learning
+KW  - Medical imaging diagnostics
+KW  - Meta-analysis
+KW  - Object detection
+KW  - Pediatric elbow fracture
+ER  - 
+
+TY  - JOUR
+AU  - Zhang, Subo
+AU  - Zhu, Zhitao
+AU  - Yu, Zhenfei
+AU  - Sun, Haifeng
+AU  - Sun, Yi
+AU  - Huang, Hai
+AU  - Xu, Lei
+AU  - Wan, Jinxin
+AD  - Department of Medical Imaging, The Second People's Hospital of
+      Lianyungang, Lianyungang, China.; Department of Medical Imaging, Cancer
+      Hospital of Lianyungang, Lianyungang, China.; Lianyungang Clinical
+      College, Jiangsu University, Lianyungang, China.
+TI  - Effectiveness of AI for enhancing computed tomography image quality and
+      radiation protection in radiology: Systematic review and meta-analysis
+T2  - J. Med. Internet Res.
+JF  - Journal of medical internet research
+VL  - 27
+SP  - e66622
+PY  - 2025
+DA  - 2025/2/27
+AB  - BACKGROUND: Artificial intelligence (AI) presents a promising approach to
+      balancing high image quality with reduced radiation exposure in computed
+      tomography (CT) imaging. OBJECTIVE: This meta-analysis evaluates the
+      effectiveness of AI in enhancing CT image quality and lowering radiation
+      doses. METHODS: A thorough literature search was performed across several
+      databases, including PubMed, Embase, Web of Science, Science Direct, and
+      Cochrane Library, with the final update in 2024. We included studies that
+      compared AI-based interventions to conventional CT techniques. The quality
+      of these studies was assessed using the Newcastle-Ottawa Scale. Random
+      effect models were used to pool results, and heterogeneity was measured
+      using the I² statistic. Primary outcomes included image quality, CT dose
+      index, and diagnostic accuracy. RESULTS: This meta-analysis incorporated 5
+      clinical validation studies published between 2022 and 2024, totaling 929
+      participants. Results indicated that AI-based interventions significantly
+      improved image quality (mean difference 0.70, 95% CI 0.43-0.96; P<.001)
+      and showed a positive trend in reducing the CT dose index, though not
+      statistically significant (mean difference 0.47, 95% CI -0.21 to 1.15;
+      P=.18). AI also enhanced image analysis efficiency (odds ratio 1.57, 95%
+      CI 1.08-2.27; P=.02) and demonstrated high accuracy and sensitivity in
+      detecting intracranial aneurysms, with low-dose CT using AI reconstruction
+      showing noninferiority for liver lesion detection. CONCLUSIONS: The
+      findings suggest that AI-based interventions can significantly enhance CT
+      imaging practices by improving image quality and potentially reducing
+      radiation doses, which may lead to better diagnostic accuracy and patient
+      safety. However, these results should be interpreted with caution due to
+      the limited number of studies and the variability in AI algorithms.
+      Further research is needed to clarify AI's impact on radiation reduction
+      and to establish clinical standards.
+SN  - 1439-4456
+DO  - 10.2196/66622
+UR  - http://dx.doi.org/10.2196/66622
+UR  - https://www.ncbi.nlm.nih.gov/pubmed/40053787
+KW  - artificial intelligence
+KW  - computed tomography
+KW  - image quality
+KW  - meta-analysis
+KW  - radiation protection
+ER  - 
+
+TY  - JOUR
+AU  - Wu, Qian
+AU  - Guo, Hui
+AU  - Li, Ruihan
+AU  - Han, Jinhuan
+AD  - Department of Medical Imaging Center, The Fourth Clinical Medical College
+      of Xinjiang Medical University, Urumqi, Xinjian 830000, China.; Department
+      of Medical Imaging Center, The Fourth Clinical Medical College of Xinjiang
+      Medical University, Urumqi, Xinjian 830000, China. Electronic address:
+      guohui9804@126.com.
+TI  - Deep learning and machine learning in CT-based COPD diagnosis: Systematic
+      review and meta-analysis
+T2  - Int. J. Med. Inform.
+JF  - International journal of medical informatics
+VL  - 196
+IS  - 105812
+SP  - 105812
+PY  - 2025
+DA  - 2025/4
+PB  - Elsevier BV
+AB  - BACKGROUND: With advancements in medical technology and science, chronic
+      obstructive pulmonary disease (COPD), one of the world's three major
+      chronic diseases, has seen numerous remarkable outcomes when combined with
+      artificial intelligence, particularly in disease diagnosis. However, the
+      diagnostic performance of these AI models still lacks comprehensive
+      evidence. Therefore, this study quantitatively analyzed the diagnostic
+      performance of AI models in CT images of COPD patients, aiming to promote
+      the development of related research in the future. METHODS: PubMed,
+      Cochrane Library, Web of Science, and Embase were retrieved up to
+      September 1, 2024. The QUADAS-2 evaluation tool was used to assess the
+      quality of the included studies. Meta-analysis of the included researches
+      was performed using Stata18, RevMan 5.4, and Meta-Disc 1.4 software to
+      merge sensitivity, specificity and plot a summary receiver operating
+      characteristic curve (SROC). Heterogeneity was assessed using the Q
+      statistic, and sources of inter-study heterogeneity were explored through
+      meta-regression analysis. RESULTS: Twenty-two of 3280 identified studies
+      were eligible. Meta-analysis was performed on 15 of these studies,
+      encompassing a total of 22,817 patients for which statistical metrics were
+      reported or could be calculated. Seven studies were based on deep learning
+      (DL) model, three on machine learning (ML) model, and five on DL model
+      with multiple-instance learning (MIL) mechanisms. One study evaluated both
+      DL and ML models. The meta-analysis results showed that the pooled
+      sensitivity of all DL and ML models was 86 % (95 %CI 78-91 %), specificity
+      was 87 % (95 %CI 83-91 %), and area under the curve was 93 % (95 %CI 90-95
+      %). Subgroup analyses revealed no significant difference in diagnostic
+      sensitivity and specificity between DL and ML models (sensitivity 82 % (95
+      %CI 76-87 %), 93 % (95 %CI 85-97 %); specificity 87 % (95 %CI 79-91 %), 84
+      % (95 %CI 79-88 %), and the DL model with MIL (sensitivity 87 % (95 %CI
+      61-96 %); specificity 89 % (95 %CI 78-95 %) improved the performance of DL
+      model, but this improvement was not statistically significant (p > 0.05).
+      CONCLUSION: Both DL and ML models for diagnosing COPD using CT images
+      exhibited high accuracy. There was no significant difference in diagnostic
+      efficacy between the two types of AI models, and the addition of the MIL
+      mechanism may enhance the performance of the DL model.
+SN  - 1386-5056
+DO  - 10.1016/j.ijmedinf.2025.105812
+UR  - http://dx.doi.org/10.1016/j.ijmedinf.2025.105812
+UR  - https://www.ncbi.nlm.nih.gov/pubmed/39891985
+KW  - Artificial Intelligence
+KW  - Chronic Obstructive Pulmonary Disease
+KW  - Deep Learning
+KW  - Diagnose
+KW  - Machine Learning
+KW  - Systematic review
+ER  - 
+
+TY  - JOUR
+AU  - Sadeghi, Termeh Sarrafan
+AU  - Ourang, Seyed Amirhossein
+AU  - Sohrabniya, Fatemeh
+AU  - Sadr, Soroush
+AU  - Shobeiri, Parnian
+AU  - Motamedian, Saeed Reza
+AD  - Dentofacial Deformities Research center, Research Institute of Dental
+      sciences, Shahid Beheshti, University of Medical Sciences, Tehran, Iran.;
+      Department of Endodontics, School of Dentistry, Hamadan University of
+      Medical Sciences, Hamadan, Iran.; Department of Radiology, Memorial Sloan
+      Kettering Cancer Center, New York, NY, 10065, United States.; Dentofacial
+      Deformities Research center, Research Institute of Dental sciences, Shahid
+      Beheshti, University of Medical Sciences, Tehran, Iran.
+      drmotamedian@gmail.com.; Department of Orthodontics, School of Dentistry
+      Shahid Beheshti University of Medical Sciences, Daneshjoo Blvd, Evin,
+      Shahid Chamran Highway, Tehran, 1983963113, Iran. drmotamedian@gmail.com.
+TI  - Performance of artificial intelligence on cervical vertebral maturation
+      assessment: a systematic review and meta-analysis
+T2  - BMC Oral Health
+JF  - BMC oral health
+VL  - 25
+IS  - 1
+SP  - 187
+PY  - 2025
+DA  - 2025/2/5
+PB  - Springer Science and Business Media LLC
+AB  - BACKGROUND: Artificial intelligence (AI) methods, including machine
+      learning and deep learning, are increasingly applied in orthodontics for
+      tasks like assessing skeletal maturity. Accurate timing of treatment is
+      crucial, but traditional methods such as cervical vertebral maturation
+      (CVM) staging have limitations due to observer variability and complexity.
+      AI has the potential to automate CVM assessment, enhancing reliability and
+      user-friendliness. This systematic review and meta-analysis aimed to
+      evaluate the overall performance of artificial intelligence (AI) models in
+      assessing cervical vertebrae maturation (CVM) in radiographs, when
+      compared to clinicians. METHODS: Electronic databases of Medline (via
+      PubMed), Google Scholar, Scopus, Embase, IEEE ArXiv and MedRxiv were
+      searched for publications after 2010, without any limitation on language.
+      In the present review, we included studies that reported AI models'
+      performance on CVM assessment. Quality assessment was done using Quality
+      assessment and diagnostic accuracy Tool-2 (QUADAS-2). Quantitative
+      analysis was conducted using hierarchical logistic regression for
+      meta-analysis on diagnostic accuracy. Subgroup analysis was conducted on
+      different AI subsets (Deep learning, and Machine learning). RESULTS: A
+      total of 1606 studies were screened of which 25 studies were included. The
+      performance of the models was acceptable. However, it varied based on the
+      methods employed. Eight studies had a low risk of bias in all domains.
+      Twelve studies were included in the meta-analysis and their pooled values
+      for sensitivity, specificity, positive and negative likelihood ratios, and
+      diagnostic odds ratio (DOR) were calculated for each cervical stage (CS).
+      The most accurate CVM evaluation was observed for CS1, boasting a
+      sensitivity of 0.87, a specificity of 0.97, and a DOR of 213. Conversely,
+      CS3 exhibited the lowest performance with a sensitivity of 0.64, and a
+      specificity of 0.96, yet maintaining a DOR of 32. CONCLUSION: AI has
+      demonstrated encouraging outcomes in CVM assessment, achieving notable
+      accuracy.
+SN  - 1472-6831
+DO  - 10.1186/s12903-025-05482-9
+C2  - PMC11796225
+UR  - http://dx.doi.org/10.1186/s12903-025-05482-9
+UR  - https://www.ncbi.nlm.nih.gov/pubmed/39910512
+UR  - https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11796225
+KW  - Artificial intelligence
+KW  - Cervical vertebrae
+KW  - Computer algorithm
+KW  - Growth and development
+KW  - Orthodontics
+ER  - 
+
+TY  - JOUR
+AU  - Abbott, Lyndon P
+AU  - Saikia, Ankita
+AU  - Anthonappa, Robert P
+AD  - Paediatric Dentistry, UWA Dental School, The University of Western
+      Australia, Perth, Australia. Electronic address:
+      lyndon.abbott@uwa.edu.au.; Paediatric Dentistry, UWA Dental School, The
+      University of Western Australia, Perth, Australia.; Professor Paediatric
+      Dentistry, UWA Dental School, The University of Western Australia, Perth,
+      Australia.
+TI  - Artificial Intelligence platforms in dental caries detection: A systematic
+      review and meta-analysis
+T2  - J. Evid. Based. Dent. Pract.
+JF  - The journal of evidence-based dental practice
+VL  - 25
+IS  - 1
+SP  - 102077
+PY  - 2025
+DA  - 2025/3
+PB  - Elsevier BV
+AB  - OBJECTIVES: To assess Artificial Intelligence (AI) platforms, machine
+      learning methodologies and associated accuracies used in detecting dental
+      caries from clinical images and dental radiographs. METHODS: A systematic
+      search of 8 distinct electronic databases: Scopus, Web of Science,
+      MEDLINE, Educational Resources Information Centre, Institute of Electrical
+      and Electronics Engineers Explore, Science Direct, Directory of Open
+      Access Journals and JSTOR, was conducted from January 2000 to March 2024.
+      AI platforms, machine learning methodologies and associated accuracies of
+      studies using AI for dental caries detection were extracted along with
+      essential study characteristics. The quality of included studies was
+      assessed using QUADAS-2 and the CLAIM checklist. Meta-analysis was
+      performed to obtain a quantitative estimate of AI accuracy. RESULTS: Of
+      the 2538 studies identified, 45 met the inclusion criteria and underwent
+      qualitative synthesis. Of the 45 included studies, 33 used dental
+      radiographs, and 12 used clinical images as datasets. A total of 21
+      different AI platforms were reported. The accuracy ranged from 41.5% to
+      98.6% across reported AI platforms. A quantitative meta-analysis across 7
+      studies reported a mean sensitivity of 76% [95% CI (65% - 85%)] and
+      specificity of 91% [(95% CI (86% - 95%)]. The area under the curve (AUC)
+      was 92% [95% CI (89% - 94%)], with high heterogeneity across included
+      studies. CONCLUSION: Significant variability exists in AI performance for
+      detecting dental caries across different AI platforms. Meta-analysis
+      demonstrates that AI has superior sensitivity and equal specificity of
+      detecting dental caries from clinical images as compared to bitewing
+      radiography. Although AI is promising for dental caries detection, further
+      refinement is necessary to achieve consistent and reliable performance
+      across varying imaging modalities.
+SN  - 1532-3382
+DO  - 10.1016/j.jebdp.2024.102077
+UR  - http://dx.doi.org/10.1016/j.jebdp.2024.102077
+UR  - https://www.ncbi.nlm.nih.gov/pubmed/39947783
+KW  - Artificial intelligence
+KW  - Deep learning
+KW  - Dental caries
+KW  - Machine learning
+KW  - Meta-analysis
+KW  - Systematic review
+ER  - 
+
+TY  - JOUR
+AU  - Tao, Huimin
+AU  - Hui, Xu
+AU  - Zhang, Zhihong
+AU  - Zhu, Rongrong
+AU  - Wang, Ping
+AU  - Zhou, Sheng
+AU  - Yang, Kehu
+AD  - The First Clinical Medical College of Gansu, University of Chinese
+      Medicine, Lanzhou, Gansu, 730000, China.; Department of Radiology, Gansu
+      Provincial Hospital, Lanzhou, Gansu, 730000, China.; Evidence-Based
+      Medicine Centre, School of Basic Medical Science, Lanzhou University,
+      Lanzhou, 730000, China.; Centre for Evidence-Based Social Science/Center
+      for Health Technology Assessment, School of Public Health, Lanzhou
+      University, Lanzhou, 730000, China.; The First Clinical Medical College of
+      Gansu, University of Chinese Medicine, Lanzhou, Gansu, 730000, China.;
+      Department of Radiology, Gansu Provincial Hospital, Lanzhou, Gansu,
+      730000, China.; Department of Radiology, Gansu Provincial Hospital,
+      Lanzhou, Gansu, 730000, China. Lzzs@sina.com.; Evidence-Based Medicine
+      Centre, School of Basic Medical Science, Lanzhou University, Lanzhou,
+      730000, China. yangkh-ebm@lzu.edu.cn.; Centre for Evidence-Based Social
+      Science/Center for Health Technology Assessment, School of Public Health,
+      Lanzhou University, Lanzhou, 730000, China. yangkh-ebm@lzu.edu.cn.
+TI  - Accuracy of artificial intelligence in detecting tumor bone metastases: a
+      systematic review and meta-analysis
+T2  - BMC Cancer
+JF  - BMC cancer
+VL  - 25
+IS  - 1
+SP  - 286
+PY  - 2025
+DA  - 2025/2/18
+AB  - BACKGROUND: Bone metastases (BM) represent a prevalent complication of
+      tumors. Early and accurate diagnosis, however, is a significant hurdle for
+      radiologists. Recently, artificial intelligence (AI) has emerged as a
+      valuable tool to assist radiologists in the detection of BM. This
+      meta-analysis was undertaken to evaluate the AI diagnostic accuracy for
+      BM. METHODS: Two reviewers performed an exhaustive search of several
+      databases, including Wei Pu (VIP) database, China National Knowledge
+      Infrastructure (CNKI), Web of Science, Cochrane Library, Ovid-Embase,
+      Ovid-Medline, Wan Fang database, and China Biology Medicine (CBM), from
+      their inception to December 2024. This search focused on studies that
+      developed and/or validated AI techniques for detecting BM in magnetic
+      resonance imaging (MRI) or computed tomography (CT). A hierarchical model
+      was used in the meta-analysis to calculate diagnostic odds ratio (DOR),
+      negative likelihood ratio (NLR), positive likelihood ratio (PLR), area
+      under the curve (AUC), specificity (SP), and pooled sensitivity (SE). The
+      risk of bias and applicability were assessed using the Prediction Model
+      Risk of Bias Assessment Tool (PROBAST), while the Transparent Reporting of
+      a multivariable prediction model for individual prognosis or
+      diagnosis-artificial intelligence (TRIPOD-AI) was employed for evaluating
+      the quality of evidence. RESULT: This review covered 20 articles, among
+      them, 16 studies were included in the meta-analysis. The results revealed
+      a pooled SE of 0.88 (0.82-0.92), a pooled SP of 0.89 (0.84-0.93), a pooled
+      AUC of 0.95 (0.92-0.96), PLR of 8.1 (5.57-11.80), NLR of 0.14 (0.09-0.21)
+      and DOR of 58 (31-109). When focusing on imaging algorithms. Based on ML,
+      a pooled SE of 0.88 (0.77-0.92), SP 0.88 (0.82-0.92), and AUC 0.93
+      (0.91-0.95). Based on DL, a pooled SE of 0.89 (0.81-0.95), SP 0.89
+      (0.81-0.94), and AUC 0.95 (0.93-0.97). CONCLUSION: This meta-analysis
+      underscores the substantial diagnostic value of AI in identifying BM.
+      Nevertheless, in-depth large-scale prospective research should be carried
+      out for confirming AI's clinical utility in BM management.
+SN  - 1471-2407
+DO  - 10.1186/s12885-025-13631-0
+C2  - PMC11837447
+UR  - http://dx.doi.org/10.1186/s12885-025-13631-0
+UR  - https://www.ncbi.nlm.nih.gov/pubmed/39966724
+UR  - https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11837447
+KW  - Artificial intelligence
+KW  - Bone metastases
+KW  - Diagnosis
+KW  - Meta-analysis
+KW  - Systematic review
+ER  - 
+
+TY  - JOUR
+AU  - Zhang, Zhihui
+AU  - Zhang, Yijing
+AU  - Wang, He
+AU  - Lei, Minghuan
+AU  - Jiang, Yifan
+AU  - Xiong, Di
+AU  - Chen, Yayuan
+AU  - Zhang, Yujie
+AU  - Zhao, Guoshu
+AU  - Wang, Yao
+AU  - Zhang, Wanwan
+AU  - Xu, Jinglei
+AU  - Zhai, Ying
+AU  - An, Qi
+AU  - Li, Shen
+AU  - Hao, Xiaoke
+AU  - Liu, Feng
+AD  - Department of Radiology and Tianjin Key Laboratory of Functional Imaging &
+      Tianjin Institute of Radiology, Tianjin Medical University General
+      Hospital, Tianjin, China.; School of Nursing, Tianjin Medical University,
+      Tianjin, China.; Department of Mathematics, Shanghai University, Shanghai,
+      China.; Institute of Mental Health, Tianjin Anding Hospital, Mental Health
+      Center of Tianjin Medical University, Tianjin, China.; Brain Assessment &
+      Intervention Laboratory, Tianjin Anding Hospital, Mental Health Center of
+      Tianjin Medical University, Tianjin, China.; School of Artificial
+      Intelligence, Hebei University of Technology, Tianjin, China.
+TI  - Resting-state network alterations in depression: a comprehensive
+      meta-analysis of functional connectivity
+T2  - Psychol. Med.
+JF  - Psychological medicine
+VL  - 55
+SP  - e63
+PY  - 2025
+DA  - 2025/2/26
+AB  - BACKGROUND: Depression has been linked to disruptions in resting-state
+      networks (RSNs). However, inconsistent findings on RSN disruptions, with
+      variations in reported connectivity within and between RSNs, complicate
+      the understanding of the neurobiological mechanisms underlying depression.
+      METHODS: A systematic literature search of PubMed and Web of Science
+      identified studies that employed resting-state functional magnetic
+      resonance imaging (fMRI) to explore RSN changes in depression. Studies
+      using seed-based functional connectivity analysis or independent component
+      analysis were included, and coordinate-based meta-analyses were performed
+      to evaluate alterations in RSN connectivity both within and between
+      networks. RESULTS: A total of 58 studies were included, comprising 2321
+      patients with depression and 2197 healthy controls. The meta-analysis
+      revealed significant alterations in RSN connectivity, both within and
+      between networks, in patients with depression compared with healthy
+      controls. Specifically, within-network changes included both increased and
+      decreased connectivity in the default mode network (DMN) and increased
+      connectivity in the frontoparietal network (FPN). Between-network findings
+      showed increased DMN-FPN and limbic network (LN)-DMN connectivity,
+      decreased DMN-somatomotor network and LN-FPN connectivity, and varied
+      ventral attention network (VAN)-dorsal attentional network (DAN)
+      connectivity. Additionally, a positive correlation was found between
+      illness duration and increased connectivity between the VAN and DAN.
+      CONCLUSIONS: These findings not only provide a comprehensive
+      characterization of RSN disruptions in depression but also enhance our
+      understanding of the neurobiological mechanisms underlying depression.
+SN  - 0033-2917
+DO  - 10.1017/S0033291725000303
+UR  - http://dx.doi.org/10.1017/S0033291725000303
+UR  - https://www.ncbi.nlm.nih.gov/pubmed/40008424
+KW  - depression
+KW  - fMRI
+KW  - functional connectivity
+KW  - neuroimaging meta-analysis
+KW  - resting-state functional networks
+ER  - 
+
+TY  - JOUR
+AU  - Rokhshad, Rata
+AU  - Banakar, Morteza
+AU  - Shobeiri, Parnian
+AU  - Zhang, Ping
+AD  - Loma Linda School of Dentistry, University of Loma Linda, Loma Linda,
+      Calif.; Dentistry Research Institute, Tehran University of Medical
+      Sciences, Tehran, Iran, Health Policy Research Center, Institute of
+      Health, Shiraz University of Medical Sciences, Shiraz, Iran.; Department
+      of Radiology, Memorial Sloan Kettering Cancer Center, New York, NY, USA.;
+      Department of Pediatric Dentistry, University of Alabama at Birmingham,
+      Birmingham, Ala., USA.
+TI  - Artificial intelligence in early childhood caries detection and
+      prediction: A systematic review and meta-analysis
+T2  - Pediatr. Dent.
+JF  - Pediatric dentistry
+VL  - 46
+IS  - 6
+SP  - 385-394
+PY  - 2024
+DA  - 2024/11/15
+AB  - Purpose: To conduct a systematic review of artificial intelligence (AI) in
+      aiding clinicians with the prediction and detection specifically for early
+      childhood caries (ECC). Methods: A search was performed across PubMed®,
+      EMBASE®, Scopus, Web of ScienceTM, IEEE, and grey literature (Google
+      Scholar) databases. The Quality Assessment of Diagnostic Accuracy
+      Studies-2 (QUADAS-2) tool was utilized to evaluate the potential bias.
+      Statistical analyses were performed using random effects models in STATA
+      17.0, with Metandi and MIDAS packages. Results: Of 350 identified studies,
+      21 met the inclusion criteria. Nine studies demonstrated a low risk of
+      bias in all QUADAS-2 categories. Studies were divided into two cate-
+      gories: detection of ECC (7 studies) and prediction of ECC (14 studies).
+      For ECC detection, studies reported accuracy between 78 to 86 percent,
+      sen- sitivity ranged from 67 to 96 percent, and specificity ranged from 81
+      to 99 percent. In prediction-focused research, accuracies varied widely
+      from 60 to 100 percent, sensitivity from 20 to 100 percent, and
+      specificity from 54 to 94 percent. Six studies with adequate data were
+      selected for the meta-analysis. The combined sensitivity of these studies
+      was calculated at 80 percent (95 percent confidence interval [95% CI]
+      equals 0.84 to 0.95), while the combined specificity reached 81 percent
+      (95% CI equals 0.67 to 0.90). The diagnostic odds ratios ranged from 4 to
+      83, with a median of 17. Conclusion: AIs diagnostic accuracy for early
+      childhood caries matches that of experienced dentists, emphasizing AI's
+      potential to significantly aid in the detection and prediction of ECC.
+SN  - 0164-1263
+UR  - https://www.ncbi.nlm.nih.gov/pubmed/40036840
+ER  - 
+
+TY  - JOUR
+AU  - Tarighatnia, Ali
+AU  - Amanzadeh, Masoud
+AU  - Hamedan, Mahnaz
+AU  - Mohammadnia, Alireza
+AU  - Nader, Nader D
+AD  - Department of Medical Physics, School of Medicine, Ardabil University of
+      Medical Sciences, Ardabil, Iran.; Department of Health Information
+      Management, School of Medicine, Ardabil University of Medical Sciences,
+      Ardabil, Iran. M.amanzadeh@arums.ac.ir.; Department of Health Information
+      Management, School of Medicine, Ardabil University of Medical Sciences,
+      Ardabil, Iran.; Department of Anesthesiology, Jacobs School of Medicine
+      and Biomedical Sciences, University at Buffalo, Buffalo, NY, USA.
+TI  - Deep learning-based evaluation of panoramic radiographs for osteoporosis
+      screening: a systematic review and meta-analysis
+T2  - BMC Med. Imaging
+JF  - BMC medical imaging
+VL  - 25
+IS  - 1
+SP  - 86
+PY  - 2025
+DA  - 2025/3/12
+AB  - BACKGROUND: Osteoporosis is a complex condition that drives research into
+      its causes, diagnosis, treatment, and prevention, significantly affecting
+      patients and healthcare providers in various aspects of life. Research is
+      exploring orthopantomogram (OPG) radiography for osteoporosis screening
+      instead of bone mineral density (BMD) assessments. Although this method
+      uses various indicators, manual analysis can be challenging. Machine
+      learning and deep learning techniques have been developed to address this.
+      This systematic review and meta-analysis is the first to evaluate the
+      accuracy of deep learning models in predicting osteoporosis from OPG
+      radiographs, providing evidence for their performance and clinical use.
+      METHODS: A literature search was conducted in MEDLINE, Scopus, and Web of
+      Science up to February 10, 2025, using the keywords related to deep
+      learning, osteoporosis, and panoramic radiography. We conducted title,
+      abstract, and full-text screening based on inclusion/exclusion criteria.
+      Meta-analysis was performed using a bivariate random-effects model to pool
+      diagnostic accuracy measures, and subgroup analyses explored sources of
+      heterogeneity. RESULTS: We found 204 articles, removed 189 duplicates and
+      irrelevant studies, assessed 15articles, and ultimately, seven studies
+      were selected. The DL models showed AUC values of 66.8-99.8%, with
+      sensitivity and specificity ranging from 59 to 97% and 64.9-100%,
+      respectively. No significant differences in diagnostic accuracy were found
+      among subgroups. AlexNet had the highest performance, achieving a
+      sensitivity of 0.89 and a specificity of 0.99. Sensitivity analysis
+      revealed that excluding outliers had little impact on the results. Deeks'
+      funnel plot indicated no significant publication bias (P = 0.54).
+      CONCLUSIONS: This systematic review indicates that deep learning models
+      for osteoporosis diagnosis achieved 80% sensitivity, 92% specificity, and
+      93% AUC. Models like AlexNet and ResNet demonstrate effectiveness. These
+      findings suggest that DL models are promising for noninvasive early
+      detection, but more extensive multicenter studies are necessary to
+      validate their efficacy in at-risk groups.
+SN  - 1471-2342
+DO  - 10.1186/s12880-025-01626-z
+C2  - PMC11905531
+UR  - http://dx.doi.org/10.1186/s12880-025-01626-z
+UR  - https://www.ncbi.nlm.nih.gov/pubmed/40075328
+UR  - https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11905531
+KW  - Deep learning
+KW  - Diagnosis
+KW  - OPG
+KW  - Osteoporosis
+KW  - Panoramic radiography
+ER  - 
+
+TY  - JOUR
+AU  - Mubonanyikuzo, Vivens
+AU  - Yan, Hongjie
+AU  - Komolafe, Temitope Emmanuel
+AU  - Zhou, Liang
+AU  - Wu, Tao
+AU  - Wang, Nizhuan
+AD  - College of Health Science and Engineering, University of Shanghai for
+      Science and Technology, Shanghai, China.; Department of Neurology,
+      Affiliated Lianyungang Hospital of Xuzhou Medical University, Lianyungang,
+      China.; Collaborative Research Center, Shanghai University of Medicine &
+      Health Sciences, Shanghai, China.; Department of Radiology, Jiading
+      District Central Hospital Affiliated to Shanghai University of Medicine &
+      Health Sciences, Shanghai, China.; Department of Chinese and Bilingual
+      Studies, The Hong Kong Polytechnic University, Kowloon, China (Hong Kong).
+TI  - Detection of Alzheimer disease in neuroimages using vision transformers:
+      Systematic review and meta-analysis
+T2  - J. Med. Internet Res.
+JF  - Journal of medical internet research
+VL  - 27
+SP  - e62647
+PY  - 2025
+DA  - 2025/2/5
+PB  - JMIR Publications Inc.
+AB  - BACKGROUND: Alzheimer disease (AD) is a progressive condition
+      characterized by cognitive decline and memory loss. Vision transformers
+      (ViTs) are emerging as promising deep learning models in medical imaging,
+      with potential applications in the detection and diagnosis of AD.
+      OBJECTIVE: This review systematically examines recent studies on the
+      application of ViTs in detecting AD, evaluating the diagnostic accuracy
+      and impact of network architecture on model performance. METHODS: We
+      conducted a systematic search across major medical databases, including
+      China National Knowledge Infrastructure, CENTRAL (Cochrane Central
+      Register of Controlled Trials), ScienceDirect, PubMed, Web of Science, and
+      Scopus, covering publications from January 1, 2020, to March 1, 2024. A
+      manual search was also performed to include relevant gray literature. The
+      included papers used ViT models for AD detection versus healthy controls
+      based on neuroimaging data, and the included studies used magnetic
+      resonance imaging and positron emission tomography. Pooled diagnostic
+      accuracy estimates, including sensitivity, specificity, likelihood ratios,
+      and diagnostic odds ratios, were derived using random-effects models.
+      Subgroup analyses comparing the diagnostic performance of different ViT
+      network architectures were performed. RESULTS: The meta-analysis,
+      encompassing 11 studies with 95% CIs and P values, demonstrated pooled
+      diagnostic accuracy: sensitivity 0.925 (95% CI 0.892-0.959; P<.01),
+      specificity 0.957 (95% CI 0.932-0.981; P<.01), positive likelihood ratio
+      21.84 (95% CI 12.26-38.91; P<.01), and negative likelihood ratio 0.08 (95%
+      CI 0.05-0.14; P<.01). The area under the curve was notably high at 0.924.
+      The findings highlight the potential of ViTs as effective tools for early
+      and accurate AD diagnosis, offering insights for future neuroimaging-based
+      diagnostic approaches. CONCLUSIONS: This systematic review provides
+      valuable evidence for the utility of ViT models in distinguishing patients
+      with AD from healthy controls, thereby contributing to advancements in
+      neuroimaging-based diagnostic methodologies. TRIAL REGISTRATION: PROSPERO
+      CRD42024584347;
+      https://www.crd.york.ac.uk/prospero/display_record.php?RecordID=584347.
+SN  - 1439-4456
+DO  - 10.2196/62647
+C2  - PMC11840381
+UR  - http://dx.doi.org/10.2196/62647
+UR  - https://www.ncbi.nlm.nih.gov/pubmed/39908541
+UR  - https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11840381
+KW  - Alzheimer disease
+KW  - clinical implementation
+KW  - deep learning
+KW  - detection
+KW  - diagnostic
+KW  - diagnostic accuracy
+KW  - machine learning
+KW  - magnetic resonance imaging
+KW  - medical database
+KW  - neural networks
+KW  - neuroimaging
+KW  - neuroimaging, meta-analysis
+KW  - vision transformer
+ER  - 

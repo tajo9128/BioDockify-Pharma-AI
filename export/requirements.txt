@@ -1,0 +1,27 @@
+# Academic Export Pipeline Requirements
+
+# LaTeX generation
+pylatex>=0.13.3
+
+# BibTeX management
+bibtexparser>=1.4.0
+
+# DOCX generation
+python-docx>=0.8.11
+
+# Data handling
+pandas>=2.0.0
+
+# HTTP requests for PubMed/DOI
+requests>=2.31.0
+
+# Optional: For advanced LaTeX features
+# latexcodec>=2.0.1
+
+# Note: pdflatex must be installed separately for LaTeX compilation
+# - Windows: MiKTeX (https://miktex.org) or TeX Live
+# - macOS: MacTeX (https://www.tug.org/mactex/)
+# - Linux: texlive-latex-base (sudo apt-get install texlive-latex-base)
+
+# VS Code / PPTX generation
+python-pptx>=0.6.21

@@ -1,0 +1,72 @@
+{
+    "id": "biodockify-pharma-research",
+    "name": "BioDockify - Pharma Research AI",
+    "short_name": "BioDockify",
+    "description": "The Integrated AI Research Workstation for Pharmaceutical & Life Sciences. Search, analyze, and automate your research.",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "display_override": [
+        "window-controls-overlay",
+        "standalone"
+    ],
+    "background_color": "#0a0a0a",
+    "theme_color": "#10b981",
+    "orientation": "any",
+    "categories": [
+        "productivity",
+        "education",
+        "utilities"
+    ],
+    "lang": "en",
+    "dir": "ltr",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "/logo.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/logo.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "/logo.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/logo.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "/favicon.ico",
+            "sizes": "64x64 32x32 24x24 16x16",
+            "type": "image/x-icon"
+        }
+    ],
+    "screenshots": [],
+    "shortcuts": [
+        {
+            "name": "Research Chat",
+            "short_name": "Chat",
+            "description": "Start a new research conversation with Agent Zero",
+            "url": "/",
+            "icons": [
+                {
+                    "src": "/logo.png",
+                    "sizes": "192x192"
+                }
+            ]
+        }
+    ],
+    "related_applications": [],
+    "handle_links": "preferred"
+}

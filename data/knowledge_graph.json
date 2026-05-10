@@ -1,0 +1,1 @@
+{"directed": true, "multigraph": false, "graph": {}, "nodes": [{"label": "Drugs", "name": "EGFR inhibitors", "source": "memory_engine", "id": "EGFR inhibitors"}, {"label": "Diseases", "name": "Glioblastoma", "source": "memory_engine", "id": "Glioblastoma"}], "edges": []}

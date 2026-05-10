@@ -1,0 +1,38 @@
+{
+    "writing": {
+        "silence_threshold_seconds": 180,
+        "progress_stall_seconds": 240,
+        "escalation_steps_seconds": [
+            180,
+            300,
+            480
+        ]
+    },
+    "ml_training": {
+        "silence_threshold_seconds": 900,
+        "progress_stall_seconds": 1200,
+        "escalation_steps_seconds": [
+            600,
+            1200,
+            1800
+        ]
+    },
+    "web_research": {
+        "silence_threshold_seconds": 300,
+        "progress_stall_seconds": 600,
+        "escalation_steps_seconds": [
+            300,
+            600,
+            900
+        ]
+    },
+    "default": {
+        "silence_threshold_seconds": 300,
+        "progress_stall_seconds": 600,
+        "escalation_steps_seconds": [
+            300,
+            600,
+            900
+        ]
+    }
+}

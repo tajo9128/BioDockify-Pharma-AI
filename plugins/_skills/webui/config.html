@@ -1,0 +1,293 @@
+<html>
+<head>
+  <title>Skills</title>
+  <script type="module" src="/plugins/_skills/webui/config-store.js"></script>
+</head>
+<body>
+  <div
+    x-data="createSkillsConfigModel(context, config)"
+    x-init="
+      initDefaults();
+      await loadCatalog();
+      $watch('context.projectName', async () => { await loadCatalog(); });
+    "
+  >
+    <div class="skills-layout">
+      <div class="section-title">Skills</div>
+
+      <div class="skills-toolbar">
+        <label class="skills-search">
+          <span class="material-symbols-outlined">search</span>
+          <input
+            type="text"
+            x-model.trim="search"
+            placeholder="Search skills"
+          >
+        </label>
+
+        <div class="skills-actions">
+          <button type="button" class="button" @click="loadCatalog()" :disabled="loadingCatalog || mutatingChat">
+            <span class="icon material-symbols-outlined">refresh</span>
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <div class="skills-panel" x-show="selectedSkills.length > 0">
+        <div class="skills-panel-title">Active skills</div>
+        <div class="skills-selected-list">
+          <template x-for="entry in selectedSkills" :key="entryKey(entry)">
+            <div class="skills-selected-card" :class="{ 'is-missing': isEntryMissing(entry) }">
+              <div class="skills-selected-copy">
+                <div class="skills-selected-title" x-text="labelForEntry(entry)"></div>
+                <div class="skills-selected-meta" x-text="secondaryLabelForEntry(entry)"></div>
+              </div>
+              <div class="skills-card-actions">
+                <button
+                  type="button"
+                  class="button icon-button"
+                  title="Open skill"
+                  aria-label="Open skill"
+                  @click="openSkill(entry)"
+                >
+                  <span class="icon material-symbols-outlined">article</span>
+                </button>
+                <button
+                  type="button"
+                  class="button cancel icon-button"
+                  title="Remove"
+                  aria-label="Remove skill"
+                  @click="$confirmClick($event, () => removeEntry(entry))"
+                  :disabled="mutatingChat"
+                >
+                  <span class="icon material-symbols-outlined">close</span>
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <div class="skills-panel">
+        <div class="skills-panel-title">Available skills</div>
+        <div class="skills-panel-subtitle">Check a skill to add it. Uncheck it to remove it.</div>
+
+        <div class="skills-loading" x-show="loadingCatalog">
+          <span class="material-symbols-outlined spinning">progress_activity</span>
+          <span>Loading skills...</span>
+        </div>
+
+        <template x-if="!loadingCatalog && filteredCatalog.length === 0">
+          <div class="skills-empty">No skills matched your search.</div>
+        </template>
+
+        <div class="skills-list">
+          <template x-for="skill in filteredCatalog" :key="skill.path">
+            <label class="skills-card" :class="{ 'is-selected': isSelected(skill) }">
+              <input
+                type="checkbox"
+                :checked="isSelected(skill)"
+                :disabled="isCheckboxDisabled(skill)"
+                @change="toggleSkill(skill, $event.target.checked)"
+              >
+              <div class="skills-card-copy">
+                <div class="skills-card-title" x-text="skill.name || '(unnamed skill)'"></div>
+                <div class="skills-card-description" x-text="skill.description || 'No description provided.'"></div>
+              </div>
+              <button
+                type="button"
+                class="button icon-button"
+                title="Open skill"
+                aria-label="Open skill"
+                @click.prevent.stop="openSkill(skill)"
+              >
+                <span class="icon material-symbols-outlined">article</span>
+              </button>
+            </label>
+          </template>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .skills-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .skills-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .skills-search {
+      flex: 1 1 18rem;
+      min-width: 14rem;
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      border: 1px solid var(--color-border);
+      border-radius: 0.5rem;
+      background: var(--color-bg-primary);
+      padding: var(--spacing-xs) var(--spacing-sm);
+    }
+
+    .skills-search input {
+      width: 100%;
+      border: none;
+      background: transparent;
+      outline: none;
+    }
+
+    .skills-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+
+    .skills-count {
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-small);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .skills-help,
+    .skills-panel-subtitle,
+    .skills-selected-meta,
+    .skills-card-description {
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-small);
+    }
+
+    .skills-panel-title {
+      font-weight: 700;
+      margin-bottom: 0.3rem;
+    }
+
+    .skills-selected-list,
+    .skills-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      margin-top: 0.75rem;
+    }
+
+    .skills-selected-card,
+    .skills-card {
+      border: 1px solid var(--color-border);
+      border-radius: 0.75rem;
+      background: var(--color-bg-primary);
+    }
+
+    .skills-selected-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.8rem 0.9rem;
+    }
+
+    .skills-selected-card.is-missing {
+      border-style: dashed;
+    }
+
+    .skills-selected-copy {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .skills-selected-title,
+    .skills-card-title {
+      font-weight: 650;
+      word-break: break-word;
+    }
+
+    .skills-selected-meta {
+      margin-top: 0.25rem;
+      word-break: break-all;
+    }
+
+    .skills-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.85rem;
+      padding: 0.85rem;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .skills-card.is-selected {
+      border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
+      background: color-mix(in srgb, var(--color-primary) 8%, var(--color-bg-primary));
+    }
+
+    .skills-card input {
+      margin-top: 0.15rem;
+    }
+
+    .skills-card-copy {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .skills-card-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex: 0 0 auto;
+      margin-left: auto;
+    }
+
+    .skills-card-description {
+      margin-top: 0.3rem;
+      line-height: 1.45;
+    }
+
+    .skills-loading {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      color: var(--color-text-secondary);
+    }
+
+    .skills-empty {
+      border: 1px dashed var(--color-border);
+      border-radius: 0.75rem;
+      color: var(--color-text-secondary);
+      margin-top: 0.75rem;
+      padding: 1rem;
+    }
+
+    .button, .button.cancel {
+      padding: var(--spacing-sm) !important;
+    }
+
+    .icon-button {
+      flex: 0 0 auto;
+      width: 2.5rem;
+      min-width: 2.5rem;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .spinning {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</body>
+</html>
