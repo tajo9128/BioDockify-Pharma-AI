@@ -3,11 +3,11 @@ FROM tajo9128/biodockify-ai:v3.9.0
 COPY webui/ /bio/webui/
 COPY plugins/ /bio/plugins/
 COPY public/ /bio/webui/public/
+COPY entrypoint.sh /entrypoint.sh
 
-# Override /a0/ paths and remove old Agent Zero files
-RUN cp -r /bio/webui/* /a0/webui/ 2>/dev/null || true && \
+RUN chmod +x /entrypoint.sh && \
+    cp -r /bio/webui/* /a0/webui/ 2>/dev/null || true && \
     cp -r /bio/plugins/* /a0/plugins/ 2>/dev/null || true && \
-    rm -rf /a0/webui/public/a0-* /a0/webui/public/logo* /a0/webui/public/favicon* 2>/dev/null || true && \
     cp -r /bio/webui/public/* /a0/webui/public/ 2>/dev/null || true
 
-CMD ["/exe/initialize.sh", "$BRANCH"]
+CMD ["/entrypoint.sh"]
