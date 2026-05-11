@@ -22,9 +22,9 @@ function isDevelopmentRuntime() {
 
 function isSyncDebugEnabled() {
   try {
-    let value = globalThis.localStorage?.getItem("a0_debug_sync");
+    let value = globalThis.localStorage?.getItem("bio_debug_sync");
     if (isDevelopmentRuntime()) {
-      globalThis.localStorage?.setItem("a0_debug_sync", "true");
+      globalThis.localStorage?.setItem("bio_debug_sync", "true");
       value = "true";
     }
     return value === "true";

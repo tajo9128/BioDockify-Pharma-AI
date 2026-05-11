@@ -288,7 +288,7 @@ const model = {
       if (!hasAuth) {
         const proceed = confirm(
           "Remote Link works best with sign-in enabled.\n\n" +
-            "Without a login, anyone with the URL can reach this Agent Zero instance.\n\n" +
+            "Without a login, anyone with the URL can reach this BioDockify instance.\n\n" +
             "Turn on authentication in Settings before sharing this link. Continue anyway?"
         );
 

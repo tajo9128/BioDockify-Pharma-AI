@@ -304,7 +304,7 @@ const model = {
     }
     const selfUpdate = this.selfUpdate;
     if (selfUpdate?.info?.pending) {
-      return "Agent Zero has a self-update request ready for the next restart.";
+      return "BioDockify AI has a self-update request ready for the next restart.";
     }
     return selfUpdate?.quickStatusMessage || "Review versions, backups, and update readiness in one place.";
   },
