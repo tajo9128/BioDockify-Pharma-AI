@@ -1,7 +1,7 @@
 """
 Screening Engine
-Paper screening tool for BioDockify AI.
-BioDockify AI provides the AI reasoning - this module handles data processing.
+Paper screening tool for Agent Zero.
+Agent Zero provides the AI reasoning - this module handles data processing.
 """
 import logging
 from typing import List, Dict, Any, Optional, Callable
@@ -14,10 +14,10 @@ logger = logging.getLogger("literature.screening")
 
 class ContentScreener:
     """
-    Paper screening processor for BioDockify AI.
+    Paper screening processor for Agent Zero.
     
-    This module prepares data for BioDockify AI to evaluate.
-    BioDockify AI handles all LLM operations and decision-making.
+    This module prepares data for Agent Zero to evaluate.
+    Agent Zero handles all LLM operations and decision-making.
     """
     
     def __init__(self):
@@ -25,7 +25,7 @@ class ContentScreener:
     
     def set_agent_callback(self, callback: Callable[[str], str]):
         """
-        Set the BioDockify AI callback for AI operations.
+        Set the Agent Zero callback for AI operations.
         
         Args:
             callback: Function that takes a prompt and returns AI response
@@ -44,7 +44,7 @@ class ContentScreener:
         Args:
             papers: List of papers to screen
             criteria: Inclusion/exclusion criteria text
-            agent_evaluate: Optional callback from BioDockify AI for per-paper evaluation
+            agent_evaluate: Optional callback from Agent Zero for per-paper evaluation
                            Signature: (paper: Paper, criteria: str) -> bool
         
         Returns:
@@ -55,7 +55,7 @@ class ContentScreener:
         if not papers:
             return []
         
-        # If BioDockify AI provides an evaluation callback, use it
+        # If Agent Zero provides an evaluation callback, use it
         if agent_evaluate:
             return await self._agent_screen(papers, criteria, agent_evaluate)
         
@@ -73,7 +73,7 @@ class ContentScreener:
         criteria: str,
         evaluate_fn: Callable[[Paper, str], bool]
     ) -> List[Paper]:
-        """Screen using BioDockify AI's evaluation function."""
+        """Screen using Agent Zero's evaluation function."""
         selected = []
         
         for paper in papers:
@@ -96,8 +96,8 @@ class ContentScreener:
         papers: List[Paper], 
         criteria: str
     ) -> List[Paper]:
-        """Prepare batch data for BioDockify AI to process."""
-        # Prepare paper summaries for BioDockify AI
+        """Prepare batch data for Agent Zero to process."""
+        # Prepare paper summaries for Agent Zero
         paper_summaries = []
         for i, paper in enumerate(papers):
             summary = {
@@ -109,7 +109,7 @@ class ContentScreener:
             }
             paper_summaries.append(summary)
         
-        # Format for BioDockify AI
+        # Format for Agent Zero
         prompt = f"""Evaluate these papers against the criteria and return indices to INCLUDE.
 
 CRITERIA: {criteria}
@@ -130,14 +130,14 @@ Return a JSON array of indices to include, e.g. [0, 2, 5]"""
             return self._heuristic_screen(papers, criteria)
     
     def _format_papers_for_agent(self, summaries: List[Dict]) -> str:
-        """Format paper summaries for BioDockify AI prompt."""
+        """Format paper summaries for Agent Zero prompt."""
         lines = []
         for s in summaries:
             lines.append(f"[{s['index']}] {s['title']} ({s['year']}) - {s['abstract_preview'][:200]}...")
         return "\n".join(lines)
     
     def _parse_indices(self, response: str) -> List[int]:
-        """Parse BioDockify AI's response to extract paper indices."""
+        """Parse Agent Zero's response to extract paper indices."""
         import json
         import re
         
@@ -184,9 +184,9 @@ Return a JSON array of indices to include, e.g. [0, 2, 5]"""
     
     def prepare_for_agent(self, papers: List[Paper], criteria: str) -> Dict[str, Any]:
         """
-        Prepare screening data for BioDockify AI to process.
+        Prepare screening data for Agent Zero to process.
         
-        Returns a structured dict that BioDockify AI can use.
+        Returns a structured dict that Agent Zero can use.
         """
         return {
             "task": "paper_screening",
@@ -208,11 +208,11 @@ Return a JSON array of indices to include, e.g. [0, 2, 5]"""
     
     def apply_agent_decision(self, papers: List[Paper], included_indices: List[int]) -> List[Paper]:
         """
-        Apply BioDockify AI's screening decision.
+        Apply Agent Zero's screening decision.
         
         Args:
             papers: Original paper list
-            included_indices: Indices that BioDockify AI marked as included
+            included_indices: Indices that Agent Zero marked as included
         
         Returns:
             Filtered paper list

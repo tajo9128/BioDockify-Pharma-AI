@@ -1,6 +1,6 @@
 
 """
-Proactive Guidance Engine for BioDockify AI (BioDockify AI)
+Proactive Guidance Engine for Agent Zero (BioDockify AI)
 Provides proactive suggestions and guidance for researchers and faculty.
 """
 import logging

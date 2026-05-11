@@ -1,7 +1,7 @@
 """
 Synthesis Engine
-Literature review synthesis tool for BioDockify AI.
-BioDockify AI provides the AI content generation - this module handles structure and formatting.
+Literature review synthesis tool for Agent Zero.
+Agent Zero provides the AI content generation - this module handles structure and formatting.
 """
 import logging
 import threading
@@ -15,10 +15,10 @@ logger = logging.getLogger("literature.synthesis")
 
 class ReviewSynthesizer:
     """
-    Literature review synthesizer for BioDockify AI.
+    Literature review synthesizer for Agent Zero.
     
     This module manages structure, context retrieval, and formatting.
-    BioDockify AI handles all content generation through callbacks.
+    Agent Zero handles all content generation through callbacks.
     """
     
     # Standard review sections
@@ -36,7 +36,7 @@ class ReviewSynthesizer:
     
     def set_agent_callback(self, callback: Callable[[str], str]):
         """
-        Set the BioDockify AI callback for content generation.
+        Set the Agent Zero callback for content generation.
         
         Args:
             callback: Function that takes a prompt and returns generated content
@@ -55,7 +55,7 @@ class ReviewSynthesizer:
         Args:
             topic: Research topic
             papers: List of reviewed papers
-            agent_generate: BioDockify AI callback for section generation
+            agent_generate: Agent Zero callback for section generation
                            Signature: (topic, section_name, context) -> content
         
         Returns:
@@ -77,7 +77,7 @@ class ReviewSynthesizer:
             context = await self._get_section_context(topic, section_title, section_focus)
             
             if agent_generate:
-                # BioDockify AI generates content
+                # Agent Zero generates content
                 content = agent_generate(topic, section_title, context)
             elif self._agent_callback:
                 # Use registered callback
@@ -132,7 +132,7 @@ class ReviewSynthesizer:
             return "Context retrieval failed."
     
     def _build_section_prompt(self, topic: str, section: str, focus: str, context: str) -> str:
-        """Build prompt for BioDockify AI to generate section content."""
+        """Build prompt for Agent Zero to generate section content."""
         return f"""Write the "{section}" section for a literature review on: {topic}
 
 FOCUS: {focus}
@@ -155,7 +155,7 @@ Write the section:"""
             return f"*Based on reviewed literature:*\n\n> {excerpts}..."
         else:
             logger.warning(f"No agent available for synthesis of section: {section}")
-            return f"*This section covers {section.lower()} for {topic}. Content pending BioDockify AI generation. Please ensure an AI provider is configured.*"
+            return f"*This section covers {section.lower()} for {topic}. Content pending Agent Zero generation. Please ensure an AI provider is configured.*"
     
     def _format_references(self, papers: List[Paper]) -> str:
         """Format references section."""
@@ -170,9 +170,9 @@ Write the section:"""
     
     async def prepare_for_agent(self, topic: str, papers: List[Paper]) -> Dict[str, Any]:
         """
-        Prepare review data for BioDockify AI to process.
+        Prepare review data for Agent Zero to process.
         
-        Returns structured data for BioDockify AI's planning.
+        Returns structured data for Agent Zero's planning.
         """
         # Index papers first
         try:
@@ -218,7 +218,7 @@ Write the section:"""
         papers: List[Paper]
     ) -> str:
         """
-        Assemble final review from BioDockify AI generated sections.
+        Assemble final review from Agent Zero generated sections.
         
         Args:
             topic: Research topic
@@ -242,7 +242,7 @@ Write the section:"""
         """
         Prepare data for generating a single section.
         
-        Returns context for BioDockify AI to generate content.
+        Returns context for Agent Zero to generate content.
         """
         focus = dict(self.SECTIONS).get(section, section)
         context = await self._get_section_context(topic, section, focus)
