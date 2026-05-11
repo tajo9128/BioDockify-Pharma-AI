@@ -43,16 +43,6 @@ const TAB_ITEMS = Object.freeze([
     ],
   },
   {
-    id: "mcp",
-    label: "MCP/A2A",
-    icon: "hub",
-    sections: [
-      { id: "section-mcp-client", label: "External MCP Servers", icon: "hub" },
-      { id: "section-mcp-server", label: "A0 MCP Server", icon: "settings_input_antenna" },
-      { id: "section-a2a-server", label: "A0 A2A Server", icon: "conversion_path" },
-    ],
-  },
-  {
     id: "developer",
     label: "Developer",
     icon: "code",
@@ -73,7 +63,6 @@ const TAB_ITEMS = Object.freeze([
 
 // Field button actions (field id -> modal path)
 const FIELD_BUTTON_MODAL_BY_ID = Object.freeze({
-  mcp_servers_config: "settings/mcp/client/mcp-servers.html",
   backup_create: "settings/backup/backup.html",
   backup_restore: "settings/backup/restore.html",
   show_a2a_connection: "settings/a2a/a2a-connection.html",
