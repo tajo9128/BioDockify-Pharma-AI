@@ -3,29 +3,58 @@ name: Build and Push Docker Image
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Tag to build (e.g. v1.0.5). Leave empty for latest main."
+      force_version:
+        description: "Force specific version (e.g. v1.0.8). Leaves empty for auto-increment."
         required: false
         type: string
 
 env:
   REGISTRY: docker.io
   IMAGE_NAME: tajo9128/biodockify-pharma-ai
-  BASE_IMAGE: tajo9128/biodockify-ai:v3.9.0
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
+      tags: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get or create version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.force_version }}" ]; then
+            VERSION="${{ github.event.inputs.force_version }}"
+          else
+            # Get latest tag
+            git fetch --tags origin
+            LAST_TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+' | head -1 | sed 's/^v//')
+            if [ -z "$LAST_TAG" ]; then
+              LAST_TAG="0.0"
+            fi
+            # Increment minor version
+            MAJOR=$(echo $LAST_TAG | cut -d. -f1)
+            MINOR=$(echo $LAST_TAG | cut -d. -f2)
+            MINOR=$((MINOR + 1))
+            VERSION="v$MAJOR.$MINOR"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Creating version: $VERSION"
+
+      - name: Create annotated tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a ${{ steps.version.outputs.version }} -m "Release ${{ steps.version.outputs.version }}"
+          git push origin ${{ steps.version.outputs.version }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -36,49 +65,36 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Determine tags
-        id: meta
-        run: |
-          if [ -n "${{ github.event.inputs.tag }}" ]; then
-            echo "version=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
-            echo "tags=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.tag }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> "$GITHUB_OUTPUT"
-          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            TAG="${GITHUB_REF#refs/tags/}"
-            echo "version=$TAG" >> "$GITHUB_OUTPUT"
-            echo "tags=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$TAG,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> "$GITHUB_OUTPUT"
-          else
-            echo "version=dev-$(echo $GITHUB_SHA | cut -c1-7)" >> "$GITHUB_OUTPUT"
-            echo "tags=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile.release
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev
           labels: |
             org.opencontainers.image.title=BioDockify AI
-            org.opencontainers.image.description=Modified pharma research distribution of BioDockify AI
+            org.opencontainers.image.description=Pharma research distribution of BioDockify AI
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || (github.event.inputs.tag != '' && startsWith(github.event.inputs.tag, 'v'))
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.meta.outputs.version }}
+          tag_name: ${{ steps.version.outputs.version }}
           body: |
-            ## BioDockify AI ${{ steps.meta.outputs.version }}
+            ## BioDockify AI ${{ steps.version.outputs.version }}
 
-            **Modified pharma research distribution of [BioDockify AI](https://github.com/agent0ai/biodockify.ai)**
+            **Pharma research distribution of [BioDockify AI](https://github.com/agent0ai/biodockify.ai)**
 
             ### Docker
             ```bash
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
-            docker run -d -p 80:80 -v biodockify_usr:/usr --name biodockify ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            docker run -d -p 80:80 -v biodockify_usr:/usr --name biodockify ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
