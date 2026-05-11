@@ -433,6 +433,13 @@ img {
   flex-direction: column;
   flex-grow: 1;
   min-height: 0;
+  width: 100%;
+}
+
+/* Ensure chat history takes full space */
+#chat-history {
+  flex: 1;
+  overflow-y: auto;
 }
 
 /* Chat Navigation Buttons – vertical, floating bottom-right of chat area */
