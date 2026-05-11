@@ -1,4 +1,4 @@
-# Supported model providers for Agent Zero
+# Supported model providers for BioDockify Pharma AI
 # ---------------------------------------
 #
 # Each provider type ("chat", "embedding") contains a mapping of provider IDs
@@ -27,7 +27,7 @@
 
 chat:
   a0_venice:
-    name: Agent Zero API
+    name: BioDockify API
     litellm_provider: openai
     models_list:
       endpoint_url: "https://api.venice.ai/api/v1/models"
@@ -126,7 +126,7 @@ chat:
     kwargs:
       extra_headers:
         "HTTP-Referer": "https://agent-zero.ai/"
-        "X-Title": "Agent Zero"
+        "X-Title": "BioDockify"
         "X-OpenRouter-Categories": "personal-agent,cloud-agent"
   sambanova:
     name: Sambanova
@@ -196,11 +196,11 @@ embedding:
       api_base: https://openrouter.ai/api/v1
       extra_headers:
         "HTTP-Referer": "https://agent-zero.ai/"
-        "X-Title": "Agent Zero"
+        "X-Title": "BioDockify"
         "X-OpenRouter-Categories": "personal-agent,cloud-agent"
 <<<<<<< HEAD
   a0_venice:
-    name: Agent Zero API
+    name: BioDockify API
     litellm_provider: openai
     models_list:
       endpoint_url: "https://api.venice.ai/api/v1/models"

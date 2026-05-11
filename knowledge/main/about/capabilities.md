@@ -65,7 +65,7 @@ The agent can schedule tasks to run at specified times or intervals using the sc
 
 ## External API and MCP
 
-Agent Zero can act as both an MCP server and an MCP client:
+BioDockify Pharma AI can act as both an MCP server and an MCP client:
 - As an **MCP server**: exposes agent capabilities to other MCP-compatible clients
 - As an **MCP client**: uses tools from external MCP servers (configured per project or globally)
 

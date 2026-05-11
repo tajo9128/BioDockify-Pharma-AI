@@ -57,7 +57,7 @@
         {
             "name": "Research Chat",
             "short_name": "Chat",
-            "description": "Start a new research conversation with Agent Zero",
+            "description": "Start a new research conversation with BioDockify Pharma AI",
             "url": "/",
             "icons": [
                 {

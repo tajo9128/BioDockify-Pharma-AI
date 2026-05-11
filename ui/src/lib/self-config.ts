@@ -240,7 +240,7 @@ export async function selfConfigure(): Promise<SelfConfigResult> {
         success: true,
         provider: bestProvider,
         configuredSettings,
-        message: `Agent Zero configured with ${bestProvider.name}`
+        message: `BioDockify Pharma AI configured with ${bestProvider.name}`
     };
 }
 

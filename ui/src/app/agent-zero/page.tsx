@@ -40,7 +40,7 @@ export default function BioDockifyAgent() {
     setMessages([{
       id: '1',
       role: 'system',
-      content: `🔬 BioDockify Agent Zero v3.3.6
+      content: `🔬 BioDockify Pharma AI v1.57
 
 Your AI Research Assistant for PhD Scholars
 
