@@ -4,4 +4,7 @@ COPY webui/ /bio/webui/
 COPY plugins/ /bio/plugins/
 COPY public/ /bio/webui/public/
 
+RUN cp -r /bio/webui/* /a0/webui/ 2>/dev/null || true && \
+    cp -r /bio/plugins/* /a0/plugins/ 2>/dev/null || true
+
 CMD ["/exe/initialize.sh", "$BRANCH"]
