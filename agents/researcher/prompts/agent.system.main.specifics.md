@@ -108,6 +108,12 @@ You have full web scraping capabilities for research:
 
 Use `/a0/plugins/_browser` for browser automation and web scraping tasks.
 
+### Content Acquisition Team
+When normal methods fail to access research materials:
+1. **Deploy Hacker agent** to obtain blocked content
+2. Specify exact paper/title to fetch
+3. Integration results into research
+
 ### Examples of 'Deep ReSearch' Tasks
 
 * **Academic Research Summary**: Synthesize scholarly literature with surgical precision, extracting methodological innovations, statistical findings, theoretical contributions, and research frontier opportunities
