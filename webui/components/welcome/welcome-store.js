@@ -13,6 +13,7 @@ const model = {
   lastBannerRefresh: 0,
   hasDismissedBanners: false,
   _initialized: false,
+  _showWelcome: true,
 
   get versionLabel() {
     const gi = globalThis.gitinfo;
@@ -20,7 +21,7 @@ const model = {
   },
 
   get isVisible() {
-    return true; // Always show welcome screen with version
+    return this._showWelcome === undefined ? true : this._showWelcome;
   },
 
   init() {
@@ -207,6 +208,10 @@ const model = {
       case "new-chat":
         chatsStore.newChat();
         break;
+      case "home":
+      case "dashboard":
+        this.show();
+        break;
       case "scheduler":
         window.openModal("modals/scheduler/scheduler-modal.html");
         break;
@@ -229,6 +234,18 @@ const model = {
         window.open("https://biodockify.ai", "_blank");
         break;
     }
+  },
+  
+  show() {
+    this._showWelcome = true;
+  },
+  
+  hide() {
+    this._showWelcome = false;
+  },
+  
+  get _isVisible() {
+    return this._showWelcome;
   },
 };
 
