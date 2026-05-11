@@ -4,10 +4,4 @@ COPY webui/ /bio/webui/
 COPY plugins/ /bio/plugins/
 COPY public/ /bio/webui/public/
 
-COPY knowledge/ /tmp/biodockify-knowledge/
-RUN if [ -d /tmp/biodockify-knowledge/main/about ]; then \
-      cp -r /tmp/biodockify-knowledge/main/about/* /bio/knowledge/main/about/ 2>/dev/null; \
-    fi && \
-    rm -rf /tmp/biodockify-knowledge
-
 CMD ["/exe/initialize.sh", "$BRANCH"]
