@@ -20,7 +20,7 @@ const model = {
   },
 
   get isVisible() {
-    return !chatsStore.selected;
+    return false; // Always hide welcome screen - go straight to chat
   },
 
   init() {
