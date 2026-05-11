@@ -13,7 +13,7 @@ const model = {
   lastBannerRefresh: 0,
   hasDismissedBanners: false,
   _initialized: false,
-  _showWelcome: true,
+  _showWelcome: false, // Default: false - only show when home clicked
 
   get versionLabel() {
     const gi = globalThis.gitinfo;
@@ -21,7 +21,7 @@ const model = {
   },
 
   get isVisible() {
-    return this._showWelcome === undefined ? true : this._showWelcome;
+    return this._showWelcome;
   },
 
   init() {
@@ -210,7 +210,7 @@ const model = {
         chatsStore.newChat();
         break;
       case "home":
-        deselectChat();
+        this.show(); // Show welcome as home
         break;
       case "settings":
         window.openModal("settings/settings.html");
