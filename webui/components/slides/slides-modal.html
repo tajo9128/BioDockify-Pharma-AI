@@ -1,0 +1,89 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+
+    export const store = createStore("slidesModal", {
+      slides: [],
+      currentSlide: 0,
+      title: "Presentation",
+      theme: "default",
+      
+      addSlide() {
+        this.slides.push({title: "New Slide", content: ""});
+        this.currentSlide = this.slides.length - 1;
+      },
+      
+      removeSlide(index) {
+        this.slides.splice(index, 1);
+        if (this.currentSlide >= this.slides.length) this.currentSlide = Math.max(0, this.slides.length - 1);
+      },
+      
+      generate() {
+        alert("PowerPoint generation requires backend integration");
+      }
+    });
+  </script>
+</head>
+<body>
+  <div x-data="store" class="slides-modal">
+    <div class="modal-header">
+      <h2>Presentation Generator</h2>
+      <button class="close-btn" @click="closeModal()">×</button>
+    </div>
+
+    <div class="modal-content">
+      <div class="slide-form">
+        <input type="text" x-model="title" placeholder="Presentation Title" class="title-input" />
+        
+        <div class="themes">
+          <h3>Theme</h3>
+          <div class="theme-grid">
+            <button class="theme-card" :class="{active: theme === 'default'}" @click="theme = 'default'">Default</button>
+            <button class="theme-card" :class="{active: theme === 'scientific'}" @click="theme = 'scientific'">Scientific</button>
+            <button class="theme-card" :class="{active: theme === 'corporate'}" @click="theme = 'corporate'">Corporate</button>
+            <button class="theme-card" :class="{active: theme === 'creative'}" @click="theme = 'creative'">Creative</button>
+          </div>
+        </div>
+        
+        <div class="slides-list">
+          <h3>Slides (<span x-text="slides.length"></span>)</h3>
+          <template x-for="(slide, index) in slides">
+            <div class="slide-item" :class="{active: currentSlide === index}" @click="currentSlide = index">
+              <span x-text="index + 1"></span>
+              <span x-text="slide.title"></span>
+              <button class="remove-btn" @click.stop="removeSlide(index)">×</button>
+            </div>
+          </template>
+          <button class="add-slide-btn" @click="addSlide()">+ Add Slide</button>
+        </div>
+      </div>
+
+      <div class="generate-area">
+        <button class="generate-btn" @click="generate()">Generate PowerPoint</button>
+      </div>
+    </div>
+
+    <style>
+      .slides-modal { padding: var(--spacing-md); max-width: 800px; }
+      .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md); }
+      .modal-header h2 { color: var(--color-primary); }
+      .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--color-text-muted); }
+      .title-input { width: 100%; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); margin-bottom: var(--spacing-md); }
+      .themes h3 { color: var(--color-text); margin-bottom: var(--spacing-sm); }
+      .theme-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--spacing-xs); margin-bottom: var(--spacing-md); }
+      .theme-card { padding: var(--spacing-sm); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 4px; cursor: pointer; color: var(--color-text); }
+      .theme-card.active { background: var(--color-primary); color: white; }
+      .slides-list h3 { color: var(--color-text); margin-bottom: var(--spacing-sm); }
+      .slide-item { display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-sm); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 4px; cursor: pointer; margin-bottom: var(--spacing-xs); }
+      .slide-item.active { border-color: var(--color-primary); }
+      .slide-item span:first-child { width: 24px; color: var(--color-text-muted); }
+      .slide-item span:nth-child(2) { flex: 1; color: var(--color-text); }
+      .remove-btn { background: none; border: none; color: var(--color-text-muted); cursor: pointer; }
+      .add-slide-btn { padding: var(--spacing-sm); background: var(--color-panel); border: 1px dashed var(--color-border); border-radius: 4px; cursor: pointer; width: 100%; color: var(--color-text); }
+      .generate-area { margin-top: var(--spacing-md); }
+      .generate-btn { padding: var(--spacing-sm) var(--spacing-md); background: var(--color-primary); color: white; border: none; border-radius: 4px; cursor: pointer; }
+    </style>
+  </div>
+</body>
+</html>

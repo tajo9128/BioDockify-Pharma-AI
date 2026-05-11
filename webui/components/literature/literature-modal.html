@@ -1,0 +1,105 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { api } from "/js/api.js";
+
+    export const store = createStore("literatureModal", {
+      query: "",
+      selectedDb: "pubmed",
+      results: [],
+
+      async searchLiterature() {
+        if (!this.query.trim()) return;
+        try {
+          const response = await api.post("/api/literature/search", {
+            query: this.query,
+            database: this.selectedDb
+          });
+          this.results = response.results || [];
+        } catch (e) {
+          this.results = [{title: "API not available", abstract: "Literature search requires backend integration"}];
+        }
+      }
+    });
+  </script>
+</head>
+<body>
+  <div x-data="store" class="literature-modal">
+    <div class="modal-header">
+      <h2>Literature Search</h2>
+      <button class="close-btn" @click="closeModal()">×</button>
+    </div>
+
+    <div class="modal-content">
+      <div class="search-form">
+        <input type="text" x-model="query" placeholder="Search PubMed, Semantic Scholar, etc." class="search-input" @keyup.enter="searchLiterature()" />
+        <button class="search-btn" @click="searchLiterature()">Search</button>
+      </div>
+
+      <div class="databases">
+        <h3>Databases</h3>
+        <div class="db-grid">
+          <button class="db-card" :class="{active: selectedDb === 'pubmed'}" @click="selectedDb = 'pubmed'">
+            <span>PubMed</span>
+          </button>
+          <button class="db-card" :class="{active: selectedDb === 'semantic'}" @click="selectedDb = 'semantic'">
+            <span>Semantic Scholar</span>
+          </button>
+          <button class="db-card" :class="{active: selectedDb === 'europepmc'}" @click="selectedDb = 'europepmc'">
+            <span>Europe PMC</span>
+          </button>
+          <button class="db-card" :class="{active: selectedDb === 'crossref'}" @click="selectedDb = 'crossref'">
+            <span>Crossref</span>
+          </button>
+          <button class="db-card" :class="{active: selectedDb === 'biorxiv'}" @click="selectedDb = 'biorxiv'">
+            <span>bioRxiv</span>
+          </button>
+          <button class="db-card" :class="{active: selectedDb === 'pubchem'}" @click="selectedDb = 'pubchem'">
+            <span>PubChem</span>
+          </button>
+          <button class="db-card" :class="{active: selectedDb === 'scopus'}" @click="selectedDb = 'scopus'">
+            <span>Scopus</span>
+          </button>
+          <button class="db-card" :class="{active: selectedDb === 'wos'}" @click="selectedDb = 'wos'">
+            <span>Web of Science</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="results" x-show="results.length">
+        <h3>Results (<span x-text="results.length"></span>)</h3>
+        <div class="results-list">
+          <template x-for="result in results">
+            <div class="result-item">
+              <div class="result-title" x-text="result.title"></div>
+              <div class="result-meta" x-text="result.authors"></div>
+              <div class="result-abstract" x-text="result.abstract"></div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      .literature-modal { padding: var(--spacing-md); max-width: 900px; }
+      .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md); }
+      .modal-header h2 { color: var(--color-primary); }
+      .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--color-text-muted); }
+      .search-form { display: flex; gap: var(--spacing-sm); margin-bottom: var(--spacing-md); }
+      .search-input { flex: 1; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); }
+      .search-btn { padding: var(--spacing-sm) var(--spacing-md); background: var(--color-primary); color: white; border: none; border-radius: 4px; cursor: pointer; }
+      .databases h3 { color: var(--color-text); margin-bottom: var(--spacing-sm); }
+      .db-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--spacing-xs); margin-bottom: var(--spacing-md); }
+      .db-card { padding: var(--spacing-sm); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 4px; cursor: pointer; color: var(--color-text); }
+      .db-card.active { background: var(--color-primary); color: white; }
+      .results h3 { color: var(--color-text); margin-bottom: var(--spacing-sm); }
+      .results-list { max-height: 400px; overflow-y: auto; }
+      .result-item { padding: var(--spacing-sm); border-bottom: 1px solid var(--color-border); }
+      .result-title { color: var(--color-primary); font-weight: 600; margin-bottom: var(--spacing-xs); }
+      .result-meta { color: var(--color-text-muted); font-size: 12px; }
+      .result-abstract { color: var(--color-text); font-size: 12px; margin-top: var(--spacing-xs); }
+    </style>
+  </div>
+</body>
+</html>

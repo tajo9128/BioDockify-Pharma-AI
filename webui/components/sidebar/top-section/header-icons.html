@@ -166,6 +166,16 @@
           <span>Slides</span>
         </button>
 
+        <button class="dropdown-item" @click="openModal('components/wetlab/wetlab-modal.html'); $store.sidebar.menuClose()">
+          <span class="material-symbols-outlined">biotech</span>
+          <span>Wet Lab</span>
+        </button>
+
+        <button class="dropdown-item" @click="openModal('components/knowledge/knowledge-modal.html'); $store.sidebar.menuClose()">
+          <span class="material-symbols-outlined">psychology</span>
+          <span>Knowledge</span>
+        </button>
+
         <div class="dropdown-separator"></div>
 
         <button class="dropdown-item" @click="$confirmClick($event, () => { $store.chats.restart(); $store.sidebar.menuClose() })">

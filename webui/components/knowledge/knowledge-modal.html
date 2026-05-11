@@ -1,0 +1,99 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+
+    export const store = createStore("knowledgeModal", {
+      entries: [],
+      searchQuery: "",
+      newEntry: {question: "", answer: ""},
+      
+      search() {
+      },
+      
+      addEntry() {
+        if (!this.newEntry.question.trim()) return;
+        this.entries.push({...this.newEntry, id: Date.now()});
+        this.newEntry = {question: "", answer: ""};
+      },
+      
+      deleteEntry(entry) {
+        this.entries = this.entries.filter(e => e.id !== entry.id);
+      },
+      
+      exportJson() {
+        const data = JSON.stringify(this.entries, null, 2);
+        const blob = new Blob([data], {type: "application/json"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "knowledge-base.json";
+        a.click();
+      }
+    });
+  </script>
+</head>
+<body>
+  <div x-data="store" class="knowledge-modal">
+    <div class="modal-header">
+      <h2>Knowledge Base</h2>
+      <button class="close-btn" @click="closeModal()">×</button>
+    </div>
+
+    <div class="modal-content">
+      <div class="search-bar">
+        <input type="text" x-model="searchQuery" placeholder="Search knowledge base..." class="search-input" @keyup.enter="search()" />
+        <button class="search-btn" @click="search()">Search</button>
+      </div>
+
+      <div class="add-entry">
+        <h3>Add Entry</h3>
+        <div class="entry-form">
+          <input type="text" x-model="newEntry.question" placeholder="Question / Concept" class="entry-input" />
+          <textarea x-model="newEntry.answer" placeholder="Answer / Description" class="entry-textarea"></textarea>
+          <button class="add-btn" @click="addEntry()">Add</button>
+        </div>
+      </div>
+
+      <div class="entries-list">
+        <h3>Entries (<span x-text="entries.length"></span>)</h3>
+        <template x-for="entry in entries">
+          <div class="entry-item">
+            <div class="entry-question" x-text="entry.question"></div>
+            <div class="entry-answer" x-text="entry.answer"></div>
+            <button class="delete-btn" @click="deleteEntry(entry)">Delete</button>
+          </div>
+        </template>
+        <div x-show="!entries.length" class="no-entries">No knowledge entries</div>
+      </div>
+
+      <div class="export-area">
+        <button class="export-btn" @click="exportJson()">Export JSON</button>
+      </div>
+    </div>
+
+    <style>
+      .knowledge-modal { padding: var(--spacing-md); max-width: 800px; }
+      .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md); }
+      .modal-header h2 { color: var(--color-primary); }
+      .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--color-text-muted); }
+      .search-bar { display: flex; gap: var(--spacing-sm); margin-bottom: var(--spacing-md); }
+      .search-input { flex: 1; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); }
+      .search-btn { padding: var(--spacing-sm) var(--spacing-md); background: var(--color-secondary); border: 1px solid var(--color-border); border-radius: 4px; cursor: pointer; color: var(--color-text); }
+      .add-entry h3 { color: var(--color-text); margin-bottom: var(--spacing-sm); }
+      .entry-form { display: flex; flex-direction: column; gap: var(--spacing-xs); margin-bottom: var(--spacing-md); }
+      .entry-input { padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); }
+      .entry-textarea { padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); min-height: 80px; }
+      .add-btn { padding: var(--spacing-sm) var(--spacing-md); background: var(--color-primary); color: white; border: none; border-radius: 4px; cursor: pointer; }
+      .entries-list h3 { color: var(--color-text); margin-bottom: var(--spacing-sm); }
+      .entry-item { padding: var(--spacing-sm); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 4px; margin-bottom: var(--spacing-xs); }
+      .entry-question { color: var(--color-primary); font-weight: 600; margin-bottom: var(--spacing-xs); }
+      .entry-answer { color: var(--color-text); font-size: 13px; }
+      .delete-btn { background: none; border: none; color: var(--color-text-muted); cursor: pointer; font-size: 12px; }
+      .no-entries { color: var(--color-text-muted); padding: var(--spacing-md); text-align: center; }
+      .export-area { margin-top: var(--spacing-md); }
+      .export-btn { padding: var(--spacing-sm) var(--spacing-md); background: var(--color-secondary); border: 1px solid var(--color-border); border-radius: 4px; cursor: pointer; color: var(--color-text); }
+    </style>
+  </div>
+</body>
+</html>
