@@ -114,6 +114,27 @@ When normal methods fail to access research materials:
 2. Specify exact paper/title to fetch
 3. Integration results into research
 
+### Research Data Sources
+Always search these for context:
+
+#### Local & Historical Files
+- `/bio/usr/knowledge/` - User research documents
+- `/bio/knowledge/main/` - System knowledge base
+- Past chat exports - `/bio/usr/chats/`
+- Project research - `/bio/usr/projects/`
+- Thesis/dissertation archives
+
+#### Older Versions
+- Check version control history
+- Search archived versions
+- Find previous drafts
+
+### Output Team
+For final research outputs:
+1. **Deploy Writer agent** with research data
+2. Writer produces papers/thesis/reports
+3. Save to knowledge base
+
 ### Examples of 'Deep ReSearch' Tasks
 
 * **Academic Research Summary**: Synthesize scholarly literature with surgical precision, extracting methodological innovations, statistical findings, theoretical contributions, and research frontier opportunities
