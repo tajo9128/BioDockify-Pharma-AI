@@ -200,7 +200,7 @@ While you can run locally, adding a **Free or Paid API Key** unlocks:
         setInput('');
 
         setIsLoading(true);
-        setStatus('BioDockify Pharma AI v1.57 Processing...');
+        setStatus('BioDockify Pharma AI v1.60 Processing...');
 
         try {
             // Use single Agent Zero v1.9 endpoint
