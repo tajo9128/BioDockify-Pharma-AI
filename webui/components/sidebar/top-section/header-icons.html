@@ -34,16 +34,36 @@
           <span class="material-symbols-outlined" aria-hidden="true">menu</span>
         </button>
 
-        <button class="config-button header-action-button" id="header-dashboard" @click="chatsStore.newChat()" title="New Chat" aria-label="New Chat" tabindex="-1">
-          <span class="material-symbols-outlined" aria-hidden="true">add_comment</span>
+        <button class="config-button header-action-button" @click="chatsStore.newChat()" title="New Chat" aria-label="New Chat">
+          <span class="material-symbols-outlined">add_comment</span>
         </button>
 
-        <button class="config-button header-action-button" id="header-plugins" @click="openModal('components/plugins/list/plugin-list.html')" title="Plugins" aria-label="Plugins" tabindex="-1">
-          <span class="material-symbols-outlined" aria-hidden="true">extension</span>
+        <button class="config-button header-action-button" @click="openModal('components/research/research-tools.html')" title="Research Tools">
+          <span class="material-symbols-outlined">science</span>
         </button>
 
-        <button class="config-button header-action-button" id="header-settings" @click="openModal('settings/settings.html')" title="Settings" aria-label="Settings" tabindex="-1">
-          <span class="material-symbols-outlined" aria-hidden="true">settings</span>
+        <button class="config-button header-action-button" @click="openModal('components/statistics/statistics-modal.html')" title="Statistics">
+          <span class="material-symbols-outlined">analytics</span>
+        </button>
+
+        <button class="config-button header-action-button" @click="openModal('components/literature/literature-modal.html')" title="Literature">
+          <span class="material-symbols-outlined">menu_book</span>
+        </button>
+
+        <button class="config-button header-action-button" @click="openModal('components/thesis/thesis-modal.html')" title="Thesis">
+          <span class="material-symbols-outlined">description</span>
+        </button>
+
+        <button class="config-button header-action-button" @click="openModal('components/wetlab/wetlab-modal.html')" title="Wet Lab">
+          <span class="material-symbols-outlined">biotech</span>
+        </button>
+
+        <button class="config-button header-action-button" @click="openModal('components/plugins/list/plugin-list.html')" title="Plugins">
+          <span class="material-symbols-outlined">extension</span>
+        </button>
+
+        <button class="config-button header-action-button" @click="openModal('settings/settings.html')" title="Settings">
+          <span class="material-symbols-outlined">settings</span>
         </button>
 
         <button
@@ -51,11 +71,10 @@
           id="header-more"
           x-ref="menuButton"
           @click="$store.sidebar.menuToggle($refs.menuButton)"
-          title="More options"
-          aria-label="More options"
-          tabindex="-1"
+          title="More"
+          aria-label="More"
         >
-          <span class="material-symbols-outlined" aria-hidden="true" :class="$store.sidebar.menuOpen ? 'rotated' : ''">expand_more</span>
+          <span class="material-symbols-outlined" :class="$store.sidebar.menuOpen ? 'rotated' : ''">expand_more</span>
         </button>
       </div>
 
