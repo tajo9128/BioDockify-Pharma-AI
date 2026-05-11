@@ -34,6 +34,7 @@
                         <div class="biodockify-title-block">
                             <h1 class="biodockify-title">BioDockify AI</h1>
                             <p class="biodockify-subtitle">Pharmaceutical Research Assistant</p>
+                            <div class="biodockify-version" x-text="$store.welcomeStore.versionLabel || 'v3.3.5'"></div>
                         </div>
                     </div>
                 </div>
@@ -188,6 +189,13 @@
             font-size: 0.9rem;
             margin: 0.25rem 0 0 0;
             color: var(--color-text-muted);
+        }
+
+        .biodockify-version {
+            font-size: 0.75rem;
+            margin: 0.5rem 0 0 0;
+            color: var(--color-primary);
+            font-family: var(--font-family-code);
         }
 
         /* Content */

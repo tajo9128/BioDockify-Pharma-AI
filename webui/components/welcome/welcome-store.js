@@ -14,6 +14,11 @@ const model = {
   hasDismissedBanners: false,
   _initialized: false,
 
+  get versionLabel() {
+    const gi = globalThis.gitinfo;
+    return gi && gi.version ? `v${gi.version}` : "";
+  },
+
   get isVisible() {
     return !chatsStore.selected;
   },
