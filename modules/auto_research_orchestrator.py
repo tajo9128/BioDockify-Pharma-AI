@@ -139,7 +139,7 @@ class TodoListManager:
 
 class AgentCommunicationBridge:
     """
-    Enables bidirectional communication between BioDockify AI and NanoBot.
+    Enables bidirectional communication between Agent Zero and NanoBot.
     Handles permissions, data exchange, and task coordination.
     """
     
@@ -165,7 +165,7 @@ class AgentCommunicationBridge:
         return {"status": "sent", "permission_granted": not permission_required}
     
     async def send_to_agent_zero(self, message: str, data: Any = None) -> Dict:
-        """Send message/data to BioDockify AI."""
+        """Send message/data to Agent Zero."""
         log_entry = {
             "from": "NanoBot",
             "to": "AgentZero",
@@ -343,7 +343,7 @@ class AutoResearchOrchestrator:
                     
                     plan.progress = self.todo_manager.get_progress()
                     
-                    # Notify BioDockify AI about progress
+                    # Notify Agent Zero about progress
                     await self.bridge.send_to_agent_zero(
                         f"Task completed: {task.title}",
                         {"progress": plan.progress}
