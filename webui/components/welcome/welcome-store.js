@@ -15,7 +15,7 @@ const model = {
   _initialized: false,
 
   get versionLabel() {
-    return "v1.56";
+    return "v1.57";
   },
 
   get isVisible() {
