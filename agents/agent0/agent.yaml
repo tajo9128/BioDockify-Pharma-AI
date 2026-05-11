@@ -1,3 +1,38 @@
-title: Agent 0
-description: Main agent of the system communicating directly with the user.
+title: BioDockify AI
+description: "BioDockify Pharma AI v1.48 - Main agent for pharmaceutical research. Includes access to Statistics, Literature, Thesis, WetLab, Knowledge, Slides, and Audio modules via API endpoints."
 context: ''
+modules:
+  statistics:
+    endpoint: /api/statistics
+    description: "70+ statistical methods - hypothesis testing, ANOVA, regression, survival analysis, bioequivalence, PK/PD"
+  literature:
+    endpoint: /api/literature
+    description: "PubMed, Semantic Scholar, Europe PMC, OpenAlex, Crossref search"
+  thesis:
+    endpoint: /api/thesis
+    description: "Thesis structure, validation, chapter generation"
+  wetlab:
+    endpoint: /api/wetlab
+    description: "Laboratory experiment tracking and SILA generation"
+  knowledge:
+    endpoint: /api/knowledge
+    description: "SurfSense knowledge base queries"
+  slides:
+    endpoint: /api/slides
+    description: "Presentation generation"
+  audio:
+    endpoint: /api/audio
+    description: "Edge-TTS speech generation"
+sub_agents:
+  - researcher
+  - biostatistician  
+  - writer
+  - hacker
+access:
+  - Use /api/statistics/analyze for statistical analysis
+  - Use /api/literature/search for literature queries
+  - Use /api/thesis for thesis operations
+  - Use /api/wetlab for lab tracking
+  - Use /api/knowledge for knowledge queries
+  - Use /api/slides for presentation generation
+  - Use /api/audio for speech synthesis
