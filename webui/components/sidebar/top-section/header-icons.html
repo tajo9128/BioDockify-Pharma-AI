@@ -135,13 +135,42 @@
             <span class="material-symbols-outlined">delete_sweep</span>
             <span>Clear Chat</span>
           </button>
-        </div>
+</div>
 
         <div class="dropdown-separator"></div>
 
-        <button class="dropdown-item" x-show="$store.chats.loggedIn" @click="$confirmClick($event, () => { $store.chats.logout(); $store.sidebar.menuClose() })">
-          <span class="material-symbols-outlined">logout</span>
-          <span>Logout</span>
+        <div class="dropdown-header">BioDockify Research</div>
+
+        <button class="dropdown-item" @click="openModal('components/research/research-tools.html'); $store.sidebar.menuClose()">
+          <span class="material-symbols-outlined">science</span>
+          <span>Research Tools</span>
+        </button>
+
+        <button class="dropdown-item" @click="openModal('components/statistics/statistics-modal.html'); $store.sidebar.menuClose()">
+          <span class="material-symbols-outlined">analytics</span>
+          <span>Statistics</span>
+        </button>
+
+        <button class="dropdown-item" @click="openModal('components/literature/literature-modal.html'); $store.sidebar.menuClose()">
+          <span class="material-symbols-outlined">menu_book</span>
+          <span>Literature</span>
+        </button>
+
+        <button class="dropdown-item" @click="openModal('components/thesis/thesis-modal.html'); $store.sidebar.menuClose()">
+          <span class="material-symbols-outlined">description</span>
+          <span>Thesis</span>
+        </button>
+
+        <button class="dropdown-item" @click="openModal('components/slides/slides-modal.html'); $store.sidebar.menuClose()">
+          <span class="material-symbols-outlined">slideshow</span>
+          <span>Slides</span>
+        </button>
+
+        <div class="dropdown-separator"></div>
+
+        <button class="dropdown-item" @click="$confirmClick($event, () => { $store.chats.restart(); $store.sidebar.menuClose() })">
+          <span class="material-symbols-outlined">restart_alt</span>
+          <span>Restart BioDockify</span>
         </button>
 
         <button class="dropdown-item" @click="$confirmClick($event, () => { $store.chats.restart(); $store.sidebar.menuClose() })">

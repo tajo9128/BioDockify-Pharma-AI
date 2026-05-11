@@ -1,0 +1,85 @@
+<html>
+<head>
+  <script type="module">
+    import { store } from "/components/sidebar/research/research-store.js";
+  </script>
+</head>
+<body>
+  <div x-data="researchTools" class="research-tools">
+    <div class="section-header">
+      <h3>Research Tools</h3>
+    </div>
+
+    <div class="tool-grid">
+      <button class="tool-card" @click="openStatistics()">
+        <span class="material-symbols-outlined">analytics</span>
+        <span>Statistics</span>
+      </button>
+
+      <button class="tool-card" @click="openLiterature()">
+        <span class="material-symbols-outlined">menu_book</span>
+        <span>Literature</span>
+      </button>
+
+      <button class="tool-card" @click="openThesis()">
+        <span class="material-symbols-outlined">description</span>
+        <span>Thesis</span>
+      </button>
+
+      <button class="tool-card" @click="openSlides()">
+        <span class="material-symbols-outlined">slideshow</span>
+        <span>Slides</span>
+      </button>
+
+      <button class="tool-card" @click="openWetLab()">
+        <span class="material-symbols-outlined">science</span>
+        <span>Wet Lab</span>
+      </button>
+
+      <button class="tool-card" @click="openKnowledge()">
+        <span class="material-symbols-outlined">psychology</span>
+        <span>Knowledge</span>
+      </button>
+    </div>
+
+    <style>
+      .research-tools {
+        padding: var(--spacing-md);
+      }
+      .section-header h3 {
+        margin-bottom: var(--spacing-md);
+        color: var(--color-text);
+      }
+      .tool-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--spacing-sm);
+      }
+      .tool-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--spacing-xs);
+        padding: var(--spacing-md);
+        background: var(--color-panel);
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .tool-card:hover {
+        background: var(--color-secondary);
+        border-color: var(--color-primary);
+      }
+      .tool-card .material-symbols-outlined {
+        font-size: 24px;
+        color: var(--color-primary);
+      }
+      .tool-card span:not(.material-symbols-outlined) {
+        font-size: 12px;
+        color: var(--color-text);
+      }
+    </style>
+  </div>
+</body>
+</html>
