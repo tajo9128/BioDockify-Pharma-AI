@@ -1,16 +1,16 @@
 FROM tajo9128/biodockify-ai:v3.9.0
 
-COPY webui/ /a0/webui/
-COPY plugins/ /a0/plugins/
-COPY public/ /a0/webui/public/
+COPY webui/ /bio/webui/
+COPY plugins/ /bio/plugins/
+COPY public/ /bio/webui/public/
 
-RUN cp -r /a0/webui/. /git/agent-zero/webui/ && \
-    cp -r /a0/plugins/. /git/agent-zero/plugins/
+RUN cp -r /bio/webui/. /git/biodockify/webui/ && \
+    cp -r /bio/plugins/. /git/biodockify/plugins/
 
 COPY knowledge/ /tmp/biodockify-knowledge/
 RUN if [ -d /tmp/biodockify-knowledge/main/about ]; then \
-      cp -r /tmp/biodockify-knowledge/main/about/* /a0/knowledge/main/about/ 2>/dev/null; \
-      cp -r /tmp/biodockify-knowledge/main/about/* /git/agent-zero/knowledge/main/about/ 2>/dev/null; \
+      cp -r /tmp/biodockify-knowledge/main/about/* /bio/knowledge/main/about/ 2>/dev/null; \
+      cp -r /tmp/biodockify-knowledge/main/about/* /git/biodockify/knowledge/main/about/ 2>/dev/null; \
     fi && \
     rm -rf /tmp/biodockify-knowledge
 

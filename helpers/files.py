@@ -615,6 +615,8 @@ def normalize_bio_path(path: str):
         return "/bio/" + deabs
     return path
 
+normalize_a0_path = normalize_bio_path
+
 
 def exists(*relative_paths):
     path = _resolve_path(*relative_paths)
