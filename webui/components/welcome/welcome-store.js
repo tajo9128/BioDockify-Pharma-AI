@@ -21,7 +21,7 @@ const model = {
   },
 
   get isVisible() {
-    return this._showWelcome;
+    return false; // Disable welcome screen completely
   },
 
   init() {

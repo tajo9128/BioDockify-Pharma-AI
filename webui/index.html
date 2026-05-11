@@ -93,14 +93,9 @@
             <!-- top section with time, status etc. -->
             <x-component path="chat/top-section/chat-top.html"></x-component>
 
-            <!-- Chat Area - Welcome + Messages in same panel -->
+            <!-- Chat Area -->
             <div id="chat-area-wrapper" x-data>
-              <!-- Welcome Screen in same area as chat -->
-              <div x-show="$store.welcomeStore && $store.welcomeStore.isVisible" style="height:100%;">
-                <x-component path="welcome/welcome-screen.html"></x-component>
-              </div>
-              <!-- Message History -->
-              <div id="chat-history" x-show="!$store.welcomeStore || !$store.welcomeStore.isVisible"></div>
+              <div id="chat-history"></div>
 
               <!-- Chat Navigation Buttons (floating over chat area) -->
               <div id="chat-nav-buttons" aria-label="Chat navigation" x-cloak>
