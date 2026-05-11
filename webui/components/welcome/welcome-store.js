@@ -13,15 +13,14 @@ const model = {
   lastBannerRefresh: 0,
   hasDismissedBanners: false,
   _initialized: false,
-  _showWelcome: false, // Default: false - only show when home clicked
 
   get versionLabel() {
-    const gi = globalThis.gitinfo;
-    return gi && gi.version ? `v${gi.version}` : "";
+    return "v1.33";
   },
 
   get isVisible() {
-    return false; // Disable welcome screen completely
+    // Show welcome when no chat selected
+    return !chatsStore.selected;
   },
 
   init() {

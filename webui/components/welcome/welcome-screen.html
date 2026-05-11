@@ -10,7 +10,7 @@
     <div x-data>
         <template x-if="$store.welcomeStore">
             <div class="welcome-container">
-                <!-- Header with Logo -->
+                <!-- Header -->
                 <div class="welcome-header">
                     <svg class="welcome-logo" viewBox="0 0 960 960">
                         <defs>
@@ -26,36 +26,66 @@
                         <circle cx="480" cy="680" r="80" fill="#0a1929"/>
                     </svg>
                     <h1 class="welcome-title">BioDockify AI</h1>
-                    <p class="welcome-version">v1.33</p>
+                    <p class="welcome-version">v1.33 - Pharmaceutical Research Assistant</p>
                 </div>
 
-                <!-- Buttons -->
-                <div class="welcome-buttons">
-                    <button class="btn-primary" @click="$store.welcomeStore.executeAction('new-chat')">
+                <!-- Quick Actions -->
+                <div class="welcome-actions">
+                    <button class="action-btn primary" @click="chatsStore.newChat()">
+                        <span class="material-symbols-outlined">add_comment</span>
                         <span>New Chat</span>
                     </button>
-                    <button class="btn-secondary" @click="$store.welcomeStore.executeAction('home')">
-                        <span>Chat History</span>
-                    </button>
                 </div>
 
-                <!-- Features -->
-                <div class="welcome-features">
-                    <button class="feature" @click="$store.welcomeStore.hide(); setTimeout(() => openModal('components/statistics/statistics-modal.html'), 100)">
+                <!-- Feature Grid -->
+                <div class="feature-grid">
+                    <button class="feature-btn" @click="openModal('components/research/research-tools.html')">
+                        <span class="material-symbols-outlined">science</span>
+                        <span>Research Tools</span>
+                    </button>
+                    <button class="feature-btn" @click="openModal('components/statistics/statistics-modal.html')">
                         <span class="material-symbols-outlined">analytics</span>
                         <span>Statistics</span>
                     </button>
-                    <button class="feature" @click="$store.welcomeStore.hide(); setTimeout(() => openModal('components/literature/literature-modal.html'), 100)">
+                    <button class="feature-btn" @click="openModal('components/literature/literature-modal.html')">
                         <span class="material-symbols-outlined">menu_book</span>
                         <span>Literature</span>
                     </button>
-                    <button class="feature" @click="$store.welcomeStore.hide(); setTimeout(() => openModal('components/thesis/thesis-modal.html'), 100)">
+                    <button class="feature-btn" @click="openModal('components/thesis/thesis-modal.html')">
                         <span class="material-symbols-outlined">description</span>
                         <span>Thesis</span>
                     </button>
-                    <button class="feature" @click="$store.welcomeStore.hide(); setTimeout(() => openModal('components/wetlab/wetlab-modal.html'), 100)">
-                        <span class="material-symbols-outlined">science</span>
+                    <button class="feature-btn" @click="openModal('components/slides/slides-modal.html')">
+                        <span class="material-symbols-outlined">slideshow</span>
+                        <span>Slides</span>
+                    </button>
+                    <button class="feature-btn" @click="openModal('components/wetlab/wetlab-modal.html')">
+                        <span class="material-symbols-outlined">biotech</span>
                         <span>Wet Lab</span>
+                    </button>
+                    <button class="feature-btn" @click="openModal('components/knowledge/knowledge-modal.html')">
+                        <span class="material-symbols-outlined">psychology</span>
+                        <span>Knowledge</span>
+                    </button>
+                    <button class="feature-btn" @click="openModal('components/plugins/list/plugin-list.html')">
+                        <span class="material-symbols-outlined">extension</span>
+                        <span>Plugins</span>
+                    </button>
+                </div>
+
+                <!-- Quick Links -->
+                <div class="quick-links">
+                    <button class="link-btn" @click="openModal('settings/settings.html')">
+                        <span class="material-symbols-outlined">settings</span>
+                        <span>Settings</span>
+                    </button>
+                    <button class="link-btn" @click="openModal('components/modals/scheduler/scheduler-modal.html')">
+                        <span class="material-symbols-outlined">schedule</span>
+                        <span>Tasks</span>
+                    </button>
+                    <button class="link-btn" @click="$store.projects.openProjectsModal()">
+                        <span class="material-symbols-outlined">folder</span>
+                        <span>Projects</span>
                     </button>
                 </div>
             </div>
@@ -72,6 +102,7 @@
             width: 100%;
             padding: 2rem;
             background: var(--color-background);
+            overflow-y: auto;
         }
 
         .welcome-header {
@@ -86,7 +117,7 @@
         }
 
         .welcome-title {
-            font-size: 1.5rem;
+            font-size: 1.75rem;
             font-weight: 700;
             color: var(--color-primary);
             margin: 0;
@@ -98,53 +129,45 @@
             margin: 0.5rem 0 0 0;
         }
 
-        .welcome-buttons {
-            display: flex;
-            gap: 1rem;
+        .welcome-actions {
             margin-bottom: 2rem;
         }
 
-        .btn-primary, .btn-secondary {
+        .action-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
             padding: 0.75rem 1.5rem;
             border-radius: 8px;
             font-size: 1rem;
             cursor: pointer;
             transition: all 0.2s;
-        }
-
-        .btn-primary {
-            background: var(--color-primary);
-            color: #0a1929;
             border: none;
         }
 
-        .btn-primary:hover {
+        .action-btn.primary {
+            background: var(--color-primary);
+            color: #0a1929;
+        }
+
+        .action-btn.primary:hover {
             opacity: 0.9;
         }
 
-        .btn-secondary {
-            background: transparent;
-            color: var(--color-text);
-            border: 1px solid var(--color-border);
-        }
-
-        .btn-secondary:hover {
-            border-color: var(--color-primary);
-        }
-
-        .welcome-features {
-            display: flex;
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
             gap: 0.75rem;
-            flex-wrap: wrap;
-            justify-content: center;
+            margin-bottom: 2rem;
+            max-width: 600px;
         }
 
-        .feature {
+        .feature-btn {
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 0.25rem;
-            padding: 0.75rem 1rem;
+            padding: 1rem 0.75rem;
             background: var(--color-panel);
             border: 1px solid var(--color-border);
             border-radius: 8px;
@@ -152,27 +175,56 @@
             transition: all 0.2s;
         }
 
-        .feature:hover {
+        .feature-btn:hover {
             border-color: var(--color-primary);
+            background: var(--color-message-bg);
         }
 
-        .feature .material-symbols-outlined {
+        .feature-btn .material-symbols-outlined {
             font-size: 1.5rem;
             color: var(--color-primary);
         }
 
-        .feature span:last-child {
+        .feature-btn span:last-child {
             font-size: 0.75rem;
             color: var(--color-text);
         }
 
-        @media (max-width: 480px) {
-            .welcome-buttons {
-                flex-direction: column;
-            }
-            .welcome-features {
-                display: grid;
+        .quick-links {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .link-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.5rem 1rem;
+            background: transparent;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            cursor: pointer;
+            color: var(--color-text-muted);
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .link-btn:hover {
+            border-color: var(--color-primary);
+            color: var(--color-text);
+        }
+
+        .link-btn .material-symbols-outlined {
+            font-size: 1rem;
+        }
+
+        @media (max-width: 640px) {
+            .feature-grid {
                 grid-template-columns: repeat(2, 1fr);
+            }
+            .quick-links {
+                flex-wrap: wrap;
+                justify-content: center;
             }
         }
     </style>

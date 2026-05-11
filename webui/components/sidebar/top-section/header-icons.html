@@ -34,8 +34,8 @@
           <span class="material-symbols-outlined" aria-hidden="true">menu</span>
         </button>
 
-        <button class="config-button header-action-button" @click="chatsStore.newChat()" title="New Chat" aria-label="New Chat">
-          <span class="material-symbols-outlined">add_comment</span>
+        <button class="config-button header-action-button" @click="deselectChat()" title="Home" aria-label="Home">
+          <span class="material-symbols-outlined">home</span>
         </button>
 
         <button class="config-button header-action-button" @click="openModal('components/research/research-tools.html')" title="Research Tools">
@@ -87,6 +87,11 @@
         <div id="sidebar-quick-actions-dropdown-slot-start"></div>
 
         <div class="dropdown-header">Navigation</div>
+
+        <button class="dropdown-item" @click="deselectChat(); $store.sidebar.menuClose()">
+          <span class="material-symbols-outlined">home</span>
+          <span>Home</span>
+        </button>
 
         <button class="dropdown-item" @click="chatsStore.newChat(); $store.sidebar.menuClose()">
           <span class="material-symbols-outlined">add_comment</span>
