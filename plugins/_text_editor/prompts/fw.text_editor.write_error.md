@@ -1,1 +1,0 @@
-error writing {{path}}: {{error}}

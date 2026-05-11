@@ -1,2 +1,0 @@
-# Email custom rules
-{{instructions}}

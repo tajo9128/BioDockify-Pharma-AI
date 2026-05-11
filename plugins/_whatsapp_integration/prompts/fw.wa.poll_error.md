@@ -1,1 +1,0 @@
-whatsapp poll error: {{error}}

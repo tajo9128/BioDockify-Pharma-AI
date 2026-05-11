@@ -1,1 +1,0 @@
-whatsapp update failed: {{error}}
