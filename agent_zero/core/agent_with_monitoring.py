@@ -1,5 +1,5 @@
 """
-MonitoredAgentZero - Prometheus-instrumented wrapper for Agent Zero Hybrid Agent.
+MonitoredAgentZero - Prometheus-instrumented wrapper for BioDockify AI Hybrid Agent.
 Preserves self-repair and self-diagnosis features while adding observability.
 """
 
@@ -12,8 +12,8 @@ except ImportError:
 from typing import Dict, Any, Optional
 from prometheus_client import Counter, Histogram
 
-from agent_zero.hybrid.agent import HybridAgent
-from agent_zero.hybrid.context import AgentConfig
+from biodockify.ai.hybrid.agent import HybridAgent
+from biodockify.ai.hybrid.context import AgentConfig
 from orchestration.planner.orchestrator import OrchestratorConfig
 # We assume SelfRepairSkill is a standard skill accessible via the agent or separately
 # For monitoring, we wrap the execute calls.
@@ -22,11 +22,11 @@ logger = logging.getLogger("BioDockify.MonitoredAgent")
 
 class MonitoredAgentZero:
     """
-    Agent Zero with self-repair + Prometheus monitoring.
+    BioDockify AI with self-repair + Prometheus monitoring.
     """
     
     def __init__(self, agent_config: AgentConfig, llm_config: OrchestratorConfig):
-        # Keep original Agent Zero
+        # Keep original BioDockify AI
         self.agent = HybridAgent(
             config=agent_config,
             llm_config=llm_config
@@ -40,38 +40,38 @@ class MonitoredAgentZero:
         try:
             # Total executions by status (success/failed) and mode
             self.execution_counter = Counter(
-                'agent_zero_executions_total',
+                'biodockify.ai_executions_total',
                 'Total agent executions',
                 ['status', 'mode']
             )
             
             # Duration of executions
             self.execution_duration = Histogram(
-                'agent_zero_execution_duration_seconds',
+                'biodockify.ai_execution_duration_seconds',
                 'Agent execution duration',
                 ['mode', 'self_repair_used']
             )
             
             # Self-repair attempts and success
             self.repair_counter = Counter(
-                'agent_zero_self_repairs_total',
+                'biodockify.ai_self_repairs_total',
                 'Total self-repair attempts',
                 ['success', 'repair_type']
             )
             
             # Error diagnoses
             self.diagnosis_counter = Counter(
-                'agent_zero_diagnoses_total',
+                'biodockify.ai_diagnoses_total',
                 'Total error diagnoses',
                 ['error_type']
             )
         except ValueError:
              # Metrics already registered
             from prometheus_client import REGISTRY
-            self.execution_counter = REGISTRY._names_to_collectors['agent_zero_executions_total']
-            self.execution_duration = REGISTRY._names_to_collectors['agent_zero_execution_duration_seconds']
-            self.repair_counter = REGISTRY._names_to_collectors['agent_zero_self_repairs_total']
-            self.diagnosis_counter = REGISTRY._names_to_collectors['agent_zero_diagnoses_total']
+            self.execution_counter = REGISTRY._names_to_collectors['biodockify.ai_executions_total']
+            self.execution_duration = REGISTRY._names_to_collectors['biodockify.ai_execution_duration_seconds']
+            self.repair_counter = REGISTRY._names_to_collectors['biodockify.ai_self_repairs_total']
+            self.diagnosis_counter = REGISTRY._names_to_collectors['biodockify.ai_diagnoses_total']
 
     async def execute(self, task: str, mode: str = 'standard') -> Dict[str, Any]:
         """
@@ -81,13 +81,13 @@ class MonitoredAgentZero:
         
         if sentry_sdk:
             sentry_sdk.add_breadcrumb(
-                category='agent_zero',
+                category='biodockify.ai',
                 message=f"Executing task: {task[:100]}",
                 level='info'
             )
         
         try:
-            # Execute with Agent Zero
+            # Execute with BioDockify AI
             # HybridAgent.execute already handles self-repair if enabled in config
             result = await self.agent.execute(task)
             
@@ -120,7 +120,7 @@ class MonitoredAgentZero:
             # Record diagnosis metrics
             self.diagnosis_counter.labels(error_type=type(e).__name__).inc()
             
-            logger.error(f"Agent Zero Execution Failed: {e}")
+            logger.error(f"BioDockify AI Execution Failed: {e}")
             raise
             
     async def initialize(self):

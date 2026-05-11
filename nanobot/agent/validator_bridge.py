@@ -1,6 +1,6 @@
 """
 Validation Bridge - BioDockify NanoBot
-Automated sanity checking for Agent Zero outputs and high-risk action gating.
+Automated sanity checking for BioDockify AI outputs and high-risk action gating.
 """
 import logging
 import subprocess
@@ -12,7 +12,7 @@ logger = logging.getLogger("nanobot.validator")
 
 class ValidatorBridge:
     """
-    Acts as a quality control layer between Agent Zero outputs and the final research workspace.
+    Acts as a quality control layer between BioDockify AI outputs and the final research workspace.
     """
     
     def __init__(self, workspace_root: Path):

@@ -3,8 +3,8 @@ Telegram Channel - Integration with Telegram Bot API.
 """
 from typing import Optional
 import logging
-from agent_zero.hybrid.channels.base import BaseChannel
-from agent_zero.hybrid.bus import MessageBus, OutboundMessage
+from biodockify.ai.hybrid.channels.base import BaseChannel
+from biodockify.ai.hybrid.bus import MessageBus, OutboundMessage
 
 logger = logging.getLogger(__name__)
 

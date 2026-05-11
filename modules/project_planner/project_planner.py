@@ -1,6 +1,6 @@
 """
 Project Planner - Breaks down project titles into comprehensive task lists
-Integrates with Agent Zero for intelligent planning
+Integrates with BioDockify AI for intelligent planning
 """
 
 import uuid
@@ -79,11 +79,11 @@ class Project:
 
 class ProjectPlanner:
     """
-    Project Planner - Uses Agent Zero to create comprehensive project plans
+    Project Planner - Uses BioDockify AI to create comprehensive project plans
 
     Features:
     - Project title → Full task breakdown
-    - Agent Zero planning integration
+    - BioDockify AI planning integration
     - Persistent memory recall
     - Timeline estimation
     - Resource allocation
@@ -120,7 +120,7 @@ class ProjectPlanner:
         # Step 1: Recall relevant projects from memory
         similar_projects = await self._recall_similar_projects(project_title)
 
-        # Step 2: Use Agent Zero to plan the project
+        # Step 2: Use BioDockify AI to plan the project
         project_plan = await self._agent_zero_plan_project(
             project_title, project_type, additional_context, similar_projects
         )
@@ -185,7 +185,7 @@ class ProjectPlanner:
         similar_projects: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
         """
-        Use Agent Zero to create detailed project plan
+        Use BioDockify AI to create detailed project plan
         """
         # Build planning prompt
         similar_context = ""
@@ -244,7 +244,7 @@ Respond in JSON format:
 """
 
         try:
-            # Execute through Agent Zero
+            # Execute through BioDockify AI
             if self.hybrid_agent:
                 # We use the execute method we added earlier if available
                 if hasattr(self.hybrid_agent, "execute"):
@@ -269,13 +269,13 @@ Respond in JSON format:
                         return json.loads(json_str)
                     except:
                         logger.warning(
-                            "Failed to parse Agent Zero planning response as JSON, using template."
+                            "Failed to parse BioDockify AI planning response as JSON, using template."
                         )
 
             return self._create_default_plan(project_title, project_type)
 
         except Exception as e:
-            logger.error(f"Error in Agent Zero planning: {e}")
+            logger.error(f"Error in BioDockify AI planning: {e}")
             return self._create_default_plan(project_title, project_type)
 
     def _create_default_plan(

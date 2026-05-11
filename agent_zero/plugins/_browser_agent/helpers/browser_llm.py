@@ -74,7 +74,7 @@ class BrowserCompatibleChatWrapper(ChatOpenRouter):
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ):
-        models.apply_rate_limiter_sync(self._wrapper.a0_model_conf, str(messages))
+        models.apply_rate_limiter_sync(self._wrapper.bio_model_conf, str(messages))
 
         try:
             model = kwargs.pop("model", None)

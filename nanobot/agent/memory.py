@@ -1,6 +1,6 @@
 """
 Persistent Memory - Long-term research retention system.
-Ported from Agent Zero original core.
+Ported from BioDockify AI original core.
 """
 
 import json
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class PersistentMemory:
     """
-    Persistent memory system for Agent Zero.
+    Persistent memory system for BioDockify AI.
     Supports short-term session memory and long-term disk retrieval.
     """
 

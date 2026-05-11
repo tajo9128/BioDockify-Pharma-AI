@@ -3,7 +3,7 @@ from agent_zero.skills.self_repair import SelfRepairSkill
 
 @pytest.mark.asyncio
 async def test_self_diagnosis():
-    """Test Agent Zero self-diagnosis capability."""
+    """Test BioDockify AI self-diagnosis capability."""
     repair_skill = SelfRepairSkill()
     
     # Simulate an error
@@ -18,7 +18,7 @@ async def test_self_diagnosis():
 
 @pytest.mark.asyncio
 async def test_self_repair():
-    """Test Agent Zero self-repair capability."""
+    """Test BioDockify AI self-repair capability."""
     repair_skill = SelfRepairSkill()
     
     # Simulate a fixable error

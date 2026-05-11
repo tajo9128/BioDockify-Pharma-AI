@@ -5,7 +5,7 @@ from typing import Any
 
 from helpers.extension import Extension
 
-from plugins._a0_connector.helpers.ws_runtime import (
+from plugins._bio_connector.helpers.ws_runtime import (
     computer_use_metadata_for_sid,
     remote_exec_metadata_for_sid,
     remote_file_metadata_for_sid,

@@ -5,7 +5,7 @@ Features:
 - Device awareness
 - Multi-task execution
 - Persistent memory
-- Agent Zero planning
+- BioDockify AI planning
 """
 
 import asyncio
@@ -38,11 +38,11 @@ class EnhancedSystem:
     Enhanced Integration System
 
     Unifies:
-    - Project Planner (Agent Zero planning)
+    - Project Planner (BioDockify AI planning)
     - Device State Manager (device awareness)
     - Multi-Task Scheduler (parallel execution)
     - Memory System (persistent storage)
-    - Agent Zero (execution)
+    - BioDockify AI (execution)
     """
 
     def __init__(self, hybrid_agent=None, max_parallel_tasks=5):

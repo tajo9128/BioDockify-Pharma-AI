@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class Heartbeat(BaseModel):
     """
-    Structured heartbeat sent by Agent Zero to NanoBot.
+    Structured heartbeat sent by BioDockify AI to NanoBot.
     Mandatory schema for execution supervision.
     """
     task_id: str

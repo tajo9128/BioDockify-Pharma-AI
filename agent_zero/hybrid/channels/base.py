@@ -4,7 +4,7 @@ Base Channel - Abstract base class for all communication channels.
 from abc import ABC, abstractmethod
 import logging
 from typing import Optional, List
-from agent_zero.hybrid.bus import MessageBus, InboundMessage, OutboundMessage
+from biodockify.ai.hybrid.bus import MessageBus, InboundMessage, OutboundMessage
 
 logger = logging.getLogger(__name__)
 

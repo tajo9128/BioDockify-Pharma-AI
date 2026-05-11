@@ -1,7 +1,7 @@
 """
 Hybrid Agent Core - The Brain of BioDockify AI
 Combines:
-1. Agent Zero's monologue loop (continuous reasoning)
+1. BioDockify AI's monologue loop (continuous reasoning)
 2. NanoBot's tools & skills
 3. SurfSense's research capabilities
 4. Unified LLM Interface (LM Studio/API)
@@ -17,34 +17,34 @@ from nanobot.models.heartbeat_schema import Heartbeat
 
 from modules.llm.factory import LLMFactory
 from orchestration.planner.orchestrator import OrchestratorConfig
-from agent_zero.hybrid.context import AgentContext, AgentConfig, LoopData
-from agent_zero.hybrid.memory import HybridMemory, MemoryArea
-from agent_zero.hybrid.prompts import get_system_prompt
-from agent_zero.hybrid.diagnosis import SystemDiagnosis
-from agent_zero.hybrid.tools.code_execution import SafeCodeExecutionTool
-from agent_zero.hybrid.tools.file_editor import FileEditorTool
-from agent_zero.hybrid.tools.config_tool import ConfigManagerTool
-from agent_zero.hybrid.tools.graph_tool import KnowledgeGraphTool
-from agent_zero.hybrid.tools.github_tool import GitHubTool
-from agent_zero.skills.reviewer_agent import get_reviewer_agent
-from agent_zero.skills.achademio.wrapper import get_achademio
-from agent_zero.skills.latte_review.wrapper import get_latte_review
-from agent_zero.skills.deep_drive.wrapper import get_deep_drive
-from agent_zero.skills.scholar_copilot.wrapper import get_scholar_copilot
-from agent_zero.skills.email_messenger import get_email_messenger
-from agent_zero.skills.browser_scraper import get_browser_scraper
+from biodockify.ai.hybrid.context import AgentContext, AgentConfig, LoopData
+from biodockify.ai.hybrid.memory import HybridMemory, MemoryArea
+from biodockify.ai.hybrid.prompts import get_system_prompt
+from biodockify.ai.hybrid.diagnosis import SystemDiagnosis
+from biodockify.ai.hybrid.tools.code_execution import SafeCodeExecutionTool
+from biodockify.ai.hybrid.tools.file_editor import FileEditorTool
+from biodockify.ai.hybrid.tools.config_tool import ConfigManagerTool
+from biodockify.ai.hybrid.tools.graph_tool import KnowledgeGraphTool
+from biodockify.ai.hybrid.tools.github_tool import GitHubTool
+from biodockify.ai.skills.reviewer_agent import get_reviewer_agent
+from biodockify.ai.skills.achademio.wrapper import get_achademio
+from biodockify.ai.skills.latte_review.wrapper import get_latte_review
+from biodockify.ai.skills.deep_drive.wrapper import get_deep_drive
+from biodockify.ai.skills.scholar_copilot.wrapper import get_scholar_copilot
+from biodockify.ai.skills.email_messenger import get_email_messenger
+from biodockify.ai.skills.browser_scraper import get_browser_scraper
 from modules.headless_research.engine import deep_research as stealth_deep_research
-from agent_zero.hybrid.errors import RepairableException, InterventionException, format_error
-from agent_zero.hybrid.bus import MessageBus, OutboundMessage, InboundMessage
-from agent_zero.services.cron import CronService
+from biodockify.ai.hybrid.errors import RepairableException, InterventionException, format_error
+from biodockify.ai.hybrid.bus import MessageBus, OutboundMessage, InboundMessage
+from biodockify.ai.services.cron import CronService
 
 logger = logging.getLogger(__name__)
 
 class HybridAgent:
     """
-    BioDockify Hybrid Agent (Agent Zero + NanoBot + SurfSense).
+    BioDockify Hybrid Agent (BioDockify AI + NanoBot + SurfSense).
     Integrates:
-    - Self-Awareness (Agent Zero Monologue)
+    - Self-Awareness (BioDockify AI Monologue)
     - Communications (NanoBot MessageBus)
     - Researcher (SurfSense)
     """
@@ -215,8 +215,8 @@ class HybridAgent:
         if not task: return "Error: 'task' parameter is required"
         
         try:
-            from agent_zero.enhanced import get_agent_zero_enhanced
-            return await get_agent_zero_enhanced().spawn_background_task(task, label)
+            from biodockify.ai.enhanced import get_biodockify.ai_enhanced
+            return await get_biodockify.ai_enhanced().spawn_background_task(task, label)
         except Exception as e:
             return f"Failed to spawn agent: {str(e)}"
 
@@ -230,7 +230,7 @@ class HybridAgent:
         
         try:
             # 1. Imports (Lazy to avoid circular deps if any)
-            from agent_zero.web_research import (
+            from biodockify.ai.web_research import (
                 SearchPlanner, SearchQuery, SurfSense, Executor, 
                 Curator, Reasoner, CrawlConfig, CuratorConfig
             )
@@ -479,7 +479,7 @@ class HybridAgent:
 
     async def monologue(self):
         """
-        The Core Loop (Agent Zero Style).
+        The Core Loop (BioDockify AI Style).
         Continuous reasoning cycle until task completion or pause.
         Supports Self-Healing and User Intervention.
         """

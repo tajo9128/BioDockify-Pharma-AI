@@ -78,10 +78,10 @@ def get_runtime_id() -> str:
 
 
 def get_persistent_id() -> str:
-    id = dotenv.get_dotenv_value("A0_PERSISTENT_RUNTIME_ID")
+    id = dotenv.get_dotenv_value("bio_PERSISTENT_RUNTIME_ID")
     if not id:
         id = secrets.token_hex(16)
-        dotenv.save_dotenv_value("A0_PERSISTENT_RUNTIME_ID", id)
+        dotenv.save_dotenv_value("bio_PERSISTENT_RUNTIME_ID", id)
     return id
 
 

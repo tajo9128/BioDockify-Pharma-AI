@@ -1,13 +1,13 @@
-"""POST /api/plugins/_a0_connector/v1/log_tail."""
+"""POST /api/plugins/_bio_connector/v1/log_tail."""
 from __future__ import annotations
 
 from helpers.api import Request, Response
-import plugins._a0_connector.api.v1.base as connector_base
+import plugins._bio_connector.api.v1.base as connector_base
 
 
 class LogTail(connector_base.ProtectedConnectorApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
-        from plugins._a0_connector.helpers.event_bridge import (
+        from plugins._bio_connector.helpers.event_bridge import (
             get_context_log_entries,
         )
 

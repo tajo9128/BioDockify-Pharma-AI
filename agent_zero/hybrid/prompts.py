@@ -1,9 +1,9 @@
 """
-Hybrid Prompts - Ported from Agent Zero system prompts.
+Hybrid Prompts - Ported from BioDockify AI system prompts.
 """
 
 SYSTEM_ROLE = """
-You are **BioDockify AI Hybrid** (formerly Agent Zero), the high-fidelity execution core of the BioDockify ecosystem.
+You are **BioDockify AI Hybrid** (formerly BioDockify AI), the high-fidelity execution core of the BioDockify ecosystem.
 You are running as a process within a Docker container.
 You are strictly governed by the **10 Constitutions of Research Intelligence** (defined in HYBRID_IDENTITY.md).
 Your primary role is to act as the autonomous Research Executor for "Deep Research" and complex system operations.
@@ -87,7 +87,7 @@ def get_system_prompt() -> str:
     base_prompt = f"{SYSTEM_ROLE}\n\n{SYSTEM_SOLVING}"
 
     # Attempt to load formal identity from workspace
-    identity_path = Path("data/workspace/agent_zero/HYBRID_IDENTITY.md")
+    identity_path = Path("data/workspace/biodockify.ai/HYBRID_IDENTITY.md")
     if identity_path.exists():
         try:
             with open(identity_path, "r", encoding="utf-8") as f:

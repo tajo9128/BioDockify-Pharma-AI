@@ -54,7 +54,7 @@ def codex_callback():
     code = request.args.get("code", "")
     attempt = pop_attempt(state)
     if not attempt:
-        return _html_page("Codex Sign-In Expired", "Return to Agent Zero and start a new Codex connection."), 400
+        return _html_page("Codex Sign-In Expired", "Return to BioDockify AI and start a new Codex connection."), 400
     if not code:
         return _html_page("Codex Sign-In Failed", "The OAuth callback did not include an authorization code."), 400
 

@@ -1,7 +1,7 @@
 """
-Agent Zero Integration Example
+BioDockify AI Integration Example
 
-This example demonstrates how to use the complete Agent Zero system:
+This example demonstrates how to use the complete BioDockify AI system:
 - LLMProvider: For text generation
 - ToolRegistry: For managing research tools
 - PersistentMemory: For storing and recalling memories
@@ -52,7 +52,7 @@ async def main():
     from agent_zero.core.memory import PersistentMemory
 
     print("=" * 60)
-    print("Agent Zero Integration Example")
+    print("BioDockify AI Integration Example")
     print("=" * 60)
     print()
 
@@ -95,10 +95,10 @@ async def main():
     print("✓ PhD Planner initialized")
     print()
 
-    # Initialize Agent Zero
-    print("Step 5: Initializing Agent Zero...")
+    # Initialize BioDockify AI
+    print("Step 5: Initializing BioDockify AI...")
     agent = AgentZero(llm, tool_registry, memory, max_retries=3)
-    print("✓ Agent Zero initialized")
+    print("✓ BioDockify AI initialized")
     print()
 
     # ============================================================================
@@ -224,11 +224,11 @@ async def main():
     print()
 
     # ============================================================================
-    # 6. Agent Zero Execution
+    # 6. BioDockify AI Execution
     # ============================================================================
 
     print("=" * 60)
-    print("Agent Zero Execution")
+    print("BioDockify AI Execution")
     print("=" * 60)
     print()
 
@@ -316,7 +316,7 @@ async def main():
     print("  ✓ Tool Registry setup and tool registration")
     print("  ✓ Persistent Memory store")
     print("  ✓ PhD Planner for stage detection")
-    print("  ✓ Agent Zero orchestrator")
+    print("  ✓ BioDockify AI orchestrator")
     print("  ✓ PhD stage detection (from milestones and timeline)")
     print("  ✓ Tool recommendation")
     print("  ✓ Memory storage and retrieval")

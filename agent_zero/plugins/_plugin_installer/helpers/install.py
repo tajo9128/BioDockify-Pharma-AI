@@ -341,7 +341,7 @@ def get_plugin_hub_index(force: bool = False) -> dict[str, Any]:
 
 def fetch_plugin_index(force: bool = False) -> dict:
     """Download the plugin index from GitHub releases."""
-    index_url = "https://github.com/agent0ai/a0-plugins/releases/download/generated-index/index.json"
+    index_url = "https://github.com/agent0ai/bio-plugins/releases/download/generated-index/index.json"
     if force:
         separator = "&" if "?" in index_url else "?"
         index_url = f"{index_url}{separator}ts={time.time_ns()}"

@@ -9,14 +9,14 @@ from helpers.tool import Response, Tool
 from helpers.ws import NAMESPACE
 from helpers.ws_manager import ConnectionNotFoundError, get_shared_ws_manager
 
-from plugins._a0_connector.helpers.text_editor_freshness import (
+from plugins._bio_connector.helpers.text_editor_freshness import (
     apply_patch_post_state,
     check_patch_freshness,
     coerce_file_metadata,
     mark_file_state_stale,
     record_file_state,
 )
-from plugins._a0_connector.helpers.ws_runtime import (
+from plugins._bio_connector.helpers.ws_runtime import (
     clear_pending_file_op,
     select_remote_file_target_sid,
     store_pending_file_op,

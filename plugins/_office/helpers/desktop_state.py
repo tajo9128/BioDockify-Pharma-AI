@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 SESSION_ID = "agent-zero-desktop"
-BASE_DIR = Path(os.environ.get("A0_BASE_DIR") or ("/a0" if Path("/a0").exists() else PROJECT_ROOT))
+BASE_DIR = Path(os.environ.get("bio_BASE_DIR") or ("/a0" if Path("/a0").exists() else PROJECT_ROOT))
 STATE_DIR = BASE_DIR / "tmp" / "_office" / "desktop"
 SESSION_DIR = STATE_DIR / "sessions"
 PROFILE_DIR = STATE_DIR / "profiles"
@@ -23,7 +23,7 @@ RECENT_SCREENSHOT_SECONDS = 600
 
 
 def session_manifest_path(session_id: str = SESSION_ID) -> Path:
-    return Path(os.environ.get("A0_DESKTOP_MANIFEST") or SESSION_DIR / f"{session_id}.json")
+    return Path(os.environ.get("bio_DESKTOP_MANIFEST") or SESSION_DIR / f"{session_id}.json")
 
 
 def session_manifest_exists(session_id: str = SESSION_ID) -> bool:
@@ -274,11 +274,11 @@ def resolve_environment(*, errors: list[str] | None = None, session_id: str = SE
             payload = json.loads(manifest.read_text(encoding="utf-8"))
         except Exception as exc:
             local_errors.append(f"Desktop session manifest is unreadable: {exc}")
-    elif not (os.environ.get("A0_DESKTOP_DISPLAY") or os.environ.get("DISPLAY")):
+    elif not (os.environ.get("bio_DESKTOP_DISPLAY") or os.environ.get("DISPLAY")):
         local_errors.append(f"Desktop session manifest not found at {manifest}; open the Desktop canvas before GUI control.")
 
     display_value = str(
-        os.environ.get("A0_DESKTOP_DISPLAY")
+        os.environ.get("bio_DESKTOP_DISPLAY")
         or payload.get("display")
         or os.environ.get("DISPLAY")
         or ""
@@ -292,8 +292,8 @@ def resolve_environment(*, errors: list[str] | None = None, session_id: str = SE
         local_errors.append("Desktop DISPLAY is unavailable; the persistent Desktop session is not running.")
 
     profile_dir = str(
-        os.environ.get("A0_DESKTOP_PROFILE")
-        or os.environ.get("A0_DESKTOP_HOME")
+        os.environ.get("bio_DESKTOP_PROFILE")
+        or os.environ.get("bio_DESKTOP_HOME")
         or payload.get("profile_dir")
         or os.environ.get("HOME")
         or PROFILE_DIR / session_id
@@ -317,7 +317,7 @@ def display_env(*, display: str, profile_dir: str) -> dict[str, str]:
     }
     if display:
         env["DISPLAY"] = display
-    xauthority = os.environ.get("A0_DESKTOP_XAUTHORITY") or str(Path(profile_dir) / ".Xauthority")
+    xauthority = os.environ.get("bio_DESKTOP_XAUTHORITY") or str(Path(profile_dir) / ".Xauthority")
     if Path(xauthority).exists():
         env["XAUTHORITY"] = xauthority
     return env
@@ -635,7 +635,7 @@ def iso_now() -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Observe the Agent Zero persistent Linux Desktop state.")
+    parser = argparse.ArgumentParser(description="Observe the BioDockify AI persistent Linux Desktop state.")
     subparsers = parser.add_subparsers(dest="command")
 
     state_parser = subparsers.add_parser("state")

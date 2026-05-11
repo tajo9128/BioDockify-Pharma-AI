@@ -9,7 +9,7 @@ from helpers.tool import Response, Tool
 from helpers.ws import NAMESPACE
 from helpers.ws_manager import ConnectionNotFoundError, get_shared_ws_manager
 
-from plugins._a0_connector.helpers.ws_runtime import (
+from plugins._bio_connector.helpers.ws_runtime import (
     clear_pending_exec_op,
     remote_exec_metadata_for_sid,
     remote_file_metadata_for_sid,

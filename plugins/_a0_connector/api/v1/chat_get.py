@@ -1,14 +1,14 @@
-"""POST /api/plugins/_a0_connector/v1/chat_get."""
+"""POST /api/plugins/_bio_connector/v1/chat_get."""
 from __future__ import annotations
 
 from helpers.api import Request, Response
-import plugins._a0_connector.api.v1.base as connector_base
+import plugins._bio_connector.api.v1.base as connector_base
 
 
 class ChatGet(connector_base.ProtectedConnectorApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         from agent import AgentContext
-        from plugins._a0_connector.helpers.event_bridge import (
+        from plugins._bio_connector.helpers.event_bridge import (
             get_context_log_entries,
         )
 

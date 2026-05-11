@@ -26,7 +26,7 @@ def _start_background_runtime_preparation() -> threading.Thread:
 
     _startup_preparation_thread = threading.Thread(
         target=_prepare_runtime_safely,
-        name="a0-office-runtime-preparation",
+        name="bio-office-runtime-preparation",
         daemon=True,
     )
     _startup_preparation_thread.start()

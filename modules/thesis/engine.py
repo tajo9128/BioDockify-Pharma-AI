@@ -1,7 +1,7 @@
 """
 Pharma Thesis Engine (Master Framework)
 Orchestrates the writing process, enforcing branch-specific focus and strict validation.
-Agent Zero handles all AI content generation - this module manages structure and contextual mapping.
+BioDockify AI handles all AI content generation - this module manages structure and contextual mapping.
 """
 import logging
 import asyncio
@@ -138,14 +138,14 @@ class ThesisEngine:
         agent_generate: Callable[[str, str, Dict], str]
     ) -> str:
         """
-        Internal generation logic using a provided Agent Zero callback.
+        Internal generation logic using a provided BioDockify AI callback.
         """
         content = [f"# {template.title}\n"]
         if branch != PharmaBranch.GENERAL:
             content.append(f"> **Specialization**: {branch.value} ({degree.value})\n")
         
         for section in template.sections:
-            # Prepare section specific context for Agent Zero
+            # Prepare section specific context for BioDockify AI
             section_context = {
                 "topic": topic,
                 "section_title": section.title,
@@ -157,7 +157,7 @@ class ThesisEngine:
                 "word_limit": section.word_limit
             }
             
-            # Agent Zero generates content
+            # BioDockify AI generates content
             try:
                 # Check if callback is a coroutine
                 if asyncio.iscoroutinefunction(agent_generate):

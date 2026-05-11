@@ -12,7 +12,7 @@ import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
 
-sys.path.insert(0, '/a0/usr/projects/biodockify_ai')
+sys.path.insert(0, '/bio/usr/projects/biodockify_ai')
 
 from modules.research_persistence import (
     ResearchPersistenceManager,

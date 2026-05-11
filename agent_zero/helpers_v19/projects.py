@@ -375,7 +375,7 @@ def build_system_prompt_vars(name: str):
         "project_name": project_data.get("title", ""),
         "project_description": project_data.get("description", ""),
         "project_instructions": complete_instructions or "",
-        "project_path": files.normalize_a0_path(get_project_folder(name)),
+        "project_path": files.normalize_bio_path(get_project_folder(name)),
         "project_git_url": project_data.get("git_url", ""),
     }
 

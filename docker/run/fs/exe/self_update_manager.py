@@ -23,22 +23,22 @@ import yaml
 
 
 OFFICIAL_REPO_URL = os.environ.get(
-    "A0_SELF_UPDATE_REMOTE_URL",
+    "bio_SELF_UPDATE_REMOTE_URL",
     "https://github.com/agent0ai/agent-zero.git",
 )
 REPO_DIR = Path("/a0")
-TRIGGER_FILE = Path("/exe/a0-self-update.yaml")
-STATUS_FILE = Path("/exe/a0-self-update-status.yaml")
-LOG_FILE = Path("/exe/a0-self-update.log")
+TRIGGER_FILE = Path("/exe/bio-self-update.yaml")
+STATUS_FILE = Path("/exe/bio-self-update-status.yaml")
+LOG_FILE = Path("/exe/bio-self-update.log")
 DEFAULT_HEALTH_URL = os.environ.get(
-    "A0_SELF_UPDATE_HEALTH_URL",
+    "bio_SELF_UPDATE_HEALTH_URL",
     "http://127.0.0.1:80/api/health",
 )
 DEFAULT_HEALTH_TIMEOUT_SECONDS = int(
-    os.environ.get("A0_SELF_UPDATE_HEALTH_TIMEOUT_SECONDS", "120")
+    os.environ.get("bio_SELF_UPDATE_HEALTH_TIMEOUT_SECONDS", "120")
 )
 DEFAULT_HEALTH_POLL_INTERVAL_SECONDS = float(
-    os.environ.get("A0_SELF_UPDATE_HEALTH_POLL_INTERVAL_SECONDS", "2")
+    os.environ.get("bio_SELF_UPDATE_HEALTH_POLL_INTERVAL_SECONDS", "2")
 )
 DEFAULT_BACKUP_DIR = "/root/update-backups"
 DEFAULT_BACKUP_CONFLICT_POLICY = "rename"
@@ -61,7 +61,7 @@ class AttemptLogger:
 
     def log(self, message: str = "") -> None:
         line = f"[{now_iso()}] {message}".rstrip()
-        print(f"[a0-self-update] {message}", flush=True)
+        print(f"[bio-self-update] {message}", flush=True)
         with self.path.open("a", encoding="utf-8") as handle:
             handle.write(line + "\n")
 
@@ -423,7 +423,7 @@ def create_rollback_stash(repo_dir: Path, logger: AttemptLogger) -> str | None:
         return None
 
     previous_top = get_top_stash_ref(repo_dir)
-    message = f"a0-self-update rollback snapshot {now_iso()}"
+    message = f"bio-self-update rollback snapshot {now_iso()}"
     run_command(
         [
             "git",
@@ -500,7 +500,7 @@ def clean_repo_worktree(
 
 
 def fetch_release_refs(repo_dir: Path, branch: str, tag: str, logger: AttemptLogger) -> None:
-    remote_branch_ref = f"refs/remotes/a0-self-update/{branch}"
+    remote_branch_ref = f"refs/remotes/bio-self-update/{branch}"
     tag_commit_ref = get_tag_commit_ref(tag)
     logger.log(f"Fetching branch {branch} and tag {tag} from {OFFICIAL_REPO_URL}")
     run_command(
@@ -535,7 +535,7 @@ def fetch_release_refs(repo_dir: Path, branch: str, tag: str, logger: AttemptLog
 
 
 def fetch_branch_refs(repo_dir: Path, branch: str, logger: AttemptLogger) -> str:
-    remote_branch_ref = f"refs/remotes/a0-self-update/{branch}"
+    remote_branch_ref = f"refs/remotes/bio-self-update/{branch}"
     logger.log(f"Fetching branch {branch} and tags from {OFFICIAL_REPO_URL}")
     run_command(
         [
@@ -693,7 +693,7 @@ def launch_ui_process(repo_dir: Path, logger: AttemptLogger) -> subprocess.Popen
     else:
         logger.log("prepare.py not found, skipping prepare step")
 
-    logger.log("Starting Agent Zero UI")
+    logger.log("Starting BioDockify AI UI")
     return subprocess.Popen(
         [
             sys.executable,
@@ -713,7 +713,7 @@ def run_office_cleanup_hook(repo_dir: Path, logger: AttemptLogger) -> None:
     try:
         if str(repo_dir) not in sys.path:
             sys.path.insert(0, str(repo_dir))
-        spec = importlib.util.spec_from_file_location("a0_office_hooks", hook_path)
+        spec = importlib.util.spec_from_file_location("bio_office_hooks", hook_path)
         if spec is None or spec.loader is None:
             logger.log("Office cleanup hook could not be loaded.")
             return
@@ -923,7 +923,7 @@ def execute_pending_update(
         if healthy:
             record_result(
                 status="success",
-                message=f"Updated Agent Zero to branch {branch}, {resolved_target['target_description']}.",
+                message=f"Updated BioDockify AI to branch {branch}, {resolved_target['target_description']}.",
                 request_data=request_data,
                 source_info=source_info,
                 current_version=current_info["short_tag"],
@@ -1106,7 +1106,7 @@ def installed_target_matches_request(
 def trigger_update_command(args: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="trigger_self_update.sh",
-        description="Queue an Agent Zero self-update for the next startup attempt.",
+        description="Queue an BioDockify AI self-update for the next startup attempt.",
     )
     parser.add_argument(
         "branch",
@@ -1156,7 +1156,7 @@ def trigger_update_command(args: list[str]) -> int:
         print(f"Failed to queue self-update: {exc}", file=sys.stderr)
         return 1
 
-    print("Queued Agent Zero self-update for the next startup attempt.")
+    print("Queued BioDockify AI self-update for the next startup attempt.")
     print(f"Branch: {payload['branch']}")
     print(f"Version: {payload['tag']}")
     if payload["backup_usr"]:
@@ -1167,7 +1167,7 @@ def trigger_update_command(args: list[str]) -> int:
         print("Backup: disabled")
     print(f"Trigger file: {TRIGGER_FILE}")
     print(f"Log file: {LOG_FILE}")
-    print("Restart the container or Agent Zero process to apply it.")
+    print("Restart the container or BioDockify AI process to apply it.")
     return 0
 
 

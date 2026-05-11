@@ -20,16 +20,16 @@ T = TypeVar('T')
 
 def get_default_value(name: str, value: T) -> T:
     """
-    Load setting value from .env with A0_SET_ prefix, falling back to default.
+    Load setting value from .env with bio_SET_ prefix, falling back to default.
 
     Args:
-        name: Setting name (will be prefixed with A0_SET_)
+        name: Setting name (will be prefixed with bio_SET_)
         value: Default value to use if env var not set
 
     Returns:
         Environment variable value (type-normalized) or default value
     """
-    env_value = dotenv.get_dotenv_value(f"A0_SET_{name}", dotenv.get_dotenv_value(f"A0_SET_{name.upper()}", None))
+    env_value = dotenv.get_dotenv_value(f"bio_SET_{name}", dotenv.get_dotenv_value(f"bio_SET_{name.upper()}", None))
 
     if env_value is None:
         return value
@@ -46,7 +46,7 @@ def get_default_value(name: str, value: T) -> T:
             return type(value)(env_value.strip())  # type: ignore
     except (ValueError, TypeError, json.JSONDecodeError) as e:
         PrintStyle(background_color="yellow", font_color="black").print(
-            f"Warning: Invalid value for A0_SET_{name}='{env_value}': {e}. Using default: {value}"
+            f"Warning: Invalid value for bio_SET_{name}='{env_value}': {e}. Using default: {value}"
         )
         return value
 

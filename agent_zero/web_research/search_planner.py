@@ -1,5 +1,5 @@
 """
-Agent Zero Search Planner
+BioDockify AI Search Planner
 
 Generates search queries and chooses appropriate sources for web research.
 """

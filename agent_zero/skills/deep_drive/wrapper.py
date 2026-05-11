@@ -1,6 +1,6 @@
 """
 Deep Drive Forensics Integration Wrapper
-Wraps PAN code functionality for Agent Zero.
+Wraps PAN code functionality for BioDockify AI.
 """
 import os
 import sys
@@ -33,7 +33,7 @@ class DeepDriveSkill:
         within the clefXX directories.
         """
         logger.info(f"Analyzing authorship using {task_year} logic...")
-        # For now, return a structured placeholder that Agent Zero can reason about
+        # For now, return a structured placeholder that BioDockify AI can reason about
         return {
             "task": task_year,
             "analysis_type": "Authorship Attribution",

@@ -2,7 +2,7 @@
 Integration tests for BioDockify v2.0.0 - Full PhD Pipeline
 
 These tests verify the complete integration of all components:
-- Agent Zero orchestration
+- BioDockify AI orchestration
 - Tool registry and execution
 - Docker services (GROBID, Neo4j, Ollama)
 - API endpoints
@@ -100,7 +100,7 @@ class TestPhDPipeline:
         print("   ✓ Hypothesis generation test passed")
 
     def test_api_goal_endpoint(self):
-        """Test Agent Zero goal API endpoint"""
+        """Test BioDockify AI goal API endpoint"""
         print("\n=== Testing Goal API Endpoint ===")
 
         # Valid request
@@ -145,7 +145,7 @@ class TestPhDPipeline:
         print("   ✓ Invalid stage properly rejected")
 
     def test_api_thinking_endpoint(self):
-        """Test Agent Zero thinking stream API endpoint"""
+        """Test BioDockify AI thinking stream API endpoint"""
         print("\n=== Testing Thinking Stream API Endpoint ===")
 
         response = requests.get(
@@ -317,7 +317,7 @@ class TestIntegration:
 
         steps = [
             "Define research goal",
-            "Execute goal through Agent Zero",
+            "Execute goal through BioDockify AI",
             "Receive thinking stream",
             "Generate results",
             "Store in memory"

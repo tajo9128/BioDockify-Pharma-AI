@@ -1,6 +1,6 @@
 """
 Grafana Dashboard Setup for BioDockify.
-This script defines the JSON dashboard configurations for Monitoring Agent Zero and ChromaDB.
+This script defines the JSON dashboard configurations for Monitoring BioDockify AI and ChromaDB.
 """
 
 import json
@@ -8,7 +8,7 @@ import os
 
 DASHBOARDS = {
     "agent_zero_overview": {
-        "title": "BioDockify - Agent Zero Overview",
+        "title": "BioDockify - BioDockify AI Overview",
         "panels": [
             {
                 "title": "Agent Executions (Total)",

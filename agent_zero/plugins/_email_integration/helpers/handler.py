@@ -369,7 +369,7 @@ async def _handle_control_email(
             await _send_control_email_reply(
                 handler_cfg,
                 msg,
-                "Multiple Agent Zero email chats match this sender. Reply inside the thread you want to control.",
+                "Multiple BioDockify AI email chats match this sender. Reply inside the thread you want to control.",
                 thread_id=thread_id,
             )
             return True
@@ -377,7 +377,7 @@ async def _handle_control_email(
             await _send_control_email_reply(
                 handler_cfg,
                 msg,
-                "No matching Agent Zero email chat was found. Reply inside an existing Agent Zero email thread to use /project, /config, or /send.",
+                "No matching BioDockify AI email chat was found. Reply inside an existing BioDockify AI email thread to use /project, /config, or /send.",
                 thread_id=thread_id,
             )
             return True
@@ -387,7 +387,7 @@ async def _handle_control_email(
         await _send_control_email_reply(
             handler_cfg,
             msg,
-            "The matching Agent Zero email chat is no longer available. Send a normal email to start a fresh thread.",
+            "The matching BioDockify AI email chat is no longer available. Send a normal email to start a fresh thread.",
             thread_id=thread_id,
         )
         return True

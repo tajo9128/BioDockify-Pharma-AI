@@ -6,12 +6,12 @@ async def check_version():
     import httpx
 
     current_version = git.get_version()
-    if not git.is_official_agent_zero_repo():
+    if not git.is_official_biodockify.ai_repo():
         current_version = "fork"
 
     anonymized_id = hashlib.sha256(runtime.get_persistent_id().encode()).hexdigest()[:20]
 
-    url = "https://api.agent-zero.ai/a0-update-check"
+    url = "https://api.biodockify.ai.ai/bio-update-check"
     payload = {"current_version": current_version, "anonymized_id": anonymized_id}
     async with httpx.AsyncClient() as client:
         response = await client.post(url, json=payload)

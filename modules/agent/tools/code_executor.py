@@ -1,5 +1,5 @@
 """
-Agent Zero - Sandboxed Code Executor
+BioDockify AI - Sandboxed Code Executor
 Allows safe execution of Python code with timeouts and module restrictions.
 """
 

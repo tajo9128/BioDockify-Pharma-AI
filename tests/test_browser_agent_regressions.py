@@ -258,7 +258,7 @@ def test_browser_launch_config_uses_full_chromium_for_all_sessions(tmp_path):
 
 
 def test_browser_playwright_cache_uses_persistent_usr_path(monkeypatch, tmp_path):
-    monkeypatch.delenv("A0_BROWSER_PLAYWRIGHT_CACHE_DIR", raising=False)
+    monkeypatch.delenv("bio_BROWSER_PLAYWRIGHT_CACHE_DIR", raising=False)
     monkeypatch.setattr(
         browser_playwright_module.files,
         "get_abs_path",
@@ -413,7 +413,7 @@ def test_browser_extension_manager_uses_modern_chrome_prodversion(monkeypatch):
     assert _normalize_chrome_prodversion("Google Chrome 147.0.7727.55") == "147.0.7727.55"
     assert _normalize_chrome_prodversion("Chromium 124") == "124.0.0.0"
 
-    monkeypatch.setenv("A0_BROWSER_EXTENSION_PRODVERSION", "147.0.7727.55")
+    monkeypatch.setenv("bio_BROWSER_EXTENSION_PRODVERSION", "147.0.7727.55")
     assert _detect_chrome_prodversion() == "147.0.7727.55"
 
     url = _build_web_store_download_url(extension_id, prodversion=_detect_chrome_prodversion())
@@ -426,7 +426,7 @@ def test_browser_extension_menu_exposes_agent_and_url_paths():
     html = (PROJECT_ROOT / "plugins" / "_browser" / "webui" / "browser-panel.html").read_text(
         encoding="utf-8"
     )
-    skill = PROJECT_ROOT / "skills" / "a0-browser-ext" / "SKILL.md"
+    skill = PROJECT_ROOT / "skills" / "bio-browser-ext" / "SKILL.md"
 
     assert "Create New Extension with A0" in html
     assert "+ Create New with A0" not in html
@@ -1214,7 +1214,7 @@ def test_browser_docker_installs_full_chromium_to_persistent_cache():
         PROJECT_ROOT / "docker" / "run" / "fs" / "ins" / "install_playwright.sh"
     ).read_text(encoding="utf-8")
 
-    assert "PLAYWRIGHT_BROWSERS_PATH=/a0/usr/plugins/_browser/playwright" in script
+    assert "PLAYWRIGHT_BROWSERS_PATH=/bio/usr/plugins/_browser/playwright" in script
     assert "playwright install chromium" in script
     assert "--only-shell" not in script
 
@@ -1844,11 +1844,11 @@ async def test_browser_runtime_screenshot_file_writes_without_base64(monkeypatch
     def fake_get_abs_path(*parts):
         return str(tmp_path.joinpath(*parts))
 
-    def fake_normalize_a0_path(path):
-        return "/a0/" + str(Path(path).relative_to(tmp_path)).replace("\\", "/")
+    def fake_normalize_bio_path(path):
+        return "/bio/" + str(Path(path).relative_to(tmp_path)).replace("\\", "/")
 
     monkeypatch.setattr(browser_runtime_module.files, "get_abs_path", fake_get_abs_path)
-    monkeypatch.setattr(browser_runtime_module.files, "normalize_a0_path", fake_normalize_a0_path)
+    monkeypatch.setattr(browser_runtime_module.files, "normalize_bio_path", fake_normalize_bio_path)
 
     class FakePage:
         url = "about:blank"
@@ -1877,7 +1877,7 @@ async def test_browser_runtime_screenshot_file_writes_without_base64(monkeypatch
     assert path.parent == tmp_path / "tmp" / "browser" / "screenshots" / "ctx_id"
     assert path.name.startswith("browser-5-")
     assert path.suffix == ".jpg"
-    assert result["a0_path"].startswith("/a0/tmp/browser/screenshots/ctx_id/browser-5-")
+    assert result["bio_path"].startswith("/bio/tmp/browser/screenshots/ctx_id/browser-5-")
     assert result["mime"] == "image/jpeg"
     assert result["vision_load"] == {
         "tool_name": "vision_load",

@@ -60,7 +60,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: |
             org.opencontainers.image.title=BioDockify AI
-            org.opencontainers.image.description=Modified pharma research distribution of Agent Zero
+            org.opencontainers.image.description=Modified pharma research distribution of BioDockify AI
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -74,7 +74,7 @@ jobs:
           body: |
             ## BioDockify AI ${{ steps.meta.outputs.version }}
 
-            **Modified pharma research distribution of [Agent Zero](https://github.com/agent0ai/agent-zero)**
+            **Modified pharma research distribution of [BioDockify AI](https://github.com/agent0ai/biodockify.ai)**
 
             ### Docker
             ```bash

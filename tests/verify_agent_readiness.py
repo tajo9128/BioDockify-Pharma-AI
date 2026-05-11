@@ -61,8 +61,8 @@ def check_settings():
 
 if __name__ == "__main__":
     if check_health() and check_settings():
-        print("\n✅ AGENT ZERO READINESS: PASS")
+        print("\n✅ BioDockify AI READINESS: PASS")
         sys.exit(0)
     else:
-        print("\n❌ AGENT ZERO READINESS: FAIL")
+        print("\n❌ BioDockify AI READINESS: FAIL")
         sys.exit(1)

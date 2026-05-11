@@ -34,7 +34,7 @@ class IncludeWorkdirExtras(Extension):
 
             folder = projects.get_project_folder(project_name)
             if runtime.is_development():
-                folder = files.normalize_a0_path(folder)
+                folder = files.normalize_bio_path(folder)
 
             file_structure = projects.get_file_structure(project_name)
         else:

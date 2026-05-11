@@ -244,7 +244,7 @@ def skill_from_markdown(
     fm, body, fm_errors = split_frontmatter(text)
     if fm_errors:
         return None
-    skill_dir = Path(files.normalize_a0_path(str(skill_md_path.parent)))
+    skill_dir = Path(files.normalize_bio_path(str(skill_md_path.parent)))
 
     name = str(fm.get("name") or fm.get("skill") or "").strip()
     description = str(
@@ -383,7 +383,7 @@ def load_skill_for_agent(
     # Get runtime path
     runtime_path = str(skill.path)
     if runtime.is_development():
-        runtime_path = files.normalize_a0_path(str(skill.path))
+        runtime_path = files.normalize_bio_path(str(skill.path))
 
     lines = [f"Skill: {skill.name}", f"Path: {runtime_path}"]
 
@@ -436,7 +436,7 @@ def _get_skill_files(skill_dir: Path) -> str:
     )
 
     if tree and runtime.is_development():
-        runtime_path = files.normalize_a0_path(str(skill_dir))
+        runtime_path = files.normalize_bio_path(str(skill_dir))
         tree = tree.replace(str(skill_dir), runtime_path)
 
     return str(tree)

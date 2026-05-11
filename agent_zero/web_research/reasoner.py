@@ -1,5 +1,5 @@
 """
-Agent Zero Reasoner
+BioDockify AI Reasoner
 
 Synthesizes answers using LLM, generates citations, and provides comprehensive responses.
 """

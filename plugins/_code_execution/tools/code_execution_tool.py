@@ -486,7 +486,7 @@ class CodeExecution(Tool):
         if not path:
             return None
 
-        normalized = files.normalize_a0_path(path)
+        normalized = files.normalize_bio_path(path)
         await runtime.call_development_function(make_dir, normalized)
         return normalized
 

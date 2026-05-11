@@ -1,5 +1,5 @@
 """
-Self-Repair Skill for Agent Zero - Enhanced Version
+Self-Repair Skill for BioDockify AI - Enhanced Version
 Allows the agent to diagnose and attempt to fix its own errors using integrated developer tools.
 """
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class SelfRepairSkill:
     """
-    Enhanced skill for analyzing and repairing errors in Agent Zero.
+    Enhanced skill for analyzing and repairing errors in BioDockify AI.
     Integrates with codebase indexer, linter, security checker, and dependency manager.
     """
 

@@ -1,5 +1,5 @@
 """
-Verification script for Full Agent Zero Port.
+Verification script for Full BioDockify AI Port.
 Tests PhDStage detection, Persistent Memory, and enhanced Reasoning.
 """
 
@@ -12,7 +12,7 @@ from nanobot.agent.planner import PhDPlanner
 from nanobot.providers.base import LLMProvider, LLMResponse, ToolCallRequest
 
 async def test_full_port():
-    print("Testing Full Agent Zero Port...")
+    print("Testing Full BioDockify AI Port...")
     workspace = Path("./test_workspace_full")
     workspace.mkdir(exist_ok=True)
     
@@ -64,7 +64,7 @@ async def test_full_port():
     assert len(tool_calls) > 0
     assert tool_calls[0].name == "web_search"
     
-    print("\nSUCCESS: Full Agent Zero Port verified!")
+    print("\nSUCCESS: Full BioDockify AI Port verified!")
 
 if __name__ == "__main__":
     asyncio.run(test_full_port())

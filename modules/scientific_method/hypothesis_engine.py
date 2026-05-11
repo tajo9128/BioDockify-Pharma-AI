@@ -84,7 +84,7 @@ class HypothesisEngine:
 
     def generate_falsification_tests(self, id: str):
         """
-        Placeholder for Agent Zero "Change My Mind" generator.
+        Placeholder for BioDockify AI "Change My Mind" generator.
         Would call LLM to suggest experiments that verify/falsify this hypothesis.
         """
         pass

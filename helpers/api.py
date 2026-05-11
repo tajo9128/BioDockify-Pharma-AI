@@ -94,7 +94,7 @@ class ApiHandler:
             PrintStyle.error(f"API error: {error}")
             return Response(response=error, status=500, mimetype="text/plain")
 
-    # get context to run agent zero in
+    # get context to run BioDockify AI in
     def use_context(self, ctxid: str, create_if_not_exists: bool = True):
         from helpers.context_utils import use_context as _use_context
         return _use_context(self.thread_lock, ctxid, create_if_not_exists)

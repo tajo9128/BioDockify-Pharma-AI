@@ -86,7 +86,7 @@ Automated Research Project managed by BioDockify.
         return f"""
 The user provided a research idea: "{spark}"
 
-To act as a Perfect Receptionist, clarify the following before involving Agent Zero:
+To act as a Perfect Receptionist, clarify the following before involving BioDockify AI:
 1. What is the preferred academic title for this project?
 2. Are there specific datasets the user wants to prioritize?
 3. What is the desired output format (Paper Draft, Dataset, Simulation Results)?

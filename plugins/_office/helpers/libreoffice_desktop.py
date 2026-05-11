@@ -1083,7 +1083,7 @@ class LibreOfficeDesktopManager:
         _write_mimeapps_defaults(data_dir / "applications" / "mimeapps.list", URL_HANDLER_DESKTOP_ID)
         _write_desktop_launcher(
             applications_dir / URL_HANDLER_DESKTOP_ID,
-            name="Agent Zero Browser",
+            name="BioDockify AI Browser",
             exec_line=_desktop_exec(browser_bridge, "%U"),
             icon="web-browser",
             categories="Network;WebBrowser;",
@@ -1233,7 +1233,7 @@ fi
                 [
                     "[Desktop Entry]",
                     "Type=Application",
-                    "Name=Agent Zero desktop profile",
+                    "Name=BioDockify AI desktop profile",
                     f"Exec={script}",
                     "Terminal=false",
                     "OnlyShowIn=XFCE;",
@@ -1885,7 +1885,7 @@ def main():
             "source": "tray",
         }}
         write_json_atomic(REQUEST_PATH, payload)
-        notify("Shutting down Agent Zero Desktop.", 2)
+        notify("Shutting down BioDockify AI Desktop.", 2)
 
 
 if __name__ == "__main__":
@@ -2020,7 +2020,7 @@ def _write_xfce_browser_helper(path: Path, bridge_script: Path) -> None:
                 f"X-XFCE-Commands={command}",
                 f"X-XFCE-CommandsWithParameter={command_with_parameter}",
                 "Icon=web-browser",
-                "Name=Agent Zero Browser",
+                "Name=BioDockify AI Browser",
                 "",
             ],
         ),

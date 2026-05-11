@@ -1,4 +1,4 @@
-"""Reasoning engine for the Agent Zero monologue loop."""
+"""Reasoning engine for the BioDockify AI monologue loop."""
 
 import asyncio
 import json

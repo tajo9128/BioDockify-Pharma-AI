@@ -643,7 +643,7 @@ class _BrowserRuntimeCore:
     def _screenshot_output_path(self, browser_id: int, path: str = "") -> tuple[Path, str, str]:
         raw_path = str(path or "").strip()
         if raw_path:
-            output_path = Path(files.fix_dev_path(raw_path) if raw_path.startswith("/a0/") else raw_path)
+            output_path = Path(files.fix_dev_path(raw_path) if raw_path.startswith("/bio/") else raw_path)
             if not output_path.is_absolute():
                 output_path = Path(files.get_abs_path(str(output_path)))
             suffix = output_path.suffix.lower()
@@ -672,7 +672,7 @@ class _BrowserRuntimeCore:
         for raw_path in raw_paths:
             if not raw_path:
                 continue
-            candidate = Path(files.fix_dev_path(raw_path) if raw_path.startswith("/a0/") else raw_path)
+            candidate = Path(files.fix_dev_path(raw_path) if raw_path.startswith("/bio/") else raw_path)
             if not candidate.is_absolute():
                 candidate = Path(files.get_abs_path(str(candidate)))
             candidate = candidate.expanduser().resolve()
@@ -1539,7 +1539,7 @@ class _BrowserRuntimeCore:
         return {
             "browser_id": resolved_id,
             "path": local_path,
-            "a0_path": files.normalize_a0_path(local_path),
+            "bio_path": files.normalize_bio_path(local_path),
             "mime": mime,
             "state": await self._state(resolved_id),
             "vision_load": {

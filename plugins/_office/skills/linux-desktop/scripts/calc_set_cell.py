@@ -77,7 +77,7 @@ def connect_once():
         "com.sun.star.bridge.UnoUrlResolver",
         local_ctx,
     )
-    return resolver.resolve(os.environ.get("A0_DESKTOP_UNO_URL", UNO_URL))
+    return resolver.resolve(os.environ.get("bio_DESKTOP_UNO_URL", UNO_URL))
 
 
 def desktop_from_context(ctx):
@@ -273,7 +273,7 @@ def edit_visible_calc_cell(path: Path, sheet_name: str, cell_name: str, value: s
     for _ in range(4):
         document = wait_for_document(
             path,
-            timeout_seconds=float(os.environ.get("A0_CALC_OPEN_TIMEOUT", "30")),
+            timeout_seconds=float(os.environ.get("bio_CALC_OPEN_TIMEOUT", "30")),
         )
         try:
             focus_document_window(document)

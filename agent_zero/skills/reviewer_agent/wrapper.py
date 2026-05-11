@@ -1,6 +1,6 @@
 """
 ReviewerAgent Skill Wrapper
-Integrates the citation verification engine into Agent Zero skills.
+Integrates the citation verification engine into BioDockify AI skills.
 """
 
 from typing import Dict, Any, Optional

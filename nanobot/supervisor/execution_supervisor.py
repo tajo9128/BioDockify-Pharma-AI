@@ -11,7 +11,7 @@ from nanobot.supervisor.audit_logger import AuditLogger
 
 class ExecutionSupervisor:
     """
-    The main orchestrator for Agent Zero supervision.
+    The main orchestrator for BioDockify AI supervision.
     Integrates all sub-modules into a task-adaptive active watchdog.
     """
     def __init__(self, check_interval: int = 60):

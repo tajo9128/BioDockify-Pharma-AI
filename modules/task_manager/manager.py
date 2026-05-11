@@ -1,6 +1,6 @@
 """
 Task Manager - Core Engine
-Orchestrates tasks with Agent Zero + NanoBot integration
+Orchestrates tasks with BioDockify AI + NanoBot integration
 """
 
 import asyncio
@@ -28,7 +28,7 @@ class TaskManager:
     """
     Core Task Management Engine
     Integrates with:
-    - Agent Zero (execution & self-repair)
+    - BioDockify AI (execution & self-repair)
     - NanoBot (multi-agent coordination)
     - Memory System (context & history)
     - ChromaDB (vector search for related tasks)
@@ -200,7 +200,7 @@ class TaskManager:
         return True
 
     async def _execute_task(self, task_id: str):
-        """Execute a task with Agent Zero"""
+        """Execute a task with BioDockify AI"""
         task = await self.db.get_task(task_id)
         if not task:
             logger.error(f"Task not found for execution: {task_id}")
@@ -214,7 +214,7 @@ class TaskManager:
             if task.requires_memory_recall and self.hybrid_agent:
                 memory_context = await self._recall_task_memory(task)
 
-            # Execute with Agent Zero
+            # Execute with BioDockify AI
             if self.hybrid_agent:
                 enhanced_description = task.description or ""
                 if memory_context:
@@ -250,7 +250,7 @@ class TaskManager:
     async def _execute_with_agent_zero(
         self, task: Task, enhanced_description: str
     ) -> Dict[str, Any]:
-        """Execute task using Agent Zero's hybrid agent"""
+        """Execute task using BioDockify AI's hybrid agent"""
         prompt = f"""
 Task: {task.title}
 Description: {enhanced_description}

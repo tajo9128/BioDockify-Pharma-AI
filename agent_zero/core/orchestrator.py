@@ -1,5 +1,5 @@
 """
-Agent Zero - Autonomous Research Orchestrator
+BioDockify AI - Autonomous Research Orchestrator
 This is the core autonomous agent that:
 - Receives high-level PhD research goals
 - Decomposes into executable tasks
@@ -157,7 +157,7 @@ class AgentZero:
         tool_timeout: int = 60
     ):
         """
-        Initialize Agent Zero
+        Initialize BioDockify AI
 
         Args:
             llm_provider: LLM provider for reasoning

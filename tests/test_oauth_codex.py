@@ -23,7 +23,7 @@ def test_generate_pkce_produces_urlsafe_verifier_and_challenge():
     assert "=" not in pair.challenge
 
 
-def test_build_authorize_url_uses_existing_a0_origin_callback(monkeypatch):
+def test_build_authorize_url_uses_existing_bio_origin_callback(monkeypatch):
     monkeypatch.setattr(
         codex,
         "codex_config",

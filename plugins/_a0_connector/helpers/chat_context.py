@@ -111,5 +111,5 @@ def create_context(
                 AgentContext.remove(context.id)
                 raise
 
-        mark_dirty_all(reason="plugins._a0_connector.chat_context.create_context")
+        mark_dirty_all(reason="plugins._bio_connector.chat_context.create_context")
         return context

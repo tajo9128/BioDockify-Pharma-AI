@@ -14,11 +14,11 @@ APT_KEYRING_FILE = Path("/etc/apt/keyrings/collaboraonline-release-keyring.gpg")
 XPRA_SOURCE_FILE = Path("/etc/apt/sources.list.d/xpra.sources")
 XPRA_KEYRING_FILE = Path("/usr/share/keyrings/xpra.asc")
 XPRA_KEY_URL = "https://xpra.org/xpra.asc"
-SUPERVISOR_FILE = Path("/etc/supervisor/conf.d/a0_office_collabora.conf")
-SUPERVISOR_PROGRAM = "a0_office_collabora"
+SUPERVISOR_FILE = Path("/etc/supervisor/conf.d/bio_office_collabora.conf")
+SUPERVISOR_PROGRAM = "bio_office_collabora"
 RUNTIME_DIRS = [
-    Path("/a0/tmp/_office/collabora"),
-    Path("/a0/usr/plugins/_office/collabora"),
+    Path("/bio/tmp/_office/collabora"),
+    Path("/bio/usr/plugins/_office/collabora"),
     PROJECT_ROOT / "tmp" / "_office" / "collabora",
     PROJECT_ROOT / "usr" / "plugins" / "_office" / "collabora",
 ]

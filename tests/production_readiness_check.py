@@ -75,10 +75,10 @@ def check_agent_chat():
         resp = requests.post(f"{BASE_URL}/api/agent/chat", json={"message": "Test"}, timeout=10)
         success = resp.status_code == 200
         reply = resp.json().get("reply", "") if success else str(resp.status_code)
-        print_result("Agent Zero Chat API", success, f"Reply: {reply[:50]}...")
+        print_result("BioDockify AI Chat API", success, f"Reply: {reply[:50]}...")
         return success
     except Exception as e:
-        print_result("Agent Zero Chat API", False, f"Failed: {str(e)}")
+        print_result("BioDockify AI Chat API", False, f"Failed: {str(e)}")
         return False
 
 def check_lm_studio():

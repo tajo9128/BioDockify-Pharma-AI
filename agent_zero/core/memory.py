@@ -57,7 +57,7 @@ class MemoryEntry:
 
 class PersistentMemory:
     """
-    Persistent memory storage for Agent Zero
+    Persistent memory storage for BioDockify AI
 
     Features:
     - Short-term memory for current session

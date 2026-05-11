@@ -1,14 +1,14 @@
-"""POST /api/plugins/_a0_connector/v1/chat_create."""
+"""POST /api/plugins/_bio_connector/v1/chat_create."""
 from __future__ import annotations
 
 from helpers.api import Request, Response
-import plugins._a0_connector.api.v1.base as connector_base
+import plugins._bio_connector.api.v1.base as connector_base
 
 
 class ChatCreate(connector_base.ProtectedConnectorApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         from helpers import projects
-        from plugins._a0_connector.helpers.chat_context import create_context
+        from plugins._bio_connector.helpers.chat_context import create_context
 
         current_context_id = (
             str(input.get("current_context", input.get("current_context_id", ""))).strip()

@@ -59,7 +59,7 @@ def validate_docx(path: str | Path) -> dict[str, Any]:
     if not soffice:
         return {"ok": True, "warning": "LibreOffice binary was not available; package validation only."}
 
-    with tempfile.TemporaryDirectory(prefix="a0-office-validate-") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="bio-office-validate-") as temp_dir:
         result = _run_soffice(
             soffice,
             [

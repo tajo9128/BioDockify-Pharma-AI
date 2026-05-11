@@ -15,7 +15,7 @@ logging.basicConfig(
 )
 
 async def verify_startup():
-    print("--- Starting Agent Zero Verification ---")
+    print("--- Starting BioDockify AI Verification ---")
     ai = BioDockifyAI.get_instance()
     
     try:

@@ -1,6 +1,6 @@
 """
-BioDockify AI - Single AI Engine using Agent Zero v1.9
-Replaces Lite/Hybrid modes with single unified Agent Zero v1.9
+BioDockify AI - Single AI Engine using BioDockify AI v1.9
+Replaces Lite/Hybrid modes with single unified BioDockify AI v1.9
 """
 
 import logging
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class BioDockifyAI:
     """
     Single unified AI Controller for BioDockify.
-    Uses Agent Zero v1.9 as the sole AI engine for all operations.
+    Uses BioDockify AI v1.9 as the sole AI engine for all operations.
     """
 
     _instance = None
@@ -30,11 +30,11 @@ class BioDockifyAI:
         self._init_done = False
 
     async def initialize(self, workspace_path: str = "./data/workspace"):
-        """Initialize Agent Zero v1.9."""
+        """Initialize BioDockify AI v1.9."""
         if self._init_done:
             return
 
-        logger.info("Initializing BioDockify AI (Agent Zero v1.9)...")
+        logger.info("Initializing BioDockify AI (BioDockify AI v1.9)...")
 
         try:
             from agent_zero.agent_zero_v19 import Agent, AgentContext
@@ -42,22 +42,22 @@ class BioDockifyAI:
 
             self._agent = Agent(0)
             self._init_done = True
-            logger.info("BioDockify AI (Agent Zero v1.9) Initialized Successfully.")
+            logger.info("BioDockify AI (BioDockify AI v1.9) Initialized Successfully.")
             return
 
         except Exception as e:
-            logger.error(f"Failed to initialize Agent Zero v1.9: {e}")
+            logger.error(f"Failed to initialize BioDockify AI v1.9: {e}")
             raise e
 
     async def process_chat(self, user_message: str, mode: str = "agent0") -> str:
         """
-        Process user chat message using Agent Zero v1.9.
+        Process user chat message using BioDockify AI v1.9.
         Single mode - no Lite/Hybrid distinction.
         """
         if not self._agent:
             await self.initialize()
 
-        logger.info(f"Agent Zero v1.9 processing: {user_message[:50]}...")
+        logger.info(f"BioDockify AI v1.9 processing: {user_message[:50]}...")
 
         try:
             from agent_zero.agent_zero_v19 import AgentContext

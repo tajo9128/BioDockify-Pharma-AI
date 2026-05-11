@@ -1,11 +1,11 @@
 """
-Web Crawler Connector - Based on Agent Zero SurfSense.
+Web Crawler Connector - Based on BioDockify AI SurfSense.
 """
 from typing import List, Dict, Any
 import logging
 import asyncio
 from dataclasses import asdict
-from agent_zero.web_research.surfsense import SurfSense, CrawlConfig, ExtractionRules
+from biodockify.ai.web_research.surfsense import SurfSense, CrawlConfig, ExtractionRules
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class WebCrawlerConnector:
         
         logger.info(f"Starting crawl for {len(urls)} URLs")
         
-        from agent_zero.web_research.executor import Executor
+        from biodockify.ai.web_research.executor import Executor
         executor = Executor()
         
         try:

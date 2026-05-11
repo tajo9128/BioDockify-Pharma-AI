@@ -51,7 +51,7 @@ def resolve_ref(url: str) -> Path:
     raw_path = unquote(urlparse(url).path) if url.lower().startswith("file://") else url
     path = Path(raw_path).expanduser()
     candidates = [path]
-    if raw_path.startswith("/a0/"):
+    if raw_path.startswith("/bio/"):
         from helpers import files
 
         candidates.append(Path(files.fix_dev_path(raw_path)))

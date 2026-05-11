@@ -48,7 +48,7 @@ sys.modules.setdefault("watchdog.observers", watchdog.observers)
 sys.modules.setdefault("watchdog.events", watchdog.events)
 
 
-def _prepare_a0_tree(monkeypatch, tmp_path: Path):
+def _prepare_bio_tree(monkeypatch, tmp_path: Path):
     from helpers import files, plugins
 
     monkeypatch.setattr(files, "_base_dir", str(tmp_path))
@@ -95,7 +95,7 @@ embedding_model:
 
 
 def test_global_presets_keep_legacy_default_and_save_behavior(monkeypatch, tmp_path):
-    _prepare_a0_tree(monkeypatch, tmp_path)
+    _prepare_bio_tree(monkeypatch, tmp_path)
 
     from plugins._model_config.helpers import model_config
 
@@ -127,7 +127,7 @@ def test_global_presets_keep_legacy_default_and_save_behavior(monkeypatch, tmp_p
 
 
 def test_project_presets_are_separate_and_resolve_by_scope(monkeypatch, tmp_path):
-    _prepare_a0_tree(monkeypatch, tmp_path)
+    _prepare_bio_tree(monkeypatch, tmp_path)
 
     from helpers import projects
     from plugins._model_config.helpers import model_config
@@ -158,7 +158,7 @@ def test_project_presets_are_separate_and_resolve_by_scope(monkeypatch, tmp_path
 
 @pytest.mark.asyncio
 async def test_model_presets_api_returns_global_or_combined_by_project(monkeypatch, tmp_path):
-    _prepare_a0_tree(monkeypatch, tmp_path)
+    _prepare_bio_tree(monkeypatch, tmp_path)
 
     from helpers import projects
     from plugins._model_config.api.model_presets import ModelPresets
@@ -188,7 +188,7 @@ async def test_model_presets_api_returns_global_or_combined_by_project(monkeypat
 
 
 def test_project_save_copies_selected_preset_to_scoped_model_config(monkeypatch, tmp_path):
-    _prepare_a0_tree(monkeypatch, tmp_path)
+    _prepare_bio_tree(monkeypatch, tmp_path)
 
     from helpers import projects
     from plugins._model_config.helpers import model_config
@@ -236,7 +236,7 @@ def test_project_save_copies_selected_preset_to_scoped_model_config(monkeypatch,
 
 
 def test_project_save_disambiguates_same_name_project_preset(monkeypatch, tmp_path):
-    _prepare_a0_tree(monkeypatch, tmp_path)
+    _prepare_bio_tree(monkeypatch, tmp_path)
 
     from helpers import projects
     from plugins._model_config.helpers import model_config

@@ -1,6 +1,6 @@
 """
-Agent Zero - Sub-Agent System
-Allows Agent Zero to spawn subordinate agents for subtask delegation.
+BioDockify AI - Sub-Agent System
+Allows BioDockify AI to spawn subordinate agents for subtask delegation.
 """
 
 import uuid
@@ -72,7 +72,7 @@ class SubAgentManager:
         self.root_agent_id: Optional[str] = None
     
     def create_root_agent(self, task: str) -> SubAgent:
-        """Create the root agent (Agent Zero himself)."""
+        """Create the root agent (BioDockify AI himself)."""
         agent = SubAgent(
             id=f"agent-0-{uuid.uuid4().hex[:8]}",
             parent_id=None,

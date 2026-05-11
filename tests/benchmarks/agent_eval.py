@@ -10,7 +10,7 @@ logger = logging.getLogger("BioDockify.Eval.Agent")
 
 async def benchmark_agent_goals(tasks: List[str]) -> Dict[str, Any]:
     """
-    Benchmarks Agent Zero's ability to complete specific research goals.
+    Benchmarks BioDockify AI's ability to complete specific research goals.
     """
     # Initialize a clean agent for benchmarking
     config = AgentConfig()

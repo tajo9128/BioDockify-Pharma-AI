@@ -1,5 +1,5 @@
 """
-Agent Zero Curator
+BioDockify AI Curator
 
 Saves results as files, adds metadata, updates search index, and maintains knowledge base.
 """

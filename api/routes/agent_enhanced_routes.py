@@ -1,7 +1,7 @@
 """
-Agent Zero Enhanced API Routes
+BioDockify AI Enhanced API Routes
 
-Extends Agent Zero with NanoBot capabilities:
+Extends BioDockify AI with NanoBot capabilities:
 - Memory management (view/save)
 - Background task spawning
 - Skills listing
@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
 
-router = APIRouter(prefix="/api/agent", tags=["Agent Zero Enhanced"])
+router = APIRouter(prefix="/api/agent", tags=["BioDockify AI Enhanced"])
 
 
 # ========== Request/Response Models ==========
@@ -42,7 +42,7 @@ class SkillInfo(BaseModel):
 # ========== Helper Functions ==========
 
 def get_enhanced():
-    """Get enhanced Agent Zero instance."""
+    """Get enhanced BioDockify AI instance."""
     try:
         from agent_zero.enhanced import get_agent_zero_enhanced
         return get_agent_zero_enhanced()
@@ -54,7 +54,7 @@ def get_enhanced():
 
 @router.get("/memory")
 async def get_agent_memory(days: int = 7):
-    """Get Agent Zero's memory context."""
+    """Get BioDockify AI's memory context."""
     enhanced = get_enhanced()
     return {
         "context": enhanced.get_memory_context(),
@@ -65,7 +65,7 @@ async def get_agent_memory(days: int = 7):
 
 @router.post("/memory")
 async def save_agent_memory(request: MemorySaveRequest):
-    """Save important information to Agent Zero's memory."""
+    """Save important information to BioDockify AI's memory."""
     enhanced = get_enhanced()
     enhanced.save_to_memory(request.content)
     return {"status": "ok", "message": "Saved to memory"}
@@ -75,7 +75,7 @@ async def save_agent_memory(request: MemorySaveRequest):
 
 @router.get("/skills")
 async def list_agent_skills():
-    """List Agent Zero's available skills."""
+    """List BioDockify AI's available skills."""
     enhanced = get_enhanced()
     skills = enhanced.list_skills()
     return {
@@ -102,7 +102,7 @@ async def spawn_background_task(request: SpawnTaskRequest):
 
 @router.get("/status")
 async def get_agent_status():
-    """Get Agent Zero's enhanced status."""
+    """Get BioDockify AI's enhanced status."""
     try:
         enhanced = get_enhanced()
         return {

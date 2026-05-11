@@ -1,7 +1,7 @@
 
 # Test suite for multiplicity_control module
 import sys
-sys.path.insert(0, '/a0/usr/projects/biodockify_ai')
+sys.path.insert(0, '/bio/usr/projects/biodockify_ai')
 
 import numpy as np
 from modules.statistics.multiplicity_control import MultiplicityControl

@@ -1,7 +1,7 @@
 """
-BioDockify Agent Zero - Core Backend
+BioDockify BioDockify AI - Core Backend
 ===================================
-Minimal, lightweight Agent Zero implementation with Surfsense KB.
+Minimal, lightweight BioDockify AI implementation with Surfsense KB.
 Connects to Ollama on host machine (host.docker.internal:11434).
 """
 
@@ -23,7 +23,7 @@ import httpx
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("biodockify")
 
-app = FastAPI(title="BioDockify Agent Zero", version="1.0.0")
+app = FastAPI(title="BioDockify BioDockify AI", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -298,14 +298,14 @@ async def get_template(template_type: str):
 
 @app.get("/constitution")
 async def get_constitution():
-    """Get Agent Zero constitution"""
+    """Get BioDockify AI constitution"""
     from pathlib import Path
     constitution_path = Path(__file__).parent / "CONSTITUTION.md"
     
     if constitution_path.exists():
         return {"constitution": constitution_path.read_text()}
     
-    return {"constitution": "BioDockify Agent Zero - Your Research Assistant"}
+    return {"constitution": "BioDockify BioDockify AI - Your Research Assistant"}
 
 # ============ ESSENTIAL API ENDPOINTS FOR FRONTEND ============
 

@@ -66,8 +66,8 @@ Provide the output in a structured format:
         return {"methodology": response}
 
     async def generate_roadmap(self, methodology: str, working_memory: WorkingMemory) -> List[Dict[str, Any]]:
-        """Turn a methodology into a list of technical tasks for Agent Zero."""
-        goal = f"Convert this methodology into a JSON list of technical tasks for Agent Zero: \n\n{methodology}"
+        """Turn a methodology into a list of technical tasks for BioDockify AI."""
+        goal = f"Convert this methodology into a JSON list of technical tasks for BioDockify AI: \n\n{methodology}"
         system_prompt = "You are the Project Structurer. Your goal is to create a technical roadmap. Output ONLY a JSON list of task objects with 'title' and 'category' (e.g., literature_search, entity_extraction, data_analysis)."
         
         response, _, _ = await self.brain.think(

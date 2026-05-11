@@ -1,8 +1,8 @@
-"""POST /api/plugins/_a0_connector/v1/skills_list."""
+"""POST /api/plugins/_bio_connector/v1/skills_list."""
 from __future__ import annotations
 
 from helpers.api import Request, Response
-import plugins._a0_connector.api.v1.base as connector_base
+import plugins._bio_connector.api.v1.base as connector_base
 
 
 class SkillsList(connector_base.ProtectedConnectorApiHandler):
@@ -15,7 +15,7 @@ class SkillsList(connector_base.ProtectedConnectorApiHandler):
         if project_name:
             project_folder = projects.get_project_folder(project_name)
             if runtime.is_development():
-                project_folder = files.normalize_a0_path(project_folder)
+                project_folder = files.normalize_bio_path(project_folder)
             skill_list = [
                 item
                 for item in skill_list

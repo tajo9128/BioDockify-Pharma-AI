@@ -360,7 +360,7 @@ class VirtualDesktopGateway:
 def install_route_hooks() -> None:
     from helpers.ui_server import UiServerRuntime
 
-    if getattr(UiServerRuntime, "_a0_virtual_desktop_route_hooks_installed", False):
+    if getattr(UiServerRuntime, "_bio_virtual_desktop_route_hooks_installed", False):
         return
 
     original_build_asgi_app = UiServerRuntime.build_asgi_app
@@ -397,11 +397,11 @@ def install_route_hooks() -> None:
             return ASGIApp(self.socketio_server, other_asgi_app=starlette_app)
 
     UiServerRuntime.build_asgi_app = build_asgi_app
-    UiServerRuntime._a0_virtual_desktop_route_hooks_installed = True
-    UiServerRuntime._a0_virtual_desktop_original_build_asgi_app = original_build_asgi_app
+    UiServerRuntime._bio_virtual_desktop_route_hooks_installed = True
+    UiServerRuntime._bio_virtual_desktop_original_build_asgi_app = original_build_asgi_app
 
 
 def is_installed() -> bool:
     from helpers.ui_server import UiServerRuntime
 
-    return bool(getattr(UiServerRuntime, "_a0_virtual_desktop_route_hooks_installed", False))
+    return bool(getattr(UiServerRuntime, "_bio_virtual_desktop_route_hooks_installed", False))

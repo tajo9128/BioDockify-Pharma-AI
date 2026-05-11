@@ -1,5 +1,5 @@
 """
-Cron Service for Agent Zero.
+Cron Service for BioDockify AI.
 Allows the agent to schedule recurring tasks.
 Ported from NanoBot.
 """

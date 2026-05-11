@@ -5,7 +5,7 @@ import logging
 import asyncio
 import platform
 from typing import Dict, Any
-from agent_zero.hybrid.tools.code_execution import SafeCodeExecutionTool
+from biodockify.ai.hybrid.tools.code_execution import SafeCodeExecutionTool
 
 logger = logging.getLogger(__name__)
 

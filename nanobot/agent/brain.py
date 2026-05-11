@@ -1,4 +1,4 @@
-"""Unified Brain interface for Agent Zero."""
+"""Unified Brain interface for BioDockify AI."""
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -12,9 +12,9 @@ from nanobot.providers.base import LLMProvider, ToolCallRequest
 
 class Brain:
     """
-    The unified cognitive interface for Agent Zero.
+    The unified cognitive interface for BioDockify AI.
     
-    Ported from Agent Zero's core concept, enhanced with:
+    Ported from BioDockify AI's core concept, enhanced with:
     - PhD Planning (PhDPlanner)
     - Persistent memory (PersistentMemory)
     - Deliberate monologue (ReasoningEngine)

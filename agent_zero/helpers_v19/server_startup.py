@@ -39,10 +39,10 @@ class StartupConfig:
     @classmethod
     def from_env(cls) -> "StartupConfig":
         return cls(
-            timeout_seconds=_env_int("A0_STARTUP_TIMEOUT_SECONDS", 90, minimum=15),
-            max_attempts=_env_int("A0_STARTUP_MAX_ATTEMPTS", 2, minimum=1),
+            timeout_seconds=_env_int("bio_STARTUP_TIMEOUT_SECONDS", 90, minimum=15),
+            max_attempts=_env_int("bio_STARTUP_MAX_ATTEMPTS", 2, minimum=1),
             retry_delay_seconds=_env_float(
-                "A0_STARTUP_RETRY_DELAY_SECONDS", 2.0, minimum=0.0
+                "bio_STARTUP_RETRY_DELAY_SECONDS", 2.0, minimum=0.0
             ),
         )
 
@@ -372,7 +372,7 @@ def wait_for_health(host: str, port: int, startup_monitor: StartupMonitor) -> No
             with urllib.request.urlopen(url, timeout=2) as resp:
                 if resp.status == 200:
                     startup_monitor.mark_ready("health_probe")
-                    PrintStyle().print("Agent Zero is running.")
+                    PrintStyle().print("BioDockify AI is running.")
                     return
         except Exception:
             pass

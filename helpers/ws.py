@@ -26,13 +26,13 @@ ConnectionIdentity = tuple[str, str]  # (namespace, sid)
 
 
 def _ws_debug_enabled() -> bool:
-    """Check A0_WS_DEBUG env var — lightweight, no heavy imports."""
-    value = os.getenv("A0_WS_DEBUG", "").strip().lower()
+    """Check bio_WS_DEBUG env var — lightweight, no heavy imports."""
+    value = os.getenv("bio_WS_DEBUG", "").strip().lower()
     return value in {"1", "true", "yes", "on"}
 
 
 def ws_debug(message: str) -> None:
-    """Log *message* via :class:`PrintStyle` when ``A0_WS_DEBUG`` is active."""
+    """Log *message* via :class:`PrintStyle` when ``bio_WS_DEBUG`` is active."""
     if _ws_debug_enabled():
         PrintStyle.debug(message)
 

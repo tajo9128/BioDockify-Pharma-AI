@@ -84,7 +84,7 @@ def _candidate_skill_roots(source_dir: Path) -> List[Path]:
 
 def _unzip_to_temp_dir(zip_path: Path) -> Path:
     """
-    Extract a zip into a temp folder under tmp/skill_imports (inside Agent Zero base dir).
+    Extract a zip into a temp folder under tmp/skill_imports (inside BioDockify AI base dir).
     Returns the extraction root folder.
     """
     base_tmp = Path(files.get_abs_path("tmp", "skill_imports"))

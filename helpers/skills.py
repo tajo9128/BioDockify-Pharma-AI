@@ -264,7 +264,7 @@ def skill_from_markdown(
     fm, body, fm_errors = split_frontmatter(text)
     if fm_errors:
         return None
-    skill_dir = Path(files.normalize_a0_path(str(skill_md_path.parent)))
+    skill_dir = Path(files.normalize_bio_path(str(skill_md_path.parent)))
 
     name = str(fm.get("name") or fm.get("skill") or "").strip()
     description = str(
@@ -403,7 +403,7 @@ def load_skill_for_agent(
     # Get runtime path
     runtime_path = str(skill.path)
     if runtime.is_development():
-        runtime_path = files.normalize_a0_path(str(skill.path))
+        runtime_path = files.normalize_bio_path(str(skill.path))
 
     lines = [f"Skill: {skill.name}", f"Path: {runtime_path}"]
 
@@ -456,7 +456,7 @@ def _get_skill_files(skill_dir: Path) -> str:
     )
 
     if tree and runtime.is_development():
-        runtime_path = files.normalize_a0_path(str(skill_dir))
+        runtime_path = files.normalize_bio_path(str(skill_dir))
         tree = tree.replace(str(skill_dir), runtime_path)
 
     return str(tree)
@@ -619,7 +619,7 @@ def list_skill_catalog(
             if not skill:
                 continue
 
-            runtime_path = files.normalize_a0_path(str(skill.path))
+            runtime_path = files.normalize_bio_path(str(skill.path))
             if runtime_path in seen_paths:
                 continue
 
@@ -851,7 +851,7 @@ def build_active_skills_prompt(agent: Agent | None) -> str:
 def _format_skill_prompt(skill: Skill) -> str:
     lines = [
         f"Skill: {skill.name or skill.path.name}",
-        f"Path: {files.normalize_a0_path(str(skill.path))}",
+        f"Path: {files.normalize_bio_path(str(skill.path))}",
     ]
 
     if skill.description:
@@ -873,7 +873,7 @@ def _get_skill_origin(skill_path: str, project_name: str = "") -> str:
     if files.exists(user_root) and files.is_in_dir(abs_path, user_root):
         return "User"
 
-    normalized_path = files.normalize_a0_path(abs_path)
+    normalized_path = files.normalize_bio_path(abs_path)
     if "/usr/plugins/" in normalized_path:
         return "Community plugin"
     if "/plugins/" in normalized_path:
@@ -911,11 +911,11 @@ def _normalize_active_skill_entry(item: Any) -> ActiveSkillEntry | None:
 
 def _normalize_active_skill_path(path: str) -> str:
     fixed = path.strip().replace("\\", "/")
-    if fixed.startswith("/a0/"):
+    if fixed.startswith("/bio/"):
         return fixed.rstrip("/")
     if fixed.startswith("/"):
-        return files.normalize_a0_path(fixed).rstrip("/")
-    return files.normalize_a0_path(files.get_abs_path(fixed)).rstrip("/")
+        return files.normalize_bio_path(fixed).rstrip("/")
+    return files.normalize_bio_path(files.get_abs_path(fixed)).rstrip("/")
 
 
 def _entry_key(entry: ActiveSkillEntry) -> str:
@@ -1026,7 +1026,7 @@ def _resolve_active_skill_entries(
         if not skill:
             continue
 
-        runtime_path = files.normalize_a0_path(str(skill.path))
+        runtime_path = files.normalize_bio_path(str(skill.path))
         if runtime_path in seen_paths:
             continue
 

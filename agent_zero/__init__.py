@@ -1,5 +1,5 @@
 """
-Agent Zero - Autonomous Research Orchestrator for BioDockify v2.0.0
+BioDockify AI - Autonomous Research Orchestrator for BioDockify v2.0.0
 
 This package provides an autonomous AI system that:
 - Receives high-level PhD research goals
@@ -20,10 +20,10 @@ Example Usage:
     llm = YourLLMProvider()
     memory = PersistentMemory('./data/agent_memory')
     planner = PhDPlanner(llm)
-Agent Zero Package - BioDockify AI Brain
+BioDockify AI Package - BioDockify AI Brain
 
 This is the unified AI brain for BioDockify, combining:
-- Agent Zero: Deep reasoning, tool execution, PhD workflows
+- BioDockify AI: Deep reasoning, tool execution, PhD workflows
 - NanoBot: Memory, skills, scheduling, messaging channels
 
 Usage:

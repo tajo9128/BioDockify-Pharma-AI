@@ -1,5 +1,5 @@
 """
-Agent Zero - Persistent Memory System
+BioDockify AI - Persistent Memory System
 Stores learned patterns, successful solutions, and facts across sessions.
 """
 
@@ -23,7 +23,7 @@ class MemoryType(Enum):
 
 class MemoryStore:
     """
-    Persistent memory storage for Agent Zero.
+    Persistent memory storage for BioDockify AI.
     Uses SQLite for durability and fast retrieval.
     """
     

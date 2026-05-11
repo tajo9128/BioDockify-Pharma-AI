@@ -578,13 +578,13 @@ def get_abs_path(*relative_paths):
 
 
 def get_abs_path_dockerized(*relative_paths):
-    "Ensures the abs path is dockerized (i.e. /a0/... path)"
+    "Ensures the abs path is dockerized (i.e. /bio/... path)"
     abs = get_abs_path(*relative_paths)
     from helpers import runtime
 
     if runtime.is_dockerized():
         return abs
-    return normalize_a0_path(abs)
+    return normalize_bio_path(abs)
 
 
 def get_abs_path_development(*relative_paths):
@@ -599,20 +599,20 @@ def deabsolute_path(path: str):
 
 
 def fix_dev_path(path: str):
-    "On dev environment, convert /a0/... paths to local absolute paths"
+    "On dev environment, convert /bio/... paths to local absolute paths"
     from helpers.runtime import is_development
 
     if is_development():
-        if path.startswith("/a0/"):
-            path = path.replace("/a0/", "")
+        if path.startswith("/bio/"):
+            path = path.replace("/bio/", "")
     return get_abs_path(path)
 
 
-def normalize_a0_path(path: str):
-    "Convert absolute paths into /a0/... paths"
+def normalize_bio_path(path: str):
+    "Convert absolute paths into /bio/... paths"
     if is_in_base_dir(path):
         deabs = deabsolute_path(path)
-        return "/a0/" + deabs
+        return "/bio/" + deabs
     return path
 
 

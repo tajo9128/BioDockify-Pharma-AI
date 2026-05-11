@@ -25,7 +25,7 @@ class SelfUpdateSchedule(ApiHandler):
                 "success": True,
                 "pending": pending,
                 "message": (
-                    "Self-update was scheduled. Restart Agent Zero to apply the requested branch/tag."
+                    "Self-update was scheduled. Restart BioDockify AI to apply the requested branch/tag."
                 ),
             }
         except Exception as e:

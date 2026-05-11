@@ -324,7 +324,7 @@ def print_quick_start_guide():
 ║  2️⃣  START RESEARCHING                                          ║
 ║     • Open the Chat interface                                   ║
 ║     • Ask questions about your research topic                   ║
-║     • Use Agent Zero for deep research tasks                    ║
+║     • Use BioDockify AI for deep research tasks                    ║
 ║                                                                  ║
 ║  3️⃣  KEYBOARD SHORTCUTS                                         ║
 ║     • Ctrl+K  - Quick command palette                           ║

@@ -2,7 +2,7 @@
 Scrape Webpage Tool - Direct single page scraping.
 """
 import logging
-from agent_zero.hybrid.connectors.webcrawler import WebCrawlerConnector
+from biodockify.ai.hybrid.connectors.webcrawler import WebCrawlerConnector
 
 class ScrapeWebpageTool:
     """Extract content from a single URL."""

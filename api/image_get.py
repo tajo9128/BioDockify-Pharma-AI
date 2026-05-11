@@ -48,7 +48,7 @@ class ImageGet(ApiHandler):
 
             # in development environment, try to serve the image from local file system if exists, otherwise from docker
             if runtime.is_development():
-                # Convert /a0/... Docker paths to local absolute paths
+                # Convert /bio/... Docker paths to local absolute paths
                 local_path = files.fix_dev_path(path)
                 if files.exists(local_path):
                     response = send_file(local_path)

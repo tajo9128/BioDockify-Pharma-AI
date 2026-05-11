@@ -1,5 +1,5 @@
 """
-Agent Zero - Dynamic Prompt Loader
+BioDockify AI - Dynamic Prompt Loader
 Loads prompts from external markdown files for easy customization.
 """
 

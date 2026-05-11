@@ -1,5 +1,5 @@
 """
-Knowledge Graph Tool for Agent Zero.
+Knowledge Graph Tool for BioDockify AI.
 Enables interaction with SurfSense Knowledge Engine for graph-based research data.
 """
 import logging

@@ -15,7 +15,7 @@ def _register_helpers_stubs():
     helpers_pkg.__path__ = []
 
     files = types.ModuleType("helpers.files")
-    files.normalize_a0_path = lambda path: str(path).replace("\\", "/")
+    files.normalize_bio_path = lambda path: str(path).replace("\\", "/")
     files.fix_dev_path = lambda path: str(path).replace("\\", "/")
     files.get_abs_path = lambda *parts: "/" + "/".join(str(part).strip("/") for part in parts if part)
     files.exists = lambda path: False
@@ -146,12 +146,12 @@ def test_chat_deactivation_hides_name_only_scope_default_by_path(monkeypatch):
 
     runtime.deactivate_chat_skill(
         agent,
-        {"name": "Pinned", "path": "/a0/usr/skills/custom/pinned"},
+        {"name": "Pinned", "path": "/bio/usr/skills/custom/pinned"},
     )
 
     assert runtime.get_active_skills(agent) == []
     assert runtime.get_chat_disabled_skills(agent.context) == [
-        {"name": "Pinned", "path": "/a0/usr/skills/custom/pinned"}
+        {"name": "Pinned", "path": "/bio/usr/skills/custom/pinned"}
     ]
 
 
@@ -165,11 +165,11 @@ def test_reactivating_name_only_scope_default_by_path_clears_hidden_override(mon
 
     runtime.deactivate_chat_skill(
         agent,
-        {"name": "Pinned", "path": "/a0/usr/skills/custom/pinned"},
+        {"name": "Pinned", "path": "/bio/usr/skills/custom/pinned"},
     )
     runtime.activate_chat_skill(
         agent,
-        {"name": "Pinned", "path": "/a0/usr/skills/custom/pinned"},
+        {"name": "Pinned", "path": "/bio/usr/skills/custom/pinned"},
     )
 
     assert runtime.get_active_skills(agent) == [{"name": "Pinned"}]
@@ -182,12 +182,12 @@ def test_loaded_skill_entries_come_from_agent_data():
     agent.data[runtime.AGENT_DATA_NAME_LOADED_SKILLS] = [
         "computer-use-remote",
         "",
-        "a0-development",
+        "bio-development",
     ]
 
     assert runtime.get_loaded_skill_entries(agent) == [
         {"name": "computer-use-remote"},
-        {"name": "a0-development"},
+        {"name": "bio-development"},
     ]
 
 
@@ -195,17 +195,17 @@ def test_unload_agent_skill_removes_loaded_skill_by_name():
     agent = DummyAgent()
     agent.data[runtime.AGENT_DATA_NAME_LOADED_SKILLS] = [
         "computer-use-remote",
-        "a0-development",
+        "bio-development",
     ]
 
     removed = runtime.unload_agent_skill(
         agent,
-        {"name": "computer-use-remote", "path": "/a0/skills/computer-use-remote"},
+        {"name": "computer-use-remote", "path": "/bio/skills/computer-use-remote"},
     )
 
     assert removed is True
     assert agent.data[runtime.AGENT_DATA_NAME_LOADED_SKILLS] == [
-        "a0-development"
+        "bio-development"
     ]
 
 

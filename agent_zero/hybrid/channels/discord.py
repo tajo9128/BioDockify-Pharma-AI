@@ -3,8 +3,8 @@ Discord Channel - Integration with Discord Bot API.
 """
 import logging
 import asyncio
-from agent_zero.hybrid.channels.base import BaseChannel
-from agent_zero.hybrid.bus import MessageBus, OutboundMessage
+from biodockify.ai.hybrid.channels.base import BaseChannel
+from biodockify.ai.hybrid.bus import MessageBus, OutboundMessage
 
 logger = logging.getLogger(__name__)
 

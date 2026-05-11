@@ -1,8 +1,8 @@
-"""POST /api/plugins/_a0_connector/v1/agents_list."""
+"""POST /api/plugins/_bio_connector/v1/agents_list."""
 from __future__ import annotations
 
 from helpers.api import Request, Response
-import plugins._a0_connector.api.v1.base as connector_base
+import plugins._bio_connector.api.v1.base as connector_base
 
 
 class AgentsList(connector_base.ProtectedConnectorApiHandler):

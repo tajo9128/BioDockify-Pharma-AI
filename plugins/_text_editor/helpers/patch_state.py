@@ -4,7 +4,7 @@ from typing import Any, TypedDict
 
 
 LOCAL_FRESHNESS_KEY = "_text_editor_mtimes"
-REMOTE_FRESHNESS_KEY = "_a0_connector_text_editor_remote_mtimes"
+REMOTE_FRESHNESS_KEY = "_bio_connector_text_editor_remote_mtimes"
 
 
 class FileMetadata(TypedDict):

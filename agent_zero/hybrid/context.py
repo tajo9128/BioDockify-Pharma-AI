@@ -1,5 +1,5 @@
 """
-Hybrid Agent Context - Combining Agent Zero's context management with NanoBot's simplicity.
+Hybrid Agent Context - Combining BioDockify AI's context management with NanoBot's simplicity.
 """
 from dataclasses import dataclass, field
 from datetime import datetime, timezone

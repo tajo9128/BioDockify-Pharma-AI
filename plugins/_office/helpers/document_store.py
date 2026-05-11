@@ -114,15 +114,15 @@ def display_path(path: str | Path) -> str:
     if str(base).startswith("/a0"):
         return str(resolved)
     try:
-        return "/a0/" + str(resolved.relative_to(base)).lstrip("/")
+        return "/bio/" + str(resolved.relative_to(base)).lstrip("/")
     except ValueError:
         return str(path)
 
 
 def _path_from_a0(path: str | Path) -> Path:
     raw = str(path)
-    if raw.startswith("/a0/") and not files.get_base_dir().startswith("/a0"):
-        raw = files.get_abs_path(raw.removeprefix("/a0/"))
+    if raw.startswith("/bio/") and not files.get_base_dir().startswith("/a0"):
+        raw = files.get_abs_path(raw.removeprefix("/bio/"))
     return Path(raw if os.path.isabs(raw) else files.get_abs_path(raw)).expanduser()
 
 

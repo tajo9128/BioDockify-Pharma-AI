@@ -60,10 +60,10 @@ async def test_default_agent0_prompt_budget_and_guardrails():
     assert "# computer_use_remote tool" not in system_text
 
 
-def test_a0_small_profile_removed_and_prompt_text_generic():
-    assert not (PROJECT_ROOT / "agents" / "a0_small").exists()
-    assert not (PROJECT_ROOT / "knowledge" / "main" / "a0_small_tool_call_examples.md").exists()
+def test_bio_small_profile_removed_and_prompt_text_generic():
+    assert not (PROJECT_ROOT / "agents" / "bio_small").exists()
+    assert not (PROJECT_ROOT / "knowledge" / "main" / "bio_small_tool_call_examples.md").exists()
     assert (PROJECT_ROOT / "knowledge" / "main" / "tool_call_reference_examples.md").exists()
 
     for path in _iter_prompt_files():
-        assert "a0_small" not in path.read_text(encoding="utf-8")
+        assert "bio_small" not in path.read_text(encoding="utf-8")

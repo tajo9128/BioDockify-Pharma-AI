@@ -798,12 +798,12 @@ def test_debug_logging_respects_runtime_flag(monkeypatch):
         logs.append(message)
 
     monkeypatch.setattr("helpers.print_style.PrintStyle.debug", staticmethod(capture))
-    monkeypatch.setenv("A0_WS_DEBUG", "")
+    monkeypatch.setenv("bio_WS_DEBUG", "")
 
     manager._debug("should-not-log")  # noqa: SLF001
     assert logs == []
 
-    monkeypatch.setenv("A0_WS_DEBUG", "1")
+    monkeypatch.setenv("bio_WS_DEBUG", "1")
     manager._debug("should-log")  # noqa: SLF001
     assert logs == ["should-log"]
 

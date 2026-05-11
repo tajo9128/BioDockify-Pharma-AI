@@ -1,8 +1,8 @@
 """
-Agent Zero Channels - Telegram, WhatsApp, Discord, Feishu Integration
+BioDockify AI Channels - Telegram, WhatsApp, Discord, Feishu Integration
 
-Provides messaging channel integration for Agent Zero using NanoBot's channel system.
-Users can chat with Agent Zero via:
+Provides messaging channel integration for BioDockify AI using NanoBot's channel system.
+Users can chat with BioDockify AI via:
 - Telegram Bot
 - WhatsApp (via webhook)
 - Discord Bot
@@ -68,9 +68,9 @@ class ChannelsConfig:
 
 class AgentZeroChannels:
     """
-    Multi-channel messaging for Agent Zero.
+    Multi-channel messaging for BioDockify AI.
     
-    Enables Agent Zero to be accessed via Telegram, WhatsApp, Discord, Feishu.
+    Enables BioDockify AI to be accessed via Telegram, WhatsApp, Discord, Feishu.
     """
     
     _instance = None
@@ -291,5 +291,5 @@ class AgentZeroChannels:
 
 
 def get_channels() -> AgentZeroChannels:
-    """Get the Agent Zero channels instance."""
+    """Get the BioDockify AI channels instance."""
     return AgentZeroChannels.get_instance()

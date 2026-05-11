@@ -1,11 +1,11 @@
-"""POST /api/plugins/_a0_connector/v1/capabilities."""
+"""POST /api/plugins/_bio_connector/v1/capabilities."""
 from __future__ import annotations
 
 import importlib.util
 import sys
 
 from helpers.api import Request, Response
-import plugins._a0_connector.api.v1.base as connector_base
+import plugins._bio_connector.api.v1.base as connector_base
 
 
 _BASE_FEATURES = [
@@ -66,20 +66,20 @@ def _feature_list() -> list[str]:
 
 
 class Capabilities(connector_base.PublicConnectorApiHandler):
-    """Return the connector discovery contract for current Agent Zero."""
+    """Return the connector discovery contract for current BioDockify AI."""
 
     async def process(self, input: dict, request: Request) -> dict | Response:
         from helpers import login
 
         return {
-            "protocol": "a0-connector.v1",
+            "protocol": "bio-connector.v1",
             "version": "0.1.0",
             "auth": ["session"],
             "auth_required": bool(login.is_login_required()),
             "transports": ["http", "websocket"],
             "streaming": True,
             "websocket_namespace": "/ws",
-            "websocket_handlers": ["plugins/_a0_connector/ws_connector"],
+            "websocket_handlers": ["plugins/_bio_connector/ws_connector"],
             "attachments": {
                 "mode": "path_or_url",
                 "http_upload": "base64_to_file",

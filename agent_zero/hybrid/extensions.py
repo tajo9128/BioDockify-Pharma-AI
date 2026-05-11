@@ -1,5 +1,5 @@
 """
-Hybrid Extension System - Hook points for Agent Zero style extensions.
+Hybrid Extension System - Hook points for BioDockify AI style extensions.
 """
 from typing import Callable, Coroutine, Any, List
 import logging

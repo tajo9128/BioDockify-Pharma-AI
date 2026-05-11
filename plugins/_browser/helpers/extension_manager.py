@@ -86,7 +86,7 @@ def install_chrome_web_store_extension(source: str) -> dict[str, Any]:
     extension_id = parse_chrome_web_store_extension_id(source)
     target = get_extensions_root() / "chrome-web-store" / extension_id
 
-    with tempfile.TemporaryDirectory(prefix="a0-browser-ext-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="bio-browser-ext-") as tmp:
         archive_path = Path(tmp) / f"{extension_id}.crx"
         _download_crx(extension_id, archive_path)
         payload_path = Path(tmp) / f"{extension_id}.zip"
@@ -217,7 +217,7 @@ def _build_web_store_download_url(extension_id: str, *, prodversion: str | None 
 
 
 def _detect_chrome_prodversion() -> str:
-    env_version = _normalize_chrome_prodversion(os.environ.get("A0_BROWSER_EXTENSION_PRODVERSION", ""))
+    env_version = _normalize_chrome_prodversion(os.environ.get("bio_BROWSER_EXTENSION_PRODVERSION", ""))
     if env_version:
         return env_version
 

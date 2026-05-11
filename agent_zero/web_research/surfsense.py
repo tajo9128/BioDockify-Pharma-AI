@@ -1,5 +1,5 @@
 """
-Agent Zero SurfSense - Web Scraper
+BioDockify AI SurfSense - Web Scraper
 
 Manages URL queue, crawling strategy, extraction rules, and coordinates with Executor.
 """

@@ -56,7 +56,7 @@ class ChromaVectorStore:
     def _initialize_collections(self):
         """Initialize standard collections."""
         collections_config = {
-            'agent_zero_memory': 'Agent Zero long-term memory',
+            'agent_zero_memory': 'BioDockify AI long-term memory',
             'nanobot_knowledge': 'NanoBot shared knowledge',
             'research_documents': 'Research documents'
         }

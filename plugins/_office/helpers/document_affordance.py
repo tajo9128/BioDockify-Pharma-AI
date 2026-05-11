@@ -327,7 +327,7 @@ def looks_like_tool_or_status_response(text: str) -> bool:
     stripped = text.strip()
     if stripped.startswith("{") and '"tool_name"' in stripped[:300]:
         return True
-    if "/a0/usr/workdir/" in stripped or "/a0/usr/projects/" in stripped:
+    if "/bio/usr/workdir/" in stripped or "/bio/usr/projects/" in stripped:
         return True
     return False
 

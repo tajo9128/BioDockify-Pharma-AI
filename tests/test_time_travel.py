@@ -41,7 +41,7 @@ def workspace():
     name = f"tt-{uuid.uuid4().hex}"
     root = PROJECT_ROOT / "usr" / "time-travel-tests" / name
     root.mkdir(parents=True)
-    service = TimeTravelService(_workspace_from_display(f"/a0/usr/time-travel-tests/{name}"))
+    service = TimeTravelService(_workspace_from_display(f"/bio/usr/time-travel-tests/{name}"))
     try:
         yield root, service
     finally:
@@ -83,7 +83,7 @@ def test_shadow_history_snapshot_diff_travel_preserve_refs_and_root_revert(works
     preserved = service._git(
         "for-each-ref",
         "--format=%(objectname)",
-        "refs/a0-time-travel/preserved",
+        "refs/bio-time-travel/preserved",
     ).stdout
     assert second.hash in preserved
     assert second.hash in [commit["hash"] for commit in service.history_list(limit=10)["commits"]]
@@ -177,8 +177,8 @@ def test_workspace_identity_canonicalizes_symlink_aliases():
     target.mkdir(parents=True)
     os.symlink(target, alias)
 
-    target_workspace = _workspace_from_display(f"/a0/usr/time-travel-tests/{name}/target")
-    alias_workspace = _workspace_from_display(f"/a0/usr/time-travel-tests/{name}/alias")
+    target_workspace = _workspace_from_display(f"/bio/usr/time-travel-tests/{name}/target")
+    alias_workspace = _workspace_from_display(f"/bio/usr/time-travel-tests/{name}/alias")
     try:
         assert alias_workspace.id == target_workspace.id
         assert alias_workspace.display_path == target_workspace.display_path
@@ -200,7 +200,7 @@ def test_usr_root_snapshot_skips_plugins_and_nested_git_projects(tmp_path: Path)
     (root / "projects" / "plain-project").mkdir(parents=True)
     (root / "projects" / "plain-project" / "app.py").write_text("print('plain')\n", encoding="utf-8")
 
-    paths = set(tt.iter_snapshot_paths(root, display_path="/a0/usr"))
+    paths = set(tt.iter_snapshot_paths(root, display_path="/bio/usr"))
 
     assert "workdir/note.txt" in paths
     assert "projects/plain-project/app.py" in paths
@@ -321,7 +321,7 @@ def test_debounced_snapshots_coalesce_to_one_commit(workspace):
         tt.schedule_debounced_snapshot(
             service.workspace,
             trigger="watchdog",
-            metadata={"source": "watchdog", "changed_path_hints": ["/a0/usr/file.txt"]},
+            metadata={"source": "watchdog", "changed_path_hints": ["/bio/usr/file.txt"]},
             delay=60,
         )
         assert service.current_hash() == ""
@@ -330,7 +330,7 @@ def test_debounced_snapshots_coalesce_to_one_commit(workspace):
         tt.schedule_debounced_snapshot(
             service.workspace,
             trigger="text_editor_write",
-            metadata={"source": "text_editor", "changed_path_hints": ["/a0/usr/other.txt"]},
+            metadata={"source": "text_editor", "changed_path_hints": ["/bio/usr/other.txt"]},
             delay=60,
         )
         tt.flush_debounced_snapshots()
@@ -343,8 +343,8 @@ def test_debounced_snapshots_coalesce_to_one_commit(workspace):
         assert commits[0]["metadata"]["trigger"] == "text_editor_write"
         assert commits[0]["metadata"]["source"] == "text_editor"
         assert commits[0]["metadata"]["changed_path_hints"] == [
-            "/a0/usr/file.txt",
-            "/a0/usr/other.txt",
+            "/bio/usr/file.txt",
+            "/bio/usr/other.txt",
         ]
         assert "two" in service.history_diff(commit_hash=current, path="file.txt", mode="commit")["patch"]
     finally:
@@ -368,7 +368,7 @@ def test_workspace_resolution_prefers_project_and_rejects_external_paths(monkeyp
 
     resolved = resolve_workspace("ctx", context_loader=lambda _ctxid: SimpleNamespace(id="ctx"))
     assert resolved.project_name == "demo"
-    assert resolved.display_path.startswith("/a0/usr/time-travel-tests/")
+    assert resolved.display_path.startswith("/bio/usr/time-travel-tests/")
 
     projects_mod.get_context_project_name = lambda _context: ""
     with pytest.raises(WorkspaceRejectedError):

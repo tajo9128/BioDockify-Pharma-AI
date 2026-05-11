@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name="deep-drive",
     version="1.0.0",
-    description="PAN Code Forensics Skill for Agent Zero",
+    description="PAN Code Forensics Skill for BioDockify AI",
     author="Webis PAN",
     packages=find_packages(),
     py_modules=[],

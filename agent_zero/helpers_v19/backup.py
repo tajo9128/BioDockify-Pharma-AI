@@ -14,7 +14,7 @@ from helpers.print_style import PrintStyle
 
 class BackupService:
     """
-    Core backup and restore service for Agent Zero.
+    Core backup and restore service for BioDockify AI.
 
     Features:
     - JSON-based metadata with user-editable path specifications
@@ -25,12 +25,12 @@ class BackupService:
     """
 
     def __init__(self):
-        self.agent_zero_version = self._get_agent_zero_version()
-        self.agent_zero_root = files.get_abs_path("")  # Resolved Agent Zero root
+        self.biodockify.ai_version = self._get_biodockify.ai_version()
+        self.biodockify.ai_root = files.get_abs_path("")  # Resolved BioDockify AI root
 
         # Build base paths map for pattern resolution
         self.base_paths = {
-            self.agent_zero_root: self.agent_zero_root,
+            self.biodockify.ai_root: self.biodockify.ai_root,
         }
 
     def get_default_backup_metadata(self) -> Dict[str, Any]:
@@ -41,7 +41,7 @@ class BackupService:
         include_patterns, exclude_patterns = self._parse_patterns(default_patterns)
 
         return {
-            "backup_name": f"agent-zero-backup-{timestamp[:10]}",
+            "backup_name": f"biodockify.ai-backup-{timestamp[:10]}",
             "include_hidden": True,
             "include_patterns": include_patterns,
             "exclude_patterns": exclude_patterns,
@@ -54,18 +54,18 @@ class BackupService:
     def _get_default_patterns(self) -> str:
         """Get default backup patterns with resolved absolute paths.
 
-        Only includes Agent Zero project directory patterns.
+        Only includes BioDockify AI project directory patterns.
         """
         # Ensure paths don't have double slashes
-        agent_root = self.agent_zero_root.rstrip('/')
+        agent_root = self.biodockify.ai_root.rstrip('/')
 
         return f"""# User data
 # All persistent user data is now centralized in /usr for easier backup and restore
 {agent_root}/usr/**
 """
 
-    def _get_agent_zero_version(self) -> str:
-        """Get current Agent Zero version"""
+    def _get_biodockify.ai_version(self) -> str:
+        """Get current BioDockify AI version"""
         try:
             # Get version from git info (same as run_ui.py)
             gitinfo = git.get_git_info()
@@ -146,7 +146,7 @@ class BackupService:
                 "path": os.environ.get("PATH", "")[:200] + "..." if len(os.environ.get("PATH", "")) > 200 else os.environ.get("PATH", ""),
                 "timezone": str(datetime.datetime.now().astimezone().tzinfo),
                 "working_directory": os.getcwd(),
-                "agent_zero_root": files.get_abs_path(""),
+                "biodockify.ai_root": files.get_abs_path(""),
                 "runtime_mode": "development" if runtime.is_development() else "production"
             }
         except Exception as e:
@@ -197,22 +197,22 @@ class BackupService:
     def _translate_patterns(self, patterns: List[str], backup_metadata: Dict[str, Any]) -> List[str]:
         """Translate patterns from backed up system to current system.
 
-        Replaces the backed up Agent Zero root path with the current Agent Zero root path
+        Replaces the backed up BioDockify AI root path with the current BioDockify AI root path
         in all patterns if there's an exact match at the beginning of the pattern.
 
         Args:
             patterns: List of patterns from the backed up system
-            backup_metadata: Backup metadata containing the original agent_zero_root
+            backup_metadata: Backup metadata containing the original biodockify.ai_root
 
         Returns:
             List of translated patterns for the current system
         """
-        # Get the backed up agent zero root path from metadata
+        # Get the backed up BioDockify AI root path from metadata
         environment_info = backup_metadata.get("environment_info", {})
-        backed_up_agent_root = environment_info.get("agent_zero_root", "")
+        backed_up_agent_root = environment_info.get("biodockify.ai_root", "")
 
-        # Get current agent zero root path
-        current_agent_root = self.agent_zero_root
+        # Get current BioDockify AI root path
+        current_agent_root = self.biodockify.ai_root
 
         # If we don't have the backed up root path, return patterns as-is
         if not backed_up_agent_root:
@@ -224,7 +224,7 @@ class BackupService:
 
         translated_patterns = []
         for pattern in patterns:
-            # Check if the pattern starts with the backed up agent zero root
+            # Check if the pattern starts with the backed up BioDockify AI root
             if pattern.startswith(backed_up_agent_root + '/') or pattern == backed_up_agent_root:
                 # Replace the backed up root with the current root
                 relative_pattern = pattern[len(backed_up_agent_root):].lstrip('/')
@@ -329,7 +329,7 @@ class BackupService:
         include_patterns: List[str],
         exclude_patterns: List[str],
         include_hidden: bool = True,
-        backup_name: str = "agent-zero-backup"
+        backup_name: str = "biodockify.ai-backup"
     ) -> str:
         """Create backup archive and return path to created file"""
 
@@ -355,7 +355,7 @@ class BackupService:
                 # Add comprehensive metadata
                 metadata = {
                     # Basic backup information
-                    "agent_zero_version": self.agent_zero_version,
+                    "biodockify.ai_version": self.biodockify.ai_version,
                     "timestamp": datetime.datetime.now().isoformat(),
                     "backup_name": backup_name,
                     "include_hidden": include_hidden,
@@ -519,7 +519,7 @@ class BackupService:
                     target_path = self._translate_restore_path(archive_path, original_backup_metadata)
 
                     # For pattern matching, we need to use the translated path (current system)
-                    # so that patterns like "/home/rafael/a0/data/**" can match files correctly
+                    # so that patterns like "/home/rafael/bio/data/**" can match files correctly
                     translated_path_for_matching = target_path.lstrip('/')
 
                     # Check if file matches restore patterns
@@ -675,7 +675,7 @@ class BackupService:
                     target_path = self._translate_restore_path(archive_path, original_backup_metadata)
 
                     # For pattern matching, we need to use the translated path (current system)
-                    # so that patterns like "/home/rafael/a0/data/**" can match files correctly
+                    # so that patterns like "/home/rafael/bio/data/**" can match files correctly
                     translated_path_for_matching = target_path.lstrip('/')
 
                     # Check if file matches restore patterns
@@ -752,22 +752,22 @@ class BackupService:
     def _translate_restore_path(self, archive_path: str, backup_metadata: Dict[str, Any]) -> str:
         """Translate file path from backed up system to current system.
 
-        Replaces the backed up Agent Zero root path with the current Agent Zero root path
+        Replaces the backed up BioDockify AI root path with the current BioDockify AI root path
         if there's an exact match at the beginning of the path.
 
         Args:
             archive_path: Original file path from the archive
-            backup_metadata: Backup metadata containing the original agent_zero_root
+            backup_metadata: Backup metadata containing the original biodockify.ai_root
 
         Returns:
             Translated path for the current system
         """
-        # Get the backed up agent zero root path from metadata
+        # Get the backed up BioDockify AI root path from metadata
         environment_info = backup_metadata.get("environment_info", {})
-        backed_up_agent_root = environment_info.get("agent_zero_root", "")
+        backed_up_agent_root = environment_info.get("biodockify.ai_root", "")
 
-        # Get current agent zero root path
-        current_agent_root = self.agent_zero_root
+        # Get current BioDockify AI root path
+        current_agent_root = self.biodockify.ai_root
 
         # If we don't have the backed up root path, use original path with leading slash
         if not backed_up_agent_root:
@@ -783,7 +783,7 @@ class BackupService:
         else:
             absolute_archive_path = archive_path
 
-        # Check if the archive path starts with the backed up agent zero root
+        # Check if the archive path starts with the backed up BioDockify AI root
         if absolute_archive_path.startswith(backed_up_agent_root + '/') or absolute_archive_path == backed_up_agent_root:
             # Replace the backed up root with the current root
             relative_path = absolute_archive_path[len(backed_up_agent_root):].lstrip('/')

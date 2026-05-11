@@ -1,8 +1,8 @@
 """
-NanoBot Bridge - Hybrid Integration Layer for Agent Zero + NanoBot
+NanoBot Bridge - Hybrid Integration Layer for BioDockify AI + NanoBot
 
 This module connects NanoBot's ultra-lightweight agent capabilities with
-BioDockify's PhD-focused Agent Zero orchestrator, creating a powerful hybrid.
+BioDockify's PhD-focused BioDockify AI orchestrator, creating a powerful hybrid.
 
 Features Integrated from NanoBot:
 - Memory System (daily notes + long-term MEMORY.md)
@@ -33,16 +33,16 @@ from nanobot.cron.service import CronService
 from nanobot.cron.types import CronSchedule
 from nanobot.session.manager import SessionManager
 
-# Agent Zero imports
+# BioDockify AI imports
 from agent_zero.core.orchestrator import AgentZero, ToolRegistry, Tool
 
 
 class HybridAgentBrain:
     """
-    Hybrid Agent Zero + NanoBot Brain.
+    Hybrid BioDockify AI + NanoBot Brain.
     
     Combines:
-    - Agent Zero: PhD research orchestration, tool registry, persistent memory
+    - BioDockify AI: PhD research orchestration, tool registry, persistent memory
     - NanoBot: Lightweight agent loop, skills, cron, multi-channel messaging
     """
     

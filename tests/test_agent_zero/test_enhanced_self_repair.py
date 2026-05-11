@@ -279,7 +279,7 @@ class TestCodeAwareness:
 
 
 class TestIntegration:
-    """Test integration with existing Agent Zero system."""
+    """Test integration with existing BioDockify AI system."""
     
     @pytest.mark.asyncio
     async def test_repair_history_tracking(self):

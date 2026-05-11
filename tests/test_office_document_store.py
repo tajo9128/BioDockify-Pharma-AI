@@ -527,7 +527,7 @@ def test_office_session_desktop_state_action_defaults_without_screenshot(monkeyp
             return {
                 "ok": True,
                 "display": ":120",
-                "profile_dir": "/a0/tmp/_office/desktop/profiles/agent-zero-desktop",
+                "profile_dir": "/bio/tmp/_office/desktop/profiles/agent-zero-desktop",
                 "size": {"width": 1440, "height": 900},
                 "pointer": {"x": 0, "y": 0, "screen": 0, "window": 0},
                 "active_window": None,
@@ -1076,7 +1076,7 @@ def test_office_startup_defers_persistent_desktop_runtime(monkeypatch):
     assert calls == ["routes"]
     assert cleanup_calls == []
     assert len(started_threads) == 1
-    assert started_threads[0].name == "a0-office-runtime-preparation"
+    assert started_threads[0].name == "bio-office-runtime-preparation"
     assert started_threads[0].daemon is True
     assert not hasattr(office_startup, "libreoffice_desktop")
 
@@ -1130,7 +1130,7 @@ def test_cleanup_hook_removes_retired_supervisor_program_after_marker(tmp_path, 
         if args == ("status", hooks.SUPERVISOR_PROGRAM):
             return types.SimpleNamespace(
                 returncode=0,
-                stdout="a0_office_collabora BACKOFF can't find command\n",
+                stdout="bio_office_collabora BACKOFF can't find command\n",
                 stderr="",
             )
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")

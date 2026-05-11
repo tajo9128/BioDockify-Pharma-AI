@@ -1,6 +1,6 @@
 """
 Advanced Memory System - Core Engine
-Integrates with ChromaDB, Agent Zero, and Task Manager
+Integrates with ChromaDB, BioDockify AI, and Task Manager
 """
 
 import asyncio

@@ -1,5 +1,5 @@
 """
-Agent Zero Skills Package
+BioDockify AI Skills Package
 Browser automation, email messaging, and research automation.
 """
 

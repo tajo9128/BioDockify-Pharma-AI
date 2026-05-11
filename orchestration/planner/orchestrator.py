@@ -245,7 +245,7 @@ class ResearchOrchestrator:
             # Section E: API & AI
             ai = runtime_cfg.get("ai_provider", {})
 
-            # Use Agent Zero v1.9 as default - single mode
+            # Use BioDockify AI v1.9 as default - single mode
             self.config = OrchestratorConfig(
                 # AI Settings
                 use_cloud_api=True,
@@ -769,7 +769,7 @@ Provide ONLY the JSON."""
         }
 
     # -------------------------------------------------------------------------
-    # Self-Correction & Retry Logic (Agent Zero Pattern)
+    # Self-Correction & Retry Logic (BioDockify AI Pattern)
     # -------------------------------------------------------------------------
 
     def _validate_result(self, result: dict, task: dict, context: str = "") -> bool:
@@ -816,7 +816,7 @@ Provide ONLY the JSON."""
     ) -> dict:
         """
         Use LLM to adjust task parameters after a validation failure.
-        Implements the "rethinking" pattern from Agent Zero.
+        Implements the "rethinking" pattern from BioDockify AI.
 
         Args:
             task: The task that failed validation

@@ -1,7 +1,7 @@
 """
-Agent Zero Web Research Module
+BioDockify AI Web Research Module
 
-Provides web research capabilities for Agent Zero.
+Provides web research capabilities for BioDockify AI.
 Includes:
 - Search Planner: Generates search queries and selects sources
 - SurfSense: Web scraping with extraction rules

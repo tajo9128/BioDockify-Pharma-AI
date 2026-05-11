@@ -11,7 +11,7 @@ from helpers.tool import Response, Tool
 from helpers.ws import NAMESPACE
 from helpers.ws_manager import ConnectionNotFoundError, get_shared_ws_manager
 
-from plugins._a0_connector.helpers.ws_runtime import (
+from plugins._bio_connector.helpers.ws_runtime import (
     clear_pending_computer_use_op,
     select_computer_use_target_sid,
     store_pending_computer_use_op,

@@ -1,6 +1,6 @@
 """
 Progress Monitoring Service - BioDockify NanoBot
-Background task to track Agent Zero's progress and broadcast updates.
+Background task to track BioDockify AI's progress and broadcast updates.
 """
 import asyncio
 import logging

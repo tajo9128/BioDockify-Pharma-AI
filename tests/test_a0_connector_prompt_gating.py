@@ -22,14 +22,14 @@ def _restore_real_helpers_package() -> None:
 
 _restore_real_helpers_package()
 
-from plugins._a0_connector.helpers import ws_runtime
+from plugins._bio_connector.helpers import ws_runtime
 
 
-PROMPT_ROOT = PROJECT_ROOT / "plugins" / "_a0_connector" / "prompts"
+PROMPT_ROOT = PROJECT_ROOT / "plugins" / "_bio_connector" / "prompts"
 GATE_PATH = (
     PROJECT_ROOT
     / "plugins"
-    / "_a0_connector"
+    / "_bio_connector"
     / "extensions"
     / "python"
     / "_functions"
@@ -45,7 +45,7 @@ GATE_PATH = (
 
 def _load_gate_class():
     spec = importlib.util.spec_from_file_location(
-        "test_a0_connector_remote_tool_gate",
+        "test_bio_connector_remote_tool_gate",
         GATE_PATH,
     )
     module = importlib.util.module_from_spec(spec)
@@ -202,16 +202,16 @@ def test_remote_workflow_skills_parse():
     connector_skill = _parse_skill_frontmatter(
         PROJECT_ROOT
         / "plugins"
-        / "_a0_connector"
+        / "_bio_connector"
         / "skills"
-        / "a0-cli-remote-workflows"
+        / "bio-cli-remote-workflows"
         / "SKILL.md"
     )
     computer_skill = _parse_skill_frontmatter(
         PROJECT_ROOT / "skills" / "computer-use-remote" / "SKILL.md"
     )
 
-    assert connector_skill["name"] == "a0-cli-remote-workflows"
+    assert connector_skill["name"] == "bio-cli-remote-workflows"
     assert connector_skill["description"]
     assert computer_skill["name"] == "computer-use-remote"
     assert computer_skill["description"]

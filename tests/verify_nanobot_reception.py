@@ -40,10 +40,10 @@ async def main():
     try:
         response_id = await ai.process_chat("Who is your boss?")
         print(f"Response:\n{response_id}\n")
-        if "Agent Zero" in response_id:
-            print("[SUCCESS] NanoBot knows Agent Zero is the boss.")
+        if "BioDockify AI" in response_id:
+            print("[SUCCESS] NanoBot knows BioDockify AI is the boss.")
         else:
-            print("[WARNING] NanoBot didn't mention Agent Zero as boss.")
+            print("[WARNING] NanoBot didn't mention BioDockify AI as boss.")
     except Exception as e:
         print(f"[ERROR] Identity Test Failed: {e}")
 
@@ -53,8 +53,8 @@ async def main():
         response2 = await ai.process_chat("Please research quantum biology concepts")
         print(f"Response:\n{response2}\n")
         
-        if "Agent Zero" in response2 or "Boss" in response2:
-            print("[SUCCESS] Delegation to Agent Zero confirmed.")
+        if "BioDockify AI" in response2 or "Boss" in response2:
+            print("[SUCCESS] Delegation to BioDockify AI confirmed.")
         else:
              print("[WARNING] Response didn't indicate delegation clearly.")
     except Exception as e:

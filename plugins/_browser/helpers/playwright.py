@@ -8,7 +8,7 @@ FULL_CHROMIUM_PATTERNS = (
     "chromium-*/chrome-linux/chrome",
     "chromium-*/chrome-win/chrome.exe",
 )
-PLAYWRIGHT_CACHE_ENV = "A0_BROWSER_PLAYWRIGHT_CACHE_DIR"
+PLAYWRIGHT_CACHE_ENV = "bio_BROWSER_PLAYWRIGHT_CACHE_DIR"
 PLAYWRIGHT_CACHE_DIR = ("usr", "plugins", "_browser", "playwright")
 PREVIOUS_PLAYWRIGHT_CACHE_DIR = ("usr", "browser", "playwright")
 LEGACY_PLAYWRIGHT_CACHE_DIR = ("tmp", "playwright")

@@ -141,7 +141,7 @@ async def enhanced_chat_endpoint(
         
     else:
         # No research detected - normal chat response
-        # In production, this would route to Agent Zero or NanoBot
+        # In production, this would route to BioDockify AI or NanoBot
         response = f"Processing your message in {request.mode} mode..."
     
     return ChatResponse(
@@ -222,7 +222,7 @@ async def get_research_progress(context_id: str):
 @router.post("/communicate", response_model=Dict[str, Any])
 async def agent_communication(request: CommunicationRequest):
     """
-    Handle bidirectional communication between Agent Zero and NanoBot.
+    Handle bidirectional communication between BioDockify AI and NanoBot.
     Manages permissions and data exchange.
     """
     orchestrator = get_orchestrator()

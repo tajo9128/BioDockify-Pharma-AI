@@ -1,5 +1,5 @@
 """
-Email & Messenger Module for Agent Zero
+Email & Messenger Module for BioDockify AI
 Send research results via email, Telegram, WhatsApp, Discord.
 """
 

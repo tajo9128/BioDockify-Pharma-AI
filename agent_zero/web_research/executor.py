@@ -1,5 +1,5 @@
 """
-Agent Zero SurfSense Executor
+BioDockify AI SurfSense Executor
 
 Fetches web pages, extracts text content, handles errors and retries.
 """

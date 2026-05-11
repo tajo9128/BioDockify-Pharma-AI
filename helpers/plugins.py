@@ -287,7 +287,7 @@ def get_enhanced_plugins_list(
                 results.append(
                     PluginListItem(
                         name=d.name,
-                        path=files.normalize_a0_path(str(d)),
+                        path=files.normalize_bio_path(str(d)),
                         display_name=meta.title or d.name,
                         description=meta.description,
                         version=meta.version,

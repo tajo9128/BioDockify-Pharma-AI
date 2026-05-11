@@ -1,13 +1,13 @@
 """
-Agent Zero Enhanced - NanoBot-Powered Brain
+BioDockify AI Enhanced - NanoBot-Powered Brain
 
-This module enhances Agent Zero's chat capabilities with NanoBot features:
+This module enhances BioDockify AI's chat capabilities with NanoBot features:
 - Memory context injection (daily notes + long-term)
 - Skills loading for specialized tasks
 - Background task spawning (subagents)
 - Scheduled research jobs (cron)
 
-Agent Zero remains the main brain - NanoBot provides the enhancements.
+BioDockify AI remains the main brain - NanoBot provides the enhancements.
 """
 
 import os
@@ -19,9 +19,9 @@ from loguru import logger
 
 class AgentZeroEnhanced:
     """
-    Enhanced Agent Zero with NanoBot capabilities.
+    Enhanced BioDockify AI with NanoBot capabilities.
     
-    This class wraps Agent Zero's chat with NanoBot's:
+    This class wraps BioDockify AI's chat with NanoBot's:
     - Memory system (context injection)
     - Skills loader (specialized capabilities)
     - Subagent spawning (background tasks)
@@ -38,7 +38,7 @@ class AgentZeroEnhanced:
         self._skills = None
         self._sessions = None
         
-        logger.info(f"Agent Zero Enhanced initialized at {self.workspace}")
+        logger.info(f"BioDockify AI Enhanced initialized at {self.workspace}")
     
     @classmethod
     def get_instance(cls) -> "AgentZeroEnhanced":
@@ -84,7 +84,7 @@ class AgentZeroEnhanced:
         
         # System preamble
         # System preamble
-        parts.append("""You are Agent Zero, the AI brain of BioDockify - a PhD-level pharmaceutical research assistant.
+        parts.append("""You are BioDockify AI, the AI brain of BioDockify - a PhD-level pharmaceutical research assistant.
 
 You have access to the following capabilities through your tools:
 - System Administration (Read/Write Files, Execute Commands)
@@ -163,5 +163,5 @@ If asked to fix a system issue (like a config file), USE YOUR TOOLS to fix it.""
 
 
 def get_agent_zero_enhanced() -> AgentZeroEnhanced:
-    """Get the enhanced Agent Zero instance."""
+    """Get the enhanced BioDockify AI instance."""
     return AgentZeroEnhanced.get_instance()

@@ -494,7 +494,7 @@ def test_self_update_frontend_uses_preloaded_select():
     assert "tag: \"\"," in content
     assert "await this.fetchTags();" in content
     assert '"Preparing update"' in content
-    assert '"Saving the request and asking Agent Zero to restart."' in content
+    assert '"Saving the request and asking BioDockify AI to restart."' in content
     assert "Release tag must use the format vX.Y." in content
     assert "Release tag must be v1.0 or newer." in content
     assert "isLatestSelectorTag(value)" in content
@@ -516,7 +516,7 @@ def test_self_update_frontend_uses_preloaded_select():
     assert "resetRestartState()" in content
     assert "restartRequestStarted" in content
     assert "restartResponse.status >= 500" in content
-    assert "while Agent Zero was shutting down" in content
+    assert "while BioDockify AI was shutting down" in content
     assert "await notificationStore.frontendWarning(" not in content
     assert "status-pill-error" in content
     assert "status-pill-success" in content
@@ -528,7 +528,7 @@ def test_self_update_frontend_uses_preloaded_select():
     assert 'const response = await fetch("/api/health"' in content
     assert "if (response.ok && observedBackendUnavailable)" in content
     assert "window.location.reload();" in content
-    assert "Waiting for Agent Zero to disconnect before reloading the page." in content
+    assert "Waiting for BioDockify AI to disconnect before reloading the page." in content
     assert "SELF_UPDATE_RETURN_URL_KEY" not in content
     assert "saveReturnUrl(" not in content
     assert "getSavedReturnUrl(" not in content
@@ -581,7 +581,7 @@ def test_self_update_modal_uses_standard_select_and_manual_backup():
     assert "requires a newer" in content
     assert "Docker image." in content
     assert "minor release line" in content
-    assert "Agent Zero self-update inside the existing image." in content
+    assert "BioDockify AI self-update inside the existing image." in content
     assert "On development branches you may also see versions like <code>v1.5+2</code>" in content
     assert "This suffix is not used on" in content
     assert "Only versions from the current major release line are listed here." in content
@@ -623,7 +623,7 @@ def test_self_update_recovery_script_and_docs_are_present():
     assert 'trigger-update "$@"' in script_content
     assert "/exe/trigger_self_update.sh" in docs_content
     assert "docker exec -it <container>" in docs_content
-    assert "/exe/a0-self-update.log" in docs_content
+    assert "/exe/bio-self-update.log" in docs_content
     assert "reload the current browser window" in docs_content
     assert "main` and `latest`" in docs_content
     assert "/exe/trigger_self_update.sh" in dockerfile_content
@@ -786,13 +786,13 @@ def test_self_update_manager_latest_on_main_uses_current_major_release(monkeypat
     monkeypatch.setattr(
         manager,
         "fetch_branch_refs",
-        lambda repo_dir, branch, logger: "refs/remotes/a0-self-update/main",
+        lambda repo_dir, branch, logger: "refs/remotes/bio-self-update/main",
     )
     monkeypatch.setattr(
         manager,
         "git_output",
         lambda repo_dir, *args: {
-            ("tag", "--merged", "refs/remotes/a0-self-update/main"): "v2.0\nv1.4\nv1.2\n",
+            ("tag", "--merged", "refs/remotes/bio-self-update/main"): "v2.0\nv1.4\nv1.2\n",
             ("rev-parse", "refs/tags/v1.4^{commit}"): "deadbeef1234",
         }[args],
     )
@@ -898,14 +898,14 @@ def test_self_update_manager_latest_on_non_main_rejects_cross_major(monkeypatch)
     monkeypatch.setattr(
         manager,
         "fetch_branch_refs",
-        lambda repo_dir, branch, logger: "refs/remotes/a0-self-update/development",
+        lambda repo_dir, branch, logger: "refs/remotes/bio-self-update/development",
     )
     monkeypatch.setattr(
         manager,
         "git_output",
         lambda repo_dir, *args: {
-            ("describe", "--tags", "--always", "refs/remotes/a0-self-update/development"): "v2.0-3-gabc1234",
-            ("rev-parse", "refs/remotes/a0-self-update/development"): "abc123456789",
+            ("describe", "--tags", "--always", "refs/remotes/bio-self-update/development"): "v2.0-3-gabc1234",
+            ("rev-parse", "refs/remotes/bio-self-update/development"): "abc123456789",
         }[args],
     )
 

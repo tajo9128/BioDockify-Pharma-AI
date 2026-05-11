@@ -1,6 +1,6 @@
 """
 NanoBot Receptionist - The Front Desk of BioDockify AI.
-Handles user interaction, intent classification, and delegation to the Boss (Agent Zero).
+Handles user interaction, intent classification, and delegation to the Boss (BioDockify AI).
 """
 import logging
 import asyncio
@@ -38,7 +38,7 @@ class NanoBotReceptionist:
     - Has its own Brain (ReasoningEngine + ContextBuilder).
     - Has its own Memory (PersistentMemory in nanobot subdir).
     - Can reply directly to small talk / simple queries.
-    - Delegates complex tasks to Agent Zero (The Boss).
+    - Delegates complex tasks to BioDockify AI (The Boss).
     """
 
     def __init__(self, agent_zero_instance=None):
@@ -132,13 +132,13 @@ class NanoBotReceptionist:
             "type": "function",
             "function": {
                 "name": "ask_boss",
-                "description": "Delegate a complex research or system task to Agent Zero (The Boss). Use this for anything requiring research, coding, or deep analysis.",
+                "description": "Delegate a complex research or system task to BioDockify AI (The Boss). Use this for anything requiring research, coding, or deep analysis.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "task_description": {
                             "type": "string",
-                            "description": "A clear, concise summary of what the user wants Agent Zero to do."
+                            "description": "A clear, concise summary of what the user wants BioDockify AI to do."
                         }
                     },
                     "required": ["task_description"]
@@ -366,11 +366,11 @@ class NanoBotReceptionist:
                     task = call.arguments.get("task_description")
                     logger.info(f"Delegate to Boss: {task}")
                     if not final_reply:
-                        final_reply = f"I'll ask Agent Zero to handle that: '{task}'"
+                        final_reply = f"I'll ask BioDockify AI to handle that: '{task}'"
                     
                     if self.agent_zero:
                         boss_reply = await self.agent_zero.run_task(task)
-                        final_reply += f"\n\n**Agent Zero:**\n{boss_reply}"
+                        final_reply += f"\n\n**BioDockify AI:**\n{boss_reply}"
                         # Store result
                         await self.memory.store({
                             "content": f"Boss completed task: {task}", 
@@ -378,7 +378,7 @@ class NanoBotReceptionist:
                             "type": "delegation"
                         })
                     else:
-                        final_reply += "\n\n(Error: Agent Zero is not in the office.)"
+                        final_reply += "\n\n(Error: BioDockify AI is not in the office.)"
                         
                 # Local Skills (Browser, Email, Message, Search)
                 elif call.name in ["browser_automation", "send_email", "message", "web_search", "consult_manual", "craft_research_title", "design_methodology", "evaluate_research_strategy", "freeze_reproducibility_snapshot"]:

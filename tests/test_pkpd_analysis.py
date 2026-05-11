@@ -14,7 +14,7 @@ import sys
 import os
 
 # Add project path
-sys.path.insert(0, "/a0/usr/projects/biodockify_ai")
+sys.path.insert(0, "/bio/usr/projects/biodockify_ai")
 
 from modules.statistics.pkpd_analysis import PKPDAnalysis
 

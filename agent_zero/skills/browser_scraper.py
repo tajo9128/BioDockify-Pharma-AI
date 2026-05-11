@@ -14,7 +14,7 @@ from modules.headless_research import HeadlessResearcher
 
 class BrowserScraper:
     """
-    Consolidated Browser Scraper for Agent Zero.
+    Consolidated Browser Scraper for BioDockify AI.
     Reuses the robust HeadlessResearcher engine from BioDockify core.
     """
     

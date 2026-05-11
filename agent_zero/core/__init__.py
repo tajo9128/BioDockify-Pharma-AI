@@ -1,5 +1,5 @@
 """
-Agent Zero - Autonomous Research Orchestrator Core Module
+BioDockify AI - Autonomous Research Orchestrator Core Module
 
 This package contains the core components of the autonomous agent system:
 - Orchestrator: Main autonomous execution loop

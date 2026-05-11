@@ -8,9 +8,9 @@ from helpers.print_style import PrintStyle
 from helpers.ws import WsHandler
 from helpers.ws_manager import WsResult
 
-from plugins._a0_connector.helpers.exec_config import build_exec_config
-from plugins._a0_connector.helpers.event_bridge import get_context_log_entries
-from plugins._a0_connector.helpers.ws_runtime import (
+from plugins._bio_connector.helpers.exec_config import build_exec_config
+from plugins._bio_connector.helpers.event_bridge import get_context_log_entries
+from plugins._bio_connector.helpers.ws_runtime import (
     clear_remote_tree_snapshot,
     clear_sid_computer_use_metadata,
     clear_sid_remote_exec_metadata,
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from agent import AgentContext, AgentContextType, UserMessage
 
 
-PROTOCOL_VERSION = "a0-connector.v1"
+PROTOCOL_VERSION = "bio-connector.v1"
 WS_FEATURES = [
     "connector_subscribe_context",
     "connector_send_message",
@@ -65,7 +65,7 @@ class WsConnector(WsHandler):
 
     async def on_connect(self, sid: str) -> None:
         register_sid(sid)
-        PrintStyle.debug(f"[a0-connector] /ws connected: {sid}")
+        PrintStyle.debug(f"[bio-connector] /ws connected: {sid}")
 
     async def on_disconnect(self, sid: str) -> None:
         contexts = unregister_sid(sid)
@@ -87,7 +87,7 @@ class WsConnector(WsHandler):
         clear_sid_computer_use_metadata(sid)
         clear_sid_remote_file_metadata(sid)
         clear_sid_remote_exec_metadata(sid)
-        PrintStyle.debug(f"[a0-connector] /ws disconnected: {sid}")
+        PrintStyle.debug(f"[bio-connector] /ws disconnected: {sid}")
 
     async def process(
         self,
@@ -214,7 +214,7 @@ class WsConnector(WsHandler):
         data: dict[str, Any],
         sid: str,
     ) -> dict[str, Any] | WsResult:
-        from plugins._a0_connector.helpers.chat_context import ConnectorContextError
+        from plugins._bio_connector.helpers.chat_context import ConnectorContextError
 
         message = str(data.get("message", "")).strip()
         context_id = str(data.get("context_id", "")).strip() or None
@@ -445,7 +445,7 @@ class WsConnector(WsHandler):
         agent_profile: str | None,
         project_name: str | None,
     ) -> tuple[AgentContext | None, str | None]:
-        from plugins._a0_connector.helpers.chat_context import (
+        from plugins._bio_connector.helpers.chat_context import (
             create_context,
             get_existing_context,
         )
@@ -484,7 +484,7 @@ class WsConnector(WsHandler):
             )
             result = await task.result()
         except Exception as exc:
-            PrintStyle.error(f"[a0-connector] connector_send_message error: {exc}")
+            PrintStyle.error(f"[bio-connector] connector_send_message error: {exc}")
             await self._emit_context_error(
                 context_id=context_id,
                 code="AGENT_ERROR",
@@ -518,7 +518,7 @@ class WsConnector(WsHandler):
                 await self.emit_to(target_sid, "connector_error", payload)
             except Exception as exc:
                 PrintStyle.error(
-                    f"[a0-connector] failed to emit connector_error to {target_sid}: {exc}"
+                    f"[bio-connector] failed to emit connector_error to {target_sid}: {exc}"
                 )
 
     async def _emit_context_complete(
@@ -537,7 +537,7 @@ class WsConnector(WsHandler):
                 )
             except Exception as exc:
                 PrintStyle.error(
-                    f"[a0-connector] failed to emit connector_context_complete to {target_sid}: {exc}"
+                    f"[bio-connector] failed to emit connector_context_complete to {target_sid}: {exc}"
                 )
 
     def _start_streaming(self, sid: str, context_id: str, *, from_sequence: int) -> None:
@@ -576,7 +576,7 @@ class WsConnector(WsHandler):
             raise
         except Exception as exc:
             PrintStyle.error(
-                f"[a0-connector] stream error sid={sid} context={context_id}: {exc}"
+                f"[bio-connector] stream error sid={sid} context={context_id}: {exc}"
             )
         finally:
             self._streaming_tasks.pop((sid, context_id), None)

@@ -103,7 +103,7 @@ except ImportError as e:
 
     logging.getLogger("biodockify_api").warning(f"NanoBot routes not loaded: {e}")
 
-# Register Agent Zero Enhanced Routes (Memory, Skills, Spawn)
+# Register BioDockify AI Enhanced Routes (Memory, Skills, Spawn)
 try:
     from api.routes.agent_enhanced_routes import router as agent_enhanced_router
 
@@ -470,7 +470,7 @@ class AgentRequest(BaseModel):
 async def agent_chat(request: AgentRequest):
     """
     Direct Chat Endpoint for BioDockify AI.
-    Uses single Agent Zero v1.9 for all requests.
+    Uses single BioDockify AI v1.9 for all requests.
     """
     try:
         from agent_zero.biodockify_ai import get_biodockify_ai
@@ -518,7 +518,7 @@ async def get_ollama_models():
 @app.post("/api/v2/agent/goal")
 async def set_agent_goal(request: AgentGoal, background_tasks: BackgroundTasks):
     """
-    V2: Set a high-level goal for Agent Zero.
+    V2: Set a high-level goal for BioDockify AI.
     Triggers the Orchestrator in the background.
     """
     logger.info(f"Received Agent Goal: {request.goal} [Mode: {request.mode}]")
@@ -839,7 +839,7 @@ class KnowledgeQueryRequest(BaseModel):
 async def query_knowledge_base(request: KnowledgeQueryRequest):
     """
     Query the internal knowledge base (RAG) and return cited results.
-    Used by Agent Zero and the Knowledge Hub UI.
+    Used by BioDockify AI and the Knowledge Hub UI.
     """
     try:
         from modules.rag.vector_store import get_vector_store
@@ -2036,14 +2036,14 @@ async def surfsense_search(request: SurfSenseSearchRequest):
 
 
 # -----------------------------------------------------------------------------
-# AGENT ZERO: Central Brain with Full Software Control
+# BioDockify AI: Central Brain with Full Software Control
 # -----------------------------------------------------------------------------
 
-# Agent Zero Constitution & Roles
+# BioDockify AI Constitution & Roles
 
 AGENT_ZERO_CONSTITUTION = """
 ## IDENTITY
-You are Agent Zero, the central intelligence of BioDockify - a pharmaceutical research platform.
+You are BioDockify AI, the central intelligence of BioDockify - a pharmaceutical research platform.
 
 ## CONSTITUTION (Core Principles)
 1. ACCURACY: Provide scientifically accurate, evidence-based information
@@ -2115,8 +2115,8 @@ class AgentExecuteRequest(BaseModel):
 @app.post("/api/agent/execute")
 async def agent_execute(request: AgentExecuteRequest):
     """
-    Universal Agent Zero execution endpoint.
-    Allows Agent Zero (or direct API calls) to invoke any software function.
+    Universal BioDockify AI execution endpoint.
+    Allows BioDockify AI (or direct API calls) to invoke any software function.
     """
     action = request.action.lower()
     params = request.params
@@ -2267,7 +2267,7 @@ async def agent_execute(request: AgentExecuteRequest):
             result = await orchestrator.run_deep_review(topic)
             return {"status": "success", "action": "deep_review", "result": result}
 
-        # DELEGATE_TASK: Recursive Agent Spawning (Agent Zero Feature)
+        # DELEGATE_TASK: Recursive Agent Spawning (BioDockify AI Feature)
         elif action == "delegate_task":
             task_desc = params.get("task", "")
             role = params.get("role", "assistant")
@@ -2536,7 +2536,7 @@ async def chat_with_docs(request: ChatRequest):
             answer = resp.json().get("response", "No response from model.")
         else:
             # Fallback if Ollama fails or not found?
-            # Maybe use the "Agent Zero" / Cloud LLM if configured?
+            # Maybe use the "BioDockify AI" / Cloud LLM if configured?
             # For now, return error to prompt user to check settings.
             answer = f"Ollama Error ({resp.status_code}): {resp.text}"
 

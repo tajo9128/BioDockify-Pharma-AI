@@ -1,7 +1,7 @@
 
 """Test Auto-Research Integration."""
 import sys
-sys.path.insert(0, '/a0/usr/projects/biodockify_ai')
+sys.path.insert(0, '/bio/usr/projects/biodockify_ai')
 
 print('Testing Auto-Research Integration...')
 print('=' * 60)

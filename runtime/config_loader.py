@@ -205,7 +205,7 @@ DEFAULT_CONFIG = {
         "disease_context": "Alzheimer's Disease",
         "stage": "Literature Review",
     },
-    # SECTION B: AGENT ZERO BEHAVIOR
+    # SECTION B: BioDockify AI BEHAVIOR
     "agent": {
         "mode": "semi-autonomous",
         "reasoning_depth": "standard",

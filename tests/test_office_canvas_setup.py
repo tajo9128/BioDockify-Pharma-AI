@@ -62,7 +62,7 @@ def test_document_canvas_uses_markdown_editor_and_official_libreoffice_desktop_f
     assert "isSurfaceRendered('office')" in canvas_panel
     assert "isSurfaceVisible('office')" in canvas_panel
     assert "canvas.isSurfaceMounted?.(\"office\")" in store
-    assert "Starting Agent Zero Desktop environment" in store
+    assert "Starting BioDockify AI Desktop environment" in store
     assert "handleOfficialOfficeClosed" in store
     assert "ResizeObserver" in store
     assert "_desktopResizeSuspended" in store
@@ -109,7 +109,7 @@ def test_document_canvas_uses_markdown_editor_and_official_libreoffice_desktop_f
     assert "isEditableInputTarget" in store
     assert "reloadDesktopFrame" in store
     assert 'result?.reload' in store
-    assert "a0_reload" in store
+    assert "bio_reload" in store
     assert "const DESKTOP_RESIZE_DELAY_MS = 80" in store
     assert "requestServerResize: false" in store
     assert "requestRefresh: false" in store
@@ -123,7 +123,7 @@ def test_document_canvas_uses_markdown_editor_and_official_libreoffice_desktop_f
     assert "_set_decorated?.(false)" in store
     assert "topoffset = 0" in store
     assert ".undecorated" in store
-    assert "a0-xpra-desktop-frame-css" in store
+    assert "bio-xpra-desktop-frame-css" in store
     assert "installXpraDesktopFramePatches" in store
     assert "installXpraDesktopClientPatches" in store
     assert "patchedNoWindowList" in store
@@ -361,11 +361,11 @@ def test_official_libreoffice_desktop_route_and_packages_are_declared():
     assert "x11-xserver-utils" in install
     assert "xauth" in install
     assert "Linux Desktop Interface" in linux_desktop_skill
-    assert "Use the external Agent Zero Browser" in linux_desktop_skill
-    assert "/a0/usr/workdir" in linux_desktop_skill
-    assert "/a0/usr/projects" in linux_desktop_skill
+    assert "Use the external BioDockify AI Browser" in linux_desktop_skill
+    assert "/bio/usr/workdir" in linux_desktop_skill
+    assert "/bio/usr/projects" in linux_desktop_skill
     assert "desktopctl.sh" in linux_desktop_skill
-    assert "/a0/plugins/_office/skills/linux-desktop/scripts/desktopctl.sh" in linux_desktop_skill
+    assert "/bio/plugins/_office/skills/linux-desktop/scripts/desktopctl.sh" in linux_desktop_skill
     assert "calc-set-cell" in linux_desktop_skill
     assert "Clicks are explicitly last resort" in linux_desktop_skill or "clicks are explicitly last resort" in linux_desktop_skill
     assert "fresh Desktop observation" in linux_desktop_skill

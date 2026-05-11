@@ -1,6 +1,6 @@
 """
 Task Manager - Models and Enums
-Integration point: Agent Zero + NanoBot + ChromaDB
+Integration point: BioDockify AI + NanoBot + ChromaDB
 """
 from enum import Enum
 from datetime import datetime
@@ -29,7 +29,7 @@ class TaskPriority(str, Enum):
 
 
 class TaskType(str, Enum):
-    """Task types for Agent Zero"""
+    """Task types for BioDockify AI"""
     RESEARCH = "research"
     ANALYSIS = "analysis"
     WRITING = "writing"

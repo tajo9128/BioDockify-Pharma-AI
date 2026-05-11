@@ -5,7 +5,7 @@ import time
 from agent import LoopData
 from helpers.extension import Extension
 
-from plugins._a0_connector.helpers.ws_runtime import latest_remote_tree_for_context
+from plugins._bio_connector.helpers.ws_runtime import latest_remote_tree_for_context
 
 
 class IncludeRemoteFileStructure(Extension):

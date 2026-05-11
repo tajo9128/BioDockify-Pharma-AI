@@ -20,11 +20,11 @@ from helpers.print_style import PrintStyle
 
 
 PLUGIN_NAME = "_time_travel"
-USR_DISPLAY_ROOT = "/a0/usr"
-SHADOW_DISPLAY_ROOT = "/a0/usr/.time_travel/workspaces"
+USR_DISPLAY_ROOT = "/bio/usr"
+SHADOW_DISPLAY_ROOT = "/bio/usr/.time_travel/workspaces"
 CURRENT_REF = "refs/heads/current"
-PRESERVED_REF_PREFIX = "refs/a0-time-travel/preserved"
-METADATA_PREFIX = "A0-Time-Travel-Metadata:"
+PRESERVED_REF_PREFIX = "refs/bio-time-travel/preserved"
+METADATA_PREFIX = "bio-Time-Travel-Metadata:"
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 MAX_RENDERED_PATCH_BYTES = 1_000_000
 GIT_TIMEOUT_SECONDS = 20
@@ -115,7 +115,7 @@ class TimeTravelError(RuntimeError):
 
 
 class WorkspaceRejectedError(TimeTravelError):
-    """Raised when a workspace is outside the /a0/usr kernel boundary."""
+    """Raised when a workspace is outside the /bio/usr kernel boundary."""
 
 
 class TimeTravelConflictError(TimeTravelError):
@@ -178,7 +178,7 @@ def normalize_display_path(path: str) -> str:
         return "/" if normalized == "." else normalized
 
     resolved = Path(raw).expanduser().resolve(strict=False)
-    normalized = files.normalize_a0_path(str(resolved))
+    normalized = files.normalize_bio_path(str(resolved))
     if normalized.startswith("/a0"):
         return posixpath.normpath(normalized.replace("\\", "/"))
     return str(resolved)
@@ -198,8 +198,8 @@ def real_path_for_display(display_path: str) -> Path:
     normalized = normalize_display_path(display_path)
     if normalized == "/a0":
         return Path(files.get_base_dir()).resolve(strict=False)
-    if normalized.startswith("/a0/"):
-        return Path(files.get_base_dir(), normalized.removeprefix("/a0/")).resolve(strict=False)
+    if normalized.startswith("/bio/"):
+        return Path(files.get_base_dir(), normalized.removeprefix("/bio/")).resolve(strict=False)
     return Path(normalized).expanduser().resolve(strict=False)
 
 
@@ -222,15 +222,15 @@ def resolve_workspace(context_id: str = "", *, context_loader=None) -> Workspace
         if context is not None:
             project_name = projects.get_context_project_name(context) or ""
             if project_name:
-                display_path = files.normalize_a0_path(projects.get_project_folder(project_name))
+                display_path = files.normalize_bio_path(projects.get_project_folder(project_name))
 
     if not display_path:
         configured = str(settings.get_settings().get("workdir_path") or "")
-        display_path = configured or files.normalize_a0_path(files.get_abs_path("usr/workdir"))
+        display_path = configured or files.normalize_bio_path(files.get_abs_path("usr/workdir"))
 
     normalized = canonical_workspace_display_path(display_path)
     if not is_inside_usr_display(normalized):
-        raise WorkspaceRejectedError("Time Travel is only available for workspaces inside /a0/usr.")
+        raise WorkspaceRejectedError("Time Travel is only available for workspaces inside /bio/usr.")
 
     workspace_id = workspace_id_for(normalized)
     shadow_display = f"{SHADOW_DISPLAY_ROOT}/{workspace_id}"
@@ -255,11 +255,11 @@ def resolve_workspace_for_path_hint(path_hint: str) -> WorkspaceInfo | None:
 
     parts = [part for part in normalized.split("/") if part]
     if len(parts) >= 4 and parts[0] == "a0" and parts[1] == "usr" and parts[2] == "projects":
-        project_display = f"/a0/usr/projects/{parts[3]}"
+        project_display = f"/bio/usr/projects/{parts[3]}"
         return _workspace_from_display(project_display, project_name=parts[3])
 
     configured = str(settings.get_settings().get("workdir_path") or "")
-    workdir_display = canonical_workspace_display_path(configured or files.normalize_a0_path(files.get_abs_path("usr/workdir")))
+    workdir_display = canonical_workspace_display_path(configured or files.normalize_bio_path(files.get_abs_path("usr/workdir")))
     if normalized == workdir_display or normalized.startswith(workdir_display.rstrip("/") + "/"):
         return _workspace_from_display(workdir_display)
 
@@ -269,7 +269,7 @@ def resolve_workspace_for_path_hint(path_hint: str) -> WorkspaceInfo | None:
 def _workspace_from_display(display_path: str, *, project_name: str = "", context_id: str = "") -> WorkspaceInfo:
     normalized = canonical_workspace_display_path(display_path)
     if not is_inside_usr_display(normalized):
-        raise WorkspaceRejectedError("Time Travel is only available for workspaces inside /a0/usr.")
+        raise WorkspaceRejectedError("Time Travel is only available for workspaces inside /bio/usr.")
     workspace_id = workspace_id_for(normalized)
     shadow_path = real_path_for_display(f"{SHADOW_DISPLAY_ROOT}/{workspace_id}")
     return WorkspaceInfo(
@@ -549,7 +549,7 @@ def _is_watchdog_snapshot_candidate(display_path: str) -> bool:
     normalized = normalize_display_path(display_path)
     if not is_inside_usr_display(normalized):
         return False
-    if normalized == "/a0/usr/plugins" or normalized.startswith("/a0/usr/plugins/"):
+    if normalized == "/bio/usr/plugins" or normalized.startswith("/bio/usr/plugins/"):
         return False
     parts = [part for part in normalized.split("/") if part]
     return ".git" not in parts and ".time_travel" not in parts
@@ -567,7 +567,7 @@ class TimeTravelService:
             self._initialize_shadow_repo(quarantine_existing=True)
         self._ensure_current_head_ref()
 
-        self._git("config", "user.name", "Agent Zero Time Travel")
+        self._git("config", "user.name", "BioDockify AI Time Travel")
         self._git("config", "user.email", "time-travel@agent-zero.local")
         self._git("config", "core.autocrlf", "false")
         self._git("config", "core.filemode", "true")

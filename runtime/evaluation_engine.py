@@ -46,7 +46,7 @@ class EvaluationEngine:
             return {"error": str(e)}
 
     async def benchmark_agent(self) -> Dict[str, Any]:
-        """Runs benchmarks for Agent Zero tasks."""
+        """Runs benchmarks for BioDockify AI tasks."""
         logger.info("Running Agent Benchmarks...")
         try:
             from tests.benchmarks.agent_eval import benchmark_agent_goals

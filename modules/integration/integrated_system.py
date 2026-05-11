@@ -1,5 +1,5 @@
 """
-Integration Module - Agent Zero + NanoBot + Task Manager + Memory
+Integration Module - BioDockify AI + NanoBot + Task Manager + Memory
 Unifies all systems into a cohesive production-ready platform
 """
 import asyncio
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 class IntegratedSystem:
     """
-    Unified System - Integrates Agent Zero, NanoBot, Task Manager, and Memory
+    Unified System - Integrates BioDockify AI, NanoBot, Task Manager, and Memory
     """
 
     def __init__(
@@ -77,7 +77,7 @@ class IntegratedSystem:
 
         if hasattr(self.hybrid_agent, 'start_services'):
             await self.hybrid_agent.start_services()
-            logger.info("✅ Agent Zero services started")
+            logger.info("✅ BioDockify AI services started")
 
         await self._setup_integrations()
 
@@ -327,7 +327,7 @@ Retries: {task_dict.get('retry_count')}
         description = f"""
 Error: {error_description}
 Context: {context or ''}
-Use Agent Zero's self-repair capabilities to diagnose and fix this issue.
+Use BioDockify AI's self-repair capabilities to diagnose and fix this issue.
         """.strip()
 
         return await self.task_manager.create_task(

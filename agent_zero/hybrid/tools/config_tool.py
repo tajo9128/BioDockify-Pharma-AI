@@ -1,5 +1,5 @@
 """
-Tool for Agent Zero to manage system configuration.
+Tool for BioDockify AI to manage system configuration.
 Allows the agent to read and update settings in config.yaml.
 """
 import logging

@@ -4753,7 +4753,7 @@ async def analyze_glm(request: GLMRequest):
 
 """Additional API Routes for Statistics UI
 
-Add these to /a0/usr/projects/biodockify_ai/api/routes/statistics.py
+Add these to /bio/usr/projects/biodockify_ai/api/routes/statistics.py
 """
 
 # Add these imports at the top if not already present

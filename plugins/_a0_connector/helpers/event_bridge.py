@@ -1,4 +1,4 @@
-"""Context event streaming bridge for the a0-connector plugin."""
+"""Context event streaming bridge for the bio-connector plugin."""
 from __future__ import annotations
 
 import asyncio
@@ -97,7 +97,7 @@ def get_context_log_entries(
         return events, int(log_output.end)
     except Exception as exc:
         PrintStyle.error(
-            f"[a0-connector] event_bridge error for context {context_id}: {exc}"
+            f"[bio-connector] event_bridge error for context {context_id}: {exc}"
         )
         return [], max(int(after or 0), 0)
 
@@ -121,7 +121,7 @@ async def stream_context_events(
                     if asyncio.iscoroutine(result):
                         await result
                 except Exception as exc:
-                    PrintStyle.error(f"[a0-connector] emit_fn error: {exc}")
+                    PrintStyle.error(f"[bio-connector] emit_fn error: {exc}")
             yield event
 
         cursor = max(cursor, next_cursor)

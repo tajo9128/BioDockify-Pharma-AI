@@ -13,7 +13,7 @@ from helpers import git, yaml
 
 
 OFFICIAL_REPO_AUTHOR = "agent0ai"
-OFFICIAL_REPO_NAME = "agent-zero"
+OFFICIAL_REPO_NAME = "biodockify.ai"
 BRANCH_OPTIONS = [
     {"value": "main", "label": "main"},
     {"value": "ready", "label": "ready"},
@@ -26,9 +26,9 @@ MIN_SELECTOR_VERSION = (1, 0)
 REMOTE_BRANCH_TAG_CACHE_TTL_SECONDS = 60.0
 REMOTE_BRANCH_LIST_CACHE_TTL_SECONDS = 60.0
 
-UPDATE_FILE_PATH = Path("/exe/a0-self-update.yaml")
-STATUS_FILE_PATH = Path("/exe/a0-self-update-status.yaml")
-LOG_FILE_PATH = Path("/exe/a0-self-update.log")
+UPDATE_FILE_PATH = Path("/exe/bio-self-update.yaml")
+STATUS_FILE_PATH = Path("/exe/bio-self-update-status.yaml")
+LOG_FILE_PATH = Path("/exe/bio-self-update.log")
 DURABLE_EXE_DIR = UPDATE_FILE_PATH.parent
 
 _remote_branch_tag_cache: dict[str, tuple[float, set[str]]] = {}
@@ -397,7 +397,7 @@ def _get_remote_branch_merged_tags(branch: str) -> set[str]:
     if cached and now - cached[0] <= REMOTE_BRANCH_TAG_CACHE_TTL_SECONDS:
         return set(cached[1])
 
-    with tempfile.TemporaryDirectory(prefix="a0-self-update-tags-") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="bio-self-update-tags-") as temp_dir:
         repository = Path(temp_dir)
         _run_git(repository, "init", "--bare")
         _run_git(
@@ -427,7 +427,7 @@ def _get_remote_branch_head_info(branch: str) -> dict[str, str]:
     if cached and now - cached[0] <= REMOTE_BRANCH_TAG_CACHE_TTL_SECONDS:
         return dict(cached[1])
 
-    with tempfile.TemporaryDirectory(prefix="a0-self-update-head-") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="bio-self-update-head-") as temp_dir:
         repository = Path(temp_dir)
         _run_git(repository, "init", "--bare")
         _run_git(

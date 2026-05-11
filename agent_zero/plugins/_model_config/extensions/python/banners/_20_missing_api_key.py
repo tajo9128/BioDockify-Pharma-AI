@@ -23,7 +23,7 @@ class MissingApiKeyCheck(Extension):
                 "id": "missing-api-key",
                 "type": "error",
                 "priority": 100,
-                "title": "Welcome to Agent Zero!",
+                "title": "Welcome to BioDockify AI!",
                 "html": f"""You're almost ready to chat. Please configure your models to continue.<br>
                          Insert your API key in the onboarding wizard.
                          {self.CONFIGURE_MODEL_SETTINGS_LINK}""",

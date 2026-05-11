@@ -138,7 +138,7 @@ async def handle_start(message: TgMessage, bot_name: str, bot_cfg: dict):
 
     await _send_with_temp_bot(
         instance.bot.token, message.chat.id,
-        f"\U0001f44b Hello {user.first_name}! I'm connected to Agent Zero.\n\n"
+        f"\U0001f44b Hello {user.first_name}! I'm connected to BioDockify AI.\n\n"
         "Send me a message and I'll process it.\n"
         "Use /clear to reset the conversation.\n"
         "Use /project, /config, or /send to control the current chat.",

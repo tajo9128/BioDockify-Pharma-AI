@@ -20,7 +20,7 @@ from datetime import datetime
 
 import sys
 
-sys.path.insert(0, "/a0/usr/projects/biodockify_ai")
+sys.path.insert(0, "/bio/usr/projects/biodockify_ai")
 
 from modules.statistics.data_importer import DataImporter
 from modules.statistics.enhanced_engine import EnhancedStatisticalEngine

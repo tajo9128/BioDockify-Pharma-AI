@@ -1,8 +1,8 @@
-"""POST /api/plugins/_a0_connector/v1/compact_chat."""
+"""POST /api/plugins/_bio_connector/v1/compact_chat."""
 from __future__ import annotations
 
 from helpers.api import Request, Response
-import plugins._a0_connector.api.v1.base as connector_base
+import plugins._bio_connector.api.v1.base as connector_base
 
 
 def _coerce_bool(value: object, default: bool = False) -> bool:
@@ -30,7 +30,7 @@ async def _run_compaction_task(context, use_chat_model: bool, preset_name: str |
             heading="Compaction Failed",
             content=str(exc),
         )
-        mark_dirty_all(reason="plugins._a0_connector.compact_chat_error")
+        mark_dirty_all(reason="plugins._bio_connector.compact_chat_error")
 
 
 class CompactChat(connector_base.ProtectedConnectorApiHandler):
