@@ -184,14 +184,14 @@ const model = {
         // Update the stored URL if it's different from what we have
         if (this.tunnelLink !== data.tunnel_url) {
           this.tunnelLink = data.tunnel_url;
-          localStorage.setItem("agent_zero_tunnel_url", data.tunnel_url);
+          localStorage.setItem("biodockify_tunnel_url", data.tunnel_url);
         }
         this.linkGenerated = true;
         // Generate QR code for the tunnel URL
         Sleep.Skip().then(() => this.generateQRCode());
       } else {
         // Check if we have a stored tunnel URL
-        const storedTunnelUrl = localStorage.getItem("agent_zero_tunnel_url");
+        const storedTunnelUrl = localStorage.getItem("biodockify_tunnel_url");
 
         if (storedTunnelUrl) {
           // Use the stored URL but verify it's still valid
@@ -212,7 +212,7 @@ const model = {
             Sleep.Skip().then(() => this.generateQRCode());
           } else {
             // Clear stale URL
-            localStorage.removeItem("agent_zero_tunnel_url");
+            localStorage.removeItem("biodockify_tunnel_url");
             this.tunnelLink = "";
             this.linkGenerated = false;
           }
@@ -340,7 +340,7 @@ const model = {
 
       if (data.success && data.tunnel_url) {
         // Store the tunnel URL in localStorage for persistence
-        localStorage.setItem("agent_zero_tunnel_url", data.tunnel_url);
+        localStorage.setItem("biodockify_tunnel_url", data.tunnel_url);
 
         this.tunnelLink = data.tunnel_url;
         this.linkGenerated = true;
@@ -390,7 +390,7 @@ const model = {
 
         if (data.success) {
           // Clear the stored URL
-          localStorage.removeItem("agent_zero_tunnel_url");
+          localStorage.removeItem("biodockify_tunnel_url");
 
           // Clear QR code
           const qrContainer = document.getElementById("qrcode-tunnel");

@@ -221,7 +221,7 @@ const model = {
         chatInputStore.browseFiles();
         break;
       case "website":
-        window.open("https://agent-zero.ai", "_blank");
+        window.open("https://biodockify.ai", "_blank");
         break;
     }
   },

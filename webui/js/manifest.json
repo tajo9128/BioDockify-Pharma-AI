@@ -1,20 +1,20 @@
 {
-  "name": "Agent Zero",
-  "short_name": "Agent Zero",
-  "description": "Autonomous AI agent",
+  "name": "BioDockify AI",
+  "short_name": "BioDockify",
+  "description": "Pharmaceutical Research AI Assistant",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a1a1a",
-  "theme_color": "#333333",
+  "background_color": "#0a1929",
+  "theme_color": "#00d4aa",
   "icons": [
     {
-      "src": "/public/icon-maskable.svg",
+      "src": "/public/favicon_round.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "maskable"
     },
     {
-      "src": "/public/icon.svg",
+      "src": "/public/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
