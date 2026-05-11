@@ -41,22 +41,22 @@
 
                 <!-- Features -->
                 <div class="welcome-features">
-                    <div class="feature" @click="openModal('components/statistics/statistics-modal.html')">
+                    <button class="feature" @click="$store.welcomeStore.hide(); setTimeout(() => openModal('components/statistics/statistics-modal.html'), 100)">
                         <span class="material-symbols-outlined">analytics</span>
                         <span>Statistics</span>
-                    </div>
-                    <div class="feature" @click="openModal('components/literature/literature-modal.html')">
+                    </button>
+                    <button class="feature" @click="$store.welcomeStore.hide(); setTimeout(() => openModal('components/literature/literature-modal.html'), 100)">
                         <span class="material-symbols-outlined">menu_book</span>
                         <span>Literature</span>
-                    </div>
-                    <div class="feature" @click="openModal('components/thesis/thesis-modal.html')">
+                    </button>
+                    <button class="feature" @click="$store.welcomeStore.hide(); setTimeout(() => openModal('components/thesis/thesis-modal.html'), 100)">
                         <span class="material-symbols-outlined">description</span>
                         <span>Thesis</span>
-                    </div>
-                    <div class="feature" @click="openModal('components/wetlab/wetlab-modal.html')">
+                    </button>
+                    <button class="feature" @click="$store.welcomeStore.hide(); setTimeout(() => openModal('components/wetlab/wetlab-modal.html'), 100)">
                         <span class="material-symbols-outlined">science</span>
                         <span>Wet Lab</span>
-                    </div>
+                    </button>
                 </div>
             </div>
         </template>
