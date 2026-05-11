@@ -177,11 +177,14 @@ def normalize_display_path(path: str) -> str:
         normalized = posixpath.normpath(raw.replace("\\", "/"))
         return "/" if normalized == "." else normalized
 
-    resolved = Path(raw).expanduser().resolve(strict=False)
-    normalized = files.normalize_bio_path(str(resolved))
-    if normalized.startswith("/a0"):
-        return posixpath.normpath(normalized.replace("\\", "/"))
-    return str(resolved)
+    try:
+        resolved = Path(raw).expanduser().resolve(strict=False)
+        normalized = files.normalize_bio_path(str(resolved))
+        if normalized.startswith("/a0"):
+            return posixpath.normpath(normalized.replace("\\", "/"))
+        return str(resolved)
+    except Exception:
+        return raw
 
 
 def is_inside_usr_display(display_path: str) -> bool:
@@ -199,7 +202,10 @@ def real_path_for_display(display_path: str) -> Path:
     if normalized == "/a0":
         return Path(files.get_base_dir()).resolve(strict=False)
     if normalized.startswith("/bio/"):
-        return Path(files.get_base_dir(), normalized.removeprefix("/bio/")).resolve(strict=False)
+        try:
+            return Path(files.get_base_dir(), normalized.removeprefix("/bio/")).resolve(strict=False)
+        except Exception:
+            return Path("/usr").resolve(strict=False)
     return Path(normalized).expanduser().resolve(strict=False)
 
 
@@ -370,8 +376,13 @@ def snapshot_for_path_hint(
 def register_watchdogs() -> None:
     from helpers import watchdog
 
-    root = real_path_for_display(USR_DISPLAY_ROOT)
+    try:
+        root = real_path_for_display(USR_DISPLAY_ROOT)
+    except Exception as e:
+        PrintStyle.warning(f"Time travel: cannot resolve USR_DISPLAY_ROOT: {e}")
+        return
     if not root.exists() or not root.is_dir():
+        PrintStyle.info(f"Time travel: usr directory does not exist yet: {root}")
         return
 
     watchdog.add_watchdog(
