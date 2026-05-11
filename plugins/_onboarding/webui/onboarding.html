@@ -1,6 +1,6 @@
 <html class="onboarding-modal">
 <head>
-    <title>Welcome to Agent Zero</title>
+    <title>Welcome to BioDockify Pharma AI</title>
     <script type="module">
         import { store } from "/plugins/_onboarding/webui/onboarding-store.js";
     </script>
@@ -255,7 +255,7 @@
                 
                 <div class="modal-header">
                     <div class="onboarding-logo">
-                        <img src="/public/a0-fullDark.svg" alt="Agent Zero">
+                        <img src="/public/a0-fullDark.svg" alt="BioDockify Pharma AI">
                     </div>
                 </div>
 
@@ -283,8 +283,8 @@
                                 <!-- Step 1: Main Model -->
                                 <div x-show="$store.onboarding.step === 1">
                                     <div class="onboarding-welcome-text">
-                                        <div class="onboarding-welcome-title">Welcome to Agent Zero</div>
-                                        First, choose the model Agent Zero will think with. The <b>Main Model</b> handles conversation, tool calls, skills, and browser work.
+                                        <div class="onboarding-welcome-title">Welcome to BioDockify Pharma AI</div>
+                                        First, choose the model BioDockify Pharma AI will think with. The <b>Main Model</b> handles conversation, tool calls, skills, and browser work.
                                     </div>
 
                                     <div class="model-section">
@@ -295,7 +295,7 @@
                                         <div class="field">
                                             <div class="field-label">
                                                 <div class="field-title">Provider</div>
-                                                <div class="field-description">Where Agent Zero will send Main Model requests.</div>
+                                                <div class="field-description">Where BioDockify Pharma AI will send Main Model requests.</div>
                                             </div>
                                             <div class="field-control">
                                                 <select x-model="$store.onboarding.config.chat_model.provider"
@@ -370,7 +370,7 @@
                                 <div x-show="$store.onboarding.step === 2">
                                     <div class="onboarding-welcome-text">
                                         <div class="onboarding-welcome-title">Choose your Utility Model</div>
-                                        Agent Zero uses the <b>Utility Model</b> for quiet work: summaries, memory, and preparation. Pick something fast, reliable, and cost-conscious.
+                                        BioDockify Pharma AI uses the <b>Utility Model</b> for quiet work: summaries, memory, and preparation. Pick something fast, reliable, and cost-conscious.
                                     </div>
 
                                     <div class="model-section">
@@ -456,9 +456,9 @@
                                 <div x-show="$store.onboarding.step === 3" class="onboarding-success">
                                     <div class="material-symbols-outlined onboarding-success-icon">check_circle</div>
                                     <div class="onboarding-welcome-text onboarding-success-text">
-                                        <div class="onboarding-welcome-title">Agent Zero is ready</div>
+                                        <div class="onboarding-welcome-title">BioDockify Pharma AI is ready</div>
                                         Your models are configured. You can change them anytime in Settings.<br>
-                                        You can also connect integrations now and give Agent Zero more places to work.
+                                        You can also connect integrations now and give BioDockify Pharma AI more places to work.
                                     </div>
                                     <x-extension id="onboarding-success-end"></x-extension>
                                 </div>

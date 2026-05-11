@@ -15,7 +15,7 @@
 
                 <template x-if="$store.emailConfig.didInit && $store.emailConfig.handlers.length === 0">
                     <div class="email-empty">
-                        <div class="email-empty-title">Connect Agent Zero and your email account</div>
+                        <div class="email-empty-title">Connect BioDockify Pharma AI and your email account</div>
                         <div class="email-empty-copy">
                             Most people only need a provider, an email address, and an app password.
                         </div>
@@ -58,7 +58,7 @@
                                                 x-text="$store.emailConfig.hasProvider(handler) ? $store.emailConfig.providerLabel($store.emailConfig.providerValue(handler)) : 'Choose your email provider'">
                                             </div>
                                             <div class="email-provider-description"
-                                                x-text="$store.emailConfig.hasProvider(handler) ? $store.emailConfig.providerHint(handler) : 'Pick a provider and Agent Zero will prepare the usual incoming and outgoing mail settings.'">
+                                                x-text="$store.emailConfig.hasProvider(handler) ? $store.emailConfig.providerHint(handler) : 'Pick a provider and BioDockify Pharma AI will prepare the usual incoming and outgoing mail settings.'">
                                             </div>
                                             <template x-if="$store.emailConfig.providerHelpUrl(handler)">
                                                 <a class="email-intro-link"
@@ -115,7 +115,7 @@
                                     <div class="field">
                                         <div class="field-label">
                                             <div class="field-title">Turn on this inbox</div>
-                                            <div class="field-description">Enable when you are ready for Agent Zero to
+                                            <div class="field-description">Enable when you are ready for BioDockify Pharma AI to
                                                 start checking mail.</div>
                                         </div>
                                         <div class="field-control">
