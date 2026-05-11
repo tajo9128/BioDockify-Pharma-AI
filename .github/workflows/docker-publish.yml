@@ -70,6 +70,7 @@ jobs:
           context: .
           file: ./Dockerfile.release
           push: true
+          no-cache: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
@@ -78,8 +79,6 @@ jobs:
             org.opencontainers.image.title=BioDockify AI
             org.opencontainers.image.description=Pharma research distribution of BioDockify AI
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
