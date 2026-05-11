@@ -4,13 +4,9 @@ COPY webui/ /bio/webui/
 COPY plugins/ /bio/plugins/
 COPY public/ /bio/webui/public/
 
-RUN cp -r /bio/webui/. /git/biodockify/webui/ && \
-    cp -r /bio/plugins/. /git/biodockify/plugins/
-
 COPY knowledge/ /tmp/biodockify-knowledge/
 RUN if [ -d /tmp/biodockify-knowledge/main/about ]; then \
       cp -r /tmp/biodockify-knowledge/main/about/* /bio/knowledge/main/about/ 2>/dev/null; \
-      cp -r /tmp/biodockify-knowledge/main/about/* /git/biodockify/knowledge/main/about/ 2>/dev/null; \
     fi && \
     rm -rf /tmp/biodockify-knowledge
 
