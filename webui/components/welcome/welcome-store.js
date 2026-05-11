@@ -206,6 +206,7 @@ const model = {
   executeAction(actionId) {
     switch (actionId) {
       case "new-chat":
+        this.hide(); // Hide welcome when starting chat
         chatsStore.newChat();
         break;
       case "home":
