@@ -20,7 +20,7 @@ const model = {
   },
 
   get isVisible() {
-    return false; // Always hide welcome screen - go straight to chat
+    return true; // Always show welcome screen with version
   },
 
   init() {
