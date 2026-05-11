@@ -1,4 +1,4 @@
-# Agent Zero - Internal Architecture
+# BioDockify Pharma AI v1.56 - Internal Architecture
 
 ## The Agent Loop (Monologue Cycle)
 

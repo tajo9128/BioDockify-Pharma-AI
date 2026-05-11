@@ -1,9 +1,9 @@
-# Agent Zero - Capabilities Reference
+# BioDockify Pharma AI v1.56 - Capabilities Reference
 
 ## Code Execution
 
 The agent can write and execute code in any language available in the Docker container. The execution environment is a Kali Linux container with two Python runtimes:
-- `/opt/venv-a0` (Python 3.12) - the Agent Zero framework runtime
+- `/opt/venv-a0` (Python 3.12) - the BioDockify AI framework runtime
 - `/opt/venv` (Python 3.13) - the agent's execution runtime (default for agent-run code)
 
 The agent installs packages into the execution runtime (`/opt/venv`) via `pip install`. Packages needed by the framework itself must target `/opt/venv-a0`.

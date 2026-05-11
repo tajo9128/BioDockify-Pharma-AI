@@ -1,8 +1,8 @@
-# Agent Zero - Setup and Deployment
+# BioDockify Pharma AI v1.56 - Setup and Deployment
 
 ## Docker Deployment (Standard)
 
-Agent Zero is distributed as a Docker image: `agent0ai/agent-zero`.
+BioDockify AI is distributed as a Docker image: `tajo9128/biodockify-ai`.
 
 ```bash
 docker pull agent0ai/agent-zero
@@ -39,7 +39,7 @@ On first run, open Settings (gear icon) and configure:
 
 Settings are saved to `usr/settings.json` immediately on change.
 
-## Updating Agent Zero
+## Updating BioDockify AI
 
 The recommended update process is to use Self Update:
 1. Open **Settings UI → Update** tab
@@ -71,7 +71,7 @@ Supported as an alternative to Flare for users in Microsoft environments. Config
 
 ## Mobile Access
 
-Agent Zero is a Progressive Web App (PWA). On mobile, open the web UI URL in a browser, then add to home screen for an app-like experience. Works with both local network and tunnel URLs.
+BioDockify AI is a Progressive Web App (PWA). On mobile, open the web UI URL in a browser, then add to home screen for an app-like experience. Works with both local network and tunnel URLs.
 
 ## Common Troubleshooting
 

@@ -1,8 +1,8 @@
-# Agent Zero - Configuration Reference
+# BioDockify Pharma AI v1.56 - Configuration Reference
 
 ## LLM Roles
 
-Agent Zero uses three configurable LLM roles:
+BioDockify AI uses three configurable LLM roles:
 
 | Role | Purpose |
 |------|---------|
@@ -16,7 +16,7 @@ The utility model handles high-volume, lower-stakes operations and can be a chea
 
 Providers are defined in `conf/model_providers.yaml`. All chat and embedding providers go through LiteLLM, which normalizes the API interface. Supported chat providers (as of v0.9.8):
 
-- Agent Zero API (a0_venice) - hosted service with no API key required for basic use
+- BioDockify API (a0_venice) - hosted service with no API key required for basic use
 - Anthropic, OpenAI, OpenRouter, Google (Gemini), Groq, Mistral AI
 - DeepSeek, xAI, Moonshot AI, Sambanova, CometAPI, Z.AI, Inception AI
 - Venice.ai, AWS Bedrock, Azure OpenAI

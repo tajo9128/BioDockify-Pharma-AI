@@ -90,8 +90,6 @@ COPY modules/ /app/modules/
 COPY orchestration/ /app/orchestration/
 COPY services/ /app/services/
 COPY nlp/ /app/nlp/
-COPY nanobot/ /app/nanobot/
-COPY nanobot_bridge/ /app/nanobot_bridge/
 COPY runtime/ /app/runtime/
 COPY server.py /app/
 
