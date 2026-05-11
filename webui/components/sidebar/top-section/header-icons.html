@@ -29,6 +29,7 @@
         </a>
       </div>
 
+      <!-- Main Header Icons -->
       <div class="icons-section" id="hide-button">
         <button id="toggle-sidebar" class="toggle-sidebar-button" @click="$store.sidebar.toggle()" aria-label="Toggle Sidebar" aria-expanded="false">
           <span class="material-symbols-outlined" aria-hidden="true">menu</span>
@@ -41,9 +42,55 @@
         <button class="config-button header-action-button" @click="$store.chats.newChat()" title="New Chat" aria-label="New Chat">
           <span class="material-symbols-outlined">add_comment</span>
         </button>
+      </div>
 
+      <!-- Research Section Header -->
+      <div class="section-header">
+        <span class="section-title">Research</span>
+      </div>
+
+      <!-- Research Icons - All accessible -->
+      <div class="research-icons">
         <button class="config-button header-action-button" @click="openModal('components/research/research-tools.html')" title="Research Tools">
           <span class="material-symbols-outlined">science</span>
+          <span class="icon-label">Research</span>
+        </button>
+
+        <button class="config-button header-action-button" @click="openModal('components/statistics/statistics-modal.html')" title="Statistics">
+          <span class="material-symbols-outlined">analytics</span>
+          <span class="icon-label">Statistics</span>
+        </button>
+
+        <button class="config-button header-action-button" @click="openModal('components/literature/literature-modal.html')" title="Literature">
+          <span class="material-symbols-outlined">menu_book</span>
+          <span class="icon-label">Literature</span>
+        </button>
+
+        <button class="config-button header-action-button" @click="openModal('components/thesis/thesis-modal.html')" title="Thesis">
+          <span class="material-symbols-outlined">description</span>
+          <span class="icon-label">Thesis</span>
+        </button>
+
+        <button class="config-button header-action-button" @click="openModal('components/slides/slides-modal.html')" title="Slides">
+          <span class="material-symbols-outlined">slideshow</span>
+          <span class="icon-label">Slides</span>
+        </button>
+
+        <button class="config-button header-action-button" @click="openModal('components/wetlab/wetlab-modal.html')" title="Wet Lab">
+          <span class="material-symbols-outlined">biotech</span>
+          <span class="icon-label">Wet Lab</span>
+        </button>
+
+        <button class="config-button header-action-button" @click="openModal('components/knowledge/knowledge-modal.html')" title="Knowledge">
+          <span class="material-symbols-outlined">psychology</span>
+          <span class="icon-label">Knowledge</span>
+        </button>
+      </div>
+
+      <!-- Bottom Icons -->
+      <div class="bottom-icons">
+        <button class="config-button header-action-button" @click="openModal('components/plugins/list/plugin-list.html')" title="Plugins">
+          <span class="material-symbols-outlined">extension</span>
         </button>
 
         <button class="config-button header-action-button" @click="openModal('settings/settings.html')" title="Settings">
@@ -62,6 +109,7 @@
         </button>
       </div>
 
+      <!-- Dropdown Menu -->
       <div
         class="dropdown-menu quick-actions-dropdown"
         x-show="$store.sidebar.menuOpen"
@@ -101,6 +149,8 @@
           <span class="material-symbols-outlined">schedule</span>
           <span>Tasks</span>
         </button>
+
+        <div class="dropdown-separator"></div>
 
         <button class="dropdown-item" @click="openModal('settings/settings.html'); $store.sidebar.menuClose()">
           <span class="material-symbols-outlined">settings</span>
@@ -143,51 +193,7 @@
             <span class="material-symbols-outlined">delete_sweep</span>
             <span>Clear Chat</span>
           </button>
-</div>
-
-        <div class="dropdown-separator"></div>
-
-        <div class="dropdown-header">BioDockify Research</div>
-
-        <button class="dropdown-item" @click="openModal('components/research/research-tools.html'); $store.sidebar.menuClose()">
-          <span class="material-symbols-outlined">science</span>
-          <span>Research Tools</span>
-        </button>
-
-        <button class="dropdown-item" @click="openModal('components/statistics/statistics-modal.html'); $store.sidebar.menuClose()">
-          <span class="material-symbols-outlined">analytics</span>
-          <span>Statistics</span>
-        </button>
-
-        <button class="dropdown-item" @click="openModal('components/literature/literature-modal.html'); $store.sidebar.menuClose()">
-          <span class="material-symbols-outlined">menu_book</span>
-          <span>Literature</span>
-        </button>
-
-        <button class="dropdown-item" @click="openModal('components/thesis/thesis-modal.html'); $store.sidebar.menuClose()">
-          <span class="material-symbols-outlined">description</span>
-          <span>Thesis</span>
-        </button>
-
-        <button class="dropdown-item" @click="openModal('components/slides/slides-modal.html'); $store.sidebar.menuClose()">
-          <span class="material-symbols-outlined">slideshow</span>
-          <span>Slides</span>
-        </button>
-
-        <button class="dropdown-item" @click="openModal('components/wetlab/wetlab-modal.html'); $store.sidebar.menuClose()">
-          <span class="material-symbols-outlined">biotech</span>
-          <span>Wet Lab</span>
-        </button>
-
-        <button class="dropdown-item" @click="openModal('components/knowledge/knowledge-modal.html'); $store.sidebar.menuClose()">
-          <span class="material-symbols-outlined">psychology</span>
-          <span>Knowledge</span>
-        </button>
-
-        <button class="dropdown-item" @click="openModal('components/plugins/list/plugin-list.html'); $store.sidebar.menuClose()">
-          <span class="material-symbols-outlined">extension</span>
-          <span>Plugins</span>
-        </button>
+        </div>
 
         <div class="dropdown-separator"></div>
 
@@ -212,36 +218,19 @@
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      padding: var(--spacing-xs) var(--spacing-sm);
-      background-color: var(--color-chat-background);
-      border: none;
-      border-radius: 8px;
-      box-shadow: 0 2px 13px 2px rgba(0, 0, 0, 0.35);
-      overflow: hidden;
-      white-space: nowrap;
-      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-                  background-color var(--transition-speed),
-                  border-color var(--transition-speed), 
-                  box-shadow var(--transition-speed);
+      gap: var(--spacing-xs);
+    }
+
+    .sidebar-header-panel-open {
+      width: var(--header-panel-expanded-width);
     }
 
     #logo-bar {
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      width: calc(var(--header-panel-expanded-width) - (var(--spacing-sm) * 2));
-      padding-top: var(--spacing-xxs);
-      padding-left: 0.1rem;
-    }
-
-    #logo-bar a {
-      color: inherit;
-      text-decoration: none;
-      width: min(100%, 11.75rem);
+      width: 100%;
+      padding-bottom: var(--spacing-xs);
     }
 
     .logo-container {
-      position: relative;
       width: 100%;
       height: 1.64rem;
     }
@@ -263,6 +252,80 @@
       background-image: url(/public/bio-collapsed.svg);
       width: 1.75rem;
       height: 1.75rem;
+    }
+
+    .icons-section {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      justify-content: flex-start;
+    }
+
+    .section-header {
+      width: 100%;
+      padding: var(--spacing-xs) 0;
+      border-bottom: 1px solid var(--border-color, #333);
+    }
+
+    .section-title {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-muted, #888);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .research-icons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      justify-content: flex-start;
+    }
+
+    .research-icons .header-action-button {
+      flex-direction: column;
+      padding: 6px 8px;
+      gap: 2px;
+    }
+
+    .research-icons .icon-label {
+      font-size: 0.6rem;
+      white-space: nowrap;
+    }
+
+    .bottom-icons {
+      margin-top: auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      justify-content: flex-start;
+      padding-top: var(--spacing-xs);
+    }
+
+    .header-action-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      color: var(--text-secondary, #aaa);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .header-action-button:hover {
+      background: var(--hover-bg, rgba(255,255,255,0.1));
+      color: var(--text-primary, #fff);
+    }
+
+    .header-action-button .material-symbols-outlined {
+      font-size: 1.25rem;
+    }
+
+    .dropdown-toggle .rotated {
+      transform: rotate(180deg);
     }
   </style>
 </body>
