@@ -9,325 +9,169 @@
 <body>
     <div x-data>
         <template x-if="$store.welcomeStore">
-            <div x-init="$store.welcomeStore.init(); if ($store.welcomeStore.isVisible) { $store.welcomeStore.onCreate(); } $watch('$store.welcomeStore.isVisible', (visible) => { if (visible) { $store.welcomeStore.onCreate(); } });"
-                 class="welcome-container">
-                <x-extension id="welcome-screen-start"></x-extension>
-                
-                <!-- BioDockify Header -->
-                <div class="biodockify-header">
-                    <div class="biodockify-logo-container">
-                        <svg class="biodockify-logo" viewBox="0 0 960 960">
-                            <defs>
-                                <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" style="stop-color:#00d4aa;stop-opacity:1" />
-                                    <stop offset="100%" style="stop-color:#00897b;stop-opacity:1" />
-                                </linearGradient>
-                            </defs>
-                            <rect width="960" height="960" rx="160" fill="url(#logoGrad)"/>
-                            <g transform="translate(480, 480)">
-                                <circle cx="0" cy="-200" r="80" fill="#0a1929"/>
-                                <circle cx="-140" cy="0" r="80" fill="#0a1929"/>
-                                <circle cx="140" cy="0" r="80" fill="#0a1929"/>
-                                <circle cx="0" cy="200" r="80" fill="#0a1929"/>
-                            </g>
-                        </svg>
-                        <div class="biodockify-title-block">
-                            <h1 class="biodockify-title">BioDockify AI</h1>
-                            <p class="biodockify-subtitle">Pharmaceutical Research Assistant</p>
-                            <div class="biodockify-version" x-text="$store.welcomeStore.versionLabel || 'v1.33'"></div>
-                        </div>
-                    </div>
+            <div class="welcome-container">
+                <!-- Header with Logo -->
+                <div class="welcome-header">
+                    <svg class="welcome-logo" viewBox="0 0 960 960">
+                        <defs>
+                            <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#00d4aa"/>
+                                <stop offset="100%" style="stop-color:#00897b"/>
+                            </linearGradient>
+                        </defs>
+                        <rect width="960" height="960" rx="160" fill="url(#g)"/>
+                        <circle cx="480" cy="280" r="80" fill="#0a1929"/>
+                        <circle cx="340" cy="480" r="80" fill="#0a1929"/>
+                        <circle cx="620" cy="480" r="80" fill="#0a1929"/>
+                        <circle cx="480" cy="680" r="80" fill="#0a1929"/>
+                    </svg>
+                    <h1 class="welcome-title">BioDockify AI</h1>
+                    <p class="welcome-version">v1.33</p>
                 </div>
 
-                <div class="welcome-content">
-                    <!-- Quick Actions -->
-                    <div class="welcome-section">
-                        <h2 class="welcome-section-title">Quick Actions</h2>
-                        <div class="welcome-actions">
-                            <div class="welcome-action-card" @click="$store.welcomeStore.executeAction('new-chat')">
-                                <span class="material-symbols-outlined welcome-action-icon">chat</span>
-                                <h3 class="welcome-action-title">New Chat</h3>
-                                <p class="welcome-action-desc">Start a new research conversation</p>
-                            </div>
+                <!-- Buttons -->
+                <div class="welcome-buttons">
+                    <button class="btn-primary" @click="$store.welcomeStore.executeAction('new-chat')">
+                        <span>New Chat</span>
+                    </button>
+                    <button class="btn-secondary" @click="$store.welcomeStore.executeAction('home')">
+                        <span>Chat History</span>
+                    </button>
+                </div>
 
-                            <div class="welcome-action-card" @click="$store.welcomeStore.executeAction('projects')">
-                                <span class="material-symbols-outlined welcome-action-icon">folder</span>
-                                <h3 class="welcome-action-title">Projects</h3>
-                                <p class="welcome-action-desc">Manage research projects</p>
-                            </div>
-                            
-                            <div class="welcome-action-card" @click="$store.welcomeStore.executeAction('memory')">
-                                <span class="material-symbols-outlined welcome-action-icon">psychology</span>
-                                <h3 class="welcome-action-title">Knowledge</h3>
-                                <p class="welcome-action-desc">Research knowledge base</p>
-                            </div>
-
-                            <div class="welcome-action-card" @click="$store.welcomeStore.executeAction('scheduler')">
-                                <span class="material-symbols-outlined welcome-action-icon">schedule</span>
-                                <h3 class="welcome-action-title">Tasks</h3>
-                                <p class="welcome-action-desc">Scheduled research tasks</p>
-                            </div>
-                        </div>
+                <!-- Features -->
+                <div class="welcome-features">
+                    <div class="feature" @click="openModal('components/statistics/statistics-modal.html')">
+                        <span class="material-symbols-outlined">analytics</span>
+                        <span>Statistics</span>
                     </div>
-
-                    <!-- Research Tools -->
-                    <div class="welcome-section">
-                        <h2 class="welcome-section-title">Research Tools</h2>
-                        <div class="welcome-actions research-tools-grid">
-                            <div class="welcome-action-card research-card" @click="openModal('components/research/research-tools.html')">
-                                <span class="material-symbols-outlined welcome-action-icon">science</span>
-                                <h3 class="welcome-action-title">Research Tools</h3>
-                                <p class="welcome-action-desc">Full research suite</p>
-                            </div>
-
-                            <div class="welcome-action-card research-card" @click="openModal('components/statistics/statistics-modal.html')">
-                                <span class="material-symbols-outlined welcome-action-icon">analytics</span>
-                                <h3 class="welcome-action-title">Statistics</h3>
-                                <p class="welcome-action-desc">Statistical analysis</p>
-                            </div>
-
-                            <div class="welcome-action-card research-card" @click="openModal('components/literature/literature-modal.html')">
-                                <span class="material-symbols-outlined welcome-action-icon">menu_book</span>
-                                <h3 class="welcome-action-title">Literature</h3>
-                                <p class="welcome-action-desc">Search databases</p>
-                            </div>
-
-                            <div class="welcome-action-card research-card" @click="openModal('components/thesis/thesis-modal.html')">
-                                <span class="material-symbols-outlined welcome-action-icon">description</span>
-                                <h3 class="welcome-action-title">Thesis</h3>
-                                <p class="welcome-action-desc">Track thesis progress</p>
-                            </div>
-
-                            <div class="welcome-action-card research-card" @click="openModal('components/slides/slides-modal.html')">
-                                <span class="material-symbols-outlined welcome-action-icon">slideshow</span>
-                                <h3 class="welcome-action-title">Slides</h3>
-                                <p class="welcome-action-desc">Generate presentations</p>
-                            </div>
-
-                            <div class="welcome-action-card research-card" @click="openModal('components/wetlab/wetlab-modal.html')">
-                                <span class="material-symbols-outlined welcome-action-icon">biotech</span>
-                                <h3 class="welcome-action-title">Wet Lab</h3>
-                                <p class="welcome-action-desc">Experiment tracking</p>
-                            </div>
-                        </div>
+                    <div class="feature" @click="openModal('components/literature/literature-modal.html')">
+                        <span class="material-symbols-outlined">menu_book</span>
+                        <span>Literature</span>
                     </div>
-
-                    <!-- Settings Row -->
-                    <div class="welcome-section settings-row">
-                        <div class="welcome-action-card" @click="$store.welcomeStore.executeAction('settings')">
-                            <span class="material-symbols-outlined welcome-action-icon">settings</span>
-                            <h3 class="welcome-action-title">Settings</h3>
-                        </div>
-                        <div class="welcome-action-card" @click="$store.welcomeStore.executeAction('plugins')">
-                            <span class="material-symbols-outlined welcome-action-icon">extension</span>
-                            <h3 class="welcome-action-title">Plugins</h3>
-                        </div>
-                        <div class="welcome-action-card" @click="$store.welcomeStore.executeAction('files')">
-                            <span class="material-symbols-outlined welcome-action-icon">folder_open</span>
-                            <h3 class="welcome-action-title">Files</h3>
-                        </div>
+                    <div class="feature" @click="openModal('components/thesis/thesis-modal.html')">
+                        <span class="material-symbols-outlined">description</span>
+                        <span>Thesis</span>
+                    </div>
+                    <div class="feature" @click="openModal('components/wetlab/wetlab-modal.html')">
+                        <span class="material-symbols-outlined">science</span>
+                        <span>Wet Lab</span>
                     </div>
                 </div>
-                
-                <x-extension id="welcome-screen-end"></x-extension>
             </div>
         </template>
     </div>
 
     <style>
-        /* BioDockify Welcome Screen */
         .welcome-container {
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 2rem;
-            text-align: center;
-            background: var(--color-background);
-            color: var(--color-text);
+            justify-content: center;
             min-height: 100vh;
-            position: relative;
-            overflow-y: auto;
+            padding: 2rem;
+            background: var(--color-background);
         }
 
-        .welcome-container > x-extension {
-            display: contents;
+        .welcome-header {
+            text-align: center;
+            margin-bottom: 2rem;
         }
 
-        /* Header */
-        .biodockify-header {
-            width: 100%;
-            max-width: 900px;
-            padding: 1.5rem;
+        .welcome-logo {
+            width: 80px;
+            height: 80px;
             margin-bottom: 1rem;
         }
 
-        .biodockify-logo-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1rem;
-        }
-
-        .biodockify-logo {
-            width: 64px;
-            height: 64px;
-        }
-
-        .biodockify-title-block {
-            text-align: left;
-        }
-
-        .biodockify-title {
-            font-size: 1.75rem;
+        .welcome-title {
+            font-size: 1.5rem;
             font-weight: 700;
+            color: var(--color-primary);
             margin: 0;
-            color: var(--color-primary);
-            letter-spacing: -0.02em;
         }
 
-        .biodockify-subtitle {
-            font-size: 0.9rem;
-            margin: 0.25rem 0 0 0;
+        .welcome-version {
+            font-size: 0.85rem;
             color: var(--color-text-muted);
-        }
-
-        .biodockify-version {
-            font-size: 0.75rem;
             margin: 0.5rem 0 0 0;
-            color: var(--color-primary);
-            font-family: var(--font-family-code);
         }
 
-        /* Content */
-        .welcome-content {
-            position: relative;
-            z-index: 1;
-            width: 100%;
-            max-width: 900px;
+        .welcome-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .btn-primary, .btn-secondary {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--color-primary);
+            color: #0a1929;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--color-text);
+            border: 1px solid var(--color-border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--color-primary);
+        }
+
+        .welcome-features {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .feature {
             display: flex;
             flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        /* Sections */
-        .welcome-section {
-            width: 100%;
-        }
-
-        .welcome-section-title {
-            font-size: 0.85rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--color-text-muted);
-            margin: 0 0 0.75rem 0;
-            text-align: left;
-        }
-
-        /* Actions Grid */
-        .welcome-actions {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 0.75rem;
-        }
-
-        .research-tools-grid {
-            grid-template-columns: repeat(6, 1fr);
-        }
-
-        .settings-row {
-            display: flex;
-            gap: 0.75rem;
-            justify-content: flex-start;
-        }
-
-        .settings-row .welcome-action-card {
-            flex: 0 0 auto;
-            width: 120px;
-        }
-
-        /* Action Card */
-        .welcome-action-card {
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.75rem 1rem;
             background: var(--color-panel);
             border: 1px solid var(--color-border);
             border-radius: 8px;
-            padding: 1rem;
-            transition: all 0.2s ease;
             cursor: pointer;
-            text-decoration: none;
-            color: inherit;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            justify-content: center;
-            min-height: 100px;
+            transition: all 0.2s;
         }
 
-        .welcome-action-card:hover {
+        .feature:hover {
             border-color: var(--color-primary);
-            background: var(--color-message-bg);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 212, 170, 0.15);
         }
 
-        .welcome-action-icon {
-            font-size: 1.75rem;
-            margin-bottom: 0.5rem;
+        .feature .material-symbols-outlined {
+            font-size: 1.5rem;
             color: var(--color-primary);
         }
 
-        .welcome-action-title {
-            font-size: 0.85rem;
-            font-weight: 500;
-            margin: 0;
+        .feature span:last-child {
+            font-size: 0.75rem;
             color: var(--color-text);
         }
 
-        .welcome-action-desc {
-            font-size: 0.7rem;
-            margin: 0.25rem 0 0 0;
-            color: var(--color-text-muted);
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .welcome-actions {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            
-            .research-tools-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            
-            .biodockify-header {
-                padding: 1rem;
-            }
-            
-            .biodockify-logo {
-                width: 48px;
-                height: 48px;
-            }
-            
-            .biodockify-title {
-                font-size: 1.25rem;
-            }
-        }
-
         @media (max-width: 480px) {
-            .welcome-container {
-                padding: 0.5rem;
+            .welcome-buttons {
+                flex-direction: column;
             }
-            .welcome-actions {
-                grid-template-columns: 1fr 1fr;
-                gap: 0.5rem;
-            }
-            .welcome-action-card {
-                min-height: 80px;
-                padding: 0.5rem;
-            }
-            .biodockify-header {
-                padding: 0.5rem;
+            .welcome-features {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
             }
         }
     </style>

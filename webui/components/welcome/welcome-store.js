@@ -206,43 +206,19 @@ const model = {
   executeAction(actionId) {
     switch (actionId) {
       case "new-chat":
-        this.hide(); // Hide welcome when starting chat
+        this.hide();
         chatsStore.newChat();
         break;
       case "home":
-      case "dashboard":
-        this.show();
-        break;
-      case "scheduler":
-        window.openModal("modals/scheduler/scheduler-modal.html");
+        deselectChat();
         break;
       case "settings":
         window.openModal("settings/settings.html");
         break;
-      case "plugins":
-        window.openModal("components/plugins/list/plugin-list.html");
-        break;
-      case "projects":
-        projectsStore.openProjectsModal();
-        break;
-      case "memory":
-        memoryStore.openModal();
-        break;
-      case "files":
-        chatInputStore.browseFiles();
-        break;
-      case "website":
-        window.open("https://biodockify.ai", "_blank");
+      case "scheduler":
+        window.openModal("modals/scheduler/scheduler-modal.html");
         break;
     }
-  },
-  
-  show() {
-    this._showWelcome = true;
-  },
-  
-  hide() {
-    this._showWelcome = false;
   },
   
   get _isVisible() {
