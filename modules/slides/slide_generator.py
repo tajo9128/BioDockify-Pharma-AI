@@ -1,6 +1,6 @@
 """
 SlideGenerator - Generate presentations from Knowledge Base content
-BioDockify AI handles AI content generation - this module manages structure and export.
+Agent Zero handles AI content generation - this module manages structure and export.
 """
 
 import logging
@@ -20,7 +20,7 @@ class SlideGenerator:
     - Search results conversion
     - Custom prompt-based generation
     - Selected document compilation
-    - BioDockify AI integration for AI-powered content generation
+    - Agent Zero integration for AI-powered content generation
     """
     
     def __init__(self, llm_adapter=None, rag_engine=None):
@@ -38,7 +38,7 @@ class SlideGenerator:
     
     def set_agent_callback(self, callback: Callable[[str], str]):
         """
-        Set the BioDockify AI callback for content generation.
+        Set the Agent Zero callback for content generation.
         
         Args:
             callback: Function that takes a prompt and returns generated content
@@ -52,9 +52,9 @@ class SlideGenerator:
         num_slides: int = 10
     ) -> Dict[str, Any]:
         """
-        Prepare slide generation data for BioDockify AI to process.
+        Prepare slide generation data for Agent Zero to process.
         
-        Returns structured data for BioDockify AI's content generation.
+        Returns structured data for Agent Zero's content generation.
         """
         # Query RAG for context
         relevant_content = self._query_rag(topic, top_k=num_slides * 2)
@@ -84,7 +84,7 @@ class SlideGenerator:
         style: str = "academic"
     ) -> Dict[str, Any]:
         """
-        Assemble slides from BioDockify AI generated content.
+        Assemble slides from Agent Zero generated content.
         
         Args:
             topic: Presentation topic
