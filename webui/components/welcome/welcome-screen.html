@@ -3,6 +3,8 @@
 <head>
     <script type="module">
         import { store } from "/components/welcome/welcome-store.js";
+        import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
+        import { store as projectsStore } from "/components/projects/projects-store.js";
     </script>
 </head>
 
@@ -31,7 +33,7 @@
 
                 <!-- Quick Actions -->
                 <div class="welcome-actions">
-                    <button class="action-btn primary" @click="chatsStore.newChat()">
+                    <button class="action-btn primary" @click="$store.chats.newChat()">
                         <span class="material-symbols-outlined">add_comment</span>
                         <span>New Chat</span>
                     </button>
@@ -83,7 +85,7 @@
                         <span class="material-symbols-outlined">schedule</span>
                         <span>Tasks</span>
                     </button>
-                    <button class="link-btn" @click="$store.projects.openProjectsModal()">
+                    <button class="link-btn" @click="projectsStore.openProjectsModal()">
                         <span class="material-symbols-outlined">folder</span>
                         <span>Projects</span>
                     </button>
