@@ -1,59 +1,6 @@
-<<<<<<< HEAD
-###############################################################################
-# Project‑specific exclusions / re‑includes
-###############################################################################
-
-# Obsolete
-memory/**
-instruments/**
-knowledge/custom/**
-
-# Logs, tmp, usr
-logs/*
-tmp/*
-usr/*
-
-
-# Keep .gitkeep markers anywhere
-!**/.gitkeep
-
-
-###############################################################################
-# Environment / tooling
-###############################################################################
-.conda/
-.cursor/
-.venv/
-.git/
-
-
-###############################################################################
-# Tests (root‑level only)
-###############################################################################
-/*.test.py
-
-
-###############################################################################
-# ─── LAST SECTION: universal junk / caches (MUST BE LAST) ───
-#   Put these at the *bottom* so they override any ! re‑includes above
-###############################################################################
-# OS / editor junk
-**/.DS_Store
-**/Thumbs.db
-
-# Python caches / compiled artefacts
-**/__pycache__/
-**/*.py[cod]
-**/*.pyo
-**/*.pyd
-
-# Environment files anywhere
-*.env
-=======
 # =============================================================================
 # BioDockify Docker Build - Ignore File
 # =============================================================================
-# Optimized for faster builds and smaller context
 
 # Version Control
 .git/
@@ -110,11 +57,6 @@ test_*.py
 *_test.py
 pytest.ini
 
-# Documentation
-*.md
-!README.md
-docs/
-
 # Development Files
 *.spec
 *.bak
@@ -154,11 +96,9 @@ pnpm-lock.yaml
 # Docker files
 Dockerfile*
 docker-compose*.yml
-.dockerignore
 
 # Secrets
 .env
 .env.*
 *.pem
 *.key
->>>>>>> 3768e8a174058c75c6c7fdc6d99db17d246d1fed
