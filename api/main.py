@@ -177,6 +177,26 @@ except ImportError as e:
 
     logging.getLogger("biodockify_api").warning(f"Statistics routes not loaded: {e}")
 
+# Register Slides Routes
+try:
+    from api.routes.slides import router as slides_router
+
+    app.include_router(slides_router)
+except ImportError as e:
+    import logging
+
+    logging.getLogger("biodockify_api").warning(f"Slides routes not loaded: {e}")
+
+# Register Thesis Routes
+try:
+    from api.routes.thesis import router as thesis_router
+
+    app.include_router(thesis_router)
+except ImportError as e:
+    import logging
+
+    logging.getLogger("biodockify_api").warning(f"Thesis routes not loaded: {e}")
+
 # Register Batch Docking Routes
 # Removed - not part of BioDockify base project
 # try:

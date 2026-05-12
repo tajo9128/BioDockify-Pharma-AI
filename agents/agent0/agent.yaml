@@ -1,75 +1,69 @@
 title: BioDockify AI
-description: "BioDockify Pharma AI v1.60 - Main orchestrator for pharmaceutical research. Full control over all modules, APIs, and sub-agents."
+description: "BioDockify Pharma AI v1.67 - Main orchestrator for pharmaceutical research. Full control over all modules, APIs, and sub-agents."
 context: ''
 
-# Full Module Access - All available through API calls
 modules:
   statistics:
     api: POST /api/statistics/analyze
-    methods: 
-      - descriptive_stats
-      - t_test, anova, mann_whitney, wilcoxon
-      - regression_linear, regression_logistic, cox_regression
-      - survival_kaplan_meier, log_rank, cox_ph
-      - bioequivalence, pk_pd
-      - power_analysis, sample_size
-      - multiplicity_bonferroni, holm, fdr
+    routes:
+      - POST /api/statistics/analyze/descriptive
+      - POST /api/statistics/analyze/t-test
+      - POST /api/statistics/analyze/anova
+      - POST /api/statistics/analyze/correlation
+      - POST /api/statistics/analyze/mann-whitney
+      - POST /api/statistics/analyze/kruskal-wallis
+      - POST /api/statistics/analyze/power
+      - POST /api/statistics/import-data
+      - GET /api/statistics/available-analyses
+      - GET /api/statistics/data-summary
     description: "70+ statistical methods for clinical trial analysis"
 
   literature:
-    api: GET /api/literature/search
-    methods:
-      - pubmed_search
-      - semantic_scholar
-      - europe_pmc
-      - openalex
-      - crossref
-      - bioxiv
-    description: "Literature search across multiple databases"
+    api: POST /api/literature/search
+    routes:
+      - POST /api/literature/search
+      - POST /api/literature/synthesize
+    description: "Literature search across PubMed, Semantic Scholar, Europe PMC, Crossref, BioRxiv, OpenAlex"
 
   thesis:
     api: POST /api/thesis/generate
-    methods:
-      - get_structure
-      - validate_chapter
-      - generate_chapter
-      - latex_export
-    description: "Thesis writing and structure management"
-
-  wetlab:
-    api: POST /api/wetlab/*
-    methods:
-      - experiment_tracking
-      - sila_generator
-      - coordination
-    description: "Laboratory experiment tracking"
-
-  knowledge:
-    api: GET /api/knowledge/*
-    methods:
-      - surfSense_query
-      - semantic_search
-    description: "Knowledge base queries"
+    routes:
+      - GET /api/thesis/chapters
+      - POST /api/thesis/generate
+      - GET /api/thesis/branches
+      - GET /api/thesis/degrees
+    description: "Thesis chapter generation with pharma branch and degree support"
 
   slides:
-    api: POST /api/slides/*
-    methods:
-      - generate_presentation
-      - styling
-    description: "Presentation generation"
+    api: POST /api/slides/generate/from-kb
+    routes:
+      - GET /api/slides/styles
+      - POST /api/slides/generate/from-kb
+      - POST /api/slides/generate/from-prompt
+      - POST /api/slides/assemble
+    description: "Presentation generation from knowledge base or prompts"
 
-  audio:
-    api: POST /api/audio/*
-    methods:
-      - edge_tts
-      - speech_synthesis
-    description: "Speech generation"
+  wetlab:
+    api: POST /api/research/management/wetlab/create
+    routes:
+      - POST /api/research/management/wetlab/create
+      - POST /api/research/management/wetlab/start/{experiment_id}
+      - POST /api/research/management/wetlab/submit
+      - GET /api/research/management/wetlab/pending/{research_id}
+      - GET /api/research/management/wetlab/progress/{research_id}
+    description: "Laboratory experiment tracking and coordination"
 
-# Sub-Agents - can be invoked via call_subordinate tool
+  knowledge:
+    api: POST /api/knowledge/query
+    routes:
+      - POST /api/knowledge/query
+      - POST /api/knowledge/podcast
+    description: "RAG-based knowledge base with SurfSense integration"
+
 sub_agents:
   - name: researcher
     role: "Deep research, literature synthesis, data analysis"
-    tools: [web_research, literature_search,]
+    tools: [web_research, literature_search]
   - name: biostatistician
     role: "Statistical analysis, clinical trial data"
     tools: [statistics_*]
@@ -80,7 +74,6 @@ sub_agents:
     role: "Code execution, technical tasks, web scraping"
     tools: [execute_code, web_scraper]
 
-# Full Orchestration Control
 orchestration:
   can_delegate: true
   can_call_agents: true
@@ -89,13 +82,11 @@ orchestration:
   can_manage_context: true
   can_access_tools: true
 
-# Direct API Access - Make HTTP calls directly
 api_capabilities:
   can_make_http_requests: true
   can_call_json_api: true
   base_url: "http://localhost:50001"
-  
-# Tools Available
+
 tools:
   - call_subordinate: "Invoke sub-agent for specialized tasks"
   - execute_code: "Run Python/JavaScript code"
@@ -103,21 +94,23 @@ tools:
   - browse_files: "Access file system"
   - web_research: "Web research and scraping"
   - message_subagent: "Send message to sub-agent"
-  
-# Self-Management
+  - callJsonApi: "Call BioDockify API endpoints (statistics, literature, thesis, slides, wetlab, knowledge)"
+
 self_control:
   can_self_diagnose: true
   can_self_repair: true
   can_configure: true
   can_check_status: true
 
-# Instructions for Orchestration
 instructions:
   - "You are the main orchestrator - always in control"
   - "Delegate to sub-agents for specialized tasks"
-  - "Make direct API calls when needed"
+  - "Make direct API calls via callJsonApi when needed"
   - "Use response tool to communicate with user"
-  - "Call /api/* endpoints directly for module access"
-  - "Invoke sub-agents using call_subordinate tool"
+  - "Statistics: POST /api/statistics/analyze/descriptive, /api/statistics/analyze/t-test, /api/statistics/analyze/anova, etc."
+  - "Literature: POST /api/literature/search with {query, limit, sources}"
+  - "Thesis: GET /api/thesis/chapters then POST /api/thesis/generate with {chapter_id, topic, branch, degree}"
+  - "Slides: POST /api/slides/generate/from-kb with {topic, style, num_slides}"
+  - "WetLab: POST /api/research/management/wetlab/create with {name, type, status}"
+  - "Knowledge: POST /api/knowledge/query with {query, top_k}"
   - "Never say you can't do something - find a way or delegate"
-  - "You have full access to all modules and capabilities"

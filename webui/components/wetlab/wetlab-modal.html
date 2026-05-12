@@ -1,27 +1,6 @@
 <html>
 <head>
-  <script type="module">
-    import { createStore } from "/js/AlpineStore.js";
-
-    export const store = createStore("wetlabModal", {
-      experiments: [],
-      newExperiment: {name: "", type: "", status: "planned"},
-      
-      addExperiment() {
-        if (!this.newExperiment.name.trim()) return;
-        this.experiments.push({...this.newExperiment, id: Date.now(), date: new Date().toISOString()});
-        this.newExperiment = {name: "", type: "", status: "planned"};
-      },
-      
-      updateStatus(exp, status) {
-        exp.status = status;
-      },
-      
-      deleteExperiment(exp) {
-        this.experiments = this.experiments.filter(e => e.id !== exp.id);
-      }
-    });
-  </script>
+  <script type="module" src="/components/wetlab/wetlab-store.js"></script>
 </head>
 <body>
   <div x-data="store" class="wetlab-modal">

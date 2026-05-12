@@ -1,4 +1,4 @@
-# BioDockify Pharma AI v1.60 - Capabilities Reference
+# BioDockify Pharma AI v1.67 - Capabilities Reference
 
 ## Code Execution
 

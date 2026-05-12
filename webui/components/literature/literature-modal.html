@@ -1,28 +1,6 @@
 <html>
 <head>
-  <script type="module">
-    import { createStore } from "/js/AlpineStore.js";
-    import { callJsonApi } from "/js/api.js";
-
-    export const store = createStore("literatureModal", {
-      query: "",
-      selectedDb: "pubmed",
-      results: [],
-
-      async searchLiterature() {
-        if (!this.query.trim()) return;
-        try {
-          const response = await callJsonApi("literature/search", {
-            query: this.query,
-            database: this.selectedDb
-          });
-          this.results = response.results || [];
-        } catch (e) {
-          this.results = [{title: "API not available", abstract: "Literature search requires backend integration"}];
-        }
-      }
-    });
-  </script>
+  <script type="module" src="/components/literature/literature-store.js"></script>
 </head>
 <body>
   <div x-data="store" class="literature-modal">

@@ -1,29 +1,6 @@
 <html>
 <head>
-  <script type="module">
-    import { createStore } from "/js/AlpineStore.js";
-
-    export const store = createStore("slidesModal", {
-      slides: [],
-      currentSlide: 0,
-      title: "Presentation",
-      theme: "default",
-      
-      addSlide() {
-        this.slides.push({title: "New Slide", content: ""});
-        this.currentSlide = this.slides.length - 1;
-      },
-      
-      removeSlide(index) {
-        this.slides.splice(index, 1);
-        if (this.currentSlide >= this.slides.length) this.currentSlide = Math.max(0, this.slides.length - 1);
-      },
-      
-      generate() {
-        alert("PowerPoint generation requires backend integration");
-      }
-    });
-  </script>
+  <script type="module" src="/components/slides/slides-store.js"></script>
 </head>
 <body>
   <div x-data="store" class="slides-modal">

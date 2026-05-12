@@ -1,37 +1,6 @@
 <html>
 <head>
-  <script type="module">
-    import { createStore } from "/js/AlpineStore.js";
-
-    export const store = createStore("knowledgeModal", {
-      entries: [],
-      searchQuery: "",
-      newEntry: {question: "", answer: ""},
-      
-      search() {
-      },
-      
-      addEntry() {
-        if (!this.newEntry.question.trim()) return;
-        this.entries.push({...this.newEntry, id: Date.now()});
-        this.newEntry = {question: "", answer: ""};
-      },
-      
-      deleteEntry(entry) {
-        this.entries = this.entries.filter(e => e.id !== entry.id);
-      },
-      
-      exportJson() {
-        const data = JSON.stringify(this.entries, null, 2);
-        const blob = new Blob([data], {type: "application/json"});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "knowledge-base.json";
-        a.click();
-      }
-    });
-  </script>
+  <script type="module" src="/components/knowledge/knowledge-store.js"></script>
 </head>
 <body>
   <div x-data="store" class="knowledge-modal">
