@@ -1,31 +1,31 @@
----
+﻿---
 name: a0-development
-description: Development guide for extending and building features for the Agent Zero AI framework. Covers architecture, tools, extensions, API endpoints, agent profiles, projects, prompts, and skills — with correct paths, imports, and patterns matching the current codebase.
+description: Development guide for extending and building features for the BioDockify AI framework. Covers architecture, tools, extensions, API endpoints, agent profiles, projects, prompts, and skills — with correct paths, imports, and patterns matching the current codebase.
 version: 1.0.0
-author: Agent Zero Team
-tags: ["development", "framework", "agent-zero", "extending", "tools", "extensions", "skills", "api", "agents", "prompts"]
+author: BioDockify AI Team
+tags: ["development", "framework", "BioDockify-AI", "extending", "tools", "extensions", "skills", "api", "agents", "prompts"]
 trigger_patterns:
-  - "extend agent zero"
-  - "agent zero development"
-  - "build agent zero feature"
-  - "create agent zero tool"
+  - "extend BioDockify AI"
+  - "BioDockify AI development"
+  - "build BioDockify AI feature"
+  - "create BioDockify AI tool"
   - "add extension"
   - "framework development"
-  - "agent zero architecture"
-  - "how does agent zero work"
-  - "create agent zero extension"
+  - "BioDockify AI architecture"
+  - "how does BioDockify AI work"
+  - "create BioDockify AI extension"
   - "add api endpoint"
   - "create agent profile"
-  - "agent zero internals"
+  - "BioDockify AI internals"
   - "how does the agent loop work"
   - "extension hook points"
   - "prompt system"
   - "agent profile"
 ---
 
-# Agent Zero Development Guide
+# BioDockify AI Development Guide
 
-This skill provides comprehensive, accurate guidance for extending and building features for Agent Zero. Use it when you need to:
+This skill provides comprehensive, accurate guidance for extending and building features for BioDockify AI. Use it when you need to:
 
 - Understand the **architecture** and project layout
 - Create new **Tools** for agent capabilities
@@ -39,7 +39,7 @@ This skill provides comprehensive, accurate guidance for extending and building 
 > **Path convention:** Throughout this guide, `/a0/` refers to the framework root — this is `/a0/` inside Docker, or your local repository root in development. All paths are relative to this root.
 
 > [!IMPORTANT]
-> **Plugins are the primary way to extend Agent Zero.** Most new tools, extensions, and prompts should be packaged as plugins. For all plugin tasks (create, review, manage, debug, contribute), load the `a0-plugin-router` skill which routes to the appropriate specialist. This guide covers the underlying framework patterns that plugins build upon.
+> **Plugins are the primary way to extend BioDockify AI.** Most new tools, extensions, and prompts should be packaged as plugins. For all plugin tasks (create, review, manage, debug, contribute), load the `a0-plugin-router` skill which routes to the appropriate specialist. This guide covers the underlying framework patterns that plugins build upon.
 
 Related skills: `a0-plugin-router` (plugin tasks) | `create-skill` (skill creation wizard) | `a0-create-plugin` | `a0-review-plugin` | `a0-manage-plugin` | `a0-contribute-plugin` | `a0-debug-plugin`
 
@@ -548,7 +548,7 @@ The framework includes a complete example profile at `/a0/agents/_example/` that
 
 ## Prompt System
 
-Agent Zero assembles system prompts from **named fragments** using includes and variable substitution.
+BioDockify AI assembles system prompts from **named fragments** using includes and variable substitution.
 
 ### Prompt File Naming Convention
 
@@ -692,7 +692,7 @@ Projects provide isolated workspaces with custom configuration.
 
 ## Plugin System Overview
 
-Plugins are the **primary extension mechanism** in Agent Zero. A plugin can bundle tools, extensions, prompts, API endpoints, helpers, and UI components into a self-contained package.
+Plugins are the **primary extension mechanism** in BioDockify AI. A plugin can bundle tools, extensions, prompts, API endpoints, helpers, and UI components into a self-contained package.
 
 > For all plugin tasks — creating, reviewing, managing, contributing, or debugging plugins — load the `a0-plugin-router` skill, which routes to the appropriate specialist skill.
 
@@ -776,7 +776,7 @@ except Exception as e:
 
 ## Development Workflow
 
-When building features for Agent Zero:
+When building features for BioDockify AI:
 
 ### 1. Choose Your Extension Point
 
@@ -844,3 +844,4 @@ For contribution guidelines, see `/a0/docs/contribution.md`. For plugin contribu
 | `/a0/helpers/print_style.py` | Console output formatting |
 | `/a0/agents/_example/` | Reference example profile with tool + extension |
 | `/a0/prompts/agent.system.main.md` | Main system prompt entry point |
+

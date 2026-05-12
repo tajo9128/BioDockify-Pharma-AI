@@ -1,20 +1,20 @@
-# BioDockify AI
+﻿# BioDockify AI
 
-**BioDockify AI** is a modified pharmaceutical research distribution built on top of [Agent Zero](https://github.com/agent0ai/agent-zero) — an open-source agentic framework created and maintained by [Jan Tomasek](https://github.com/Xrenel) and the Agent Zero team.
+**BioDockify AI** is a modified pharmaceutical research distribution built on top of [BioDockify AI](https://github.com/agent0ai/BioDockify-AI) — an open-source agentic framework created and maintained by [Jan Tomasek](https://github.com/Xrenel) and the BioDockify AI team.
 
-> **This is a fork/modification of Agent Zero.** BioDockify AI is not a standalone product. It is a customized rebranding and domain-specific tuning of the Agent Zero framework, adapted for pharmaceutical research and drug discovery use cases. All core framework functionality belongs to the Agent Zero project.
+> **This is a fork/modification of BioDockify AI.** BioDockify AI is not a standalone product. It is a customized rebranding and domain-specific tuning of the BioDockify AI framework, adapted for pharmaceutical research and drug discovery use cases. All core framework functionality belongs to the BioDockify AI project.
 
 ## Acknowledgments
 
-We gratefully thank the **Agent Zero team** and the open-source community for making Agent Zero freely available under an open-source license. Their commitment to open, transparent, and modifiable AI software makes projects like BioDockify AI possible.
+We gratefully thank the **BioDockify AI team** and the open-source community for making BioDockify AI freely available under an open-source license. Their commitment to open, transparent, and modifiable AI software makes projects like BioDockify AI possible.
 
-- **Original Project**: [github.com/agent0ai/agent-zero](https://github.com/agent0ai/agent-zero)
+- **Original Project**: [github.com/agent0ai/BioDockify-AI](https://github.com/agent0ai/BioDockify-AI)
 - **Original Author**: Jan Tomasek
-- **License**: Open source — see the original Agent Zero repository for license details
+- **License**: Open source — see the original BioDockify AI repository for license details
 
 ## What BioDockify AI Adds
 
-BioDockify AI layers extensive pharmaceutical research capabilities on top of Agent Zero:
+BioDockify AI layers extensive pharmaceutical research capabilities on top of BioDockify AI:
 
 ### Sub-Agents (5 Specialized Agents)
 
@@ -78,7 +78,7 @@ docker run -d -p 80:80 --name biodockify \
 
 Then open [http://localhost](http://localhost) in your browser.
 
-## Features (Inherited from Agent Zero)
+## Features (Inherited from BioDockify AI)
 
 - Multi-agent cooperation with subordinate delegation
 - Browser automation and web research
@@ -138,4 +138,4 @@ The Researcher agent has access to:
 
 ## License
 
-This project is a modification of Agent Zero. See [Agent Zero repository](https://github.com/agent0ai/agent-zero) for original license.
+This project is a modification of BioDockify AI. See [BioDockify AI repository](https://github.com/agent0ai/BioDockify-AI) for original license.

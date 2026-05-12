@@ -1,4 +1,4 @@
-from git import Git, Repo
+﻿from git import Git, Repo
 from giturlparse import parse
 from datetime import datetime
 from dataclasses import dataclass
@@ -401,7 +401,7 @@ def get_version():
 
 
 def is_official_agent_zero_repo() -> bool:
-    """Return True when origin points to agent0ai/agent-zero."""
+    """Return True when origin points to agent0ai/BioDockify-AI."""
     try:
         repo = Repo(files.get_base_dir())
         if not repo.remotes:
@@ -413,8 +413,8 @@ def is_official_agent_zero_repo() -> bool:
             remote_url = remote_url[:-4]
 
         allowed_repos = [
-            "agent0ai/agent-zero",
-            "frdel/agent-zero",
+            "agent0ai/BioDockify-AI",
+            "frdel/BioDockify-AI",
         ]
         return any(
             remote_url.endswith(f"github.com/{repo_name}")
@@ -532,3 +532,4 @@ def get_repo_status(repo_path: str) -> dict:
         }
     except Exception as e:
         return {"is_git_repo": False, "error": str(e)}
+

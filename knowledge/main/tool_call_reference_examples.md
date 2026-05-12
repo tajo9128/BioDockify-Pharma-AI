@@ -1,4 +1,4 @@
-# Tool Call Reference Examples
+﻿# Tool Call Reference Examples
 
 These examples are intentionally short and high signal so tool-call shape guidance
 can live in knowledge without bloating the default prompt stack.
@@ -17,7 +17,7 @@ can live in knowledge without bloating the default prompt stack.
 {
   "tool_name": "text_editor:read",
   "tool_args": {
-    "path": "/workspace/agent-zero/README.md",
+    "path": "/workspace/BioDockify-AI/README.md",
     "line_from": 1,
     "line_to": 60
   }
@@ -77,3 +77,4 @@ can live in knowledge without bloating the default prompt stack.
 ```
 
 Use these examples as structure references only. Adapt arguments to the current task.
+

@@ -1,4 +1,4 @@
-import os
+﻿import os
 import shutil
 import json
 import time
@@ -19,7 +19,7 @@ class DriveClient:
         if not os.path.exists(self.storage_path):
             os.makedirs(self.storage_path)
             
-        self.backup_folder_name = "AgentZero_Backup"
+        self.backup_folder_name = "BioDockifyAI_Backup"
         self.full_backup_path = os.path.join(self.storage_path, self.backup_folder_name)
         if not os.path.exists(self.full_backup_path):
             os.makedirs(self.full_backup_path)
@@ -117,3 +117,4 @@ class DriveClient:
             shutil.copy2(target_file, dest_path)
         else:
             raise Exception("Backup not found in Cloud Storage")
+

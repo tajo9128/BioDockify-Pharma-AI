@@ -1,4 +1,4 @@
-import base64
+﻿import base64
 from datetime import datetime
 from io import BytesIO
 import os
@@ -66,7 +66,7 @@ def normalize_paths(paths) -> list[str]:
 
 def selected_archive_name(count: int) -> str:
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    return f"agent-zero-selected-{count}-{stamp}.zip"
+    return f"BioDockify-AI-selected-{count}-{stamp}.zip"
 
 
 def create_selected_zip(paths: list[str], current_path: str = "") -> str:
@@ -177,3 +177,4 @@ def write_zip_entry(zip_file: zipfile.ZipFile, source_path: Path, arc_root: str)
         return
 
     zip_file.write(source_path, arc_root)
+

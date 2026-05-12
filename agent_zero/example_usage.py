@@ -1,4 +1,4 @@
-"""
+﻿"""
 BioDockify AI Integration Example
 
 This example demonstrates how to use the complete BioDockify AI system:
@@ -6,7 +6,7 @@ This example demonstrates how to use the complete BioDockify AI system:
 - ToolRegistry: For managing research tools
 - PersistentMemory: For storing and recalling memories
 - PhDPlanner: For stage detection and tool recommendation
-- AgentZero: The main orchestrator
+- BioDockifyAI: The main orchestrator
 """
 
 import asyncio
@@ -47,7 +47,7 @@ async def main():
     # 1. Initialize Components
     # ============================================================================
 
-    from agent_zero.core.orchestrator import AgentZero, ToolRegistry, LLMProvider
+    from agent_zero.core.orchestrator import BioDockifyAI, ToolRegistry, LLMProvider
     from agent_zero.core.planner import PhDPlanner
     from agent_zero.core.memory import PersistentMemory
 
@@ -97,7 +97,7 @@ async def main():
 
     # Initialize BioDockify AI
     print("Step 5: Initializing BioDockify AI...")
-    agent = AgentZero(llm, tool_registry, memory, max_retries=3)
+    agent = BioDockifyAI(llm, tool_registry, memory, max_retries=3)
     print("✓ BioDockify AI initialized")
     print()
 
@@ -391,3 +391,4 @@ if __name__ == '__main__':
     # Run additional examples
     example_planner_usage()
     example_memory_usage()
+

@@ -1,6 +1,6 @@
-# Creating Discovery Cards and Banners
+﻿# Creating Discovery Cards and Banners
 
-Agent Zero allows plugin developers to surface UI elements using the `banners` extension point. This allows your plugin to present information, prompts, or actionable "discovery cards" directly on the Welcome Screen without needing to inject arbitrary HTML into the frontend.
+BioDockify AI allows plugin developers to surface UI elements using the `banners` extension point. This allows your plugin to present information, prompts, or actionable "discovery cards" directly on the Welcome Screen without needing to inject arbitrary HTML into the frontend.
 
 ## The `banners` Extension Point
 

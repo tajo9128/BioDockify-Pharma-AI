@@ -1,4 +1,4 @@
-
+﻿
 import sys
 import os
 import unittest
@@ -9,7 +9,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from orchestration.planner.orchestrator import ResearchOrchestrator, OrchestratorConfig
 
-class TestAgentZeroLogic(unittest.TestCase):
+class TestBioDockifyAILogic(unittest.TestCase):
     
     def setUp(self):
         # Mock Config
@@ -101,3 +101,4 @@ class TestAgentZeroLogic(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import base64
 import fnmatch
@@ -579,7 +579,7 @@ class TimeTravelService:
         self._ensure_current_head_ref()
 
         self._git("config", "user.name", "BioDockify AI Time Travel")
-        self._git("config", "user.email", "time-travel@agent-zero.local")
+        self._git("config", "user.email", "time-travel@BioDockify-AI.local")
         self._git("config", "core.autocrlf", "false")
         self._git("config", "core.filemode", "true")
 
@@ -1415,3 +1415,4 @@ def _compact_git_error(text: str) -> str:
     if not lines:
         return "The patch could not be applied cleanly."
     return "\n".join(lines[:8])
+

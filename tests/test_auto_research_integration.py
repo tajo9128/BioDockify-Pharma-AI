@@ -1,4 +1,4 @@
-
+﻿
 """Test Auto-Research Integration."""
 import sys
 sys.path.insert(0, '/bio/usr/projects/biodockify_ai')
@@ -87,13 +87,13 @@ async def test_communication():
         'Starting research on Alzheimer disease',
         permission_required=False
     )
-    print(f"  AgentZero -> NanoBot: {result1['status']}")
+    print(f"  BioDockifyAI -> NanoBot: {result1['status']}")
 
     result2 = await bridge.send_to_agent_zero(
         'Research task completed',
         {'progress': 0.5}
     )
-    print(f"  NanoBot -> AgentZero: {result2['status']}")
+    print(f"  NanoBot -> BioDockifyAI: {result2['status']}")
 
     result3 = await bridge.request_permission(
         'Execute deep research',
@@ -130,3 +130,4 @@ print('=' * 60)
 print('All integration tests passed successfully!')
 print('Auto-research system is ready for use')
 print('=' * 60)
+

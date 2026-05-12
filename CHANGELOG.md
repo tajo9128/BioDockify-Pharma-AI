@@ -1,4 +1,4 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to **BioDockify** will be documented in this file.
 
@@ -66,7 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v2.4.2] - 2026-02-09
 ### Added
-- **Full Agent Zero Port**: Reached 100% parity with original Agent Zero core, including PhDPlanner (stage-aware research), PersistentMemory (long-term knowledge retention), and self-healing ReasoningEngine.
+- **Full BioDockify AI Port**: Reached 100% parity with original BioDockify AI core, including PhDPlanner (stage-aware research), PersistentMemory (long-term knowledge retention), and self-healing ReasoningEngine.
 - **Security Hardening**: Implemented strict HTML escaping in Telegram to prevent XSS, added path sanitization to all file downloads, and enforced authentication for the WhatsApp bridge.
 - **Reliability Improvements**: Added Discord gateway heartbeat ACK tracking to prevent zombie connections and implemented per-channel rate limiting and download timeouts.
 ### Removed
@@ -82,3 +82,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v2.4.0] - 2026-02-08
 ...
+

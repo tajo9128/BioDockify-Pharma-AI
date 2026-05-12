@@ -1,5 +1,5 @@
-/**
- * Agent Zero Self-Repair Service
+﻿/**
+ * BioDockify AI Self-Repair Service
  * Automatically detects and fixes configuration issues
  * Provides intelligent retry logic and alternative configurations
  */
@@ -261,3 +261,4 @@ export async function autoFixConfiguration(): Promise<{
         changes
     };
 }
+

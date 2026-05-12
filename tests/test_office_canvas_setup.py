@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 
@@ -94,7 +94,7 @@ def test_document_canvas_uses_markdown_editor_and_official_libreoffice_desktop_f
     assert "normalizeXpraDesktopWindow" in store
     assert "installXpraDesktopWheelBridge" in store
     assert "installXpraDesktopAgentBridge" in store
-    assert "agentZeroDesktop" in store
+    assert "BioDockifyAIDesktop" in store
     assert 'callOffice("desktop_state"' in store
     assert "desktopToClient" in store
     assert "clientToDesktop" in store
@@ -344,7 +344,7 @@ def test_official_libreoffice_desktop_route_and_packages_are_declared():
     assert "xfce4-mail-reader.desktop" in desktop
     assert "xfce4-web-browser.desktop" in desktop
     assert "xfce4-session-logout.desktop" in desktop
-    assert "agent-zero-shutdown.desktop" in desktop
+    assert "BioDockify-AI-shutdown.desktop" in desktop
     assert "libreoffice-gtk3" in install
     assert "libreofficekit" not in install
     assert "gir1.2-lokdocview" not in install
@@ -379,7 +379,7 @@ def test_official_libreoffice_desktop_route_and_packages_are_declared():
     assert "FALLBACK_CMD" in linux_desktop_skill
     assert "@openai/codex" not in linux_desktop_skill
     assert "xdotool" in linux_desktopctl
-    assert "agent-zero-desktop" in linux_desktopctl
+    assert "BioDockify-AI-desktop" in linux_desktopctl
     assert "launch_app" in linux_desktopctl
     assert "paste_key_for_active_window" in linux_desktopctl
     assert "active_window_is_terminal" in linux_desktopctl
@@ -539,3 +539,4 @@ def test_office_extra_prompt_includes_existing_desktop_state_without_opening_can
     assert "compact_prompt_context" in canvas_context
     assert "ensure_system_desktop" not in canvas_context
     assert "[DOCUMENT CANVAS]" in prompt
+

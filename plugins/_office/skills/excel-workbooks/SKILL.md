@@ -1,8 +1,8 @@
----
+﻿---
 name: excel-workbooks
 description: Use when creating, opening, or editing LibreOffice Calc ODS spreadsheets, or XLSX workbooks only when Excel compatibility is explicitly required.
 version: "1.1.0"
-author: "Agent Zero Core Team"
+author: "BioDockify AI Core Team"
 tags: ["calc", "ods", "opendocument", "excel", "xlsx", "spreadsheet", "workbook", "tables", "charts", "budget"]
 triggers:
   - "Calc"
@@ -67,3 +67,4 @@ Practical rules:
 - Use `rows` for whole-table replacement, `append_rows` for adding records, and `set_cells` for precise edits.
 - Use `create_chart` with a chart object for embedded charts when working in XLSX compatibility format; otherwise use Calc/Desktop or code execution for chart workflows that ODS direct editing does not yet cover.
 - Do not open Calc/canvas automatically. The user can choose Open in canvas when they want the visible spreadsheet.
+

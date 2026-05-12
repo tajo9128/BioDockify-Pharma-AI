@@ -1,7 +1,7 @@
-/**
- * Agent Zero Self-Configuration System
+﻿/**
+ * BioDockify AI Self-Configuration System
  * 
- * Once Agent Zero has access to ANY AI provider (Ollama, Free API, Paid API, Internet),
+ * Once BioDockify AI has access to ANY AI provider (Ollama, Free API, Paid API, Internet),
  * it automatically configures all required settings without user intervention.
  * 
  * Priority Order:
@@ -178,7 +178,7 @@ function saveConfig(config: Record<string, any>): void {
 // ============================================================================
 
 /**
- * Configure Agent Zero using the best available AI provider
+ * Configure BioDockify AI using the best available AI provider
  */
 export async function selfConfigure(): Promise<SelfConfigResult> {
     console.log('[SelfConfig] Starting self-configuration...');
@@ -373,21 +373,21 @@ export async function aiOptimizeSettings(): Promise<string[]> {
 // ============================================================================
 
 /**
- * Initialize Agent Zero with automatic self-configuration
+ * Initialize BioDockify AI with automatic self-configuration
  * Call this on app startup
  */
-export async function initializeAgentZeroWithAI(): Promise<{
+export async function initializeBioDockifyAIWithAI(): Promise<{
     provider: AIProvider | null;
     mode: 'FULL' | 'LIMITED';
     ready: boolean;
 }> {
-    console.log('[Agent Zero] Initializing with AI self-configuration...');
+    console.log('[BioDockify AI] Initializing with AI self-configuration...');
 
     // Step 1: Detect providers
     const providers = await detectAIProviders();
 
     if (providers.length === 0) {
-        console.log('[Agent Zero] No AI providers found, running in LIMITED mode');
+        console.log('[BioDockify AI] No AI providers found, running in LIMITED mode');
         return { provider: null, mode: 'LIMITED', ready: false };
     }
 
@@ -395,7 +395,7 @@ export async function initializeAgentZeroWithAI(): Promise<{
     const result = await selfConfigure();
 
     if (!result.success) {
-        console.log('[Agent Zero] Self-configuration failed:', result.message);
+        console.log('[BioDockify AI] Self-configuration failed:', result.message);
         return { provider: null, mode: 'LIMITED', ready: false };
     }
 
@@ -403,7 +403,7 @@ export async function initializeAgentZeroWithAI(): Promise<{
     await aiOptimizeSettings();
 
     // Step 4: Mark as ready
-    console.log('[Agent Zero] Ready with provider:', result.provider?.name);
+    console.log('[BioDockify AI] Ready with provider:', result.provider?.name);
 
     return {
         provider: result.provider,
@@ -413,7 +413,7 @@ export async function initializeAgentZeroWithAI(): Promise<{
 }
 
 /**
- * Check if Agent Zero is already configured
+ * Check if BioDockify AI is already configured
  */
 export function isConfigured(): boolean {
     if (typeof window === 'undefined') return false;
@@ -443,3 +443,4 @@ export function resetConfiguration(): void {
 
     console.log('[SelfConfig] Configuration reset');
 }
+

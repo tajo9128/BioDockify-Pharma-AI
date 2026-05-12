@@ -1,4 +1,4 @@
-// API service module for BioDockify pharmaceutical research platform
+﻿// API service module for BioDockify pharmaceutical research platform
 // All API calls are relative - the gateway handles routing
 
 export const API_BASE = '/api';
@@ -77,7 +77,7 @@ export interface Settings {
     use_knowledge_graph?: boolean; // V2: Neo4j Integration
     human_approval_gates?: boolean; // V2: Safety/Consent Switch
   };
-  // Agent Zero (Research Agent) Settings
+  // BioDockify AI (Research Agent) Settings
   agent_zero?: {
     autonomy_level?: string;
     force_persona?: string;
@@ -224,7 +224,7 @@ export interface Settings {
   };
   system: {
     max_cpu_percent: number;
-    internet_research?: boolean; // Agent Zero V2
+    internet_research?: boolean; // BioDockify AI V2
     auto_update?: boolean;
     log_level?: 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR';
   };
@@ -313,7 +313,7 @@ export const api = {
       body: JSON.stringify({ message })
     }),
 
-  // Agent Zero universal execute - invoke any software function
+  // BioDockify AI universal execute - invoke any software function
   agentExecute: (action: string, params: Record<string, any> = {}) =>
     apiRequest<{ status: string; action: string; results?: any; error?: string }>('/agent/execute', {
       method: 'POST',
@@ -341,7 +341,7 @@ export const api = {
   getRecentExports: () =>
     apiRequest<{ id: string; type: string; filename: string; createdAt: string }[]>('/lab/exports'),
 
-  // Agent Zero System Diagnosis
+  // BioDockify AI System Diagnosis
   diagnoseOllama: () =>
     apiRequest<{ success: boolean; message: string }>('/diagnose/ollama', {
       method: 'POST'

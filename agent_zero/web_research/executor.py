@@ -1,4 +1,4 @@
-"""
+﻿"""
 BioDockify AI SurfSense Executor
 
 Fetches web pages, extracts text content, handles errors and retries.
@@ -35,7 +35,7 @@ class ExecutorConfig:
     timeout: int = 30
     max_retries: int = 3
     retry_delay: float = 1.0
-    user_agent: str = "Mozilla/5.0 (compatible; BioDockify-AgentZero/1.0)"
+    user_agent: str = "Mozilla/5.0 (compatible; BioDockify-BioDockifyAI/1.0)"
     max_concurrent: int = 5
     follow_redirects: bool = True
     max_redirects: int = 5
@@ -386,7 +386,7 @@ async def fetch_page_content(
     """
     config = ExecutorConfig(
         timeout=timeout,
-        user_agent=user_agent or "Mozilla/5.0 (compatible; BioDockify-AgentZero/1.0)"
+        user_agent=user_agent or "Mozilla/5.0 (compatible; BioDockify-BioDockifyAI/1.0)"
     )
     
     async with Executor(config) as executor:
@@ -416,3 +416,4 @@ async def fetch_multiple_pages(
     
     async with Executor(config) as executor:
         return await executor.fetch_multiple(urls, max_concurrent)
+

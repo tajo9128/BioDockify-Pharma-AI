@@ -1,13 +1,13 @@
-# Agent Zero - Autonomous Research Orchestrator
+﻿# BioDockify AI - Autonomous Research Orchestrator
 
 **Version:** 2.0.0
 
-Agent Zero is an autonomous AI orchestrator designed to serve as the brain of BioDockify v2.0.0. It receives high-level PhD research goals, decomposes them into executable tasks, selects appropriate tools, self-corrects on failures, and maintains persistent memory across the research journey.
+BioDockify AI is an autonomous AI orchestrator designed to serve as the brain of BioDockify v2.0.0. It receives high-level PhD research goals, decomposes them into executable tasks, selects appropriate tools, self-corrects on failures, and maintains persistent memory across the research journey.
 
 ## Architecture
 
 ```
-User Goal → Agent Zero → Tool Selection → Execution → Memory → Results
+User Goal → BioDockify AI → Tool Selection → Execution → Memory → Results
                 ↓
          PhD Planner (Stage Detection)
                 ↓
@@ -50,7 +50,7 @@ cd agent_zero
 
 ```python
 import asyncio
-from agent_zero.core.orchestrator import AgentZero, ToolRegistry
+from agent_zero.core.orchestrator import BioDockifyAI, ToolRegistry
 from agent_zero.core.planner import PhDPlanner
 from agent_zero.core.memory import PersistentMemory
 
@@ -65,8 +65,8 @@ async def main():
     tool_registry.register(YourTool())
     tool_registry.register(AnotherTool())
 
-    # Initialize Agent Zero
-    agent = AgentZero(llm, tool_registry, memory, max_retries=3)
+    # Initialize BioDockify AI
+    agent = BioDockifyAI(llm, tool_registry, memory, max_retries=3)
 
     # Execute a research goal
     result = await agent.execute_goal(
@@ -87,10 +87,10 @@ asyncio.run(main())
 
 The main autonomous agent that coordinates all operations.
 
-#### Class: `AgentZero`
+#### Class: `BioDockifyAI`
 
 ```python
-class AgentZero:
+class BioDockifyAI:
     def __init__(
         self,
         llm_provider: LLMProvider,
@@ -468,7 +468,7 @@ The system recognizes five PhD stages:
 
 ## LLM Provider Interface
 
-To use Agent Zero, you need to implement the `LLMProvider` interface:
+To use BioDockify AI, you need to implement the `LLMProvider` interface:
 
 ```python
 from agent_zero.core.orchestrator import LLMProvider
@@ -520,7 +520,7 @@ class PubMedSearchTool(Tool):
 
 ```python
 import asyncio
-from agent_zero.core import AgentZero, PhDPlanner, PersistentMemory, ToolRegistry
+from agent_zero.core import BioDockifyAI, PhDPlanner, PersistentMemory, ToolRegistry
 
 async def main():
     # Initialize
@@ -535,7 +535,7 @@ async def main():
     tool_registry.register(DockingTool())
 
     # Create agent
-    agent = AgentZero(llm, tool_registry, memory, max_retries=3)
+    agent = BioDockifyAI(llm, tool_registry, memory, max_retries=3)
 
     # Detect stage
     metadata = {
@@ -564,7 +564,7 @@ asyncio.run(main())
 
 ## Error Handling
 
-Agent Zero includes built-in error handling and self-correction:
+BioDockify AI includes built-in error handling and self-correction:
 
 1. **Automatic Retry**: Failed tasks are retried up to `max_retries` times
 2. **Self-Correction**: Parameters are adjusted based on results
@@ -629,7 +629,7 @@ agent_zero/
 
 ## API Integration
 
-Agent Zero can be integrated into web APIs:
+BioDockify AI can be integrated into web APIs:
 
 ```python
 # FastAPI example
@@ -689,7 +689,7 @@ async def get_stages():
 
 ## License
 
-BioDockify v2.0.0 - Agent Zero Module
+BioDockify v2.0.0 - BioDockify AI Module
 
 ## Version History
 
@@ -699,3 +699,4 @@ BioDockify v2.0.0 - Agent Zero Module
 ## Support
 
 For issues and questions, please refer to the main BioDockify documentation.
+

@@ -1,10 +1,10 @@
-# Plugins
+﻿# Plugins
 
-This page documents the current Agent Zero plugin system, including manifest format, discovery rules, scoped configuration, activation behavior, and how to share a plugin with the community.
+This page documents the current BioDockify AI plugin system, including manifest format, discovery rules, scoped configuration, activation behavior, and how to share a plugin with the community.
 
 ## Overview
 
-Plugins extend Agent Zero through convention-based folders. A plugin can provide:
+Plugins extend BioDockify AI through convention-based folders. A plugin can provide:
 
 - Backend: API handlers, tools, helpers, Python lifecycle extensions, and implicit `@extensible` hooks
 - Frontend: WebUI components and extension-point injections
@@ -21,7 +21,7 @@ On name collisions, user plugins take precedence.
 
 ## Manifest (`plugin.yaml`)
 
-Every plugin must contain `plugin.yaml`. This is the **runtime manifest** — it drives Agent Zero behavior. It is distinct from the index manifest used when publishing to the Plugin Index (see [Publishing to the Plugin Index](#publishing-to-the-plugin-index) below).
+Every plugin must contain `plugin.yaml`. This is the **runtime manifest** — it drives BioDockify AI behavior. It is distinct from the index manifest used when publishing to the Plugin Index (see [Publishing to the Plugin Index](#publishing-to-the-plugin-index) below).
 
 ```yaml
 name: my_plugin              # required for community plugins (^[a-z0-9_]+$, must match dir name)
@@ -144,9 +144,9 @@ framework patches, or unmanaged files outside plugin-owned locations.
 
 ## Runtime Hooks (`hooks.py`)
 
-Plugins can also include an optional `hooks.py` at the plugin root. Agent Zero loads this module on demand and calls exported functions by name through `helpers.plugins.call_plugin_hook(...)`.
+Plugins can also include an optional `hooks.py` at the plugin root. BioDockify AI loads this module on demand and calls exported functions by name through `helpers.plugins.call_plugin_hook(...)`.
 
-- `hooks.py` executes inside the **Agent Zero framework runtime and Python environment**.
+- `hooks.py` executes inside the **BioDockify AI framework runtime and Python environment**.
 - Use it for framework-internal operations such as install hooks, pre-update hooks, registration, cache preparation, file setup, or other work that needs direct access to framework internals.
 - Hook functions may be synchronous or async.
 - Hook modules are cached, so edits may require a plugin refresh or cache clear before changes are picked up.
@@ -160,7 +160,7 @@ Current built-in usage:
 
 ### Dependency and environment behavior
 
-- If `hooks.py` runs `sys.executable -m pip install ...`, it installs into the **same Python environment that is currently running Agent Zero**.
+- If `hooks.py` runs `sys.executable -m pip install ...`, it installs into the **same Python environment that is currently running BioDockify AI**.
 - That is the correct target for dependencies needed by your plugin's backend code inside the framework runtime.
 - It is not automatically the right target for packages intended only for the separate agent execution runtime or for system-level binaries.
 
@@ -232,13 +232,13 @@ Supported actions:
 
 ## Publishing to the Plugin Index
 
-The **Plugin Index** is a community-maintained repository at https://github.com/agent0ai/a0-plugins. Plugins listed there are discoverable by all Agent Zero users.
+The **Plugin Index** is a community-maintained repository at https://github.com/agent0ai/a0-plugins. Plugins listed there are discoverable by all BioDockify AI users.
 
 ### Two Distinct Manifest Files
 
 There are two completely different manifest files — they must not be confused:
 
-**Runtime manifest** (`plugin.yaml`, inside your plugin's own repo — drives Agent Zero behavior):
+**Runtime manifest** (`plugin.yaml`, inside your plugin's own repo — drives BioDockify AI behavior):
 ```yaml
 name: my_plugin              # REQUIRED for index submission; must match index folder name
 title: My Plugin
@@ -302,7 +302,7 @@ Submission rules:
 
 ### Plugin Hub
 
-Agent Zero now exposes the community **Plugin Hub** through the always-enabled **Plugin Installer** plugin. Users can browse Plugin Index entries directly from the Plugins UI without leaving the application.
+BioDockify AI now exposes the community **Plugin Hub** through the always-enabled **Plugin Installer** plugin. Users can browse Plugin Index entries directly from the Plugins UI without leaving the application.
 
 Users can open the Plugin Hub from the **Plugins** dialog in two ways:
 
@@ -331,3 +331,4 @@ This keeps toasts and notification history consistent. See [Notifications](notif
 
 - HTML breakpoints are preferred when the core template already exposes an `x-extension` anchor.
 - JS hooks are the right fit for runtime-built UI surfaces. For example, `confirm_dialog_after_render` can extend the shared confirm dialog using the supplied DOM nodes and caller `extensionContext`.
+

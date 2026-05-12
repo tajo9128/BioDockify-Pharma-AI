@@ -1,4 +1,4 @@
-# BioDockify AI v2.7.2 Release Notes
+﻿# BioDockify AI v2.7.2 Release Notes
 
 ## Version: 2.7.2
 ## Release Date: 2026-02-14
@@ -44,7 +44,7 @@ v2.7.2 is a security and user configuration enhancement release that removes all
 
 All research capabilities from v2.7.1 remain fully functional:
 
-### Agent Zero Core Capabilities
+### BioDockify AI Core Capabilities
 - ✅ Brain/Orchestration (HybridAgent with monologue loop)
 - ✅ Advanced Memory (ChromaDB + hierarchical storage)
 - ✅ Self-Awareness (SystemDiagnosis health monitoring)
@@ -186,3 +186,4 @@ MIT License - See LICENSE file for details
 *For questions or support, please visit:*
 - GitHub: https://github.com/tajo9128/BioDockify-pharma-research-ai
 - Documentation: See repository README and guides
+

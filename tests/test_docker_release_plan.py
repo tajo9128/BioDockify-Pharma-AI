@@ -1,4 +1,4 @@
-import importlib.util
+﻿import importlib.util
 import subprocess
 import sys
 from pathlib import Path
@@ -84,7 +84,7 @@ def test_plan_branch_push_builds_when_tag_reaches_allowed_branch(monkeypatch, tm
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("ALLOWED_BRANCHES", "testing main")
     monkeypatch.setenv("MAIN_BRANCH", "main")
-    monkeypatch.setenv("DOCKER_IMAGE_REPO", "example/agent-zero")
+    monkeypatch.setenv("DOCKER_IMAGE_REPO", "example/BioDockify-AI")
     monkeypatch.setenv("RELEASE_TAG_REGEX", r"^v([0-9]+)\.([0-9]+)$")
     monkeypatch.setenv("MIN_RELEASE_MAJOR", "1")
     monkeypatch.setenv("MIN_RELEASE_MINOR", "0")
@@ -121,3 +121,4 @@ def test_plan_branch_push_builds_when_tag_reaches_allowed_branch(monkeypatch, tm
     assert main_candidates[0].mode == "push_promoted_tag"
     assert main_candidates[0].publish_version is True
     assert main_candidates[0].publish_branch_tag is True
+

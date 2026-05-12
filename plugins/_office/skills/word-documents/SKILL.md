@@ -1,8 +1,8 @@
----
+﻿---
 name: word-documents
 description: Use when creating, opening, or editing LibreOffice Writer ODT documents, or DOCX documents only when Microsoft Word compatibility is explicitly required.
 version: "1.1.0"
-author: "Agent Zero Core Team"
+author: "BioDockify AI Core Team"
 tags: ["writer", "odt", "opendocument", "word", "docx", "documents", "reports", "memos", "contracts"]
 triggers:
   - "Writer"
@@ -52,3 +52,4 @@ Practical rules:
 - Keep Writer content clean and structured. Use headings and paragraphs; avoid over-formatting unless requested.
 - Treat DOCX as a compatibility export/request, not the default Writer format.
 - Do not say the document is open. Say it was created or updated, and rely on the Open in canvas action for user-controlled viewing.
+

@@ -1,7 +1,7 @@
-import { fetchApi } from "/js/api.js";
+﻿import { fetchApi } from "/js/api.js";
 
 const API_BASE = "/plugins/_model_config";
-const CREATE_AGENT_PROFILE_PROMPT = `I want to create a new Agent Zero agent profile.
+const CREATE_AGENT_PROFILE_PROMPT = `I want to create a new BioDockify AI agent profile.
 
 Use the a0-create-agent skill. Guide me gently with one or two questions per turn. Start by asking what this agent should be excellent at, infer sensible defaults, and only produce the AgentProfileBlueprint JSON after we confirm the compact profile summary. Prefer a normal user profile in /a0/usr/agents unless I choose another scope.`;
 
@@ -234,3 +234,4 @@ export const switcherMethods = {
     };
   },
 };
+

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import api, { Project, EnhancedSystemStatus } from '@/lib/api';
 import {
     FlaskConical, PenTool, Brain, Search,
@@ -76,7 +76,7 @@ export default function HomeDashboard({ onNavigate }: HomeProps) {
 
             <div className="max-w-5xl mx-auto">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                    {/* Main Action 1 - Agent Zero Chat */}
+                    {/* Main Action 1 - BioDockify AI Chat */}
                     <RestrictedCard id="agent-chat" onClick={() => onNavigate('agent-chat')}>
                         <div className="absolute top-0 right-0 p-4 opacity-50 group-hover:opacity-100 transition-opacity">
                             <ArrowRight className="w-5 h-5 text-teal-400" />
@@ -204,3 +204,4 @@ export default function HomeDashboard({ onNavigate }: HomeProps) {
         </div>
     );
 }
+

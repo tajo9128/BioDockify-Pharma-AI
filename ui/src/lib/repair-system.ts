@@ -1,5 +1,5 @@
-/**
- * Agent Zero Repair System
+﻿/**
+ * BioDockify AI Repair System
  * 
  * Orchestrates the Safe Repair Workflow:
  * 1. Diagnosis
@@ -8,7 +8,7 @@
  * 4. Safe Mode Execution
  * 5. Verification
  * 
- * CORE RULE: "Agent Zero may repair itself ONLY when explicitly instructed by the user"
+ * CORE RULE: "BioDockify AI may repair itself ONLY when explicitly instructed by the user"
  */
 
 import { DiagnosticEngine, DiagnosticReport } from './diagnostics';
@@ -329,3 +329,4 @@ export class RepairManager {
         };
     }
 }
+

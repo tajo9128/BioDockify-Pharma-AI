@@ -1,6 +1,6 @@
-# Code Execution
+﻿# Code Execution
 
-Run terminal commands and execute Python or Node.js code through Agent Zero using persistent shell sessions.
+Run terminal commands and execute Python or Node.js code through BioDockify AI using persistent shell sessions.
 
 ## What It Does
 
@@ -50,3 +50,4 @@ This plugin provides the code execution tool used by agents for development task
 - **Name**: `_code_execution`
 - **Title**: `Code Execution`
 - **Description**: Code execution tool supporting terminal, Python, and Node.js runtimes via local TTY or SSH.
+

@@ -1,4 +1,4 @@
-
+﻿
 """
 Auto-Research Orchestrator
 Manages full-length PhD, grand, and review article research workflows.
@@ -139,7 +139,7 @@ class TodoListManager:
 
 class AgentCommunicationBridge:
     """
-    Enables bidirectional communication between Agent Zero and NanoBot.
+    Enables bidirectional communication between BioDockify AI and NanoBot.
     Handles permissions, data exchange, and task coordination.
     """
     
@@ -151,7 +151,7 @@ class AgentCommunicationBridge:
     async def send_to_nanobot(self, message: str, permission_required: bool = False) -> Dict:
         """Send message to NanoBot, optionally requesting permission."""
         log_entry = {
-            "from": "AgentZero",
+            "from": "BioDockifyAI",
             "to": "NanoBot",
             "message": message,
             "permission_required": permission_required,
@@ -161,21 +161,21 @@ class AgentCommunicationBridge:
         
         # In production, this would make HTTP call to nanobot endpoint
         # For now, return simulated response
-        logger.info(f"Bridge: AgentZero -> NanoBot: {message}")
+        logger.info(f"Bridge: BioDockifyAI -> NanoBot: {message}")
         return {"status": "sent", "permission_granted": not permission_required}
     
     async def send_to_agent_zero(self, message: str, data: Any = None) -> Dict:
-        """Send message/data to Agent Zero."""
+        """Send message/data to BioDockify AI."""
         log_entry = {
             "from": "NanoBot",
-            "to": "AgentZero",
+            "to": "BioDockifyAI",
             "message": message,
             "data": str(data) if data else None,
             "timestamp": datetime.now().isoformat()
         }
         self.communication_log.append(log_entry)
         
-        logger.info(f"Bridge: NanoBot -> AgentZero: {message}")
+        logger.info(f"Bridge: NanoBot -> BioDockifyAI: {message}")
         return {"status": "received"}
     
     async def request_permission(self, action: str, context: Dict) -> bool:
@@ -343,7 +343,7 @@ class AutoResearchOrchestrator:
                     
                     plan.progress = self.todo_manager.get_progress()
                     
-                    # Notify Agent Zero about progress
+                    # Notify BioDockify AI about progress
                     await self.bridge.send_to_agent_zero(
                         f"Task completed: {task.title}",
                         {"progress": plan.progress}
@@ -384,3 +384,4 @@ class AutoResearchOrchestrator:
         elif "[STORAGE]" in task_title:
             return ResearchStage.STORAGE
         return ResearchStage.DETECTED
+

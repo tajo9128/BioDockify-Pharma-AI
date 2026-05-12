@@ -1,8 +1,8 @@
----
+﻿---
 name: office-artifacts
 description: Use when creating, opening, reading, or editing editable document canvas artifacts such as Markdown documents, LibreOffice-native ODT/ODS/ODP files, and compatibility DOCX/XLSX/PPTX files with the document_artifact tool.
 version: "1.4.0"
-author: "Agent Zero Core Team"
+author: "BioDockify AI Core Team"
 tags: ["documents", "markdown", "md", "odt", "ods", "odp", "docx", "xlsx", "pptx", "canvas", "spreadsheets", "presentations", "libreoffice", "opendocument"]
 triggers:
   - "document canvas"
@@ -143,8 +143,9 @@ Arguments:
 - Do not create an artifact for tiny one-shot edits or answers the agent can finish cleanly in chat or by directly editing the file.
 - For document-style writing requests with no requested binary format, create Markdown and let the custom Markdown editor be the primary interactive surface.
 - For spreadsheet or presentation file requests with no Microsoft compatibility requirement, create ODS or ODP.
-- The Desktop runtime may be warmed during Agent Zero startup, but visible Desktop/canvas use remains opt-in. Treat LibreOffice GUI work as appropriate for explicit GUI requests, binary Office visual polish, or final layout inspection.
+- The Desktop runtime may be warmed during BioDockify AI startup, but visible Desktop/canvas use remains opt-in. Treat LibreOffice GUI work as appropriate for explicit GUI requests, binary Office visual polish, or final layout inspection.
 - Never open the canvas automatically from a tool result. If the user has not opened the canvas, leave the saved artifact available through the normal UI affordance.
 - Use native `create_chart` for embedded spreadsheet charts. Reach for Python/code execution only when the requested chart behavior is not supported by the tool.
 - Use `edit` for precise saved changes; use the visual document canvas for human/manual layout polish.
 - Direct edits update version history and refresh the canvas on edit/open results.
+

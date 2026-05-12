@@ -1,4 +1,4 @@
-# Agent Zero Component System
+﻿# BioDockify AI Component System
 
 > Generated from codebase reconnaissance on 2026-01-10
 > Scope: `webui/components/` - Self-contained Alpine.js component architecture
@@ -646,3 +646,4 @@ Theme switching via `.light-mode` class on root element.
 ---
 
 *End of Component System Documentation*
+

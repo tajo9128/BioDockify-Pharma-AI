@@ -1,4 +1,4 @@
-# 🎓 BioDockify AI - Student Setup Guide
+﻿# 🎓 BioDockify AI - Student Setup Guide
 **SurfSense Knowledge Base Storage + Single API Configuration**
 
 ---
@@ -41,11 +41,11 @@ await generate_podcast_audio(
 ### 2. SurfSense Knowledge Base (STORAGE ONLY)
 **File:** `modules/surfsense/client.py`
 
-**Purpose:** Store research data from Agent Zero deep research
+**Purpose:** Store research data from BioDockify AI deep research
 
 **How It Works:**
 ```
-Agent Zero Deep Research
+BioDockify AI Deep Research
        ↓
    Research Results
        ↓
@@ -395,3 +395,4 @@ Before starting, verify:
 ---
 
 **Happy Researching!** 🎓🚀
+

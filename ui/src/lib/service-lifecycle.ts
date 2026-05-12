@@ -1,7 +1,7 @@
-/**
+﻿/**
  * Service Lifecycle Manager
  * 
- * Autonomous service management for Agent Zero.
+ * Autonomous service management for BioDockify AI.
  * Handles: Auto-start, health monitoring, model management, and recovery.
  * 
  * RESPECTS CONSENT: Only performs actions user has consented to.
@@ -409,12 +409,12 @@ export function configureServiceLifecycle(config: Partial<LifecycleConfig>): voi
 // Auto-Initialize on App Start
 // ============================================================================
 
-export async function initializeAgentZeroServices(): Promise<{
+export async function initializeBioDockifyAIServices(): Promise<{
     services: ServiceStatus[];
     modelsAvailable: boolean;
     autoStarted: string[];
 }> {
-    console.log('[Agent Zero] Initializing services...');
+    console.log('[BioDockify AI] Initializing services...');
 
     const manager = getServiceLifecycleManager();
 
@@ -443,7 +443,7 @@ export async function initializeAgentZeroServices(): Promise<{
     // Start background health monitoring
     manager.startHealthMonitoring();
 
-    console.log('[Agent Zero] Initialization complete');
+    console.log('[BioDockify AI] Initialization complete');
 
     return {
         services: manager.getAllStatuses(),
@@ -451,3 +451,4 @@ export async function initializeAgentZeroServices(): Promise<{
         autoStarted: started
     };
 }
+

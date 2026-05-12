@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import csv
 import hashlib
@@ -432,7 +432,7 @@ def get_open_documents(limit: int = 6) -> list[dict[str, Any]]:
 
 def create_session(
     file_id: str,
-    user_id: str = "agent-zero-user",
+    user_id: str = "BioDockify-AI-user",
     permission: str = "write",
     origin: str = "",
     ttl_seconds: int = DEFAULT_TTL_SECONDS,
@@ -993,3 +993,4 @@ def _column_name(index: int) -> str:
 
 def _pptx(title: str, content: str) -> bytes:
     return pptx_writer.pptx_from_text(title, content)
+

@@ -1,7 +1,7 @@
-/**
+﻿/**
  * System Controller
  * 
- * Orchestrates the Agent Zero rules during First-Run Wizard.
+ * Orchestrates the BioDockify AI rules during First-Run Wizard.
  * This is the main entry point for system control behavior.
  */
 
@@ -280,3 +280,4 @@ export function getSystemController(): SystemController {
 export function resetSystemController(): void {
     controllerInstance = null;
 }
+

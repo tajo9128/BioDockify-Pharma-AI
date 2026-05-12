@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
 import re
@@ -13,7 +13,7 @@ from helpers import git, yaml
 
 
 OFFICIAL_REPO_AUTHOR = "agent0ai"
-OFFICIAL_REPO_NAME = "agent-zero"
+OFFICIAL_REPO_NAME = "BioDockify-AI"
 BRANCH_OPTIONS = [
     {"value": "main", "label": "main"},
     {"value": "ready", "label": "ready"},
@@ -931,3 +931,4 @@ def schedule_update(
 
     _write_yaml(get_update_file_path(), payload)
     return payload
+

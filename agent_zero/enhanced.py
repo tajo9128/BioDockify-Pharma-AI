@@ -1,4 +1,4 @@
-"""
+﻿"""
 BioDockify AI Enhanced - NanoBot-Powered Brain
 
 This module enhances BioDockify AI's chat capabilities with NanoBot features:
@@ -17,7 +17,7 @@ from typing import Optional, Dict, Any
 from loguru import logger
 
 
-class AgentZeroEnhanced:
+class BioDockifyAIEnhanced:
     """
     Enhanced BioDockify AI with NanoBot capabilities.
     
@@ -41,7 +41,7 @@ class AgentZeroEnhanced:
         logger.info(f"BioDockify AI Enhanced initialized at {self.workspace}")
     
     @classmethod
-    def get_instance(cls) -> "AgentZeroEnhanced":
+    def get_instance(cls) -> "BioDockifyAIEnhanced":
         """Get singleton instance."""
         if cls._instance is None:
             cls._instance = cls()
@@ -162,6 +162,7 @@ If asked to fix a system issue (like a config file), USE YOUR TOOLS to fix it.""
             return f"Error spawning task: {e}"
 
 
-def get_agent_zero_enhanced() -> AgentZeroEnhanced:
+def get_agent_zero_enhanced() -> BioDockifyAIEnhanced:
     """Get the enhanced BioDockify AI instance."""
-    return AgentZeroEnhanced.get_instance()
+    return BioDockifyAIEnhanced.get_instance()
+

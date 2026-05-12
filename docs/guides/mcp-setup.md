@@ -1,10 +1,10 @@
-# MCP Server Setup
+﻿# MCP Server Setup
 
-Agent Zero can connect to external MCP (Model Context Protocol) servers to extend its capabilities with additional tools. This guide shows you how to add MCP servers through the Settings UI.
+BioDockify AI can connect to external MCP (Model Context Protocol) servers to extend its capabilities with additional tools. This guide shows you how to add MCP servers through the Settings UI.
 
 ## What are MCP Servers?
 
-MCP servers are external tools that Agent Zero can use to perform specialized tasks. Popular examples include:
+MCP servers are external tools that BioDockify AI can use to perform specialized tasks. Popular examples include:
 
 - **Browser automation** (Chrome DevTools, Playwright)
 - **Workflow automation** (n8n)
@@ -12,7 +12,7 @@ MCP servers are external tools that Agent Zero can use to perform specialized ta
 - **Database access** (SQLite)
 
 > [!NOTE]
-> This guide covers connecting to external MCP servers as a client. For exposing Agent Zero as an MCP server, see the [advanced documentation](../developer/mcp-configuration.md).
+> This guide covers connecting to external MCP servers as a client. For exposing BioDockify AI as an MCP server, see the [advanced documentation](../developer/mcp-configuration.md).
 
 ## Adding an MCP Server
 
@@ -85,19 +85,19 @@ In the JSON editor, add your MCP server configuration. Here's a simple example:
 
 ## Docker Networking
 
-If Agent Zero runs in Docker and your MCP server runs on the host:
+If BioDockify AI runs in Docker and your MCP server runs on the host:
 
 - **macOS/Windows:** Use `host.docker.internal` in URLs
 - **Linux:** Run the MCP server in the same Docker network and use the container name
 
 ## Using MCP Tools
 
-Once connected, MCP tools become available to Agent Zero automatically. Tools are named with the server prefix, for example:
+Once connected, MCP tools become available to BioDockify AI automatically. Tools are named with the server prefix, for example:
 
 - Server name: `chrome-devtools`
 - Tool becomes: `chrome_devtools.navigate_to_url`
 
-Simply ask Agent Zero to perform tasks, and it will use the appropriate MCP tools when needed.
+Simply ask BioDockify AI to perform tasks, and it will use the appropriate MCP tools when needed.
 
 ## Advanced Configuration
 
@@ -115,3 +115,4 @@ Community-tested and reliable MCP servers:
 
 > [!TIP]
 > For browser automation tasks, the built-in `_browser` plugin and direct `browser` tool cover the default workflow. MCP-based browser tools are still useful when you need a different browser stack, remote browser control, or an alternative to the built-in Playwright Chromium (preinstalled in Docker; on demand via `ensure_playwright_binary()` in local dev).
+

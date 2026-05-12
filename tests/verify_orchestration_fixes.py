@@ -1,4 +1,4 @@
-
+﻿
 import asyncio
 import json
 import logging
@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, AsyncMock, patch
 # Add project root to path
 sys.path.append(os.getcwd())
 
-from agent_zero.core.orchestrator import AgentZero, LLMProvider, ToolRegistry, MemoryStore, Tool, ToolTimeoutError
+from agent_zero.core.orchestrator import BioDockifyAI, LLMProvider, ToolRegistry, MemoryStore, Tool, ToolTimeoutError
 from agent_zero.web_research.executor import Executor, ExecutorConfig, PageResult
 
 async def test_concurrency():
@@ -24,7 +24,7 @@ async def test_concurrency():
         mock_license.get_cached_info.return_value = {'email': 'test@example.com'}
         mock_license.verify = AsyncMock(return_value=(True, "Verified (Mock)"))
 
-        agent = AgentZero(mock_llm, mock_tools, mock_memory)
+        agent = BioDockifyAI(mock_llm, mock_tools, mock_memory)
         
         # Mock decompose to be slow
         async def slow_decompose(*args, **kwargs):
@@ -93,7 +93,7 @@ async def test_tool_timeout():
         mock_license.get_cached_info.return_value = {'email': 'test@example.com'}
         mock_license.verify = AsyncMock(return_value=(True, "Verified (Mock)"))
 
-        agent = AgentZero(mock_llm, registry, mock_memory, tool_timeout=1)
+        agent = BioDockifyAI(mock_llm, registry, mock_memory, tool_timeout=1)
         
         result = await agent.execute_goal("Test Timeout", "early")
         
@@ -173,3 +173,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+

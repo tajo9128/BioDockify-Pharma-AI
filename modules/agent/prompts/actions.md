@@ -1,6 +1,6 @@
-# Agent Zero - New Actions Reference
+﻿# BioDockify AI - New Actions Reference
 
-This document defines the enhanced actions available to Agent Zero.
+This document defines the enhanced actions available to BioDockify AI.
 
 ## Core Actions (Original)
 
@@ -110,7 +110,8 @@ Actions can be chained in sequence:
 
 ## Error Handling
 
-If an action fails, Agent Zero should:
+If an action fails, BioDockify AI should:
 1. Log the error using memory
 2. Try an alternative approach
 3. Ask user for guidance if stuck
+

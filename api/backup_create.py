@@ -1,4 +1,4 @@
-from helpers.api import ApiHandler, Request, Response, send_file
+﻿from helpers.api import ApiHandler, Request, Response, send_file
 from helpers.backup import BackupService
 from helpers.persist_chat import save_tmp_chats
 
@@ -18,7 +18,7 @@ class BackupCreate(ApiHandler):
             include_patterns = input.get("include_patterns", [])
             exclude_patterns = input.get("exclude_patterns", [])
             include_hidden = input.get("include_hidden", True)
-            backup_name = input.get("backup_name", "agent-zero-backup")
+            backup_name = input.get("backup_name", "BioDockify-AI-backup")
 
             # Support legacy string patterns format for backward compatibility
             patterns_string = input.get("patterns", "")
@@ -56,3 +56,4 @@ class BackupCreate(ApiHandler):
                 "success": False,
                 "error": str(e)
             }
+

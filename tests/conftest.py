@@ -1,4 +1,4 @@
-# CONFTEST - Minimal version for testing
+﻿# CONFTEST - Minimal version for testing
 # This is a workaround for torch import issues on Windows
 # Full imports are done inside tests that need them
 
@@ -24,16 +24,16 @@ except Exception as e:
     print(f"[DEBUG] ChromaVectorStore import failed: {type(e).__name__}: {e}")
     ChromaVectorStore = None
 
-# Try importing AgentZero - these are likely to fail too
+# Try importing BioDockifyAI - these are likely to fail too
 AGENT_AVAILABLE = False
 try:
-    from agent_zero.core.agent_with_monitoring import MonitoredAgentZero
+    from agent_zero.core.agent_with_monitoring import MonitoredBioDockifyAI
     from agent_zero.nanobot.monitored_nanobot import MonitoredNanoBotCoordinator
     AGENT_AVAILABLE = True
-    print("[DEBUG] AgentZero modules imported successfully")
+    print("[DEBUG] BioDockifyAI modules imported successfully")
 except Exception as e:
-    print(f"[DEBUG] AgentZero import failed: {type(e).__name__}: {e}")
-    MonitoredAgentZero = None
+    print(f"[DEBUG] BioDockifyAI import failed: {type(e).__name__}: {e}")
+    MonitoredBioDockifyAI = None
     MonitoredNanoBotCoordinator = None
 
 print(f"[DEBUG] AGENT_AVAILABLE: {AGENT_AVAILABLE}, CHROMA_AVAILABLE: {CHROMA_AVAILABLE}")
@@ -62,7 +62,7 @@ async def monitored_agent(test_config):
     agent_cfg = AgentConfig(name="TestAgent", workspace_path=test_config["workspace_path"])
     llm_cfg = OrchestratorConfig(primary_model="openai")
     
-    agent = MonitoredAgentZero(agent_cfg, llm_cfg)
+    agent = MonitoredBioDockifyAI(agent_cfg, llm_cfg)
     yield agent
     # Cleanup
     if hasattr(agent, "stop"):
@@ -103,3 +103,4 @@ async def task_store():
         store = TaskStore(str(db_path))
         await store.init()
         yield store
+

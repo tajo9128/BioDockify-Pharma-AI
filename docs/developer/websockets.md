@@ -1,6 +1,6 @@
-# WebSocket Infrastructure Guide
+﻿# WebSocket Infrastructure Guide
 
-This guide consolidates everything you need to design, implement, and troubleshoot Agent Zero WebSocket flows. It complements the feature specification by describing day-to-day developer tasks, showing how backend handlers and frontend clients cooperate, and documenting practical patterns for producers and consumers on both sides of the connection.
+This guide consolidates everything you need to design, implement, and troubleshoot BioDockify AI WebSocket flows. It complements the feature specification by describing day-to-day developer tasks, showing how backend handlers and frontend clients cooperate, and documenting practical patterns for producers and consumers on both sides of the connection.
 
 ---
 
@@ -59,7 +59,7 @@ Useful mental model: **client ↔ manager ↔ handler**. The manager normalises 
 
 ### State Sync (Replacing `/poll`)
 
-Agent Zero can also push poll-shaped state snapshots over the WebSocket bus, replacing the legacy 4Hz `/poll` loop while preserving the existing UI update contract.
+BioDockify AI can also push poll-shaped state snapshots over the WebSocket bus, replacing the legacy 4Hz `/poll` loop while preserving the existing UI update contract.
 
 - **Handshake**: the frontend sync store (`/components/sync/sync-store.js`) calls `websocket.request("state_request", { context, log_from, notifications_from, timezone })` to establish per-tab cursors and a `seq_base`.
 - **Push**: the server emits `state_push` events containing `{ runtime_epoch, seq, snapshot }`, where `snapshot` is exactly the `/poll` payload shape built by `python/helpers/state_snapshot.py`.
@@ -716,3 +716,4 @@ Related references
 - [`event-schemas.md`](../specs/003-websocket-event-handlers/contracts/event-schemas.md)
 - [`websocket-handler-interface.md`](../specs/003-websocket-event-handlers/contracts/websocket-handler-interface.md)
 - [`frontend-api.md`](../specs/003-websocket-event-handlers/contracts/frontend-api.md)
+

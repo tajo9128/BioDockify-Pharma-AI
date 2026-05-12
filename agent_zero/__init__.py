@@ -1,4 +1,4 @@
-"""
+﻿"""
 BioDockify AI - Autonomous Research Orchestrator for BioDockify v2.0.0
 
 This package provides an autonomous AI system that:
@@ -9,12 +9,12 @@ This package provides an autonomous AI system that:
 - Maintains persistent memory across sessions
 
 Main Components:
-- AgentZero: Main orchestrator for autonomous execution
+- BioDockifyAI: Main orchestrator for autonomous execution
 - PhDPlanner: Stage detection and tool recommendation
 - PersistentMemory: Long-term memory storage and retrieval
 
 Example Usage:
-    from agent_zero import AgentZero, PhDPlanner, PersistentMemory, ToolRegistry
+    from agent_zero import BioDockifyAI, PhDPlanner, PersistentMemory, ToolRegistry
 
     # Initialize
     llm = YourLLMProvider()
@@ -41,19 +41,19 @@ from .biodockify_ai import BioDockifyAI, get_biodockify_ai, AI
 
 # Legacy imports for backwards compatibility
 try:
-    from .core.orchestrator import AgentZero
+    from .core.orchestrator import BioDockifyAI
 except ImportError:
-    AgentZero = None
+    BioDockifyAI = None
 
 try:
-    from .enhanced import AgentZeroEnhanced
+    from .enhanced import BioDockifyAIEnhanced
 except ImportError:
-    AgentZeroEnhanced = None
+    BioDockifyAIEnhanced = None
 
 try:
-    from .channels import AgentZeroChannels, get_channels
+    from .channels import BioDockifyAIChannels, get_channels
 except ImportError:
-    AgentZeroChannels = None
+    BioDockifyAIChannels = None
     get_channels = None
 
 try:
@@ -76,9 +76,9 @@ __all__ = [
     "AI",
     
     # Legacy
-    "AgentZero",
-    "AgentZeroEnhanced",
-    "AgentZeroChannels",
+    "BioDockifyAI",
+    "BioDockifyAIEnhanced",
+    "BioDockifyAIChannels",
     "get_channels",
     
     # Skills
@@ -89,3 +89,4 @@ __all__ = [
     'HybridAgentBrain',
     'create_hybrid_agent',
 ]
+

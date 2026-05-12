@@ -1,6 +1,6 @@
-# Agent Zero — Frontend Modals (stacked `openModal/closeModal`)
+﻿# BioDockify AI — Frontend Modals (stacked `openModal/closeModal`)
 
-This document covers the stacked modal system used by Agent Zero’s frontend, implemented in:
+This document covers the stacked modal system used by BioDockify AI’s frontend, implemented in:
 
 - `webui/js/modals.js`
 - `webui/css/modals.css`
@@ -22,7 +22,7 @@ The UI uses Alpine.js for reactivity (`x-show`, `x-if`, `x-on`, `x-model`, …).
 
 ### `<x-component>` and `importComponent()`
 
-Agent Zero uses a custom `<x-component path="...">` tag that is populated by the component loader.
+BioDockify AI uses a custom `<x-component path="...">` tag that is populated by the component loader.
 
 The modal system does not rely on `<x-component>` directly; instead it calls the same loader function:
 
@@ -34,7 +34,7 @@ That loader fetches component HTML, injects its `<style>` and `<script>` tags, a
 
 ## Why a “stacked modal system”?
 
-Agent Zero can open modals from many places (sidebar, settings, message actions), and sometimes a modal opens another modal.
+BioDockify AI can open modals from many places (sidebar, settings, message actions), and sometimes a modal opens another modal.
 
 The stacked system provides:
 
@@ -323,3 +323,4 @@ Good examples:
   - check the `style="z-index: ..."` on `.modal-inner`
   - verify `.modal-backdrop` exists and sits between modals when stacked
 - If the footer is not pinned, confirm your footer element has `data-modal-footer` and that `.modal-inner` has `.modal-with-footer`.
+

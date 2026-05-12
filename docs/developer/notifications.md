@@ -1,6 +1,6 @@
-# Agent Zero Notifications
+﻿# BioDockify AI Notifications
 
-Quick guide for using the notification system in Agent Zero.
+Quick guide for using the notification system in BioDockify AI.
 
 > [!TIP]
 > Notifications pair well with scheduled tasks. See [Tasks & Scheduling](../guides/usage.md#tasks--scheduling) for automation patterns.
@@ -131,3 +131,4 @@ All notification methods support these parameters:
 - **Auto-dismiss**: Toasts automatically disappear after `display_time`
 - **Group Replacement**: Notifications with the same group replace previous ones immediately
 - **Backend Sync**: Frontend notifications automatically sync to backend when connected
+

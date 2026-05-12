@@ -1,4 +1,4 @@
-# Agent Zero - AGENTS.md
+﻿# BioDockify AI - AGENTS.md
 
 [Generated using reconnaissance on 2026-02-22]
 
@@ -27,7 +27,7 @@ Frontend Deep Dives: [Component System](docs/agents/AGENTS.components.md) | [Mod
 
 ## Project Overview
 
-Agent Zero is a dynamic, organic agentic framework designed to grow and learn. It uses the operating system as a tool, featuring a multi-agent cooperation model where every agent can create subordinates to break down tasks.
+BioDockify AI is a dynamic, organic agentic framework designed to grow and learn. It uses the operating system as a tool, featuring a multi-agent cooperation model where every agent can create subordinates to break down tasks.
 
 Type: Full-Stack Agentic Framework (Python Backend + Alpine.js Frontend)
 Status: Active Development
@@ -49,11 +49,11 @@ pip install -r requirements2.txt
 
 ## Docker Environment
 
-When running in Docker, Agent Zero uses two distinct Python runtimes to isolate the framework from the code being executed:
+When running in Docker, BioDockify AI uses two distinct Python runtimes to isolate the framework from the code being executed:
 
 ### 1. Framework Runtime (/opt/venv-a0)
 - Version: Python 3.12.4
-- Purpose: Runs the Agent Zero backend, API, and core logic.
+- Purpose: Runs the BioDockify AI backend, API, and core logic.
 - Packages: Contains all dependencies from requirements.txt.
 
 ### 2. Execution Runtime (/opt/venv)
@@ -137,7 +137,7 @@ Key Files:
 - Discovery: Conventions based on folder names (api/, tools/, webui/, extensions/).
 - Plugin-local Python imports: Prefer `usr.plugins.<plugin_name>...` for code that lives under `usr/plugins/`. Avoid `sys.path` hacks and avoid symlink-dependent `plugins.<plugin_name>...` imports for community plugins.
 - Runtime hooks: Plugins may also expose hooks in hooks.py, callable by the framework through helpers.plugins.call_plugin_hook(...).
-- Hook runtime: hooks.py executes inside the Agent Zero framework Python environment, so sys.executable -m pip installs dependencies into that same framework runtime.
+- Hook runtime: hooks.py executes inside the BioDockify AI framework Python environment, so sys.executable -m pip installs dependencies into that same framework runtime.
 - Environment targeting: If a plugin needs packages or binaries for the separate agent execution runtime or system environment, it must explicitly switch environments in a subprocess by targeting the correct interpreter, virtualenv, or package manager.
 - Settings: Use get_plugin_config(plugin_name, agent=agent) to retrieve settings. Plugins can expose a UI for settings via webui/config.html. Plugin settings modals instantiate a local context from $store.pluginSettingsPrototype; bind plugin fields to config.* and use context.* for modal-level state and actions.
 - Activation: Global and scoped activation rules are stored as .toggle-1 (ON) and .toggle-0 (OFF). Scoped rules are handled via the plugin "Switch" modal.
@@ -250,4 +250,5 @@ pip install -r requirements2.txt
 ---
 
 *Last updated: 2026-03-25*
-*Maintained by: Agent Zero Core Team*
+*Maintained by: BioDockify AI Core Team*
+

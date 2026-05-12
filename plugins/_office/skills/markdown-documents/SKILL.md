@@ -1,8 +1,8 @@
----
+﻿---
 name: markdown-documents
 description: Use when creating or editing Markdown documents, notes, reports, briefs, drafts, or other editable writing where Markdown should be the primary artifact format.
 version: "1.0.0"
-author: "Agent Zero Core Team"
+author: "BioDockify AI Core Team"
 tags: ["markdown", "md", "documents", "writing", "notes", "reports", "briefs", "canvas"]
 triggers:
   - "markdown"
@@ -49,3 +49,4 @@ Practical rules:
 - Keep agent-only cleanup simple: if the user asks to fix a typo, update the file and finish; do not force a canvas workflow.
 - Use clear headings and Markdown tables when they improve editability.
 - The custom Markdown editor is available when the user chooses Open in canvas.
+

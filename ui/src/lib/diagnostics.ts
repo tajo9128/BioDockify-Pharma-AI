@@ -1,5 +1,5 @@
-/**
- * Agent Zero Diagnostic Engine
+﻿/**
+ * BioDockify AI Diagnostic Engine
  * 
  * STEP 2 of Self-Repair Workflow: Read-Only Diagnosis
  * Performs non-destructive checks to identify system issues.
@@ -182,3 +182,4 @@ export class DiagnosticEngine {
         };
     }
 }
+

@@ -1,10 +1,10 @@
-import pytest
+﻿import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch
 
 @pytest.mark.asyncio
 async def test_monitored_agent_execution(monitored_agent):
-    """Test that MonitoredAgentZero correctly wraps and executes."""
+    """Test that MonitoredBioDockifyAI correctly wraps and executes."""
     # Mock the underlying agent.execute
     monitored_agent.agent.execute = AsyncMock(return_value={"status": "success", "data": "test"})
     
@@ -16,7 +16,7 @@ async def test_monitored_agent_execution(monitored_agent):
 
 @pytest.mark.asyncio
 async def test_monitored_agent_error_tracking(monitored_agent):
-    """Test that MonitoredAgentZero tracks failed executions."""
+    """Test that MonitoredBioDockifyAI tracks failed executions."""
     # Mock to raise an exception
     monitored_agent.agent.execute = AsyncMock(side_effect=ValueError("Test Error"))
     
@@ -43,3 +43,4 @@ async def test_monitored_nanobot_active_count(test_config):
         from prometheus_client import REGISTRY
         count = REGISTRY.get_sample_value('nanobot_active_count')
         assert count == 5.0
+

@@ -1,5 +1,5 @@
-
-export class AgentZero {
+﻿
+export class BioDockifyAI {
   private tools: any[];
   private memory: any;
 
@@ -9,7 +9,7 @@ export class AgentZero {
   }
 
   async executeGoal(goal: string, stage: string = 'planning') {
-    console.log(`[AgentZero] Executing goal: "${goal}" in stage: ${stage}`);
+    console.log(`[BioDockifyAI] Executing goal: "${goal}" in stage: ${stage}`);
     
     // Mock simulation of agent activity
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -22,3 +22,4 @@ export class AgentZero {
     };
   }
 }
+

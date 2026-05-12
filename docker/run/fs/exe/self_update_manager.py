@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 from __future__ import annotations
 
 import argparse
@@ -24,7 +24,7 @@ import yaml
 
 OFFICIAL_REPO_URL = os.environ.get(
     "bio_SELF_UPDATE_REMOTE_URL",
-    "https://github.com/agent0ai/agent-zero.git",
+    "https://github.com/agent0ai/BioDockify-AI.git",
 )
 REPO_DIR = Path("/a0")
 TRIGGER_FILE = Path("/exe/bio-self-update.yaml")
@@ -348,7 +348,7 @@ def create_usr_backup(
         destination_dir = (repo_dir / destination_dir).resolve()
     else:
         destination_dir = destination_dir.resolve()
-    destination_name = sanitize_filename(backup_name, "agent-zero-usr-backup.zip")
+    destination_name = sanitize_filename(backup_name, "BioDockify-AI-usr-backup.zip")
     destination = resolve_backup_destination(destination_dir, destination_name, conflict_policy)
 
     temp_fd, temp_path = tempfile.mkstemp(suffix=".zip")
@@ -869,7 +869,7 @@ def execute_pending_update(
             backup_destination = create_usr_backup(
                 repo_dir=REPO_DIR,
                 backup_path=str(request_data.get("backup_path", "/root/update-backups")),
-                backup_name=str(request_data.get("backup_name", "agent-zero-usr-backup.zip")),
+                backup_name=str(request_data.get("backup_name", "BioDockify-AI-usr-backup.zip")),
                 conflict_policy=str(request_data.get("backup_conflict_policy", "rename")),
                 logger=logger,
             )
@@ -1245,3 +1245,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

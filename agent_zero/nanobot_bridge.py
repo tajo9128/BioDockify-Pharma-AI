@@ -1,4 +1,4 @@
-"""
+﻿"""
 NanoBot Bridge - Hybrid Integration Layer for BioDockify AI + NanoBot
 
 This module connects NanoBot's ultra-lightweight agent capabilities with
@@ -34,7 +34,7 @@ from nanobot.cron.types import CronSchedule
 from nanobot.session.manager import SessionManager
 
 # BioDockify AI imports
-from agent_zero.core.orchestrator import AgentZero, ToolRegistry, Tool
+from agent_zero.core.orchestrator import BioDockifyAI, ToolRegistry, Tool
 
 
 class HybridAgentBrain:
@@ -261,3 +261,4 @@ def create_hybrid_agent(
         model=model,
         brave_api_key=brave_api_key,
     )
+

@@ -1,4 +1,4 @@
-import { createStore } from "/js/AlpineStore.js";
+﻿import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi } from "/js/api.js";
 import { getNamespacedClient } from "/js/websocket.js";
 import { store as fileBrowserStore } from "/components/modals/file-browser/file-browser-store.js";
@@ -12,7 +12,7 @@ const SAVE_MESSAGE_MS = 1800;
 const INPUT_PUSH_DELAY_MS = 650;
 const DESKTOP_HEARTBEAT_MS = 3500;
 const DESKTOP_RESIZE_DELAY_MS = 80;
-const DESKTOP_START_MESSAGE = "Starting Agent Zero Desktop environment";
+const DESKTOP_START_MESSAGE = "Starting BioDockify Desktop environment";
 const XPRA_DESKTOP_PRIME_INTERVAL_MS = 220;
 const XPRA_DESKTOP_PRIME_ATTEMPTS = 120;
 const SYSTEM_DESKTOP_FILE_ID = "system-desktop";
@@ -356,7 +356,7 @@ const model = {
       force: true,
       restart: true,
       select: true,
-      message: "Restarting Agent Zero Desktop environment",
+      message: "Restarting BioDockify Desktop environment",
     });
     if (!session) {
       this.setDesktopIntentionalShutdown(true);
@@ -1531,7 +1531,7 @@ const model = {
         scaleY: clientHeight / desktopHeight,
       };
     };
-    const bridge = frame.__agentZeroDesktopBridge || {};
+    const bridge = frame.__BioDockifyAIDesktopBridge || {};
     Object.assign(bridge, {
       ready: true,
       state: async (options = {}) => {
@@ -1568,10 +1568,10 @@ const model = {
       },
       diagnostics: () => store.desktopBridgeDiagnostics(frame),
     });
-    frame.agentZeroDesktop = bridge;
-    frame.__agentZeroDesktopBridge = bridge;
-    remoteWindow.agentZeroDesktop = bridge;
-    remoteWindow.__agentZeroDesktopBridge = bridge;
+    frame.BioDockifyAIDesktop = bridge;
+    frame.__BioDockifyAIDesktopBridge = bridge;
+    remoteWindow.BioDockifyAIDesktop = bridge;
+    remoteWindow.__BioDockifyAIDesktopBridge = bridge;
     this._desktopBridgeReady = true;
     this.updateDesktopKeyboardCaptureState(frame);
     return bridge;
@@ -1589,7 +1589,7 @@ const model = {
     const target = this.desktopFrame(frame);
     const client = target?.contentWindow?.client;
     const state = {
-      ready: Boolean(target?.__agentZeroDesktopBridge || target?.contentWindow?.__agentZeroDesktopBridge),
+      ready: Boolean(target?.__BioDockifyAIDesktopBridge || target?.contentWindow?.__BioDockifyAIDesktopBridge),
       active: Boolean(this._desktopKeyboardActive),
       capture: Boolean(client?.capture_keyboard),
       focused: Boolean(target && (document.activeElement === target || target.contentDocument?.hasFocus?.())),
@@ -2650,3 +2650,4 @@ const model = {
 };
 
 export const store = createStore("office", model);
+

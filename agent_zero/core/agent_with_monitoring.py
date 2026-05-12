@@ -1,5 +1,5 @@
-"""
-MonitoredAgentZero - Prometheus-instrumented wrapper for BioDockify AI Hybrid Agent.
+﻿"""
+MonitoredBioDockifyAI - Prometheus-instrumented wrapper for BioDockify AI Hybrid Agent.
 Preserves self-repair and self-diagnosis features while adding observability.
 """
 
@@ -20,7 +20,7 @@ from orchestration.planner.orchestrator import OrchestratorConfig
 
 logger = logging.getLogger("BioDockify.MonitoredAgent")
 
-class MonitoredAgentZero:
+class MonitoredBioDockifyAI:
     """
     BioDockify AI with self-repair + Prometheus monitoring.
     """
@@ -132,3 +132,4 @@ class MonitoredAgentZero:
         """Stop agent and clean up."""
         if hasattr(self.agent, "stop"):
              await self.agent.stop()
+

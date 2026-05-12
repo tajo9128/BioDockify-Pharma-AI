@@ -1,6 +1,6 @@
-# Agent Profiles
+﻿# Agent Profiles
 
-Agent profiles let you give Agent Zero different identities, prompt overrides, tools, extensions, and optionally model settings. Use them when you want a specialized agent such as a researcher, developer, security auditor, copywriter, or domain-specific assistant.
+Agent profiles let you give BioDockify AI different identities, prompt overrides, tools, extensions, and optionally model settings. Use them when you want a specialized agent such as a researcher, developer, security auditor, copywriter, or domain-specific assistant.
 
 Use **Settings > Agent Config** to choose the default profile for new chats. The chat composer profile selector shows and changes the profile for the currently selected chat only, so different chats can keep different active profiles.
 
@@ -58,7 +58,7 @@ Useful root prompt levers:
 | `agent.system.main.communication.md` | Changing the response contract, such as replacing the default `thoughts`, `headline`, `tool_name`, `tool_args` JSON shape. |
 | `agent.system.main.solving.md` | Changing the problem-solving loop, autonomy level, delegation policy, or verification standard. |
 | `agent.system.main.environment.md` | Describing a different runtime or domain environment. |
-| `agent.system.main.role.md` | Replacing the base Agent Zero role. Use rarely; prefer `specifics.md` when possible. |
+| `agent.system.main.role.md` | Replacing the base BioDockify AI role. Use rarely; prefer `specifics.md` when possible. |
 | `agent.system.tool.<name>.md` | Documenting a profile-specific tool or overriding a tool prompt. |
 
 Only override what you actually want to change. Copying unchanged prompt files makes profiles harder to maintain when the framework updates.
@@ -146,3 +146,4 @@ If you add a tool, also add a matching prompt file:
 ```
 
 The `plugins/_model_config/config.json` file is optional. Use it only when this profile needs different models from the global or project settings.
+

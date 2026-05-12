@@ -1,7 +1,7 @@
-/**
- * Agent Zero System Control Rules
+﻿/**
+ * BioDockify AI System Control Rules
  * 
- * Governs Agent Zero's behavior during FIRST-RUN WIZARD MODE.
+ * Governs BioDockify AI's behavior during FIRST-RUN WIZARD MODE.
  * These rules are MANDATORY and override all other behaviors.
  * 
  * Authority: Highest (overrides convenience, speed, or verbosity)
@@ -400,3 +400,4 @@ export function resolveConflict(
     });
     return sorted[0].option;
 }
+

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import asyncio
 import importlib.util
@@ -527,7 +527,7 @@ def test_office_session_desktop_state_action_defaults_without_screenshot(monkeyp
             return {
                 "ok": True,
                 "display": ":120",
-                "profile_dir": "/bio/tmp/_office/desktop/profiles/agent-zero-desktop",
+                "profile_dir": "/bio/tmp/_office/desktop/profiles/BioDockify-AI-desktop",
                 "size": {"width": 1440, "height": 900},
                 "pointer": {"x": 0, "y": 0, "screen": 0, "window": 0},
                 "active_window": None,
@@ -752,7 +752,7 @@ def test_official_libreoffice_desktop_manager_opens_binary_session(office_state,
     assert "panel-2" not in panel_profile
     assert 'value="actions"' not in panel_profile
     assert 'value="launcher"' in panel_profile
-    assert "agent-zero-shutdown.desktop" in panel_profile
+    assert "BioDockify-AI-shutdown.desktop" in panel_profile
     shutdown_app = (
         tmp_path
         / "desktop"
@@ -761,7 +761,7 @@ def test_official_libreoffice_desktop_manager_opens_binary_session(office_state,
         / ".local"
         / "share"
         / "applications"
-        / "agent-zero-shutdown.desktop"
+        / "BioDockify-AI-shutdown.desktop"
     ).read_text(encoding="utf-8")
     assert "Shutdown Desktop" in shutdown_app
     assert "shutdown-desktop" in shutdown_app
@@ -774,7 +774,7 @@ def test_official_libreoffice_desktop_manager_opens_binary_session(office_state,
         / "xfce4"
         / "panel"
         / "launcher-9"
-        / "agent-zero-shutdown.desktop"
+        / "BioDockify-AI-shutdown.desktop"
     ).read_text(encoding="utf-8")
     assert "Shutdown Desktop" in shutdown_panel_launcher
     assert "shutdown-desktop" in shutdown_panel_launcher
@@ -783,7 +783,7 @@ def test_official_libreoffice_desktop_manager_opens_binary_session(office_state,
         / "desktop"
         / "profiles"
         / payload["session_id"]
-        / ".agent-zero"
+        / ".BioDockify-AI"
         / "shutdown-desktop"
     ).read_text(encoding="utf-8")
     assert "CONFIRM_SECONDS" in shutdown_script
@@ -803,7 +803,7 @@ def test_official_libreoffice_desktop_manager_opens_binary_session(office_state,
         / payload["session_id"]
         / ".config"
         / "autostart"
-        / "agent-zero-office-desktop.desktop"
+        / "BioDockify-AI-office-desktop.desktop"
     )
     assert "prepare-xfce-profile.sh" in autostart.read_text(encoding="utf-8")
     profile_script = (
@@ -814,7 +814,7 @@ def test_official_libreoffice_desktop_manager_opens_binary_session(office_state,
         / "prepare-xfce-profile.sh"
     ).read_text(encoding="utf-8")
     assert '"$HOME"/Desktop/*.desktop' in profile_script
-    assert "agent-zero-settings.desktop" not in profile_script
+    assert "BioDockify-AI-settings.desktop" not in profile_script
     assert "metadata::xfce-exe-checksum" in profile_script
     assert "xfconf-query -c thunar -p /last-show-hidden" in profile_script
     assert "xfconf-query -c xfce4-panel" not in profile_script
@@ -860,7 +860,7 @@ def test_shutdown_panel_launcher_requires_second_click(tmp_path):
         display=libreoffice_desktop.DISPLAY_BASE,
         xpra_port=libreoffice_desktop.XPRA_PORT_BASE,
         token=libreoffice_desktop.SYSTEM_SESSION_ID,
-        url="/desktop/session/agent-zero-desktop/index.html",
+        url="/desktop/session/BioDockify-AI-desktop/index.html",
         profile_dir=profile_dir,
     )
     script = libreoffice_desktop._write_shutdown_bridge_script(session)
@@ -917,7 +917,7 @@ def test_libreoffice_desktop_sync_consumes_shutdown_marker(tmp_path, monkeypatch
         display=libreoffice_desktop.DISPLAY_BASE,
         xpra_port=libreoffice_desktop.XPRA_PORT_BASE,
         token=libreoffice_desktop.SYSTEM_SESSION_ID,
-        url="/desktop/session/agent-zero-desktop/index.html",
+        url="/desktop/session/BioDockify-AI-desktop/index.html",
         profile_dir=profile_dir,
         processes={"xpra": FakeProcess()},
     )
@@ -1377,3 +1377,4 @@ def load_self_update_manager():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+

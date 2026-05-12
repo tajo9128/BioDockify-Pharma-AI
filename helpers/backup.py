@@ -1,4 +1,4 @@
-import zipfile
+﻿import zipfile
 import json
 import os
 import tempfile
@@ -41,7 +41,7 @@ class BackupService:
         include_patterns, exclude_patterns = self._parse_patterns(default_patterns)
 
         return {
-            "backup_name": f"agent-zero-backup-{timestamp[:10]}",
+            "backup_name": f"BioDockify-AI-backup-{timestamp[:10]}",
             "include_hidden": True,
             "include_patterns": include_patterns,
             "exclude_patterns": exclude_patterns,
@@ -329,7 +329,7 @@ class BackupService:
         include_patterns: List[str],
         exclude_patterns: List[str],
         include_hidden: bool = True,
-        backup_name: str = "agent-zero-backup"
+        backup_name: str = "BioDockify-AI-backup"
     ) -> str:
         """Create backup archive and return path to created file"""
 
@@ -837,3 +837,4 @@ class BackupService:
         except Exception:
             # If pattern testing fails, return empty list to avoid breaking restore
             return []
+

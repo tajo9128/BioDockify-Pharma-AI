@@ -1,6 +1,6 @@
----
+﻿---
 name: browser-forms
-description: Use for complex Agent Zero Browser form workflows involving selects, checkboxes, radios, file uploads, contenteditable fields, multi-step validation, or visually verified submission.
+description: Use for complex BioDockify AI Browser form workflows involving selects, checkboxes, radios, file uploads, contenteditable fields, multi-step validation, or visually verified submission.
 ---
 
 # Browser Forms
@@ -16,3 +16,4 @@ Use `browser:screenshot` plus `vision_load` when layout, visual validation, capt
 Verify after submission with `browser:content`, `browser:state`, or another explicit `browser:screenshot` plus `vision_load`.
 
 Do not guess file paths for upload. Verify that every path exists before calling `upload_file`.
+

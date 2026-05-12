@@ -1,21 +1,21 @@
-![Agent Zero Logo](res/header.png)
-# Agent Zero Documentation
+﻿![BioDockify AI Logo](res/header.png)
+# BioDockify AI Documentation
 
-Welcome to the Agent Zero documentation hub. Whether you're getting started or diving deep into the framework, you'll find comprehensive guides below.
+Welcome to the BioDockify AI documentation hub. Whether you're getting started or diving deep into the framework, you'll find comprehensive guides below.
 
 ## Quick Start
 
-- **[Quickstart Guide](quickstart.md):** Get up and running in 5 minutes with Agent Zero.
-- **[Installation Guide](setup/installation.md):** Install scripts, updates, and advanced Docker setup (includes [How to Update](setup/installation.md#how-to-update-agent-zero)).
-- **[A0 CLI Connector](guides/a0-cli-connector.md):** Install the terminal-native connector, connect it to Agent Zero, and copy a setup brief for another agent.
+- **[Quickstart Guide](quickstart.md):** Get up and running in 5 minutes with BioDockify AI.
+- **[Installation Guide](setup/installation.md):** Install scripts, updates, and advanced Docker setup (includes [How to Update](setup/installation.md#how-to-update-BioDockify-AI)).
+- **[A0 CLI Connector](guides/a0-cli-connector.md):** Install the terminal-native connector, connect it to BioDockify AI, and copy a setup brief for another agent.
 - **[Self Update](guides/self-update.md):** How the in-app updater works (technical reference).
-- **[VPS Deployment](setup/vps-deployment.md):** Deploy Agent Zero on a remote server.
+- **[VPS Deployment](setup/vps-deployment.md):** Deploy BioDockify AI on a remote server.
 - **[Development Setup](setup/dev-setup.md):** Set up a local development environment.
 
 ## User Guides
 
-- **[Usage Guide](guides/usage.md):** Comprehensive guide to Agent Zero's features and capabilities.
-- **[A0 CLI Connector](guides/a0-cli-connector.md):** Terminal-first companion workflow for Agent Zero.
+- **[Usage Guide](guides/usage.md):** Comprehensive guide to BioDockify AI's features and capabilities.
+- **[A0 CLI Connector](guides/a0-cli-connector.md):** Terminal-first companion workflow for BioDockify AI.
 - **[Agent Profiles](guides/agent-profiles.md):** Create and select specialized profiles, prompt overrides, and profile-specific model config.
 - **[Projects Tutorial](guides/projects.md):** Learn to create isolated workspaces with dedicated context and memory.
 - **[API Integration](guides/api-integration.md):** Add external APIs without writing code.
@@ -25,22 +25,22 @@ Welcome to the Agent Zero documentation hub. Whether you're getting started or d
 
 ## Developer Documentation
 
-- **[Architecture Overview](developer/architecture.md):** Understand Agent Zero's internal structure and components.
+- **[Architecture Overview](developer/architecture.md):** Understand BioDockify AI's internal structure and components.
 - **[Plugins](developer/plugins.md):** Build plugins with `plugin.yaml`, scoped settings, and activation toggles.
 - **[Extensions](developer/extensions.md):** Create custom extensions to extend functionality.
-- **[Connectivity](developer/connectivity.md):** Connect to Agent Zero from external applications.
+- **[Connectivity](developer/connectivity.md):** Connect to BioDockify AI from external applications.
 - **[WebSockets](developer/websockets.md):** Real-time communication infrastructure.
 - **[MCP Configuration](developer/mcp-configuration.md):** Advanced MCP server configuration.
 - **[Notifications](developer/notifications.md):** Notification system architecture and setup.
 - **[Contributing Skills](developer/contributing-skills.md):** Create and share agent skills.
-- **[Contributing Guide](guides/contribution.md):** Contribute to the Agent Zero project.
+- **[Contributing Guide](guides/contribution.md):** Contribute to the BioDockify AI project.
 
 ## Community & Support
 
 - **Join the Community:** Connect with other users on [Discord](https://discord.gg/B8KZKNsPpj) to discuss ideas, ask questions, and collaborate.
-- **Share Your Work:** Show off your Agent Zero creations and workflows in the [Show and Tell](https://github.com/agent0ai/agent-zero/discussions/categories/show-and-tell) area.
-- **Report Issues:** Use the [GitHub issue tracker](https://github.com/agent0ai/agent-zero/issues) to report bugs or suggest features.
-- **Follow Updates:** Subscribe to the [YouTube channel](https://www.youtube.com/@AgentZeroFW) for tutorials and release videos.
+- **Share Your Work:** Show off your BioDockify AI creations and workflows in the [Show and Tell](https://github.com/agent0ai/BioDockify-AI/discussions/categories/show-and-tell) area.
+- **Report Issues:** Use the [GitHub issue tracker](https://github.com/agent0ai/BioDockify-AI/issues) to report bugs or suggest features.
+- **Follow Updates:** Subscribe to the [YouTube channel](https://www.youtube.com/@BioDockifyAIFW) for tutorials and release videos.
 
 ---
 
@@ -49,18 +49,18 @@ Welcome to the Agent Zero documentation hub. Whether you're getting started or d
 - [Quick Start](#quick-start)
   - [Quickstart Guide](quickstart.md)
   - [Installation Guide](setup/installation.md)
-    - [How to Update Agent Zero](setup/installation.md#how-to-update-agent-zero)
+    - [How to Update BioDockify AI](setup/installation.md#how-to-update-BioDockify-AI)
     - [Manual Installation (Advanced)](setup/installation.md#manual-installation-advanced)
     - [Step 1: Install Docker Desktop](setup/installation.md#step-1-install-docker-desktop)
       - [Windows Installation](setup/installation.md#-windows-installation)
       - [macOS Installation](setup/installation.md#-macos-installation)
       - [Linux Installation](setup/installation.md#-linux-installation)
-    - [Step 2: Run Agent Zero](setup/installation.md#step-2-run-agent-zero)
-      - [Pull Docker Image](setup/installation.md#21-pull-the-agent-zero-docker-image)
+    - [Step 2: Run BioDockify AI](setup/installation.md#step-2-run-BioDockify-AI)
+      - [Pull Docker Image](setup/installation.md#21-pull-the-BioDockify-AI-docker-image)
       - [Map Folders for Persistence](setup/installation.md#22-optional-map-folders-for-persistence)
       - [Run the Container](setup/installation.md#23-run-the-container)
       - [Access the Web UI](setup/installation.md#24-access-the-web-ui)
-    - [Step 3: Configure Agent Zero](setup/installation.md#step-3-configure-agent-zero)
+    - [Step 3: Configure BioDockify AI](setup/installation.md#step-3-configure-BioDockify-AI)
       - [Settings Configuration](setup/installation.md#settings-configuration)
       - [Agent Configuration](setup/installation.md#agent-configuration)
       - [Chat Model Settings](setup/installation.md#chat-model-settings)
@@ -68,7 +68,7 @@ Welcome to the Agent Zero documentation hub. Whether you're getting started or d
       - [Authentication](setup/installation.md#authentication)
     - [Choosing Your LLMs](setup/installation.md#choosing-your-llms)
     - [Installing Ollama (Local Models)](setup/installation.md#installing-and-using-ollama-local-models)
-    - [Using on Mobile Devices](setup/installation.md#using-agent-zero-on-your-mobile-device)
+    - [Using on Mobile Devices](setup/installation.md#using-BioDockify-AI-on-your-mobile-device)
   - [Self Update (technical)](guides/self-update.md)
   - [VPS Deployment](setup/vps-deployment.md)
   - [Development Setup](setup/dev-setup.md)
@@ -127,6 +127,7 @@ Welcome to the Agent Zero documentation hub. Whether you're getting started or d
 
 ---
 
-### Your journey with Agent Zero starts now!
+### Your journey with BioDockify AI starts now!
 
 Ready to dive in? Start with the [Quickstart Guide](quickstart.md) for the fastest path to your first chat, or follow the [Installation Guide](setup/installation.md) for a detailed setup walkthrough.
+

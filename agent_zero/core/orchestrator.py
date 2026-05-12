@@ -1,4 +1,4 @@
-"""
+﻿"""
 BioDockify AI - Autonomous Research Orchestrator
 This is the core autonomous agent that:
 - Receives high-level PhD research goals
@@ -136,7 +136,7 @@ class MemoryStore:
         raise NotImplementedError
 
 
-class AgentZero:
+class BioDockifyAI:
     """
     Main autonomous orchestrator for PhD research tasks
 
@@ -751,4 +751,5 @@ class ToolTimeoutError(Exception):
         self._execution_log = []
         self.is_running = False
         logger.info("Agent state reset")
+
 

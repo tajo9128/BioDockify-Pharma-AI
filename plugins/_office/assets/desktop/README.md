@@ -1,6 +1,6 @@
-# Agent Zero Desktop
+﻿# BioDockify Desktop
 
-This Desktop is Agent Zero's habitat: a visible, stateful Linux workspace where humans and agents can share files, launch tools, inspect results, and turn reasoning into observable work.
+This Desktop is BioDockify AI's habitat: a visible, stateful Linux workspace where humans and agents can share files, launch tools, inspect results, and turn reasoning into observable work.
 
 You can choose your harness, but now you and A0 have a habitat.
 
@@ -12,13 +12,13 @@ With gratitude to the open-source foundations that make this affordance possible
 - Kali Linux, for the practical Linux craft and tool culture that make capable workspaces feel natural.
 - LibreOffice, for giving this habitat a serious office bench: documents, spreadsheets, presentations, and decades of open document stewardship.
 - Xfce, for a fast, humane desktop that stays out of the way and lets the work breathe.
-- Jan Tomášek, for creating Agent Zero and making this whole workshop possible.
+- Jan Tomášek, for creating BioDockify AI and making this whole workshop possible.
 
-Agent Zero stands on this craft with respect. Open source is not just code we consume; it is shared affordance, accumulated care, and an invitation to build systems that are powerful without becoming opaque.
+BioDockify AI stands on this craft with respect. Open source is not just code we consume; it is shared affordance, accumulated care, and an invitation to build systems that are powerful without becoming opaque.
 
 ## Open the Terminal
 
-Double-click **Terminal** on this Desktop. You will land in the Agent Zero workdir, where agent CLIs can inspect files, edit projects, and run commands inside the Linux environment.
+Double-click **Terminal** on this Desktop. You will land in the BioDockify AI workdir, where agent CLIs can inspect files, edit projects, and run commands inside the Linux environment.
 
 Before installing an agent, make a small safety habit:
 
@@ -137,6 +137,7 @@ npm install -g openclaw@latest
 openclaw onboard --install-daemon
 ```
 
-If in doubt, start with Codex or Claude Code for coding, Aider for a lighter patch-focused loop, Goose or OpenHands for a broader local agent, and Hermes or OpenClaw when you want the agent to grow into more of a persistent runtime working together with Agent Zero.
+If in doubt, start with Codex or Claude Code for coding, Aider for a lighter patch-focused loop, Goose or OpenHands for a broader local agent, and Hermes or OpenClaw when you want the agent to grow into more of a persistent runtime working together with BioDockify AI.
 
 Official references: [Codex](https://developers.openai.com/codex/cli), [Claude Code](https://code.claude.com/docs/en/getting-started), [Gemini CLI](https://google-gemini.github.io/gemini-cli/docs/get-started/), [Aider](https://aider.chat/docs/install.html), [OpenCode](https://www.opencode.live/), [Goose](https://goose-docs.ai/docs/getting-started/installation/), [OpenHands](https://docs.openhands.dev/openhands/usage/cli/installation), [Qwen Code](https://github.com/QwenLM/qwen-code), [Cursor Agent](https://docs.cursor.com/en/cli/installation), [Hermes Agent](https://github.com/NousResearch/hermes-agent), [OpenClaw](https://github.com/openclaw/openclaw).
+

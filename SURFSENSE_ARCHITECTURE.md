@@ -1,4 +1,4 @@
-# 🏗️ SurfSense Architecture - Internal Knowledge Base & Output Generator
+﻿# 🏗️ SurfSense Architecture - Internal Knowledge Base & Output Generator
 
 **Date:** 2026-02-14
 **Purpose:** Full storage and output functions for BioDockify AI research data
@@ -9,7 +9,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Agent Zero (Research Collector)                │
+│                    BioDockify AI (Research Collector)                │
 │  - Web scraping                                                   │
 │  - Research paper extraction                                       │
 │  - Data collection                                                 │
@@ -26,7 +26,7 @@
 │                                                                   │
 │  📦 STORAGE LAYER                                                 │
 │  ───────────────────────────────────────────────────────────   │
-│  • Stores all research data from Agent Zero                     │
+│  • Stores all research data from BioDockify AI                     │
 │  • Dual-write: SurfSense + ChromaDB                              │
 │  • No external API calls for storage                             │
 │  • Internal knowledge repository                                │
@@ -76,7 +76,7 @@
 ### 1. Research Data Collection
 
 ```
-Agent Zero Deep Research
+BioDockify AI Deep Research
 │
 ├─> Web Scraping (Playwright)
 │   └─> Research papers, articles, papers
@@ -315,7 +315,7 @@ ai_provider:
 ## ✅ Architecture Verification
 
 ### Storage ✓
-- [x] Agent Zero collects research data
+- [x] BioDockify AI collects research data
 - [x] Data stored in SurfSense (localhost:8000)
 - [x] Dual-write to ChromaDB for backup
 - [x] No external API calls for storage
@@ -344,7 +344,7 @@ ai_provider:
 
 **SurfSense is configured as:**
 
-✅ **Internal Knowledge Base** - Stores all research data from Agent Zero
+✅ **Internal Knowledge Base** - Stores all research data from BioDockify AI
 ✅ **Storage Layer** - Full storage of research papers and data
 ✅ **Output Generator** - Free audio, video, and slides
 ✅ **No External APIs** - Except single LLM API for chat
@@ -356,3 +356,4 @@ ai_provider:
 ---
 
 **Your SurfSense knowledge base is ready for student research!** 🎓🚀
+

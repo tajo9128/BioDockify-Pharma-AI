@@ -1,4 +1,4 @@
-# noqa: D401 (docstrings) – internal helper
+﻿# noqa: D401 (docstrings) – internal helper
 import asyncio
 import uuid
 import atexit
@@ -61,7 +61,7 @@ except ImportError:  # pragma: no cover – library not installed
 _PRINTER = PrintStyle(italic=True, font_color="purple", padding=False)
 
 
-class AgentZeroWorker(Worker):  # type: ignore[misc]
+class BioDockifyAIWorker(Worker):  # type: ignore[misc]
     """BioDockify AI implementation of FastA2A Worker."""
 
     def __init__(self, broker, storage):
@@ -238,7 +238,7 @@ class DynamicA2AProxy:
 
             provider: AgentProvider = {  # type: ignore
                 "organization": "BioDockify AI",
-                "url": "https://github.com/frdel/agent-zero"
+                "url": "https://github.com/frdel/BioDockify-AI"
             }
 
             # Create new FastA2A app with proper thread safety
@@ -260,7 +260,7 @@ class DynamicA2AProxy:
             # Store for later lazy startup (needs active event-loop)
             self._storage = storage  # type: ignore[attr-defined]
             self._broker = broker  # type: ignore[attr-defined]
-            self._worker = AgentZeroWorker(broker=broker, storage=storage)  # type: ignore[attr-defined]
+            self._worker = BioDockifyAIWorker(broker=broker, storage=storage)  # type: ignore[attr-defined]
 
             # Atomic update of the app
             self.app = new_app
@@ -579,3 +579,4 @@ def is_available():
 def get_proxy():
     """Get the FastA2A proxy instance."""
     return DynamicA2AProxy.get_instance()
+

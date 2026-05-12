@@ -1,16 +1,16 @@
----
+﻿---
 name: a0-browser-ext
-description: Create, inspect, install, and safely maintain Chrome extensions for Agent Zero's built-in Browser plugin.
-tags: ["agent-zero", "browser", "chrome-extension", "playwright", "manifest-v3"]
+description: Create, inspect, install, and safely maintain Chrome extensions for BioDockify AI's built-in Browser plugin.
+tags: ["BioDockify-AI", "browser", "chrome-extension", "playwright", "manifest-v3"]
 ---
 
-# Agent Zero Browser Extensions
+# BioDockify AI Browser Extensions
 
-Use this skill when the user wants to create a new Browser extension, modify an existing extension, or install a Chrome Web Store extension for Agent Zero's direct `_browser` plugin.
+Use this skill when the user wants to create a new Browser extension, modify an existing extension, or install a Chrome Web Store extension for BioDockify AI's direct `_browser` plugin.
 
 ## Operating Model
 
-- Agent Zero loads Browser extensions from unpacked directories.
+- BioDockify AI loads Browser extensions from unpacked directories.
 - Create user-owned extensions under `/a0/usr/browser-extensions/<extension-slug>/`.
 - Browser extension paths must be visible inside the Docker runtime. Prefer `/a0/usr/browser-extensions/...` paths over host-only paths.
 - The Browser puzzle menu can open "My Browser Extensions", seed a "+ Create New with A0" request, and install Chrome Web Store URLs.
@@ -46,9 +46,9 @@ Minimal Manifest V3 starter:
 ```json
 {
   "manifest_version": 3,
-  "name": "Agent Zero Example Extension",
+  "name": "BioDockify AI Example Extension",
   "version": "0.1.0",
-  "description": "Small, auditable Browser extension created with Agent Zero.",
+  "description": "Small, auditable Browser extension created with BioDockify AI.",
   "permissions": [],
   "host_permissions": [],
   "action": {
@@ -62,7 +62,7 @@ Content script starter:
 ```json
 {
   "manifest_version": 3,
-  "name": "Agent Zero Page Helper",
+  "name": "BioDockify AI Page Helper",
   "version": "0.1.0",
   "description": "Adds a small page helper for specific sites.",
   "permissions": [],
@@ -104,3 +104,4 @@ https://chrome.google.com/webstore/detail/name/<extension-id>
 - No credential scraping, hidden data upload, or remote executable code.
 - UI text is concise and tells the truth.
 - The extension can be removed by deleting its folder from `/a0/usr/browser-extensions/` and removing the path from Browser settings.
+

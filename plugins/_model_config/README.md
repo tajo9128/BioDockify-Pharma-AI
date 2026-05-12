@@ -1,6 +1,6 @@
-# Model Configuration
+﻿# Model Configuration
 
-Manage which models Agent Zero uses for chat, utility, and embeddings, with support for scoped overrides and reusable presets.
+Manage which models BioDockify AI uses for chat, utility, and embeddings, with support for scoped overrides and reusable presets.
 
 ## What It Does
 
@@ -87,3 +87,4 @@ Selecting a preset for a project copies the preset's `chat` and optional `utilit
 - **Name**: `_model_config`
 - **Title**: `Model Configuration`
 - **Description**: Manages LLM model selection and configuration for chat, utility, and embedding models. Supports per-project and per-agent overrides with optional per-chat model switching.
+

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 import json
@@ -13,7 +13,7 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
-SESSION_ID = "agent-zero-desktop"
+SESSION_ID = "BioDockify-AI-desktop"
 BASE_DIR = Path(os.environ.get("bio_BASE_DIR") or ("/a0" if Path("/a0").exists() else PROJECT_ROOT))
 STATE_DIR = BASE_DIR / "tmp" / "_office" / "desktop"
 SESSION_DIR = STATE_DIR / "sessions"
@@ -678,3 +678,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

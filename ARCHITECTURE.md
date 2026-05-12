@@ -1,4 +1,4 @@
-# System Architecture
+﻿# System Architecture
 
 BioDockify is a hybrid desktop application combining a high-performance native shell with a containerized microservices backend. This architecture ensures cross-platform compatibility while maintaining the performance required for ML tasks.
 
@@ -11,7 +11,7 @@ graph TD
     Core -->|HTTP/REST| API[FastAPI Backend (Python)]
     
     subgraph "Docker Container / Local Runtime"
-        API -->|Orchestrates| Agent[Agent Zero (Orchestrator)]
+        API -->|Orchestrates| Agent[BioDockify AI (Orchestrator)]
         Agent -->|Calls| BioNER[BioNER Model (TensorFlow)]
         Agent -->|Calls| GraphDB[(Neo4j Knowledge Graph)]
         Agent -->|Calls| VectorDB[(Chroma/FAISS Vector Store)]
@@ -36,7 +36,7 @@ graph TD
 *   **Tech:** Python 3.10, FastAPI, LangChain.
 *   **Role:**
     *   **API:** Exposes endpoints for the UI.
-    *   **Agent Zero:** The central logic unit that interprets user intent.
+    *   **BioDockify AI:** The central logic unit that interprets user intent.
     *   **Tool Registry:** A collection of functional tools (e.g., `lookup_gene`, `parse_pdf`) that the agent can invoke.
 
 ### 4. Data Layer
@@ -51,3 +51,4 @@ Pharma research involves highly sensitive IP. By running the "Thinking" models a
 
 ### Why Agentic?
 Traditional rigid pipelines break when faced with unstructured/messy data. An **Agentic** approach allows the system to dynamic "re-plan" if a PDF is unreadable or a search yields no results, imitating how a human researcher adapts.
+

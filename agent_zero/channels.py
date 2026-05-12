@@ -1,4 +1,4 @@
-"""
+﻿"""
 BioDockify AI Channels - Telegram, WhatsApp, Discord, Feishu Integration
 
 Provides messaging channel integration for BioDockify AI using NanoBot's channel system.
@@ -66,7 +66,7 @@ class ChannelsConfig:
     feishu: FeishuConfig = field(default_factory=FeishuConfig)
 
 
-class AgentZeroChannels:
+class BioDockifyAIChannels:
     """
     Multi-channel messaging for BioDockify AI.
     
@@ -87,7 +87,7 @@ class AgentZeroChannels:
         self._load_config()
     
     @classmethod
-    def get_instance(cls) -> "AgentZeroChannels":
+    def get_instance(cls) -> "BioDockifyAIChannels":
         """Get singleton instance."""
         if cls._instance is None:
             cls._instance = cls()
@@ -290,6 +290,7 @@ class AgentZeroChannels:
         return status
 
 
-def get_channels() -> AgentZeroChannels:
+def get_channels() -> BioDockifyAIChannels:
     """Get the BioDockify AI channels instance."""
-    return AgentZeroChannels.get_instance()
+    return BioDockifyAIChannels.get_instance()
+

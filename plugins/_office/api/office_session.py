@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from helpers.api import ApiHandler, Request
 from plugins._office.helpers import document_store, libreoffice, libreoffice_desktop, markdown_sessions
@@ -71,7 +71,7 @@ class OfficeSession(ApiHandler):
         mode = "edit" if str(input.get("mode") or "edit").lower() == "edit" else "view"
         store_session = document_store.create_session(
             doc["file_id"],
-            user_id=str(input.get("user_id") or "agent-zero-user"),
+            user_id=str(input.get("user_id") or "BioDockify-AI-user"),
             permission="write" if mode == "edit" else "read",
             origin=self._origin(request),
         )
@@ -224,3 +224,4 @@ def _public_doc(doc: dict) -> dict:
         if key in doc:
             result[key] = doc[key]
     return result
+

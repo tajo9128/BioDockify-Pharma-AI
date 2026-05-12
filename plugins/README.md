@@ -1,6 +1,6 @@
-# Agent Zero - Core Plugins
+﻿# BioDockify AI - Core Plugins
 
-This directory contains the system-level plugins bundled with Agent Zero.
+This directory contains the system-level plugins bundled with BioDockify AI.
 
 ## Directory Structure
 
@@ -63,16 +63,16 @@ Guidelines:
 
 Plugins can also include an optional `hooks.py` at the plugin root. The framework loads it on demand and can call exported hook functions by name through `helpers.plugins.call_plugin_hook(...)`.
 
-- `hooks.py` runs inside the **Agent Zero framework runtime and Python environment**.
+- `hooks.py` runs inside the **BioDockify AI framework runtime and Python environment**.
 - Use it for framework-internal work such as install hooks, cache preparation, registration, or filesystem setup.
-- If it runs `sys.executable -m pip install ...`, packages are installed into the same Python environment that runs Agent Zero.
+- If it runs `sys.executable -m pip install ...`, packages are installed into the same Python environment that runs BioDockify AI.
 - If you need to install into the separate agent runtime or into the system environment, explicitly target that environment from a subprocess by selecting the correct interpreter, virtualenv, or package manager.
 
 In Docker, `hooks.py` normally affects `/opt/venv-a0`; the agent execution runtime is `/opt/venv`.
 
 ## Plugin Index & Community Sharing
 
-The **Plugin Index** at https://github.com/agent0ai/a0-plugins is the community-maintained registry of plugins available to all Agent Zero users.
+The **Plugin Index** at https://github.com/agent0ai/a0-plugins is the community-maintained registry of plugins available to all BioDockify AI users.
 
 To share a plugin with the community:
 
@@ -95,6 +95,7 @@ Note: The index `index.yaml` is a **different file with a different schema** fro
 
 ## Plugin Hub
 
-Agent Zero now includes a built-in Plugin Hub flow through the always-enabled **Plugin Installer** plugin. From the **Plugins** dialog, users can either open the **Browse** tab or click **Install**, which opens the installer modal on its own **Browse** tab.
+BioDockify AI now includes a built-in Plugin Hub flow through the always-enabled **Plugin Installer** plugin. From the **Plugins** dialog, users can either open the **Browse** tab or click **Install**, which opens the installer modal on its own **Browse** tab.
 
-The Plugin Hub surfaces Plugin Index entries directly in the UI and lets users search, filter, inspect, and install community plugins without leaving Agent Zero.
+The Plugin Hub surfaces Plugin Index entries directly in the UI and lets users search, filter, inspect, and install community plugins without leaving BioDockify AI.
+

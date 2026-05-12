@@ -1,6 +1,6 @@
-
+﻿
 """
-Proactive Guidance Engine for Agent Zero (BioDockify AI)
+Proactive Guidance Engine for BioDockify AI (BioDockify AI)
 Provides proactive suggestions and guidance for researchers and faculty.
 """
 import logging
@@ -600,3 +600,4 @@ class FacultyGuidanceEngine:
         # This would calculate based on current date and syllabus dates
         # For now, return a placeholder
         return syllabus.get("current_week", 1)
+

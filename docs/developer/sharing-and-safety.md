@@ -1,12 +1,12 @@
-# Sharing and Safety Guide
+﻿# Sharing and Safety Guide
 
 This guide helps contributors decide **what to share**, **where to share it**, and **what must stay private**.
 
 ## Start with the decision tree
 
-### 1. Is this change meant for the Agent Zero core repository?
+### 1. Is this change meant for the BioDockify AI core repository?
 
-Use the main `agent-zero` contribution flow when the change directly improves the framework itself, for example:
+Use the main `BioDockify-AI` contribution flow when the change directly improves the framework itself, for example:
 
 - a bugfix in `webui/`, `helpers/`, `api/`, `tools/`, `extensions/`, or `docs/`
 - a test that belongs with core framework behavior
@@ -14,7 +14,7 @@ Use the main `agent-zero` contribution flow when the change directly improves th
 
 If yes:
 
-1. Fork `agent0ai/agent-zero` publicly.
+1. Fork `agent0ai/BioDockify-AI` publicly.
 2. Add `upstream` to your local clone.
 3. Sync from `upstream/main` (or the currently used upstream target branch).
 4. Create a focused branch.
@@ -49,14 +49,14 @@ Use the **skills workflow** when the work is mainly procedural knowledge in `SKI
 Typical signals:
 
 - it teaches the agent how to perform a task
-- it is portable across Agent Zero, Cursor, Claude Code, or Copilot-style ecosystems
+- it is portable across BioDockify AI, Cursor, Claude Code, or Copilot-style ecosystems
 - it lives naturally under `usr/skills/` during development
 
 If yes:
 
 1. Develop it locally in `usr/skills/`.
 2. Validate the structure and examples.
-3. Move it into `skills/` for an Agent Zero contribution, or publish it in a dedicated public repository/collection.
+3. Move it into `skills/` for an BioDockify AI contribution, or publish it in a dedicated public repository/collection.
 
 See [`contributing-skills.md`](contributing-skills.md) for the authoring standard.
 
@@ -127,3 +127,4 @@ For teams or maintainers juggling both private R&D and public contributions, thi
 - Make sure the diff is narrow and reviewer-friendly.
 - Verify the test evidence you plan to mention.
 - Make sure the branch source is public if it will back an upstream PR.
+

@@ -1,8 +1,8 @@
-/**
- * useAgentZero Hook
+﻿/**
+ * useBioDockifyAI Hook
  * 
- * Initializes Agent Zero with automatic self-configuration.
- * Once any AI provider is available, Agent Zero configures itself automatically.
+ * Initializes BioDockify AI with automatic self-configuration.
+ * Once any AI provider is available, BioDockify AI configures itself automatically.
  */
 
 'use client';
@@ -15,7 +15,7 @@ import {
     LifecycleConfig
 } from '@/lib/service-lifecycle';
 import {
-    initializeAgentZeroWithAI,
+    initializeBioDockifyAIWithAI,
     detectAIProviders,
     selfConfigure,
     isConfigured,
@@ -23,7 +23,7 @@ import {
 } from '@/lib/self-config';
 import { hasCompletedFirstRun } from '@/lib/system-rules';
 
-interface AgentZeroState {
+interface BioDockifyAIState {
     initialized: boolean;
     loading: boolean;
     showFirstRun: boolean;
@@ -35,7 +35,7 @@ interface AgentZeroState {
     error?: string;
 }
 
-interface UseAgentZeroResult extends AgentZeroState {
+interface UseBioDockifyAIResult extends BioDockifyAIState {
     controller: SystemController;
     initialize: () => Promise<void>;
     refreshServices: () => Promise<void>;
@@ -43,8 +43,8 @@ interface UseAgentZeroResult extends AgentZeroState {
     reconfigure: () => Promise<void>;
 }
 
-export function useAgentZero(): UseAgentZeroResult {
-    const [state, setState] = useState<AgentZeroState>({
+export function useBioDockifyAI(): UseBioDockifyAIResult {
+    const [state, setState] = useState<BioDockifyAIState>({
         initialized: false,
         loading: true,
         showFirstRun: false,
@@ -64,23 +64,23 @@ export function useAgentZero(): UseAgentZeroResult {
         setState(prev => ({ ...prev, loading: true }));
 
         try {
-            console.log('[useAgentZero] Initializing...');
+            console.log('[useBioDockifyAI] Initializing...');
 
             // Check if already configured
             const alreadyConfigured = isConfigured();
 
             if (!alreadyConfigured) {
                 // First run - attempt self-configuration
-                console.log('[useAgentZero] First run - attempting self-configuration...');
+                console.log('[useBioDockifyAI] First run - attempting self-configuration...');
 
                 // Try to self-configure with available AI
-                const result = await initializeAgentZeroWithAI();
+                const result = await initializeBioDockifyAIWithAI();
 
                 if (!isMounted.current) return;
 
                 if (result.ready && result.provider) {
                     // Successfully self-configured!
-                    console.log('[useAgentZero] Self-configured with:', result.provider.name);
+                    console.log('[useBioDockifyAI] Self-configured with:', result.provider.name);
 
                     setState({
                         initialized: true,
@@ -149,7 +149,7 @@ export function useAgentZero(): UseAgentZeroResult {
             lifecycleManager.startHealthMonitoring();
 
         } catch (e: any) {
-            console.error('[useAgentZero] Initialization failed:', e);
+            console.error('[useBioDockifyAI] Initialization failed:', e);
             if (isMounted.current) {
                 setState(prev => ({
                     ...prev,
@@ -178,7 +178,7 @@ export function useAgentZero(): UseAgentZeroResult {
     }, [lifecycleManager]);
 
     const reconfigure = useCallback(async () => {
-        console.log('[useAgentZero] Reconfiguring...');
+        console.log('[useBioDockifyAI] Reconfiguring...');
         const result = await selfConfigure();
 
         if (isMounted.current && result.success && result.provider) {
@@ -223,4 +223,5 @@ export function useAgentZero(): UseAgentZeroResult {
     };
 }
 
-export default useAgentZero;
+export default useBioDockifyAI;
+

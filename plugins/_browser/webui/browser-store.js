@@ -1,4 +1,4 @@
-import { createStore } from "/js/AlpineStore.js";
+﻿import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi } from "/js/api.js";
 import { getNamespacedClient } from "/js/websocket.js";
 import { getContext, setContext } from "/index.js";
@@ -399,7 +399,7 @@ const model = {
   createExtensionWithAgent() {
     this._prefillAgentPrompt(
       [
-        "Use the a0-browser-ext skill to create a new Chrome extension for Agent Zero's Browser.",
+        "Use the a0-browser-ext skill to create a new Chrome extension for BioDockify AI's Browser.",
         "Start by asking me for the extension name, purpose, target websites, and required permissions.",
         `Create it under ${this.extensionsRoot || EXTENSIONS_ROOT}/<extension-slug> and keep permissions minimal.`,
       ].join("\n")
@@ -410,12 +410,12 @@ const model = {
     const url = String(this.extensionInstallUrl || "").trim();
     const prompt = url
       ? [
-          "Use the a0-browser-ext skill to review and optionally install this Chrome Web Store extension for Agent Zero's Browser.",
+          "Use the a0-browser-ext skill to review and optionally install this Chrome Web Store extension for BioDockify AI's Browser.",
           `Chrome Web Store URL or id: ${url}`,
           "Explain the permissions and any sandbox risk before enabling it.",
         ].join("\n")
       : [
-          "Use the a0-browser-ext skill to help me install and review a Chrome Web Store extension for Agent Zero's Browser.",
+          "Use the a0-browser-ext skill to help me install and review a Chrome Web Store extension for BioDockify AI's Browser.",
           "Ask me for the Chrome Web Store URL or extension id first.",
           "Explain the permissions and any sandbox risk before enabling it.",
         ].join("\n");
@@ -2601,3 +2601,4 @@ const model = {
 };
 
 export const store = createStore("browserPage", model);
+

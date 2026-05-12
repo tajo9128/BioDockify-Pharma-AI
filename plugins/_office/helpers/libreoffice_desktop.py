@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import atexit
 import fcntl
@@ -22,7 +22,7 @@ from plugins._office.helpers import desktop_state, document_store, libreoffice
 
 
 OFFICIAL_EXTENSIONS = {"odt", "ods", "odp", "docx", "xlsx", "pptx"}
-SYSTEM_SESSION_ID = "agent-zero-desktop"
+SYSTEM_SESSION_ID = "BioDockify-AI-desktop"
 SYSTEM_FILE_ID = "system-desktop"
 SYSTEM_TITLE = "Desktop"
 STATE_DIR = Path(files.get_abs_path("tmp", "_office", "desktop"))
@@ -65,8 +65,8 @@ DESKTOP_FOLDER_LINKS = (
 )
 URL_INTENT_MAX_ITEMS = 50
 URL_INTENT_MAX_LENGTH = 8192
-URL_HANDLER_DESKTOP_ID = "agent-zero-browser.desktop"
-SHUTDOWN_HANDLER_DESKTOP_ID = "agent-zero-shutdown.desktop"
+URL_HANDLER_DESKTOP_ID = "BioDockify-AI-browser.desktop"
+SHUTDOWN_HANDLER_DESKTOP_ID = "BioDockify-AI-shutdown.desktop"
 SHUTDOWN_PANEL_LAUNCHER_ID = SHUTDOWN_HANDLER_DESKTOP_ID
 SHUTDOWN_CONFIRM_SECONDS = 8
 OOR_NS = "http://openoffice.org/2001/registry"
@@ -1069,14 +1069,14 @@ class LibreOfficeDesktopManager:
                 [
                     "TerminalEmulator=xfce4-terminal",
                     "FileManager=thunar",
-                    "WebBrowser=agent-zero-browser",
+                    "WebBrowser=BioDockify-AI-browser",
                     "",
                 ],
             ),
             encoding="utf-8",
         )
         _write_xfce_browser_helper(
-            config_dir / "xfce4" / "helpers" / "agent-zero-browser.desktop",
+            config_dir / "xfce4" / "helpers" / "BioDockify-AI-browser.desktop",
             browser_bridge,
         )
         _write_mimeapps_defaults(config_dir / "mimeapps.list", URL_HANDLER_DESKTOP_ID)
@@ -1227,7 +1227,7 @@ fi
 
         autostart_dir = session.profile_dir / ".config" / "autostart"
         autostart_dir.mkdir(parents=True, exist_ok=True)
-        autostart = autostart_dir / "agent-zero-office-desktop.desktop"
+        autostart = autostart_dir / "BioDockify-AI-office-desktop.desktop"
         autostart.write_text(
             "\n".join(
                 [
@@ -1712,7 +1712,7 @@ def _ensure_desktop_folder_link(desktop_dir: Path, label: str, target: Path) -> 
 
 
 def _url_bridge_dir(session: DesktopSession) -> Path:
-    return session.profile_dir / ".agent-zero"
+    return session.profile_dir / ".BioDockify-AI"
 
 
 def _url_bridge_script_path(session: DesktopSession) -> Path:
@@ -2355,3 +2355,4 @@ def _pid_is_running(pid: int) -> bool:
         return False
     except PermissionError:
         return True
+

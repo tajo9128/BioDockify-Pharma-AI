@@ -1,8 +1,8 @@
-import asyncio
+﻿import asyncio
 import logging
 import uuid
 from typing import List, Dict, Any
-from agent_zero.core.agent_with_monitoring import MonitoredAgentZero
+from agent_zero.core.agent_with_monitoring import MonitoredBioDockifyAI
 from agent_zero.hybrid.context import AgentConfig
 from orchestration.planner.orchestrator import OrchestratorConfig
 
@@ -15,7 +15,7 @@ async def benchmark_agent_goals(tasks: List[str]) -> Dict[str, Any]:
     # Initialize a clean agent for benchmarking
     config = AgentConfig()
     llm_config = OrchestratorConfig() # Default config
-    agent = MonitoredAgentZero(config, llm_config)
+    agent = MonitoredBioDockifyAI(config, llm_config)
     
     results = []
     total_steps = 0
@@ -48,3 +48,4 @@ async def benchmark_agent_goals(tasks: List[str]) -> Dict[str, Any]:
         "avg_steps": total_steps / completed if completed else 0,
         "detail": results
     }
+

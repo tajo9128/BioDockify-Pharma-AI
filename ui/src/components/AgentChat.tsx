@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Bot, User, Sparkles, Terminal, Play, Globe, ShieldAlert, Brain, Wrench, Power, CheckCircle2, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -24,7 +24,7 @@ interface ServiceHealth {
 
 const REPAIR_TRIGGERS = [
     'fix the system',
-    'repair agent zero',
+    'repair BioDockify AI',
     'repair biodockify',
     'diagnose and repair',
     'recover ai services',
@@ -186,7 +186,7 @@ While you can run locally, adding a **Free or Paid API Key** unlocks:
         }
     };
 
-    // Single Agent Zero mode (v1.9)
+    // Single BioDockify AI mode (v1.9)
     const agentMode = 'agent0' as const;
 
     const handleSend = async () => {
@@ -203,7 +203,7 @@ While you can run locally, adding a **Free or Paid API Key** unlocks:
         setStatus('BioDockify Pharma AI v1.60 Processing...');
 
         try {
-            // Use single Agent Zero v1.9 endpoint
+            // Use single BioDockify AI v1.9 endpoint
             setStatus('Generating Answer...');
             const data = await api.agentChat(userMsg.content);
 
@@ -389,3 +389,4 @@ While you can run locally, adding a **Free or Paid API Key** unlocks:
         </div>
     );
 }
+

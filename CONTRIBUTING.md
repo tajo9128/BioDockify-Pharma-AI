@@ -1,5 +1,5 @@
-<<<<<<< HEAD
-# Contributing to Agent Zero
+﻿<<<<<<< HEAD
+# Contributing to BioDockify AI
 
 This file is the GitHub-visible entry point for contributors.
 
@@ -21,9 +21,9 @@ For the full contribution workflow, start with:
 
 ## Choosing the right place to share work
 
-- **Core bugfix or docs for Agent Zero itself:** contribute back to `agent0ai/agent-zero` from a public fork.
+- **Core bugfix or docs for BioDockify AI itself:** contribute back to `agent0ai/BioDockify-AI` from a public fork.
 - **Community plugin:** publish the plugin in its own public repository, then submit it to `agent0ai/a0-plugins`.
-- **Reusable skill:** contribute it to Agent Zero's `skills/` tree or publish it in a dedicated public repository/collection.
+- **Reusable skill:** contribute it to BioDockify AI's `skills/` tree or publish it in a dedicated public repository/collection.
 - **Private experiment, customer-specific code, local R&D, or sensitive material:** keep it out of public forks and upstream PRs.
 
 If you're unsure, use the decision guide in [`docs/developer/sharing-and-safety.md`](docs/developer/sharing-and-safety.md).
@@ -54,3 +54,4 @@ Thank you for your interest in building the future of autonomous pharmaceutical 
 2.  Run `pytest` to check compliance modules.
 3.  Use `npm run lint` before pushing frontend code.
 >>>>>>> 3768e8a174058c75c6c7fdc6d99db17d246d1fed
+

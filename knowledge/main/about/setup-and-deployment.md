@@ -1,12 +1,12 @@
-# BioDockify Pharma AI v1.60 - Setup and Deployment
+﻿# BioDockify Pharma AI v1.60 - Setup and Deployment
 
 ## Docker Deployment (Standard)
 
 BioDockify AI is distributed as a Docker image: `tajo9128/biodockify-ai`.
 
 ```bash
-docker pull agent0ai/agent-zero
-docker run -p 50001:80 agent0ai/agent-zero
+docker pull agent0ai/BioDockify-AI
+docker run -p 50001:80 agent0ai/BioDockify-AI
 ```
 
 The web UI is then accessible at `http://localhost:50001`. The container exposes port 80 internally; map any host port to it.
@@ -17,7 +17,7 @@ All user data lives in `/a0/usr/` inside the container. Without a volume mount, 
 
 Map `/a0/usr` to a host directory for persistence:
 ```bash
-docker run -p 50001:80 -v /path/on/host:/a0/usr agent0ai/agent-zero
+docker run -p 50001:80 -v /path/on/host:/a0/usr agent0ai/BioDockify-AI
 ```
 
 Contents of `/a0/usr/`:
@@ -52,7 +52,7 @@ You'll also be prompted through the UI when a new A0 version is released. Note t
 
 If upgrading from v0.9.8 or earlier, the architecture has significantly changed. You must use the new install scripts and manually migrate your data:
 1. Backup your existing `usr/` directory.
-2. Run the Quick Install script (`curl -fsSL https://bash.agent-zero.ai | bash` for macOS/Linux or `irm https://ps.agent-zero.ai | iex` for Windows).
+2. Run the Quick Install script (`curl -fsSL https://bash.BioDockify-AI.ai | bash` for macOS/Linux or `irm https://ps.BioDockify-AI.ai | iex` for Windows).
 3. Copy your backed-up `usr/` contents into the new installation's `a0/usr/` directory to preserve your settings, memory, and plugins.
 
 ## Remote Access
@@ -104,8 +104,8 @@ BioDockify AI is a Progressive Web App (PWA). On mobile, open the web UI URL in 
 ## Development Setup (non-Docker)
 
 ```bash
-git clone https://github.com/agent0ai/agent-zero
-cd agent-zero
+git clone https://github.com/agent0ai/BioDockify-AI
+cd BioDockify-AI
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -114,3 +114,4 @@ python run_ui.py
 ```
 
 The dev server runs on `http://localhost:5000` by default. User data is written to `usr/` in the project root.
+

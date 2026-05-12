@@ -1,13 +1,13 @@
-# Usage Guide
-This guide explores usage and configuration scenarios for Agent Zero. You can consider this as a reference post-installation guide.
+﻿# Usage Guide
+This guide explores usage and configuration scenarios for BioDockify AI. You can consider this as a reference post-installation guide.
 
 ![Utility Message with Solutions](../res/usage/first-task.png)
 
 ## Basic Operations
-Agent Zero provides several basic operations through its interface:
+BioDockify AI provides several basic operations through its interface:
 
 ### Restart Framework
-The Restart button allows you to quickly restart the Agent Zero container without using the terminal:
+The Restart button allows you to quickly restart the BioDockify AI container without using the terminal:
 
 ![Restart Framework](../res/usage/restart.png)
 
@@ -21,7 +21,7 @@ The Restart button allows you to quickly restart the Agent Zero container withou
 > - See changes applied to the framework code
 
 ### Action Buttons
-Located beneath the chat input box, Agent Zero provides a set of action buttons for enhanced control and visibility:
+Located beneath the chat input box, BioDockify AI provides a set of action buttons for enhanced control and visibility:
 
 ![Action Buttons](../res/usage/action-btns.png)
 #### Chat Flow Control
@@ -37,7 +37,7 @@ Located beneath the chat input box, Agent Zero provides a set of action buttons 
   - Success message confirms successful import
   - See [knowledge](../developer/architecture.md#knowledge) for more details
 
-### File Browser: Manage files in the Agent Zero environment
+### File Browser: Manage files in the BioDockify AI environment
 
 ![File Browser](../res/usage/file-browser.png)
 
@@ -96,7 +96,7 @@ The Plugin Hub lets you search community plugins, filter by tags, sort the listi
 Opening a plugin shows its author, tags, README content, and install action. Once you are in the detail view, the next steps are intentionally straightforward.
 
 ### File Attachments
-Agent Zero supports direct file attachments in the chat interface for seamless file operations:
+BioDockify AI supports direct file attachments in the chat interface for seamless file operations:
 
 #### Attaching Files
 * Click the attachment icon (📎) on the left side of the chat input box
@@ -110,7 +110,7 @@ Agent Zero supports direct file attachments in the chat interface for seamless f
 
 #### Working with Attached Files
 * Files can be referenced directly in your messages
-* Agent Zero can:
+* BioDockify AI can:
   - Process attached files
   - Move files to specific directories
   - Perform operations on multiple files simultaneously
@@ -122,9 +122,9 @@ Agent Zero supports direct file attachments in the chat interface for seamless f
 > When working with multiple files, you can attach them all at once and then give instructions about what to do with them. The agent will handle them as a batch while keeping you informed of the progress.
 
 ## Tool Usage
-Agent Zero's power comes from its ability to use [tools](../developer/architecture.md#tools). Here's how to leverage them effectively:
+BioDockify AI's power comes from its ability to use [tools](../developer/architecture.md#tools). Here's how to leverage them effectively:
 
-- **Understand Tools:** Agent Zero includes default tools like knowledge (powered by SearXNG), code execution, and communication. Understand the capabilities of these tools and how to invoke them.
+- **Understand Tools:** BioDockify AI includes default tools like knowledge (powered by SearXNG), code execution, and communication. Understand the capabilities of these tools and how to invoke them.
 
 ### Browser Tool Status & MCP Alternatives
 The built-in browser is provided by the `_browser` plugin and direct `browser` tool. It uses Playwright operations controlled by the main agent, exposes typed page refs for links, buttons, images, and inputs, and includes a WebUI viewer for open browser sessions. Playwright Chromium is preinstalled in **Docker**; in **local development** it is installed on demand when needed via `ensure_playwright_binary()` (see [Development Setup](../setup/dev-setup.md) to pre-install).
@@ -139,22 +139,22 @@ See [MCP Setup](mcp-setup.md) for configuration guidance and recommended servers
 
 ### Agent-to-Agent (A2A) Communication
 
-Agent Zero instances can communicate with each other using the A2A protocol. This enables:
+BioDockify AI instances can communicate with each other using the A2A protocol. This enables:
 
 - **Task delegation** to specialized agent instances
 - **Distributed workflows** across multiple agents
 - **Project-specific collaboration** with isolated contexts
 
-To enable A2A connectivity, go to **Settings → MCP/A2A → A0 A2A Server** and toggle the server on. You'll receive a connection URL that other Agent Zero instances can use to communicate with your agent.
+To enable A2A connectivity, go to **Settings → MCP/A2A → A0 A2A Server** and toggle the server on. You'll receive a connection URL that other BioDockify AI instances can use to communicate with your agent.
 
 See [A2A Setup](a2a-setup.md) for detailed configuration and use cases.
 
 ## Example of Tools Usage: Web Search and Code Execution
-Let's say you want Agent Zero to perform some financial analysis tasks. Here's a possible prompt:
+Let's say you want BioDockify AI to perform some financial analysis tasks. Here's a possible prompt:
 
 > Please be a professional financial analyst. Find last month Bitcoin/ USD price trend and make a chart in your environment. The chart must have highlighted key points corresponding with dates of major news about cryptocurrency. Use the `search_engine` and `document_query` tools to find the price and the news, and the `code_execution_tool` to perform the rest of the job.
 
-Agent Zero might then:
+BioDockify AI might then:
 
 1. Use the `search_engine` and `document_query` tools to query a reliable source for the Bitcoin price and for the news about cryptocurrency as prompted.
 2. Extract the price from the search results and save the news, extracting their dates and possible impact on the price.
@@ -162,21 +162,21 @@ Agent Zero might then:
 4. Save the final chart on disk inside the container and provide a link to it with the `response_tool`.
 
 > [!NOTE]
-> The first run of `code_execution_tool` may take a while as it downloads and builds the Agent Zero Docker image. Subsequent runs will be faster.
+> The first run of `code_execution_tool` may take a while as it downloads and builds the BioDockify AI Docker image. Subsequent runs will be faster.
 
-This example demonstrates how to combine multiple tools to achieve an analysis task. By mastering prompt engineering and tool usage, you can unlock the full potential of Agent Zero to solve complex problems.
+This example demonstrates how to combine multiple tools to achieve an analysis task. By mastering prompt engineering and tool usage, you can unlock the full potential of BioDockify AI to solve complex problems.
 
 ## Multi-Agent Cooperation
-One of Agent Zero's unique features is multi-agent cooperation.
+One of BioDockify AI's unique features is multi-agent cooperation.
 
 * **Creating Sub-Agents:** Agents can create sub-agents to delegate sub-tasks.  This helps manage complexity and distribute workload.
 * **Communication:** Agents can communicate with each other, sharing information and coordinating actions. The system prompt and message history play a key role in guiding this communication.
-* **Hierarchy:** Agent Zero uses a [hierarchical structure](../developer/architecture.md#agent-hierarchy-and-communication), with superior agents delegating tasks to subordinates.  This allows for structured problem-solving and efficient resource allocation.
+* **Hierarchy:** BioDockify AI uses a [hierarchical structure](../developer/architecture.md#agent-hierarchy-and-communication), with superior agents delegating tasks to subordinates.  This allows for structured problem-solving and efficient resource allocation.
 
 ![](../res/usage/multi-agent.png)
 
 ## Projects
-Projects are isolated workspaces that provide dedicated context, instructions, memory, and secrets for specific tasks or clients. They are one of Agent Zero's most powerful organizational features, preventing context bleed and enabling focused, specialized agent behavior.
+Projects are isolated workspaces that provide dedicated context, instructions, memory, and secrets for specific tasks or clients. They are one of BioDockify AI's most powerful organizational features, preventing context bleed and enabling focused, specialized agent behavior.
 
 ### What Projects Provide
 
@@ -213,7 +213,7 @@ Create a new empty project workspace:
 Clone a repository directly into your project workspace:
 1. Enter a **Git repository URL** (public or private)
 2. Optionally provide an authentication token for private repos
-3. Agent Zero clones the repository and sets up the project structure
+3. BioDockify AI clones the repository and sets up the project structure
 
 ![Git Clone Progress](../res/usage/projects/projects-gitprojects-clone.png)
 
@@ -222,7 +222,7 @@ The system clones the `main` branch by default. You can ask the agent to checkou
 ![Git Project Status](../res/usage/projects/projects-git-projects-tree.png)
 
 > [!NOTE]
-> If the cloned repository already contains a `.a0proj/` configuration folder, Agent Zero merges the existing configuration with your specified preferences.
+> If the cloned repository already contains a `.a0proj/` configuration folder, BioDockify AI merges the existing configuration with your specified preferences.
 
 ### Project Configuration
 
@@ -369,11 +369,11 @@ See also:
 - [Memory Management](#memory-management) - Maintain project knowledge
 
 ## Tasks & Scheduling
-Tasks enable Agent Zero to run automated or scheduled work in isolated contexts. They're perfect for recurring workflows, batch processing, or time-delayed operations that don't require immediate attention.
+Tasks enable BioDockify AI to run automated or scheduled work in isolated contexts. They're perfect for recurring workflows, batch processing, or time-delayed operations that don't require immediate attention.
 
 ### What Are Tasks?
 
-Tasks are autonomous work units that Agent Zero executes in dedicated or shared chat contexts. Each task includes:
+Tasks are autonomous work units that BioDockify AI executes in dedicated or shared chat contexts. Each task includes:
 
 - **Prompt and Instructions**: What the agent should do
 - **Execution Schedule**: When to run (cron schedule, specific times, or manual)
@@ -384,7 +384,7 @@ Tasks are autonomous work units that Agent Zero executes in dedicated or shared 
 
 ### Task Types
 
-Agent Zero supports three types of tasks:
+BioDockify AI supports three types of tasks:
 
 #### Scheduled Tasks
 Run on a recurring schedule using cron syntax:
@@ -684,11 +684,11 @@ You can reference these values in prompts by name. For example, store `MY_GMAIL`
 
 ## Remote Access via Tunneling
 
-Agent Zero includes a secure tunneling feature that allows you to expose your local instance to the internet. This makes it possible to access your Agent Zero instance from anywhere or share it with others without complex network configuration.
+BioDockify AI includes a secure tunneling feature that allows you to expose your local instance to the internet. This makes it possible to access your BioDockify AI instance from anywhere or share it with others without complex network configuration.
 
 ### How Tunneling Works
 
-Agent Zero uses the [Flaredantic](https://pypi.org/project/flaredantic/) library to create secure tunnels. These tunnels:
+BioDockify AI uses the [Flaredantic](https://pypi.org/project/flaredantic/) library to create secure tunnels. These tunnels:
 
 - Are secure (HTTPS)
 - Don't require any configuration
@@ -702,25 +702,25 @@ Agent Zero uses the [Flaredantic](https://pypi.org/project/flaredantic/) library
 3. Click on **Flare Tunnel** in the navigation menu
 4. Click the **Create Tunnel** button to generate a new tunnel
 5. Once created, the tunnel URL will be displayed and can be copied to share with others
-6. The tunnel URL remains active until you stop the tunnel or close Agent Zero
+6. The tunnel URL remains active until you stop the tunnel or close BioDockify AI
 
 ### Security Considerations
 
-When sharing your Agent Zero instance via a tunnel:
+When sharing your BioDockify AI instance via a tunnel:
 
-- Anyone with the URL can access your Agent Zero instance
-- No additional authentication is added beyond what your Agent Zero instance already has
+- Anyone with the URL can access your BioDockify AI instance
+- No additional authentication is added beyond what your BioDockify AI instance already has
 - **Always set up authentication before creating a tunnel** (see below)
-- The tunnel exposes only your Agent Zero instance, not your entire system
+- The tunnel exposes only your BioDockify AI instance, not your entire system
 
 > [!IMPORTANT]
-> When attempting to create a tunnel without authentication configured, Agent Zero will display a security warning.
+> When attempting to create a tunnel without authentication configured, BioDockify AI will display a security warning.
 
 ### Adding Authentication for Tunnels
 
-To secure your tunneled Agent Zero instance, configure authentication in Settings:
+To secure your tunneled BioDockify AI instance, configure authentication in Settings:
 
-1. Open **Settings** in the Agent Zero UI
+1. Open **Settings** in the BioDockify AI UI
 2. Navigate to the **Authentication** section
 3. Enter your desired username in the **UI Login** field
 4. Enter a strong password in the **UI Password** field
@@ -733,7 +733,7 @@ AUTH_LOGIN=your_username
 AUTH_PASSWORD=your_password
 ```
 
-This will require users to enter these credentials when accessing your tunneled Agent Zero instance.
+This will require users to enter these credentials when accessing your tunneled BioDockify AI instance.
 
 ### Troubleshooting Tunnels
 
@@ -741,14 +741,14 @@ If you encounter issues with the tunnel feature:
 
 1. Check your internet connection
 2. Try regenerating the tunnel URL
-3. Restart Agent Zero
+3. Restart BioDockify AI
 4. Check the console logs for any error messages
 
 > [!TIP]
-> Combine tunneling with authentication for secure remote access to your Agent Zero instance from any device, including mobile phones and tablets.
+> Combine tunneling with authentication for secure remote access to your BioDockify AI instance from any device, including mobile phones and tablets.
 
 ## Voice Interface
-Agent Zero provides both Text-to-Speech (TTS) and Speech-to-Text (STT) capabilities for natural voice interaction:
+BioDockify AI provides both Text-to-Speech (TTS) and Speech-to-Text (STT) capabilities for natural voice interaction:
 
 ### Text-to-Speech
 Enable voice responses from agents:
@@ -813,7 +813,7 @@ Configure STT settings in the Settings page:
 > When asking the agent to solve mathematical problems, it will automatically respond using KaTeX formatting for clear and professional-looking mathematical expressions.
 
 ### File Browser
-Agent Zero provides a powerful file browser interface for managing your workspace:
+BioDockify AI provides a powerful file browser interface for managing your workspace:
 
 #### Interface Overview
 - **Navigation Bar**: Shows current directory path with "Up" button for parent directory
@@ -835,7 +835,7 @@ Agent Zero provides a powerful file browser interface for managing your workspac
   - Current path always visible for context
 
 > [!NOTE]
-> The file browser lets you navigate the Agent Zero filesystem. For file-based work, keep your working files in `/a0/usr` (or inside a Project workspace).
+> The file browser lets you navigate the BioDockify AI filesystem. For file-based work, keep your working files in `/a0/usr` (or inside a Project workspace).
 >
 - **File Operations**:
   - Create new files and directories
@@ -853,10 +853,10 @@ Agent Zero provides a powerful file browser interface for managing your workspac
   - Binary files cannot be edited
 
 > [!TIP]
-> The File Browser integrates seamlessly with Agent Zero's capabilities. You can reference files directly in your conversations, and the agent can help you manage, modify, and organize your files.
+> The File Browser integrates seamlessly with BioDockify AI's capabilities. You can reference files directly in your conversations, and the agent can help you manage, modify, and organize your files.
 
 ## Memory Management
-Agent Zero includes a sophisticated memory management system that stores and retrieves information from conversations, knowledge sources, and learning experiences. The Memory Dashboard provides a powerful interface to view, search, filter, edit, and delete memory entries stored in the vector database.
+BioDockify AI includes a sophisticated memory management system that stores and retrieves information from conversations, knowledge sources, and learning experiences. The Memory Dashboard provides a powerful interface to view, search, filter, edit, and delete memory entries stored in the vector database.
 
 ### Accessing the Memory Dashboard
 Open the Memory Dashboard from the sidebar to manage your agent's memory:
@@ -1003,7 +1003,7 @@ When using Projects (see [Projects](#projects)):
 > Memory management directly affects agent behavior and recall. Regularly maintaining your memory database ensures optimal agent performance and relevant context retention.
 
 ## Backup & Restore
-Agent Zero provides a comprehensive backup and restore system to protect your data and configurations. This feature helps you safeguard your work and migrate Agent Zero setups between different systems.
+BioDockify AI provides a comprehensive backup and restore system to protect your data and configurations. This feature helps you safeguard your work and migrate BioDockify AI setups between different systems.
 
 ### Creating Backups
 Access the backup functionality through the Settings interface:
@@ -1013,7 +1013,7 @@ Access the backup functionality through the Settings interface:
 3. Click **Create Backup** to start the backup process
 
 #### What Gets Backed Up
-By default, Agent Zero backs up your most important data:
+By default, BioDockify AI backs up your most important data:
 
 * **Knowledge Base**: Your custom knowledge files and documents
 * **Memory System**: Agent memories and learned information
@@ -1047,7 +1047,7 @@ Before creating a backup, you can customize what to include:
 > Secrets stored in `/a0/usr/secrets.env` are not always included in backup archives. Keep a manual copy if you rely on secrets.
 
 ### Restoring from Backup
-The restore process allows you to recover your Agent Zero setup from a previous backup:
+The restore process allows you to recover your BioDockify AI setup from a previous backup:
 
 #### Starting a Restore
 1. Navigate to **Settings** → **Backup & Restore** tab
@@ -1081,12 +1081,12 @@ Optionally clean up existing files before restoring:
 #### When to Create Backups
 * **Before Major Changes**: Always backup before significant modifications
 * **Regular Schedule**: Create weekly or monthly backups of your work
-* **Before System Updates**: Backup before updating Agent Zero or system components
+* **Before System Updates**: Backup before updating BioDockify AI or system components
 * **Project Milestones**: Save backups when completing important work
 
 #### Backup Management
 * **Descriptive Names**: Use clear names like "project-completion-2024-01"
-* **External Storage**: Keep backup files in a safe location outside Agent Zero
+* **External Storage**: Keep backup files in a safe location outside BioDockify AI
 * **Multiple Versions**: Maintain several backup versions for different time periods
 * **Test Restores**: Occasionally test restoring backups to ensure they work
 
@@ -1098,9 +1098,9 @@ Optionally clean up existing files before restoring:
 ### Common Use Cases
 
 #### System Migration
-Moving Agent Zero to a new server or computer:
+Moving BioDockify AI to a new server or computer:
 1. Create a complete backup on the original system
-2. Install Agent Zero on the new system
+2. Install BioDockify AI on the new system
 3. Restore the backup to migrate all your data and settings
 
 #### Project Archival
@@ -1116,7 +1116,7 @@ Saving work-in-progress states:
 3. Restore previous versions if something goes wrong
 
 #### Team Collaboration
-Sharing Agent Zero configurations:
+Sharing BioDockify AI configurations:
 1. Create backups with shared configurations and tools
 2. Team members can restore to get consistent setups
 3. Include documentation and project files
@@ -1125,4 +1125,5 @@ Sharing Agent Zero configurations:
 > Always test your backup and restore process in a safe environment before relying on it for critical data. Keep multiple backup versions and store them in secure, accessible locations.
 
 > [!TIP]
-> The backup system is designed to work across different operating systems and Agent Zero installations. Your backups from a Windows system will work on Linux, and vice versa.
+> The backup system is designed to work across different operating systems and BioDockify AI installations. Your backups from a Windows system will work on Linux, and vice versa.
+

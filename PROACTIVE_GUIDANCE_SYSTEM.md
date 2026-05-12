@@ -1,8 +1,8 @@
-# Proactive Guidance System
+﻿# Proactive Guidance System
 
 ## Overview
 
-Agent Zero (BioDockify AI) now includes a comprehensive proactive guidance system that automatically detects user roles (researcher or faculty) and provides intelligent suggestions and resources.
+BioDockify AI (BioDockify AI) now includes a comprehensive proactive guidance system that automatically detects user roles (researcher or faculty) and provides intelligent suggestions and resources.
 
 ## Features
 
@@ -216,3 +216,4 @@ For issues or feature requests, please refer to the BioDockify AI documentation.
 **Version:** 1.0.0  
 **Last Updated:** 2026-02-14  
 **Compliance:** International Pharmaceutical Research Standards
+
