@@ -1,0 +1,125 @@
+project:
+  name: My PhD Research
+  type: PhD Thesis
+  disease_context: Alzheimer's Disease
+  stage: Literature Review
+agent:
+  mode: semi-autonomous
+  reasoning_depth: standard
+  self_correction: true
+  max_retries: 3
+  failure_policy: ask_user
+literature:
+  sources:
+  - pubmed
+  enable_crossref: true
+  year_range: 10
+  novelty_strictness: medium
+  grobid_url: http://localhost:8070
+  enable_preprints: false
+pharma:
+  enable_pubtator: true
+  enable_semantic_scholar: true
+  enable_unpaywall: true
+  citation_threshold: high
+  sources:
+    pubmed: true
+    pmc: true
+    biorxiv: false
+    chemrxiv: false
+    clinicaltrials: true
+    google_scholar: false
+    openalex: true
+    semantic_scholar: true
+    ieee: false
+    elsevier: false
+    scopus: false
+    wos: false
+    science_index: false
+nanobot:
+  headless_browser: true
+  stealth_mode: false
+  browser_timeout: 30
+channels:
+  telegram:
+    enabled: false
+    token: ''
+    allow_from: []
+  whatsapp:
+    enabled: false
+    bridge_url: ws://localhost:3001
+    auth_token: ''
+    allow_from: []
+  discord:
+    enabled: false
+    token: ''
+    allow_from: []
+    gateway_url: wss://gateway.discord.gg/?v=10&encoding=json
+ai_provider:
+  mode: lm_studio
+  primary_model: ollama
+  cloud_fallback: true
+  lm_studio_url: http://localhost:1234/v1
+  lm_studio_model: ''
+  google_key: ''
+  openrouter_key: ''
+  huggingface_key: ''
+  glm_key: ''
+  elsevier_key: ''
+  pubmed_email: ''
+  item_key: ''
+  mistral_key: ''
+  mistral_model: mistral-large-latest
+  venice_key: ''
+  venice_model: llama-3-70b
+  kimi_key: ''
+  kimi_model: moonshot-v1-8k
+  deepseek_key: ''
+  deepseek_model: deepseek-chat
+  azure_endpoint: ''
+  azure_deployment: ''
+  azure_key: ''
+  azure_api_version: 2024-02-15-preview
+  aws_access_key: ''
+  aws_secret_key: ''
+  aws_region_name: us-east-1
+  aws_model_id: anthropic.claude-3-sonnet-20240229-v1:0
+  custom_key: ''
+  custom_base_url: ''
+  custom_model: gpt-3.5-turbo
+  serper_key: ''
+  jina_key: ''
+  brave_key: ''
+  ollama_fallback: true
+  ollama_url: http://localhost:11434
+  ollama_model: llama2
+ai_advanced:
+  performance_profile: high
+  context_window: 8192
+  gpu_layers: -1
+  thread_count: 8
+persona:
+  roles:
+  - PhD Student
+  strictness: balanced
+  introduction: I am a researcher specializing in neurodegenerative diseases...
+  research_focus: Investigating the role of Tau proteins in early-stage Alzheimer's...
+  role: PhD Student
+output:
+  format: markdown
+  citation_style: apa
+  include_disclosure: true
+  output_dir: ''
+execution:
+  mode: research
+  max_runtime_minutes: 45
+  use_knowledge_graph: true
+  human_approval_gates: true
+system:
+  auto_update: true
+  pause_on_battery: true
+  max_cpu_percent: 80
+  log_level: INFO
+  version: 2.6.2
+  auto_start: true
+  minimize_to_tray: true

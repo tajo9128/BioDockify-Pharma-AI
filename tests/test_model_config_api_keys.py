@@ -85,23 +85,13 @@ async def test_missing_api_key_banner_exposes_missing_providers(monkeypatch):
 
 def test_model_config_frontend_tracks_inline_api_key_edits():
     store_path = PROJECT_ROOT / "plugins" / "_model_config" / "webui" / "model-config-store.js"
-    api_keys_mixin_path = PROJECT_ROOT / "plugins" / "_model_config" / "webui" / "api-keys-mixin.js"
     composer_store_path = PROJECT_ROOT / "webui" / "components" / "chat" / "input" / "composer-banner-store.js"
     config_path = PROJECT_ROOT / "plugins" / "_model_config" / "webui" / "config.html"
-    model_field_path = PROJECT_ROOT / "plugins" / "_model_config" / "webui" / "model-field.html"
     modal_path = PROJECT_ROOT / "plugins" / "_model_config" / "webui" / "api-keys.html"
 
-    store_content = (
-        store_path.read_text(encoding="utf-8")
-        + "\n"
-        + api_keys_mixin_path.read_text(encoding="utf-8")
-    )
+    store_content = store_path.read_text(encoding="utf-8")
     composer_store_content = composer_store_path.read_text(encoding="utf-8")
-    config_content = (
-        config_path.read_text(encoding="utf-8")
-        + "\n"
-        + model_field_path.read_text(encoding="utf-8")
-    )
+    config_content = config_path.read_text(encoding="utf-8")
     modal_content = modal_path.read_text(encoding="utf-8")
 
     assert "apiKeyDirty" in store_content
@@ -112,6 +102,6 @@ def test_model_config_frontend_tracks_inline_api_key_edits():
     assert 'callJsonApi("/banners"' in composer_store_content
     assert "/plugins/_model_config/missing_api_key_status" not in composer_store_content
     assert "$store.modelConfig.resetApiKeyDrafts();" in config_content
-    assert '@input="$store.modelConfig.setApiKeyValue(_prov, $el.value)"' in config_content
-    assert "persistAllDirtyApiKeys()" in modal_content
+    assert '@input="$store.modelConfig.touchApiKey(config[section.key].provider)"' in config_content
+    assert "updates[provider] = this.keys[provider] || '';" in modal_content
     assert "$store.modelConfig.resetApiKeyDrafts();" in modal_content

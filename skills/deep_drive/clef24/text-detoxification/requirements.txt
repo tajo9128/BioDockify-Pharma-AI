@@ -1,0 +1,12 @@
+numpy
+pandas
+sacrebleu
+scikit-learn
+sentencepiece
+torch
+tqdm
+transformers
+protobuf
+sentence-transformers
+huggingface-cli
+wandb

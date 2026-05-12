@@ -1,0 +1,81 @@
+# List of Available Team Names for the Clickbait Spoiling Task at SemEval 2023
+
+Please select a team name from this [list of fictional journalists](https://en.wikipedia.org/wiki/List_of_fictional_journalists).
+
+- Ichabod Adams
+- Celeste Anders
+- Matt Anders
+- Larry Appleton
+- Tally Atwater
+- Howard Beale
+- Paul Beltzer
+- Maddy Bowen
+- Kent Brockman
+- Murphy Brown
+- Anson Bryson
+- Clint Buchanan
+- Michelle Capra
+- Tess Mercer
+- Ben Caxton
+- Jefferson Crowley
+- Chloe Sullivan
+- Pepper Dennis
+- Jefferson Drum
+- George Faber
+- Vernon Fenwick
+- I. M. Fletcher
+- Grant Gabriel
+- Walter Wichita Garrett
+- Pat Garrison
+- Mark Grainger
+- Lou Grant
+- Ben Gregory
+- Tom Grunick
+- Jackie Harvey
+- Bill Hastings
+- Jennifer Horton
+- Sierra Jennings
+- Hildy Johnson
+- Tom Jumbo-Grumbo
+- Charles Foster Kane
+- Kit Kittredge
+- Carl Kolchak
+- Lois Lane
+- Paul Marino
+- Doris Martin
+- Willie Maxwell
+- Jack McEvoy
+- Will McAvoy
+- Percy Mercy
+- William Miller
+- Les Nessman
+- Trevor Newsworthy
+- Tyra Nordbo
+- Bill Norton
+- Jimmy Olsen
+- Kelly O'Donnell
+- April O'Neil
+- Nic Pappas
+- Dion Patrick
+- Dick Preston
+- Margaret Pynchon
+- Lloyd Ramsey
+- Mickey Riley
+- Andrea Sachs
+- Ruth Sherwood
+- Brenda Starr
+- Tricia Takanawa
+- Chloe Talbot
+- Danny Taylor
+- Abby Townsend
+- Ron Updyke
+- Linda van Schoonhoven
+- Dan Vasser
+- Bob Wallace
+- Nicole Walker
+- Herb Welch
+- Perry White
+- Cameron "Buck" Williams
+- Steve Wilson
+- Jamie Campbell
+- Kara Zor'El 

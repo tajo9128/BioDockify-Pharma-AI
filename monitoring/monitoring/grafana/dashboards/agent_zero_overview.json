@@ -1,0 +1,32 @@
+{
+    "title": "BioDockify - Agent Zero Overview",
+    "panels": [
+        {
+            "title": "Agent Executions (Total)",
+            "type": "graph",
+            "targets": [
+                {
+                    "expr": "sum(agent_zero_executions_total) by (status)"
+                }
+            ]
+        },
+        {
+            "title": "Self-Repair Success Rate",
+            "type": "piechart",
+            "targets": [
+                {
+                    "expr": "sum(agent_zero_self_repairs_total) by (success)"
+                }
+            ]
+        },
+        {
+            "title": "Execution Duration (P95)",
+            "type": "graph",
+            "targets": [
+                {
+                    "expr": "histogram_quantile(0.95, sum(agent_zero_execution_duration_seconds_bucket) by (le))"
+                }
+            ]
+        }
+    ]
+}
