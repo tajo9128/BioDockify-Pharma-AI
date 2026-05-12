@@ -29,18 +29,11 @@
         </a>
       </div>
 
-      <!-- Main Header Icons -->
-      <div class="icons-section" id="hide-button">
-        <button id="toggle-sidebar" class="toggle-sidebar-button" @click="$store.sidebar.toggle()" aria-label="Toggle Sidebar" aria-expanded="false">
-          <span class="material-symbols-outlined" aria-hidden="true">menu</span>
-        </button>
-
-        <button class="config-button header-action-button" @click="deselectChat()" title="Home" aria-label="Home">
-          <span class="material-symbols-outlined">home</span>
-        </button>
-
+      <!-- Primary Action: New Chat -->
+      <div class="primary-actions">
         <button class="config-button header-action-button" @click="$store.chats.newChat()" title="New Chat" aria-label="New Chat">
           <span class="material-symbols-outlined">add_comment</span>
+          <span class="icon-label">New Chat</span>
         </button>
       </div>
 
@@ -49,7 +42,7 @@
         <span class="section-title">Research</span>
       </div>
 
-      <!-- Research Icons - All accessible -->
+      <!-- Research Icons - All accessible, stacked below chat -->
       <div class="research-icons">
         <button class="config-button header-action-button" @click="openModal('components/research/research-tools.html')" title="Research Tools">
           <span class="material-symbols-outlined">science</span>
@@ -84,6 +77,16 @@
         <button class="config-button header-action-button" @click="openModal('components/knowledge/knowledge-modal.html')" title="Knowledge">
           <span class="material-symbols-outlined">psychology</span>
           <span class="icon-label">Knowledge</span>
+        </button>
+      </div>
+
+      <!-- Settings row at bottom -->
+      <div class="settings-row">
+        <button id="toggle-sidebar" class="toggle-sidebar-button" @click="$store.sidebar.toggle()" aria-label="Toggle Sidebar" aria-expanded="false">
+          <span class="material-symbols-outlined" aria-hidden="true">menu</span>
+        </button>
+        <button class="config-button header-action-button" @click="openModal('settings/settings.html')" title="Settings">
+          <span class="material-symbols-outlined">settings</span>
         </button>
       </div>
 
@@ -233,12 +236,7 @@
       height: 1.75rem;
     }
 
-    .icons-section {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 2px;
-      justify-content: flex-start;
-    }
+    
 
     .section-header {
       width: 100%;
@@ -256,23 +254,74 @@
 
     .research-icons {
       display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
+      flex-wrap: nowrap;
       gap: 1px;
-      justify-content: flex-start;
-      max-height: calc(100vh - 8rem);
-      overflow: hidden;
+      align-items: stretch;
+      width: 100%;
+      max-height: calc(100vh - 12rem);
+      overflow-y: auto;
     }
 
     .research-icons .header-action-button {
-      flex-direction: column;
-      padding: 3px 4px;
-      gap: 0px;
-      min-width: 38px;
+      flex-direction: row;
+      justify-content: flex-start;
+      padding: 5px 6px;
+      gap: 6px;
+      min-width: 100%;
+      border-radius: 4px;
+    }
+
+    .research-icons .header-action-button .material-symbols-outlined {
+      font-size: 1rem;
+      flex-shrink: 0;
     }
 
     .research-icons .icon-label {
-      font-size: 0.5rem;
+      font-size: 0.7rem;
       white-space: nowrap;
+    }
+
+    .primary-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      width: 100%;
+      margin: 4px 0;
+    }
+
+    .primary-actions .header-action-button {
+      flex-direction: row;
+      justify-content: flex-start;
+      padding: 6px 8px;
+      gap: 6px;
+      min-width: 100%;
+      border-radius: 4px;
+      background: var(--color-primary, #00d4aa);
+      color: white;
+    }
+
+    .primary-actions .header-action-button:hover {
+      background: var(--color-primary-dark, #00a888);
+    }
+
+    .primary-actions .icon-label {
+      font-size: 0.75rem;
+    }
+
+    .settings-row {
+      display: flex;
+      flex-direction: row;
+      gap: 2px;
+      width: 100%;
+      margin-top: auto;
+      padding-top: 4px;
+      border-top: 1px solid var(--border-color, #333);
+    }
+
+    .settings-row .header-action-button {
+      flex: 1;
+      padding: 6px;
     }
 
     .header-action-button {

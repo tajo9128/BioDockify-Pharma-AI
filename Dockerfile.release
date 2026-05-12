@@ -4,4 +4,8 @@ COPY webui/ /a0/webui/
 COPY plugins/ /a0/plugins/
 COPY public/ /a0/webui/public/
 
+RUN find /a0/webui/ -name "favicon*" -type f -delete 2>/dev/null || true; \
+    find /a0/webui/ -name "*.ico" -type f -delete 2>/dev/null || true; \
+    cp -f /a0/webui/public/favicon.svg /a0/webui/favicon.svg 2>/dev/null || true
+
 CMD ["/exe/initialize.sh", "main"]
