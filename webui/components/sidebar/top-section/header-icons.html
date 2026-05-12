@@ -87,28 +87,6 @@
         </button>
       </div>
 
-      <!-- Bottom Icons -->
-      <div class="bottom-icons">
-        <button class="config-button header-action-button" @click="openModal('components/plugins/list/plugin-list.html')" title="Plugins">
-          <span class="material-symbols-outlined">extension</span>
-        </button>
-
-        <button class="config-button header-action-button" @click="openModal('settings/settings.html')" title="Settings">
-          <span class="material-symbols-outlined">settings</span>
-        </button>
-
-        <button
-          class="config-button header-action-button dropdown-toggle"
-          id="header-more"
-          x-ref="menuButton"
-          @click="$store.sidebar.menuToggle($refs.menuButton)"
-          title="More"
-          aria-label="More"
-        >
-          <span class="material-symbols-outlined" :class="$store.sidebar.menuOpen ? 'rotated' : ''">expand_more</span>
-        </button>
-      </div>
-
       <!-- Dropdown Menu -->
       <div
         class="dropdown-menu quick-actions-dropdown"
@@ -218,7 +196,8 @@
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      gap: var(--spacing-xs);
+      gap: 2px;
+      overflow: hidden;
     }
 
     .sidebar-header-panel-open {
@@ -227,7 +206,7 @@
 
     #logo-bar {
       width: 100%;
-      padding-bottom: var(--spacing-xs);
+      padding-bottom: 4px;
     }
 
     .logo-container {
@@ -263,12 +242,12 @@
 
     .section-header {
       width: 100%;
-      padding: var(--spacing-xs) 0;
+      padding: 4px 0 2px 0;
       border-bottom: 1px solid var(--border-color, #333);
     }
 
     .section-title {
-      font-size: 0.7rem;
+      font-size: 0.65rem;
       font-weight: 600;
       color: var(--text-muted, #888);
       text-transform: uppercase;
@@ -278,35 +257,26 @@
     .research-icons {
       display: flex;
       flex-wrap: wrap;
-      gap: 2px;
+      gap: 1px;
       justify-content: flex-start;
     }
 
     .research-icons .header-action-button {
       flex-direction: column;
-      padding: 6px 8px;
-      gap: 2px;
+      padding: 4px 6px;
+      gap: 1px;
     }
 
     .research-icons .icon-label {
-      font-size: 0.6rem;
+      font-size: 0.55rem;
       white-space: nowrap;
-    }
-
-    .bottom-icons {
-      margin-top: auto;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 2px;
-      justify-content: flex-start;
-      padding-top: var(--spacing-xs);
     }
 
     .header-action-button {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 8px;
+      padding: 6px;
       background: transparent;
       border: none;
       border-radius: 6px;
@@ -321,7 +291,7 @@
     }
 
     .header-action-button .material-symbols-outlined {
-      font-size: 1.25rem;
+      font-size: 1.15rem;
     }
 
     .dropdown-toggle .rotated {

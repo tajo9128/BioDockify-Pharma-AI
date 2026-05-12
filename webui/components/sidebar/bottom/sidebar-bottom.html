@@ -9,6 +9,29 @@
     <template x-if="$store.sidebarBottom">
       <div class="sidebar-bottom-wrapper">
         <x-extension id="sidebar-bottom-wrapper-start"></x-extension>
+        
+        <!-- Bottom Action Icons -->
+        <div class="bottom-action-icons">
+          <button class="bottom-action-btn" @click="openModal('components/plugins/list/plugin-list.html')" title="Plugins">
+            <span class="material-symbols-outlined">extension</span>
+          </button>
+
+          <button class="bottom-action-btn" @click="openModal('settings/settings.html')" title="Settings">
+            <span class="material-symbols-outlined">settings</span>
+          </button>
+
+          <button
+            class="bottom-action-btn dropdown-toggle"
+            id="header-more"
+            x-ref="menuButton"
+            @click="$store.sidebar.menuToggle($refs.menuButton)"
+            title="More"
+            aria-label="More"
+          >
+            <span class="material-symbols-outlined" :class="$store.sidebar.menuOpen ? 'rotated' : ''">expand_more</span>
+          </button>
+        </div>
+
         <!-- Preferences Panel -->
         <x-component path="sidebar/bottom/preferences/preferences-panel.html"></x-component>
         
@@ -23,14 +46,44 @@
 
 
   <style>
-    /* Sidebar bottom wrapper */
     .sidebar-bottom-wrapper {
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
     }
 
-    /* Version label area */
+    .bottom-action-icons {
+      display: flex;
+      gap: 2px;
+      padding: 6px 0;
+    }
+
+    .bottom-action-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      color: var(--color-text-secondary, #aaa);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .bottom-action-btn:hover {
+      background: var(--color-hover, rgba(255,255,255,0.1));
+      color: var(--color-text, #fff);
+    }
+
+    .bottom-action-btn .material-symbols-outlined {
+      font-size: 1.15rem;
+    }
+
+    .bottom-action-btn .rotated {
+      transform: rotate(180deg);
+    }
+
     .version-info {
       line-height: 0.8rem;
       position: relative;
