@@ -2,7 +2,7 @@
 <head>
   <script type="module">
     import { createStore } from "/js/AlpineStore.js";
-    import { api } from "/js/api.js";
+    import { callJsonApi } from "/js/api.js";
 
     export const store = createStore("literatureModal", {
       query: "",
@@ -12,7 +12,7 @@
       async searchLiterature() {
         if (!this.query.trim()) return;
         try {
-          const response = await api.post("/api/literature/search", {
+          const response = await callJsonApi("literature/search", {
             query: this.query,
             database: this.selectedDb
           });
