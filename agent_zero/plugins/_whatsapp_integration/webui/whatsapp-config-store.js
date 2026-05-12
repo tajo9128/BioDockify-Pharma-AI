@@ -157,7 +157,7 @@ export const store = createStore("whatsappConfig", {
   accessWarning() {
     if (!this.config?.enabled) return "";
     if (!this.allowedIsEmpty()) return "";
-    return "Allowed numbers is empty. If other people can message this number, they can reach your Agent Zero.";
+    return "Allowed numbers is empty. If other people can message this number, they can reach your BioDockify AI.";
   },
 
   statusLabel() {

@@ -1,4 +1,4 @@
-# Python dependencies for Agent Zero
+# Python dependencies for BioDockify AI
 # Add your LLM provider SDK here (e.g., openai, anthropic, etc.)
 
 # Optional: For production deployments

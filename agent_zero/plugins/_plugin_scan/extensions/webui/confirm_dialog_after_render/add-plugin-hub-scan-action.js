@@ -29,7 +29,7 @@ export default async function addPluginHubScanAction(context) {
   const scanButton = document.createElement("button");
   scanButton.type = "button";
   scanButton.className = `button confirm ${BUTTON_CLASS}`;
-  scanButton.textContent = "Scan with Agent Zero";
+  scanButton.textContent = "Scan with BioDockify AI";
   scanButton.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();

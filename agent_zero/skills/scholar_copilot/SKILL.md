@@ -2,7 +2,7 @@
 name: ScholarCopilot (Academic Writing Copilot)
 description: |
   Intelligent assistant for text completion and citation suggestions based on ArXiv corpus.
-author: Agent Zero Team (Integration of TIGER-AI-Lab/ScholarCopilot)
+author: BioDockify AI Team (Integration of TIGER-AI-Lab/ScholarCopilot)
 version: 1.0.0
 ---
 
@@ -15,7 +15,7 @@ This skill integrates [ScholarCopilot](https://github.com/TIGER-AI-Lab/ScholarCo
 1.  **Smart Completion**: Predict the next sentences in an academic paper context.
 2.  **Citation Search**: Suggest relevant ArXiv papers based on the current writing context.
 
-## Usage in Agent Zero
+## Usage in BioDockify AI
 
 ```python
 from agent_zero.skills.scholar_copilot import get_scholar_copilot

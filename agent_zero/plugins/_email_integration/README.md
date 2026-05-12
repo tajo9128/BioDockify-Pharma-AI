@@ -1,6 +1,6 @@
 # Email Integration
 
-Communicate with Agent Zero through email inboxes and send replies back over SMTP.
+Communicate with BioDockify AI through email inboxes and send replies back over SMTP.
 
 ## What It Does
 
@@ -26,7 +26,7 @@ It supports both:
 - **Thread routing**
   - Can continue an existing chat by thread ID found in the email subject.
   - Falls back to model-based dispatch if no direct thread match is available.
-  - Email replies inside an existing Agent Zero thread can use `/project`, `/config`, and `/send` control commands.
+  - Email replies inside an existing BioDockify AI thread can use `/project`, `/config`, and `/send` control commands.
 - **Notifications and persistence**
   - Saves chats after routing and emits notifications about new or continued conversations.
 
@@ -51,4 +51,4 @@ It supports both:
 
 - **Name**: `_email_integration`
 - **Title**: `Email Integration`
-- **Description**: Communicate with Agent Zero via email. Supports IMAP/Exchange inbox polling with SMTP replies.
+- **Description**: Communicate with BioDockify AI via email. Supports IMAP/Exchange inbox polling with SMTP replies.

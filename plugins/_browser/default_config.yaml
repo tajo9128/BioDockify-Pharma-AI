@@ -1,5 +1,5 @@
 # Enabled unpacked Chromium extension directories.
-# Paths must be readable from the Agent Zero runtime itself.
+# Paths must be readable from the BioDockify AI runtime itself.
 extension_paths: []
 
 # Page opened by new Browser sessions when no URL is provided.

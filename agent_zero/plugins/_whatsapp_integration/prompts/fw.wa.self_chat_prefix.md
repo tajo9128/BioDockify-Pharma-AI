@@ -1,2 +1,2 @@
-[🤖 Agent Zero]
+[🤖 BioDockify AI]
 {{response_text}}

@@ -1,6 +1,6 @@
 # Plugin Installer
 
-Install and update Agent Zero plugins from ZIP uploads, Git repositories, or the community Plugin Index surfaced through the Plugin Hub.
+Install and update BioDockify AI plugins from ZIP uploads, Git repositories, or the community Plugin Index surfaced through the Plugin Hub.
 
 ## What It Does
 

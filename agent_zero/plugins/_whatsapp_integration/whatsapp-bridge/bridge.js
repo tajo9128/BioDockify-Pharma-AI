@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Agent Zero WhatsApp Bridge
+ * BioDockify AI WhatsApp Bridge
  *
  * Standalone Node.js process that connects to WhatsApp via Baileys
  * and exposes HTTP endpoints for the Python plugin.
@@ -109,7 +109,7 @@ async function startSocket() {
     auth: state,
     logger,
     printQRInTerminal: false,
-    browser: ['Agent Zero', 'Chrome', '120.0'],
+    browser: ['BioDockify AI', 'Chrome', '120.0'],
     syncFullHistory: false,
     markOnlineOnConnect: false,
     getMessage: async (key) => {

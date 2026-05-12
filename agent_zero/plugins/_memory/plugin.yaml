@@ -1,6 +1,6 @@
 name: _memory
 title: Memory
-description: Provides persistent memory capabilities to Agent Zero agents.
+description: Provides persistent memory capabilities to BioDockify AI agents.
 version: 1.0.0
 settings_sections:
   - agent

@@ -3,9 +3,21 @@ FROM tajo9128/biodockify-ai:v3.9.0
 COPY webui/ /a0/webui/
 COPY plugins/ /a0/plugins/
 COPY public/ /a0/webui/public/
+COPY prompts/ /a0/prompts/
+COPY agents/ /a0/agents/
+COPY knowledge/ /a0/knowledge/
+COPY skills/ /a0/skills/
+COPY identity.md /a0/
+
+COPY agent_zero/prompts_v19/ /a0/agent_zero/prompts_v19/
+COPY agent_zero/extensions_v19/ /a0/agent_zero/extensions_v19/
 
 RUN find /a0/webui/ -name "favicon*" -type f -delete 2>/dev/null || true; \
     find /a0/webui/ -name "*.ico" -type f -delete 2>/dev/null || true; \
-    cp -f /a0/webui/public/favicon.svg /a0/webui/favicon.svg 2>/dev/null || true
+    cp -f /a0/webui/public/favicon.svg /a0/webui/favicon.svg 2>/dev/null || true; \
+    sed -i 's|Agent Zero|BioDockify AI|g' /a0/prompts/*.md 2>/dev/null || true; \
+    sed -i 's|agent_zero|biodockify_ai|g' /a0/prompts/*.md 2>/dev/null || true; \
+    sed -i 's|Agent Zero|BioDockify AI|g' /a0/agent_zero/prompts_v19/*.md 2>/dev/null || true; \
+    sed -i 's|Agent Zero|BioDockify AI|g' /a0/agent_zero/extensions_v19/python/agent_init/*.py 2>/dev/null || true
 
 CMD ["/exe/initialize.sh", "main"]

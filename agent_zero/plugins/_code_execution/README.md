@@ -1,6 +1,6 @@
 # Code Execution
 
-Run terminal commands and execute Python or Node.js code through Agent Zero using persistent shell sessions.
+Run terminal commands and execute Python or Node.js code through BioDockify AI using persistent shell sessions.
 
 ## What It Does
 

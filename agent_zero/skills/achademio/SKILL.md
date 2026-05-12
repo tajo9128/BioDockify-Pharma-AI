@@ -2,13 +2,13 @@
 name: Achademio (Academic Writing Assistant)
 description: |
   Improves research paper quality via academic rewriting, summarization, and proofreading.
-author: Agent Zero Team (Integration of TajaKuzman/Achademio)
+author: BioDockify AI Team (Integration of TajaKuzman/Achademio)
 version: 1.0.0
 ---
 
 # Achademio Skill
 
-This skill integrates [Achademio](https://github.com/TajaKuzman/Achademio) to help Agent Zero refine academic prose.
+This skill integrates [Achademio](https://github.com/TajaKuzman/Achademio) to help BioDockify AI refine academic prose.
 
 ## Capabilities
 
@@ -17,7 +17,7 @@ This skill integrates [Achademio](https://github.com/TajaKuzman/Achademio) to he
 3.  **Bullet-to-Paragraph**: Convert rough bullet points into cohesive academic paragraphs.
 4.  **Proofreading**: Detect errors and suggest corrections with diff highlights.
 
-## Usage in Agent Zero
+## Usage in BioDockify AI
 
 ```python
 from agent_zero.skills.achademio import get_achademio

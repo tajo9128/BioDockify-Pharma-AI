@@ -18,7 +18,7 @@ This skill provides an automated peer-review layer for research content generate
 3.  **Integrity Scoring**: Generates an overall percentage score for the text's reliability.
 4.  **Evidence Mapping**: Finds the closest real paper if a citation is suspicious.
 
-## Usage in Agent Zero
+## Usage in BioDockify AI
 
 ```python
 from agent_zero.skills.reviewer_agent import get_reviewer_agent

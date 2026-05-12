@@ -1,6 +1,6 @@
 # Model Configuration
 
-Manage which models Agent Zero uses for chat, utility, and embeddings, with support for scoped overrides and reusable presets.
+Manage which models BioDockify AI uses for chat, utility, and embeddings, with support for scoped overrides and reusable presets.
 
 ## What It Does
 

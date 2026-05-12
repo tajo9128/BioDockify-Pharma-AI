@@ -3,13 +3,13 @@ name: LatteReview (Systematic Review Automation)
 description: |
   Automates systematic literature reviews using multi-agent AI workflows.
   Can perform title/abstract screening, full-text screening, and data abstraction.
-author: Agent Zero Team (Integration of PouriaRouzrokh/LatteReview)
+author: BioDockify AI Team (Integration of PouriaRouzrokh/LatteReview)
 version: 1.0.0
 ---
 
 # LatteReview Skill
 
-This skill integrates the [LatteReview](https://github.com/PouriaRouzrokh/LatteReview) framework to allow Agent Zero to perform PhD-level systematic reviews.
+This skill integrates the [LatteReview](https://github.com/PouriaRouzrokh/LatteReview) framework to allow BioDockify AI to perform PhD-level systematic reviews.
 
 ## Capabilities
 
@@ -17,7 +17,7 @@ This skill integrates the [LatteReview](https://github.com/PouriaRouzrokh/LatteR
 2.  **Scoring**: Verify relevance with confidence scores.
 3.  **Abstraction**: Extract structured data points from papers.
 
-## Usage in Agent Zero
+## Usage in BioDockify AI
 
 ```python
 from agent_zero.skills.latte_review import get_latte_review
@@ -38,4 +38,4 @@ print(f"Screening complete. Results saved to {output_csv}")
 
 ## Configuration
 
-The skill uses `LiteLLM` under the hood. It will inherit the API keys from the Agent Zero environment (e.g., `OPENAI_API_KEY`, `GEMINI_API_KEY`).
+The skill uses `LiteLLM` under the hood. It will inherit the API keys from the BioDockify AI environment (e.g., `OPENAI_API_KEY`, `GEMINI_API_KEY`).
