@@ -16,7 +16,7 @@ class WorkdirPath(VariablesPlugin):
         #     if project_name:
         #         folder = projects.get_project_folder(project_name)
         #         if runtime.is_development():
-        #             folder = files.normalize_bio_path(folder)
+        #             folder = files.normalize_a0_path(folder)
         #         return {"workdir_path": folder}
 
         set = settings.get_settings()
