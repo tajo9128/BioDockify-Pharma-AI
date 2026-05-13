@@ -9,6 +9,18 @@ COPY knowledge/ /a0/knowledge/
 COPY skills/ /a0/skills/
 COPY identity.md /a0/
 
+COPY helpers/ /a0/helpers/
+COPY modules/ /a0/modules/
+COPY api/ /a0/api/
+COPY extensions/ /a0/extensions/
+COPY tools/ /a0/tools/
+COPY runtime/ /a0/runtime/
+COPY services/ /a0/services/
+COPY conf/ /a0/conf/
+COPY docs/ /a0/docs/
+COPY deployment/ /a0/deployment/
+COPY lib/ /a0/lib/
+
 COPY agent_zero/prompts_v19/ /a0/agent_zero/prompts_v19/
 COPY agent_zero/extensions_v19/ /a0/agent_zero/extensions_v19/
 
