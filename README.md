@@ -1,10 +1,8 @@
 # BioDockify Pharma AI
 
-<h1 align="center">
-  <img src="docs/res/a0-vector-graphics/horizontal_banner.svg" alt="BioDockify Pharma AI Banner" width="100%"/>
-</h1>
+<h1 align="center">🧬 BioDockify Pharma AI</h1>
 
-<h3 align="center">🧬 AI Research Assistant for Pharmaceutical Sciences</h3>
+<h3 align="center">AI Research Assistant for Pharmaceutical Sciences</h3>
 
 <p align="center">
   <a href="https://hub.docker.com/r/tajo9128/biodockify-pharma-ai"><img src="https://img.shields.io/badge/docker-tajo9128%2Fbiodockify--pharma--ai-blue.svg" alt="Docker"/></a>
@@ -16,19 +14,15 @@
 
 ## Fork Attribution
 
-**BioDockify Pharma AI** is a **pharmaceutical research fork** of [Agent Zero](https://github.com/agent0ai/agent-zero).
+**BioDockify Pharma AI** is a pharmaceutical research fork of [Agent Zero](https://github.com/agent0ai/agent-zero), an open-source agentic framework created and maintained by [Jan Tomasek](https://github.com/Xrenel) and the Agent Zero team.
 
-> **Agent Zero** is a personal, organic agentic framework created and maintained by [Jan Tomasek](https://github.com/Xrenel) and the Agent Zero team. It is **free and open-source**, designed to be transparent, readable, and fully customizable.
+> **BioDockify Pharma AI is NOT standalone software.** It is built on Agent Zero, which is free and open-source. All core framework functionality, architecture, and capabilities belong to [Agent Zero](https://github.com/agent0ai/agent-zero).
 >
-> **BioDockify Pharma AI is NOT standalone software.** It is a research-specific customization of Agent Zero, built with gratitude for the Agent Zero team's commitment to keeping the original framework free and open-source. All core framework functionality, architecture, and capabilities belong to [Agent Zero](https://github.com/agent0ai/agent-zero).
->
-> We thank Jan Tomasek and the entire Agent Zero team for their dedication to open AI software.
+> We thank Jan Tomasek and the Agent Zero team for their dedication to open AI software.
 
 ---
 
-## What BioDockify Pharma AI Adds to Agent Zero
-
-BioDockify Pharma AI extends Agent Zero with pharmaceutical research capabilities, specialized agents, research backend modules, and a BioDockify-branded UI.
+## Features
 
 ### Specialized Research Agents (6 Profiles)
 
@@ -41,7 +35,7 @@ BioDockify Pharma AI extends Agent Zero with pharmaceutical research capabilitie
 | **Developer** | developer | Self-healing, debugging, code repair, system recovery |
 | **Hacker** | hacker | Content acquisition when blocked, technical tasks |
 
-### Research Backend Modules (Built by BioDockify)
+### Research Backend Modules
 
 | Module | Description |
 |--------|-------------|
@@ -53,7 +47,7 @@ BioDockify Pharma AI extends Agent Zero with pharmaceutical research capabilitie
 | **Auto Research Orchestrator** | Full research pipeline automation |
 | **Proactive Guidance** | Research phase suggestions and workflow optimization |
 
-### Research Database Access (Built by BioDockify)
+### Research Database Access
 
 | Category | Sources |
 |----------|---------|
@@ -61,7 +55,7 @@ BioDockify Pharma AI extends Agent Zero with pharmaceutical research capabilitie
 | Chemistry & Drugs | PubChem (NIH), ChEMBL (EBI), DrugBank |
 | Clinical | ClinicalTrials.gov (US & EU) |
 
-### BioDockify-Branded UI Features
+### BioDockify-Branded UI
 
 - Custom sidebar with BioDockify Pharma AI branding
 - Research Tools dropdown menu
@@ -70,43 +64,7 @@ BioDockify Pharma AI extends Agent Zero with pharmaceutical research capabilitie
 - DNA double-helix favicon
 - BioDockify identity logo and welcome screen
 
----
-
-## Quick Start
-
-```bash
-# Pull and run with Docker
-docker run -d -p 3000:3000 --name biodockify-pharma \
-  -v biodockify_usr:/a0/usr \
-  tajo9128/biodockify-pharma-ai:latest
-
-# Visit http://localhost:3000
-```
-
-### Docker Compose
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-services:
-  biodockify-pharma-ai:
-    image: tajo9128/biodockify-pharma-ai:latest
-    ports:
-      - "3000:3000"
-    volumes:
-      - biodockify_usr:/a0/usr
-    environment:
-      - OLLAMA_URL=http://host.docker.internal:11434
-      - PORT=3000
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-```
-
----
-
-## Features Inherited from Agent Zero
-
-Agent Zero provides the core framework. BioDockify Pharma AI inherits and leverages:
+### Core Capabilities
 
 - **Multi-Agent Cooperation** — Agents create subordinates to break down complex tasks
 - **Browser Automation** — Playwright-powered web browsing with annotations
@@ -138,8 +96,38 @@ Agent0 (Main Orchestrator)
 │    Biostatistician (stats)
 │         ↓
 └─→ Writer (output)
-     ↓
-   BioDockify UI
+```
+
+---
+
+## Quick Start
+
+```bash
+# Pull and run with Docker
+docker run -d -p 3000:3000 --name biodockify-pharma \
+  -v biodockify_usr:/a0/usr \
+  tajo9128/biodockify-pharma-ai:latest
+
+# Visit http://localhost:3000
+```
+
+### Docker Compose
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  biodockify-pharma-ai:
+    image: tajo9128/biodockify-pharma-ai:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - biodockify_usr:/a0/usr
+    environment:
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - PORT=3000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 ```
 
 ---
