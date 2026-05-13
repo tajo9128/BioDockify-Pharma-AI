@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://hub.docker.com/r/tajo9128/biodockify-pharma-ai"><img src="https://img.shields.io/badge/docker-tajo9128%2Fbiodockify--pharma--ai-blue.svg" alt="Docker"/></a>
-  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-4.1.3-green.svg" alt="Version"/></a>
+  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-4.1.7-green.svg" alt="Version"/></a>
   <a href="https://github.com/tajo9128/BioDockify-Pharma-AI"><img src="https://img.shields.io/badge/GitHub-BioDockify--Pharma--AI-181717?style=flat&logo=github" alt="GitHub"/></a>
 </p>
 
@@ -100,35 +100,83 @@ Agent0 (Main Orchestrator)
 
 ---
 
-## Quick Start
+## Quick Start (Your Data Persists Forever)
+
+### Prerequisites
+- Docker Desktop (Windows/macOS) or Docker Engine (Linux)
+- 8GB+ RAM recommended
+
+### 1. Run with persistence
 
 ```bash
-# Pull and run with Docker
+# Pull and run — ALL data (memory, chats, knowledge, projects) stored in persistent volume
 docker run -d -p 3000:3000 --name biodockify-pharma \
-  -v biodockify_usr:/a0/usr \
+  -v biodockify_pharma_usr:/a0/usr \
   tajo9128/biodockify-pharma-ai:latest
 
 # Visit http://localhost:3000
 ```
 
-### Docker Compose
+**If container is deleted and recreated with the same volume name, ALL data returns.**
+
+### 2. Or use Docker Compose (recommended)
+
+Create a folder and save this as `docker-compose.yml`:
 
 ```yaml
-# docker-compose.yml
 version: '3.8'
 services:
   biodockify-pharma-ai:
     image: tajo9128/biodockify-pharma-ai:latest
+    container_name: biodockify-pharma-ai
     ports:
       - "3000:3000"
     volumes:
-      - biodockify_usr:/a0/usr
-    environment:
-      - OLLAMA_URL=http://host.docker.internal:11434
-      - PORT=3000
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - biodockify_pharma_usr:/a0/usr
+    restart: unless-stopped
+
+volumes:
+  biodockify_pharma_usr:
 ```
+
+Then run:
+```bash
+docker compose up -d
+```
+
+### 3. Desktop backup (Windows)
+
+Double-click `backup-data.bat` to save all research data to your Desktop.
+
+---
+
+## Data Persistence — What Survives Container Deletion
+
+All user data is stored in the Docker volume mounted at `/a0/usr`:
+
+| Data | Path in container | Survives container delete? |
+|---|---|---|
+| **🧠 Memory (FAISS vector DB)** | `/a0/usr/memory/` | ✅ Yes (with volume mount) |
+| **💬 Chat history** | `/a0/usr/chats/` | ✅ Yes |
+| **⚙️ Settings** | `/a0/usr/settings.json` | ✅ Yes |
+| **🔑 API keys & secrets** | `/a0/usr/secrets.env` | ✅ Yes |
+| **📚 Knowledge base** | `/a0/usr/knowledge/` | ✅ Yes |
+| **📂 Projects** | `/a0/usr/projects/` | ✅ Yes |
+| **📄 Workdir files** | `/a0/usr/workdir/` | ✅ Yes |
+| **🧩 User plugins** | `/a0/usr/plugins/` | ✅ Yes |
+| **🛠️ User skills** | `/a0/usr/skills/` | ✅ Yes |
+
+### 3-Year PhD — Long-Term Memory Strategy
+
+1. **Automatic memory**: The FAISS vector DB stores conversations, solutions, and facts automatically. It persists in the Docker volume.
+2. **Regular backups**: Run `backup-data.bat` (Windows) or the built-in backup (Settings → Backup & Restore) to save snapshots to your desktop.
+3. **Migration**: When upgrading to a new version:
+   ```bash
+   docker compose down          # stop old container
+   docker compose pull          # pull new image
+   docker compose up -d         # start with new image + existing volume
+   ```
+   All data returns automatically — no migration needed.
 
 ---
 

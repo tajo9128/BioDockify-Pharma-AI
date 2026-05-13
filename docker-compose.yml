@@ -1,38 +1,28 @@
-# BioDockify AI - Docker Desktop Configuration
-# ============================================
-# For Windows Desktop: BioDockify (Docker) + Ollama (Windows native) on SAME machine
-#
-# Prerequisites:
-# 1. Ollama must listen on 0.0.0.0 (not 127.0.0.1):
-#    Run in PowerShell: $env:OLLAMA_HOST="0.0.0.0:11434"; ollama serve
-#    Or set OLLAMA_HOST=0.0.0.0:11434 in system environment
-# 2. Download model: ollama pull llama3.2
-# 3. Enable Docker Desktop: Settings → Network → Enable host.docker.internal
-#
 version: '3.8'
 
 services:
-  biodockify:
-    image: tajo9128/biodockify-ai:latest
-    container_name: biodockify-ai
+  biodockify-pharma-ai:
+    image: tajo9128/biodockify-pharma-ai:v4.1.7
+    container_name: biodockify-pharma-ai
     ports:
       - "3000:3000"
     volumes:
-      - ./data:/app/data
+      # CRITICAL: ALL user data (memory, chats, settings, knowledge, projects) stored here
+      # This volume persists across container deletion/recreation
+      - biodockify_pharma_usr:/a0/usr
+      # Optional: mount a local folder for easy file exchange
+      # - ./workdir:/a0/usr/workdir
     environment:
-      # Windows Desktop: use host.docker.internal (Docker's DNS for host machine)
-      - OLLAMA_URL=http://host.docker.internal:11434
       - PORT=3000
-      - NODE_ENV=production
-      - DEFAULT_PROVIDER=ollama
+      # Optional: configure Ollama if running locally
+      # - OLLAMA_URL=http://host.docker.internal:11434
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
 volumes:
-  data:
+  biodockify_pharma_usr:
+    # Docker named volume — persists on your machine at:
+    # Windows: \\wsl$\docker-desktop-data\version-pack-data\community\docker\volumes\biodockify_pharma_usr\_data
+    # macOS/Linux: /var/lib/docker/volumes/biodockify_pharma_usr/_data
+    name: biodockify_pharma_usr
