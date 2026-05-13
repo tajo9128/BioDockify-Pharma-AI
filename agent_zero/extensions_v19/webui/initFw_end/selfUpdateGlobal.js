@@ -1,5 +1,5 @@
-import { store } from "/components/settings/external/self-update-store.js";
+import { store } from "/components/settings/external/biodockify-update-store.js";
 
-export default async function selfUpdateGlobal(ctx) {
-  // do nothing, the import is enough
+export default async function biodockifyUpdateGlobal(ctx) {
+  store.checkForUpdate();
 }

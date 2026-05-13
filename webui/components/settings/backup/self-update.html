@@ -2,67 +2,50 @@
   <head>
     <title>Self Update</title>
     <script type="module">
-      import { store } from "/components/settings/external/self-update-store.js";
+      import { store } from "/components/settings/external/biodockify-update-store.js";
     </script>
   </head>
 
   <body>
-    <div x-data="{ get settings() { return $store.settings.settings } }">
-      <template x-if="settings">
-        <div>
-        <div class="section-title"
-             :class="{'settings-update-title-attention': $store.settings.hasUpdateAttention}">
-          Self Update
-        </div>
-        <div class="section-description">
-          Update BioDockify deliberately, with a backup path available before anything changes.
-        </div>
+    <div x-data>
+      <div class="section-title">BioDockify Update</div>
+      <div class="section-description">
+        Check for new versions of BioDockify Pharma AI. Updates are published on GitHub and Docker Hub.
+      </div>
 
-        <div class="settings-update-card"
-             :class="{'settings-update-card-attention': $store.settings.hasUpdateAttention}">
-          <div class="settings-update-card-icon" aria-hidden="true">
-            <span class="material-symbols-outlined"
-                  x-text="$store.settings.hasUpdateAttention ? 'release_alert' : 'system_update_alt'"></span>
+      <div class="settings-update-card">
+        <div class="settings-update-card-icon" aria-hidden="true">
+          <span class="material-symbols-outlined"
+                x-text="$store.biodockifyUpdate.updateAvailable ? 'release_alert' : 'system_update_alt'"></span>
+        </div>
+        <div class="settings-update-card-copy">
+          <div class="settings-update-card-title">
+            <span x-text="$store.biodockifyUpdate.updateAvailable ? 'Update Available' : 'Up to Date'"></span>
           </div>
-          <div class="settings-update-card-copy">
-            <div class="settings-update-card-title" x-text="$store.settings.updateAttentionTitle"></div>
-            <div class="settings-update-card-message" x-text="$store.settings.updateAttentionMessage"></div>
-            <template x-if="!$store.settings.additional?.is_dockerized">
-              <div class="settings-update-card-message">
-                Self-update is currently available only in dockerized installs.
-              </div>
-            </template>
-            <div class="settings-update-card-meta">
-              <span class="settings-update-card-badge" x-text="$store.settings.updateAttentionLabel"></span>
-            </div>
+          <div class="settings-update-card-message">
+            <span x-show="!$store.biodockifyUpdate.checked && !$store.biodockifyUpdate.checking">Checking for updates...</span>
+            <span x-show="$store.biodockifyUpdate.checking">Checking...</span>
+            <span x-show="$store.biodockifyUpdate.checked && $store.biodockifyUpdate.updateAvailable">
+              Version <span x-text="$store.biodockifyUpdate.latestVersion"></span> is available. You have <span x-text="$store.biodockifyUpdate.currentVersion"></span>.
+            </span>
+            <span x-show="$store.biodockifyUpdate.checked && !$store.biodockifyUpdate.updateAvailable">
+              BioDockify Pharma AI <span x-text="$store.biodockifyUpdate.currentVersion"></span> — up to date.
+            </span>
+            <span x-show="$store.biodockifyUpdate.error" style="color: var(--color-error-text, #ff6b6b);" x-text="$store.biodockifyUpdate.error"></span>
           </div>
-          <div class="settings-update-card-actions">
-            <button
-              class="btn btn-field"
-              @click="$store.selfUpdateStore.openModal()"
-              :disabled="!$store.settings.additional?.is_dockerized"
-            >
-              Review Update
-            </button>
+          <div class="settings-update-card-meta">
+            <span class="settings-update-card-badge" x-text="$store.biodockifyUpdate.currentVersion"></span>
           </div>
         </div>
-
-        <div class="field">
-          <div class="field-label">
-            <div class="field-title">Update notifications</div>
-            <div class="field-description">
-              Check for newer releases quietly. Toasts are intentionally rate-limited; the update status here stays visible.
-            </div>
-          </div>
-          <div class="field-control">
-            <label class="toggle">
-              <input type="checkbox" x-model="settings.update_check_enabled" />
-              <span class="toggler"></span>
-            </label>
-          </div>
+        <div class="settings-update-card-actions">
+          <button class="btn btn-field" @click="$store.biodockifyUpdate.checkForUpdate()">
+            Check Now
+          </button>
+          <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases" target="_blank" class="btn btn-field" rel="noopener noreferrer">
+            View Releases
+          </a>
         </div>
-        </div>
-      </template>
+      </div>
     </div>
   </body>
 </html>

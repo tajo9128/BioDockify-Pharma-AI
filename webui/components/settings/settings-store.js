@@ -186,7 +186,17 @@ const model = {
   },
 
   get selfUpdate() {
-    return globalThis.Alpine?.store?.("selfUpdateStore") || null;
+    const biodockifyUpdate = globalThis.Alpine?.store("biodockifyUpdate");
+    if (!biodockifyUpdate) return null;
+    return {
+      info: { pending: false },
+      quickUpdateAvailable: biodockifyUpdate.updateAvailable,
+      hasMajorUpgrade: false,
+      quickStatusLabel: biodockifyUpdate.updateAvailable ? "Update available" : "Up to date",
+      quickStatusMessage: biodockifyUpdate.updateAvailable
+        ? `Version ${biodockifyUpdate.latestVersion} is available. Current: ${biodockifyUpdate.currentVersion}`
+        : `BioDockify Pharma AI ${biodockifyUpdate.currentVersion} — up to date.`,
+    };
   },
 
   getSectionTarget(sectionId, pane = this.getSettingsPane()) {
