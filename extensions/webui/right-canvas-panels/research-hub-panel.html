@@ -1,0 +1,9 @@
+<div class="right-canvas-surface-panel"
+     data-surface-id="research-hub"
+     :class="{
+       'is-active': $store.rightCanvas?.isSurfaceVisible('research-hub'),
+       'is-mounted': $store.rightCanvas?.isSurfaceRendered('research-hub')
+     }"
+     :aria-hidden="(!$store.rightCanvas?.isSurfaceVisible('research-hub')).toString()">
+  <x-component path="/components/research/research-tools.html"></x-component>
+</div>

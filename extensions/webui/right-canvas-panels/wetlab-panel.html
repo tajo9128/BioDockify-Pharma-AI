@@ -1,0 +1,9 @@
+<div class="right-canvas-surface-panel"
+     data-surface-id="wetlab"
+     :class="{
+       'is-active': $store.rightCanvas?.isSurfaceVisible('wetlab'),
+       'is-mounted': $store.rightCanvas?.isSurfaceRendered('wetlab')
+     }"
+     :aria-hidden="(!$store.rightCanvas?.isSurfaceVisible('wetlab')).toString()">
+  <x-component path="/components/wetlab/wetlab-modal.html"></x-component>
+</div>

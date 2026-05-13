@@ -1,0 +1,9 @@
+<div class="right-canvas-surface-panel"
+     data-surface-id="slides"
+     :class="{
+       'is-active': $store.rightCanvas?.isSurfaceVisible('slides'),
+       'is-mounted': $store.rightCanvas?.isSurfaceRendered('slides')
+     }"
+     :aria-hidden="(!$store.rightCanvas?.isSurfaceVisible('slides')).toString()">
+  <x-component path="/components/slides/slides-modal.html"></x-component>
+</div>

@@ -1,0 +1,9 @@
+<div class="right-canvas-surface-panel"
+     data-surface-id="thesis"
+     :class="{
+       'is-active': $store.rightCanvas?.isSurfaceVisible('thesis'),
+       'is-mounted': $store.rightCanvas?.isSurfaceRendered('thesis')
+     }"
+     :aria-hidden="(!$store.rightCanvas?.isSurfaceVisible('thesis')).toString()">
+  <x-component path="/components/thesis/thesis-modal.html"></x-component>
+</div>
