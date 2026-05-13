@@ -214,7 +214,7 @@
 
     .logo-container {
       width: 100%;
-      height: 1.64rem;
+      height: 1.4rem;
     }
 
     #bio-logo, #bio-logo-collapsed {
@@ -259,8 +259,18 @@
       gap: 1px;
       align-items: stretch;
       width: 100%;
-      max-height: calc(100vh - 12rem);
+      max-height: calc(100vh - 14rem);
       overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(155,155,155,0.4) transparent;
+    }
+
+    .research-icons::-webkit-scrollbar {
+      width: 4px;
+    }
+    .research-icons::-webkit-scrollbar-thumb {
+      background-color: rgba(155,155,155,0.4);
+      border-radius: 4px;
     }
 
     .research-icons .header-action-button {

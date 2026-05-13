@@ -15,9 +15,13 @@ COPY agent_zero/extensions_v19/ /a0/agent_zero/extensions_v19/
 RUN find /a0/webui/ -name "favicon*" -type f -delete 2>/dev/null || true; \
     find /a0/webui/ -name "*.ico" -type f -delete 2>/dev/null || true; \
     cp -f /a0/webui/public/favicon.svg /a0/webui/favicon.svg 2>/dev/null || true; \
+    cp -f /a0/webui/public/favicon_round.svg /a0/webui/favicon_round.svg 2>/dev/null || true; \
+    cp -f /a0/webui/public/icon.svg /a0/webui/icon.svg 2>/dev/null || true; \
     sed -i 's|Agent Zero|BioDockify AI|g' /a0/prompts/*.md 2>/dev/null || true; \
     sed -i 's|agent_zero|biodockify_ai|g' /a0/prompts/*.md 2>/dev/null || true; \
     sed -i 's|Agent Zero|BioDockify AI|g' /a0/agent_zero/prompts_v19/*.md 2>/dev/null || true; \
-    sed -i 's|Agent Zero|BioDockify AI|g' /a0/agent_zero/extensions_v19/python/agent_init/*.py 2>/dev/null || true
+    sed -i 's|Agent Zero|BioDockify AI|g' /a0/agent_zero/extensions_v19/python/agent_init/*.py 2>/dev/null || true; \
+    sed -i 's|Agent Zero|BioDockify AI|g' /a0/webui/index.html 2>/dev/null || true; \
+    sed -i 's|Agent Zero|BioDockify AI|g' /a0/webui/js/*.js 2>/dev/null || true
 
 CMD ["/exe/initialize.sh", "main"]
