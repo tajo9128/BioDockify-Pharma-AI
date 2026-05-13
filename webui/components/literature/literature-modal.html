@@ -1,54 +1,55 @@
 <html>
 <head>
-  <script type="module" src="/components/literature/literature-store.js"></script>
+  <script type="module">
+    import { store } from "/components/literature/literature-store.js";
+  </script>
 </head>
 <body>
-  <div x-data="store" class="literature-modal">
+  <div x-data class="literature-modal">
     <div class="modal-header">
       <h2>Literature Search</h2>
-      <button class="close-btn" @click="closeModal()">×</button>
     </div>
 
     <div class="modal-content">
       <div class="search-form">
-        <input type="text" x-model="query" placeholder="Search PubMed, Semantic Scholar, etc." class="search-input" @keyup.enter="searchLiterature()" />
-        <button class="search-btn" @click="searchLiterature()">Search</button>
+        <input type="text" x-model="$store.literatureModal.query" placeholder="Search PubMed, Semantic Scholar, etc." class="search-input" @keyup.enter="$store.literatureModal.searchLiterature()" />
+        <button class="search-btn" @click="$store.literatureModal.searchLiterature()">Search</button>
       </div>
 
       <div class="databases">
         <h3>Databases</h3>
         <div class="db-grid">
-          <button class="db-card" :class="{active: selectedDb === 'pubmed'}" @click="selectedDb = 'pubmed'">
+          <button class="db-card" :class="{active: $store.literatureModal.selectedDb === 'pubmed'}" @click="$store.literatureModal.selectedDb = 'pubmed'">
             <span>PubMed</span>
           </button>
-          <button class="db-card" :class="{active: selectedDb === 'semantic'}" @click="selectedDb = 'semantic'">
+          <button class="db-card" :class="{active: $store.literatureModal.selectedDb === 'semantic'}" @click="$store.literatureModal.selectedDb = 'semantic'">
             <span>Semantic Scholar</span>
           </button>
-          <button class="db-card" :class="{active: selectedDb === 'europepmc'}" @click="selectedDb = 'europepmc'">
+          <button class="db-card" :class="{active: $store.literatureModal.selectedDb === 'europepmc'}" @click="$store.literatureModal.selectedDb = 'europepmc'">
             <span>Europe PMC</span>
           </button>
-          <button class="db-card" :class="{active: selectedDb === 'crossref'}" @click="selectedDb = 'crossref'">
+          <button class="db-card" :class="{active: $store.literatureModal.selectedDb === 'crossref'}" @click="$store.literatureModal.selectedDb = 'crossref'">
             <span>Crossref</span>
           </button>
-          <button class="db-card" :class="{active: selectedDb === 'biorxiv'}" @click="selectedDb = 'biorxiv'">
+          <button class="db-card" :class="{active: $store.literatureModal.selectedDb === 'biorxiv'}" @click="$store.literatureModal.selectedDb = 'biorxiv'">
             <span>bioRxiv</span>
           </button>
-          <button class="db-card" :class="{active: selectedDb === 'pubchem'}" @click="selectedDb = 'pubchem'">
+          <button class="db-card" :class="{active: $store.literatureModal.selectedDb === 'pubchem'}" @click="$store.literatureModal.selectedDb = 'pubchem'">
             <span>PubChem</span>
           </button>
-          <button class="db-card" :class="{active: selectedDb === 'scopus'}" @click="selectedDb = 'scopus'">
+          <button class="db-card" :class="{active: $store.literatureModal.selectedDb === 'scopus'}" @click="$store.literatureModal.selectedDb = 'scopus'">
             <span>Scopus</span>
           </button>
-          <button class="db-card" :class="{active: selectedDb === 'wos'}" @click="selectedDb = 'wos'">
+          <button class="db-card" :class="{active: $store.literatureModal.selectedDb === 'wos'}" @click="$store.literatureModal.selectedDb = 'wos'">
             <span>Web of Science</span>
           </button>
         </div>
       </div>
 
-      <div class="results" x-show="results.length">
-        <h3>Results (<span x-text="results.length"></span>)</h3>
+      <div class="results" x-show="$store.literatureModal.results.length">
+        <h3>Results (<span x-text="$store.literatureModal.results.length"></span>)</h3>
         <div class="results-list">
-          <template x-for="result in results">
+          <template x-for="result in $store.literatureModal.results">
             <div class="result-item">
               <div class="result-title" x-text="result.title"></div>
               <div class="result-meta" x-text="result.authors"></div>

@@ -1,43 +1,44 @@
 <html>
 <head>
-  <script type="module" src="/components/slides/slides-store.js"></script>
+  <script type="module">
+    import { store } from "/components/slides/slides-store.js";
+  </script>
 </head>
 <body>
-  <div x-data="store" class="slides-modal">
+  <div x-data class="slides-modal">
     <div class="modal-header">
       <h2>Presentation Generator</h2>
-      <button class="close-btn" @click="closeModal()">×</button>
     </div>
 
     <div class="modal-content">
       <div class="slide-form">
-        <input type="text" x-model="title" placeholder="Presentation Title" class="title-input" />
+        <input type="text" x-model="$store.slidesModal.title" placeholder="Presentation Title" class="title-input" />
         
         <div class="themes">
           <h3>Theme</h3>
           <div class="theme-grid">
-            <button class="theme-card" :class="{active: theme === 'default'}" @click="theme = 'default'">Default</button>
-            <button class="theme-card" :class="{active: theme === 'scientific'}" @click="theme = 'scientific'">Scientific</button>
-            <button class="theme-card" :class="{active: theme === 'corporate'}" @click="theme = 'corporate'">Corporate</button>
-            <button class="theme-card" :class="{active: theme === 'creative'}" @click="theme = 'creative'">Creative</button>
+            <button class="theme-card" :class="{active: $store.slidesModal.theme === 'default'}" @click="$store.slidesModal.theme = 'default'">Default</button>
+            <button class="theme-card" :class="{active: $store.slidesModal.theme === 'scientific'}" @click="$store.slidesModal.theme = 'scientific'">Scientific</button>
+            <button class="theme-card" :class="{active: $store.slidesModal.theme === 'corporate'}" @click="$store.slidesModal.theme = 'corporate'">Corporate</button>
+            <button class="theme-card" :class="{active: $store.slidesModal.theme === 'creative'}" @click="$store.slidesModal.theme = 'creative'">Creative</button>
           </div>
         </div>
         
         <div class="slides-list">
-          <h3>Slides (<span x-text="slides.length"></span>)</h3>
-          <template x-for="(slide, index) in slides">
-            <div class="slide-item" :class="{active: currentSlide === index}" @click="currentSlide = index">
+          <h3>Slides (<span x-text="$store.slidesModal.slides.length"></span>)</h3>
+          <template x-for="(slide, index) in $store.slidesModal.slides">
+            <div class="slide-item" :class="{active: $store.slidesModal.currentSlide === index}" @click="$store.slidesModal.currentSlide = index">
               <span x-text="index + 1"></span>
               <span x-text="slide.title"></span>
-              <button class="remove-btn" @click.stop="removeSlide(index)">×</button>
+              <button class="remove-btn" @click.stop="$store.slidesModal.removeSlide(index)">×</button>
             </div>
           </template>
-          <button class="add-slide-btn" @click="addSlide()">+ Add Slide</button>
+          <button class="add-slide-btn" @click="$store.slidesModal.addSlide()">+ Add Slide</button>
         </div>
       </div>
 
       <div class="generate-area">
-        <button class="generate-btn" @click="generate()">Generate PowerPoint</button>
+        <button class="generate-btn" @click="$store.slidesModal.generate()">Generate PowerPoint</button>
       </div>
     </div>
 
@@ -45,7 +46,6 @@
       .slides-modal { padding: var(--spacing-md); max-width: 800px; }
       .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md); }
       .modal-header h2 { color: var(--color-primary); }
-      .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--color-text-muted); }
       .title-input { width: 100%; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); margin-bottom: var(--spacing-md); }
       .themes h3 { color: var(--color-text); margin-bottom: var(--spacing-sm); }
       .theme-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--spacing-xs); margin-bottom: var(--spacing-md); }

@@ -1,20 +1,21 @@
 <html>
 <head>
-  <script type="module" src="/components/wetlab/wetlab-store.js"></script>
+  <script type="module">
+    import { store } from "/components/wetlab/wetlab-store.js";
+  </script>
 </head>
 <body>
-  <div x-data="store" class="wetlab-modal">
+  <div x-data class="wetlab-modal">
     <div class="modal-header">
       <h2>Wet Lab Coordinator</h2>
-      <button class="close-btn" @click="closeModal()">×</button>
     </div>
 
     <div class="modal-content">
       <div class="add-experiment">
         <h3>Add Experiment</h3>
         <div class="experiment-form">
-          <input type="text" x-model="newExperiment.name" placeholder="Experiment name" class="exp-input" />
-          <select x-model="newExperiment.type" class="exp-select">
+          <input type="text" x-model="$store.wetlabModal.newExperiment.name" placeholder="Experiment name" class="exp-input" />
+          <select x-model="$store.wetlabModal.newExperiment.type" class="exp-select">
             <option value="">Select type...</option>
             <option value="pcr">PCR</option>
             <option value="elisa">ELISA</option>
@@ -24,13 +25,13 @@
             <option value="microscopy">Microscopy</option>
             <option value="other">Other</option>
           </select>
-          <button class="add-btn" @click="addExperiment()">Add</button>
+          <button class="add-btn" @click="$store.wetlabModal.addExperiment()">Add</button>
         </div>
       </div>
 
       <div class="experiments-list">
-        <h3>Experiments (<span x-text="experiments.length"></span>)</h3>
-        <template x-for="exp in experiments">
+        <h3>Experiments (<span x-text="$store.wetlabModal.experiments.length"></span>)</h3>
+        <template x-for="exp in $store.wetlabModal.experiments">
           <div class="experiment-item">
             <div class="exp-info">
               <span class="exp-name" x-text="exp.name"></span>
@@ -38,17 +39,17 @@
               <span class="exp-date" x-text="new Date(exp.date).toLocaleDateString()"></span>
             </div>
             <div class="exp-status">
-              <select :value="exp.status" @change="updateStatus(exp, $event.target.value)" class="status-select">
+              <select :value="exp.status" @change="$store.wetlabModal.updateStatus(exp, $event.target.value)" class="status-select">
                 <option value="planned">Planned</option>
                 <option value="in_progress">In Progress</option>
                 <option value="completed">Completed</option>
                 <option value="failed">Failed</option>
               </select>
-              <button class="delete-btn" @click="deleteExperiment(exp)">×</button>
+              <button class="delete-btn" @click="$store.wetlabModal.deleteExperiment(exp)">×</button>
             </div>
           </div>
         </template>
-        <div x-show="!experiments.length" class="no-experiments">No experiments tracked</div>
+        <div x-show="!$store.wetlabModal.experiments.length" class="no-experiments">No experiments tracked</div>
       </div>
     </div>
 
@@ -56,7 +57,6 @@
       .wetlab-modal { padding: var(--spacing-md); max-width: 700px; }
       .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md); }
       .modal-header h2 { color: var(--color-primary); }
-      .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--color-text-muted); }
       .add-experiment h3 { color: var(--color-text); margin-bottom: var(--spacing-sm); }
       .experiment-form { display: flex; gap: var(--spacing-xs); margin-bottom: var(--spacing-md); }
       .exp-input { flex: 1; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); }

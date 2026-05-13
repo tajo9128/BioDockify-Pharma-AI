@@ -6,7 +6,6 @@
   <div x-data="statisticsModal" class="statistics-modal">
     <div class="modal-header">
       <h2>BioDockify Statistics</h2>
-      <button class="close-btn" @click="closeModal()">×</button>
     </div>
 
     <div class="modal-content">
@@ -63,67 +62,16 @@
     </div>
 
     <style>
-      .statistics-modal {
-        padding: var(--spacing-md);
-        max-width: 800px;
-      }
-      .modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: var(--spacing-md);
-      }
-      .modal-header h2 {
-        color: var(--color-primary);
-      }
-      .close-btn {
-        background: none;
-        border: none;
-        font-size: 24px;
-        cursor: pointer;
-        color: var(--color-text-muted);
-      }
-      .analysis-types h3 {
-        color: var(--color-text);
-        margin-bottom: var(--spacing-sm);
-      }
-      .analysis-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: var(--spacing-sm);
-      }
-      .analysis-card {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: var(--spacing-md);
-        background: var(--color-panel);
-        border: 1px solid var(--color-border);
-        border-radius: 8px;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-      .analysis-card:hover {
-        background: var(--color-secondary);
-        border-color: var(--color-primary);
-      }
-      .analysis-card .material-symbols-outlined {
-        font-size: 28px;
-        color: var(--color-primary);
-        margin-bottom: var(--spacing-xs);
-      }
-      .results-area {
-        margin-top: var(--spacing-lg);
-        padding: var(--spacing-md);
-        background: var(--color-panel);
-        border-radius: 8px;
-      }
-      .results-area pre {
-        white-space: pre-wrap;
-        font-family: var(--font-mono);
-        font-size: 12px;
-        color: var(--color-text);
-      }
+      .statistics-modal { padding: var(--spacing-md); max-width: 800px; }
+      .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md); }
+      .modal-header h2 { color: var(--color-primary); }
+      .analysis-types h3 { color: var(--color-text); margin-bottom: var(--spacing-sm); }
+      .analysis-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--spacing-sm); }
+      .analysis-card { display: flex; flex-direction: column; align-items: center; padding: var(--spacing-md); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+      .analysis-card:hover { background: var(--color-secondary); border-color: var(--color-primary); }
+      .analysis-card .material-symbols-outlined { font-size: 28px; color: var(--color-primary); margin-bottom: var(--spacing-xs); }
+      .results-area { margin-top: var(--spacing-lg); padding: var(--spacing-md); background: var(--color-panel); border-radius: 8px; }
+      .results-area pre { white-space: pre-wrap; font-family: var(--font-mono); font-size: 12px; color: var(--color-text); }
     </style>
   </div>
 </body>
