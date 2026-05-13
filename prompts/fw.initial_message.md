@@ -1,4 +1,4 @@
-﻿```json
+```json
 {
     "thoughts": [
         "This is a new conversation, I should introduce myself properly with my name and capabilities.",
