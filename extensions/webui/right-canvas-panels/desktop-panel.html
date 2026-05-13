@@ -1,0 +1,9 @@
+<div class="right-canvas-surface-panel"
+     data-surface-id="desktop"
+     :class="{
+       'is-active': $store.rightCanvas?.isSurfaceVisible('desktop'),
+       'is-mounted': $store.rightCanvas?.isSurfaceRendered('desktop')
+     }"
+     :aria-hidden="(!$store.rightCanvas?.isSurfaceVisible('desktop')).toString()">
+  <x-component path="/components/desktop/desktop-panel.html"></x-component>
+</div>

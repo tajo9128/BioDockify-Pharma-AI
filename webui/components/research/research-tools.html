@@ -5,80 +5,57 @@
   </script>
 </head>
 <body>
-  <div x-data="researchTools" class="research-tools">
+  <div x-data class="research-tools">
     <div class="section-header">
-      <h3>Research Tools</h3>
+      <h2>Research Tools</h2>
+      <p class="section-desc">Select a tool to open it in the canvas panel</p>
     </div>
 
     <div class="tool-grid">
-      <button class="tool-card" @click="openStatistics()">
+      <button class="tool-card" @click="$store.rightCanvas.open('statistics')">
         <span class="material-symbols-outlined">analytics</span>
         <span>Statistics</span>
       </button>
-
-      <button class="tool-card" @click="openLiterature()">
+      <button class="tool-card" @click="$store.rightCanvas.open('literature')">
         <span class="material-symbols-outlined">menu_book</span>
         <span>Literature</span>
       </button>
-
-      <button class="tool-card" @click="openThesis()">
+      <button class="tool-card" @click="$store.rightCanvas.open('thesis')">
         <span class="material-symbols-outlined">description</span>
-        <span>Thesis</span>
+        <span>Academic Writer</span>
       </button>
-
-      <button class="tool-card" @click="openSlides()">
+      <button class="tool-card" @click="$store.rightCanvas.open('slides')">
         <span class="material-symbols-outlined">slideshow</span>
         <span>Slides</span>
       </button>
-
-      <button class="tool-card" @click="openWetLab()">
-        <span class="material-symbols-outlined">science</span>
+      <button class="tool-card" @click="$store.rightCanvas.open('wetlab')">
+        <span class="material-symbols-outlined">biotech</span>
         <span>Wet Lab</span>
       </button>
-
-      <button class="tool-card" @click="openKnowledge()">
+      <button class="tool-card" @click="$store.rightCanvas.open('knowledge')">
         <span class="material-symbols-outlined">psychology</span>
         <span>Knowledge</span>
+      </button>
+      <button class="tool-card" @click="$store.rightCanvas.open('agent-tasks')">
+        <span class="material-symbols-outlined">psychology</span>
+        <span>Agent Tasks</span>
+      </button>
+      <button class="tool-card" @click="$store.rightCanvas.open('desktop')">
+        <span class="material-symbols-outlined">desktop_windows</span>
+        <span>Desktop</span>
       </button>
     </div>
 
     <style>
-      .research-tools {
-        padding: var(--spacing-md);
-      }
-      .section-header h3 {
-        margin-bottom: var(--spacing-md);
-        color: var(--color-text);
-      }
-      .tool-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: var(--spacing-sm);
-      }
-      .tool-card {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: var(--spacing-xs);
-        padding: var(--spacing-md);
-        background: var(--color-panel);
-        border: 1px solid var(--color-border);
-        border-radius: 8px;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-      .tool-card:hover {
-        background: var(--color-secondary);
-        border-color: var(--color-primary);
-      }
-      .tool-card .material-symbols-outlined {
-        font-size: 24px;
-        color: var(--color-primary);
-      }
-      .tool-card span:not(.material-symbols-outlined) {
-        font-size: 12px;
-        color: var(--color-text);
-      }
+      .research-tools { padding: var(--spacing-md); height: 100%; overflow-y: auto; }
+      .section-header { margin-bottom: var(--spacing-md); }
+      .section-header h2 { color: var(--color-primary); font-size: 1.1rem; margin: 0 0 4px 0; }
+      .section-desc { color: var(--color-text-muted); font-size: 0.8rem; margin: 0; }
+      .tool-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--spacing-sm); }
+      .tool-card { display: flex; flex-direction: column; align-items: center; gap: var(--spacing-xs); padding: 1rem; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+      .tool-card:hover { background: var(--color-secondary); border-color: var(--color-primary); }
+      .tool-card .material-symbols-outlined { font-size: 28px; color: var(--color-primary); }
+      .tool-card span:last-child { font-size: 0.75rem; color: var(--color-text); }
     </style>
   </div>
 </body>

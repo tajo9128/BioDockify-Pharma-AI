@@ -5,95 +5,127 @@
 <body>
   <div x-data="statisticsModal" class="statistics-modal">
     <div class="modal-header">
-      <h2>BioDockify Statistics</h2>
+      <h2>Statistics</h2>
+      <div class="step-indicator">
+        <span :class="{'active': step >= 1}">1. Upload</span>
+        <span class="step-arrow">→</span>
+        <span :class="{'active': step >= 2}">2. Select Test</span>
+        <span class="step-arrow">→</span>
+        <span :class="{'active': step >= 3}">3. Results</span>
+      </div>
     </div>
 
-    <div class="toolbar">
-      <button class="upload-btn" @click="importData()">
-        <span class="material-symbols-outlined">upload_file</span>
-        <span>Import Data (CSV/Excel)</span>
-      </button>
-    </div>
-
-    <div class="modal-content">
-      <div class="analysis-types">
-        <h3>Statistical Analysis</h3>
-
-        <div class="analysis-grid">
-          <button class="analysis-card" @click="runDescriptive()" :disabled="loading">
-            <span class="material-symbols-outlined">functions</span>
-            <span>Descriptive</span>
-          </button>
-
-          <button class="analysis-card" @click="runTTest()" :disabled="loading">
-            <span class="material-symbols-outlined">compare_arrows</span>
-            <span>T-Test</span>
-          </button>
-
-          <button class="analysis-card" @click="runAnova()" :disabled="loading">
-            <span class="material-symbols-outlined">grid_view</span>
-            <span>ANOVA</span>
-          </button>
-
-          <button class="analysis-card" @click="runCorrelation()" :disabled="loading">
-            <span class="material-symbols-outlined">show_chart</span>
-            <span>Correlation</span>
-          </button>
-
-          <button class="analysis-card" @click="runRegression()" :disabled="loading">
-            <span class="material-symbols-outlined">trend</span>
-            <span>Regression</span>
-          </button>
-
-          <button class="analysis-card" @click="runSurvival()" :disabled="loading">
-            <span class="material-symbols-outlined">timeline</span>
-            <span>Survival</span>
-          </button>
-
-          <button class="analysis-card" @click="runPower()" :disabled="loading">
-            <span class="material-symbols-outlined">bolt</span>
-            <span>Power Analysis</span>
-          </button>
-
-          <button class="analysis-card" @click="runPKPD()" :disabled="loading">
-            <span class="material-symbols-outlined">science</span>
-            <span>PK/PD</span>
-          </button>
+    <!-- Step 1: Upload -->
+    <div x-show="step === 1" class="step-panel">
+      <div class="upload-zone" @click="importData()">
+        <span class="material-symbols-outlined upload-icon">cloud_upload</span>
+        <p class="upload-text">Click to upload CSV, Excel, or JSON data file</p>
+        <p class="upload-hint">Your data stays private — processed locally</p>
+      </div>
+      <div class="quick-actions">
+        <p class="quick-actions-label">Or ask the agent in chat:</p>
+        <div class="example-chips">
+          <span class="chip">"Run descriptive stats on my data"</span>
+          <span class="chip">"Perform t-test on column X by group Y"</span>
         </div>
       </div>
+    </div>
 
-      <div class="results-area" x-show="results || loading">
-        <h3>
-          <span x-show="!loading">Results</span>
-          <span x-show="loading" class="loading-text">
-            <span class="material-symbols-outlined spinning">progress_activity</span>
-            Processing...
-          </span>
-        </h3>
-        <pre x-show="results" x-text="results"></pre>
+    <!-- Step 2: Select Test -->
+    <div x-show="step === 2" class="step-panel">
+      <div class="data-info">
+        <span class="material-symbols-outlined">check_circle</span>
+        <span x-text="'Loaded: ' + fileName"></span>
+        <button class="reset-btn" @click="resetData()">Change file</button>
+      </div>
+      <h3>Select an analysis</h3>
+      <div class="analysis-grid">
+        <button class="analysis-card" @click="runAnalysis('descriptive')" :disabled="loading">
+          <span class="material-symbols-outlined">functions</span>
+          <span>Descriptive</span>
+        </button>
+        <button class="analysis-card" @click="runAnalysis('ttest')" :disabled="loading">
+          <span class="material-symbols-outlined">compare_arrows</span>
+          <span>T-Test</span>
+        </button>
+        <button class="analysis-card" @click="runAnalysis('anova')" :disabled="loading">
+          <span class="material-symbols-outlined">grid_view</span>
+          <span>ANOVA</span>
+        </button>
+        <button class="analysis-card" @click="runAnalysis('correlation')" :disabled="loading">
+          <span class="material-symbols-outlined">show_chart</span>
+          <span>Correlation</span>
+        </button>
+        <button class="analysis-card" @click="runAnalysis('regression')" :disabled="loading">
+          <span class="material-symbols-outlined">trend</span>
+          <span>Regression</span>
+        </button>
+        <button class="analysis-card" @click="runAnalysis('survival')" :disabled="loading">
+          <span class="material-symbols-outlined">timeline</span>
+          <span>Survival</span>
+        </button>
+        <button class="analysis-card" @click="runAnalysis('power')" :disabled="loading">
+          <span class="material-symbols-outlined">bolt</span>
+          <span>Power</span>
+        </button>
+        <button class="analysis-card" @click="runAnalysis('pkpd')" :disabled="loading">
+          <span class="material-symbols-outlined">science</span>
+          <span>PK/PD</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 3: Results -->
+    <div x-show="step === 3" class="step-panel">
+      <div class="data-info">
+        <span class="material-symbols-outlined">check_circle</span>
+        <span x-text="'Analysis: ' + activeAnalysis"></span>
+        <button class="reset-btn" @click="step = 2">Back to tests</button>
+        <button class="reset-btn" @click="resetData()">New data</button>
+      </div>
+      <div class="results-area" x-show="results">
+        <h3>Results</h3>
+        <pre x-text="results"></pre>
       </div>
     </div>
 
     <style>
       .statistics-modal { padding: var(--spacing-md); max-width: 800px; height: 100%; overflow-y: auto; }
-      .modal-header { margin-bottom: var(--spacing-sm); }
-      .modal-header h2 { color: var(--color-primary); font-size: 1.1rem; margin: 0; }
-      .toolbar { margin-bottom: var(--spacing-md); }
-      .upload-btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--color-primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
-      .upload-btn:hover { opacity: 0.9; }
-      .analysis-types h3 { color: var(--color-text); font-size: 0.85rem; margin-bottom: var(--spacing-sm); }
+      .modal-header { margin-bottom: var(--spacing-md); }
+      .modal-header h2 { color: var(--color-primary); font-size: 1.1rem; margin: 0 0 var(--spacing-xs) 0; }
+      .step-indicator { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--color-text-muted); }
+      .step-indicator .active { color: var(--color-primary); font-weight: 600; }
+      .step-arrow { color: var(--color-border); font-size: 0.7rem; }
+      .step-panel { animation: fadeIn 0.2s ease; }
+      @keyframes fadeIn { from { opacity: 0.3; } to { opacity: 1; } }
+
+      .upload-zone { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; border: 2px dashed var(--color-border); border-radius: 12px; cursor: pointer; transition: all 0.2s; margin-bottom: var(--spacing-md); }
+      .upload-zone:hover { border-color: var(--color-primary); background: var(--color-secondary); }
+      .upload-icon { font-size: 3rem; color: var(--color-primary); margin-bottom: var(--spacing-sm); }
+      .upload-text { color: var(--color-text); font-size: 0.95rem; margin: 0 0 4px 0; }
+      .upload-hint { color: var(--color-text-muted); font-size: 0.75rem; margin: 0; }
+
+      .quick-actions { margin-top: var(--spacing-sm); }
+      .quick-actions-label { font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: var(--spacing-xs); }
+      .example-chips { display: flex; flex-wrap: wrap; gap: var(--spacing-xs); }
+      .chip { padding: 4px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 12px; font-size: 0.75rem; color: var(--color-text-muted); }
+
+      .data-info { display: flex; align-items: center; gap: 6px; padding: var(--spacing-sm); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: var(--spacing-md); font-size: 0.8rem; color: var(--color-text); }
+      .data-info .material-symbols-outlined { font-size: 1.1rem; color: var(--color-primary); }
+      .reset-btn { margin-left: auto; padding: 2px 8px; background: transparent; border: 1px solid var(--color-border); border-radius: 4px; color: var(--color-text-muted); cursor: pointer; font-size: 0.7rem; }
+      .reset-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+
+      h3 { font-size: 0.85rem; color: var(--color-text); margin: 0 0 var(--spacing-sm) 0; }
       .analysis-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--spacing-xs); }
       .analysis-card { display: flex; flex-direction: column; align-items: center; padding: 10px 8px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; cursor: pointer; transition: all 0.2s; }
       .analysis-card:hover { background: var(--color-secondary); border-color: var(--color-primary); }
       .analysis-card:disabled { opacity: 0.5; cursor: not-allowed; }
       .analysis-card .material-symbols-outlined { font-size: 24px; color: var(--color-primary); margin-bottom: 2px; }
       .analysis-card span:last-child { font-size: 0.7rem; color: var(--color-text); }
-      .results-area { margin-top: var(--spacing-md); padding: var(--spacing-md); background: var(--color-panel); border-radius: 6px; border: 1px solid var(--color-border); }
+
+      .results-area { margin-top: var(--spacing-sm); padding: var(--spacing-md); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; }
       .results-area h3 { font-size: 0.85rem; color: var(--color-text); margin: 0 0 var(--spacing-xs) 0; }
       .results-area pre { white-space: pre-wrap; font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-text); margin: 0; max-height: 400px; overflow-y: auto; }
-      .loading-text { display: flex; align-items: center; gap: 6px; color: var(--color-text-muted); }
-      .spinning { animation: spin 1s linear infinite; font-size: 1rem; }
-      @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
   </div>
 </body>

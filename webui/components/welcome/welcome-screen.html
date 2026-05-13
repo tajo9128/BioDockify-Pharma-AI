@@ -73,6 +73,14 @@
                         <span class="material-symbols-outlined">extension</span>
                         <span>Plugins</span>
                     </button>
+                    <button class="feature-btn" @click="$store.rightCanvas.open('agent-tasks')">
+                        <span class="material-symbols-outlined">psychology</span>
+                        <span>Agent Tasks</span>
+                    </button>
+                    <button class="feature-btn" @click="$store.rightCanvas.open('desktop')">
+                        <span class="material-symbols-outlined">desktop_windows</span>
+                        <span>Desktop</span>
+                    </button>
                 </div>
 
                 <!-- Quick Links -->
@@ -92,6 +100,14 @@
                     <button class="link-btn" @click="openModal('settings/backup/backup_restore.html')">
                         <span class="material-symbols-outlined">backup</span>
                         <span>Backup</span>
+                    </button>
+                    <button class="link-btn" @click="$store.rightCanvas.open('desktop')">
+                        <span class="material-symbols-outlined">desktop_windows</span>
+                        <span>Desktop</span>
+                    </button>
+                    <button class="link-btn" @click="$store.rightCanvas.open('agent-tasks')">
+                        <span class="material-symbols-outlined">psychology</span>
+                        <span>Agent Tasks</span>
                     </button>
                 </div>
             </div>
