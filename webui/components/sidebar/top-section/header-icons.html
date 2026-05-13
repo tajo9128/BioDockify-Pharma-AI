@@ -23,18 +23,9 @@
       <div id="logo-bar">
         <a href="https://github.com/tajo9128/BioDockify-Pharma-AI" target="_blank" rel="noopener noreferrer" aria-label="BioDockify Pharma AI on GitHub">
           <div class="logo-container">
-            <span id="bio-logo" class="logo-expanded" role="img" aria-label="BioDockify Pharma AI"></span>
-            <span id="bio-logo-collapsed" class="logo-collapsed" role="img" aria-label="BioDockify Pharma AI"></span>
+            <span class="logo-text">BioDockify AI</span>
           </div>
         </a>
-      </div>
-
-      <!-- Primary Action: New Chat -->
-      <div class="primary-actions">
-        <button class="config-button header-action-button" @click="$store.chats.newChat()" title="New Chat" aria-label="New Chat">
-          <span class="material-symbols-outlined">add_comment</span>
-          <span class="icon-label">New Chat</span>
-        </button>
       </div>
 
       <!-- Research Section Header -->
@@ -207,26 +198,18 @@
 
     .logo-container {
       width: 100%;
-      height: 1.4rem;
+      height: 1.8rem;
+      display: flex;
+      align-items: center;
     }
 
-    #bio-logo, #bio-logo-collapsed {
-      display: block;
-      width: 100%;
-      height: 100%;
-      background-size: contain;
-      background-repeat: no-repeat;
-      background-position: left center;
-    }
-
-    #bio-logo {
-      background-image: url(/public/bio-full.svg);
-    }
-
-    #bio-logo-collapsed {
-      background-image: url(/public/bio-collapsed.svg);
-      width: 1.75rem;
-      height: 1.75rem;
+    .logo-text {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--color-primary, #00d4aa);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     
@@ -285,48 +268,6 @@
       white-space: nowrap;
     }
 
-    .primary-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      width: 100%;
-      margin: 4px 0;
-    }
-
-    .primary-actions .header-action-button {
-      flex-direction: row;
-      justify-content: flex-start;
-      padding: 6px 8px;
-      gap: 6px;
-      min-width: 100%;
-      border-radius: 4px;
-      background: var(--color-primary, #00d4aa);
-      color: white;
-    }
-
-    .primary-actions .header-action-button:hover {
-      background: var(--color-primary-dark, #00a888);
-    }
-
-    .primary-actions .icon-label {
-      font-size: 0.75rem;
-    }
-
-    .settings-row {
-      display: flex;
-      flex-direction: row;
-      gap: 2px;
-      width: 100%;
-      margin-top: auto;
-      padding-top: 4px;
-      border-top: 1px solid var(--border-color, #333);
-    }
-
-    .settings-row .header-action-button {
-      flex: 1;
-      padding: 6px;
-    }
-
     .header-action-button {
       display: flex;
       align-items: center;
@@ -347,6 +288,21 @@
 
     .header-action-button .material-symbols-outlined {
       font-size: 1.15rem;
+    }
+
+    .settings-row {
+      display: flex;
+      flex-direction: row;
+      gap: 2px;
+      width: 100%;
+      margin-top: auto;
+      padding-top: 4px;
+      border-top: 1px solid var(--border-color, #333);
+    }
+
+    .settings-row .header-action-button {
+      flex: 1;
+      padding: 6px;
     }
 
     .dropdown-toggle .rotated {
