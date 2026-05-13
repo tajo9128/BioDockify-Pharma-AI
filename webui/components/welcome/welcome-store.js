@@ -15,7 +15,7 @@ const model = {
   _initialized: false,
 
   get versionLabel() {
-    return "v1.60";
+    return globalThis.gitinfo?.version || "v4.1.4";
   },
 
   get isVisible() {
@@ -205,11 +205,9 @@ const model = {
   executeAction(actionId) {
     switch (actionId) {
       case "new-chat":
-        this.hide();
         chatsStore.newChat();
         break;
       case "home":
-        this.show(); // Show welcome as home
         break;
       case "settings":
         window.openModal("settings/settings.html");
@@ -218,10 +216,6 @@ const model = {
         window.openModal("modals/scheduler/scheduler-modal.html");
         break;
     }
-  },
-  
-  get _isVisible() {
-    return this._showWelcome;
   },
 };
 

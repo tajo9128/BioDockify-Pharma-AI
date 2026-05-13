@@ -14,6 +14,7 @@ import { store as chatTopStore } from "/components/chat/top-section/chat-top-sto
 import { store as _tooltipsStore } from "/components/tooltips/tooltip-store.js";
 import { store as messageQueueStore } from "/components/chat/message-queue/message-queue-store.js";
 import { store as syncStore } from "/components/sync/sync-store.js"
+import { store as welcomeStore } from "/components/welcome/welcome-store.js";
 
 globalThis.fetchApi = api.fetchApi; // TODO - backward compatibility for non-modular scripts, remove once refactored to alpine
 
@@ -775,6 +776,11 @@ document.addEventListener("DOMContentLoaded", function () {
   autoScrollSwitch = document.getElementById("auto-scroll-switch");
   timeDate = document.getElementById("time-date-container");
 
+
+  // Initialize welcome screen banners
+  if (welcomeStore && typeof welcomeStore.init === "function") {
+    welcomeStore.init();
+  }
 
   // Start polling for updates
   startPolling();

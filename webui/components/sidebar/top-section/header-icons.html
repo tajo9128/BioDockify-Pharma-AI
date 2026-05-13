@@ -44,37 +44,37 @@
 
       <!-- Research Icons - All accessible, stacked below chat -->
       <div class="research-icons">
-        <button class="config-button header-action-button" @click="openModal('components/research/research-tools.html')" title="Research Tools">
+        <button class="config-button header-action-button" @click="$store.rightCanvas.open('research-hub')" title="Research Tools">
           <span class="material-symbols-outlined">science</span>
           <span class="icon-label">Research</span>
         </button>
 
-        <button class="config-button header-action-button" @click="openModal('components/statistics/statistics-modal.html')" title="Statistics">
+        <button class="config-button header-action-button" @click="$store.rightCanvas.open('statistics')" title="Statistics">
           <span class="material-symbols-outlined">analytics</span>
           <span class="icon-label">Statistics</span>
         </button>
 
-        <button class="config-button header-action-button" @click="openModal('components/literature/literature-modal.html')" title="Literature">
+        <button class="config-button header-action-button" @click="$store.rightCanvas.open('literature')" title="Literature">
           <span class="material-symbols-outlined">menu_book</span>
           <span class="icon-label">Literature</span>
         </button>
 
-        <button class="config-button header-action-button" @click="openModal('components/thesis/thesis-modal.html')" title="Thesis">
+        <button class="config-button header-action-button" @click="$store.rightCanvas.open('thesis')" title="Thesis">
           <span class="material-symbols-outlined">description</span>
           <span class="icon-label">Thesis</span>
         </button>
 
-        <button class="config-button header-action-button" @click="openModal('components/slides/slides-modal.html')" title="Slides">
+        <button class="config-button header-action-button" @click="$store.rightCanvas.open('slides')" title="Slides">
           <span class="material-symbols-outlined">slideshow</span>
           <span class="icon-label">Slides</span>
         </button>
 
-        <button class="config-button header-action-button" @click="openModal('components/wetlab/wetlab-modal.html')" title="Wet Lab">
+        <button class="config-button header-action-button" @click="$store.rightCanvas.open('wetlab')" title="Wet Lab">
           <span class="material-symbols-outlined">biotech</span>
           <span class="icon-label">Wet Lab</span>
         </button>
 
-        <button class="config-button header-action-button" @click="openModal('components/knowledge/knowledge-modal.html')" title="Knowledge">
+        <button class="config-button header-action-button" @click="$store.rightCanvas.open('knowledge')" title="Knowledge">
           <span class="material-symbols-outlined">psychology</span>
           <span class="icon-label">Knowledge</span>
         </button>

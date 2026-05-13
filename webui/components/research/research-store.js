@@ -1,31 +1,40 @@
 import { createStore } from "/js/AlpineStore.js";
 
+function openResearchTool(surfaceId) {
+  const canvas = globalThis.Alpine?.store("rightCanvas");
+  if (canvas && typeof canvas.open === "function") {
+    canvas.open(surfaceId);
+  } else {
+    console.warn("rightCanvas store not available");
+  }
+}
+
 export const store = createStore("researchTools", {
   init() {
     console.log("BioDockify Research Tools initialized");
   },
 
   async openStatistics() {
-    openModal("components/statistics/statistics-modal.html");
+    openResearchTool("statistics");
   },
 
   async openLiterature() {
-    openModal("components/literature/literature-modal.html");
+    openResearchTool("literature");
   },
 
   async openThesis() {
-    openModal("components/thesis/thesis-modal.html");
+    openResearchTool("thesis");
   },
 
   async openSlides() {
-    openModal("components/slides/slides-modal.html");
+    openResearchTool("slides");
   },
 
   async openWetLab() {
-    openModal("components/wetlab/wetlab-modal.html");
+    openResearchTool("wetlab");
   },
 
   async openKnowledge() {
-    openModal("components/knowledge/knowledge-modal.html");
+    openResearchTool("knowledge");
   }
 });
