@@ -1,7 +1,7 @@
 export default async function registerThesisSurface(canvas) {
   canvas.registerSurface({
     id: "thesis",
-    title: "Thesis",
+    title: "Academic Writer",
     icon: "description",
     order: 40,
     modalPath: "/components/thesis/thesis-modal.html",

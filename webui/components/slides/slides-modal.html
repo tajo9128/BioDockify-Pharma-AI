@@ -11,55 +11,35 @@
     </div>
 
     <div class="modal-content">
-      <div class="slide-form">
-        <input type="text" x-model="$store.slidesModal.title" placeholder="Presentation Title" class="title-input" />
-        
-        <div class="themes">
-          <h3>Theme</h3>
-          <div class="theme-grid">
-            <button class="theme-card" :class="{active: $store.slidesModal.theme === 'default'}" @click="$store.slidesModal.theme = 'default'">Default</button>
-            <button class="theme-card" :class="{active: $store.slidesModal.theme === 'scientific'}" @click="$store.slidesModal.theme = 'scientific'">Scientific</button>
-            <button class="theme-card" :class="{active: $store.slidesModal.theme === 'corporate'}" @click="$store.slidesModal.theme = 'corporate'">Corporate</button>
-            <button class="theme-card" :class="{active: $store.slidesModal.theme === 'creative'}" @click="$store.slidesModal.theme = 'creative'">Creative</button>
-          </div>
+      <div class="info-section">
+        <div class="info-icon">
+          <span class="material-symbols-outlined">slideshow</span>
         </div>
-        
-        <div class="slides-list">
-          <h3>Slides (<span x-text="$store.slidesModal.slides.length"></span>)</h3>
-          <template x-for="(slide, index) in $store.slidesModal.slides">
-            <div class="slide-item" :class="{active: $store.slidesModal.currentSlide === index}" @click="$store.slidesModal.currentSlide = index">
-              <span x-text="index + 1"></span>
-              <span x-text="slide.title"></span>
-              <button class="remove-btn" @click.stop="$store.slidesModal.removeSlide(index)">×</button>
-            </div>
-          </template>
-          <button class="add-slide-btn" @click="$store.slidesModal.addSlide()">+ Add Slide</button>
+        <div class="info-text">
+          <p>Ask the agent in chat to generate presentations on any topic. The agent will research content and create slides for you.</p>
         </div>
       </div>
 
-      <div class="generate-area">
-        <button class="generate-btn" @click="$store.slidesModal.generate()">Generate PowerPoint</button>
+      <div class="example-prompts">
+        <h3>Example prompts:</h3>
+        <ul>
+          <li>"Create a presentation on recent advances in mRNA vaccines"</li>
+          <li>"Generate slides for my clinical trial results"</li>
+          <li>"Make a 10-slide overview of PK/PD modeling"</li>
+        </ul>
       </div>
     </div>
 
     <style>
-      .slides-modal { padding: var(--spacing-md); max-width: 800px; }
-      .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md); }
-      .modal-header h2 { color: var(--color-primary); }
-      .title-input { width: 100%; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); margin-bottom: var(--spacing-md); }
-      .themes h3 { color: var(--color-text); margin-bottom: var(--spacing-sm); }
-      .theme-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--spacing-xs); margin-bottom: var(--spacing-md); }
-      .theme-card { padding: var(--spacing-sm); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 4px; cursor: pointer; color: var(--color-text); }
-      .theme-card.active { background: var(--color-primary); color: white; }
-      .slides-list h3 { color: var(--color-text); margin-bottom: var(--spacing-sm); }
-      .slide-item { display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-sm); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 4px; cursor: pointer; margin-bottom: var(--spacing-xs); }
-      .slide-item.active { border-color: var(--color-primary); }
-      .slide-item span:first-child { width: 24px; color: var(--color-text-muted); }
-      .slide-item span:nth-child(2) { flex: 1; color: var(--color-text); }
-      .remove-btn { background: none; border: none; color: var(--color-text-muted); cursor: pointer; }
-      .add-slide-btn { padding: var(--spacing-sm); background: var(--color-panel); border: 1px dashed var(--color-border); border-radius: 4px; cursor: pointer; width: 100%; color: var(--color-text); }
-      .generate-area { margin-top: var(--spacing-md); }
-      .generate-btn { padding: var(--spacing-sm) var(--spacing-md); background: var(--color-primary); color: white; border: none; border-radius: 4px; cursor: pointer; }
+      .slides-modal { padding: var(--spacing-md); max-width: 700px; height: 100%; overflow-y: auto; }
+      .modal-header { margin-bottom: var(--spacing-md); }
+      .modal-header h2 { color: var(--color-primary); font-size: 1.1rem; margin: 0; }
+      .info-section { display: flex; gap: var(--spacing-md); padding: var(--spacing-md); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: var(--spacing-md); }
+      .info-icon .material-symbols-outlined { font-size: 2rem; color: var(--color-primary); }
+      .info-text p { margin: 0; color: var(--color-text); font-size: 0.85rem; line-height: 1.5; }
+      .example-prompts h3 { font-size: 0.85rem; color: var(--color-text); margin-bottom: var(--spacing-sm); }
+      .example-prompts ul { margin: 0; padding-left: var(--spacing-md); }
+      .example-prompts li { color: var(--color-text-muted); font-size: 0.8rem; margin-bottom: var(--spacing-xs); line-height: 1.4; }
     </style>
   </div>
 </body>

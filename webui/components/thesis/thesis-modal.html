@@ -7,38 +7,40 @@
 <body>
   <div x-data class="thesis-modal">
     <div class="modal-header">
-      <h2>Thesis Tracker</h2>
+      <h2>Academic Writer</h2>
     </div>
 
     <div class="modal-content">
-      <div class="thesis-progress">
-        <h3>Progress</h3>
-        <div class="progress-bar">
-          <template x-for="chapter in $store.thesisModal.chapters">
-            <div class="chapter-item" @click="$store.thesisModal.selectChapter(chapter)">
-              <span class="chapter-number" x-text="chapter.id"></span>
-              <span class="chapter-title" x-text="chapter.title"></span>
-            </div>
-          </template>
+      <div class="info-section">
+        <div class="info-icon">
+          <span class="material-symbols-outlined">edit_note</span>
+        </div>
+        <div class="info-text">
+          <p>Ask the agent in chat to write reviews, research papers, or thesis chapters. The agent will research, draft, and format your document using the available tools.</p>
         </div>
       </div>
 
-      <div class="export-area">
-        <button class="export-btn" @click="$store.thesisModal.exportLatex()">Export LaTeX</button>
+      <div class="example-prompts">
+        <h3>Example prompts:</h3>
+        <ul>
+          <li>"Write a literature review on CRISPR applications in cancer therapy"</li>
+          <li>"Draft the methodology section for my pharmacokinetics paper"</li>
+          <li>"Write a systematic review on AI in drug discovery"</li>
+          <li>"Export my thesis to LaTeX format"</li>
+        </ul>
       </div>
     </div>
 
     <style>
-      .thesis-modal { padding: var(--spacing-md); max-width: 700px; }
-      .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md); }
-      .modal-header h2 { color: var(--color-primary); }
-      .thesis-progress h3 { color: var(--color-text); margin-bottom: var(--spacing-sm); }
-      .progress-bar { display: flex; flex-direction: column; gap: var(--spacing-xs); }
-      .chapter-item { display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-sm); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 4px; cursor: pointer; }
-      .chapter-number { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: var(--color-border); border-radius: 50%; font-size: 12px; color: var(--color-text); }
-      .chapter-title { flex: 1; color: var(--color-text); }
-      .export-area { margin-top: var(--spacing-md); }
-      .export-btn { padding: var(--spacing-sm) var(--spacing-md); background: var(--color-primary); color: white; border: none; border-radius: 4px; cursor: pointer; }
+      .thesis-modal { padding: var(--spacing-md); max-width: 700px; height: 100%; overflow-y: auto; }
+      .modal-header { margin-bottom: var(--spacing-md); }
+      .modal-header h2 { color: var(--color-primary); font-size: 1.1rem; margin: 0; }
+      .info-section { display: flex; gap: var(--spacing-md); padding: var(--spacing-md); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: var(--spacing-md); }
+      .info-icon .material-symbols-outlined { font-size: 2rem; color: var(--color-primary); }
+      .info-text p { margin: 0; color: var(--color-text); font-size: 0.85rem; line-height: 1.5; }
+      .example-prompts h3 { font-size: 0.85rem; color: var(--color-text); margin-bottom: var(--spacing-sm); }
+      .example-prompts ul { margin: 0; padding-left: var(--spacing-md); }
+      .example-prompts li { color: var(--color-text-muted); font-size: 0.8rem; margin-bottom: var(--spacing-xs); line-height: 1.4; }
     </style>
   </div>
 </body>

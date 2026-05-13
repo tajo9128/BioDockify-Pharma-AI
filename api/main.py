@@ -883,6 +883,41 @@ async def query_knowledge_base(request: KnowledgeQueryRequest):
         return {"status": "error", "error": str(e), "results": []}
 
 
+@app.post("/api/knowledge/import")
+async def knowledge_import(request: Request):
+    """
+    Import documents into the knowledge base (file upload endpoint).
+    Accepts multipart form with 'files' field containing one or more documents.
+    Supported formats: .csv, .pdf, .txt, .md, .json, .docx
+    """
+    try:
+        form = await request.form()
+        files = form.getlist("files")
+        if not files:
+            return {"success": False, "error": "No files provided"}
+
+        from modules.rag.vector_store import get_vector_store
+        from modules.rag.ingestor import DocumentIngestor
+
+        store = get_vector_store()
+        ingestor = DocumentIngestor(store)
+        count = 0
+        for upload_file in files:
+            filename = upload_file.filename or "unknown"
+            content = await upload_file.read()
+            try:
+                text = content.decode("utf-8")
+            except UnicodeDecodeError:
+                text = content.decode("latin-1")
+            ingestor.ingest_text(text, metadata={"source": filename, "type": "upload"})
+            count += 1
+
+        return {"success": True, "count": count, "message": f"{count} document(s) imported"}
+    except Exception as e:
+        logger.error(f"Knowledge import failed: {e}")
+        return {"success": False, "error": str(e)}
+
+
 @app.post("/api/knowledge/podcast")
 async def generate_podcast(request: PodcastRequest):
     """
