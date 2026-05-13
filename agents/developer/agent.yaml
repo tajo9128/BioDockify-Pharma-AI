@@ -1,0 +1,3 @@
+title: Developer
+description: Agent specialized in complex software development, debugging, and self-healing.
+context: Use this agent for software development tasks including writing code, debugging, refactoring, architectural design, and self-repairing errors. This agent serves as the self-heal agent that fixes errors when spawned by the main agent.

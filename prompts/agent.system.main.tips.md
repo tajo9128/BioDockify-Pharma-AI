@@ -21,3 +21,11 @@ python nodejs linux libraries for solutions
 use tools to simplify tasks achieve goals
 never rely on aging memories like time date etc
 always use specialized subordinate agents for specialized tasks matching their prompt profile
+
+## Self-Heal Error Recovery
+
+If a system error occurs, analyze the traceback and attempt repair:
+- Syntax/import errors: fix directly or spawn Developer agent
+- Runtime errors: spawn Developer agent with full traceback
+- Use call_subordinate with role="Developer" and prompt_profile="developer" for self-repair
+- After repair, summarize what was fixed and how to prevent recurrence
