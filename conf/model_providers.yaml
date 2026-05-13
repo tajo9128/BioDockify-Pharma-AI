@@ -77,15 +77,12 @@ chat:
   huggingface:
     name: HuggingFace
     litellm_provider: huggingface
-<<<<<<< HEAD
   lm_studio:
     name: LM Studio
     litellm_provider: lm_studio
     models_list:
       endpoint_url: "/v1/models"
       default_base: "http://host.docker.internal:1234"
-=======
->>>>>>> 3768e8a174058c75c6c7fdc6d99db17d246d1fed
   mistral:
     name: Mistral AI
     litellm_provider: mistral
@@ -198,7 +195,6 @@ embedding:
         "HTTP-Referer": "https://agent-zero.ai/"
         "X-Title": "BioDockify"
         "X-OpenRouter-Categories": "personal-agent,cloud-agent"
-<<<<<<< HEAD
   a0_venice:
     name: BioDockify API
     litellm_provider: openai
@@ -216,8 +212,3 @@ embedding:
   other:
     name: Other OpenAI compatible
     litellm_provider: openai
-=======
-  other:
-    name: Other OpenAI compatible
-    litellm_provider: openai
->>>>>>> 3768e8a174058c75c6c7fdc6d99db17d246d1fed
