@@ -1,0 +1,123 @@
+<html>
+<head>
+  <script type="module">
+    import { store } from "/components/drug-properties/drug-properties-store.js";
+  </script>
+</head>
+<body>
+  <div x-data class="drug-properties-panel">
+    <div class="panel-header">
+      <h2>Drug Properties</h2>
+      <p class="panel-desc">Calculate drug-like properties from SMILES or select a known drug</p>
+    </div>
+
+    <div class="preset-section">
+      <h3>Preset Drugs</h3>
+      <div class="preset-grid">
+        <template x-for="lib in $store.drugProperties.libraries" :key="lib">
+          <button class="preset-btn"
+                  :class="{active: $store.drugProperties.preset === lib}"
+                  @click="$store.drugProperties.selectPreset(lib)"
+                  x-text="$store.drugProperties.libraryNames[lib]"></button>
+        </template>
+      </div>
+    </div>
+
+    <div class="smiles-section">
+      <h3>Or enter SMILES</h3>
+      <div class="smiles-row">
+        <input type="text" x-model="$store.drugProperties.smiles"
+               placeholder="e.g. CC(=O)Oc1ccccc1C(=O)O" class="smiles-input"
+               @keyup.enter="$store.drugProperties.analyze()" />
+        <button class="analyze-btn" @click="$store.drugProperties.analyze()"
+                :disabled="$store.drugProperties.loading">
+          <span x-show="!$store.drugProperties.loading">Analyze</span>
+          <span x-show="$store.drugProperties.loading">...</span>
+        </button>
+        <button class="clear-btn" @click="$store.drugProperties.clear()">Clear</button>
+      </div>
+    </div>
+
+    <div x-show="$store.drugProperties.error" class="error-msg" x-text="$store.drugProperties.error"></div>
+
+    <div x-show="$store.drugProperties.result" class="results-section">
+      <h3>Properties</h3>
+      <table class="props-table">
+        <tr>
+          <td>Formula</td>
+          <td><strong x-text="$store.drugProperties.result.formula"></strong></td>
+        </tr>
+        <tr>
+          <td>Molecular Weight</td>
+          <td><span x-text="$store.drugProperties.result.mw + ' Da'"></span>
+              <span :class="'badge ' + ($store.drugProperties.result.mw <= 500 ? 'badge-pass' : 'badge-fail')">≤500</span></td>
+        </tr>
+        <tr>
+          <td>LogP</td>
+          <td><span x-text="$store.drugProperties.result.logp"></span>
+              <span :class="'badge ' + ($store.drugProperties.result.logp <= 5 ? 'badge-pass' : 'badge-fail')">≤5</span></td>
+        </tr>
+        <tr>
+          <td>H-Bond Donors</td>
+          <td><span x-text="$store.drugProperties.result.hbd"></span>
+              <span :class="'badge ' + ($store.drugProperties.result.hbd <= 5 ? 'badge-pass' : 'badge-fail')">≤5</span></td>
+        </tr>
+        <tr>
+          <td>H-Bond Acceptors</td>
+          <td><span x-text="$store.drugProperties.result.hba"></span>
+              <span :class="'badge ' + ($store.drugProperties.result.hba <= 10 ? 'badge-pass' : 'badge-fail')">≤10</span></td>
+        </tr>
+        <tr>
+          <td>TPSA</td>
+          <td><span x-text="$store.drugProperties.result.tpsa + ' Å²'"></span></td>
+        </tr>
+        <tr>
+          <td>Rotatable Bonds</td>
+          <td><span x-text="$store.drugProperties.result.rotatable_bonds"></span></td>
+        </tr>
+        <tr class="lipinski-row">
+          <td>Lipinski Rule of 5</td>
+          <td>
+            <span :class="'lipinski-badge ' + ($store.drugProperties.result.lipinski_rule_of_5 ? 'lipinski-pass' : 'lipinski-fail')"
+                  x-text="$store.drugProperties.result.lipinski_rule_of_5 ? '✅ Passes' : '❌ Fails'"></span>
+            <span class="lipinski-count" x-text="'(' + $store.drugProperties.result.lipinski_passes + '/4)'"></span>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <style>
+      .drug-properties-panel { padding: var(--spacing-md); height: 100%; overflow-y: auto; }
+      .panel-header { margin-bottom: var(--spacing-md); }
+      .panel-header h2 { color: var(--color-primary); font-size: 1.1rem; margin: 0 0 4px 0; }
+      .panel-desc { color: var(--color-text-muted); font-size: 0.8rem; margin: 0; }
+      h3 { font-size: 0.85rem; color: var(--color-text); margin: 0 0 var(--spacing-xs) 0; }
+      .preset-section { margin-bottom: var(--spacing-md); }
+      .preset-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+      .preset-btn { padding: 4px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 14px; cursor: pointer; font-size: 0.75rem; color: var(--color-text); transition: all 0.15s; }
+      .preset-btn:hover { border-color: var(--color-primary); }
+      .preset-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
+      .smiles-section { margin-bottom: var(--spacing-md); }
+      .smiles-row { display: flex; gap: var(--spacing-xs); }
+      .smiles-input { flex: 1; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); font-size: 0.85rem; font-family: var(--font-mono); }
+      .analyze-btn, .clear-btn { padding: var(--spacing-xs) var(--spacing-md); border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+      .analyze-btn { background: var(--color-primary); color: white; }
+      .analyze-btn:disabled { opacity: 0.6; }
+      .clear-btn { background: var(--color-panel); border: 1px solid var(--color-border); color: var(--color-text-muted); }
+      .error-msg { color: var(--color-error-text, #ff6b6b); font-size: 0.8rem; margin-bottom: var(--spacing-sm); }
+      .results-section { margin-top: var(--spacing-sm); }
+      .props-table { width: 100%; border-collapse: collapse; }
+      .props-table td { padding: 6px 8px; border-bottom: 1px solid var(--color-border); font-size: 0.85rem; color: var(--color-text); }
+      .props-table td:first-child { color: var(--color-text-muted); width: 50%; }
+      .badge { display: inline-block; margin-left: 8px; padding: 1px 6px; border-radius: 8px; font-size: 0.65rem; }
+      .badge-pass { background: rgba(0, 212, 170, 0.15); color: var(--color-primary); }
+      .badge-fail { background: rgba(255, 107, 107, 0.15); color: var(--color-error-text, #ff6b6b); }
+      .lipinski-row td { padding-top: 10px; border-top: 2px solid var(--color-border); }
+      .lipinski-badge { font-weight: 600; font-size: 0.9rem; }
+      .lipinski-pass { color: var(--color-primary); }
+      .lipinski-fail { color: var(--color-error-text, #ff6b6b); }
+      .lipinski-count { margin-left: 6px; font-size: 0.75rem; color: var(--color-text-muted); }
+    </style>
+  </div>
+</body>
+</html>

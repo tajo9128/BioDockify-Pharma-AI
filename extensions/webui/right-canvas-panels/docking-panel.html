@@ -1,0 +1,9 @@
+<div class="right-canvas-surface-panel"
+     data-surface-id="docking"
+     :class="{
+       'is-active': $store.rightCanvas?.isSurfaceVisible('docking'),
+       'is-mounted': $store.rightCanvas?.isSurfaceRendered('docking')
+     }"
+     :aria-hidden="(!$store.rightCanvas?.isSurfaceVisible('docking')).toString()">
+  <x-component path="/components/docking/docking-panel.html"></x-component>
+</div>

@@ -1,0 +1,9 @@
+<div class="right-canvas-surface-panel"
+     data-surface-id="drug-properties"
+     :class="{
+       'is-active': $store.rightCanvas?.isSurfaceVisible('drug-properties'),
+       'is-mounted': $store.rightCanvas?.isSurfaceRendered('drug-properties')
+     }"
+     :aria-hidden="(!$store.rightCanvas?.isSurfaceVisible('drug-properties')).toString()">
+  <x-component path="/components/drug-properties/drug-properties-panel.html"></x-component>
+</div>

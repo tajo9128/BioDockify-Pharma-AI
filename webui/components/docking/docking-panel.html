@@ -1,0 +1,158 @@
+<html>
+<head>
+  <script type="module">
+    import { store } from "/components/docking/docking-store.js";
+  </script>
+</head>
+<body>
+  <div x-data class="docking-panel">
+    <div class="panel-header">
+      <h2>Molecular Docking</h2>
+      <div class="step-indicator">
+        <span :class="{active: $store.docking.step >= 1}">1. Setup</span>
+        <span class="step-arrow">→</span>
+        <span :class="{active: $store.docking.step >= 2}">2. Configure</span>
+        <span class="step-arrow">→</span>
+        <span :class="{active: $store.docking.step >= 3}">3. Results</span>
+      </div>
+    </div>
+
+    <!-- Step 1: Upload Protein + Ligand -->
+    <div x-show="$store.docking.step === 1" class="step-panel">
+      <div class="form-section">
+        <h3>Protein Structure</h3>
+        <p class="field-desc">Upload a protein PDB file or paste its contents</p>
+        <div class="upload-zone" @click="$store.docking.triggerFileUpload()">
+          <span class="material-symbols-outlined upload-icon">upload_file</span>
+          <span class="upload-text" x-text="$store.docking.proteinPdb ? 'PDB loaded (' + $store.docking.proteinPdb.length + ' chars)' : 'Click to upload .pdb file'"></span>
+        </div>
+        <textarea x-model="$store.docking.proteinPdb" placeholder="Or paste PDB content here..." class="pdb-input" rows="4"></textarea>
+      </div>
+      <div class="form-section">
+        <h3>Ligand</h3>
+        <p class="field-desc">Enter SMILES string for the ligand molecule</p>
+        <input type="text" x-model="$store.docking.ligandSmiles" placeholder="e.g. CC(=O)Oc1ccccc1C(=O)O (Aspirin)" class="smiles-input" />
+        <input type="text" x-model="$store.docking.ligandName" placeholder="Ligand name (optional)" class="name-input" />
+      </div>
+      <div class="nav-buttons">
+        <button class="next-btn" @click="$store.docking.uploadAndPrepare()" :disabled="$store.docking.loading">
+          <span x-show="!$store.docking.loading">Prepare →</span>
+          <span x-show="$store.docking.loading">Processing...</span>
+        </button>
+      </div>
+      <div x-show="$store.docking.error" class="error-msg" x-text="$store.docking.error"></div>
+    </div>
+
+    <!-- Step 2: Configure Grid -->
+    <div x-show="$store.docking.step === 2" class="step-panel">
+      <div class="config-summary">
+        <span class="material-symbols-outlined">check_circle</span>
+        <span>Protein + ligand prepared. Configure the docking grid.</span>
+        <button class="back-btn" @click="$store.docking.step = 1">Back</button>
+      </div>
+      <div class="form-section">
+        <h3>Grid Center</h3>
+        <p class="field-desc">Center coordinates (auto-detected from protein)</p>
+        <div class="grid-fields">
+          <label>X <input type="number" x-model="$store.docking.center.x" class="grid-input" step="1" /></label>
+          <label>Y <input type="number" x-model="$store.docking.center.y" class="grid-input" step="1" /></label>
+          <label>Z <input type="number" x-model="$store.docking.center.z" class="grid-input" step="1" /></label>
+        </div>
+      </div>
+      <div class="form-section">
+        <h3>Grid Size (Å)</h3>
+        <p class="field-desc">Search space dimensions. Larger = slower but more thorough.</p>
+        <div class="grid-fields">
+          <label>X <input type="number" x-model="$store.docking.size.x" class="grid-input" min="10" max="60" step="2" /></label>
+          <label>Y <input type="number" x-model="$store.docking.size.y" class="grid-input" min="10" max="60" step="2" /></label>
+          <label>Z <input type="number" x-model="$store.docking.size.z" class="grid-input" min="10" max="60" step="2" /></label>
+        </div>
+      </div>
+      <div class="nav-buttons">
+        <button class="next-btn" @click="$store.docking.runDocking()" :disabled="$store.docking.loading">
+          <span x-show="!$store.docking.loading">Run Docking 🧬</span>
+          <span x-show="$store.docking.loading" x-text="$store.docking.jobStatus || 'Running...'"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 3: Results -->
+    <div x-show="$store.docking.step === 3" class="step-panel">
+      <div class="results-header">
+        <span class="material-symbols-outlined">check_circle</span>
+        <span>Docking complete</span>
+        <button class="back-btn" @click="$store.docking.reset()">New docking</button>
+      </div>
+      <div class="results-summary">
+        <span class="result-stat" x-text="'Poses: ' + ($store.docking.results?.num_poses || 0)"></span>
+        <span class="result-stat" x-text="'Job: ' + $store.docking.jobId"></span>
+      </div>
+      <div class="poses-table-wrap">
+        <table class="poses-table" x-show="$store.docking.results?.poses?.length">
+          <thead>
+            <tr><th>Pose</th><th>Binding Energy (kcal/mol)</th></tr>
+          </thead>
+          <tbody>
+            <template x-for="(pose, i) in $store.docking.results.poses" :key="i">
+              <tr>
+                <td x-text="'Pose ' + (i + 1)"></td>
+                <td>
+                  <span x-text="pose.energy != null ? pose.energy.toFixed(2) : 'N/A'"></span>
+                  <span x-show="i === 0 && pose.energy != null" class="best-badge">best</span>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+      <div x-show="$store.docking.results?.stderr" class="docking-log">
+        <h4>Log</h4>
+        <pre x-text="$store.docking.results.stderr"></pre>
+      </div>
+    </div>
+
+    <style>
+      .docking-panel { padding: var(--spacing-md); height: 100%; overflow-y: auto; }
+      .panel-header { margin-bottom: var(--spacing-md); }
+      .panel-header h2 { color: var(--color-primary); font-size: 1.1rem; margin: 0 0 var(--spacing-xs) 0; }
+      .step-indicator { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--color-text-muted); }
+      .step-indicator .active { color: var(--color-primary); font-weight: 600; }
+      .step-arrow { color: var(--color-border); font-size: 0.7rem; }
+      .step-panel { animation: fadeIn 0.2s ease; }
+      @keyframes fadeIn { from { opacity: 0.3; } to { opacity: 1; } }
+      h3 { font-size: 0.85rem; color: var(--color-text); margin: 0 0 4px 0; }
+      .field-desc { font-size: 0.75rem; color: var(--color-text-muted); margin: 0 0 var(--spacing-xs) 0; }
+      .form-section { margin-bottom: var(--spacing-md); }
+      .upload-zone { display: flex; align-items: center; gap: 8px; padding: var(--spacing-sm); border: 1px dashed var(--color-border); border-radius: 6px; cursor: pointer; margin-bottom: var(--spacing-xs); }
+      .upload-zone:hover { border-color: var(--color-primary); }
+      .upload-icon { color: var(--color-primary); }
+      .upload-text { font-size: 0.8rem; color: var(--color-text-muted); }
+      .pdb-input, .smiles-input, .name-input { width: 100%; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); font-size: 0.85rem; margin-bottom: var(--spacing-xs); }
+      .pdb-input { font-family: var(--font-mono); font-size: 0.7rem; resize: vertical; }
+      .smiles-input { font-family: var(--font-mono); }
+      .config-summary { display: flex; align-items: center; gap: 6px; padding: var(--spacing-sm); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: var(--spacing-md); font-size: 0.8rem; }
+      .config-summary .material-symbols-outlined { color: var(--color-primary); }
+      .back-btn { margin-left: auto; padding: 2px 8px; background: transparent; border: 1px solid var(--color-border); border-radius: 4px; color: var(--color-text-muted); cursor: pointer; font-size: 0.7rem; }
+      .grid-fields { display: flex; gap: var(--spacing-sm); }
+      .grid-fields label { display: flex; align-items: center; gap: 4px; font-size: 0.8rem; color: var(--color-text); }
+      .grid-input { width: 70px; padding: 4px 6px; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); text-align: center; }
+      .nav-buttons { margin-top: var(--spacing-md); }
+      .next-btn { width: 100%; padding: var(--spacing-sm); background: var(--color-primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+      .next-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+      .error-msg { color: var(--color-error-text, #ff6b6b); font-size: 0.8rem; margin-top: var(--spacing-xs); }
+      .results-header { display: flex; align-items: center; gap: 6px; padding: var(--spacing-sm); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: var(--spacing-sm); font-size: 0.85rem; }
+      .results-header .material-symbols-outlined { color: var(--color-primary); }
+      .results-summary { display: flex; gap: var(--spacing-md); margin-bottom: var(--spacing-sm); }
+      .result-stat { font-size: 0.75rem; color: var(--color-text-muted); background: var(--color-panel); padding: 2px 8px; border-radius: 4px; }
+      .poses-table-wrap { margin-bottom: var(--spacing-sm); }
+      .poses-table { width: 100%; border-collapse: collapse; }
+      .poses-table th { text-align: left; padding: 6px 8px; font-size: 0.75rem; color: var(--color-text-muted); border-bottom: 1px solid var(--color-border); }
+      .poses-table td { padding: 6px 8px; font-size: 0.85rem; color: var(--color-text); border-bottom: 1px solid var(--color-border); }
+      .best-badge { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 8px; font-size: 0.65rem; background: rgba(0, 212, 170, 0.15); color: var(--color-primary); }
+      .docking-log { margin-top: var(--spacing-sm); padding: var(--spacing-sm); background: var(--color-panel); border-radius: 4px; }
+      .docking-log h4 { font-size: 0.75rem; color: var(--color-text-muted); margin: 0 0 4px 0; }
+      .docking-log pre { margin: 0; font-size: 0.65rem; color: var(--color-text-muted); max-height: 150px; overflow-y: auto; }
+    </style>
+  </div>
+</body>
+</html>

@@ -24,6 +24,12 @@ COPY lib/ /a0/lib/
 COPY agent_zero/prompts_v19/ /a0/agent_zero/prompts_v19/
 COPY agent_zero/extensions_v19/ /a0/agent_zero/extensions_v19/
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    autodock-vina \
+    openbabel \
+    2>/dev/null || true && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN find /a0/webui/ -maxdepth 1 -name "favicon*" -type f -delete 2>/dev/null || true; \
     find /a0/webui/ -maxdepth 1 -name "*.ico" -type f -delete 2>/dev/null || true; \
     cp -f /a0/webui/public/favicon.svg /a0/webui/favicon.svg 2>/dev/null || true; \
