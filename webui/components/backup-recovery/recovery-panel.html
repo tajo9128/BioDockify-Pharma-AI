@@ -1,0 +1,72 @@
+<html><body><div x-data class="recovery-panel" x-init="$store.backupRecovery.loadBackups()">
+  <div class="panel-header"><span class="material-symbols-outlined panel-icon">backup</span><h2>Backup & Recovery</h2></div>
+  <p class="desc">Backups are stored on the Docker volume at <code>usr/backups/</code> — they survive container deletion.</p>
+
+  <div class="actions">
+    <button class="btn" @click="$store.backupRecovery.createBackup()" :disabled="$store.backupRecovery.creating">
+      <span class="material-symbols-outlined">add</span>
+      <span x-text="$store.backupRecovery.creating ? 'Creating...' : 'Create Backup Now'"></span>
+    </button>
+    <button class="btn-secondary" @click="$store.backupRecovery.loadBackups()" :disabled="$store.backupRecovery.loading">
+      <span class="material-symbols-outlined">refresh</span>
+      <span>Refresh</span>
+    </button>
+  </div>
+
+  <div x-show="$store.backupRecovery.message" class="msg" x-text="$store.backupRecovery.message"></div>
+  <div x-show="$store.backupRecovery.error" class="error" x-text="$store.backupRecovery.error"></div>
+
+  <div x-show="$store.backupRecovery.loading" class="loading">Loading backups...</div>
+
+  <template x-if="$store.backupRecovery.hasBackups && !$store.backupRecovery.loading">
+    <div class="backup-list">
+      <h3>Available Backups</h3>
+      <template x-for="b in $store.backupRecovery.backups" :key="b.id">
+        <div class="backup-card" :class="{ 'has-archive': b.has_archive }">
+          <div class="backup-info">
+            <span class="backup-id" x-text="b.id"></span>
+            <span class="backup-meta" x-text="(b.size_mb > 0 ? b.size_mb + ' MB' : 'empty') + ' | ' + b.created_at"></span>
+          </div>
+          <div class="backup-actions">
+            <button class="btn-sm" @click="$store.backupRecovery.restoreBackup(b.id)" :disabled="!b.has_archive || $store.backupRecovery.restoring">Restore</button>
+            <button class="btn-sm-danger" @click="$store.backupRecovery.deleteBackup(b.id)">Delete</button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </template>
+
+  <div x-show="!$store.backupRecovery.hasBackups && !$store.backupRecovery.loading" class="empty">
+    <p>No backups found. Click "Create Backup Now" to create your first backup.</p>
+    <p class="hint">Backups are stored at <code>usr/backups/</code> on the Docker volume. They persist across container restarts and upgrades.</p>
+  </div>
+
+  <style>
+    .recovery-panel{padding:var(--spacing-md);height:100%;overflow-y:auto}
+    .panel-header{display:flex;align-items:center;gap:var(--spacing-sm);margin-bottom:var(--spacing-sm)}
+    .panel-icon{font-size:2rem;color:var(--color-primary)}
+    .panel-header h2{color:var(--color-primary);font-size:1.1rem;margin:0}
+    .desc{font-size:.8rem;color:var(--color-text-muted);margin:0 0 var(--spacing-md) 0}
+    .desc code{font-family:var(--font-mono);font-size:.75rem;background:var(--color-panel);padding:1px 4px;border-radius:3px}
+    .actions{display:flex;gap:var(--spacing-xs);margin-bottom:var(--spacing-md)}
+    .btn,.btn-secondary{display:flex;align-items:center;gap:6px;padding:var(--spacing-xs) var(--spacing-md);border-radius:6px;cursor:pointer;border:none;font-size:.85rem}
+    .btn{background:var(--color-primary);color:white}.btn:disabled{opacity:.6}
+    .btn-secondary{background:var(--color-panel);border:1px solid var(--color-border);color:var(--color-text)}
+    .btn-sm,.btn-sm-danger{padding:4px 10px;border-radius:4px;cursor:pointer;border:none;font-size:.75rem}
+    .btn-sm{background:var(--color-primary);color:white}.btn-sm:disabled{opacity:.5}
+    .btn-sm-danger{background:rgba(255,107,107,.15);color:var(--color-error-text,#ff6b6b)}
+    .msg{font-size:.8rem;color:var(--color-primary);padding:var(--spacing-xs);margin-bottom:var(--spacing-sm)}
+    .error{font-size:.8rem;color:var(--color-error-text,#ff6b6b);margin-bottom:var(--spacing-sm)}
+    .loading{font-size:.85rem;color:var(--color-text-muted);padding:var(--spacing-md);text-align:center}
+    .backup-list h3{font-size:.85rem;color:var(--color-text);margin-bottom:var(--spacing-xs)}
+    .backup-card{display:flex;justify-content:space-between;align-items:center;padding:var(--spacing-sm);background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;margin-bottom:var(--spacing-xs)}
+    .backup-card.has-archive{border-left:3px solid var(--color-primary)}
+    .backup-info{display:flex;flex-direction:column;gap:2px}
+    .backup-id{font-size:.8rem;font-weight:600;color:var(--color-text);font-family:var(--font-mono)}
+    .backup-meta{font-size:.7rem;color:var(--color-text-muted)}
+    .backup-actions{display:flex;gap:var(--spacing-xs)}
+    .empty{padding:var(--spacing-md);background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;text-align:center}
+    .empty p{margin:0 0 var(--spacing-xs) 0;font-size:.85rem;color:var(--color-text-muted)}
+    .hint{font-size:.75rem;color:var(--color-text-muted);font-style:italic}
+  </style>
+</div></body></html>

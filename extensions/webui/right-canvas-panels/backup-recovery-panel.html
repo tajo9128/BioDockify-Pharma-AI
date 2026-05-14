@@ -1,0 +1,6 @@
+<div class="right-canvas-surface-panel"
+     data-surface-id="backup-recovery"
+     :class="{'is-active': $store.rightCanvas?.isSurfaceVisible('backup-recovery'), 'is-mounted': $store.rightCanvas?.isSurfaceRendered('backup-recovery')}"
+     :aria-hidden="(!$store.rightCanvas?.isSurfaceVisible('backup-recovery')).toString()">
+  <x-component path="/components/backup-recovery/recovery-panel.html"></x-component>
+</div>
