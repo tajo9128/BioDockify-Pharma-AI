@@ -102,14 +102,20 @@ Agent0 (Main Orchestrator)
 
 ## Quick Start (Your Data Persists Forever)
 
+### ⚠️ CRITICAL: Volume Persistence
+
+All research data — memory, chats, settings, knowledge base, projects, AND backups created inside the software — is stored at `/a0/usr/` inside the container. **If you do not mount a volume at `/a0/usr/`, everything is permanently lost when the container is deleted.**
+
+**Backups you create in the Settings panel are stored at `usr/backups/` — inside the same path. If the volume is not mounted, backups are lost too.**
+
 ### Prerequisites
 - Docker Desktop (Windows/macOS) or Docker Engine (Linux)
 - 8GB+ RAM recommended
 
-### 1. Run with persistence
+### 1. Run with persistence (REQUIRED)
 
 ```bash
-# Pull and run — ALL data (memory, chats, knowledge, projects) stored in persistent volume
+# ⚠️  The -v flag is REQUIRED. Without it, ALL data is lost on container delete.
 docker run -d -p 3000:3000 --name biodockify-pharma \
   -v biodockify_pharma_usr:/a0/usr \
   tajo9128/biodockify-pharma-ai:latest
@@ -117,7 +123,7 @@ docker run -d -p 3000:3000 --name biodockify-pharma \
 # Visit http://localhost:3000
 ```
 
-**If container is deleted and recreated with the same volume name, ALL data returns.**
+**If container is deleted and recreated with the SAME volume name (`biodockify_pharma_usr`), ALL data returns.**
 
 ### 2. Or use Docker Compose (recommended)
 

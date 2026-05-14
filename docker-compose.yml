@@ -1,5 +1,16 @@
 version: '3.8'
 
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  BioDockify Pharma AI — Docker Configuration                           ║
+# ║                                                                          ║
+# ║  ⚠️  YOU MUST USE THE VOLUME BELOW. Without it, ALL data is lost        ║
+# ║     when the container is deleted. This includes memory, chats,          ║
+# ║     settings, knowledge, projects, AND backups you create in-app.        ║
+# ║                                                                          ║
+# ║  ✅ WITH volume: data persists forever across container restarts/updates ║
+# ║  ❌ WITHOUT volume: ALL data + ALL backups are gone on container delete  ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+
 services:
   biodockify-pharma-ai:
     image: tajo9128/biodockify-pharma-ai:latest
