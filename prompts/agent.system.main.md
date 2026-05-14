@@ -12,3 +12,5 @@
 
 {{ include "agent.system.main.tips.md" }}
 
+{{ include "agent.system.main.user_profile.md" }}
+
