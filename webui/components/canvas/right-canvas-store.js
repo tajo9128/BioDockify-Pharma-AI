@@ -51,6 +51,8 @@ const model = {
 
     this._initialized = true;
     this.restore();
+    // Never restore open state — tools start closed
+    this.isOpen = false;
     this.updateLayoutMode();
     this.applyLayoutState();
     globalThis.addEventListener("resize", () => {
