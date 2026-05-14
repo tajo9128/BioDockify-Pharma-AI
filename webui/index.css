@@ -139,6 +139,9 @@ body {
   overscroll-behavior: none;
   -webkit-overscroll-behavior: none;
   overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
 }
 
 x-extension:not(:empty) {
@@ -395,8 +398,9 @@ img {
   display: -webkit-flex;
   display: flex;
   flex-direction: row;
-  height: 100%;
+  flex: 1;
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -423,8 +427,7 @@ img {
   min-width: 0;
   flex-direction: column;
   flex: 1 1 0;
-  -webkit-transition: margin-left var(--transition-speed) ease-in-out;
-  transition: margin-left var(--transition-speed) ease-in-out;
+  overflow: hidden;
 }
 
 /* Chat area wrapper – contains chat-history + floating nav buttons */
@@ -1772,3 +1775,23 @@ body *::-webkit-scrollbar-thumb:active {
   color: var(--color-text-muted);
   opacity: 0.6;
 }
+
+/* -- Status Bar -- */
+.status-bar {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  min-height: 26px;
+  padding: 0 14px;
+  background: color-mix(in srgb, var(--color-panel) 95%, #000 5%);
+  border-top: 1px solid var(--color-border);
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  user-select: none;
+  flex-shrink: 0;
+}
+.status-bar-left { display: flex; align-items: center; gap: 14px; }
+.status-bar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.status-indicator { display: flex; align-items: center; gap: 5px; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
+.status-tool-name { color: var(--color-primary); font-weight: 500; }

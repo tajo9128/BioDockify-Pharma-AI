@@ -196,6 +196,17 @@
         </div>
     </div>
 
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <div class="status-bar-left">
+            <span class="status-indicator"><span class="status-dot"></span><span>Ready</span></span>
+            <span x-show="$store.rightCanvas && $store.rightCanvas.isOpen" x-text="$store.rightCanvas.activeTitle?.() || ''" class="status-tool-name"></span>
+        </div>
+        <div class="status-bar-right">
+            <span x-text="'v' + (globalThis.gitinfo?.version?.replace('v','') || '4.6.1')"></span>
+        </div>
+    </div>
+
     <!-- Drag and Drop Overlay Component -->
     <x-component path="chat/attachments/dragDropOverlay.html"></x-component>
 
