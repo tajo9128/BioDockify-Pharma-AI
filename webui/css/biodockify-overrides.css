@@ -192,51 +192,10 @@ select:focus {
   font-family: var(--font-family-main);
 }
 
-/* ── Canvas Overrides ── */
-.right-canvas-rail-button.is-active {
-  border-color: var(--color-primary) !important;
-  background: color-mix(in srgb, var(--color-primary) 12%, transparent) !important;
-}
-
-.right-canvas-rail-button:hover {
-  border-color: color-mix(in srgb, var(--color-primary) 40%, transparent) !important;
-  background: color-mix(in srgb, var(--color-primary) 8%, transparent) !important;
-}
-
-.right-canvas-tab.is-active {
-  border-color: var(--color-primary) !important;
-  box-shadow: 0 -2px 6px color-mix(in srgb, var(--color-primary) 15%, transparent) !important;
-}
-
-.right-canvas-tab:hover {
-  opacity: 0.8;
-  background: color-mix(in srgb, var(--color-primary) 6%, transparent) !important;
-}
-
-.right-canvas-back-button {
-  background: color-mix(in srgb, var(--color-primary) 12%, transparent) !important;
-  border-color: color-mix(in srgb, var(--color-primary) 25%, transparent) !important;
-}
-
-.right-canvas-back-button:hover {
-  background: color-mix(in srgb, var(--color-primary) 22%, transparent) !important;
-}
-
-.right-canvas-back-button .material-symbols-outlined,
-.right-canvas-back-button .back-label {
-  color: var(--color-primary) !important;
-}
-
-.right-canvas-toggle-button {
-  color: var(--color-primary) !important;
-}
-
-.right-canvas-rail-button {
-  border-radius: 10px !important;
-  width: 38px !important;
-  height: 38px !important;
-  min-width: 38px !important;
-  min-height: 38px !important;
+/* ── Hide old canvas component (replaced by full-page tool area) ── */
+.container > x-component[path="canvas/right-canvas.html"],
+.container > x-component[path="canvas/right-canvas.html"] > div[x-data] {
+  display: none !important;
 }
 
 /* ── Card Overrides ── */
@@ -328,23 +287,89 @@ select:focus {
   background: var(--color-primary) !important;
 }
 
+/* ── Full-Page Tool Area ── */
+.tool-fullpage {
+  display: flex !important;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  animation: toolFadeIn 0.15s ease;
+}
+
+@keyframes toolFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.tool-fullpage-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-panel);
+  flex-shrink: 0;
+}
+
+.tool-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+  border-radius: 8px;
+  color: var(--color-primary);
+  cursor: pointer;
+  font-size: .85rem;
+  font-weight: 500;
+  font-family: var(--font-family-main);
+  transition: all .15s ease;
+}
+
+.tool-back-btn:hover {
+  background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.tool-back-btn .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.tool-fullpage-title {
+  font-size: .95rem;
+  font-weight: 700;
+  color: var(--color-text);
+  font-family: var(--font-family-main);
+}
+
+.tool-fullpage-content {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--color-panel);
+}
+
+.tool-fullpage-content > x-extension {
+  display: contents;
+}
+
+.tool-fullpage-content > x-extension > x-component {
+  display: contents;
+}
+
+/* ── Hide old canvas component ── */
+.container > x-component[path="canvas/right-canvas.html"] {
+  display: none !important;
+}
+
 /* ── Micro-interactions ── */
-.right-canvas-rail-button,
-.right-canvas-tab,
 .btn, .btn-ok, .btn-cancel,
 .modal-close,
 .tool-card, .feature-btn, .link-btn {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-.right-canvas-rail-button:hover {
-  transform: scale(1.05);
-}
-
-.tool-card:hover, .feature-btn:hover {
-  transform: translateY(-1px);
-}
-
-.btn:hover {
-  transform: translateY(-1px);
 }
