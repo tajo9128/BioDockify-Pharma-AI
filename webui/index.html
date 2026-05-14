@@ -76,6 +76,29 @@
             isDevelopment: "{{runtime_is_development}}" === "true",
             loggedIn: "{{logged_in}}" === "true",
         };
+
+        // Global keyboard shortcuts
+        document.addEventListener("keydown", function(e) {
+            // Ctrl+K / Cmd+K — Focus chat input
+            if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+                e.preventDefault();
+                var input = document.getElementById("chat-input");
+                if (input) { input.focus(); input.select(); }
+            }
+            // Ctrl+N / Cmd+N — New chat
+            if ((e.ctrlKey || e.metaKey) && e.key === "n") {
+                e.preventDefault();
+                if (window.deselectChat) window.deselectChat();
+            }
+            // Escape — Close tool panel if canvas is open, back to chat
+            if (e.key === "Escape") {
+                var canvas = Alpine?.store("rightCanvas");
+                if (canvas && canvas.isOpen) {
+                    e.preventDefault();
+                    canvas.close();
+                }
+            }
+        });
     </script>
     <!-- Plugin head injections (scripts, stylesheets) -->
     <x-extension id="page-head"></x-extension>

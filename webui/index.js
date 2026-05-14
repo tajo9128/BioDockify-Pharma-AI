@@ -782,6 +782,10 @@ document.addEventListener("DOMContentLoaded", function () {
     welcomeStore.init();
   }
 
+  // Hide the old right-canvas component (BioDockify uses full-page tool area instead)
+  const canvasComponent = document.querySelector('x-component[path="canvas/right-canvas.html"]');
+  if (canvasComponent) canvasComponent.style.display = "none";
+
   // Start polling for updates
   startPolling();
 });

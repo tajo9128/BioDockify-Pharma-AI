@@ -1,4 +1,5 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap");
 
 /* Add box-sizing globally for better cross-browser consistency */
 *,
@@ -8,43 +9,43 @@
 }
 
 :root {
-  /* BioDockify Dark mode - Docker Desktop inspired */
-  --color-background-dark: #1a1a2e;
-  --color-text-dark: #ffffff;
-  --color-text-muted-dark: #a0a0b0;
-  --color-primary-dark: #00d4aa;
-  --color-secondary-dark: #0d4f4f;
-  --color-accent-dark: #4fc3f7;
-  --color-message-bg-dark: #16213e;
-  --color-highlight-dark: #00d4aa;
+  /* BioDockify Dark mode - Premium Purple */
+  --color-background-dark: #0d1117;
+  --color-text-dark: #f0f0f0;
+  --color-text-muted-dark: #8b949e;
+  --color-primary-dark: #7c3aed;
+  --color-secondary-dark: #2d1b69;
+  --color-accent-dark: #f59e0b;
+  --color-message-bg-dark: #1c2333;
+  --color-highlight-dark: #7c3aed;
   --color-message-text-dark: #e0e0e0;
-  --color-panel-dark: #0f0f23;
-  --color-border-dark: #2a2a4a;
-  --color-input-dark: #1a1a2e;
-  --color-input-focus-dark: #16213e;
-  --color-chat-background-dark: #0f0f23;
-  --color-error-text-dark:#ff6b6b;
-  --color-warning-text-dark:#ffd93d;
-  --color-table-row-dark: #1a1a2e;
+  --color-panel-dark: #161b22;
+  --color-border-dark: #30363d;
+  --color-input-dark: #0d1117;
+  --color-input-focus-dark: #1c2333;
+  --color-chat-background-dark: #0d1117;
+  --color-error-text-dark:#ef4444;
+  --color-warning-text-dark:#f59e0b;
+  --color-table-row-dark: #0d1117;
 
   /* BioDockify Light mode */
-  --color-background-light: #f8f9fc;
-  --color-text-light: #1a1a2e;
-  --color-text-muted-light: #5a5a7a;
-  --color-primary-light: #00a88a;
-  --color-secondary-light: #e8faf5;
-  --color-accent-dark: #2196f3;
+  --color-background-light: #f8fafc;
+  --color-text-light: #0f172a;
+  --color-text-muted-light: #64748b;
+  --color-primary-light: #6d28d9;
+  --color-secondary-light: #eef2ff;
+  --color-accent-light: #d97706;
   --color-message-bg-light: #ffffff;
-  --color-highlight-light: #00d4aa;
-  --color-message-text-light: #1a1a2e;
+  --color-highlight-light: #6d28d9;
+  --color-message-text-light: #0f172a;
   --color-panel-light: #ffffff;
-  --color-border-light: #e0e0f0;
-  --color-input-light: #f0f0f8;
-  --color-input-focus-light: #e8e8f0;
-  --color-chat-background-light: #f8f9fc;
-  --color-error-text-light:#d32f2f;
-  --color-warning-text-light:#f57c00;
-  --color-table-row-light: #f0f0f8;
+  --color-border-light: #e2e8f0;
+  --color-input-light: #f8fafc;
+  --color-input-focus-light: #ffffff;
+  --color-chat-background-light: #f8fafc;
+  --color-error-text-light:#dc2626;
+  --color-warning-text-light:#d97706;
+  --color-table-row-light: #f1f5f9;
 
 
   /* Default to dark mode */
@@ -82,16 +83,16 @@
   --font-size-large: 1.2rem;
 
   /* Font families */
-  --font-family-main: "Rubik", Arial, Helvetica, sans-serif;
-  --font-family-code: "Roboto Mono", monospace;
+  --font-family-main: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-family-code: "JetBrains Mono", monospace;
 
   /* Other variables */
-  --border-radius: 1.125rem;
-  --border-radius-sm: 0.5rem;
+  --border-radius: 12px;
+  --border-radius-sm: 10px;
   --transition-speed: 0.3s;
   --svg-filter: brightness(0) saturate(100%) var(--color-primary-filter);
-  --color-primary-filter: invert(73%) sepia(17%) saturate(360%)
-    hue-rotate(177deg) brightness(87%) contrast(85%);
+  --color-primary-filter: invert(34%) sepia(85%) saturate(3000%)
+    hue-rotate(250deg) brightness(94%) contrast(90%);
 }
 
 /* Light mode class */
