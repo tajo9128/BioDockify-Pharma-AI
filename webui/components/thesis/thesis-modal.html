@@ -5,129 +5,28 @@
   </script>
 </head>
 <body>
-  <div x-data class="thesis-modal">
-    <div class="modal-header">
+  <div x-data class="simple-panel">
+    <div class="panel-header">
+      <span class="material-symbols-outlined panel-icon">description</span>
       <h2>Academic Writer</h2>
-      <div class="step-indicator">
-        <span :class="{'active': $store.thesisModal.step >= 1}">1. Choose Type</span>
-        <span class="step-arrow">→</span>
-        <span :class="{'active': $store.thesisModal.step >= 2}">2. Details</span>
-        <span class="step-arrow">→</span>
-        <span :class="{'active': $store.thesisModal.step >= 3}">3. Result</span>
+    </div>
+    <div class="panel-content">
+      <p>Ask the agent in chat to write reviews, research papers, or thesis chapters. The agent will research, draft, and format your document.</p>
+      <div class="examples">
+        <div class="example-item">"Write a literature review on CRISPR applications in cancer therapy"</div>
+        <div class="example-item">"Draft the methodology section for my pharmacokinetics paper"</div>
+        <div class="example-item">"Write a systematic review on AI in drug discovery"</div>
+        <div class="example-item">"Export my thesis to LaTeX format"</div>
       </div>
     </div>
-
-    <!-- Step 1: Choose document type -->
-    <div x-show="$store.thesisModal.step === 1" class="step-panel">
-      <p class="step-description">What would you like to write?</p>
-      <div class="type-grid">
-        <button class="type-card" @click="$store.thesisModal.selectType('review')">
-          <span class="material-symbols-outlined type-icon">menu_book</span>
-          <span class="type-title">Literature Review</span>
-          <span class="type-desc">Summarize and synthesize existing research on a topic</span>
-        </button>
-        <button class="type-card" @click="$store.thesisModal.selectType('research')">
-          <span class="material-symbols-outlined type-icon">science</span>
-          <span class="type-title">Research Paper</span>
-          <span class="type-desc">Write a complete paper with methods and findings</span>
-        </button>
-        <button class="type-card" @click="$store.thesisModal.selectType('thesis')">
-          <span class="material-symbols-outlined type-icon">description</span>
-          <span class="type-title">Thesis Chapter</span>
-          <span class="type-desc">Draft a PhD thesis chapter with academic structure</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Step 2: Fill details -->
-    <div x-show="$store.thesisModal.step === 2" class="step-panel">
-      <div class="form-header">
-        <span class="material-symbols-outlined" x-text="$store.thesisModal.typeIcon"></span>
-        <span x-text="$store.thesisModal.typeLabel"></span>
-        <button class="back-btn" @click="$store.thesisModal.back()">Change type</button>
-      </div>
-      <div class="form-group">
-        <label>Topic / Title</label>
-        <input type="text" x-model="$store.thesisModal.topic" placeholder="e.g., CRISPR applications in cancer therapy" class="form-input" />
-      </div>
-      <div class="form-group">
-        <label>Details / Description</label>
-        <textarea x-model="$store.thesisModal.detail" placeholder="Scope, research question, specific focus areas..." class="form-textarea" rows="3"></textarea>
-      </div>
-      <div class="form-group">
-        <label>Sections to include</label>
-        <input type="text" x-model="$store.thesisModal.sections" placeholder="e.g., Introduction, Methods, Results, Discussion" class="form-input" />
-      </div>
-      <div class="form-group">
-        <label>Key references (optional)</label>
-        <textarea x-model="$store.thesisModal.references" placeholder="Author, Year, Title..." class="form-textarea" rows="2"></textarea>
-      </div>
-      <div class="form-row">
-        <label class="checkbox-label">
-          <input type="checkbox" x-model="$store.thesisModal.includeCode" />
-          <span>Include code/equations</span>
-        </label>
-        <select x-model="$store.thesisModal.outputFormat" class="form-select">
-          <option value="markdown">Markdown</option>
-          <option value="latex">LaTeX</option>
-          <option value="html">HTML</option>
-        </select>
-      </div>
-      <button class="generate-btn" @click="$store.thesisModal.generate()" :disabled="$store.thesisModal.status === 'generating'">
-        <span x-show="$store.thesisModal.status !== 'generating'">Generate</span>
-        <span x-show="$store.thesisModal.status === 'generating'">Generating...</span>
-      </button>
-    </div>
-
-    <!-- Step 3: Result -->
-    <div x-show="$store.thesisModal.step === 3" class="step-panel">
-      <div class="form-header">
-        <span class="material-symbols-outlined" x-text="$store.thesisModal.typeIcon"></span>
-        <span x-text="$store.thesisModal.typeLabel + ': ' + $store.thesisModal.topic"></span>
-        <button class="back-btn" @click="$store.thesisModal.reset()">New document</button>
-      </div>
-      <div class="result-box">
-        <pre x-text="$store.thesisModal.result"></pre>
-      </div>
-    </div>
-
     <style>
-      .thesis-modal { padding: var(--spacing-md); max-width: 800px; height: 100%; overflow-y: auto; }
-      .modal-header { margin-bottom: var(--spacing-md); }
-      .modal-header h2 { color: var(--color-primary); font-size: 1.1rem; margin: 0 0 var(--spacing-xs) 0; }
-      .step-indicator { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--color-text-muted); }
-      .step-indicator .active { color: var(--color-primary); font-weight: 600; }
-      .step-arrow { color: var(--color-border); font-size: 0.7rem; }
-      .step-panel { animation: fadeIn 0.2s ease; }
-      @keyframes fadeIn { from { opacity: 0.3; } to { opacity: 1; } }
-      .step-description { color: var(--color-text); font-size: 0.9rem; margin-bottom: var(--spacing-md); }
-
-      .type-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--spacing-sm); }
-      .type-card { display: flex; flex-direction: column; align-items: center; padding: 1.5rem 1rem; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 10px; cursor: pointer; transition: all 0.2s; }
-      .type-card:hover { border-color: var(--color-primary); background: var(--color-secondary); }
-      .type-icon { font-size: 2.5rem; color: var(--color-primary); margin-bottom: var(--spacing-sm); }
-      .type-title { font-size: 0.95rem; font-weight: 600; color: var(--color-text); margin-bottom: 4px; }
-      .type-desc { font-size: 0.7rem; color: var(--color-text-muted); text-align: center; line-height: 1.3; }
-
-      .form-header { display: flex; align-items: center; gap: 6px; padding: var(--spacing-sm); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: var(--spacing-md); font-size: 0.85rem; color: var(--color-text); }
-      .form-header .material-symbols-outlined { font-size: 1.2rem; color: var(--color-primary); }
-      .back-btn { margin-left: auto; padding: 2px 8px; background: transparent; border: 1px solid var(--color-border); border-radius: 4px; color: var(--color-text-muted); cursor: pointer; font-size: 0.7rem; }
-      .back-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-
-      .form-group { margin-bottom: var(--spacing-sm); }
-      .form-group label { display: block; font-size: 0.8rem; color: var(--color-text); margin-bottom: 4px; }
-      .form-input, .form-textarea, .form-select { width: 100%; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); font-size: 0.85rem; }
-      .form-textarea { resize: vertical; }
-      .form-row { display: flex; gap: var(--spacing-sm); align-items: center; margin-bottom: var(--spacing-md); }
-      .checkbox-label { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--color-text); cursor: pointer; }
-      .form-select { width: auto; }
-
-      .generate-btn { width: 100%; padding: var(--spacing-sm); background: var(--color-primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
-      .generate-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-      .generate-btn:hover:not(:disabled) { opacity: 0.9; }
-
-      .result-box { padding: var(--spacing-md); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; }
-      .result-box pre { white-space: pre-wrap; font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-text); margin: 0; max-height: 500px; overflow-y: auto; }
+      .simple-panel { padding: var(--spacing-md); height: 100%; overflow-y: auto; }
+      .panel-header { display: flex; align-items: center; gap: var(--spacing-sm); margin-bottom: var(--spacing-md); }
+      .panel-icon { font-size: 2rem; color: var(--color-primary); }
+      .panel-header h2 { color: var(--color-primary); font-size: 1.1rem; margin: 0; }
+      .panel-content p { color: var(--color-text); font-size: 0.85rem; line-height: 1.5; }
+      .examples { margin-top: var(--spacing-md); display: flex; flex-direction: column; gap: var(--spacing-xs); }
+      .example-item { padding: var(--spacing-sm); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.8rem; color: var(--color-text-muted); border-left: 3px solid var(--color-primary); }
     </style>
   </div>
 </body>

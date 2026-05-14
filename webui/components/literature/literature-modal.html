@@ -1,78 +1,12 @@
-<html>
-<head>
-  <script type="module">
-    import { store } from "/components/literature/literature-store.js";
-  </script>
-</head>
-<body>
-  <div x-data class="literature-modal">
-    <div class="modal-header">
-      <h2>Literature Search</h2>
+<html><body><div x-data class="simple-panel">
+  <div class="panel-header"><span class="material-symbols-outlined panel-icon">menu_book</span><h2>Literature Search</h2></div>
+  <div class="panel-content">
+    <p>Ask the agent in chat to search and synthesize literature across multiple databases. The agent can find papers, summarize findings, and export citations.</p>
+    <div class="examples">
+      <div class="example-item">"Search PubMed for recent papers on CRISPR cancer therapy"</div>
+      <div class="example-item">"Find systematic reviews on AI in drug discovery from 2023-2026"</div>
+      <div class="example-item">"Synthesize the top 10 papers on mRNA vaccines"</div>
     </div>
-
-    <div class="modal-content">
-      <div class="search-form">
-        <input type="text" x-model="$store.literatureModal.query" placeholder="Search PubMed, Semantic Scholar, Europe PMC..." class="search-input" @keyup.enter="$store.literatureModal.searchLiterature()" />
-        <button class="search-btn" @click="$store.literatureModal.searchLiterature()">Search</button>
-      </div>
-
-      <div class="databases">
-        <h3>Databases</h3>
-        <div class="db-grid">
-          <button class="db-card" :class="{active: $store.literatureModal.selectedDb === 'pubmed'}" @click="$store.literatureModal.selectedDb = 'pubmed'">PubMed</button>
-          <button class="db-card" :class="{active: $store.literatureModal.selectedDb === 'semantic'}" @click="$store.literatureModal.selectedDb = 'semantic'">Semantic Scholar</button>
-          <button class="db-card" :class="{active: $store.literatureModal.selectedDb === 'europepmc'}" @click="$store.literatureModal.selectedDb = 'europepmc'">Europe PMC</button>
-          <button class="db-card" :class="{active: $store.literatureModal.selectedDb === 'crossref'}" @click="$store.literatureModal.selectedDb = 'crossref'">Crossref</button>
-          <button class="db-card" :class="{active: $store.literatureModal.selectedDb === 'biorxiv'}" @click="$store.literatureModal.selectedDb = 'biorxiv'">bioRxiv</button>
-          <button class="db-card" :class="{active: $store.literatureModal.selectedDb === 'pubchem'}" @click="$store.literatureModal.selectedDb = 'pubchem'">PubChem</button>
-          <button class="db-card" :class="{active: $store.literatureModal.selectedDb === 'scopus'}" @click="$store.literatureModal.selectedDb = 'scopus'">Scopus</button>
-          <button class="db-card" :class="{active: $store.literatureModal.selectedDb === 'wos'}" @click="$store.literatureModal.selectedDb = 'wos'">Web of Science</button>
-        </div>
-      </div>
-
-      <div class="loading-indicator" x-show="$store.literatureModal.loading">
-        <span class="material-symbols-outlined spinning">progress_activity</span>
-        <span>Searching...</span>
-      </div>
-
-      <div class="results" x-show="$store.literatureModal.results.length">
-        <h3>Results (<span x-text="$store.literatureModal.results.length"></span>)</h3>
-        <div class="results-list">
-          <template x-for="result in $store.literatureModal.results">
-            <div class="result-item">
-              <div class="result-title" x-text="result.title"></div>
-              <div class="result-meta" x-text="result.authors"></div>
-              <div class="result-abstract" x-text="result.abstract"></div>
-            </div>
-          </template>
-        </div>
-      </div>
-
-      <div class="error" x-show="$store.literatureModal.error" x-text="$store.literatureModal.error"></div>
-    </div>
-
-    <style>
-      .literature-modal { padding: var(--spacing-md); max-width: 100%; height: 100%; overflow-y: auto; }
-      .modal-header { margin-bottom: var(--spacing-sm); }
-      .modal-header h2 { color: var(--color-primary); font-size: 1.1rem; margin: 0; }
-      .search-form { display: flex; gap: var(--spacing-sm); margin-bottom: var(--spacing-md); }
-      .search-input { flex: 1; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); font-size: 0.85rem; }
-      .search-btn { padding: var(--spacing-sm) var(--spacing-md); background: var(--color-primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
-      .databases h3 { font-size: 0.85rem; color: var(--color-text); margin-bottom: var(--spacing-xs); }
-      .db-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--spacing-xs); margin-bottom: var(--spacing-md); }
-      .db-card { padding: var(--spacing-xs); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 4px; cursor: pointer; color: var(--color-text); font-size: 0.75rem; text-align: center; }
-      .db-card.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-      .loading-indicator { display: flex; align-items: center; gap: 6px; padding: var(--spacing-sm); color: var(--color-text-muted); font-size: 0.85rem; }
-      .spinning { animation: spin 1s linear infinite; }
-      @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-      .results h3 { font-size: 0.85rem; color: var(--color-text); margin-bottom: var(--spacing-xs); }
-      .results-list { max-height: 400px; overflow-y: auto; }
-      .result-item { padding: var(--spacing-xs); border-bottom: 1px solid var(--color-border); }
-      .result-title { color: var(--color-primary); font-weight: 600; font-size: 0.8rem; }
-      .result-meta { color: var(--color-text-muted); font-size: 0.7rem; }
-      .result-abstract { color: var(--color-text); font-size: 0.75rem; margin-top: 2px; }
-      .error { color: var(--color-error-text, #ff6b6b); font-size: 0.8rem; padding: var(--spacing-xs); }
-    </style>
   </div>
-</body>
-</html>
+  <style>.simple-panel{padding:var(--spacing-md);height:100%;overflow-y:auto}.panel-header{display:flex;align-items:center;gap:var(--spacing-sm);margin-bottom:var(--spacing-md)}.panel-icon{font-size:2rem;color:var(--color-primary)}.panel-header h2{color:var(--color-primary);font-size:1.1rem;margin:0}.panel-content p{color:var(--color-text);font-size:.85rem;line-height:1.5}.examples{margin-top:var(--spacing-md);display:flex;flex-direction:column;gap:var(--spacing-xs)}.example-item{padding:var(--spacing-sm);background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;font-size:.8rem;color:var(--color-text-muted);border-left:3px solid var(--color-primary)}</style>
+</div></body></html>

@@ -1,68 +1,13 @@
-<html>
-<head><script type="module" src="/components/drug-browser/drug-browser-store.js"></script></head>
-<body>
-  <div x-data class="drug-panel" x-init="$store.drugBrowser.loadSystems()">
-    <div class="panel-header"><h2>Drug Classification Browser</h2></div>
-    <div class="search-bar">
-      <input type="text" x-model="$store.drugBrowser.query" placeholder="Search by name, mechanism, or class..." class="search-input" @keyup.enter="$store.drugBrowser.search()" />
-      <button class="search-btn" @click="$store.drugBrowser.search()">Search</button>
+<html><body><div x-data class="simple-panel">
+  <div class="panel-header"><span class="material-symbols-outlined panel-icon">medication_liquid</span><h2>Drug Classification Browser</h2></div>
+  <div class="panel-content">
+    <p>Ask the agent in chat to search, classify, and compare drugs. The agent can look up drug properties, mechanisms of action, and therapeutic classifications.</p>
+    <div class="examples">
+      <div class="example-item">"List all NSAIDs and their mechanisms of action"</div>
+      <div class="example-item">"Compare ACE inhibitors vs ARBs for hypertension treatment"</div>
+      <div class="example-item">"Show me drugs that act on the CNS with their classifications"</div>
+      <div class="example-item">"What is the mechanism of action of metformin?"</div>
     </div>
-    <div class="system-chips" x-show="$store.drugBrowser.systems.length">
-      <template x-for="s in $store.drugBrowser.systems" :key="s">
-        <button :class="'chip ' + ($store.drugBrowser.system === s ? 'active' : '')" @click="$store.drugBrowser.filterBySystem(s)" x-text="s"></button>
-      </template>
-    </div>
-    <div x-show="$store.drugBrowser.selectedDrug" class="detail-card">
-      <div class="detail-header">
-        <h3 x-text="$store.drugBrowser.selectedDrug.name"></h3>
-        <button class="close-detail" @click="$store.drugBrowser.clearSelection()">×</button>
-      </div>
-      <p class="generic-name" x-text="'Generic: ' + ($store.drugBrowser.selectedDrug.generic_name || 'N/A')"></p>
-      <table class="detail-table">
-        <tr><td>Class</td><td x-text="$store.drugBrowser.selectedDrug.class_name"></td></tr>
-        <tr><td>System</td><td x-text="$store.drugBrowser.selectedDrug.system"></td></tr>
-        <tr><td>Mechanism</td><td x-text="$store.drugBrowser.selectedDrug.mechanism"></td></tr>
-        <tr><td>Category</td><td x-text="$store.drugBrowser.selectedDrug.category"></td></tr>
-        <tr x-show="$store.drugBrowser.selectedProps.mw"><td>MW</td><td x-text="$store.drugBrowser.selectedProps.mw + ' Da'"></td></tr>
-        <tr x-show="$store.drugBrowser.selectedProps.logp"><td>LogP</td><td x-text="$store.drugBrowser.selectedProps.logp"></td></tr>
-      </table>
-    </div>
-    <div class="results-list" x-show="!$store.drugBrowser.selectedDrug && $store.drugBrowser.results.length">
-      <p class="result-count" x-text="$store.drugBrowser.total + ' drug(s) found'"></p>
-      <template x-for="drug in $store.drugBrowser.results" :key="drug.id">
-        <div class="drug-card" @click="$store.drugBrowser.selectDrug(drug)">
-          <strong x-text="drug.name"></strong>
-          <span class="drug-meta" x-text="drug.class_name + ' · ' + drug.system"></span>
-        </div>
-      </template>
-    </div>
-    <div x-show="!$store.drugBrowser.selectedDrug && !$store.drugBrowser.results.length && !$store.drugBrowser.query && !$store.drugBrowser.system" class="empty-state">
-      <p>Search for drugs or filter by system above. 70+ essential drugs included.</p>
-    </div>
-    <style>
-      .drug-panel { padding: var(--spacing-md); height: 100%; overflow-y: auto; }
-      .panel-header h2 { color: var(--color-primary); font-size: 1.1rem; margin: 0 0 var(--spacing-sm) 0; }
-      .search-bar { display: flex; gap: var(--spacing-xs); margin-bottom: var(--spacing-sm); }
-      .search-input { flex: 1; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); font-size: 0.85rem; }
-      .search-btn { padding: var(--spacing-xs) var(--spacing-md); background: var(--color-primary); color: white; border: none; border-radius: 4px; cursor: pointer; }
-      .system-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: var(--spacing-sm); }
-      .chip { padding: 2px 10px; border-radius: 12px; font-size: 0.7rem; cursor: pointer; background: var(--color-panel); border: 1px solid var(--color-border); color: var(--color-text-muted); }
-      .chip.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-      .detail-card { padding: var(--spacing-sm); background: var(--color-panel); border: 1px solid var(--color-primary); border-radius: 8px; margin-bottom: var(--spacing-sm); }
-      .detail-header { display: flex; justify-content: space-between; align-items: center; }
-      .detail-header h3 { margin: 0; color: var(--color-primary); }
-      .close-detail { background: none; border: none; color: var(--color-text-muted); cursor: pointer; font-size: 1.2rem; }
-      .generic-name { font-size: 0.8rem; color: var(--color-text-muted); margin: 4px 0; }
-      .detail-table { width: 100%; font-size: 0.8rem; }
-      .detail-table td { padding: 3px 6px; border-bottom: 1px solid var(--color-border); }
-      .detail-table td:first-child { color: var(--color-text-muted); width: 30%; }
-      .drug-card { padding: var(--spacing-xs); border-bottom: 1px solid var(--color-border); cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-      .drug-card:hover { background: var(--color-secondary); }
-      .drug-card strong { font-size: 0.85rem; }
-      .drug-meta { font-size: 0.7rem; color: var(--color-text-muted); }
-      .result-count { font-size: 0.75rem; color: var(--color-text-muted); margin-bottom: var(--spacing-xs); }
-      .empty-state { text-align: center; padding: 2rem; color: var(--color-text-muted); font-size: 0.85rem; }
-    </style>
   </div>
-</body>
-</html>
+  <style>.simple-panel{padding:var(--spacing-md);height:100%;overflow-y:auto}.panel-header{display:flex;align-items:center;gap:var(--spacing-sm);margin-bottom:var(--spacing-md)}.panel-icon{font-size:2rem;color:var(--color-primary)}.panel-header h2{color:var(--color-primary);font-size:1.1rem;margin:0}.panel-content p{color:var(--color-text);font-size:.85rem;line-height:1.5}.examples{margin-top:var(--spacing-md);display:flex;flex-direction:column;gap:var(--spacing-xs)}.example-item{padding:var(--spacing-sm);background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;font-size:.8rem;color:var(--color-text-muted);border-left:3px solid var(--color-primary)}</style>
+</div></body></html>

@@ -1,32 +1,12 @@
-<html>
-<head><script type="module" src="/components/chemical-space/chemspace-store.js"></script></head>
-<body>
-  <div x-data class="chem-panel">
-    <div class="panel-header"><h2>Chemical Space Explorer</h2><p class="desc">Visualize molecular diversity with PCA/t-SNE on Morgan fingerprints</p></div>
-    <div class="input-section">
-      <label>Enter SMILES (one per line):</label>
-      <textarea x-model="$store.chemicalSpace.smilesList" placeholder="CC(=O)Oc1ccccc1C(=O)O&#10;CN1C(=O)CN=C(c2ccc(Cl)cc2)c3ccccc13&#10;Cn1cnc2c1c(=O)n(c(=O)n2C)C" class="input" rows="6"></textarea>
-      <div class="actions"><button class="btn" @click="$store.chemicalSpace.explore()" :disabled="$store.chemicalSpace.loading">Explore</button><button class="btn-clear" @click="$store.chemicalSpace.clear()">Clear</button></div>
+<html><body><div x-data class="simple-panel">
+  <div class="panel-header"><span class="material-symbols-outlined panel-icon">bubble_chart</span><h2>Chemical Space Explorer</h2></div>
+  <div class="panel-content">
+    <p>Ask the agent in chat to visualize chemical space using PCA or t-SNE on molecular fingerprints. The agent can analyze molecular diversity and find clusters.</p>
+    <div class="examples">
+      <div class="example-item">"Show the chemical space of these 10 drug molecules"</div>
+      <div class="example-item">"Cluster my compound library by structural similarity"</div>
+      <div class="example-item">"Analyze the diversity of this set of SMILES"</div>
     </div>
-    <div x-show="$store.chemicalSpace.error" class="error" x-text="$store.chemicalSpace.error"></div>
-    <div x-show="$store.chemicalSpace.plotUrl" class="plot-container">
-      <img :src="$store.chemicalSpace.plotUrl" alt="Chemical Space" class="plot-img" />
-    </div>
-    <style>
-      .chem-panel { padding: var(--spacing-md); height: 100%; overflow-y: auto; }
-      .panel-header h2 { color: var(--color-primary); font-size: 1.1rem; margin: 0; }
-      .desc { font-size: 0.8rem; color: var(--color-text-muted); margin: 0 0 var(--spacing-sm) 0; }
-      .input-section label { display: block; font-size: 0.8rem; color: var(--color-text); margin-bottom: var(--spacing-xs); }
-      .input { width: 100%; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); font-family: var(--font-mono); font-size: 0.8rem; resize: vertical; box-sizing: border-box; }
-      .actions { display: flex; gap: var(--spacing-xs); margin: var(--spacing-sm) 0; }
-      .btn, .btn-clear { padding: var(--spacing-xs) var(--spacing-md); border-radius: 4px; cursor: pointer; border: none; font-size: 0.85rem; }
-      .btn { background: var(--color-primary); color: white; }
-      .btn:disabled { opacity: 0.6; }
-      .btn-clear { background: var(--color-panel); border: 1px solid var(--color-border); color: var(--color-text-muted); }
-      .error { color: var(--color-error-text, #ff6b6b); font-size: 0.8rem; }
-      .plot-container { margin-top: var(--spacing-sm); }
-      .plot-img { width: 100%; border-radius: 8px; border: 1px solid var(--color-border); }
-    </style>
   </div>
-</body>
-</html>
+  <style>.simple-panel{padding:var(--spacing-md);height:100%;overflow-y:auto}.panel-header{display:flex;align-items:center;gap:var(--spacing-sm);margin-bottom:var(--spacing-md)}.panel-icon{font-size:2rem;color:var(--color-primary)}.panel-header h2{color:var(--color-primary);font-size:1.1rem;margin:0}.panel-content p{color:var(--color-text);font-size:.85rem;line-height:1.5}.examples{margin-top:var(--spacing-md);display:flex;flex-direction:column;gap:var(--spacing-xs)}.example-item{padding:var(--spacing-sm);background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;font-size:.8rem;color:var(--color-text-muted);border-left:3px solid var(--color-primary)}</style>
+</div></body></html>

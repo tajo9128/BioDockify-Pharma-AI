@@ -1,46 +1,12 @@
-<html>
-<head>
-  <script type="module">
-    import { store } from "/components/slides/slides-store.js";
-  </script>
-</head>
-<body>
-  <div x-data class="slides-modal">
-    <div class="modal-header">
-      <h2>Presentation Generator</h2>
+<html><body><div x-data class="simple-panel">
+  <div class="panel-header"><span class="material-symbols-outlined panel-icon">slideshow</span><h2>Slides</h2></div>
+  <div class="panel-content">
+    <p>Ask the agent in chat to create presentations on any topic. The agent will research content and generate slides for you.</p>
+    <div class="examples">
+      <div class="example-item">"Create a presentation on recent advances in mRNA vaccines"</div>
+      <div class="example-item">"Generate slides for my clinical trial results"</div>
+      <div class="example-item">"Make a 10-slide overview of PK/PD modeling"</div>
     </div>
-
-    <div class="modal-content">
-      <div class="info-section">
-        <div class="info-icon">
-          <span class="material-symbols-outlined">slideshow</span>
-        </div>
-        <div class="info-text">
-          <p>Ask the agent in chat to generate presentations on any topic. The agent will research content and create slides for you.</p>
-        </div>
-      </div>
-
-      <div class="example-prompts">
-        <h3>Example prompts:</h3>
-        <ul>
-          <li>"Create a presentation on recent advances in mRNA vaccines"</li>
-          <li>"Generate slides for my clinical trial results"</li>
-          <li>"Make a 10-slide overview of PK/PD modeling"</li>
-        </ul>
-      </div>
-    </div>
-
-    <style>
-      .slides-modal { padding: var(--spacing-md); max-width: 700px; height: 100%; overflow-y: auto; }
-      .modal-header { margin-bottom: var(--spacing-md); }
-      .modal-header h2 { color: var(--color-primary); font-size: 1.1rem; margin: 0; }
-      .info-section { display: flex; gap: var(--spacing-md); padding: var(--spacing-md); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: var(--spacing-md); }
-      .info-icon .material-symbols-outlined { font-size: 2rem; color: var(--color-primary); }
-      .info-text p { margin: 0; color: var(--color-text); font-size: 0.85rem; line-height: 1.5; }
-      .example-prompts h3 { font-size: 0.85rem; color: var(--color-text); margin-bottom: var(--spacing-sm); }
-      .example-prompts ul { margin: 0; padding-left: var(--spacing-md); }
-      .example-prompts li { color: var(--color-text-muted); font-size: 0.8rem; margin-bottom: var(--spacing-xs); line-height: 1.4; }
-    </style>
   </div>
-</body>
-</html>
+  <style>.simple-panel{padding:var(--spacing-md);height:100%;overflow-y:auto}.panel-header{display:flex;align-items:center;gap:var(--spacing-sm);margin-bottom:var(--spacing-md)}.panel-icon{font-size:2rem;color:var(--color-primary)}.panel-header h2{color:var(--color-primary);font-size:1.1rem;margin:0}.panel-content p{color:var(--color-text);font-size:.85rem;line-height:1.5}.examples{margin-top:var(--spacing-md);display:flex;flex-direction:column;gap:var(--spacing-xs)}.example-item{padding:var(--spacing-sm);background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;font-size:.8rem;color:var(--color-text-muted);border-left:3px solid var(--color-primary)}</style>
+</div></body></html>

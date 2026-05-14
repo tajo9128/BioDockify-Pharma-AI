@@ -1,47 +1,12 @@
-<html>
-<head><script type="module" src="/components/mol-similarity/similarity-store.js"></script></head>
-<body>
-  <div x-data class="sim-panel">
-    <div class="panel-header"><h2>Molecular Similarity</h2></div>
-    <div class="input-group">
-      <label>Query Molecule (SMILES)</label>
-      <input type="text" x-model="$store.molSimilarity.querySmiles" placeholder="e.g. CC(=O)Oc1ccccc1C(=O)O" class="input" />
+<html><body><div x-data class="simple-panel">
+  <div class="panel-header"><span class="material-symbols-outlined panel-icon">share</span><h2>Molecular Similarity</h2></div>
+  <div class="panel-content">
+    <p>Ask the agent in chat to find molecules similar to a query compound using Tanimoto similarity on Morgan fingerprints.</p>
+    <div class="examples">
+      <div class="example-item">"Find molecules similar to aspirin using Tanimoto similarity"</div>
+      <div class="example-item">"Search for compounds with similar scaffolds to ibuprofen"</div>
+      <div class="example-item">"Cluster these SMILES by structural similarity"</div>
     </div>
-    <div class="input-group">
-      <label>Reference Library (SMILES, one per line, or use query as reference)</label>
-      <textarea x-model="$store.molSimilarity.referenceSmiles" placeholder="Leave empty to search against the drug library" class="textarea" rows="3"></textarea>
-    </div>
-    <div class="actions"><button class="btn" @click="$store.molSimilarity.search()" :disabled="$store.molSimilarity.loading">Find Similar</button><button class="btn-clear" @click="$store.molSimilarity.clear()">Clear</button></div>
-    <div x-show="$store.molSimilarity.error" class="error" x-text="$store.molSimilarity.error"></div>
-    <div x-show="$store.molSimilarity.results.length" class="results">
-      <h3>Similar Molecules</h3>
-      <table class="sim-table">
-        <thead><tr><th>#</th><th>SMILES</th><th>Tanimoto</th></tr></thead>
-        <tbody><template x-for="(r, i) in $store.molSimilarity.results" :key="i"><tr><td x-text="i + 1"></td><td style="font-family:var(--font-mono);font-size:0.7rem;" x-text="r.smiles"></td><td><span :class="'score ' + (r.similarity >= 0.7 ? 'high' : r.similarity >= 0.5 ? 'med' : 'low')" x-text="r.similarity.toFixed(3)"></span></td></tr></template></tbody>
-      </table>
-    </div>
-    <style>
-      .sim-panel { padding: var(--spacing-md); height: 100%; overflow-y: auto; }
-      .panel-header h2 { color: var(--color-primary); font-size: 1.1rem; margin: 0 0 var(--spacing-sm) 0; }
-      .input-group { margin-bottom: var(--spacing-sm); }
-      .input-group label { display: block; font-size: 0.75rem; color: var(--color-text-muted); margin-bottom: 2px; }
-      .input, .textarea { width: 100%; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); font-size: 0.85rem; font-family: var(--font-mono); }
-      .textarea { resize: vertical; }
-      .actions { display: flex; gap: var(--spacing-xs); margin: var(--spacing-sm) 0; }
-      .btn, .btn-clear { padding: var(--spacing-xs) var(--spacing-md); border-radius: 4px; cursor: pointer; border: none; font-size: 0.85rem; }
-      .btn { background: var(--color-primary); color: white; }
-      .btn:disabled { opacity: 0.6; }
-      .btn-clear { background: var(--color-panel); border: 1px solid var(--color-border); color: var(--color-text-muted); }
-      .error { color: var(--color-error-text, #ff6b6b); font-size: 0.8rem; }
-      .results h3 { font-size: 0.85rem; color: var(--color-text); }
-      .sim-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-      .sim-table th { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); }
-      .sim-table td { padding: 4px 6px; border-bottom: 1px solid var(--color-border); }
-      .score { font-weight: 600; }
-      .high { color: var(--color-primary); }
-      .med { color: #ffd93d; }
-      .low { color: var(--color-error-text, #ff6b6b); }
-    </style>
   </div>
-</body>
-</html>
+  <style>.simple-panel{padding:var(--spacing-md);height:100%;overflow-y:auto}.panel-header{display:flex;align-items:center;gap:var(--spacing-sm);margin-bottom:var(--spacing-md)}.panel-icon{font-size:2rem;color:var(--color-primary)}.panel-header h2{color:var(--color-primary);font-size:1.1rem;margin:0}.panel-content p{color:var(--color-text);font-size:.85rem;line-height:1.5}.examples{margin-top:var(--spacing-md);display:flex;flex-direction:column;gap:var(--spacing-xs)}.example-item{padding:var(--spacing-sm);background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;font-size:.8rem;color:var(--color-text-muted);border-left:3px solid var(--color-primary)}</style>
+</div></body></html>
