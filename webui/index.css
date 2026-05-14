@@ -1795,3 +1795,5 @@ body *::-webkit-scrollbar-thumb:active {
 .status-indicator { display: flex; align-items: center; gap: 5px; }
 .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
 .status-tool-name { color: var(--color-primary); font-weight: 500; }
+/* Layout guards */
+#right-panel, .tool-fullpage { flex: 1 1 0; min-width: 0; }

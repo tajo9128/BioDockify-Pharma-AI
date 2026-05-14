@@ -106,6 +106,8 @@
     <!-- Import canvas store early so tools work from the start -->
     <script type="module">
         import { store } from "/components/canvas/right-canvas-store.js";
+        // Clear any saved open state from localStorage
+        try { localStorage.removeItem("a0.rightCanvas"); } catch(e) {}
         if (store) store.isOpen = false;
         if (store && typeof store.init === "function") {
             store.init().catch(function(err) {
