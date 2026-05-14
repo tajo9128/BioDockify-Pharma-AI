@@ -90,7 +90,7 @@
                 e.preventDefault();
                 if (window.deselectChat) window.deselectChat();
             }
-            // Escape — Close tool panel if canvas is open, back to chat
+            // Escape — Close tool panel, back to chat
             if (e.key === "Escape") {
                 var canvas = Alpine?.store("rightCanvas");
                 if (canvas && canvas.isOpen) {
@@ -126,7 +126,7 @@
         <!-- Left Sidebar (Header Icons, Quick Actions, Tabs, Chats, Tasks) -->
         <x-component path="sidebar/left-sidebar.html"></x-component>
 
-        <!-- Right Panel (Message History and Input Section) — Hidden when canvas is open -->
+        <!-- Right Panel (Message History and Input Section) — Hidden when tool is open -->
         <div id="right-panel" class="panel" x-show="!$store.rightCanvas || !$store.rightCanvas.isOpen" x-cloak>
 
             <!-- top section with time, status etc. -->
@@ -181,7 +181,7 @@
             </div>
         </div>
 
-        <!-- Full-page Tool Area (replaces chat when canvas surface is active) -->
+        <!-- Full-page Tool Area (replaces chat when tool is active) -->
         <div x-show="$store.rightCanvas && $store.rightCanvas.isOpen" class="tool-fullpage" x-cloak>
             <div class="tool-fullpage-header">
                 <button class="tool-back-btn" @click="$store.rightCanvas.close()">

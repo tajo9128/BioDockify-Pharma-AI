@@ -112,6 +112,13 @@ const model = {
     const targetId = surfaceId || this.activeSurfaceId || this.panelSurfaces[0]?.id || "";
     const surface = this.getSurface(targetId);
     if (!surface) {
+      // Surface not found (may not be registered yet). Still open the tool area.
+      if (targetId) {
+        this.activeSurfaceId = targetId;
+        this.markSurfaceMounted(targetId);
+        this.isOpen = true;
+        this.applyLayoutState();
+      }
       return false;
     }
     if (this.isMobileMode && !surface.actionOnly) {
