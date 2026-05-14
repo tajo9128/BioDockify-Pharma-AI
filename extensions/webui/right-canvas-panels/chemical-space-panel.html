@@ -1,0 +1,9 @@
+﻿<div class="right-canvas-surface-panel"
+     data-surface-id="chemical-space"
+     :class="{
+       'is-active': $store.rightCanvas?.isSurfaceVisible('chemical-space'),
+       'is-mounted': $store.rightCanvas?.isSurfaceRendered('chemical-space')
+     }"
+     :aria-hidden="(!$store.rightCanvas?.isSurfaceVisible('chemical-space')).toString()">
+  <x-component path="/components/chemical-space/chemspace-panel.html"></x-component>
+</div>

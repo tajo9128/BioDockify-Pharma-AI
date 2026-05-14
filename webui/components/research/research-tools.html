@@ -48,6 +48,30 @@
         <span class="material-symbols-outlined">biotech</span>
         <span>Docking</span>
       </button>
+      <button class="tool-card" @click="$store.rightCanvas.open('viewer3d')">
+        <span class="material-symbols-outlined">view_in_ar</span>
+        <span>3D Viewer</span>
+      </button>
+      <button class="tool-card" @click="$store.rightCanvas.open('lecture-builder')">
+        <span class="material-symbols-outlined">school</span>
+        <span>Lecture Builder</span>
+      </button>
+      <button class="tool-card" @click="$store.rightCanvas.open('drug-browser')">
+        <span class="material-symbols-outlined">medication_liquid</span>
+        <span>Drug Browser</span>
+      </button>
+      <button class="tool-card" @click="$store.rightCanvas.open('admet')">
+        <span class="material-symbols-outlined">monitor_heart</span>
+        <span>ADMET</span>
+      </button>
+      <button class="tool-card" @click="$store.rightCanvas.open('mol-similarity')">
+        <span class="material-symbols-outlined">share</span>
+        <span>Similarity</span>
+      </button>
+      <button class="tool-card" @click="$store.rightCanvas.open('chemical-space')">
+        <span class="material-symbols-outlined">bubble_chart</span>
+        <span>Chem Space</span>
+      </button>
     </div>
 
     <style>

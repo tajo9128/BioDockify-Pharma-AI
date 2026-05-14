@@ -1,0 +1,75 @@
+<html>
+<head><script type="module" src="/components/lecture-builder/lecture-store.js"></script></head>
+<body>
+  <div x-data class="lecture-panel">
+    <div class="panel-header"><h2>Lecture Builder</h2></div>
+    <div class="input-section">
+      <input type="text" x-model="$store.lectureBuilder.topic" placeholder="Lecture topic (e.g. Pharmacokinetics of NSAIDs)" class="topic-input" @keyup.enter="$store.lectureBuilder.generate()" />
+      <div class="options-row">
+        <select x-model="$store.lectureBuilder.duration" class="select">
+          <option value="30">30 min</option>
+          <option value="60">60 min</option>
+          <option value="90">90 min</option>
+        </select>
+        <select x-model="$store.lectureBuilder.level" class="select">
+          <option value="undergraduate">Undergraduate</option>
+          <option value="graduate">Graduate</option>
+          <option value="pharmd">Pharm.D</option>
+        </select>
+        <button class="btn" @click="$store.lectureBuilder.generate()" :disabled="$store.lectureBuilder.loading">Generate</button>
+        <button class="btn-clear" @click="$store.lectureBuilder.clear()">Clear</button>
+      </div>
+    </div>
+    <div x-show="$store.lectureBuilder.error" class="error" x-text="$store.lectureBuilder.error"></div>
+    <div x-show="$store.lectureBuilder.result" class="result-section">
+      <div class="tabs">
+        <button :class="'tab ' + ($store.lectureBuilder.activeTab === 'lecture' ? 'active' : '')" @click="$store.lectureBuilder.activeTab = 'lecture'">Lecture</button>
+        <button :class="'tab ' + ($store.lectureBuilder.activeTab === 'homework' ? 'active' : '')" @click="$store.lectureBuilder.activeTab = 'homework'">Homework</button>
+        <button :class="'tab ' + ($store.lectureBuilder.activeTab === 'practical' ? 'active' : '')" @click="$store.lectureBuilder.activeTab = 'practical'">Practical</button>
+      </div>
+      <div x-show="$store.lectureBuilder.activeTab === 'lecture'" class="tab-content">
+        <h3 x-text="$store.lectureBuilder.result.lecture?.title || $store.lectureBuilder.topic"></h3>
+        <div class="objectives" x-show="$store.lectureBuilder.result.lecture?.learning_objectives">
+          <strong>Learning Objectives:</strong>
+          <ul><template x-for="obj in ($store.lectureBuilder.result.lecture?.learning_objectives || [])"><li x-text="obj"></li></template></ul>
+        </div>
+        <template x-for="section in ($store.lectureBuilder.result.lecture?.sections || [])" :key="section.title">
+          <div class="section"><strong x-text="section.title"></strong><p x-text="section.content"></p></div>
+        </template>
+        <div class="summary" x-show="$store.lectureBuilder.result.lecture?.summary" x-text="$store.lectureBuilder.result.lecture.summary"></div>
+      </div>
+      <div x-show="$store.lectureBuilder.activeTab === 'homework'" class="tab-content">
+        <ul><template x-for="h in ($store.lectureBuilder.result.homework || [])" :key="h"><li class="hw-item" x-text="h"></li></template></ul>
+      </div>
+      <div x-show="$store.lectureBuilder.activeTab === 'practical'" class="tab-content">
+        <div class="summary" x-text="$store.lectureBuilder.result.practical?.objective || 'No practical generated'"></div>
+      </div>
+    </div>
+    <style>
+      .lecture-panel { padding: var(--spacing-md); height: 100%; overflow-y: auto; }
+      .panel-header h2 { color: var(--color-primary); font-size: 1.1rem; margin: 0 0 var(--spacing-sm) 0; }
+      .topic-input { width: 100%; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); font-size: 0.9rem; margin-bottom: var(--spacing-xs); }
+      .options-row { display: flex; gap: var(--spacing-xs); margin-bottom: var(--spacing-md); }
+      .select { padding: var(--spacing-xs); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); font-size: 0.8rem; }
+      .btn, .btn-clear { padding: var(--spacing-xs) var(--spacing-md); border-radius: 4px; cursor: pointer; border: none; font-size: 0.85rem; }
+      .btn { background: var(--color-primary); color: white; }
+      .btn:disabled { opacity: 0.6; }
+      .btn-clear { background: var(--color-panel); border: 1px solid var(--color-border); color: var(--color-text-muted); }
+      .error { color: var(--color-error-text, #ff6b6b); font-size: 0.8rem; }
+      .result-section { margin-top: var(--spacing-sm); }
+      .tabs { display: flex; gap: 4px; margin-bottom: var(--spacing-sm); }
+      .tab { padding: 4px 12px; border-radius: 4px 4px 0 0; cursor: pointer; font-size: 0.8rem; background: var(--color-panel); border: 1px solid var(--color-border); border-bottom: none; color: var(--color-text-muted); }
+      .tab.active { background: var(--color-secondary); color: var(--color-text); border-color: var(--color-primary); }
+      .tab-content { padding: var(--spacing-sm); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 0 4px 4px 4px; }
+      .tab-content h3 { font-size: 0.95rem; color: var(--color-primary); margin: 0 0 var(--spacing-xs) 0; }
+      .objectives { margin-bottom: var(--spacing-sm); font-size: 0.8rem; }
+      .objectives ul { margin: 4px 0; padding-left: var(--spacing-md); }
+      .section { margin-bottom: var(--spacing-xs); padding: var(--spacing-xs); border-left: 2px solid var(--color-primary); }
+      .section strong { font-size: 0.85rem; display: block; margin-bottom: 2px; }
+      .section p { margin: 0; font-size: 0.8rem; color: var(--color-text); }
+      .summary { font-size: 0.8rem; color: var(--color-text-muted); font-style: italic; margin-top: var(--spacing-xs); padding: var(--spacing-xs); background: var(--color-background); border-radius: 4px; }
+      .hw-item { font-size: 0.8rem; margin-bottom: var(--spacing-xs); line-height: 1.4; }
+    </style>
+  </div>
+</body>
+</html>

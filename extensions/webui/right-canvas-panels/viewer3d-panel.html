@@ -1,0 +1,9 @@
+﻿<div class="right-canvas-surface-panel"
+     data-surface-id="viewer3d"
+     :class="{
+       'is-active': $store.rightCanvas?.isSurfaceVisible('viewer3d'),
+       'is-mounted': $store.rightCanvas?.isSurfaceRendered('viewer3d')
+     }"
+     :aria-hidden="(!$store.rightCanvas?.isSurfaceVisible('viewer3d')).toString()">
+  <x-component path="/components/3d-viewer/3d-viewer-panel.html"></x-component>
+</div>

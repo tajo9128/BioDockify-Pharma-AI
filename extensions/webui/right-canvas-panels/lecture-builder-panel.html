@@ -1,0 +1,9 @@
+﻿<div class="right-canvas-surface-panel"
+     data-surface-id="lecture-builder"
+     :class="{
+       'is-active': $store.rightCanvas?.isSurfaceVisible('lecture-builder'),
+       'is-mounted': $store.rightCanvas?.isSurfaceRendered('lecture-builder')
+     }"
+     :aria-hidden="(!$store.rightCanvas?.isSurfaceVisible('lecture-builder')).toString()">
+  <x-component path="/components/lecture-builder/lecture-panel.html"></x-component>
+</div>

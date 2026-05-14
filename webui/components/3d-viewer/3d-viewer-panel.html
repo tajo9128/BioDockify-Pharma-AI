@@ -1,0 +1,42 @@
+<html>
+<head><script type="module" src="/components/3d-viewer/3d-viewer-store.js"></script></head>
+<body>
+  <div x-data class="viewer-panel">
+    <div class="panel-header"><h2>3D Molecule Viewer</h2></div>
+    <div class="input-row">
+      <input type="text" x-model="$store.viewer3d.jobId" placeholder="Docking job ID" class="input" />
+      <button class="btn" @click="$store.viewer3d.loadPose($store.viewer3d.jobId, 0)" :disabled="$store.viewer3d.loading">Load</button>
+    </div>
+    <div x-show="$store.viewer3d.error" class="error" x-text="$store.viewer3d.error"></div>
+    <div class="ngl-container" id="ngl-viewer" style="width:100%;height:500px;background:#0a1628;border-radius:8px;"></div>
+    <div class="hint">Enter a docking job ID to visualize the docked pose. Protein shown as cartoon, ligand as sticks.</div>
+    <script src="https://cdn.jsdelivr.net/npm/ngl@2.4.1/dist/ngl.js"></script>
+    <script>
+      document.addEventListener("ngl-load", (e) => {
+        const { pdb, sdf } = e.detail;
+        if (!pdb && !sdf) return;
+        const stage = new NGL.Stage("ngl-viewer");
+        stage.setParameters({ backgroundColor: "#0a1628" });
+        if (pdb) stage.loadFile(new Blob([pdb], { type: "text/plain" }), { ext: "pdb", name: "Protein" }).then(c => {
+          c.addRepresentation("cartoon", { color: "skyblue" });
+          c.autoView();
+        });
+        if (sdf) stage.loadFile(new Blob([sdf], { type: "text/plain" }), { ext: "sdf", name: "Ligand" }).then(c => {
+          c.addRepresentation("licorice", { color: "element", multipleBond: true });
+          c.autoView();
+        });
+      });
+    </script>
+    <style>
+      .viewer-panel { padding: var(--spacing-md); height: 100%; overflow-y: auto; }
+      .panel-header h2 { color: var(--color-primary); font-size: 1.1rem; margin: 0 0 var(--spacing-sm) 0; }
+      .input-row { display: flex; gap: var(--spacing-xs); margin-bottom: var(--spacing-sm); }
+      .input { flex: 1; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); font-size: 0.85rem; }
+      .btn { padding: var(--spacing-xs) var(--spacing-md); background: var(--color-primary); color: white; border: none; border-radius: 4px; cursor: pointer; }
+      .btn:disabled { opacity: 0.6; }
+      .error { color: var(--color-error-text, #ff6b6b); font-size: 0.8rem; margin-bottom: var(--spacing-xs); }
+      .hint { font-size: 0.75rem; color: var(--color-text-muted); margin-top: var(--spacing-xs); }
+    </style>
+  </div>
+</body>
+</html>

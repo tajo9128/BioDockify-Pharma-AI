@@ -1,0 +1,59 @@
+<html>
+<head><script type="module" src="/components/admet/admet-store.js"></script></head>
+<body>
+  <div x-data class="admet-panel">
+    <div class="panel-header"><h2>ADMET Prediction</h2><p class="desc">ADME + Toxicity rule-based prediction from SMILES</p></div>
+    <div class="presets"><template x-for="lib in $store.admet.libraries" :key="lib"><button :class="'preset-btn ' + ($store.admet.preset === lib ? 'active' : '')" @click="$store.admet.selectPreset(lib)" x-text="$store.admet.libraryNames[lib]"></button></template></div>
+    <div class="input-row"><input type="text" x-model="$store.admet.smiles" placeholder="Or enter SMILES..." class="input" @keyup.enter="$store.admet.analyze()" /><button class="btn-analyze" @click="$store.admet.analyze()" :disabled="$store.admet.loading">Analyze</button><button class="btn-clear" @click="$store.admet.clear()">Clear</button></div>
+    <div x-show="$store.admet.error" class="error" x-text="$store.admet.error"></div>
+    <div x-show="$store.admet.result" class="results">
+      <div class="prop-grid">
+        <div class="prop-card"><span class="prop-label">Lipinski</span><span :class="'prop-val ' + ($store.admet.result.lipinski_rule_of_5 ? 'pass' : 'fail')" x-text="$store.admet.result.lipinski_rule_of_5 ? 'Pass' : 'Fail'"></span></div>
+        <div class="prop-card"><span class="prop-label">Veber</span><span :class="'prop-val ' + ($store.admet.result.veber_rule ? 'pass' : 'fail')" x-text="$store.admet.result.veber_rule ? 'Pass' : 'Fail'"></span></div>
+        <div class="prop-card"><span class="prop-label">Golden Triangle</span><span :class="'prop-val ' + ($store.admet.result.golden_triangle ? 'pass' : 'fail')" x-text="$store.admet.result.golden_triangle ? 'Pass' : 'Fail'"></span></div>
+        <div class="prop-card"><span class="prop-label">GI Absorption</span><span class="prop-val" x-text="$store.admet.result.gi_absorption || 'N/A'"></span></div>
+        <div class="prop-card"><span class="prop-label">BBB Score</span><span :class="'prop-val ' + ($store.admet.result.bbb_pass ? 'pass' : 'warn')" x-text="$store.admet.result.bbb_score || 'N/A'"></span></div>
+        <div class="prop-card"><span class="prop-label">hERG Risk</span><span :class="'prop-val ' + ($store.admet.result.herg_risk === 'Low' ? 'pass' : ($store.admet.result.herg_risk === 'Medium' ? 'warn' : 'fail'))" x-text="$store.admet.result.herg_risk || 'N/A'"></span></div>
+      </div>
+      <div class="prop-table-wrap"><table class="prop-table">
+        <tr><td>Formula</td><td x-text="$store.admet.result.formula"></td></tr>
+        <tr><td>MW</td><td x-text="$store.admet.result.mw + ' Da'"></td></tr>
+        <tr><td>LogP</td><td x-text="$store.admet.result.logp"></td></tr>
+        <tr><td>HBD</td><td x-text="$store.admet.result.hbd"></td></tr>
+        <tr><td>HBA</td><td x-text="$store.admet.result.hba"></td></tr>
+        <tr><td>TPSA</td><td x-text="$store.admet.result.tpsa + ' Å²'"></td></tr>
+        <tr><td>Rotatable Bonds</td><td x-text="$store.admet.result.rotatable_bonds"></td></tr>
+        <tr><td>Bioavailability Score</td><td x-text="$store.admet.result.bioavailability_score || '0.55'"></td></tr>
+        <tr><td>Synthetic Accessibility</td><td x-text="$store.admet.result.synthetic_accessibility || 'N/A'"></td></tr>
+        <tr><td>QED (Drug-likeness)</td><td x-text="$store.admet.result.qed || 'N/A'"></td></tr>
+      </table></div>
+    </div>
+    <style>
+      .admet-panel { padding: var(--spacing-md); height: 100%; overflow-y: auto; }
+      .panel-header h2 { color: var(--color-primary); font-size: 1.1rem; margin: 0; }
+      .desc { font-size: 0.8rem; color: var(--color-text-muted); margin: 0 0 var(--spacing-sm) 0; }
+      .presets { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: var(--spacing-sm); }
+      .preset-btn { padding: 2px 10px; border-radius: 12px; font-size: 0.7rem; cursor: pointer; background: var(--color-panel); border: 1px solid var(--color-border); color: var(--color-text-muted); }
+      .preset-btn.active { background: var(--color-primary); color: white; }
+      .input-row { display: flex; gap: var(--spacing-xs); margin-bottom: var(--spacing-sm); }
+      .input { flex: 1; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); font-size: 0.85rem; font-family: var(--font-mono); }
+      .btn-analyze, .btn-clear { padding: var(--spacing-xs) var(--spacing-md); border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+      .btn-analyze { background: var(--color-primary); color: white; }
+      .btn-analyze:disabled { opacity: 0.6; }
+      .btn-clear { background: var(--color-panel); border: 1px solid var(--color-border); color: var(--color-text-muted); }
+      .error { color: var(--color-error-text, #ff6b6b); font-size: 0.8rem; }
+      .prop-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--spacing-xs); margin-bottom: var(--spacing-sm); }
+      .prop-card { padding: var(--spacing-xs); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; text-align: center; }
+      .prop-label { display: block; font-size: 0.65rem; color: var(--color-text-muted); margin-bottom: 2px; }
+      .prop-val { font-size: 0.85rem; font-weight: 600; }
+      .pass { color: var(--color-primary); }
+      .warn { color: #ffd93d; }
+      .fail { color: var(--color-error-text, #ff6b6b); }
+      .prop-table-wrap { margin-top: var(--spacing-xs); }
+      .prop-table { width: 100%; font-size: 0.8rem; border-collapse: collapse; }
+      .prop-table td { padding: 3px 6px; border-bottom: 1px solid var(--color-border); }
+      .prop-table td:first-child { color: var(--color-text-muted); width: 50%; }
+    </style>
+  </div>
+</body>
+</html>
