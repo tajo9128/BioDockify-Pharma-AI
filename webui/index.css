@@ -15,7 +15,7 @@
   --color-text-muted-dark: #8b949e;
   --color-primary-dark: #7c3aed;
   --color-secondary-dark: #2d1b69;
-  --color-accent-dark: #f59e0b;
+  --color-accent-dark: #ee5586;
   --color-message-bg-dark: #1c2333;
   --color-highlight-dark: #7c3aed;
   --color-message-text-dark: #e0e0e0;
@@ -25,7 +25,7 @@
   --color-input-focus-dark: #1c2333;
   --color-chat-background-dark: #0d1117;
   --color-error-text-dark:#ef4444;
-  --color-warning-text-dark:#f59e0b;
+  --color-warning-text-dark:#ee5586;
   --color-table-row-dark: #0d1117;
 
   /* BioDockify Light mode */
@@ -34,7 +34,7 @@
   --color-text-muted-light: #64748b;
   --color-primary-light: #6d28d9;
   --color-secondary-light: #eef2ff;
-  --color-accent-light: #d97706;
+  --color-accent-light: #e11d48;
   --color-message-bg-light: #ffffff;
   --color-highlight-light: #6d28d9;
   --color-message-text-light: #0f172a;
@@ -44,7 +44,7 @@
   --color-input-focus-light: #ffffff;
   --color-chat-background-light: #f8fafc;
   --color-error-text-light:#dc2626;
-  --color-warning-text-light:#d97706;
+  --color-warning-text-light:#e11d48;
   --color-table-row-light: #f1f5f9;
 
 
