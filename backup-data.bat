@@ -1,75 +1,70 @@
 @echo off
-REM BioDockify Pharma AI — Backup User Data to Desktop
-REM ====================================================
-REM This creates a timestamped backup of ALL research data:
+REM BioDockify Pharma AI — Backup Volume to Desktop (Windows)
+REM ==========================================================
+REM This backs up the ENTIRE Docker volume containing all research data:
 REM   - Memory (FAISS vector database)
 REM   - Chat history
 REM   - Settings and secrets
 REM   - Knowledge base
 REM   - Projects
-REM   - User plugins and skills
-REM   - Workdir files
+REM   - User plugins, skills, workdir files
+REM   - Backups created via the in-app Backup panel
 REM
 REM Backup is saved to: %USERPROFILE%\Desktop\BioDockify-Backups\
 REM
-REM To restore:
-REM   1. Stop the container: docker compose down
-REM   2. Restore the volume data
-REM   3. Restart: docker compose up -d
+REM To restore this backup later:
+REM   docker run --rm -v biodockify_pharma_usr:/volume -v %CD%:/backup alpine sh -c "rm -rf /volume/* && tar xzf /backup/biodockify-backup-XXXXXXXX.tar.gz -C /volume"
 
 set BACKUP_DIR=%USERPROFILE%\Desktop\BioDockify-Backups
 set TIMESTAMP=%DATE:~10,4%%DATE:~4,2%%DATE:~7,2%_%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%
 set TIMESTAMP=%TIMESTAMP: =0%
-set BACKUP_FILE=%BACKUP_DIR%\biodockify-backup-%TIMESTAMP%.zip
+set BACKUP_FILE=%BACKUP_DIR%\biodockify-volume-backup-%TIMESTAMP%.tar.gz
 
 echo.
-echo [BioDockify Pharma AI] Backup Tool
-echo ==================================
+echo [BioDockify Pharma AI] Volume Backup Tool
+echo ==========================================
 echo.
 echo Backup destination: %BACKUP_DIR%
 echo.
 
-REM Create backup directory if it doesn't exist
 if not exist "%BACKUP_DIR%" mkdir "%BACKUP_DIR%"
 
-REM Check if container is running
-docker inspect biodockify-pharma-ai >nul 2>&1
+echo [1/3] Creating backup from Docker volume...
+docker run --rm -v biodockify_pharma_usr:/volume -v "%BACKUP_DIR%:/backup" alpine tar czf "/backup/biodockify-volume-backup-%TIMESTAMP%.tar.gz" -C /volume . 2>&1
 if %errorlevel% neq 0 (
-    echo [WARNING] Container 'biodockify-pharma-ai' is not running.
-    echo Starting container first...
-    docker compose up -d
-    echo Waiting 10 seconds for startup...
-    timeout /t 10 /nobreak >nul
-)
-
-echo [1/3] Creating backup archive inside container...
-docker exec biodockify-pharma-ai sh -c "cd /a0 && tar czf /tmp/biodockify-backup.tar.gz usr/"
-if %errorlevel% neq 0 (
-    echo [ERROR] Failed to create backup inside container.
+    echo [ERROR] Failed to create backup. Make sure the container exists and the volume 'biodockify_pharma_usr' is present.
+    echo.
+    echo Check available volumes: docker volume ls
     pause
     exit /b 1
 )
 
-echo [2/3] Copying backup to desktop...
-docker cp biodockify-pharma-ai:/tmp/biodockify-backup.tar.gz "%BACKUP_FILE:.zip=.tar.gz%"
-if %errorlevel% neq 0 (
-    echo [ERROR] Failed to copy backup.
+echo [2/3] Verifying backup file...
+if exist "%BACKUP_FILE%" (
+    for %%F in ("%BACKUP_FILE%") do echo File size: %%~zF bytes
+) else (
+    echo [ERROR] Backup file not found.
     pause
     exit /b 1
 )
 
-echo [3/3] Cleaning up temporary files...
-docker exec biodockify-pharma-ai rm -f /tmp/biodockify-backup.tar.gz
-
+echo [3/3] Done!
 echo.
 echo [SUCCESS] Backup saved to:
-echo   %BACKUP_FILE:.zip=.tar.gz%
+echo   %BACKUP_FILE%
 echo.
-echo File size:
-dir "%BACKUP_FILE:.zip=.tar.gz%" | find "File(s)"
+echo Your ENTIRE research data (memory, chats, knowledge, projects, backups) is now safe.
+echo This file includes: memory DB, chat history, settings, knowledge base, projects.
 echo.
-echo Your research data (memory, chats, knowledge, projects) is now safe on your desktop.
-echo Keep this backup file in a safe location.
+echo === How to restore ===
+echo To restore this backup to a new container:
+echo   1. docker compose down
+echo   2. docker volume rm biodockify_pharma_usr
+echo   3. docker run --rm -v biodockify_pharma_usr:/volume -v "%CD%:/backup" alpine sh -c "rm -rf /volume/* ^&^& tar xzf /backup/biodockify-volume-backup-%TIMESTAMP%.tar.gz -C /volume"
+echo   4. docker compose up -d
+echo.
+echo Or restore from a different backup file:
+echo   docker run --rm -v biodockify_pharma_usr:/volume -v "%CD%:/backup" alpine sh -c "rm -rf /volume/* ^&^& tar xzf /backup/YOUR_BACKUP_FILE.tar.gz -C /volume"
 echo.
 
 pause

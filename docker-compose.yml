@@ -2,27 +2,84 @@ version: '3.8'
 
 services:
   biodockify-pharma-ai:
-    image: tajo9128/biodockify-pharma-ai:v4.1.7
+    image: tajo9128/biodockify-pharma-ai:latest
     container_name: biodockify-pharma-ai
     ports:
+      # Web UI port
       - "3000:3000"
+      # Optional: expose additional ports if needed
+      # - "8000:8000"   # Alternative API port
     volumes:
-      # CRITICAL: ALL user data (memory, chats, settings, knowledge, projects) stored here
-      # This volume persists across container deletion/recreation
+      # === REQUIRED VOLUME ===
+      # ALL user data (memory, chats, settings, knowledge, projects, backups)
+      # This MUST be a persistent volume — without it, all data is lost on container delete
       - biodockify_pharma_usr:/a0/usr
-      # Optional: mount a local folder for easy file exchange
-      # - ./workdir:/a0/usr/workdir
+
+      # === OPTIONAL VOLUMES ===
+      # Mount a local folder as the agent's working directory (for easy file exchange between host and container)
+      # - D:\MyResearch:/a0/usr/workdir
+
+      # Mount a local folder for backups (easier to find than Docker named volumes)
+      # - D:\BioDockifyBackups:/a0/usr/backups
+
+      # Mount a local folder for custom knowledge base files
+      # - D:\MyPapers:/a0/usr/knowledge
+
     environment:
+      # === REQUIRED ===
       - PORT=3000
-      # Optional: configure Ollama if running locally
+
+      # === OPTIONAL: LLM PROVIDERS ===
+      # Set API keys for your preferred LLM providers (these override manual entry in Settings UI)
+      # - OPENAI_API_KEY=sk-your-key-here
+      # - ANTHROPIC_API_KEY=sk-ant-your-key-here
+      # - DEEPSEEK_API_KEY=sk-your-key-here
+      # - OPENROUTER_API_KEY=sk-or-your-key-here
+      # - GEMINI_API_KEY=your-key-here
+      # - GROQ_API_KEY=gsk_your-key-here
+
+      # === OPTIONAL: LOCAL LLM (Ollama) ===
+      # If running Ollama on your host machine, uncomment and configure:
       # - OLLAMA_URL=http://host.docker.internal:11434
+
+      # === OPTIONAL: SEARXNG INSTANCE ===
+      # BioDockify includes a built-in SearXNG instance for web search.
+      # To use your own external SearXNG instance:
+      # - SEARXNG_URL=http://your-searxng-instance:8888
+
+      # === OPTIONAL: MEMORY CONFIGURATION ===
+      # - MEMORY_SUBDIR=my_research_project  # Isolate memory by project name
+
+      # === OPTIONAL: DEPLOYMENT ===
+      # - AUTH_TOKEN=your-auth-token         # Enable authentication
+      # - LOG_LEVEL=DEBUG                    # DEBUG, INFO, WARNING, ERROR
+      # - TZ=Asia/Kolkata                    # Set timezone (default: UTC)
+
     extra_hosts:
+      # Allows the container to access host services via "host.docker.internal"
       - "host.docker.internal:host-gateway"
+
     restart: unless-stopped
+    # Optional: resource limits (prevents container from using all system memory)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 8G
+    #       cpus: '4'
 
 volumes:
   biodockify_pharma_usr:
     # Docker named volume — persists on your machine at:
-    # Windows: \\wsl$\docker-desktop-data\version-pack-data\community\docker\volumes\biodockify_pharma_usr\_data
-    # macOS/Linux: /var/lib/docker/volumes/biodockify_pharma_usr/_data
+    # Windows (WSL2): \\wsl$\docker-desktop-data\version-pack-data\community\docker\volumes\biodockify_pharma_usr\_data
+    # macOS:         ~/Library/Containers/com.docker.docker/Data/vms/0/data/volumes/...
+    # Linux:         /var/lib/docker/volumes/biodockify_pharma_usr/_data
+    #
+    # To find where this volume is stored on your system, run:
+    #   docker volume inspect biodockify_pharma_usr
+    #
+    # To BACKUP this volume (Windows PowerShell):
+    #   docker run --rm -v biodockify_pharma_usr:/volume -v ${PWD}:/backup alpine tar czf /backup/biodockify-backup.tar.gz -C /volume .
+    #
+    # To RESTORE this volume:
+    #   docker run --rm -v biodockify_pharma_usr:/volume -v ${PWD}:/backup alpine sh -c "rm -rf /volume/* && tar xzf /backup/biodockify-backup.tar.gz -C /volume"
     name: biodockify_pharma_usr

@@ -12,6 +12,10 @@ REM Usage:
 REM   Double-click this file or run: run.bat
 REM
 REM After starting, open: http://localhost:3000
+REM
+REM To stop:    docker compose down
+REM To update:  docker compose pull && docker compose up -d
+REM To backup:  run backup-data.bat
 
 echo.
 echo [BioDockify Pharma AI] Starting container...
@@ -25,9 +29,13 @@ if %errorlevel% equ 0 (
     echo.
     echo Open http://localhost:3000 in your browser.
     echo.
-    echo To stop: docker compose down
-    echo To view logs: docker compose logs -f
-    echo To backup data: run backup-data.bat
+    echo ===== Useful Commands =====
+    echo To stop:           docker compose down
+    echo To view logs:      docker compose logs -f
+    echo To backup data:    backup-data.bat
+    echo To backup volume:  docker run --rm -v biodockify_pharma_usr:/volume -v %CD%:/backup alpine tar czf /backup/biodockify-backup.tar.gz -C /volume .
+    echo To restore volume: docker run --rm -v biodockify_pharma_usr:/volume -v %CD%:/backup alpine sh -c "rm -rf /volume/* ^&^& tar xzf /backup/biodockify-backup.tar.gz -C /volume"
+    echo.
 ) else (
     echo.
     echo [ERROR] Failed to start container.
