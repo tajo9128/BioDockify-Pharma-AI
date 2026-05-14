@@ -30,7 +30,7 @@
 
       <!-- Research Section Header -->
       <div class="section-header">
-        <span class="section-title">Research</span>
+        <span class="section-title">Pharma Research Assistant</span>
       </div>
 
       <!-- Research Icons - All accessible, stacked below chat -->
@@ -79,22 +79,10 @@
           <span class="material-symbols-outlined">biotech</span>
           <span class="icon-label">Docking</span>
         </button>
-      </div>
 
-      <!-- Agentic & System Section Header -->
-      <div class="section-header">
-        <span class="section-title">Agentic & System</span>
-      </div>
-
-      <div class="system-icons">
         <button class="config-button header-action-button" @click="$store.rightCanvas.open('agent-tasks')" title="Agent Tasks">
           <span class="material-symbols-outlined">psychology</span>
           <span class="icon-label">Agent Tasks</span>
-        </button>
-
-        <button class="config-button header-action-button" @click="$store.rightCanvas.open('desktop')" title="Desktop">
-          <span class="material-symbols-outlined">desktop_windows</span>
-          <span class="icon-label">Desktop</span>
         </button>
       </div>
 
@@ -291,34 +279,6 @@
     }
 
     .research-icons .icon-label {
-      font-size: 0.7rem;
-      white-space: nowrap;
-    }
-
-    .system-icons {
-      display: flex;
-      flex-direction: column;
-      flex-wrap: nowrap;
-      gap: 1px;
-      align-items: stretch;
-      width: 100%;
-    }
-
-    .system-icons .header-action-button {
-      flex-direction: row;
-      justify-content: flex-start;
-      padding: 5px 6px;
-      gap: 6px;
-      min-width: 100%;
-      border-radius: 4px;
-    }
-
-    .system-icons .header-action-button .material-symbols-outlined {
-      font-size: 1rem;
-      flex-shrink: 0;
-    }
-
-    .system-icons .icon-label {
       font-size: 0.7rem;
       white-space: nowrap;
     }
