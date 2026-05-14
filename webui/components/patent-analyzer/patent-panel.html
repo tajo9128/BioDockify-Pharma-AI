@@ -1,0 +1,44 @@
+<html><body>
+<div x-data class="patent-panel">
+  <div class="panel-header"><span class="material-symbols-outlined panel-icon">gavel</span><h2>Patent Analyzer</h2></div>
+  <div class="search-row">
+    <input type="text" x-model="$store.patentSearch.query" placeholder="Drug name, SMILES, or compound (e.g. Metformin, CC(=O)Oc1ccccc1C(=O)O)" class="search-input" @keyup.enter="$store.patentSearch.search()" />
+    <button class="btn" @click="$store.patentSearch.search()" :disabled="$store.patentSearch.loading">Search</button>
+    <button class="btn-clear" @click="$store.patentSearch.clear()">Clear</button>
+  </div>
+  <div x-show="$store.patentSearch.error" class="error" x-text="$store.patentSearch.error"></div>
+  <div x-show="$store.patentSearch.message && !$store.patentSearch.results.length" class="msg" x-text="$store.patentSearch.message"></div>
+  <div x-show="$store.patentSearch.results.length" class="results">
+    <p class="count" x-text="$store.patentSearch.total + ' patent(s) found'"></p>
+    <template x-for="p in $store.patentSearch.results" :key="p.number">
+      <div class="patent-card">
+        <div class="patent-num" x-text="p.number"></div>
+        <div class="patent-title" x-text="p.title"></div>
+        <div class="patent-meta">
+          <span x-show="p.date" x-text="p.date"></span>
+          <span x-text="'Source: ' + p.source"></span>
+        </div>
+      </div>
+    </template>
+    <div class="agent-note">For deeper patent analysis (claims, citations, legal status), ask the agent in chat to search patents using the browser tool.</div>
+  </div>
+  <style>
+    .patent-panel{padding:var(--spacing-md);height:100%;overflow-y:auto}
+    .panel-header{display:flex;align-items:center;gap:var(--spacing-sm);margin-bottom:var(--spacing-md)}
+    .panel-icon{font-size:2rem;color:var(--color-primary)}
+    .panel-header h2{color:var(--color-primary);font-size:1.1rem;margin:0}
+    .search-row{display:flex;gap:var(--spacing-xs);margin-bottom:var(--spacing-sm)}
+    .search-input{flex:1;padding:var(--spacing-sm);border:1px solid var(--color-border);border-radius:4px;background:var(--color-panel);color:var(--color-text);font-size:.85rem}
+    .btn,.btn-clear{padding:var(--spacing-xs) var(--spacing-md);border-radius:4px;cursor:pointer;border:none;font-size:.85rem}
+    .btn{background:var(--color-primary);color:white}.btn:disabled{opacity:.6}
+    .btn-clear{background:var(--color-panel);border:1px solid var(--color-border);color:var(--color-text-muted)}
+    .error{color:var(--color-error-text,#ff6b6b);font-size:.8rem}
+    .msg{font-size:.8rem;color:var(--color-text-muted);padding:var(--spacing-sm);background:var(--color-panel);border-radius:4px}
+    .count{font-size:.75rem;color:var(--color-text-muted);margin-bottom:var(--spacing-xs)}
+    .patent-card{padding:var(--spacing-sm);background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;margin-bottom:var(--spacing-xs);border-left:3px solid var(--color-primary)}
+    .patent-num{font-size:.8rem;font-weight:600;color:var(--color-primary);font-family:var(--font-mono)}
+    .patent-title{font-size:.8rem;color:var(--color-text);margin:2px 0}
+    .patent-meta{font-size:.7rem;color:var(--color-text-muted);display:flex;gap:var(--spacing-sm)}
+    .agent-note{margin-top:var(--spacing-sm);font-size:.75rem;color:var(--color-text-muted);font-style:italic;padding:var(--spacing-xs);background:var(--color-panel);border-radius:4px}
+  </style>
+</div></body></html>

@@ -1,0 +1,6 @@
+<div class="right-canvas-surface-panel"
+     data-surface-id="trial-scanner"
+     :class="{'is-active': $store.rightCanvas?.isSurfaceVisible('trial-scanner'), 'is-mounted': $store.rightCanvas?.isSurfaceRendered('trial-scanner')}"
+     :aria-hidden="(!$store.rightCanvas?.isSurfaceVisible('trial-scanner')).toString()">
+  <x-component path="/components/trial-scanner/trial-panel.html"></x-component>
+</div>

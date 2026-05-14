@@ -1,0 +1,66 @@
+<html><body>
+<div x-data class="trial-panel">
+  <div class="panel-header"><span class="material-symbols-outlined panel-icon">clinical_notes</span><h2>Clinical Trial Scanner</h2></div>
+  <div class="search-row">
+    <input type="text" x-model="$store.trialSearch.query" placeholder="Drug name (e.g. Metformin, Aspirin)" class="search-input" />
+    <input type="text" x-model="$store.trialSearch.condition" placeholder="Condition (e.g. Diabetes, Cancer)" class="search-input-sm" />
+    <select x-model="$store.trialSearch.status" class="status-select">
+      <option value="">Any status</option>
+      <option value="recruiting">Recruiting</option>
+      <option value="active">Active, not recruiting</option>
+      <option value="completed">Completed</option>
+    </select>
+    <button class="btn" @click="$store.trialSearch.search()" :disabled="$store.trialSearch.loading">Search</button>
+    <button class="btn-clear" @click="$store.trialSearch.clear()">Clear</button>
+  </div>
+  <div x-show="$store.trialSearch.error" class="error" x-text="$store.trialSearch.error"></div>
+  <div x-show="$store.trialSearch.results.length" class="results">
+    <p class="count" x-text="$store.trialSearch.total + ' trial(s) found'"></p>
+    <template x-for="t in $store.trialSearch.results" :key="t.nct_id">
+      <div class="trial-card">
+        <div class="trial-header">
+          <a :href="'https://clinicaltrials.gov/study/' + t.nct_id" target="_blank" class="trial-id" x-text="t.nct_id"></a>
+          <span :class="'status-badge ' + t.status.toLowerCase().replace(/\s+/g,'-')" x-text="t.status"></span>
+        </div>
+        <div class="trial-title" x-text="t.title"></div>
+        <div class="trial-meta">
+          <span x-show="t.phase" x-text="'Phase: ' + t.phase"></span>
+          <span x-show="t.sponsor" x-text="t.sponsor"></span>
+        </div>
+        <div class="trial-meta" x-show="t.conditions.length">
+          <span x-text="'Conditions: ' + t.conditions.join(', ')"></span>
+        </div>
+        <div class="trial-meta" x-show="t.locations.length">
+          <span x-text="'Locations: ' + t.locations.join(', ')"></span>
+        </div>
+      </div>
+    </template>
+  </div>
+  <style>
+    .trial-panel{padding:var(--spacing-md);height:100%;overflow-y:auto}
+    .panel-header{display:flex;align-items:center;gap:var(--spacing-sm);margin-bottom:var(--spacing-md)}
+    .panel-icon{font-size:2rem;color:var(--color-primary)}
+    .panel-header h2{color:var(--color-primary);font-size:1.1rem;margin:0}
+    .search-row{display:flex;gap:var(--spacing-xs);margin-bottom:var(--spacing-sm);flex-wrap:wrap}
+    .search-input,.search-input-sm{padding:var(--spacing-sm);border:1px solid var(--color-border);border-radius:4px;background:var(--color-panel);color:var(--color-text);font-size:.85rem}
+    .search-input{flex:2;min-width:150px}
+    .search-input-sm{flex:1;min-width:120px}
+    .status-select{padding:var(--spacing-sm);border:1px solid var(--color-border);border-radius:4px;background:var(--color-panel);color:var(--color-text);font-size:.8rem}
+    .btn,.btn-clear{padding:var(--spacing-xs) var(--spacing-md);border-radius:4px;cursor:pointer;border:none;font-size:.85rem}
+    .btn{background:var(--color-primary);color:white}.btn:disabled{opacity:.6}
+    .btn-clear{background:var(--color-panel);border:1px solid var(--color-border);color:var(--color-text-muted)}
+    .error{color:var(--color-error-text,#ff6b6b);font-size:.8rem}
+    .count{font-size:.75rem;color:var(--color-text-muted);margin-bottom:var(--spacing-xs)}
+    .trial-card{padding:var(--spacing-sm);background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;margin-bottom:var(--spacing-xs);border-left:3px solid var(--color-primary)}
+    .trial-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+    .trial-id{font-size:.8rem;font-weight:600;color:var(--color-primary);text-decoration:none;font-family:var(--font-mono)}
+    .trial-id:hover{text-decoration:underline}
+    .status-badge{padding:1px 8px;border-radius:8px;font-size:.65rem;font-weight:600}
+    .recruiting{background:rgba(0,212,170,.15);color:var(--color-primary)}
+    .active-not-recruiting{background:rgba(255,217,61,.15);color:#ffd93d}
+    .completed{background:rgba(100,100,100,.15);color:var(--color-text-muted)}
+    .terminated,.withdrawn,.suspended{background:rgba(255,107,107,.15);color:var(--color-error-text,#ff6b6b)}
+    .trial-title{font-size:.8rem;color:var(--color-text);margin:2px 0;line-height:1.3}
+    .trial-meta{font-size:.7rem;color:var(--color-text-muted);display:flex;gap:var(--spacing-sm);flex-wrap:wrap}
+  </style>
+</div></body></html>

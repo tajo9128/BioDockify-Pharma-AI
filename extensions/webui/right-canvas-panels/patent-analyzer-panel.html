@@ -1,0 +1,6 @@
+<div class="right-canvas-surface-panel"
+     data-surface-id="patent-analyzer"
+     :class="{'is-active': $store.rightCanvas?.isSurfaceVisible('patent-analyzer'), 'is-mounted': $store.rightCanvas?.isSurfaceRendered('patent-analyzer')}"
+     :aria-hidden="(!$store.rightCanvas?.isSurfaceVisible('patent-analyzer')).toString()">
+  <x-component path="/components/patent-analyzer/patent-panel.html"></x-component>
+</div>
