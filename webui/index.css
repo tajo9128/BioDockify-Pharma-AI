@@ -1704,3 +1704,70 @@ body *::-webkit-scrollbar-thumb:active {
 .light-mode *::-webkit-scrollbar-thumb:active {
   background-color: #8a8a8a;
 }
+
+/* === BioDockify Canvas Panel Global Styles === */
+
+.right-canvas-panels .panel-header {
+  margin-bottom: var(--spacing-md);
+}
+.right-canvas-panels .panel-header h2 {
+  color: var(--color-primary);
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.right-canvas-panels .panel-content p {
+  color: var(--color-text);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  margin: 0 0 var(--spacing-sm) 0;
+}
+.right-canvas-panels .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+.right-canvas-panels .btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+.right-canvas-panels .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+.right-canvas-panels .btn-secondary {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+.right-canvas-panels .search-input,
+.right-canvas-panels .input {
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-panel);
+  color: var(--color-text);
+  font-size: 0.85rem;
+  transition: border-color 0.15s ease;
+}
+.right-canvas-panels .search-input:focus,
+.right-canvas-panels .input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+.right-canvas-panels .search-input::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.6;
+}

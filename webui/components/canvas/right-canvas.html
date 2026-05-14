@@ -100,6 +100,16 @@
               </button>
               <button
                 type="button"
+                class="right-canvas-icon-button right-canvas-back-button"
+                title="Back to Chat"
+                aria-label="Back to Chat"
+                @click="$store.rightCanvas.close()"
+              >
+                <span class="material-symbols-outlined">arrow_back</span>
+                <span class="back-label">Chat</span>
+              </button>
+              <button
+                type="button"
                 class="right-canvas-icon-button right-canvas-close-button"
                 title="Close canvas"
                 aria-label="Close canvas"
