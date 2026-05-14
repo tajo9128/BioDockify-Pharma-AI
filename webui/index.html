@@ -102,6 +102,17 @@
     </script>
     <!-- Plugin head injections (scripts, stylesheets) -->
     <x-extension id="page-head"></x-extension>
+
+    <!-- Import canvas store early so tools work from the start -->
+    <script type="module">
+        import { store } from "/components/canvas/right-canvas-store.js";
+        if (store) store.isOpen = false;
+        if (store && typeof store.init === "function") {
+            store.init().catch(function(err) {
+                console.error("Canvas init failed:", err);
+            });
+        }
+    </script>
 </head>
 
 <body class="dark-mode device-pointer" x-data>
@@ -184,21 +195,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Import and initialize canvas store -->
-    <script type="module">
-        import { store } from "/components/canvas/right-canvas-store.js";
-        // Ensure tool area starts closed
-        if (store) store.isOpen = false;
-        // Initialize surfaces on DOM ready
-        document.addEventListener("DOMContentLoaded", () => {
-            setTimeout(() => {
-                if (store && typeof store.init === "function") {
-                    store.init();
-                }
-            }, 100);
-        });
-    </script>
 
     <!-- Drag and Drop Overlay Component -->
     <x-component path="chat/attachments/dragDropOverlay.html"></x-component>
