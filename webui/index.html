@@ -89,8 +89,8 @@
         <!-- Left Sidebar (Header Icons, Quick Actions, Tabs, Chats, Tasks) -->
         <x-component path="sidebar/left-sidebar.html"></x-component>
 
-        <!-- Right Panel (Message History and Input Section) -->
-        <div id="right-panel" class="panel" >
+        <!-- Right Panel (Message History and Input Section) — Hidden when tool is open -->
+        <div id="right-panel" class="panel" x-show="!$store.rightCanvas || !$store.rightCanvas.isOpen" x-cloak>
 
             <!-- top section with time, status etc. -->
             <x-component path="chat/top-section/chat-top.html"></x-component>
@@ -144,6 +144,17 @@
             </div>
         </div>
         <x-component path="canvas/right-canvas.html"></x-component>
+
+        <!-- Full-page Tool Area (replaces chat when tool is active) -->
+        <div x-show="$store.rightCanvas && $store.rightCanvas.isOpen" class="tool-fullpage" x-cloak>
+            <div class="tool-fullpage-header">
+                <span class="tool-fullpage-title" x-text="$store.rightCanvas.activeTitle?.() || ''"></span>
+                <button class="tool-back-btn" @click="$store.rightCanvas.close()">Back to Chat</button>
+            </div>
+            <div class="tool-fullpage-content">
+                <x-extension id="right-canvas-panels"></x-extension>
+            </div>
+        </div>
     </div>
 
     <!-- Drag and Drop Overlay Component -->
