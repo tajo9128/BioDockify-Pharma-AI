@@ -197,14 +197,14 @@
         </div>
     </div>
 
-    <!-- Status Bar -->
-    <div class="status-bar">
+    <!-- Status Bar (fixed bottom) -->
+    <div class="status-bar" style="position:fixed;bottom:0;left:0;right:0;z-index:900;">
         <div class="status-bar-left">
             <span class="status-indicator"><span class="status-dot"></span><span>Ready</span></span>
             <span x-show="$store.rightCanvas && $store.rightCanvas.isOpen" x-text="$store.rightCanvas.activeTitle?.() || ''" class="status-tool-name"></span>
         </div>
         <div class="status-bar-right">
-            <span x-text="'v' + (globalThis.gitinfo?.version?.replace('v','') || '4.6.1')"></span>
+            <span x-text="'v' + (globalThis.gitinfo?.version?.replace('v','') || '4.6.4')"></span>
         </div>
     </div>
 

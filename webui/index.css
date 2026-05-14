@@ -139,9 +139,6 @@ body {
   overscroll-behavior: none;
   -webkit-overscroll-behavior: none;
   overflow-x: hidden;
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
 }
 
 x-extension:not(:empty) {
@@ -398,10 +395,10 @@ img {
   display: -webkit-flex;
   display: flex;
   flex-direction: row;
-  flex: 1;
+  height: 100%;
   min-width: 0;
-  min-height: 0;
   overflow: hidden;
+  padding-bottom: 26px;
 }
 
 @media (max-width: 768px) {
