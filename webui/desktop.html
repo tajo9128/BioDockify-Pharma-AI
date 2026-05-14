@@ -26,98 +26,13 @@
 </head>
 <body x-data="desktopApp">
     <div class="desktop-shell">
-        <!-- Title Bar -->
-        <div class="title-bar">
-            <div class="title-bar-brand">
-                <span class="material-symbols-outlined">biotech</span>
-                <span>BioDockify AI</span>
-                <span style="font-weight:400;font-size:0.75rem;color:var(--color-text-muted);opacity:0.6;" x-text="'v' + (globalThis.gitinfo?.version?.replace('v','') || '4.5.3')"></span>
-            </div>
-            <div class="title-bar-actions">
-                <button class="title-bar-action" title="Minimize" onclick="window.blur()">─</button>
-                <button class="title-bar-action" title="Maximize" onclick="window.open(window.location.href,'_blank')">□</button>
-                <button class="title-bar-action title-bar-close" title="Close" onclick="window.close()">×</button>
-            </div>
-        </div>
-
-        <!-- Menu Bar -->
-        <div class="menu-bar">
-            <div class="menu-item" @click="toggleMenu('file')" :class="{active: activeMenu === 'file'}">
-                File
-                <div class="menu-popup" x-show="activeMenu === 'file'" @click.outside="activeMenu = null" x-cloak>
-                    <div class="menu-popup-item" @click="newChat(); activeMenu = null">
-                        <span>New Chat</span>
-                        <span class="shortcut">Ctrl+N</span>
-                    </div>
-                    <div class="menu-popup-item" @click="activeMenu = null; openModal('components/plugins/list/plugin-list.html')">
-                        <span>Plugins</span>
-                    </div>
-                    <div class="menu-popup-item" @click="activeMenu = null; openModal('settings/settings.html')">
-                        <span>Settings</span>
-                        <span class="shortcut">Ctrl+,</span>
-                    </div>
-                    <div class="menu-separator"></div>
-                    <div class="menu-popup-item" @click="activeMenu = null; window.close()">
-                        <span>Exit</span>
-                    </div>
-                </div>
-            </div>
-            <div class="menu-item" @click="toggleMenu('tools')" :class="{active: activeMenu === 'tools'}">
-                Tools
-                <div class="menu-popup" x-show="activeMenu === 'tools'" @click.outside="activeMenu = null" x-cloak>
-                    <div class="menu-popup-item" @click="openTool('statistics'); activeMenu = null">
-                        <span class="material-symbols-outlined" style="font-size:16px;">analytics</span>
-                        <span>Statistics</span>
-                    </div>
-                    <div class="menu-popup-item" @click="openTool('drug-properties'); activeMenu = null">
-                        <span class="material-symbols-outlined" style="font-size:16px;">medication</span>
-                        <span>Drug Properties</span>
-                    </div>
-                    <div class="menu-popup-item" @click="openTool('admet'); activeMenu = null">
-                        <span class="material-symbols-outlined" style="font-size:16px;">monitor_heart</span>
-                        <span>ADMET Prediction</span>
-                    </div>
-                    <div class="menu-popup-item" @click="openTool('docking'); activeMenu = null">
-                        <span class="material-symbols-outlined" style="font-size:16px;">biotech</span>
-                        <span>Molecular Docking</span>
-                    </div>
-                    <div class="menu-separator"></div>
-                    <div class="menu-popup-item" @click="openTool('patent-analyzer'); activeMenu = null">
-                        <span class="material-symbols-outlined" style="font-size:16px;">gavel</span>
-                        <span>Patent Analyzer</span>
-                    </div>
-                    <div class="menu-popup-item" @click="openTool('trial-scanner'); activeMenu = null">
-                        <span class="material-symbols-outlined" style="font-size:16px;">clinical_notes</span>
-                        <span>Trial Scanner</span>
-                    </div>
-                    <div class="menu-separator"></div>
-                    <div class="menu-popup-item" @click="openTool('knowledge'); activeMenu = null">
-                        <span class="material-symbols-outlined" style="font-size:16px;">psychology</span>
-                        <span>Knowledge Base</span>
-                    </div>
-                    <div class="menu-popup-item" @click="openTool('backup-recovery'); activeMenu = null">
-                        <span class="material-symbols-outlined" style="font-size:16px;">backup</span>
-                        <span>Backup & Recovery</span>
-                    </div>
-                </div>
-            </div>
-            <div class="menu-item" @click="toggleMenu('help')" :class="{active: activeMenu === 'help'}">
-                Help
-                <div class="menu-popup" x-show="activeMenu === 'help'" @click.outside="activeMenu = null" x-cloak>
-                    <div class="menu-popup-item" @click="activeMenu = null">
-                        <span>About BioDockify AI</span>
-                    </div>
-                    <div class="menu-popup-item" @click="activeMenu = null; window.open('https://github.com/tajo9128/BioDockify-Pharma-AI','_blank')">
-                        <span>GitHub</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Main Body -->
+        <!-- Main Body — sidebar + workspace side by side -->
         <div class="desktop-body">
             <!-- Sidebar -->
             <div class="desktop-sidebar">
+                <div class="desktop-sidebar-header">
+                    <div class="logo">BioDockify AI</div>
+                </div>
                 <div class="desktop-sidebar-nav">
                     <div class="nav-section-title">Pharma Research</div>
                     <button class="nav-item" @click="openTool('research-hub')">
@@ -230,21 +145,14 @@
         // Desktop app state
         document.addEventListener('alpine:init', () => {
             Alpine.data('desktopApp', () => ({
-                activeMenu: null,
                 activeTab: 'chat',
                 activeTool: null,
                 activeToolName: '',
                 activeToolIcon: '',
 
-                toggleMenu(name) {
-                    this.activeMenu = this.activeMenu === name ? null : name;
-                },
-
                 openTool(id) {
-                    this.activeMenu = null;
                     this.activeTab = 'tool';
                     this.activeTool = id;
-                    // Set name and icon from known tools
                     const tools = {
                         'research-hub': { name: 'All Tools', icon: 'apps' },
                         'statistics': { name: 'Statistics', icon: 'analytics' },
@@ -259,9 +167,8 @@
                     const tool = tools[id] || { name: id, icon: 'widgets' };
                     this.activeToolName = tool.name;
                     this.activeToolIcon = tool.icon;
-                    // Also notify canvas store if available
                     const canvas = Alpine.store('rightCanvas');
-                    if (canvas && canvas.open) {
+                    if (canvas) {
                         canvas.isOpen = true;
                         canvas.activeSurfaceId = id;
                         canvas.markSurfaceMounted(id);
@@ -274,15 +181,10 @@
                     this.activeToolName = '';
                     this.activeToolIcon = '';
                     const canvas = Alpine.store('rightCanvas');
-                    if (canvas && canvas.close) {
+                    if (canvas) {
                         canvas.isOpen = false;
-                        canvas.close();
+                        if (canvas.close) canvas.close();
                     }
-                },
-
-                newChat() {
-                    if (window.deselectChat) window.deselectChat();
-                    this.closeTool();
                 }
             }));
         });
@@ -302,7 +204,7 @@
             }
         });
 
-        // Load canvas store
+        // Load canvas store for surface registration
         import('/components/canvas/right-canvas-store.js').then(mod => {
             var store = mod.store;
             if (store && typeof store.init === 'function') {
