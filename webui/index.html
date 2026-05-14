@@ -127,7 +127,7 @@
         <x-component path="sidebar/left-sidebar.html"></x-component>
 
         <!-- Right Panel (Message History and Input Section) — Hidden when canvas is open -->
-        <div id="right-panel" class="panel" x-show="!$store.rightCanvas || !$store.rightCanvas.isOpen" x-transition:enter.duration.200ms x-transition:leave.duration.150ms x-cloak>
+        <div id="right-panel" class="panel" x-show="!$store.rightCanvas || !$store.rightCanvas.isOpen" x-cloak>
 
             <!-- top section with time, status etc. -->
             <x-component path="chat/top-section/chat-top.html"></x-component>
