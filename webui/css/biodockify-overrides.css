@@ -1,0 +1,350 @@
+/* ══════════════════════════════════════════════════════════════
+   BioDockify Pharma AI — Premium Visual Override Layer
+   ══════════════════════════════════════════════════════════════
+   This file overrides default Agent Zero CSS variables and
+   component styles. Remove this ONE file to revert everything.
+   ══════════════════════════════════════════════════════════════ */
+
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap");
+
+/* ── Color Palette Overrides ── */
+:root {
+  --color-primary: #7c3aed;
+  --color-secondary: #2d1b69;
+  --color-accent: #f59e0b;
+  --color-background: #0d1117;
+  --color-panel: #161b22;
+  --color-border: #30363d;
+  --color-background-dark: #0d1117;
+  --color-text-dark: #f0f0f0;
+  --color-text-muted-dark: #8b949e;
+  --color-primary-dark: #7c3aed;
+  --color-secondary-dark: #2d1b69;
+  --color-accent-dark: #f59e0b;
+  --color-message-bg-dark: #1c2333;
+  --color-panel-dark: #161b22;
+  --color-border-dark: #30363d;
+  --color-input-dark: #0d1117;
+  --color-input-focus-dark: #1c2333;
+  --color-chat-background-dark: #0d1117;
+  --color-table-row-dark: #0d1117;
+  --color-primary-filter: invert(34%) sepia(85%) saturate(3000%) hue-rotate(250deg);
+  --color-primary-hover: #8b5cf6;
+  --color-primary-muted: rgba(124, 58, 237, 0.12);
+  --color-amber-muted: rgba(245, 158, 11, 0.12);
+  --font-family-main: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --border-radius: 12px;
+  --border-radius-sm: 10px;
+}
+
+/* ── Light Mode Palette ── */
+.light-mode {
+  --color-primary: #6d28d9;
+  --color-secondary: #7c3aed;
+  --color-accent: #d97706;
+  --color-background: #f8fafc;
+  --color-panel: #ffffff;
+  --color-border: #e2e8f0;
+  --color-chat-background: #f8fafc;
+  --color-message-bg: #ffffff;
+  --color-panel-dark: #ffffff;
+  --color-border-dark: #e2e8f0;
+  --color-input-dark: #f8fafc;
+  --color-input-focus-dark: #ffffff;
+  --color-chat-background-dark: #f8fafc;
+  --color-table-row-dark: #f1f5f9;
+}
+
+/* ── Button Overrides ── */
+.btn, .btn-ok, .btn-cancel, .btn.primary, .btn-field,
+.button, .button.confirm, .button.cancel {
+  font-family: var(--font-family-main);
+  border-radius: 12px !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.btn-ok, .btn.primary, .button.confirm {
+  background: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+}
+
+.btn-ok:hover, .btn.primary:hover, .button.confirm:hover {
+  background: var(--color-primary-hover) !important;
+  border-color: var(--color-primary-hover) !important;
+  filter: brightness(1.05);
+}
+
+.btn-cancel, .button.cancel {
+  border-color: var(--color-accent) !important;
+  color: var(--color-accent) !important;
+  background: transparent !important;
+}
+
+.btn-cancel:hover, .button.cancel:hover {
+  background: var(--color-amber-muted) !important;
+  color: var(--color-accent) !important;
+}
+
+.btn-field {
+  background: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+  color: white !important;
+}
+
+/* ── Action Header Buttons ── */
+.btn-action-header:hover,
+.btn-action:hover,
+.btn-icon:hover {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 20%, transparent) !important;
+}
+
+.btn-action-header.confirm:hover,
+.btn-action-header.edit:hover,
+.btn-action-header.copy:hover {
+  border-color: var(--color-primary) !important;
+  color: var(--color-primary) !important;
+}
+
+.btn-action-header.cancel:hover,
+.btn-action-header.delete:hover,
+.btn-action.delete:hover {
+  border-color: var(--color-accent) !important;
+  color: var(--color-accent) !important;
+}
+
+/* ── Modal Overrides ── */
+.modal-inner {
+  border-radius: 16px !important;
+}
+
+.modal-header {
+  padding: 12px 16px !important;
+}
+
+.modal-close {
+  border-radius: 10px !important;
+}
+
+.modal-content {
+  padding: 0.5rem 2rem 0 2rem !important;
+}
+
+.modal-title {
+  font-family: var(--font-family-main);
+  font-weight: 700 !important;
+}
+
+/* ── Settings Overrides ── */
+.settings-tab {
+  border-radius: 10px !important;
+  font-family: var(--font-family-main);
+}
+
+.settings-tab.is-active {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent) !important;
+  border-color: color-mix(in srgb, var(--color-primary) 25%, var(--color-border)) !important;
+}
+
+.field-title {
+  color: var(--color-primary) !important;
+}
+
+.toggle input:checked + .toggler {
+  background: var(--color-primary) !important;
+}
+
+/* ── Input Overrides ── */
+input[type="text"],
+input[type="password"],
+input[type="number"],
+textarea,
+select {
+  border-radius: 8px !important;
+  font-family: var(--font-family-main);
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent) !important;
+}
+
+/* ── Sidebar Overrides ── */
+.sidebar-shell {
+  width: 230px !important;
+  min-width: 230px !important;
+}
+
+.section-header {
+  border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent) !important;
+}
+
+.section-header-secondary {
+  border-bottom: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent) !important;
+}
+
+.section-title {
+  color: var(--color-primary) !important;
+  font-family: var(--font-family-main);
+}
+
+/* ── Canvas Overrides ── */
+.right-canvas-rail-button.is-active {
+  border-color: var(--color-primary) !important;
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent) !important;
+}
+
+.right-canvas-rail-button:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 40%, transparent) !important;
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent) !important;
+}
+
+.right-canvas-tab.is-active {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 -2px 6px color-mix(in srgb, var(--color-primary) 15%, transparent) !important;
+}
+
+.right-canvas-tab:hover {
+  opacity: 0.8;
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent) !important;
+}
+
+.right-canvas-back-button {
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent) !important;
+  border-color: color-mix(in srgb, var(--color-primary) 25%, transparent) !important;
+}
+
+.right-canvas-back-button:hover {
+  background: color-mix(in srgb, var(--color-primary) 22%, transparent) !important;
+}
+
+.right-canvas-back-button .material-symbols-outlined,
+.right-canvas-back-button .back-label {
+  color: var(--color-primary) !important;
+}
+
+.right-canvas-toggle-button {
+  color: var(--color-primary) !important;
+}
+
+.right-canvas-rail-button {
+  border-radius: 10px !important;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  min-height: 38px !important;
+}
+
+/* ── Card Overrides ── */
+.tool-card, .feature-btn, .link-btn, .action-btn.primary {
+  border-radius: 12px !important;
+  border-color: var(--color-border) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.tool-card:hover, .feature-btn:hover, .link-btn:hover {
+  border-color: var(--color-primary) !important;
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent) !important;
+}
+
+.tool-card .material-symbols-outlined,
+.feature-btn .material-symbols-outlined {
+  color: var(--color-primary) !important;
+}
+
+.tool-card .material-symbols-outlined {
+  font-size: 28px !important;
+}
+
+.action-btn.primary {
+  background: var(--color-primary) !important;
+  color: white !important;
+}
+
+.action-btn.primary:hover {
+  background: var(--color-primary-hover) !important;
+}
+
+/* ── Welcome Screen Overrides ── */
+.welcome-title {
+  color: var(--color-primary) !important;
+}
+
+/* ── Chat Overrides ── */
+#chat-history {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* ── Message Overrides ── */
+.msg-heading h4 {
+  color: var(--color-primary) !important;
+}
+
+/* ── Dropdown Overrides ── */
+.dropdown-item:hover {
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent) !important;
+}
+
+.dropdown-header {
+  color: var(--color-primary) !important;
+}
+
+/* ── Data Table Overrides ── */
+.data-table th {
+  color: var(--color-primary) !important;
+  font-family: var(--font-family-main);
+}
+
+.sort-indicator.is-active {
+  color: var(--color-primary) !important;
+}
+
+.loading-spinner {
+  border-top-color: var(--color-primary) !important;
+}
+
+/* ── Notification Overrides ── */
+.notification-toggle.has-unread {
+  border-color: var(--color-accent) !important;
+}
+
+/* ── Scheduler Overrides ── */
+.scheduler-status-badge {
+  font-family: var(--font-family-main);
+}
+
+/* ── Toast Overrides ── */
+#toast {
+  font-family: var(--font-family-main);
+}
+
+/* ── Scrollbar Overrides ── */
+*::-webkit-scrollbar-thumb {
+  background: var(--color-primary) !important;
+}
+
+/* ── Micro-interactions ── */
+.right-canvas-rail-button,
+.right-canvas-tab,
+.btn, .btn-ok, .btn-cancel,
+.modal-close,
+.tool-card, .feature-btn, .link-btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.right-canvas-rail-button:hover {
+  transform: scale(1.05);
+}
+
+.tool-card:hover, .feature-btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}

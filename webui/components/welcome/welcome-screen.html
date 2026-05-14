@@ -1,5 +1,4 @@
 <html>
-
 <head>
     <script type="module">
         import { store } from "/components/welcome/welcome-store.js";
@@ -7,96 +6,97 @@
         import { store as projectsStore } from "/components/projects/projects-store.js";
     </script>
 </head>
-
 <body>
     <div x-data>
         <template x-if="$store.welcomeStore">
             <div class="welcome-container">
-                <!-- Header -->
-                <div class="welcome-header">
-                    <svg class="welcome-logo" viewBox="0 0 960 960">
-                        <defs>
-                            <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" style="stop-color:#00d4aa"/>
-                                <stop offset="100%" style="stop-color:#00897b"/>
-                            </linearGradient>
-                        </defs>
-                        <rect width="960" height="960" rx="160" fill="url(#g)"/>
-                        <circle cx="480" cy="280" r="80" fill="#0a1929"/>
-                        <circle cx="340" cy="480" r="80" fill="#0a1929"/>
-                        <circle cx="620" cy="480" r="80" fill="#0a1929"/>
-                        <circle cx="480" cy="680" r="80" fill="#0a1929"/>
-                    </svg>
-                    <h1 class="welcome-title">BioDockify AI</h1>
-                    <p class="welcome-version" x-text="'v' + (globalThis.gitinfo?.version?.replace('v','') || '4.3.5') + ' - Pharmaceutical Research Assistant'"></p>
+                <!-- Logo & Brand -->
+                <div class="welcome-brand">
+                    <div class="welcome-logo-mark">
+                        <svg viewBox="0 0 64 64" width="48" height="48">
+                            <rect width="64" height="64" rx="16" fill="url(#g)"/>
+                            <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#7c3aed"/>
+                                <stop offset="100%" style="stop-color:#2d1b69"/>
+                            </linearGradient></defs>
+                            <g fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round">
+                                <path d="M18 10 C24 20, 16 34, 22 44 C28 54, 18 58, 18 58"/>
+                                <path d="M46 10 C40 20, 48 34, 42 44 C36 54, 46 58, 46 58"/>
+                                <line x1="20" y1="18" x2="43" y2="18" stroke-width="2"/>
+                                <line x1="18.5" y1="28" x2="44" y2="28" stroke-width="2.5"/>
+                                <line x1="20.5" y1="38" x2="42" y2="38" stroke-width="2"/>
+                                <line x1="22" y1="48" x2="40" y2="48" stroke-width="2"/>
+                            </g>
+                        </svg>
+                    </div>
+                    <div class="welcome-title-group">
+                        <h1 class="welcome-title">BioDockify AI</h1>
+                        <p class="welcome-tagline" x-text="'v' + (globalThis.gitinfo?.version?.replace('v','') || '4.3.9') + ' — Pharmaceutical Research Assistant'"></p>
+                    </div>
                 </div>
 
-                <!-- Quick Actions -->
-                <div class="welcome-actions">
-                    <button class="action-btn primary" @click="$store.chats.newChat()">
+                <!-- Hero: New Chat -->
+                <div class="welcome-hero" @click="$store.chats.newChat()">
+                    <div class="hero-icon">
                         <span class="material-symbols-outlined">add_comment</span>
-                        <span>New Chat</span>
+                    </div>
+                    <div class="hero-text">
+                        <span class="hero-title">New Chat</span>
+                        <span class="hero-desc">Start a conversation with the research assistant</span>
+                    </div>
+                    <span class="hero-arrow material-symbols-outlined">arrow_forward</span>
+                </div>
+
+                <!-- Primary Tools (2x2 grid) -->
+                <div class="tools-primary">
+                    <button class="tool-card" @click="$store.rightCanvas.open('statistics')">
+                        <span class="material-symbols-outlined">analytics</span>
+                        <span class="tool-name">Statistics</span>
+                    </button>
+                    <button class="tool-card" @click="$store.rightCanvas.open('docking')">
+                        <span class="material-symbols-outlined">biotech</span>
+                        <span class="tool-name">Docking</span>
+                    </button>
+                    <button class="tool-card" @click="$store.rightCanvas.open('drug-properties')">
+                        <span class="material-symbols-outlined">medication</span>
+                        <span class="tool-name">Drug Properties</span>
+                    </button>
+                    <button class="tool-card" @click="$store.rightCanvas.open('admet')">
+                        <span class="material-symbols-outlined">monitor_heart</span>
+                        <span class="tool-name">ADMET</span>
                     </button>
                 </div>
 
-                <!-- Feature Grid - Core interactive tools -->
-                <div class="feature-grid">
-                    <button class="feature-btn" @click="$store.rightCanvas.open('research-hub')">
-                        <span class="material-symbols-outlined">apps</span>
-                        <span>All Tools</span>
-                    </button>
-                    <button class="feature-btn" @click="$store.rightCanvas.open('statistics')">
-                        <span class="material-symbols-outlined">analytics</span>
-                        <span>Statistics</span>
-                    </button>
-                    <button class="feature-btn" @click="$store.rightCanvas.open('knowledge')">
+                <!-- Secondary Tools (3-column) -->
+                <div class="tools-secondary">
+                    <button class="tool-card-sm" @click="$store.rightCanvas.open('knowledge')">
                         <span class="material-symbols-outlined">psychology</span>
                         <span>Knowledge</span>
                     </button>
-                    <button class="feature-btn" @click="$store.rightCanvas.open('drug-properties')">
-                        <span class="material-symbols-outlined">medication</span>
-                        <span>Drug Properties</span>
+                    <button class="tool-card-sm" @click="$store.rightCanvas.open('research-hub')">
+                        <span class="material-symbols-outlined">apps</span>
+                        <span>All Tools</span>
                     </button>
-                    <button class="feature-btn" @click="$store.rightCanvas.open('admet')">
-                        <span class="material-symbols-outlined">monitor_heart</span>
-                        <span>ADMET</span>
-                    </button>
-                    <button class="feature-btn" @click="$store.rightCanvas.open('docking')">
-                        <span class="material-symbols-outlined">biotech</span>
-                        <span>Docking</span>
-                    </button>
-                    <button class="feature-btn" @click="$store.rightCanvas.open('patent-analyzer')">
-                        <span class="material-symbols-outlined">gavel</span>
-                        <span>Patents</span>
-                    </button>
-                    <button class="feature-btn" @click="$store.rightCanvas.open('trial-scanner')">
-                        <span class="material-symbols-outlined">clinical_notes</span>
-                        <span>Trials</span>
-                    </button>
-                </div>
-
-                <!-- Quick Links -->
-                <div class="quick-links">
-                    <button class="link-btn" @click="openModal('settings/settings.html')">
-                        <span class="material-symbols-outlined">settings</span>
-                        <span>Settings</span>
-                    </button>
-                    <button class="link-btn" @click="openModal('components/modals/scheduler/scheduler-modal.html')">
-                        <span class="material-symbols-outlined">schedule</span>
-                        <span>Tasks</span>
-                    </button>
-                    <button class="link-btn" @click="projectsStore.openProjectsModal()">
-                        <span class="material-symbols-outlined">folder</span>
-                        <span>Projects</span>
-                    </button>
-                    <button class="link-btn" @click="openModal('settings/backup/backup_restore.html')">
+                    <button class="tool-card-sm" @click="$store.rightCanvas.open('backup-recovery')">
                         <span class="material-symbols-outlined">backup</span>
                         <span>Backup</span>
                     </button>
-                    <button class="link-btn" @click="$store.rightCanvas.open('agent-tasks')">
-                        <span class="material-symbols-outlined">psychology</span>
-                        <span>Agent Tasks</span>
+                </div>
+
+                <!-- Bottom Links -->
+                <div class="welcome-links">
+                    <button class="link-chip" @click="openModal('settings/settings.html')">
+                        <span class="material-symbols-outlined">settings</span>
+                        <span>Settings</span>
                     </button>
+                    <button class="link-chip" @click="projectsStore.openProjectsModal()">
+                        <span class="material-symbols-outlined">folder</span>
+                        <span>Projects</span>
+                    </button>
+                    <a class="link-chip" href="https://github.com/tajo9128/BioDockify-Pharma-AI" target="_blank" rel="noopener">
+                        <span class="material-symbols-outlined">open_in_new</span>
+                        <span>GitHub</span>
+                    </a>
                 </div>
             </div>
         </template>
@@ -110,134 +110,234 @@
             justify-content: center;
             height: 100%;
             width: 100%;
-            padding: 2rem;
-            background: var(--color-background);
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 1.5rem;
+            gap: 1rem;
             overflow-y: auto;
         }
 
-        .welcome-header {
-            text-align: center;
-            margin-bottom: 2rem;
+        /* ── Brand ── */
+        .welcome-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
         }
 
-        .welcome-logo {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 1rem;
+        .welcome-logo-mark svg {
+            display: block;
+        }
+
+        .welcome-title-group {
+            display: flex;
+            flex-direction: column;
         }
 
         .welcome-title {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: var(--color-primary);
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #7c3aed;
             margin: 0;
+            letter-spacing: -0.02em;
+            font-family: "Plus Jakarta Sans", system-ui, sans-serif;
         }
 
-        .welcome-version {
-            font-size: 0.85rem;
-            color: var(--color-text-muted);
-            margin: 0.5rem 0 0 0;
+        .welcome-tagline {
+            font-size: 0.75rem;
+            color: #8b949e;
+            margin: 2px 0 0 0;
+            font-family: "Plus Jakarta Sans", system-ui, sans-serif;
         }
 
-        .welcome-actions {
-            margin-bottom: 2rem;
-        }
-
-        .action-btn {
+        /* ── Hero ── */
+        .welcome-hero {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            border: none;
-        }
-
-        .action-btn.primary {
-            background: var(--color-primary);
-            color: #0a1929;
-        }
-
-        .action-btn.primary:hover {
-            opacity: 0.9;
-        }
-
-        .feature-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
             gap: 0.75rem;
-            margin-bottom: 2rem;
-            max-width: 600px;
+            width: 100%;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(45, 27, 105, 0.08));
+            border: 1px solid rgba(124, 58, 237, 0.25);
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
 
-        .feature-btn {
+        .welcome-hero:hover {
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.18), rgba(45, 27, 105, 0.12));
+            border-color: rgba(124, 58, 237, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .hero-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: #7c3aed;
+            flex-shrink: 0;
+        }
+
+        .hero-icon .material-symbols-outlined {
+            font-size: 22px;
+            color: white;
+        }
+
+        .hero-text {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hero-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #f0f0f0;
+            font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        }
+
+        .hero-desc {
+            font-size: 0.75rem;
+            color: #8b949e;
+            margin-top: 1px;
+        }
+
+        .hero-arrow {
+            font-size: 1.25rem;
+            color: #7c3aed;
+        }
+
+        /* ── Primary Tools (2x2) ── */
+        .tools-primary {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.625rem;
+            width: 100%;
+        }
+
+        .tool-card {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 0.25rem;
+            gap: 0.4rem;
             padding: 1rem 0.75rem;
-            background: var(--color-panel);
-            border: 1px solid var(--color-border);
-            border-radius: 8px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
         }
 
-        .feature-btn:hover {
-            border-color: var(--color-primary);
-            background: var(--color-message-bg);
+        .tool-card:hover {
+            border-color: #7c3aed;
+            background: rgba(124, 58, 237, 0.06);
+            transform: translateY(-1px);
         }
 
-        .feature-btn .material-symbols-outlined {
-            font-size: 1.5rem;
-            color: var(--color-primary);
+        .tool-card .material-symbols-outlined {
+            font-size: 26px;
+            color: #7c3aed;
         }
 
-        .feature-btn span:last-child {
-            font-size: 0.75rem;
-            color: var(--color-text);
+        .tool-card .tool-name {
+            font-size: 0.78rem;
+            color: #f0f0f0;
+            font-weight: 500;
+            font-family: "Plus Jakarta Sans", system-ui, sans-serif;
         }
 
-        .quick-links {
+        /* ── Secondary Tools (3-column) ── */
+        .tools-secondary {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.5rem;
+            width: 100%;
+        }
+
+        .tool-card-sm {
             display: flex;
-            gap: 1rem;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.75rem 0.5rem;
+            background: transparent;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
 
-        .link-btn {
+        .tool-card-sm:hover {
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.06);
+        }
+
+        .tool-card-sm .material-symbols-outlined {
+            font-size: 22px;
+            color: #8b949e;
+        }
+
+        .tool-card-sm:hover .material-symbols-outlined {
+            color: #f59e0b;
+        }
+
+        .tool-card-sm span:last-child {
+            font-size: 0.72rem;
+            color: #8b949e;
+            font-weight: 500;
+            font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        }
+
+        .tool-card-sm:hover span:last-child {
+            color: #f0f0f0;
+        }
+
+        /* ── Bottom Links ── */
+        .welcome-links {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.25rem;
+        }
+
+        .link-chip {
             display: flex;
             align-items: center;
-            gap: 0.25rem;
-            padding: 0.5rem 1rem;
+            gap: 0.3rem;
+            padding: 0.35rem 0.75rem;
             background: transparent;
-            border: 1px solid var(--color-border);
-            border-radius: 6px;
+            border: none;
+            border-radius: 8px;
             cursor: pointer;
-            color: var(--color-text-muted);
-            font-size: 0.85rem;
-            transition: all 0.2s;
+            color: #8b949e;
+            font-size: 0.72rem;
+            transition: all 0.15s ease;
+            text-decoration: none;
+            font-family: "Plus Jakarta Sans", system-ui, sans-serif;
         }
 
-        .link-btn:hover {
-            border-color: var(--color-primary);
-            color: var(--color-text);
+        .link-chip:hover {
+            background: rgba(124, 58, 237, 0.08);
+            color: #7c3aed;
         }
 
-        .link-btn .material-symbols-outlined {
-            font-size: 1rem;
+        .link-chip .material-symbols-outlined {
+            font-size: 16px;
         }
 
-        @media (max-width: 640px) {
-            .feature-grid {
-                grid-template-columns: repeat(2, 1fr);
+        @media (max-width: 600px) {
+            .tools-primary {
+                grid-template-columns: 1fr 1fr;
             }
-            .quick-links {
-                flex-wrap: wrap;
-                justify-content: center;
+            .tools-secondary {
+                grid-template-columns: 1fr 1fr;
+            }
+            .welcome-container {
+                padding: 1rem;
             }
         }
     </style>
 </body>
-
 </html>
