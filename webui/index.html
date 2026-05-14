@@ -23,9 +23,6 @@
     <link rel="stylesheet" href="css/tables.css">
     <link rel="stylesheet" href="components/canvas/right-canvas.css">
 
-    <!-- BioDockify Premium Override Layer — remove this one link to revert everything -->
-    <link rel="stylesheet" href="css/biodockify-overrides.css" />
-
     <!-- Flatpickr for datetime picker -->
     <link rel="stylesheet" href="vendor/flatpickr/flatpickr.min.css">
     <script src="vendor/flatpickr/flatpickr.min.js"></script>
@@ -76,44 +73,9 @@
             isDevelopment: "{{runtime_is_development}}" === "true",
             loggedIn: "{{logged_in}}" === "true",
         };
-
-        // Global keyboard shortcuts
-        document.addEventListener("keydown", function(e) {
-            // Ctrl+K / Cmd+K — Focus chat input
-            if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-                e.preventDefault();
-                var input = document.getElementById("chat-input");
-                if (input) { input.focus(); input.select(); }
-            }
-            // Ctrl+N / Cmd+N — New chat
-            if ((e.ctrlKey || e.metaKey) && e.key === "n") {
-                e.preventDefault();
-                if (window.deselectChat) window.deselectChat();
-            }
-            // Escape — Close tool panel, back to chat
-            if (e.key === "Escape") {
-                var canvas = Alpine?.store("rightCanvas");
-                if (canvas && canvas.isOpen) {
-                    e.preventDefault();
-                    canvas.close();
-                }
-            }
-        });
     </script>
     <!-- Plugin head injections (scripts, stylesheets) -->
     <x-extension id="page-head"></x-extension>
-
-    <!-- Import canvas store early so tools work from the start -->
-    <script type="module">
-        import { store } from "/components/canvas/right-canvas-store.js";
-        // Ensure tool area starts closed (store's init() also forces this)
-        if (store) store.isOpen = false;
-        if (store && typeof store.init === "function") {
-            store.init().catch(function(err) {
-                console.error("Canvas init failed:", err);
-            });
-        }
-    </script>
 </head>
 
 <body class="dark-mode device-pointer" x-data>
@@ -127,8 +89,8 @@
         <!-- Left Sidebar (Header Icons, Quick Actions, Tabs, Chats, Tasks) -->
         <x-component path="sidebar/left-sidebar.html"></x-component>
 
-        <!-- Right Panel (Message History and Input Section) — Hidden when tool is open -->
-        <div id="right-panel" class="panel" x-show="!$store.rightCanvas || !$store.rightCanvas.isOpen" x-cloak>
+        <!-- Right Panel (Message History and Input Section) -->
+        <div id="right-panel" class="panel" >
 
             <!-- top section with time, status etc. -->
             <x-component path="chat/top-section/chat-top.html"></x-component>
@@ -181,31 +143,7 @@
                 <x-component path="chat/input/chat-bar.html"></x-component>
             </div>
         </div>
-
-        <!-- Full-page Tool Area (replaces chat when tool is active) -->
-        <div x-show="$store.rightCanvas && $store.rightCanvas.isOpen" class="tool-fullpage" x-cloak>
-            <div class="tool-fullpage-header">
-                <button class="tool-back-btn" @click="$store.rightCanvas.close()">
-                    <span class="material-symbols-outlined">arrow_back</span>
-                    <span>Back to Chat</span>
-                </button>
-                <span class="tool-fullpage-title" x-text="$store.rightCanvas.activeTitle?.() || ''"></span>
-            </div>
-            <div class="tool-fullpage-content">
-                <x-extension id="right-canvas-panels"></x-extension>
-            </div>
-        </div>
-    </div>
-
-    <!-- Status Bar (fixed bottom) -->
-    <div class="status-bar" style="position:fixed;bottom:0;left:0;right:0;z-index:900;">
-        <div class="status-bar-left">
-            <span class="status-indicator"><span class="status-dot"></span><span>Ready</span></span>
-            <span x-show="$store.rightCanvas && $store.rightCanvas.isOpen" x-text="$store.rightCanvas.activeTitle?.() || ''" class="status-tool-name"></span>
-        </div>
-        <div class="status-bar-right">
-            <span x-text="'v' + (globalThis.gitinfo?.version?.replace('v','') || '4.6.4')"></span>
-        </div>
+        <x-component path="canvas/right-canvas.html"></x-component>
     </div>
 
     <!-- Drag and Drop Overlay Component -->

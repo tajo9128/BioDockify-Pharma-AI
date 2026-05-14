@@ -1,5 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 
 /* Add box-sizing globally for better cross-browser consistency */
 *,
@@ -9,43 +8,43 @@
 }
 
 :root {
-  /* BioDockify Dark mode - Premium Purple */
-  --color-background-dark: #0d1117;
-  --color-text-dark: #f0f0f0;
-  --color-text-muted-dark: #8b949e;
-  --color-primary-dark: #7c3aed;
-  --color-secondary-dark: #2d1b69;
-  --color-accent-dark: #ee5586;
-  --color-message-bg-dark: #1c2333;
-  --color-highlight-dark: #7c3aed;
+  /* BioDockify Dark mode - Docker Desktop inspired */
+  --color-background-dark: #1a1a2e;
+  --color-text-dark: #ffffff;
+  --color-text-muted-dark: #a0a0b0;
+  --color-primary-dark: #00d4aa;
+  --color-secondary-dark: #0d4f4f;
+  --color-accent-dark: #4fc3f7;
+  --color-message-bg-dark: #16213e;
+  --color-highlight-dark: #00d4aa;
   --color-message-text-dark: #e0e0e0;
-  --color-panel-dark: #161b22;
-  --color-border-dark: #30363d;
-  --color-input-dark: #0d1117;
-  --color-input-focus-dark: #1c2333;
-  --color-chat-background-dark: #0d1117;
-  --color-error-text-dark:#ef4444;
-  --color-warning-text-dark:#ee5586;
-  --color-table-row-dark: #0d1117;
+  --color-panel-dark: #0f0f23;
+  --color-border-dark: #2a2a4a;
+  --color-input-dark: #1a1a2e;
+  --color-input-focus-dark: #16213e;
+  --color-chat-background-dark: #0f0f23;
+  --color-error-text-dark:#ff6b6b;
+  --color-warning-text-dark:#ffd93d;
+  --color-table-row-dark: #1a1a2e;
 
   /* BioDockify Light mode */
-  --color-background-light: #f8fafc;
-  --color-text-light: #0f172a;
-  --color-text-muted-light: #64748b;
-  --color-primary-light: #6d28d9;
-  --color-secondary-light: #eef2ff;
-  --color-accent-light: #e11d48;
+  --color-background-light: #f8f9fc;
+  --color-text-light: #1a1a2e;
+  --color-text-muted-light: #5a5a7a;
+  --color-primary-light: #00a88a;
+  --color-secondary-light: #e8faf5;
+  --color-accent-dark: #2196f3;
   --color-message-bg-light: #ffffff;
-  --color-highlight-light: #6d28d9;
-  --color-message-text-light: #0f172a;
+  --color-highlight-light: #00d4aa;
+  --color-message-text-light: #1a1a2e;
   --color-panel-light: #ffffff;
-  --color-border-light: #e2e8f0;
-  --color-input-light: #f8fafc;
-  --color-input-focus-light: #ffffff;
-  --color-chat-background-light: #f8fafc;
-  --color-error-text-light:#dc2626;
-  --color-warning-text-light:#e11d48;
-  --color-table-row-light: #f1f5f9;
+  --color-border-light: #e0e0f0;
+  --color-input-light: #f0f0f8;
+  --color-input-focus-light: #e8e8f0;
+  --color-chat-background-light: #f8f9fc;
+  --color-error-text-light:#d32f2f;
+  --color-warning-text-light:#f57c00;
+  --color-table-row-light: #f0f0f8;
 
 
   /* Default to dark mode */
@@ -83,16 +82,16 @@
   --font-size-large: 1.2rem;
 
   /* Font families */
-  --font-family-main: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
-  --font-family-code: "JetBrains Mono", monospace;
+  --font-family-main: "Rubik", Arial, Helvetica, sans-serif;
+  --font-family-code: "Roboto Mono", monospace;
 
   /* Other variables */
-  --border-radius: 12px;
-  --border-radius-sm: 10px;
+  --border-radius: 1.125rem;
+  --border-radius-sm: 0.5rem;
   --transition-speed: 0.3s;
   --svg-filter: brightness(0) saturate(100%) var(--color-primary-filter);
-  --color-primary-filter: invert(34%) sepia(85%) saturate(3000%)
-    hue-rotate(250deg) brightness(94%) contrast(90%);
+  --color-primary-filter: invert(73%) sepia(17%) saturate(360%)
+    hue-rotate(177deg) brightness(87%) contrast(85%);
 }
 
 /* Light mode class */
@@ -398,7 +397,6 @@ img {
   height: 100%;
   min-width: 0;
   overflow: hidden;
-  padding-bottom: 26px;
 }
 
 @media (max-width: 768px) {
@@ -424,7 +422,8 @@ img {
   min-width: 0;
   flex-direction: column;
   flex: 1 1 0;
-  overflow: hidden;
+  -webkit-transition: margin-left var(--transition-speed) ease-in-out;
+  transition: margin-left var(--transition-speed) ease-in-out;
 }
 
 /* Chat area wrapper – contains chat-history + floating nav buttons */
@@ -1705,92 +1704,3 @@ body *::-webkit-scrollbar-thumb:active {
 .light-mode *::-webkit-scrollbar-thumb:active {
   background-color: #8a8a8a;
 }
-
-/* === BioDockify Canvas Panel Global Styles === */
-
-.right-canvas-panels .panel-header {
-  margin-bottom: var(--spacing-md);
-}
-.right-canvas-panels .panel-header h2 {
-  color: var(--color-primary);
-  font-size: 1.15rem;
-  font-weight: 700;
-  margin: 0;
-  letter-spacing: -0.01em;
-}
-.right-canvas-panels .panel-content p {
-  color: var(--color-text);
-  font-size: 0.85rem;
-  line-height: 1.6;
-  margin: 0 0 var(--spacing-sm) 0;
-}
-.right-canvas-panels .btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 18px;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 500;
-  transition: all 0.15s ease;
-}
-.right-canvas-panels .btn:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-.right-canvas-panels .btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-.right-canvas-panels .btn-secondary {
-  background: var(--color-panel);
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-}
-.right-canvas-panels .search-input,
-.right-canvas-panels .input {
-  padding: 8px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-panel);
-  color: var(--color-text);
-  font-size: 0.85rem;
-  transition: border-color 0.15s ease;
-}
-.right-canvas-panels .search-input:focus,
-.right-canvas-panels .input:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent);
-}
-.right-canvas-panels .search-input::placeholder {
-  color: var(--color-text-muted);
-  opacity: 0.6;
-}
-
-/* -- Status Bar -- */
-.status-bar {
-  display: flex;
-  align-items: center;
-  height: 26px;
-  min-height: 26px;
-  padding: 0 14px;
-  background: color-mix(in srgb, var(--color-panel) 95%, #000 5%);
-  border-top: 1px solid var(--color-border);
-  font-size: 0.7rem;
-  color: var(--color-text-muted);
-  user-select: none;
-  flex-shrink: 0;
-}
-.status-bar-left { display: flex; align-items: center; gap: 14px; }
-.status-bar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
-.status-indicator { display: flex; align-items: center; gap: 5px; }
-.status-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
-.status-tool-name { color: var(--color-primary); font-weight: 500; }
-/* Layout guards */
-#right-panel, .tool-fullpage { flex: 1 1 0; min-width: 0; }
