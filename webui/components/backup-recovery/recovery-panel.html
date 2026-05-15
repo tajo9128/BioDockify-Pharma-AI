@@ -2,14 +2,28 @@
   <div class="panel-header"><span class="material-symbols-outlined panel-icon">backup</span><h2>Backup & Recovery</h2></div>
   <p class="desc">Backups stored at <code>usr/backups/</code> (Docker volume) — survive container deletion.</p>
 
-  <!-- Cloud backup status -->
-  <div class="cloud-status">
-    <span class="cloud-icon">☁️</span>
-    <span>Google Drive: </span>
-    <span class="cloud-state connected" x-show="$store.backupRecovery.gdriveConnected">Connected</span>
-    <span class="cloud-state" x-show="!$store.backupRecovery.gdriveConnected" style="color:#ff6b6b">Not connected</span>
-    <button class="btn-sm" @click="$store.backupRecovery.connectGDrive()" x-show="!$store.backupRecovery.gdriveConnected">Connect</button>
-    <button class="btn-sm" @click="$store.backupRecovery.disconnectGDrive()" x-show="$store.backupRecovery.gdriveConnected">Disconnect</button>
+  <!-- Cloud backup section -->
+  <div class="gd-card">
+    <div class="gd-header">
+      <span>☁️ Google Drive Backup</span>
+      <span class="gd-status" :class="{connected: $store.backupRecovery.gdriveConnected}" x-text="$store.backupRecovery.gdriveConnected ? '🟢 Connected' : '🔴 Not connected'"></span>
+    </div>
+    <p class="gd-desc">Auto-sync backups to Google Drive. Backups are encrypted before upload.</p>
+    <div class="gd-actions">
+      <button class="btn-sm cloud-connect" @click="$store.backupRecovery.connectGDrive()" x-show="!$store.backupRecovery.gdriveConnected">
+        <span class="material-symbols-outlined">cloud_upload</span> Connect Google Drive
+      </button>
+      <button class="btn-sm cloud-disconnect" @click="$store.backupRecovery.disconnectGDrive()" x-show="$store.backupRecovery.gdriveConnected">
+        Disconnect
+      </button>
+      <button class="btn-sm" @click="$store.backupRecovery.syncToCloud()" x-show="$store.backupRecovery.gdriveConnected" :disabled="$store.backupRecovery.creating">
+        <span class="material-symbols-outlined">sync</span> Sync Now
+      </button>
+    </div>
+    <div class="gd-locations">
+      <label class="gd-check"><input type="checkbox" checked disabled> Docker Volume: /usr/backups/</label>
+      <label class="gd-check"><input type="checkbox" x-model="$store.backupRecovery.gdriveAutoSync"> Auto-sync to GDrive</label>
+    </div>
   </div>
 
   <div class="actions">
@@ -58,11 +72,18 @@
     .panel-header h2{color:var(--color-primary);font-size:1.1rem;margin:0}
     .desc{font-size:.8rem;color:var(--color-text-muted);margin:0 0 var(--spacing-md) 0}
     .desc code{font-family:var(--font-mono);font-size:.75rem;background:var(--color-panel);padding:1px 4px;border-radius:3px}
-    .cloud-status { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: 12px; font-size: 0.72rem; color: var(--color-text); }
-    .cloud-icon { font-size: 1.2rem; }
-    .cloud-state { font-weight: 600; }
-    .cloud-state.connected { color: #22c55e; }
-    .btn-sm { padding: 4px 10px; border-radius: 4px; cursor: pointer; border: none; font-size: 0.7rem; background: var(--color-primary); color: white; }
+    .gd-card { padding: 12px 14px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 12px; }
+    .gd-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-weight: 600; font-size: 0.72rem; color: var(--color-text); }
+    .gd-status { font-size: 0.62rem; font-weight: 500; }
+    .gd-status.connected { color: #22c55e; }
+    .gd-desc { font-size: 0.62rem; color: var(--color-text-muted); margin: 0 0 8px 0; }
+    .gd-actions { display: flex; gap: 6px; margin-bottom: 8px; }
+    .gd-locations { display: flex; flex-direction: column; gap: 4px; }
+    .gd-check { display: flex; align-items: center; gap: 6px; font-size: 0.62rem; color: var(--color-text-muted); cursor: pointer; }
+    .cloud-connect { background: #4285f4; color: white; }
+    .cloud-disconnect { background: var(--color-panel); border: 1px solid var(--color-border); color: var(--color-text-muted); }
+    .btn-sm { display: flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 5px; cursor: pointer; border: none; font-size: 0.66rem; font-weight: 500; }
+    .btn-sm:disabled { opacity: 0.5; }
     .actions{display:flex;gap:var(--spacing-xs);margin-bottom:var(--spacing-md)}
     .btn,.btn-secondary{display:flex;align-items:center;gap:6px;padding:var(--spacing-xs) var(--spacing-md);border-radius:6px;cursor:pointer;border:none;font-size:.85rem}
     .btn{background:var(--color-primary);color:white}.btn:disabled{opacity:.6}

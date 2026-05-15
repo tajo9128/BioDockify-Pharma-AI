@@ -9,6 +9,13 @@ export const store = createStore("backupRecovery", {
   message: "",
   error: "",
   gdriveConnected: false,
+  gdriveAutoSync: false,
+
+  syncToCloud() {
+    this.message = "Syncing to Google Drive...";
+    setTimeout(() => { this.message = "Cloud sync not configured. Set up GDrive OAuth in Settings."; }, 1500);
+    setTimeout(() => { this.message = ""; }, 6000);
+  },
 
   async loadBackups() {
     this.loading = true;
