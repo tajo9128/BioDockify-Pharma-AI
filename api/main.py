@@ -197,14 +197,7 @@ except ImportError as e:
 
     logging.getLogger("biodockify_api").warning(f"Thesis routes not loaded: {e}")
 
-# Register Batch Docking Routes
-# Removed - not part of BioDockify base project
-# try:
-#     from api.routes.batch_docking import router as batch_docking_router
-#     app.include_router(batch_docking_router)
-# except ImportError as e:
-#     import logging
-#     logging.getLogger("biodockify_api").warning(f"Batch docking routes not loaded: {e}")
+
 
 from fastapi.middleware.cors import CORSMiddleware
 
