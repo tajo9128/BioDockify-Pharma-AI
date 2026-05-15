@@ -32,10 +32,25 @@ RUN find /a0/webui/ -maxdepth 1 -name "favicon*" -type f -delete 2>/dev/null || 
     cp -f /a0/webui/public/icon.svg /a0/webui/icon.svg 2>/dev/null || true; \
     rm -f /a0/extensions/webui/right_canvas_register_surfaces/register-docking.js 2>/dev/null || true; \
     rm -f /a0/extensions/webui/right_canvas_register_surfaces/register-3d-viewer.js 2>/dev/null || true; \
+    rm -f /a0/extensions/webui/right_canvas_register_surfaces/register-admet.js 2>/dev/null || true; \
+    rm -f /a0/extensions/webui/right_canvas_register_surfaces/register-drug-browser.js 2>/dev/null || true; \
+    rm -f /a0/extensions/webui/right_canvas_register_surfaces/register-mol-similarity.js 2>/dev/null || true; \
+    rm -f /a0/extensions/webui/right_canvas_register_surfaces/register-chemical-space.js 2>/dev/null || true; \
+    rm -f /a0/extensions/webui/right_canvas_register_surfaces/register-agent-tasks.js 2>/dev/null || true; \
     rm -f /a0/extensions/webui/right-canvas-panels/docking-panel.html 2>/dev/null || true; \
     rm -f /a0/extensions/webui/right-canvas-panels/viewer3d-panel.html 2>/dev/null || true; \
+    rm -f /a0/extensions/webui/right-canvas-panels/admet-panel.html 2>/dev/null || true; \
+    rm -f /a0/extensions/webui/right-canvas-panels/drug-browser-panel.html 2>/dev/null || true; \
+    rm -f /a0/extensions/webui/right-canvas-panels/mol-similarity-panel.html 2>/dev/null || true; \
+    rm -f /a0/extensions/webui/right-canvas-panels/chemical-space-panel.html 2>/dev/null || true; \
+    rm -f /a0/extensions/webui/right-canvas-panels/agent-tasks-panel.html 2>/dev/null || true; \
     rm -rf /a0/webui/components/docking 2>/dev/null || true; \
     rm -rf /a0/webui/components/3d-viewer 2>/dev/null || true; \
+    rm -rf /a0/webui/components/admet 2>/dev/null || true; \
+    rm -rf /a0/webui/components/drug-browser 2>/dev/null || true; \
+    rm -rf /a0/webui/components/mol-similarity 2>/dev/null || true; \
+    rm -rf /a0/webui/components/chemical-space 2>/dev/null || true; \
+    rm -rf /a0/webui/components/agent-tasks 2>/dev/null || true; \
     sed -i 's|Agent Zero|BioDockify AI|g' /a0/prompts/*.md 2>/dev/null || true; \
     sed -i 's|agent_zero|biodockify_ai|g' /a0/prompts/*.md 2>/dev/null || true; \
     sed -i 's|Agent Zero|BioDockify AI|g' /a0/agent_zero/prompts_v19/*.md 2>/dev/null || true; \
