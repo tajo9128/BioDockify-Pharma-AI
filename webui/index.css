@@ -413,8 +413,10 @@ img {
   display: flex;
   width: auto;
   min-width: 0;
+  min-height: 0;
   flex-direction: column;
   flex: 1 1 0;
+  overflow: hidden;
   -webkit-transition: margin-left var(--transition-speed) ease-in-out;
   transition: margin-left var(--transition-speed) ease-in-out;
 }
