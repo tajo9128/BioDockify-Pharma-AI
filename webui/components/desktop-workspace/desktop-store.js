@@ -218,6 +218,7 @@ const model = {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         desktopLayout: this.desktopLayout,
         taskbarPinned: this.taskbarPinned,
+        splitRatio: this.splitRatio,
       }));
     } catch (e) {
       console.warn("Could not persist desktop workspace state", e);
@@ -229,9 +230,35 @@ const model = {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
       if (saved.desktopLayout) this.desktopLayout = saved.desktopLayout;
       if (saved.taskbarPinned) this.taskbarPinned = saved.taskbarPinned;
+      if (saved.splitRatio) this.splitRatio = saved.splitRatio;
     } catch (e) {
       console.warn("Could not restore desktop workspace state", e);
     }
+    this._applySplitRatio();
+  },
+
+  splitRatio: 35,
+
+  _applySplitRatio() {
+    const container = document.querySelector('.container.split-mode');
+    if (!container) return;
+    const panel = document.getElementById('right-panel');
+    const wrapper = document.getElementById('desktop-wrapper');
+    if (panel) panel.style.flexBasis = this.splitRatio + '%';
+    if (wrapper) wrapper.style.flexBasis = (100 - this.splitRatio) + '%';
+  },
+
+  resizeSplit(event) {
+    const container = document.querySelector('.container.split-mode');
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const sidebarW = 250;
+    const dividerW = 6;
+    const availW = rect.width - sidebarW - dividerW;
+    const x = event.clientX - rect.left - sidebarW;
+    const pct = Math.max(20, Math.min(80, (x / availW) * 100));
+    this.splitRatio = Math.round(pct);
+    this._applySplitRatio();
   },
 
   startDrag(event, windowId) {

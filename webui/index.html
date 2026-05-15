@@ -78,7 +78,7 @@
 </head>
 
 <body class="dark-mode device-pointer" x-data>
-    <div class="container" :class="{ 'split-mode': $store.desktopWorkspace?.isSplitMode, 'desktop-mode': $store.desktopWorkspace?.isDesktopMode }">
+    <div class="container" :class="{ 'split-mode': $store.desktopWorkspace?.isSplitMode, 'desktop-mode': $store.desktopWorkspace?.isDesktopMode }" x-effect="$store.desktopWorkspace?._applySplitRatio()">
         <!-- Sidebar Overlay -->
         <div id="sidebar-overlay" x-data>
             <template x-if="$store.sidebar">
@@ -147,10 +147,18 @@
                 <!-- Input Section -->
                 <x-component path="chat/input/chat-bar.html"></x-component>
             </div>
+
+            <!-- Right Canvas (overlay inside chat panel, hidden in split/desktop) -->
+            <x-component path="canvas/right-canvas.html"></x-component>
         </div>
 
-        <!-- Right Canvas (Surface panels, taskbar tabs) -->
-        <x-component path="canvas/right-canvas.html"></x-component>
+        <!-- Split Resize Divider (only in split mode) -->
+        <div class="split-divider" x-show="$store.desktopWorkspace?.isSplitMode"
+             x-data="{ dragging: false }"
+             @mousedown="dragging = true; document.body.classList.add('split-resizing')"
+             @mouseup.window="dragging = false; document.body.classList.remove('split-resizing')"
+             @mousemove.window="if (dragging) $store.desktopWorkspace?.resizeSplit($event)">
+        </div>
 
         <!-- BioDockify Desktop Workspace -->
         <div id="desktop-wrapper" x-show="$store.desktopWorkspace?.desktopLayout !== 'chat'"

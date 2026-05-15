@@ -7,13 +7,17 @@
   position: relative;
 }
 
-.container > x-component[path="canvas/right-canvas.html"],
-.container > x-component[path="canvas/right-canvas.html"] > div[x-data] {
+/* Right-canvas is now inside #right-panel as overlay, not a container flex child */
+#right-panel > x-component[path="canvas/right-canvas.html"],
+#right-panel > x-component[path="canvas/right-canvas.html"] > div[x-data] {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 50;
   display: flex;
-  flex: 0 0 auto;
   height: 100%;
   min-width: 0;
-  min-height: 0;
 }
 
 body.right-canvas-resizing {

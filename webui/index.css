@@ -451,14 +451,23 @@ img {
 
 /* Resize handle between panels */
 .split-divider {
-  width: 4px;
+  width: 6px;
   cursor: col-resize;
   background: var(--color-border);
   transition: background 0.2s;
+  flex-shrink: 0;
+  z-index: 100;
 }
 
 .split-divider:hover {
   background: var(--color-primary);
+  width: 8px;
+}
+
+/* Prevent text selection during split resize */
+body.split-resizing {
+  user-select: none;
+  cursor: col-resize;
 }
 
 /* Chat area wrapper – contains chat-history + floating nav buttons */

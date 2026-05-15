@@ -6,7 +6,7 @@
 </head>
 <body>
   <div x-data>
-    <template x-if="$store.rightCanvas && !$store.desktopWorkspace?.isDesktopMode">
+    <template x-if="$store.rightCanvas && !$store.desktopWorkspace?.isDesktopMode && !$store.desktopWorkspace?.isSplitMode">
       <aside
         id="right-canvas"
         class="right-canvas"
