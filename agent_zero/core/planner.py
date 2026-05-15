@@ -63,7 +63,6 @@ class PhDPlanner:
             'feasibility_analysis'
         ],
         'mid': [
-            'docking_execution',
             'md_simulation',
             'result_analysis',
             'data_visualization',

@@ -73,7 +73,8 @@ async def main():
         MockTool('novelty_scoring', 'Score research novelty'),
         MockTool('literature_review', 'Conduct literature review'),
         MockTool('hypothesis_generation', 'Generate hypotheses'),
-        MockTool('docking_execution', 'Execute molecular docking'),
+
+
         MockTool('data_synthesis', 'Synthesize research data'),
     ]
 
