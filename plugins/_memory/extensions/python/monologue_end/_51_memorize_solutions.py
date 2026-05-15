@@ -61,12 +61,20 @@ class MemorizeSolutions(Extension):
             #     log_item.stream(content=content)
 
             # call util llm to find solutions in history
-            solutions_json = await self.agent.call_utility_model(
-                system=system,
-                message=msgs_text,
-                # callback=log_callback,
-                background=True,
-            )
+            try:
+                solutions_json = await self.agent.call_utility_model(
+                    system=system,
+                    message=msgs_text,
+                    # callback=log_callback,
+                    background=True,
+                )
+            except Exception as e:
+                err_msg = str(e).lower()
+                if "401" in err_msg or "unauthorized" in err_msg or "invalid" in err_msg or "authentication" in err_msg:
+                    log_item.update(heading="Solution memory skipped: API key invalid — check Settings")
+                else:
+                    log_item.update(heading=f"Solution memory skipped: {str(e)[:200]}")
+                return
 
             # log query < no need for streaming utility messages
             log_item.update(content=solutions_json)
