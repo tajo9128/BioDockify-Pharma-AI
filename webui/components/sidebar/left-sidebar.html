@@ -39,6 +39,14 @@
   </div>
 
   <style>
+    /* Make x-component host a proper flex child */
+    :host, x-component[path="sidebar/left-sidebar.html"] {
+      display: flex;
+      flex-shrink: 0;
+      min-width: 0;
+      height: 100%;
+    }
+
     /* Sidebar shell: flex column container for header + left panel */
     .sidebar-shell {
       display: flex;
