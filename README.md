@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://hub.docker.com/r/tajo9128/biodockify-pharma-ai"><img src="https://img.shields.io/badge/docker-tajo9128%2Fbiodockify--pharma--ai-blue.svg" alt="Docker"/></a>
-  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-4.3.5-green.svg" alt="Version"/></a>
+  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v5.7.1-green.svg" alt="Version"/></a>
   <a href="https://github.com/tajo9128/BioDockify-Pharma-AI"><img src="https://img.shields.io/badge/GitHub-BioDockify--Pharma--AI-181717?style=flat&logo=github" alt="GitHub"/></a>
 </p>
 
@@ -24,63 +24,35 @@
 
 ## Features
 
-### Specialized Research Agents (6 Profiles)
+### 16 Integrated Research Modules
 
-| Agent | Profile | Role |
-|-------|---------|------|
-| **Agent0** | default | Main orchestrator — coordinates sub-agents and research modules |
-| **Researcher** | researcher | Deep research, literature synthesis, data analysis, web scraping |
-| **Biostatistician** | biostatistician | Statistical analysis, clinical trials, hypothesis testing, PK/PD |
-| **Writer** | writer | Academic writing, thesis papers, and research documentation |
-| **Developer** | developer | Self-healing, debugging, code repair, system recovery |
-| **Hacker** | hacker | Content acquisition when blocked, technical tasks |
+| # | Module | Function | Backend |
+|---|--------|----------|---------|
+| 1 | **Research Command Center** | Auto-research pipeline, thesis tracking, wet lab coordination | 23 REST endpoints |
+| 2 | **Molecular Toolkit** | ADMET prediction, molecular similarity, chemical space PCA | RDKit-powered |
+| 3 | **Statistics** | 70+ methods: descriptive, t-test, ANOVA, survival, PK/PD, power | Full FastAPI router |
+| 4 | **Drug Properties** | MW, LogP, HBD, HBA, TPSA, Lipinski Rule-of-5 | RDKit + fallback |
+| 5 | **Literature Search** | PubMed, Semantic Scholar, arXiv — with citation export | 3 database APIs |
+| 6 | **Academic Writer** | 5-tab: Literature Review, Research Paper, Thesis, Lecture, Slides | Thesis + Lecture APIs |
+| 7 | **Slides Generator** | Academic, Clinical, Corporate, Minimal styles | Slides API |
+| 8 | **Lecture Builder** | Learning objectives, sections, homework, lab practical | Lecture API |
+| 9 | **Wet Lab Manager** | Experiment tracking, protocols, notes, status | localStorage + API |
+| 10 | **Patent Analyzer** | Espacenet + Google Patents search | Live patent DBs |
+| 11 | **Trial Scanner** | ClinicalTrials.gov with phase/status/condition filters | Live CT.gov API |
+| 12 | **Research Notebook** | ChromaDB vector search, SurfSense storage, tags, knowledge graph | Knowledge API |
+| 13 | **System Health** | Internet, ChromaDB, RDKit, Disk, Memory monitoring | Connection Doctor |
+| 14 | **Backup & Recovery** | Docker volume + GDrive cloud backup | Backup API |
+| 15 | **Kali Desktop** | Full Linux desktop iframe | /desktop/session |
+| 16 | **All Tools** | Quick-launch grid for all modules | N/A |
 
-### Research Backend Modules
+### 4 Specialized Sub-Agents
 
-| Module | Description |
-|--------|-------------|
-| **Statistics** | 70+ statistical methods — t-tests, ANOVA, regression, survival analysis, bioequivalence, PK/PD |
-| **Literature** | 14+ sources — PubMed, Semantic Scholar, Europe PMC, Crossref, bioRxiv, OpenAlex |
-| **WetLab** | Lab experiment tracking — PCR, ELISA, Western Blot, Cell Culture, FACS, Microscopy |
-| **Thesis** | PhD thesis management with 6-chapter tracker and LaTeX export |
-| **Slides** | Presentation generation with 4 themes — Default, Scientific, Corporate, Creative |
-| **Auto Research Orchestrator** | Full research pipeline automation |
-| **Proactive Guidance** | Research phase suggestions and workflow optimization |
-
-### Research Database Access
-
-| Category | Sources |
-|----------|---------|
-| Literature | PubMed, PubMed Central, Semantic Scholar, Europe PMC, Crossref, bioRxiv, medRxiv, OpenAlex, Scopus, Web of Science |
-| Chemistry & Drugs | PubChem (NIH), ChEMBL (EBI), DrugBank |
-| Clinical | ClinicalTrials.gov (US & EU) |
-
-### BioDockify-Branded UI
-
-- Custom sidebar with BioDockify Pharma AI branding
-- Research Tools dropdown menu
-- 6 dedicated research modal interfaces
-- Dark/light theme with teal/cyan accent colors
-- DNA double-helix favicon
-- BioDockify identity logo and welcome screen
-
-### Core Capabilities
-
-- **Multi-Agent Cooperation** — Agents create subordinates to break down complex tasks
-- **Browser Automation** — Playwright-powered web browsing with annotations
-- **Code Execution** — Full Linux environment (Python, Node.js, Bash)
-- **Persistent Memory** — Vector DB-powered memory and knowledge management
-- **Projects** — Isolated workspaces with Git integration
-- **Skills System** — Open SKILL.md standard for portable capabilities
-- **MCP Client/Server** — Model Context Protocol support
-- **Plugin Architecture** — Extensible with shared plugins
-- **LibreOffice Integration** — Document, spreadsheet, presentation handling
-- **Time Travel** — Workspace history snapshots and revert
-- **WebSocket Infrastructure** — Real-time communication
-- **A2A Protocol** — Agent-to-agent communication
-- **Multi-Provider LLM** — OpenAI, Anthropic, DeepSeek, Ollama, and more
-- **Self-Healing Developer Agent** — Automatic error diagnosis and repair
-- **Speech-to-Text & Text-to-Speech** — Voice interface support
+| Agent | Role | Tools |
+|-------|------|-------|
+| **Researcher** | Deep research, literature synthesis, drug discovery | PubMed, web scraping, patent/trial APIs |
+| **Biostatistician** | Statistical analysis, clinical trials, PK/PD modeling | 70+ statistical methods |
+| **Writer** | Academic writing, thesis, papers, slides, lectures | All writing APIs |
+| **Hacker** | Code execution, web scraping, automation, content acquisition | Python/JS execution, browser tools |
 
 ---
 
@@ -136,7 +108,7 @@ services:
     image: tajo9128/biodockify-pharma-ai:latest
     container_name: biodockify-pharma-ai
     ports:
-      - "3000:3000"
+      - "50001:50001"
     volumes:
       - biodockify_pharma_usr:/a0/usr
     restart: unless-stopped

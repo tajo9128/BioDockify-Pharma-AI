@@ -16,10 +16,8 @@ services:
     image: tajo9128/biodockify-pharma-ai:latest
     container_name: biodockify-pharma-ai
     ports:
-      # Web UI port
-      - "3000:3000"
-      # Optional: expose additional ports if needed
-      # - "8000:8000"   # Alternative API port
+      # Web UI port (default: 50001)
+      - "50001:50001"
     volumes:
       # === REQUIRED VOLUME ===
       # ALL user data (memory, chats, settings, knowledge, projects, backups)
@@ -38,7 +36,7 @@ services:
 
     environment:
       # === REQUIRED ===
-      - PORT=3000
+      - PORT=50001
 
       # === OPTIONAL: LLM PROVIDERS ===
       # Set API keys for your preferred LLM providers (these override manual entry in Settings UI)

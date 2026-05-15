@@ -1,85 +1,96 @@
 ﻿# Changelog
 
-All notable changes to **BioDockify** will be documented in this file.
+All notable changes to BioDockify Pharma AI.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [v3.0.8] - 2026-02-23
-### Fixed
-- **Statistics API**: Fixed `CoxPHRequest` undefined error - changed to use existing `CoxRequest` model.
-
-## [v3.0.7] - 2026-02-23
-### Fixed
-- **Dependencies**: Added missing `matplotlib`, `seaborn`, and `lifelines` packages required by the statistics module for survival analysis.
-
-## [v3.0.6] - 2026-02-23
-### Fixed
-- **API Proxy**: Added Next.js rewrites to proxy `/api/*` requests to backend (port 8234), fixing chat connection issues in development mode.
-- **Health Check**: Updated frontend health check to use proxied `/api/health` endpoint instead of direct backend URL.
-
-## [v3.0.5] - 2026-02-23
-### Fixed
-- **Settings Panel**: Added close button to Settings panel that was previously unclosable due to full-screen overlay with no exit mechanism.
-
-## [v2.6.10] - 2026-02-13
-### Fixed
-- **Docker Release Hardening**: Resolved environment variable mismatch (`BIODOCKIFY_DATA` vs `BIODOCKIFY_DATA_DIR`) and removed redundant layer definitions in the Dockerfile.
-
-## [v2.6.9] - 2026-02-13
-### Fixed
-- **CI Hardening**: Resolved persistent `sqlite3.OperationalError` (Readonly DB) by enforcing absolute writable paths for `AdvancedMemorySystem` and `MultiTaskScheduler` via `BIODOCKIFY_DATA_DIR`.
-- **Noise Reduction**: Fully suppressed ChromaDB/PostHog telemetry noise in CI logs using system environment variables.
-- **Pydantic V2 Migration**: Fixed remaining `PydanticDeprecatedSince20` warnings in `BaseProvider` by adopting `ConfigDict`.
-- **API Stability**: Added missing `title` field to `TaskStatus` model to resolve frontend deserialization errors.
-
-## [v2.4.9] - 2026-02-10
+## [v5.7.1] - 2026-05-15
 ### Added
-- **Production Efficiency**: Final build optimizations for v2.4.9 release.
-- **Version Unified**: Synchronized metadata across all systems to v2.4.9.
-
-## [v2.4.8] - 2026-02-10
-### Added
-- **Production Efficiency**: Final build optimizations for stable release.
-- **Version Unified**: Synchronized metadata across all systems.
-
-## [v2.4.7] - 2026-02-10
+- System Health dashboard: Internet, ChromaDB, RDKit, Disk, Memory monitoring
+- Feature fallback status panel (TTS, Drug Properties, Literature)
+- GDrive cloud backup UI in Backup module
+- `system_health` API wiring connection_doctor + system_doctor + guardian
 ### Fixed
-- Build-blocking ESLint errors (unescaped entities, require imports)
-- Version sync across all project files
+- LICENSE merge conflict markers removed
 
-## [v2.4.6] - 2026-02-10
-### Added
-- **Stability and Performance**: Continued optimization of the Docker build process and dependency management.
-
-## [v2.4.5] - 2026-02-10
+## [v5.7.0] - 2026-05-15
 ### Fixed
-- **Docker Build Recovery**: Resolved `Unknown lockfile version` error by removing corrupt lockfiles and updating the build process.
-- **Dependency Stability**: Hardened UI dependency installation by allowing fresh lockfile generation during build.
+- 6 critical frontend bugs: Alpine.js `{{ }}` syntax, duplicate `clear()`, taskbar double-minimize, setInterval leak, stray `</template>`
+- Null-safety guards added to 10 modules ($store?. references)
+- CSS: 106-line duplicate tooltip block removed, 4 missing CSS variables defined
+- Backend: logging added to drug_properties, literature_search (3 backends), kokoro_tts
+- Kokoro TTS model cached as singleton (was created per-request)
+- Literature arXiv fixed to HTTPS, timeouts improved
+### Security
+- Dockerfile: EXPOSE 50001, HEALTHCHECK every 30s
 
-## [v2.4.4] - 2026-02-10
+## [v5.6.4] - 2026-05-15
 ### Added
-- **Enhanced Project System**: Implemented `ProjectPlanner`, `DeviceStateManager`, and `MultiTaskScheduler` for complex research orchestration.
-- **Persistence & Progress**: Added task queue persistence and granular progress tracking for long-running research jobs.
-- **Headless Resilience**: Made Playwright an optional dependency, allowing the system to run in a degraded mode when browser environments are restricted.
-- **Git Maintenance**: Consolidated repository branches into `CI` and `Docker-release`.
+- Agent Zero constitution with 7 governing principles
+- Proactive module monitoring (15 modules, 30-minute intervals)
+- Self-healing protocol: detect → diagnose → repair → verify → log
+- Aggressive research protocol with 8-item exhaustion checklist
+- 15-module registry + 4 sub-agent registry in identity.md
 
-## [v2.4.2] - 2026-02-09
+## [v5.6.3] - 2026-05-15
 ### Added
-- **Full BioDockify AI Port**: Reached 100% parity with original BioDockify AI core, including PhDPlanner (stage-aware research), PersistentMemory (long-term knowledge retention), and self-healing ReasoningEngine.
-- **Security Hardening**: Implemented strict HTML escaping in Telegram to prevent XSS, added path sanitization to all file downloads, and enforced authentication for the WhatsApp bridge.
-- **Reliability Improvements**: Added Discord gateway heartbeat ACK tracking to prevent zombie connections and implemented per-channel rate limiting and download timeouts.
-### Removed
-- Feishu/Lark channel integration (deprecated as per user request).
+- Molecular Toolkit module: ADMET prediction, Tanimoto similarity, chemical space PCA
+- Wired 3 previously unwired APIs: admet_predict, molecular_similarity, chemical_space
+### Audit
+- Full codebase audit: 29 files changed from v4.7.7, zero Agent Zero core touched
 
-## [v2.4.1] - 2026-02-09
+## [v5.6.2] - 2026-05-15
+### Added
+- Cross-module integration: Research Dashboard → Academic Writer, Notebook → Academic Writer
+- Export Research Report from Research Dashboard (pipeline + milestones + wet lab)
+- Save to Notebook from Statistics results
+
+## [v5.6.1] - 2026-05-15
+### Added
+- Research Notebook upgrade: tag system, favorites, knowledge graph (canvas force-directed)
+- Save to Notebook button in Literature search results
+- Rich entry cards with source attribution, date, entry tags
+
+## [v5.6.0] - 2026-05-15
+### Added
+- Research Command Center: 4-tab dashboard (Projects, Pipeline, Milestones, Wet Lab)
+- Wired to 23 existing backend API endpoints (zero new backend)
+- Auto-start comprehensive research from PhD title input
+- Gantt-style milestone progress tracking
+
+## [v5.5.5] - 2026-05-15
+### Added
+- Session persistence (localStorage) for Statistics, Drug Properties, Literature, Academic Writer
 ### Fixed
-- **Integrity:** Resolved critical SQLite connection leaks in `task_store.py` using context managers.
-- **Resource Management:** Fixed memory leaks in `ZAIProvider` and `ServiceLifecycleManager` by ensuring timeouts are cleared.
-- **API Resilience:** Added 60s timeout and non-JSON error handling to the frontend API client.
-- **Logic:** Fixed undefined `prompt` variable in HuggingFace provider and initialized `tmp_path` for RAG uploads.
-- **WebSocket:** Fixed reconnection leaks in `AgentStatusPanel.tsx`.
+- Desktop-store module ordering (duplicate order numbers resolved)
 
-## [v2.4.0] - 2026-02-08
-...
+## [v5.5.4] - 2026-05-15
+### Added
+- 5-tab Academic Writer: Literature Review, Research Paper, Thesis, Lecture, Slides
+- Kokoro TTS integration with 3-tier fallback (Kokoro → Edge-TTS → Browser)
 
+## [v5.5.3] - 2026-05-15
+### Added
+- Slides Generator with style/ slide count options
+- Lecture Builder with duration/level selection
+- Wet Lab Manager with 3-tab interface
+- Literature module with PubMed/Semantic Scholar/arXiv search
+
+## [v5.5.2] - 2026-05-15
+### Added
+- Drug Properties module with SMILES input, property table, Lipinski Rule-of-5
+- Literature multi-database search API (PubMed, Semantic Scholar, arXiv)
+
+## [v5.5.1] - 2026-05-15
+### Added
+- Statistics module rebuild: replaced prompt() dialogs with proper dropdowns
+- Download CSV/JSON buttons, data preview, agent-help buttons
+- Test-type dropdown selector with parameter forms per analysis type
+
+## [v5.5.0] - 2026-05-15
+### Added
+- 3-mode layout: Chat, Split-pane (chat + desktop), Full Desktop
+- Resizable split divider between chat and desktop
+- Right-side icon rail with 13 module launchers
+- Right-canvas restored as overlay in chat panel
+### Fixed
+- #desktop-wrapper moved inside .container (CSS selectors now match)
+- Duplicate CSS blocks removed from desktop-workspace.css

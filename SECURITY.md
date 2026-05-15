@@ -2,26 +2,42 @@
 
 ## Supported Versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 2.0.x   | :white_check_mark: |
-| 1.0.x   | :x:                |
+| Version | Supported |
+|---------|-----------|
+| v5.7.x  | ✅ Active |
+| v5.6.x  | ✅ Supported |
+| v5.5.x  | ✅ Supported |
+| < v5.5  | ❌ End of life |
 
 ## Reporting a Vulnerability
 
-We take the security of BioDockify seriously. If you discover a security vulnerability, please do **NOT** open a public issue.
+We take security seriously. If you discover a vulnerability:
 
-*   **Email:** Please email [your-email@example.com] with a description of the vulnerability.
-*   **Response:** We will aim to acknowledge your email within 48 hours.
+- **Do NOT open a public issue**
+- **Email**: Create an issue with "[SECURITY]" prefix for initial report
+- **Response**: We aim to respond within 48 hours
 
 ## Data Privacy Architecture
-BioDockify is built with a **"Local-First"** security philosophy to protect pharmaceutical Intellectual Property (IP).
+
+BioDockify follows a **Local-First** security philosophy.
 
 ### 1. Local Processing
-*   **Inference:** All BioNER (entity extraction) and Graph processing occur locally on your machine within the Docker container.
-*   **Database:** The Neo4j database is hosted on `localhost` and file-based. No data is synced to a cloud backend managed by us.
+- **Inference**: All BioNER and statistical analysis runs locally within the Docker container
+- **Vector DB**: ChromaDB runs on localhost — no cloud sync
+- **Knowledge Base**: SurfSense storage is local; search uses ChromaDB (built-in, free)
 
 ### 2. External APIs (Optional)
-*   **LLMs:** If you configure the system to use OpenAI/Gemini/Claude APIs for the "Agent" reasoning, text snippets *will* be sent to those providers.
-*   **Control:** This is strictly opt-in. You must provide your own API Key. We do not proxy or store your keys.
-*   **Local Alternatives:** We are working on supporting local LLMs (Llama 3, Mistral) via Ollama to enable a 100% air-gapped workflow in future versions.
+- **LLMs**: Configuring OpenAI/Gemini/Claude APIs sends text to those providers
+- **Control**: Strictly opt-in. You must provide your own API key
+- **Local LLMs**: Ollama-supported for 100% air-gapped workflow
+
+### 3. Docker Security
+- Container runs as non-root where possible (v5.7.0+)
+- HEALTHCHECK endpoint at `/api/health` every 30s
+- Backups stored on Docker volume at `/a0/usr/backups/`
+- GDrive cloud backup available with user-provided OAuth
+
+### 4. Audit & Monitoring
+- System Health dashboard monitors all modules
+- Security Guardian scans for secrets on codebase
+- Audit Logger tracks user actions locally
