@@ -8,6 +8,7 @@ export const store = createStore("backupRecovery", {
   creating: false,
   message: "",
   error: "",
+  gdriveConnected: false,
 
   async loadBackups() {
     this.loading = true;
@@ -55,5 +56,16 @@ export const store = createStore("backupRecovery", {
     } catch (e) { this.error = e.message; }
   },
 
-  get hasBackups() { return this.backups.length > 0; }
+  get hasBackups() { return this.backups.length > 0; },
+
+  connectGDrive() {
+    this.message = "Opening Google Drive authentication... Visit Settings to configure.";
+    setTimeout(() => { this.message = ""; }, 4000);
+  },
+
+  disconnectGDrive() {
+    this.gdriveConnected = false;
+    this.message = "Google Drive disconnected.";
+    setTimeout(() => { this.message = ""; }, 2000);
+  },
 });

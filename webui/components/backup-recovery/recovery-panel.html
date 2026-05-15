@@ -1,6 +1,16 @@
 <html><body><div x-data class="recovery-panel" x-init="$store.backupRecovery.loadBackups()">
   <div class="panel-header"><span class="material-symbols-outlined panel-icon">backup</span><h2>Backup & Recovery</h2></div>
-  <p class="desc">Backups are stored on the Docker volume at <code>usr/backups/</code> — they survive container deletion.</p>
+  <p class="desc">Backups stored at <code>usr/backups/</code> (Docker volume) — survive container deletion.</p>
+
+  <!-- Cloud backup status -->
+  <div class="cloud-status">
+    <span class="cloud-icon">☁️</span>
+    <span>Google Drive: </span>
+    <span class="cloud-state connected" x-show="$store.backupRecovery.gdriveConnected">Connected</span>
+    <span class="cloud-state" x-show="!$store.backupRecovery.gdriveConnected" style="color:#ff6b6b">Not connected</span>
+    <button class="btn-sm" @click="$store.backupRecovery.connectGDrive()" x-show="!$store.backupRecovery.gdriveConnected">Connect</button>
+    <button class="btn-sm" @click="$store.backupRecovery.disconnectGDrive()" x-show="$store.backupRecovery.gdriveConnected">Disconnect</button>
+  </div>
 
   <div class="actions">
     <button class="btn" @click="$store.backupRecovery.createBackup()" :disabled="$store.backupRecovery.creating">
@@ -48,6 +58,11 @@
     .panel-header h2{color:var(--color-primary);font-size:1.1rem;margin:0}
     .desc{font-size:.8rem;color:var(--color-text-muted);margin:0 0 var(--spacing-md) 0}
     .desc code{font-family:var(--font-mono);font-size:.75rem;background:var(--color-panel);padding:1px 4px;border-radius:3px}
+    .cloud-status { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: 12px; font-size: 0.72rem; color: var(--color-text); }
+    .cloud-icon { font-size: 1.2rem; }
+    .cloud-state { font-weight: 600; }
+    .cloud-state.connected { color: #22c55e; }
+    .btn-sm { padding: 4px 10px; border-radius: 4px; cursor: pointer; border: none; font-size: 0.7rem; background: var(--color-primary); color: white; }
     .actions{display:flex;gap:var(--spacing-xs);margin-bottom:var(--spacing-md)}
     .btn,.btn-secondary{display:flex;align-items:center;gap:6px;padding:var(--spacing-xs) var(--spacing-md);border-radius:6px;cursor:pointer;border:none;font-size:.85rem}
     .btn{background:var(--color-primary);color:white}.btn:disabled{opacity:.6}
