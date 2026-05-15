@@ -65,6 +65,24 @@
           setTimeout(() => { this.message = ""; }, 2000);
         });
       },
+
+      summarizePaper(paper) {
+        const text = `Summarize this research paper for my literature review. Provide: 1) Key findings, 2) Methodology, 3) Significance, 4) Limitations.\n\nTitle: ${paper.title}\nAuthors: ${(paper.authors || []).join(', ')}\nAbstract: ${paper.abstract || ''}`;
+        const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea, .input-area textarea");
+        if (input) { input.value = text; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); }
+      },
+
+      speakAbstract(paper) {
+        if (!paper.abstract) return;
+        if (this.playing) { window.speechSynthesis?.cancel(); this.playing = false; return; }
+        if ('speechSynthesis' in window) {
+          const u = new SpeechSynthesisUtterance(paper.abstract.substring(0, 2000));
+          u.rate = 0.9;
+          u.onend = () => { this.playing = false; };
+          window.speechSynthesis.speak(u);
+          this.playing = true;
+        }
+      },
     });
   </script>
 </head>
@@ -134,6 +152,14 @@
                   <button class="action-btn" @click="$store.literatureModal.downloadCite('bibtex', paper)" title="Copy BibTeX citation">
                     <span class="material-symbols-outlined">code</span>
                     BibTeX
+                  </button>
+                  <button class="action-btn" @click="$store.literatureModal.summarizePaper(paper)" title="Summarize for literature review">
+                    <span class="material-symbols-outlined">summarize</span>
+                    Summarize
+                  </button>
+                  <button class="action-btn" @click="$store.literatureModal.speakAbstract(paper)" title="Read abstract aloud" x-show="paper.abstract">
+                    <span class="material-symbols-outlined">volume_up</span>
+                    Read
                   </button>
                   <a :href="paper.url" target="_blank" class="action-btn" rel="noopener" x-show="paper.url">
                     <span class="material-symbols-outlined">open_in_new</span>

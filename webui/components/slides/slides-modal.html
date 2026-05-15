@@ -1,12 +1,179 @@
-<html><body><div x-data class="simple-panel">
-  <div class="panel-header"><span class="material-symbols-outlined panel-icon">slideshow</span><h2>Slides</h2></div>
-  <div class="panel-content">
-    <p>Ask the agent in chat to create presentations on any topic. The agent will research content and generate slides for you.</p>
-    <div class="examples">
-      <div class="example-item">"Create a presentation on recent advances in mRNA vaccines"</div>
-      <div class="example-item">"Generate slides for my clinical trial results"</div>
-      <div class="example-item">"Make a 10-slide overview of PK/PD modeling"</div>
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+
+    export const store = createStore("slidesModal", {
+      topic: "",
+      style: "academic",
+      numSlides: 10,
+      includeCitations: true,
+      loading: false,
+      result: null,
+      error: "",
+
+      async generate() {
+        if (!this.topic.trim()) return;
+        this.loading = true;
+        this.error = "";
+        this.result = null;
+        try {
+          const resp = await callJsonApi("slides/generate-from-kb", {
+            topic: this.topic,
+            style: this.style,
+            num_slides: this.numSlides,
+            include_citations: this.includeCitations,
+          });
+          if (resp.error) { this.error = resp.error; return; }
+          this.result = resp;
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      sendToAgent() {
+        const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea");
+        if (input) {
+          input.value = `Create a ${this.numSlides}-slide presentation on "${this.topic}" in ${this.style} style.`;
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          input.focus();
+          this.result = { message: "Task sent to agent chat", slides: [] };
+        }
+      },
+
+      clear() { this.topic = ""; this.result = null; this.error = ""; },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="slides-panel">
+    <div class="panel-header">
+      <span class="material-symbols-outlined panel-icon">slideshow</span>
+      <h2>Slides Generator</h2>
     </div>
+    <div class="panel-content">
+      <div class="form-section">
+        <div class="input-row">
+          <input type="text" x-model="$store.slidesModal.topic" placeholder="Presentation topic..." class="topic-input" @keyup.enter="$store.slidesModal.generate()" />
+          <button class="btn-gen" @click="$store.slidesModal.generate()" :disabled="$store.slidesModal.loading || !$store.slidesModal.topic">
+            <span class="material-symbols-outlined">auto_awesome</span>
+            Generate
+          </button>
+        </div>
+        <div class="options-row">
+          <div class="opt-group">
+            <label class="opt-label">Style</label>
+            <select x-model="$store.slidesModal.style" class="opt-select">
+              <option value="academic">Academic</option>
+              <option value="clinical">Clinical</option>
+              <option value="corporate">Corporate</option>
+              <option value="minimal">Minimal</option>
+            </select>
+          </div>
+          <div class="opt-group">
+            <label class="opt-label">Slides</label>
+            <input type="number" x-model="$store.slidesModal.numSlides" min="3" max="30" class="opt-input" />
+          </div>
+          <div class="opt-group check-opt">
+            <label class="opt-check">
+              <input type="checkbox" x-model="$store.slidesModal.includeCitations" />
+              <span>Citations</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div x-show="$store.slidesModal.error" class="error-banner" x-text="$store.slidesModal.error"></div>
+      <div x-show="$store.slidesModal.loading" class="loading-bar"><div class="loading-spinner"></div><span>Generating slides...</span></div>
+
+      <template x-if="$store.slidesModal.result">
+        <div class="results">
+          <div class="results-header">
+            <h3 x-text="$store.slidesModal.result.topic || $store.slidesModal.topic"></h3>
+            <div class="results-actions">
+              <button class="act-btn" @click="$store.slidesModal.sendToAgent()"><span class="material-symbols-outlined">psychology</span> Send to Agent</button>
+              <button class="act-btn" @click="$store.slidesModal.clear()"><span class="material-symbols-outlined">refresh</span> New</button>
+            </div>
+          </div>
+          <div class="slide-list">
+            <template x-if="$store.slidesModal.result.slides">
+              <template x-for="(slide, i) in $store.slidesModal.result.slides" :key="i">
+                <div class="slide-card">
+                  <div class="slide-num" x-text="'Slide ' + (i + 1)"></div>
+                  <div class="slide-body">
+                    <div class="slide-title" x-text="slide.title || slide.heading || ''"></div>
+                    <div class="slide-content" x-text="slide.content || slide.body || ''"></div>
+                  </div>
+                </div>
+              </template>
+            </template>
+          </div>
+          <div class="agent-help">
+            <button class="agent-help-btn" @click="$store.slidesModal.sendToAgent()">
+              <span class="material-symbols-outlined">psychology</span>
+              Agent: refine and export these slides
+            </button>
+          </div>
+        </div>
+      </template>
+
+      <div x-show="!$store.slidesModal.result && !$store.slidesModal.loading" class="empty-state">
+        <span class="material-symbols-outlined empty-icon">slideshow</span>
+        <p>Enter a topic to generate a presentation</p>
+        <div class="quick-chips">
+          <button class="chip" @click="$store.slidesModal.topic='Advances in mRNA vaccine technology'; $store.slidesModal.generate()">mRNA vaccines</button>
+          <button class="chip" @click="$store.slidesModal.topic='AI-driven drug discovery pipelines'; $store.slidesModal.generate()">AI drug discovery</button>
+          <button class="chip" @click="$store.slidesModal.topic='Pharmacokinetics and pharmacodynamics overview'; $store.slidesModal.generate()">PK/PD overview</button>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      .slides-panel { display: flex; flex-direction: column; height: 100%; overflow-y: auto; padding: 16px 20px; background: var(--color-background); }
+      .panel-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+      .panel-icon { font-size: 26px; color: var(--color-primary); }
+      .panel-header h2 { color: var(--color-primary); font-size: 1rem; margin: 0; font-weight: 700; }
+      .panel-content { flex: 1; }
+      .form-section { margin-bottom: 14px; }
+      .input-row { display: flex; gap: 8px; margin-bottom: 8px; }
+      .topic-input { flex: 1; padding: 9px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-panel); color: var(--color-text); font-size: 0.78rem; }
+      .topic-input:focus { outline: none; border-color: var(--color-primary); }
+      .btn-gen { display: flex; align-items: center; gap: 4px; padding: 9px 14px; background: var(--color-primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+      .btn-gen:disabled { opacity: 0.5; cursor: not-allowed; }
+      .options-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+      .opt-group { flex: 1; min-width: 100px; }
+      .opt-label { display: block; font-size: 0.62rem; font-weight: 600; color: var(--color-text-muted); margin-bottom: 2px; }
+      .opt-select, .opt-input { width: 100%; padding: 5px 8px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-panel); color: var(--color-text); font-size: 0.7rem; }
+      .opt-input { max-width: 70px; }
+      .check-opt { display: flex; align-items: flex-end; padding-bottom: 4px; }
+      .opt-check { display: flex; align-items: center; gap: 4px; font-size: 0.7rem; color: var(--color-text); cursor: pointer; }
+      .opt-check input { accent-color: var(--color-primary); }
+      .error-banner { padding: 6px 10px; background: rgba(255,107,107,0.1); border-radius: 6px; color: var(--color-error-text); font-size: 0.7rem; margin-bottom: 10px; }
+      .loading-bar { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; color: var(--color-text-muted); }
+      .loading-spinner { width: 14px; height: 14px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      .results { margin-top: 8px; }
+      .results-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
+      .results-header h3 { font-size: 0.8rem; font-weight: 700; color: var(--color-text); margin: 0; }
+      .results-actions { display: flex; gap: 4px; }
+      .act-btn { display: flex; align-items: center; gap: 3px; padding: 4px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.65rem; color: var(--color-text); cursor: pointer; }
+      .act-btn:hover { border-color: var(--color-primary); }
+      .slide-list { display: flex; flex-direction: column; gap: 6px; }
+      .slide-card { display: flex; gap: 10px; padding: 10px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; border-left: 3px solid var(--color-primary); }
+      .slide-num { font-size: 0.65rem; font-weight: 700; color: var(--color-primary); white-space: nowrap; padding-top: 2px; }
+      .slide-body { flex: 1; min-width: 0; }
+      .slide-title { font-size: 0.74rem; font-weight: 600; color: var(--color-text); margin-bottom: 2px; }
+      .slide-content { font-size: 0.68rem; color: var(--color-text-muted); line-height: 1.4; }
+      .agent-help { margin-top: 12px; }
+      .agent-help-btn { display: flex; align-items: center; gap: 4px; padding: 8px 12px; background: color-mix(in srgb, var(--color-accent, #4fc3f7) 8%, var(--color-panel)); border: 1px solid color-mix(in srgb, var(--color-accent, #4fc3f7) 25%, var(--color-border)); border-radius: 8px; color: var(--color-text); cursor: pointer; font-size: 0.68rem; width: 100%; justify-content: center; }
+      .empty-state { display: flex; flex-direction: column; align-items: center; padding: 36px 20px; text-align: center; }
+      .empty-icon { font-size: 40px; color: var(--color-border); margin-bottom: 10px; }
+      .empty-state p { color: var(--color-text-muted); font-size: 0.75rem; margin: 0 0 10px 0; }
+      .quick-chips { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; }
+      .chip { padding: 5px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.68rem; color: var(--color-text); cursor: pointer; }
+      .chip:hover { border-color: var(--color-primary); }
+    </style>
   </div>
-  <style>.simple-panel{padding:var(--spacing-md);height:100%;overflow-y:auto}.panel-header{display:flex;align-items:center;gap:var(--spacing-sm);margin-bottom:var(--spacing-md)}.panel-icon{font-size:2rem;color:var(--color-primary)}.panel-header h2{color:var(--color-primary);font-size:1.1rem;margin:0}.panel-content p{color:var(--color-text);font-size:.85rem;line-height:1.5}.examples{margin-top:var(--spacing-md);display:flex;flex-direction:column;gap:var(--spacing-xs)}.example-item{padding:var(--spacing-sm);background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;font-size:.8rem;color:var(--color-text-muted);border-left:3px solid var(--color-primary)}</style>
-</div></body></html>
+</body>
+</html>

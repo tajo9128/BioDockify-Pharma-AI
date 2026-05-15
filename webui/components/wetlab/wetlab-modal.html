@@ -1,12 +1,195 @@
-<html><body><div x-data class="simple-panel">
-  <div class="panel-header"><span class="material-symbols-outlined panel-icon">biotech</span><h2>Wet Lab</h2></div>
-  <div class="panel-content">
-    <p>Ask the agent in chat to track experiments, manage protocols, and coordinate lab activities.</p>
-    <div class="examples">
-      <div class="example-item">"Track a new PCR experiment for gene expression analysis"</div>
-      <div class="example-item">"Record ELISA results for my protein quantification assay"</div>
-      <div class="example-item">"List all active experiments and their status"</div>
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+
+    export const store = createStore("wetlabStore", {
+      experiments: [],
+      activeTab: "protocols",
+      newExpName: "",
+      newExpProtocol: "",
+
+      init() {
+        const saved = localStorage.getItem("wetlab_experiments");
+        if (saved) { try { this.experiments = JSON.parse(saved); } catch {} }
+      },
+
+      addExperiment() {
+        if (!this.newExpName.trim()) return;
+        this.experiments.unshift({
+          id: Date.now(),
+          name: this.newExpName,
+          protocol: this.newExpProtocol,
+          status: "planned",
+          createdAt: new Date().toISOString().split("T")[0],
+          notes: [],
+        });
+        this.newExpName = "";
+        this.newExpProtocol = "";
+        this.save();
+      },
+
+      deleteExperiment(id) {
+        this.experiments = this.experiments.filter(e => e.id !== id);
+        this.save();
+      },
+
+      toggleStatus(id) {
+        const exp = this.experiments.find(e => e.id === id);
+        if (!exp) return;
+        const cycle = { planned: "running", running: "completed", completed: "planned" };
+        exp.status = cycle[exp.status] || "planned";
+        this.save();
+      },
+
+      addNote(id, note) {
+        const exp = this.experiments.find(e => e.id === id);
+        if (!exp || !note) return;
+        exp.notes.push({ text: note, time: new Date().toLocaleTimeString() });
+        this.save();
+      },
+
+      save() {
+        localStorage.setItem("wetlab_experiments", JSON.stringify(this.experiments));
+      },
+
+      sendToAgent(msg) {
+        const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea");
+        if (input) { input.value = msg; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); }
+      },
+
+      statusColor(status) {
+        return { planned: "#ffd93d", running: "#4fc3f7", completed: "#22c55e" }[status] || "#888";
+      },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="wetlab-panel" x-init="$store.wetlabStore.init()">
+    <div class="panel-header">
+      <span class="material-symbols-outlined panel-icon">biotech</span>
+      <h2>Wet Lab Manager</h2>
     </div>
+
+    <div class="panel-content">
+      <!-- Tab bar -->
+      <div class="tab-bar">
+        <button class="tab" :class="{'active': $store.wetlabStore.activeTab === 'protocols'}" @click="$store.wetlabStore.activeTab = 'protocols'">
+          <span class="material-symbols-outlined">description</span> Protocols
+        </button>
+        <button class="tab" :class="{'active': $store.wetlabStore.activeTab === 'experiments'}" @click="$store.wetlabStore.activeTab = 'experiments'">
+          <span class="material-symbols-outlined">science</span> Experiments
+        </button>
+        <button class="tab" :class="{'active': $store.wetlabStore.activeTab === 'agent'}" @click="$store.wetlabStore.activeTab = 'agent'">
+          <span class="material-symbols-outlined">psychology</span> Agent
+        </button>
+      </div>
+
+      <!-- Protocols tab -->
+      <div x-show="$store.wetlabStore.activeTab === 'protocols'" class="tab-content">
+        <div class="section-card">
+          <h4>New Experiment</h4>
+          <input type="text" x-model="$store.wetlabStore.newExpName" placeholder="Experiment name (e.g. ELISA assay #12)" class="form-input" @keyup.enter="$store.wetlabStore.addExperiment()" />
+          <textarea x-model="$store.wetlabStore.newExpProtocol" placeholder="Protocol steps (optional)" class="form-textarea"></textarea>
+          <button class="btn-add" @click="$store.wetlabStore.addExperiment()">Add Experiment</button>
+        </div>
+        <div class="quick-chips">
+          <button class="chip" @click="$store.wetlabStore.sendToAgent('Record a new PCR experiment for gene expression analysis of sample #1')">"Record PCR experiment"</button>
+          <button class="chip" @click="$store.wetlabStore.sendToAgent('Create protocol for HPLC purity analysis of drug samples')">"Create HPLC protocol"</button>
+          <button class="chip" @click="$store.wetlabStore.sendToAgent('List all active experiments and their current status')">"List active experiments"</button>
+        </div>
+      </div>
+
+      <!-- Experiments tab -->
+      <div x-show="$store.wetlabStore.activeTab === 'experiments'" class="tab-content">
+        <template x-if="$store.wetlabStore.experiments.length">
+          <div class="exp-list">
+            <template x-for="exp in $store.wetlabStore.experiments" :key="exp.id">
+              <div class="exp-card" :class="exp.status">
+                <div class="exp-header">
+                  <span class="exp-status" :style="'background:' + $store.wetlabStore.statusColor(exp.status)" @click="$store.wetlabStore.toggleStatus(exp.id)" :title="'Click to change (currently: ' + exp.status + ')'"></span>
+                  <span class="exp-name" x-text="exp.name"></span>
+                  <span class="exp-date" x-text="exp.createdAt"></span>
+                  <button class="btn-del" @click="$store.wetlabStore.deleteExperiment(exp.id)">×</button>
+                </div>
+                <div class="exp-protocol" x-show="exp.protocol" x-text="exp.protocol"></div>
+                <div class="exp-notes" x-show="exp.notes.length">
+                  <template x-for="n in exp.notes" :key="n.time">
+                    <div class="note"><span class="note-time" x-text="n.time"></span> <span x-text="n.text"></span></div>
+                  </template>
+                </div>
+                <div class="exp-add-note">
+                  <input type="text" :placeholder="'Add note to ' + exp.name" class="note-input" @keyup.enter="if($event.target.value.trim()) { $store.wetlabStore.addNote(exp.id, $event.target.value); $event.target.value = ''; }" />
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+        <div x-show="!$store.wetlabStore.experiments.length" class="empty-state">
+          <p>No experiments yet. Add one in the Protocols tab.</p>
+        </div>
+      </div>
+
+      <!-- Agent tab -->
+      <div x-show="$store.wetlabStore.activeTab === 'agent'" class="tab-content">
+        <div class="section-card">
+          <h4>Ask the Agent</h4>
+          <p class="agent-desc">Describe your experiment and the agent will record it, suggest protocols, and track progress.</p>
+          <div class="quick-chips">
+            <button class="chip" @click="$store.wetlabStore.sendToAgent('Record a new experiment: Western Blot for protein quantification of sample lysates. Use BCA assay for protein concentration, 10% SDS-PAGE gel, transfer to PVDF membrane.')">"Record Western Blot..."</button>
+            <button class="chip" @click="$store.wetlabStore.sendToAgent('Suggest a protocol for cell viability assay using MTT on HepG2 cells treated with varying concentrations of my compound for 24h and 48h.')">"Suggest MTT assay protocol"</button>
+            <button class="chip" @click="$store.wetlabStore.sendToAgent('Generate a lab notebook entry for today: performed PCR genotyping on 12 mouse tail samples, ran 2% agarose gel, imaged with Bio-Rad system.')">"Generate lab notebook entry"</button>
+            <button class="chip" @click="$store.wetlabStore.sendToAgent('What safety precautions should I follow when working with ethidium bromide for gel staining?')">"Safety: Ethidium bromide"</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      .wetlab-panel { display: flex; flex-direction: column; height: 100%; overflow-y: auto; padding: 16px 20px; background: var(--color-background); }
+      .panel-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+      .panel-icon { font-size: 26px; color: var(--color-primary); }
+      .panel-header h2 { color: var(--color-primary); font-size: 1rem; margin: 0; font-weight: 700; }
+      .panel-content { flex: 1; }
+      .tab-bar { display: flex; gap: 4px; margin-bottom: 14px; border-bottom: 1px solid var(--color-border); padding-bottom: 0; }
+      .tab { display: flex; align-items: center; gap: 4px; padding: 7px 14px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--color-text-muted); cursor: pointer; font-size: 0.72rem; font-weight: 500; transition: all 0.15s; }
+      .tab:hover { color: var(--color-text); }
+      .tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+      .tab .material-symbols-outlined { font-size: 16px; }
+      .tab-content { padding-top: 4px; }
+      .section-card { padding: 12px 14px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 10px; margin-bottom: 12px; }
+      .section-card h4 { font-size: 0.74rem; font-weight: 600; color: var(--color-primary); margin: 0 0 8px 0; }
+      .form-input, .form-textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-background); color: var(--color-text); font-size: 0.72rem; margin-bottom: 8px; box-sizing: border-box; }
+      .form-input:focus, .form-textarea:focus { outline: none; border-color: var(--color-primary); }
+      .form-textarea { min-height: 60px; resize: vertical; }
+      .btn-add { padding: 7px 16px; background: var(--color-primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.7rem; font-weight: 600; }
+      .btn-add:hover { opacity: 0.9; }
+      .quick-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+      .chip { padding: 5px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.68rem; color: var(--color-text); cursor: pointer; }
+      .chip:hover { border-color: var(--color-primary); }
+      .agent-desc { font-size: 0.72rem; color: var(--color-text-muted); margin-bottom: 10px; line-height: 1.4; }
+
+      /* Experiments */
+      .exp-list { display: flex; flex-direction: column; gap: 8px; }
+      .exp-card { padding: 10px 14px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; border-left: 3px solid var(--color-border); }
+      .exp-card.planned { border-left-color: #ffd93d; }
+      .exp-card.running { border-left-color: #4fc3f7; }
+      .exp-card.completed { border-left-color: #22c55e; }
+      .exp-header { display: flex; align-items: center; gap: 8px; }
+      .exp-status { width: 10px; height: 10px; border-radius: 50%; cursor: pointer; flex-shrink: 0; }
+      .exp-name { flex: 1; font-size: 0.74rem; font-weight: 600; color: var(--color-text); }
+      .exp-date { font-size: 0.62rem; color: var(--color-text-muted); }
+      .btn-del { padding: 2px 6px; background: transparent; border: none; color: var(--color-text-muted); cursor: pointer; font-size: 0.9rem; }
+      .btn-del:hover { color: var(--color-error-text); }
+      .exp-protocol { margin-top: 6px; font-size: 0.68rem; color: var(--color-text-muted); white-space: pre-wrap; line-height: 1.4; padding: 6px 10px; background: var(--color-background); border-radius: 4px; }
+      .exp-notes { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
+      .note { font-size: 0.65rem; color: var(--color-text-muted); padding: 2px 0; }
+      .note-time { color: var(--color-text-muted); opacity: 0.6; margin-right: 4px; }
+      .exp-add-note { margin-top: 6px; }
+      .note-input { width: 100%; padding: 4px 8px; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-background); color: var(--color-text); font-size: 0.65rem; }
+      .note-input:focus { outline: none; border-color: var(--color-primary); }
+      .empty-state { padding: 24px; text-align: center; color: var(--color-text-muted); font-size: 0.75rem; }
+    </style>
   </div>
-  <style>.simple-panel{padding:var(--spacing-md);height:100%;overflow-y:auto}.panel-header{display:flex;align-items:center;gap:var(--spacing-sm);margin-bottom:var(--spacing-md)}.panel-icon{font-size:2rem;color:var(--color-primary)}.panel-header h2{color:var(--color-primary);font-size:1.1rem;margin:0}.panel-content p{color:var(--color-text);font-size:.85rem;line-height:1.5}.examples{margin-top:var(--spacing-md);display:flex;flex-direction:column;gap:var(--spacing-xs)}.example-item{padding:var(--spacing-sm);background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;font-size:.8rem;color:var(--color-text-muted);border-left:3px solid var(--color-primary)}</style>
-</div></body></html>
+</body>
+</html>
