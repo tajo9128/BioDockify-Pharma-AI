@@ -204,6 +204,14 @@ Alpine.data("statisticsModal", () => ({
   },
 
   closeModal() { this.resetData(); closeTopModal(); },
+
+  useSampleData() {
+    this.fileName = "sample-data.csv";
+    this.columns = ["Treatment", "Response", "Weight", "Age", "Dose", "Score", "Group", "Time"];
+    this.rowCount = 100;
+    this.hasData = true;
+    this.step = 2;
+  },
 }));
 
 async function getCsrfToken() {

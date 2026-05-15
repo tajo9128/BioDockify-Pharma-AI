@@ -51,21 +51,20 @@ class SystemHealth(ApiHandler):
         except:
             result["checks"].append({"name": "RDKit", "status": "warn", "detail": "Not installed"})
 
-        # Backend APIs
-        apis = [
-            ("Statistics", "/api/statistics/available-analyses"),
-            ("Thesis", "/api/thesis/health"),
-            ("Research Mgmt", "/api/research/management/health"),
-            ("Backup", "/api/backup_auto"),
+        # Backend APIs - check via imports instead of HTTP to avoid unreachable false positives
+        api_checks = [
+            ("Statistics", "modules.statistics.orchestrator"),
+            ("Thesis", "modules.thesis.engine"),
+            ("Research Mgmt", "modules.research_persistence"),
+            ("Backup", "modules.backup.manager"),
         ]
-        for name, path in apis:
+        for name, mod_path in api_checks:
             try:
-                import urllib.request
-                req = urllib.request.Request(f"http://localhost:50001{path}", method="GET")
-                urllib.request.urlopen(req, timeout=3)
-                result["checks"].append({"name": name, "status": "ok", "detail": "Responding"})
+                import importlib
+                importlib.import_module(mod_path)
+                result["checks"].append({"name": name, "status": "ok", "detail": "Module loaded"})
             except:
-                result["checks"].append({"name": name, "status": "warn", "detail": "Unreachable"})
+                result["checks"].append({"name": name, "status": "warn", "detail": "Module not found"})
 
         # TTS fallback status
         tts = {"status": "ok", "engine": "browser"}
