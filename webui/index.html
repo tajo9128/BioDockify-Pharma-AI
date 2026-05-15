@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="css/buttons.css">
     <link rel="stylesheet" href="css/tables.css">
     <link rel="stylesheet" href="components/desktop-workspace/desktop-workspace.css">
+    <link rel="stylesheet" href="components/canvas/right-canvas.css">
 
     <!-- Flatpickr for datetime picker -->
     <link rel="stylesheet" href="vendor/flatpickr/flatpickr.min.css">
@@ -147,13 +148,19 @@
                 <x-component path="chat/input/chat-bar.html"></x-component>
             </div>
         </div>
+
+        <!-- Right Canvas (Surface panels, taskbar tabs) -->
+        <x-component path="canvas/right-canvas.html"></x-component>
+
+        <!-- BioDockify Desktop Workspace -->
+        <div id="desktop-wrapper" x-show="$store.desktopWorkspace?.desktopLayout !== 'chat'"
+             :class="{ 'split': $store.desktopWorkspace?.isSplitMode, 'full': $store.desktopWorkspace?.isDesktopMode }">
+            <x-component path="desktop-workspace/desktop-workspace.html"></x-component>
+        </div>
     </div>
 
-    <!-- BioDockify Desktop Workspace -->
-    <div id="desktop-wrapper" x-show="$store.desktopWorkspace?.desktopLayout !== 'chat'"
-         :class="{ 'split': $store.desktopWorkspace?.isSplitMode, 'full': $store.desktopWorkspace?.isDesktopMode }">
-        <x-component path="desktop-workspace/desktop-workspace.html"></x-component>
-    </div>
+    <!-- Right Side Icon Rail (Desktop tool launchers) -->
+    <x-component path="sidebar/right-icons.html"></x-component>
 
     <!-- Drag and Drop Overlay Component -->
     <x-component path="chat/attachments/dragDropOverlay.html"></x-component>

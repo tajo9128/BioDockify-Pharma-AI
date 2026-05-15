@@ -3,7 +3,7 @@
   <script type="module" src="/components/desktop-workspace/desktop-store.js"></script>
 </head>
 <body>
-  <div x-data x-init="$store.desktopWorkspace?.init()" class="desktop-workspace" :class="{ 'is-active': $store.desktopWorkspace?.isDesktopMode, 'layout-split': $store.desktopWorkspace?.isSplitMode, 'layout-desktop': $store.desktopWorkspace?.isDesktopMode }">
+  <div x-data x-init="$store.desktopWorkspace?.init()" class="desktop-workspace" :class="{ 'layout-split': $store.desktopWorkspace?.isSplitMode, 'layout-desktop': $store.desktopWorkspace?.isDesktopMode }">
     <div class="desktop-area">
       <!-- Back to Chat Button -->
       <button class="back-to-chat-btn" @click="$store.desktopWorkspace.setChatMode()" title="Back to Chat Mode">
@@ -97,32 +97,6 @@
   </div>
 
   <style>
-    .desktop-workspace {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 2000;
-      background: var(--color-background);
-      flex-direction: column;
-      width: 100vw;
-      height: 100vh;
-    }
-
-    .desktop-workspace.is-active {
-      display: flex;
-    }
-
-    #right-panel {
-      transition: opacity 0.2s ease;
-    }
-
-    #right-panel.desktop-hidden {
-      opacity: 0;
-      pointer-events: none;
-      position: absolute;
-      inset: 0;
-    }
-
     .desktop-area {
       flex: 1;
       position: relative;
