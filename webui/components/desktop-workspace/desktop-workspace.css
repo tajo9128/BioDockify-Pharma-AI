@@ -1,0 +1,35 @@
+/* Desktop Workspace Styles - Full-screen mode with toggle */
+
+/* Ensure desktop workspace is hidden by default */
+.desktop-workspace {
+  display: none;
+}
+
+/* When active, take over full viewport */
+.desktop-workspace.is-active {
+  display: flex;
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: var(--color-background);
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Hide right panel when in desktop mode */
+#right-panel.desktop-hidden {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  width: 0;
+  min-width: 0;
+  flex: 0 0 0;
+  overflow: hidden;
+}
+
+/* Sidebar should also hide in desktop mode */
+.sidebar-shell.desktop-hidden {
+  display: none !important;
+}

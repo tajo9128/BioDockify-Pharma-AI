@@ -56,10 +56,8 @@ const model = {
       return;
     }
 
-    const container = document.getElementById("right-panel");
-    const rect = container ? container.getBoundingClientRect() : { width: 1200, height: 800 };
-    const availW = rect.width - 100;
-    const availH = rect.height - 100;
+    const availW = window.innerWidth - 100;
+    const availH = window.innerHeight - 148;
     const w = Math.min(module.defaultWidth, availW);
     const h = Math.min(module.defaultHeight, availH);
     const x = Math.max(20, Math.floor((availW - w) / 2) + Math.random() * 40 - 20);
@@ -113,9 +111,6 @@ const model = {
   maximizeWindow(windowId) {
     const win = this.windows.find(w => w.id === windowId);
     if (!win) return;
-    const container = document.getElementById("right-panel");
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
 
     if (win.maximized) {
       if (win.prevBounds) {
@@ -129,8 +124,8 @@ const model = {
       win.prevBounds = { x: win.x, y: win.y, width: win.width, height: win.height };
       win.x = 0;
       win.y = 0;
-      win.width = rect.width;
-      win.height = rect.height - 48;
+      win.width = window.innerWidth;
+      win.height = window.innerHeight - 48;
       win.maximized = true;
     }
   },

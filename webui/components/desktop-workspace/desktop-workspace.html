@@ -5,6 +5,12 @@
 <body>
   <div x-data x-init="$store.desktopWorkspace?.init()" class="desktop-workspace" :class="{ 'is-active': $store.desktopWorkspace?.isDesktopMode }">
     <div class="desktop-area">
+      <!-- Back to Chat Button -->
+      <button class="back-to-chat-btn" @click="$store.desktopWorkspace.toggleDesktopMode()" title="Back to Chat Mode">
+        <span class="material-symbols-outlined">arrow_back_ios</span>
+        <span>Back to Chat</span>
+      </button>
+
       <template x-for="win in $store.desktopWorkspace?.visibleWindows || []" :key="win.id">
         <div
           class="desktop-window"
@@ -98,10 +104,23 @@
       z-index: 2000;
       background: var(--color-background);
       flex-direction: column;
+      width: 100vw;
+      height: 100vh;
     }
 
     .desktop-workspace.is-active {
       display: flex;
+    }
+
+    #right-panel {
+      transition: opacity 0.2s ease;
+    }
+
+    #right-panel.desktop-hidden {
+      opacity: 0;
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
     }
 
     .desktop-area {
@@ -109,6 +128,45 @@
       position: relative;
       overflow: hidden;
       background: linear-gradient(135deg, color-mix(in srgb, var(--color-background) 95%, #000 5%) 0%, color-mix(in srgb, var(--color-background) 90%, var(--color-primary) 10%) 100%);
+    }
+
+    .back-to-chat-btn {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 3000;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 42px;
+      padding: 0 18px;
+      border: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--color-primary) 25%, var(--color-panel));
+      color: var(--color-text);
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 700;
+      backdrop-filter: blur(16px);
+      transition: all 0.2s ease;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+      letter-spacing: 0.02em;
+    }
+
+    .back-to-chat-btn:hover {
+      background: color-mix(in srgb, var(--color-primary) 40%, var(--color-panel));
+      border-color: color-mix(in srgb, var(--color-primary) 60%, transparent);
+      transform: translateX(-3px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .back-to-chat-btn:active {
+      transform: translateX(-1px);
+    }
+
+    .back-to-chat-btn .material-symbols-outlined {
+      font-size: 20px;
+      color: white;
     }
 
     .desktop-window {

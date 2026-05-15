@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="css/notification.css">
     <link rel="stylesheet" href="css/buttons.css">
     <link rel="stylesheet" href="css/tables.css">
-    <link rel="stylesheet" href="components/canvas/right-canvas.css">
+    <link rel="stylesheet" href="components/desktop-workspace/desktop-workspace.css">
 
     <!-- Flatpickr for datetime picker -->
     <link rel="stylesheet" href="vendor/flatpickr/flatpickr.min.css">
@@ -88,7 +88,7 @@
         <x-component path="sidebar/left-sidebar.html"></x-component>
 
         <!-- Right Panel (Message History and Input Section) -->
-        <div id="right-panel" class="panel" x-show="!$store.desktopWorkspace?.isDesktopMode">
+        <div id="right-panel" class="panel" :class="{ 'desktop-hidden': $store.desktopWorkspace?.isDesktopMode }">
 
             <!-- top section with time, status etc. -->
             <x-component path="chat/top-section/chat-top.html"></x-component>
@@ -140,7 +140,6 @@
                 <x-component path="chat/input/chat-bar.html"></x-component>
             </div>
         </div>
-        <x-component path="canvas/right-canvas.html"></x-component>
     </div>
 
     <!-- BioDockify Desktop Workspace -->
