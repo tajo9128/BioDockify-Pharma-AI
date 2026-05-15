@@ -38,7 +38,7 @@
   </script>
 </head>
 <body>
-  <div x-data class="sh-panel" x-init="$store.systemHealth.refresh()">
+  <div x-data class="sh-panel" x-init="$store.systemHealth?.refresh()">
     <div class="sh-header">
       <span class="material-symbols-outlined sh-icon">monitoring</span>
       <div>
@@ -46,30 +46,30 @@
         <p class="sh-sub" x-text="$store.systemHealth?.overallIcon() + ' ' + ($store.systemHealth?.status || 'checking')"></p>
       </div>
       <div class="sh-actions">
-        <button class="sh-btn" @click="$store.systemHealth.refresh()" :disabled="$store.systemHealth.loading">
+        <button class="sh-btn" @click="$store.systemHealth?.refresh()" :disabled="$store.systemHealth?.loading">
           <span class="material-symbols-outlined">refresh</span>
         </button>
-        <button class="sh-btn-primary" @click="$store.systemHealth.fullDiagnose()" :disabled="$store.systemHealth.loading">
+        <button class="sh-btn-primary" @click="$store.systemHealth?.fullDiagnose()" :disabled="$store.systemHealth?.loading">
           <span class="material-symbols-outlined">biotech</span> Full Diagnose
         </button>
       </div>
     </div>
 
-    <div x-show="$store.systemHealth.error" class="sh-error" x-text="$store.systemHealth.error"></div>
-    <div x-show="$store.systemHealth.loading" class="sh-loading"><div class="loading-spinner"></div> Checking system...</div>
+    <div x-show="$store.systemHealth?.error" class="sh-error" x-text="$store.systemHealth?.error"></div>
+    <div x-show="$store.systemHealth?.loading" class="sh-loading"><div class="loading-spinner"></div> Checking system...</div>
 
     <!-- Connectivity -->
     <div class="sh-card">
       <h4>Connectivity</h4>
       <div class="sh-grid">
-        <template x-for="c in ($store.systemHealth.checks || []).filter(c => ['Internet','ChromaDB','Backup','Research Mgmt','Statistics','Thesis'].includes(c.name))" :key="c.name">
+        <template x-for="c in ($store.systemHealth?.checks || []).filter(c => ['Internet','ChromaDB','Backup','Research Mgmt','Statistics','Thesis'].includes(c.name))" :key="c.name">
           <div class="sh-item">
-            <span class="sh-dot" :style="'background:' + $store.systemHealth.statusColor(c.status)"></span>
+            <span class="sh-dot" :style="'background:' + $store.systemHealth?.statusColor(c.status)"></span>
             <div class="sh-item-info">
               <span class="sh-item-name" x-text="c.name"></span>
               <span class="sh-item-detail" x-text="c.detail"></span>
             </div>
-            <span class="sh-item-status" :style="'color:' + $store.systemHealth.statusColor(c.status)" x-text="c.status"></span>
+            <span class="sh-item-status" :style="'color:' + $store.systemHealth?.statusColor(c.status)" x-text="c.status"></span>
           </div>
         </template>
       </div>
@@ -79,14 +79,14 @@
     <div class="sh-card">
       <h4>Feature Fallback Status</h4>
       <div class="sh-grid">
-        <template x-for="c in ($store.systemHealth.checks || []).filter(c => ['TTS','Drug Properties','Literature Search'].includes(c.name))" :key="c.name">
+        <template x-for="c in ($store.systemHealth?.checks || []).filter(c => ['TTS','Drug Properties','Literature Search'].includes(c.name))" :key="c.name">
           <div class="sh-item">
-            <span class="sh-dot" :style="'background:' + $store.systemHealth.statusColor(c.status)"></span>
+            <span class="sh-dot" :style="'background:' + $store.systemHealth?.statusColor(c.status)"></span>
             <div class="sh-item-info">
               <span class="sh-item-name" x-text="c.name"></span>
               <span class="sh-item-detail" x-text="c.detail"></span>
             </div>
-            <span class="sh-item-status" :style="'color:' + $store.systemHealth.statusColor(c.status)" x-text="c.status"></span>
+            <span class="sh-item-status" :style="'color:' + $store.systemHealth?.statusColor(c.status)" x-text="c.status"></span>
           </div>
         </template>
       </div>
@@ -96,9 +96,9 @@
     <div class="sh-card">
       <h4>Resources</h4>
       <div class="sh-grid">
-        <template x-for="c in ($store.systemHealth.checks || []).filter(c => ['Disk','Memory','TTS','RDKit'].includes(c.name))" :key="c.name">
+        <template x-for="c in ($store.systemHealth?.checks || []).filter(c => ['Disk','Memory','TTS','RDKit'].includes(c.name))" :key="c.name">
           <div class="sh-item">
-            <span class="sh-dot" :style="'background:' + $store.systemHealth.statusColor(c.status)"></span>
+            <span class="sh-dot" :style="'background:' + $store.systemHealth?.statusColor(c.status)"></span>
             <div class="sh-item-info">
               <span class="sh-item-name" x-text="c.name"></span>
               <span class="sh-item-detail" x-text="c.detail"></span>
@@ -112,12 +112,12 @@
     </div>
 
     <!-- Security -->
-    <div x-show="$store.systemHealth.security" class="sh-card">
+    <div x-show="$store.systemHealth?.security" class="sh-card">
       <h4>Security</h4>
       <div class="sh-sec">
-        <span x-text="'Secrets found: ' + ($store.systemHealth.security?.secrets_found || 0)"></span>
-        <span :style="'color:' + (($store.systemHealth.security?.secrets_found || 0) > 0 ? '#ff6b6b' : '#22c55e')"
-          x-text="($store.systemHealth.security?.secrets_found || 0) > 0 ? '⚠ Review needed' : '✅ Clean'"></span>
+        <span x-text="'Secrets found: ' + ($store.systemHealth?.security?.secrets_found || 0)"></span>
+        <span :style="'color:' + (($store.systemHealth?.security?.secrets_found || 0) > 0 ? '#ff6b6b' : '#22c55e')"
+          x-text="($store.systemHealth?.security?.secrets_found || 0) > 0 ? '⚠ Review needed' : '✅ Clean'"></span>
       </div>
     </div>
 
