@@ -38,43 +38,11 @@ body.right-canvas-resizing {
   transition: width 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
 }
 
-.right-canvas-rail {
-  position: absolute;
-  top: 33%;
-  right: 100%;
-  z-index: 4;
-  display: flex;
-  flex: 0 0 52px;
-  flex-direction: column;
-  align-items: center;
-  gap: 7px;
-  height: auto;
-  max-height: min(70vh, calc(100vh - 32px));
-  padding: 10px 7px;
-  transform: translateY(-50%);
-  border-right: 0;
-  border-radius: 8px 0 0 8px;
-  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.24);
-  background: var(--color-chat-background);
-}
-
-.right-canvas-rail-separator {
-  width: 24px;
-  height: 1px;
-  margin: 1px 0 3px;
-  background: color-mix(in srgb, var(--right-canvas-border) 76%, transparent);
-}
-
 .right-canvas.is-closed {
   width: 0 !important;
   min-width: 0;
-  overflow: visible;
   border-left: 0;
   background: transparent;
-}
-
-.right-canvas.is-open {
-  overflow: visible;
 }
 
 .right-canvas.is-closed .right-canvas-shell,
@@ -82,7 +50,6 @@ body.right-canvas-resizing {
   display: none;
 }
 
-.right-canvas-rail-button,
 .right-canvas-icon-button,
 .right-canvas-tab {
   appearance: none;
@@ -92,7 +59,6 @@ body.right-canvas-resizing {
   cursor: pointer;
 }
 
-.right-canvas-rail-button,
 .right-canvas-icon-button {
   display: inline-flex;
   align-items: center;
@@ -108,19 +74,12 @@ body.right-canvas-resizing {
   transition: background-color 0.16s ease, border-color 0.16s ease, opacity 0.16s ease;
 }
 
-.right-canvas-toggle-button {
-  color: color-mix(in srgb, var(--color-primary) 70%, var(--color-text));
-}
-
-.right-canvas-rail-button:hover,
-.right-canvas-icon-button:hover,
-.right-canvas-rail-button.is-active {
+.right-canvas-icon-button:hover {
   opacity: 1;
   border-color: color-mix(in srgb, var(--color-primary) 28%, var(--right-canvas-border));
   background: color-mix(in srgb, var(--color-background-hover) 72%, transparent);
 }
 
-.right-canvas-rail-button .material-symbols-outlined,
 .right-canvas-icon-button .material-symbols-outlined {
   font-size: 19px;
 }
@@ -311,8 +270,7 @@ body.right-canvas-overlay-mode .right-canvas-resize-handle {
   display: none;
 }
 
-body.right-canvas-mobile-mode .right-canvas,
-body.right-canvas-mobile-mode .right-canvas-rail {
+body.right-canvas-mobile-mode .right-canvas {
   display: none !important;
 }
 

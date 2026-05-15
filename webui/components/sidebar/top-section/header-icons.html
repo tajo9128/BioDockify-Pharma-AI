@@ -38,6 +38,21 @@
           <span class="icon-label">All Tools</span>
         </button>
 
+        <button class="config-button header-action-button" @click="$store.rightCanvas.open('desktop')" title="Kali Linux Desktop">
+          <span class="material-symbols-outlined">desktop_windows</span>
+          <span class="icon-label">Desktop</span>
+        </button>
+
+        <button class="config-button header-action-button" @click="$store.rightCanvas.open('statistics')" title="Statistics">
+          <span class="material-symbols-outlined">analytics</span>
+          <span class="icon-label">Statistics</span>
+        </button>
+
+        <button class="config-button header-action-button" @click="$store.rightCanvas.open('literature')" title="Literature">
+          <span class="material-symbols-outlined">menu_book</span>
+          <span class="icon-label">Literature</span>
+        </button>
+
         <button class="config-button header-action-button" @click="$store.rightCanvas.open('knowledge')" title="Knowledge Base">
           <span class="material-symbols-outlined">psychology</span>
           <span class="icon-label">Knowledge</span>

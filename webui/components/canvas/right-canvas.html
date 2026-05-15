@@ -24,40 +24,6 @@
       >
         <div class="right-canvas-resize-handle" title="Resize canvas" @pointerdown="$store.rightCanvas.startResize($event)"></div>
 
-        <nav class="right-canvas-rail" aria-label="Canvas surfaces">
-          <button
-            type="button"
-            class="right-canvas-rail-button right-canvas-toggle-button"
-            :class="{ 'is-active': $store.rightCanvas.isOpen }"
-            :title="$store.rightCanvas.isOpen ? 'Hide canvas' : 'Show canvas'"
-            :aria-label="$store.rightCanvas.isOpen ? 'Hide canvas' : 'Show canvas'"
-            :aria-pressed="$store.rightCanvas.isOpen.toString()"
-            @click="$store.rightCanvas.toggleCanvas()"
-          >
-            <span class="material-symbols-outlined">dock_to_right</span>
-          </button>
-
-          <div class="right-canvas-rail-separator" aria-hidden="true"></div>
-
-          <template x-for="surface in $store.rightCanvas.railSurfaces" :key="surface.id">
-            <button
-              type="button"
-              class="right-canvas-rail-button"
-              :class="{ 'is-active': $store.rightCanvas.isSurfaceActive(surface.id) && $store.rightCanvas.isOpen }"
-              :title="surface.title"
-              :aria-label="surface.title"
-              @click="$store.rightCanvas.openLatest(surface.id)"
-            >
-              <template x-if="surface.image">
-                <img class="right-canvas-surface-image" :src="surface.image" alt="" aria-hidden="true">
-              </template>
-              <template x-if="!surface.image">
-                <span class="material-symbols-outlined" x-text="surface.icon"></span>
-              </template>
-            </button>
-          </template>
-        </nav>
-
         <section class="right-canvas-shell">
           <x-extension id="right-canvas-shell-start"></x-extension>
 
