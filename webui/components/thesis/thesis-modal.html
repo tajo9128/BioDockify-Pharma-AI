@@ -4,27 +4,56 @@
     import { createStore } from "/js/AlpineStore.js";
     import { callJsonApi } from "/js/api.js";
 
-    export const store = createStore("thesisModal", {
-      mode: "lit-review",
+    export const store = createStore("academicWriter", {
+      // Tab state
+      activeTab: "literature",
+
+      // Shared
       topic: "",
-      branch: "general",
-      degree: "phd",
-      chapterId: "introduction",
       loading: false,
-      generated: null,
+      result: null,
       error: "",
+
+      // TTS
       playing: false,
       synth: null,
       utterance: null,
 
-      get modes() {
+      // Literature Writing
+      litScope: "comprehensive",
+      litYearStart: "2020",
+      litYearEnd: "2026",
+      litSections: ["introduction", "current-state", "key-findings", "gaps", "future"],
+
+      // Research / Review
+      resType: "review",
+      resFormat: "apa",
+      resWordCount: "5000",
+
+      // Thesis
+      thesisChapterId: "introduction",
+      thesisBranch: "general",
+      thesisDegree: "phd",
+
+      // Lecture
+      lectureDuration: "60",
+      lectureLevel: "undergraduate",
+
+      // Slides
+      slideStyle: "academic",
+      slideCount: 10,
+      slideCitations: true,
+      slideSources: [],
+
+      get tabs() {
         return [
-          { id: "lit-review", label: "Literature Review", icon: "menu_book", desc: "Summarize and synthesize research papers into a structured review" },
-          { id: "paper", label: "Research Paper", icon: "description", desc: "Write a full research paper with abstract, methods, results" },
-          { id: "chapter", label: "Thesis Chapter", icon: "book", desc: "Generate a specific thesis chapter (intro, methods, etc.)" },
+          { id: "literature", label: "Literature Review", icon: "menu_book" },
+          { id: "research", label: "Research Paper", icon: "description" },
+          { id: "thesis", label: "PhD / PG Thesis", icon: "school" },
+          { id: "lecture", label: "Lecture Builder", icon: "cast" },
+          { id: "slides", label: "Slides", icon: "slideshow" },
         ];
       },
-
       get branches() {
         return [
           { id: "general", label: "General Pharma" },
@@ -34,331 +63,530 @@
           { id: "pharmacy", label: "Pharmacy Practice" },
         ];
       },
-
       get chapters() {
         return [
-          { id: "introduction", label: "Introduction" },
+          { id: "introduction", label: "Introduction & Background" },
           { id: "literature_review", label: "Literature Review" },
-          { id: "methodology", label: "Methodology" },
-          { id: "results", label: "Results" },
+          { id: "methodology", label: "Research Methodology" },
+          { id: "results", label: "Results & Analysis" },
           { id: "discussion", label: "Discussion" },
-          { id: "conclusion", label: "Conclusion" },
+          { id: "conclusion", label: "Conclusion & Future Work" },
         ];
       },
 
+      switchTab(tab) {
+        this.activeTab = tab;
+        this.result = null;
+        this.error = "";
+        this.stopSpeech();
+      },
+
       async generate() {
-        if (!this.topic.trim()) return;
+        if (!this.topic.trim()) { this.error = "Please enter a topic"; return; }
         this.loading = true;
         this.error = "";
-        this.generated = null;
+        this.result = null;
 
         try {
-          if (this.mode === "chapter") {
-            await this._generateChapter();
-          } else {
-            await this._generateViaAgent();
+          switch (this.activeTab) {
+            case "thesis": await this._genThesis(); break;
+            case "lecture": await this._genLecture(); break;
+            case "slides": await this._genSlides(); break;
+            case "literature": case "research": this._genViaAgent(); break;
           }
-        } catch (e) {
-          this.error = e.message;
-        }
+        } catch (e) { this.error = e.message; }
         this.loading = false;
       },
 
-      async _generateChapter() {
+      async _genThesis() {
         try {
           const resp = await callJsonApi("thesis/generate-chapter", {
-            chapter_id: this.chapterId,
+            chapter_id: this.thesisChapterId,
             topic: this.topic,
-            branch: this.branch,
-            degree: this.degree,
+            branch: this.thesisBranch,
+            degree: this.thesisDegree,
             agent_mode: true,
           });
-          if (resp.error) { this.error = resp.error; return; }
-          this.generated = {
+          if (resp.error && !resp.chapter) { this.error = resp.error; return; }
+          this.result = {
+            type: "thesis",
             title: resp.chapter?.title || this.topic,
             content: resp.chapter?.content || resp.content || resp.text || JSON.stringify(resp, null, 2),
             sections: resp.chapter?.sections || [],
             citations: resp.citations || [],
           };
-        } catch {
-          this._generateViaAgent();
-        }
+        } catch { this._genViaAgent(); }
       },
 
-      async _generateViaAgent() {
-        let prompt = "";
-        if (this.mode === "lit-review") {
-          prompt = `Write a comprehensive literature review on "${this.topic}" for ${this.branch} at ${this.degree} level. Include: 1) Introduction, 2) Current State of Knowledge, 3) Key Findings, 4) Gaps in Literature, 5) Future Directions. Format with headings and cite key papers.`;
-        } else {
-          prompt = `Write a ${this.mode === 'paper' ? 'research paper' : 'academic document'} on "${this.topic}" for ${this.branch} at ${this.degree} level. Include structured sections, key concepts, and relevant citations.`;
-        }
+      async _genLecture() {
+        try {
+          const resp = await callJsonApi("lecture_generate", {
+            topic: this.topic,
+            duration: this.lectureDuration,
+            level: this.lectureLevel,
+          });
+          if (resp.error && !resp.lecture) { this.error = resp.error; return; }
+          this.result = { type: "lecture", ...resp };
+        } catch { this._genViaAgent(); }
+      },
 
+      async _genSlides() {
+        try {
+          const payload = {
+            topic: this.topic,
+            style: this.slideStyle,
+            num_slides: this.slideCount,
+            include_citations: this.slideCitations,
+          };
+          if (this.slideSources.length) {
+            payload.slide_contents = this.slideSources.map(s => ({
+              title: s.title || s,
+              content: s.abstract || s.content || "",
+              type: "research",
+              notes: s.authors ? `Authors: ${s.authors}` : "",
+            }));
+          }
+          const endpoint = this.slideSources.length ? "slides/assemble-slides" : "slides/generate-from-kb";
+          const resp = await callJsonApi(endpoint, payload);
+          if (resp.error && !resp.slides && !resp.presentation) { this.error = resp.error; return; }
+          this.result = { type: "slides", topic: this.topic, slides: resp.slides || resp.presentation?.slides || [], ...resp };
+        } catch { this._genViaAgent(); }
+      },
+
+      _genViaAgent() {
+        const prompts = {
+          literature: `Write a comprehensive ${this.litScope} literature review on "${this.topic}". Cover publications from ${this.litYearStart}-${this.litYearEnd}. Include sections: ${this.litSections.join(', ')}. Format with headings, subheadings, and cite key references with author names and years.`,
+          research: `Write a ${this.resType} article on "${this.topic}". Target ~${this.resWordCount} words. Include: 1) Abstract, 2) Introduction & Background, 3) Current State of Knowledge, 4) Critical Analysis, 5) Future Perspectives, 6) References. Use ${this.resFormat} citation format. Make it ready for journal submission.`,
+          thesis: `Write the "${this.thesisChapterId}" chapter for a ${this.thesisDegree} thesis in ${this.thesisBranch} on "${this.topic}". Include proper academic structure, subheadings, and citations.`,
+          lecture: `Create a ${this.lectureDuration}-minute lecture for ${this.lectureLevel} students on "${this.topic}". Include: 1) Learning Objectives, 2) Lecture Sections with timestamps, 3) Key Concepts, 4) Summary, 5) 3 Homework Questions, 6) Lab/Practical if applicable.`,
+          slides: `Create a ${this.slideCount}-slide presentation on "${this.topic}" in ${this.slideStyle} style. For each slide provide: slide number, title, bullet points, and speaker notes.${this.slideSources.length ? `\n\nSource materials to include:\n${this.slideSources.map(s => `- ${s.title || s}`).join('\n')}` : ''}`,
+        };
+        const p = prompts[this.activeTab] || prompts.literature;
         const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea, .input-area textarea");
         if (input) {
-          input.value = prompt;
+          input.value = p;
           input.dispatchEvent(new Event("input", { bubbles: true }));
           input.focus();
-          this.generated = {
+          this.result = {
+            type: this.activeTab,
             title: this.topic,
-            content: `Agent task sent to chat. The agent will compose your ${this.modes.find(m => m.id === this.mode)?.label || 'document'} on "${this.topic}".`,
-            sections: [],
-            citations: [],
+            content: `Agent task sent to chat. The agent will compose your ${this.tabs.find(t => t.id === this.activeTab)?.label || 'document'} on "${this.topic}".`,
           };
-        } else {
-          this.error = "Chat input not found. Type your request in chat.";
-        }
+        } else { this.error = "Chat input not found. Type your request in chat."; }
       },
 
-      async loadChapters() {
-        try {
-          const resp = await callJsonApi("thesis/chapters");
-        } catch {}
-      },
-
-      // TTS Read-Aloud
       toggleSpeech() {
-        if (this.playing) {
-          this.stopSpeech();
-          return;
-        }
-        const text = this.generated?.content || "";
+        if (this.playing) { this.stopSpeech(); return; }
+        const text = this.result?.content || "";
         if (!text) return;
 
-        if ('speechSynthesis' in window) {
-          this.synth = window.speechSynthesis;
-          this.utterance = new SpeechSynthesisUtterance(text.substring(0, 5000));
-          this.utterance.rate = 0.9;
-          this.utterance.pitch = 1;
-          this.utterance.onend = () => { this.playing = false; };
-          this.utterance.onerror = () => { this.playing = false; };
-          this.synth.speak(this.utterance);
-          this.playing = true;
-        }
+        // Try Kokoro/Edge-TTS backend first
+        this._ttsViaBackend(text);
       },
 
+      async _ttsViaBackend(text) {
+        try {
+          const resp = await callJsonApi("kokoro_tts", { text: text.substring(0, 3000), voice: "en-us", speed: 1.0 });
+          if (resp.audio) {
+            this.playing = true;
+            const binary = atob(resp.audio);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const blob = new Blob([bytes], { type: resp.format === "mp3" ? "audio/mpeg" : "audio/wav" });
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            audio.onended = () => { this.playing = false; URL.revokeObjectURL(url); };
+            audio.onerror = () => { this.playing = false; this._ttsBrowser(text); };
+            audio.play();
+            return;
+          }
+        } catch {}
+        // Fallback to browser TTS
+        this._ttsBrowser(text);
+      },
+
+      _ttsBrowser(text) {
+        if (!('speechSynthesis' in window)) return;
+        this.synth = window.speechSynthesis;
+        this.utterance = new SpeechSynthesisUtterance(text.substring(0, 5000));
+        this.utterance.rate = 0.9;
+        this.utterance.pitch = 1;
+        this.utterance.onend = () => { this.playing = false; };
+        this.utterance.onerror = () => { this.playing = false; };
+        this.synth.speak(this.utterance);
+        this.playing = true;
+      },
       stopSpeech() {
-        if (this.synth) {
-          this.synth.cancel();
-          this.playing = false;
-        }
+        if (this.synth) { this.synth.cancel(); this.playing = false; }
       },
-
       downloadText() {
-        if (!this.generated?.content) return;
-        const blob = new Blob([this.generated.content], { type: "text/plain" });
+        if (!this.result?.content) return;
+        const blob = new Blob([this.result.content], { type: "text/plain" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `${this.topic.replace(/\s+/g, '_')}.txt`;
+        a.download = `${this.topic.replace(/\s+/g,'_').substring(0,50)}.txt`;
         a.click();
         URL.revokeObjectURL(url);
       },
-
       clear() {
         this.topic = "";
-        this.generated = null;
+        this.result = null;
         this.error = "";
         this.stopSpeech();
+      },
+      refineWithAgent() {
+        const text = this.result?.content?.substring(0, 1000) || "";
+        const p = `Please refine and improve this text. Add more key references, fix any inaccuracies, and polish the academic language:\n\n${text}...`;
+        const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea, .input-area textarea");
+        if (input) { input.value = p; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); }
       },
     });
   </script>
 </head>
 <body>
-  <div x-data class="thesis-panel" x-init="$store.thesisModal.loadChapters()">
-    <div class="panel-header">
-      <span class="material-symbols-outlined panel-icon">description</span>
-      <h2>Academic Writer</h2>
+  <div x-data class="academic-writer">
+    <!-- Header -->
+    <div class="aw-header">
+      <span class="material-symbols-outlined aw-icon">description</span>
+      <div>
+        <h2>Academic Writer</h2>
+        <p class="aw-subtitle">Literature reviews · Research papers · Thesis · Lectures · Slides</p>
+      </div>
     </div>
 
-    <div class="panel-content">
-      <!-- Mode selector -->
-      <div class="mode-grid">
-        <template x-for="m in $store.thesisModal.modes" :key="m.id">
-          <button class="mode-card" :class="{'selected': $store.thesisModal.mode === m.id}" @click="$store.thesisModal.mode = m.id; $store.thesisModal.generated = null">
-            <span class="material-symbols-outlined mode-icon" x-text="m.icon"></span>
-            <span class="mode-label" x-text="m.label"></span>
-            <span class="mode-desc" x-text="m.desc"></span>
-          </button>
-        </template>
+    <!-- Tabs -->
+    <div class="aw-tabs">
+      <template x-for="tab in $store.academicWriter.tabs" :key="tab.id">
+        <button class="aw-tab" :class="{ active: $store.academicWriter.activeTab === tab.id }" @click="$store.academicWriter.switchTab(tab.id)">
+          <span class="material-symbols-outlined" x-text="tab.icon"></span>
+          <span x-text="tab.label"></span>
+        </button>
+      </template>
+    </div>
+
+    <!-- Topic input (shared) -->
+    <div class="aw-input-row">
+      <input type="text" x-model="$store.academicWriter.topic"
+        :placeholder="$store.academicWriter.activeTab === 'literature' ? 'Literature review topic (e.g. mRNA vaccine delivery systems)...' : $store.academicWriter.activeTab === 'research' ? 'Research/review article topic...' : $store.academicWriter.activeTab === 'thesis' ? 'Thesis topic...' : $store.academicWriter.activeTab === 'lecture' ? 'Lecture topic...' : 'Presentation topic...'"
+        class="aw-topic-input" @keyup.enter="$store.academicWriter.generate()" />
+      <button class="aw-gen-btn" @click="$store.academicWriter.generate()" :disabled="$store.academicWriter.loading || !$store.academicWriter.topic">
+        <span class="material-symbols-outlined">auto_awesome</span>
+        <span x-text="$store.academicWriter.loading ? 'Working...' : 'Generate'"></span>
+      </button>
+    </div>
+
+    <!-- Tab-specific options -->
+    <!-- Literature options -->
+    <div x-show="$store.academicWriter.activeTab === 'literature'" class="aw-options">
+      <div class="opt-group">
+        <label class="opt-label">Scope</label>
+        <select x-model="$store.academicWriter.litScope" class="opt-select">
+          <option value="comprehensive">Comprehensive</option>
+          <option value="systematic">Systematic</option>
+          <option value="narrative">Narrative</option>
+          <option value="scoping">Scoping</option>
+        </select>
       </div>
-
-      <!-- Input form -->
-      <div class="input-section">
-        <div class="input-row">
-          <input
-            type="text"
-            x-model="$store.thesisModal.topic"
-            placeholder="Enter your research topic..."
-            class="topic-input"
-            @keyup.enter="$store.thesisModal.generate()"
-          />
-          <button class="btn-generate" @click="$store.thesisModal.generate()" :disabled="$store.thesisModal.loading || !$store.thesisModal.topic">
-            <span class="material-symbols-outlined">auto_awesome</span>
-            <span x-text="$store.thesisModal.loading ? 'Generating...' : 'Generate'"></span>
-          </button>
-        </div>
-
-        <!-- Thesis chapter mode options -->
-        <div x-show="$store.thesisModal.mode === 'chapter'" class="chapter-options">
-          <div class="option-row">
-            <div class="option-group">
-              <label class="opt-label">Chapter</label>
-              <select x-model="$store.thesisModal.chapterId" class="opt-select">
-                <template x-for="ch in $store.thesisModal.chapters" :key="ch.id">
-                  <option :value="ch.id" x-text="ch.label"></option>
-                </template>
-              </select>
-            </div>
-            <div class="option-group">
-              <label class="opt-label">Branch</label>
-              <select x-model="$store.thesisModal.branch" class="opt-select">
-                <template x-for="b in $store.thesisModal.branches" :key="b.id">
-                  <option :value="b.id" x-text="b.label"></option>
-                </template>
-              </select>
-            </div>
-            <div class="option-group">
-              <label class="opt-label">Degree</label>
-              <select x-model="$store.thesisModal.degree" class="opt-select">
-                <option value="phd">PhD</option>
-                <option value="pharm_d">Pharm.D</option>
-                <option value="msc">MSc</option>
-                <option value="bsc">BSc</option>
-              </select>
-            </div>
-          </div>
+      <div class="opt-group">
+        <label class="opt-label">Year Range</label>
+        <div class="opt-row">
+          <input type="number" x-model="$store.academicWriter.litYearStart" class="opt-input-sm" />
+          <span class="opt-sep">—</span>
+          <input type="number" x-model="$store.academicWriter.litYearEnd" class="opt-input-sm" />
         </div>
       </div>
-
-      <!-- Error -->
-      <div x-show="$store.thesisModal.error" class="error-banner" x-text="$store.thesisModal.error"></div>
-
-      <!-- Loading -->
-      <div x-show="$store.thesisModal.loading" class="loading-bar">
-        <div class="loading-spinner"></div>
-        <span>Generating content...</span>
+      <div class="opt-group">
+        <label class="opt-label">Sections</label>
+        <div class="opt-chips">
+          <label class="chip-check" :class="{on: $store.academicWriter.litSections.includes('introduction')}"><input type="checkbox" value="introduction" x-model="$store.academicWriter.litSections" style="display:none"><span>Intro</span></label>
+          <label class="chip-check" :class="{on: $store.academicWriter.litSections.includes('current-state')}"><input type="checkbox" value="current-state" x-model="$store.academicWriter.litSections" style="display:none"><span>Current State</span></label>
+          <label class="chip-check" :class="{on: $store.academicWriter.litSections.includes('key-findings')}"><input type="checkbox" value="key-findings" x-model="$store.academicWriter.litSections" style="display:none"><span>Key Findings</span></label>
+          <label class="chip-check" :class="{on: $store.academicWriter.litSections.includes('gaps')}"><input type="checkbox" value="gaps" x-model="$store.academicWriter.litSections" style="display:none"><span>Gaps</span></label>
+          <label class="chip-check" :class="{on: $store.academicWriter.litSections.includes('future')}"><input type="checkbox" value="future" x-model="$store.academicWriter.litSections" style="display:none"><span>Future</span></label>
+        </div>
       </div>
+    </div>
 
-      <!-- Results -->
-      <template x-if="$store.thesisModal.generated">
-        <div class="results-section">
-          <div class="results-toolbar">
-            <h3 class="result-title" x-text="$store.thesisModal.generated.title"></h3>
-            <div class="toolbar-actions">
-              <button class="tts-btn" :class="{'playing': $store.thesisModal.playing}" @click="$store.thesisModal.toggleSpeech()">
-                <span class="material-symbols-outlined" x-text="$store.thesisModal.playing ? 'stop' : 'volume_up'"></span>
-                <span x-text="$store.thesisModal.playing ? 'Stop' : 'Read Aloud'"></span>
-              </button>
-              <button class="tool-btn" @click="$store.thesisModal.downloadText()">
-                <span class="material-symbols-outlined">download</span>
-                <span>Download TXT</span>
-              </button>
-              <button class="tool-btn" @click="$store.thesisModal.clear()">
-                <span class="material-symbols-outlined">refresh</span>
-                <span>New</span>
-              </button>
-            </div>
-          </div>
+    <!-- Research options -->
+    <div x-show="$store.academicWriter.activeTab === 'research'" class="aw-options">
+      <div class="opt-group">
+        <label class="opt-label">Type</label>
+        <select x-model="$store.academicWriter.resType" class="opt-select">
+          <option value="review">Review Article</option>
+          <option value="research">Research Paper</option>
+          <option value="perspective">Perspective</option>
+          <option value="case-study">Case Study</option>
+          <option value="meta-analysis">Meta-Analysis</option>
+        </select>
+      </div>
+      <div class="opt-group">
+        <label class="opt-label">Citation Format</label>
+        <select x-model="$store.academicWriter.resFormat" class="opt-select">
+          <option value="apa">APA 7th</option>
+          <option value="vancouver">Vancouver</option>
+          <option value="harvard">Harvard</option>
+        </select>
+      </div>
+      <div class="opt-group">
+        <label class="opt-label">Target Length</label>
+        <select x-model="$store.academicWriter.resWordCount" class="opt-select">
+          <option value="3000">~3000 words</option>
+          <option value="5000">~5000 words</option>
+          <option value="8000">~8000 words</option>
+          <option value="12000">~12000 words</option>
+        </select>
+      </div>
+    </div>
 
-          <!-- Citations -->
-          <div x-show="$store.thesisModal.generated.citations && $store.thesisModal.generated.citations.length" class="citations-box">
-            <h4>References</h4>
-            <ul>
-              <template x-for="cite in $store.thesisModal.generated.citations" :key="cite">
-                <li x-text="typeof cite === 'string' ? cite : (cite.title || cite.text || '')"></li>
-              </template>
-            </ul>
-          </div>
+    <!-- Thesis options -->
+    <div x-show="$store.academicWriter.activeTab === 'thesis'" class="aw-options">
+      <div class="opt-group">
+        <label class="opt-label">Chapter</label>
+        <select x-model="$store.academicWriter.thesisChapterId" class="opt-select">
+          <template x-for="ch in $store.academicWriter.chapters" :key="ch.id">
+            <option :value="ch.id" x-text="ch.label"></option>
+          </template>
+        </select>
+      </div>
+      <div class="opt-group">
+        <label class="opt-label">Branch</label>
+        <select x-model="$store.academicWriter.thesisBranch" class="opt-select">
+          <template x-for="b in $store.academicWriter.branches" :key="b.id">
+            <option :value="b.id" x-text="b.label"></option>
+          </template>
+        </select>
+      </div>
+      <div class="opt-group">
+        <label class="opt-label">Degree</label>
+        <select x-model="$store.academicWriter.thesisDegree" class="opt-select">
+          <option value="phd">PhD</option>
+          <option value="pharm_d">Pharm.D</option>
+          <option value="msc">MSc</option>
+          <option value="bsc">BSc</option>
+        </select>
+      </div>
+    </div>
 
-          <!-- Content -->
-          <div class="content-area">
-            <div class="content-text" x-text="$store.thesisModal.generated.content"></div>
-          </div>
+    <!-- Lecture options -->
+    <div x-show="$store.academicWriter.activeTab === 'lecture'" class="aw-options">
+      <div class="opt-group">
+        <label class="opt-label">Duration</label>
+        <select x-model="$store.academicWriter.lectureDuration" class="opt-select">
+          <option value="30">30 min</option>
+          <option value="60">60 min</option>
+          <option value="90">90 min</option>
+          <option value="120">120 min</option>
+        </select>
+      </div>
+      <div class="opt-group">
+        <label class="opt-label">Level</label>
+        <select x-model="$store.academicWriter.lectureLevel" class="opt-select">
+          <option value="undergraduate">Undergraduate</option>
+          <option value="graduate">Graduate</option>
+          <option value="pharmd">Pharm.D</option>
+          <option value="phd">PhD / PG</option>
+        </select>
+      </div>
+    </div>
 
-          <div class="agent-help">
-            <button class="agent-help-btn" @click="const p = 'Please summarize and improve this academic text. Add more key references and polish the language: ' + $store.thesisModal.generated.content.substring(0, 1000); const input = document.querySelector('#chat-bar-input textarea, .chat-bar-input textarea'); if(input) { input.value = p; input.dispatchEvent(new Event('input', {bubbles:true})); input.focus(); }">
+    <!-- Slides options -->
+    <div x-show="$store.academicWriter.activeTab === 'slides'" class="aw-options">
+      <div class="opt-group">
+        <label class="opt-label">Style</label>
+        <select x-model="$store.academicWriter.slideStyle" class="opt-select">
+          <option value="academic">Academic</option>
+          <option value="clinical">Clinical</option>
+          <option value="corporate">Corporate</option>
+          <option value="minimal">Minimal</option>
+        </select>
+      </div>
+      <div class="opt-group">
+        <label class="opt-label">Slides</label>
+        <input type="number" x-model="$store.academicWriter.slideCount" min="3" max="30" class="opt-input-sm" />
+      </div>
+      <div class="opt-group check-group">
+        <label class="opt-check-label">
+          <input type="checkbox" x-model="$store.academicWriter.slideCitations" />
+          <span>Include citations</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div x-show="$store.academicWriter.error" class="aw-error" x-text="$store.academicWriter.error"></div>
+    <div x-show="$store.academicWriter.loading" class="aw-loading">
+      <div class="loading-spinner"></div>
+      <span x-text="'Generating ' + ($store.academicWriter.tabs.find(t=>t.id===$store.academicWriter.activeTab)?.label || 'content') + '...'"></span>
+    </div>
+
+    <!-- Results -->
+    <template x-if="$store.academicWriter.result">
+      <div class="aw-results">
+        <div class="aw-results-toolbar">
+          <h3 x-text="$store.academicWriter.result.title || $store.academicWriter.topic" class="aw-result-title"></h3>
+          <div class="aw-result-actions">
+            <button class="aw-act-btn" :class="{playing: $store.academicWriter.playing}" @click="$store.academicWriter.toggleSpeech()">
+              <span class="material-symbols-outlined" x-text="$store.academicWriter.playing ? 'stop' : 'volume_up'"></span>
+              Read
+            </button>
+            <button class="aw-act-btn" @click="$store.academicWriter.downloadText()">
+              <span class="material-symbols-outlined">download</span>
+              TXT
+            </button>
+            <button class="aw-act-btn" @click="$store.academicWriter.refineWithAgent()">
               <span class="material-symbols-outlined">psychology</span>
-              <span>Ask agent to refine and add references</span>
+              Refine
+            </button>
+            <button class="aw-act-btn" @click="$store.academicWriter.clear()">
+              <span class="material-symbols-outlined">refresh</span>
+              New
             </button>
           </div>
         </div>
-      </template>
 
-      <!-- Empty state -->
-      <div x-show="!$store.thesisModal.generated && !$store.thesisModal.loading" class="empty-state">
-        <span class="material-symbols-outlined empty-icon">auto_awesome</span>
-        <p>Select a writing mode, enter your topic, and generate</p>
-        <div class="quick-chips">
-          <button class="chip" @click="$store.thesisModal.mode='lit-review'; $store.thesisModal.topic='AI applications in drug discovery'; $store.thesisModal.generate()">AI in drug discovery</button>
-          <button class="chip" @click="$store.thesisModal.mode='lit-review'; $store.thesisModal.topic='mRNA vaccine development platforms'; $store.thesisModal.generate()">mRNA vaccines</button>
-          <button class="chip" @click="$store.thesisModal.mode='paper'; $store.thesisModal.topic='Pharmacokinetics of novel NSAIDs'; $store.thesisModal.generate()">PK of NSAIDs</button>
-          <button class="chip" @click="$store.thesisModal.mode='chapter'; $store.thesisModal.chapterId='introduction'; $store.thesisModal.topic='Computational approaches in pharmaceutical R&D'; $store.thesisModal.generate()">Computational pharma</button>
+        <!-- Lecture-specific: learning objectives, sections, homework -->
+        <template x-if="$store.academicWriter.result.type === 'lecture'">
+          <div>
+            <div x-show="$store.academicWriter.result.lecture?.learning_objectives?.length" class="aw-section">
+              <h4>Learning Objectives</h4>
+              <ul><template x-for="obj in $store.academicWriter.result.lecture.learning_objectives"><li x-text="obj"></li></template></ul>
+            </div>
+            <div x-show="$store.academicWriter.result.lecture?.sections" class="aw-sections">
+              <template x-for="sec in $store.academicWriter.result.lecture.sections">
+                <div class="aw-section"><h4 x-text="sec.title"></h4><p x-text="sec.content || ''"></p></div>
+              </template>
+            </div>
+            <div x-show="$store.academicWriter.result.lecture?.summary" class="aw-section summary">
+              <h4>Summary</h4><p x-text="$store.academicWriter.result.lecture.summary"></p>
+            </div>
+            <div x-show="$store.academicWriter.result.homework?.length" class="aw-section">
+              <h4>Homework</h4>
+              <ul><template x-for="hw in $store.academicWriter.result.homework"><li x-text="hw"></li></template></ul>
+            </div>
+          </div>
+        </template>
+
+        <!-- Slides-specific -->
+        <template x-if="$store.academicWriter.result.type === 'slides' && $store.academicWriter.result.slides?.length">
+          <div class="aw-slides">
+            <template x-for="(slide, i) in $store.academicWriter.result.slides">
+              <div class="aw-slide-card">
+                <span class="aw-slide-num" x-text="'#' + (i + 1)"></span>
+                <div class="aw-slide-body">
+                  <div class="aw-slide-title" x-text="slide.title || slide.heading || ''"></div>
+                  <div class="aw-slide-text" x-text="slide.content || slide.body || ''"></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- Citations -->
+        <div x-show="$store.academicWriter.result.citations?.length" class="aw-citations">
+          <h4>References (<span x-text="$store.academicWriter.result.citations.length"></span>)</h4>
+          <template x-for="cite in $store.academicWriter.result.citations">
+            <div class="aw-cite" x-text="typeof cite === 'string' ? cite : (cite.title || cite.text || '')"></div>
+          </template>
         </div>
+
+        <!-- Default: raw content -->
+        <div x-show="!$store.academicWriter.result.type || $store.academicWriter.result.type === 'literature' || $store.academicWriter.result.type === 'research' || $store.academicWriter.result.type === 'thesis'" class="aw-content-area">
+          <div class="aw-content-text" x-text="$store.academicWriter.result.content"></div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Empty state -->
+    <div x-show="!$store.academicWriter.result && !$store.academicWriter.loading" class="aw-empty">
+      <span class="material-symbols-outlined aw-empty-icon">auto_awesome</span>
+      <p>Enter a topic and generate</p>
+      <div class="aw-quick-chips">
+        <button class="aw-chip" @click="$store.academicWriter.topic='AI-driven drug discovery: current approaches and future directions'; $store.academicWriter.activeTab='literature'; $store.academicWriter.generate()">Lit: AI drug discovery</button>
+        <button class="aw-chip" @click="$store.academicWriter.topic='Pharmacokinetics of novel tyrosine kinase inhibitors'; $store.academicWriter.activeTab='research'; $store.academicWriter.generate()">Paper: PK of TKIs</button>
+        <button class="aw-chip" @click="$store.academicWriter.topic='Computational approaches in pharmaceutical R&D'; $store.academicWriter.activeTab='thesis'; $store.academicWriter.thesisChapterId='introduction'; $store.academicWriter.generate()">Thesis: Computational pharma</button>
+        <button class="aw-chip" @click="$store.academicWriter.topic='Drug-receptor interactions and signal transduction pathways'; $store.academicWriter.activeTab='lecture'; $store.academicWriter.generate()">Lecture: Drug receptors</button>
+        <button class="aw-chip" @click="$store.academicWriter.topic='Advances in CRISPR-based gene therapy'; $store.academicWriter.activeTab='slides'; $store.academicWriter.slideStyle='academic'; $store.academicWriter.generate()">Slides: CRISPR</button>
       </div>
     </div>
 
     <style>
-      .thesis-panel { display: flex; flex-direction: column; height: 100%; overflow-y: auto; padding: 16px 20px; background: var(--color-background); }
-      .panel-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-shrink: 0; }
-      .panel-icon { font-size: 28px; color: var(--color-primary); }
-      .panel-header h2 { color: var(--color-primary); font-size: 1.05rem; margin: 0; font-weight: 700; }
-      .panel-content { flex: 1; display: flex; flex-direction: column; }
+      .academic-writer { display: flex; flex-direction: column; height: 100%; overflow-y: auto; padding: 14px 18px; background: var(--color-background); }
+      .aw-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-shrink: 0; }
+      .aw-icon { font-size: 26px; color: var(--color-primary); }
+      .aw-header h2 { color: var(--color-primary); font-size: 1rem; margin: 0; font-weight: 700; }
+      .aw-subtitle { color: var(--color-text-muted); font-size: 0.65rem; margin: 0; }
+      .aw-tabs { display: flex; gap: 2px; margin-bottom: 12px; border-bottom: 1px solid var(--color-border); padding-bottom: 0; overflow-x: auto; scrollbar-width: none; }
+      .aw-tabs::-webkit-scrollbar { display: none; }
+      .aw-tab { display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--color-text-muted); cursor: pointer; font-size: 0.68rem; font-weight: 500; white-space: nowrap; transition: all 0.15s; }
+      .aw-tab:hover { color: var(--color-text); }
+      .aw-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+      .aw-tab .material-symbols-outlined { font-size: 15px; }
 
-      /* Mode grid */
-      .mode-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
-      .mode-card { display: flex; flex-direction: column; align-items: center; padding: 12px 8px; background: var(--color-panel); border: 2px solid var(--color-border); border-radius: 10px; cursor: pointer; transition: all 0.15s; text-align: center; gap: 4px; }
-      .mode-card:hover { border-color: var(--color-primary); }
-      .mode-card.selected { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 8%, var(--color-panel)); }
-      .mode-icon { font-size: 24px; color: var(--color-primary); }
-      .mode-label { font-size: 0.72rem; font-weight: 700; color: var(--color-text); }
-      .mode-desc { font-size: 0.6rem; color: var(--color-text-muted); line-height: 1.2; }
-      @media (max-width: 500px) { .mode-grid { grid-template-columns: 1fr; } }
+      .aw-input-row { display: flex; gap: 6px; margin-bottom: 8px; }
+      .aw-topic-input { flex: 1; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-panel); color: var(--color-text); font-size: 0.76rem; }
+      .aw-topic-input:focus { outline: none; border-color: var(--color-primary); }
+      .aw-topic-input::placeholder { color: var(--color-text-muted); font-size: 0.68rem; }
+      .aw-gen-btn { display: flex; align-items: center; gap: 4px; padding: 8px 14px; background: var(--color-primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 0.72rem; font-weight: 600; white-space: nowrap; transition: all 0.15s; }
+      .aw-gen-btn:hover:not(:disabled) { opacity: 0.9; }
+      .aw-gen-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-      /* Input */
-      .input-section { margin-bottom: 12px; }
-      .input-row { display: flex; gap: 8px; }
-      .topic-input { flex: 1; padding: 10px 14px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-panel); color: var(--color-text); font-size: 0.82rem; }
-      .topic-input:focus { outline: none; border-color: var(--color-primary); }
-      .btn-generate { display: flex; align-items: center; gap: 6px; padding: 10px 18px; background: var(--color-primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
-      .btn-generate:hover:not(:disabled) { opacity: 0.9; }
-      .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; }
-      .chapter-options { margin-top: 8px; }
-      .option-row { display: flex; gap: 8px; flex-wrap: wrap; }
-      .option-group { flex: 1; min-width: 120px; }
-      .opt-label { display: block; font-size: 0.65rem; font-weight: 600; color: var(--color-text-muted); margin-bottom: 3px; }
-      .opt-select { width: 100%; padding: 6px 8px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-panel); color: var(--color-text); font-size: 0.7rem; }
+      .aw-options { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; padding: 8px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; align-items: flex-end; }
+      .opt-group { flex: 1; min-width: 100px; }
+      .opt-label { display: block; font-size: 0.6rem; font-weight: 600; color: var(--color-text-muted); margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.3px; }
+      .opt-select { width: 100%; padding: 4px 6px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-background); color: var(--color-text); font-size: 0.66rem; }
+      .opt-select:focus { outline: none; border-color: var(--color-primary); }
+      .opt-input-sm { width: 60px; padding: 4px 6px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-background); color: var(--color-text); font-size: 0.66rem; }
+      .opt-input-sm:focus { outline: none; border-color: var(--color-primary); }
+      .opt-row { display: flex; align-items: center; gap: 4px; }
+      .opt-sep { color: var(--color-text-muted); font-size: 0.6rem; }
+      .opt-chips { display: flex; gap: 3px; flex-wrap: wrap; }
+      .chip-check { padding: 3px 7px; border: 1px solid var(--color-border); border-radius: 4px; font-size: 0.6rem; cursor: pointer; color: var(--color-text-muted); transition: all 0.1s; }
+      .chip-check.on { background: color-mix(in srgb, var(--color-primary) 12%, transparent); border-color: var(--color-primary); color: var(--color-primary); }
+      .check-group { display: flex; align-items: flex-end; padding-bottom: 2px; }
+      .opt-check-label { display: flex; align-items: center; gap: 4px; font-size: 0.65rem; color: var(--color-text); cursor: pointer; }
+      .opt-check-label input { accent-color: var(--color-primary); }
 
-      .error-banner { padding: 8px 12px; background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.3); border-radius: 6px; color: var(--color-error-text, #ff6b6b); font-size: 0.72rem; margin-bottom: 12px; }
-      .loading-bar { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 0.72rem; color: var(--color-text-muted); }
-      .loading-spinner { width: 16px; height: 16px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+      .aw-error { padding: 6px 10px; background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.3); border-radius: 6px; color: var(--color-error-text); font-size: 0.68rem; margin-bottom: 8px; }
+      .aw-loading { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 0.7rem; color: var(--color-text-muted); }
+      .loading-spinner { width: 14px; height: 14px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
       @keyframes spin { to { transform: rotate(360deg); } }
 
-      /* Results */
-      .results-section { flex: 1; display: flex; flex-direction: column; }
-      .results-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--color-border); margin-bottom: 10px; flex-wrap: wrap; }
-      .result-title { font-size: 0.85rem; font-weight: 700; color: var(--color-text); margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .toolbar-actions { display: flex; gap: 4px; flex-shrink: 0; }
-      .tts-btn, .tool-btn { display: flex; align-items: center; gap: 3px; padding: 5px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; color: var(--color-text); cursor: pointer; font-size: 0.68rem; white-space: nowrap; transition: all 0.12s; }
-      .tts-btn:hover, .tool-btn:hover { border-color: var(--color-primary); }
-      .tts-btn.playing { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-      .tts-btn .material-symbols-outlined, .tool-btn .material-symbols-outlined { font-size: 16px; }
-      .citations-box { padding: 10px 14px; background: color-mix(in srgb, var(--color-primary) 4%, var(--color-panel)); border: 1px solid color-mix(in srgb, var(--color-primary) 15%, var(--color-border)); border-radius: 8px; margin-bottom: 10px; font-size: 0.7rem; }
-      .citations-box h4 { margin: 0 0 6px 0; font-size: 0.7rem; color: var(--color-primary); }
-      .citations-box ul { margin: 0; padding-left: 16px; }
-      .citations-box li { color: var(--color-text-muted); margin-bottom: 2px; line-height: 1.4; }
-      .content-area { flex: 1; padding: 14px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 10px; overflow-y: auto; min-height: 200px; }
-      .content-text { white-space: pre-wrap; font-size: 0.78rem; line-height: 1.7; color: var(--color-text); }
-      .agent-help { margin-top: 12px; }
-      .agent-help-btn { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: color-mix(in srgb, var(--color-accent, #4fc3f7) 8%, var(--color-panel)); border: 1px solid color-mix(in srgb, var(--color-accent, #4fc3f7) 25%, var(--color-border)); border-radius: 8px; color: var(--color-text); cursor: pointer; font-size: 0.7rem; width: 100%; justify-content: center; }
-      .agent-help-btn:hover { background: color-mix(in srgb, var(--color-accent, #4fc3f7) 15%, var(--color-panel)); }
+      .aw-results { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+      .aw-results-toolbar { display: flex; align-items: center; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--color-border); margin-bottom: 8px; flex-wrap: wrap; flex-shrink: 0; }
+      .aw-result-title { font-size: 0.78rem; font-weight: 700; color: var(--color-text); margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .aw-result-actions { display: flex; gap: 3px; flex-shrink: 0; }
+      .aw-act-btn { display: flex; align-items: center; gap: 2px; padding: 4px 7px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 5px; color: var(--color-text); cursor: pointer; font-size: 0.6rem; white-space: nowrap; transition: all 0.1s; }
+      .aw-act-btn:hover { border-color: var(--color-primary); }
+      .aw-act-btn.playing { background: var(--color-primary); color: white; border-color: var(--color-primary); }
+      .aw-act-btn .material-symbols-outlined { font-size: 14px; }
 
-      /* Empty */
-      .empty-state { display: flex; flex-direction: column; align-items: center; padding: 40px 20px; text-align: center; }
-      .empty-icon { font-size: 42px; color: var(--color-border); margin-bottom: 10px; }
-      .empty-state p { color: var(--color-text-muted); font-size: 0.78rem; margin: 0 0 12px 0; }
-      .quick-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-      .chip { padding: 6px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; font-size: 0.7rem; color: var(--color-text); cursor: pointer; }
-      .chip:hover { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 6%, var(--color-panel)); }
+      .aw-section { padding: 8px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 7px; margin-bottom: 6px; }
+      .aw-section h4 { font-size: 0.68rem; font-weight: 600; color: var(--color-primary); margin: 0 0 4px 0; }
+      .aw-section p, .aw-section li { font-size: 0.66rem; color: var(--color-text-muted); line-height: 1.4; margin: 1px 0; }
+      .aw-section ul { margin: 0; padding-left: 16px; }
+      .aw-section.summary { background: color-mix(in srgb, var(--color-primary) 5%, var(--color-panel)); border-color: color-mix(in srgb, var(--color-primary) 15%, var(--color-border)); }
+      .aw-sections { display: flex; flex-direction: column; gap: 5px; margin-bottom: 6px; }
+
+      .aw-slides { display: flex; flex-direction: column; gap: 5px; }
+      .aw-slide-card { display: flex; gap: 8px; padding: 8px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 7px; border-left: 3px solid var(--color-primary); }
+      .aw-slide-num { font-size: 0.62rem; font-weight: 700; color: var(--color-primary); white-space: nowrap; padding-top: 1px; }
+      .aw-slide-title { font-size: 0.7rem; font-weight: 600; color: var(--color-text); margin-bottom: 2px; }
+      .aw-slide-text { font-size: 0.64rem; color: var(--color-text-muted); line-height: 1.4; }
+
+      .aw-citations { padding: 8px 12px; background: color-mix(in srgb, var(--color-primary) 3%, var(--color-panel)); border: 1px solid color-mix(in srgb, var(--color-primary) 10%, var(--color-border)); border-radius: 7px; margin-bottom: 8px; }
+      .aw-citations h4 { font-size: 0.65rem; font-weight: 600; color: var(--color-primary); margin: 0 0 4px 0; }
+      .aw-cite { font-size: 0.62rem; color: var(--color-text-muted); line-height: 1.4; margin-bottom: 2px; }
+
+      .aw-content-area { flex: 1; padding: 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; overflow-y: auto; min-height: 180px; }
+      .aw-content-text { white-space: pre-wrap; font-size: 0.72rem; line-height: 1.65; color: var(--color-text); }
+
+      .aw-empty { display: flex; flex-direction: column; align-items: center; padding: 32px 16px; text-align: center; }
+      .aw-empty-icon { font-size: 38px; color: var(--color-border); margin-bottom: 8px; }
+      .aw-empty p { color: var(--color-text-muted); font-size: 0.72rem; margin: 0 0 10px 0; }
+      .aw-quick-chips { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; }
+      .aw-chip { padding: 5px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.66rem; color: var(--color-text); cursor: pointer; }
+      .aw-chip:hover { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 5%, var(--color-panel)); }
     </style>
   </div>
 </body>

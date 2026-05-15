@@ -75,13 +75,36 @@
       speakAbstract(paper) {
         if (!paper.abstract) return;
         if (this.playing) { window.speechSynthesis?.cancel(); this.playing = false; return; }
-        if ('speechSynthesis' in window) {
-          const u = new SpeechSynthesisUtterance(paper.abstract.substring(0, 2000));
-          u.rate = 0.9;
-          u.onend = () => { this.playing = false; };
-          window.speechSynthesis.speak(u);
-          this.playing = true;
-        }
+        this._ttsText(paper.abstract.substring(0, 3000));
+      },
+
+      async _ttsText(text) {
+        try {
+          const resp = await callJsonApi("kokoro_tts", { text, voice: "en-us", speed: 1.0 });
+          if (resp.audio) {
+            this.playing = true;
+            const binary = atob(resp.audio);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const blob = new Blob([bytes], { type: resp.format === "mp3" ? "audio/mpeg" : "audio/wav" });
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            audio.onended = () => { this.playing = false; URL.revokeObjectURL(url); };
+            audio.onerror = () => { this.playing = false; this._browserTTS(text); };
+            audio.play();
+            return;
+          }
+        } catch {}
+        this._browserTTS(text);
+      },
+
+      _browserTTS(text) {
+        if (!('speechSynthesis' in window)) return;
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 0.9;
+        u.onend = () => { this.playing = false; };
+        window.speechSynthesis.speak(u);
+        this.playing = true;
       },
     });
   </script>
