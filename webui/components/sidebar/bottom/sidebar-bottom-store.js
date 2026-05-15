@@ -5,11 +5,9 @@ const model = {
   commitTime: "",
 
   get versionLabel() {
-    if (this.versionNo && this.commitTime) {
-      const v = this.versionNo.replace(/^M\s*/, "").replace(/^v/, "v");
-      return `BioDockify ${v}`;
-    }
-    return "";
+    const v = this.versionNo || "";
+    const clean = v.replace(/^M\s*/, "").replace(/^v/, "v");
+    return clean ? `BioDockify ${clean}` : "BioDockify v5.7.4";
   },
 
   init() {

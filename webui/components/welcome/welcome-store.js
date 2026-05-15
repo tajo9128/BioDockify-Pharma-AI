@@ -15,7 +15,9 @@ const model = {
   _initialized: false,
 
   get versionLabel() {
-    return globalThis.gitinfo?.version || "v4.3.5";
+    const gi = globalThis.gitinfo;
+    const v = gi?.version?.replace(/^M\s*/, "") || "5.7.4";
+    return "v" + v.replace(/^v/, "");
   },
 
   get isVisible() {
