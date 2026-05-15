@@ -11,6 +11,19 @@
       result: null,
       error: "",
       library: {},
+      _restored: false,
+
+      persist() {
+        try { localStorage.setItem("biodockify.drug_props", JSON.stringify({ smiles: this.smiles, preset: this.preset })); } catch {}
+      },
+      restore() {
+        if (this._restored) return; this._restored = true;
+        try {
+          const s = JSON.parse(localStorage.getItem("biodockify.drug_props") || "{}");
+          if (s.smiles) this.smiles = s.smiles;
+          if (s.preset) this.preset = s.preset;
+        } catch {}
+      },
 
       async init() {
         try {
@@ -33,6 +46,15 @@
           this.result = resp;
         } catch (e) { this.error = e.message; }
         this.loading = false;
+        this.persist();
+      },
+
+      clear() {
+        this.smiles = "";
+        this.preset = "";
+        this.result = null;
+        this.error = "";
+        this.persist();
       },
 
       clear() {
@@ -47,7 +69,7 @@
   </script>
 </head>
 <body>
-  <div x-data class="drug-panel">
+  <div x-data class="drug-panel" x-init="$store.drugProperties.restore()">
     <div class="panel-header">
       <span class="material-symbols-outlined panel-icon">medication</span>
       <h2>Drug Properties</h2>

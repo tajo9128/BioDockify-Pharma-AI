@@ -7,6 +7,7 @@ document.addEventListener("alpine:init", () => {
     fileName: "",
     columns: [],
     rowCount: 0,
+    _restored: false,
 
     // Form state
     testType: null,
@@ -27,6 +28,29 @@ document.addEventListener("alpine:init", () => {
     activeAnalysis: "",
     viewMode: "table",
 
+    persist() {
+      try {
+        localStorage.setItem("biodockify.statistics", JSON.stringify({
+          fileName: this.fileName, columns: this.columns, rowCount: this.rowCount,
+          testType: this.testType, selectedGroupCol: this.selectedGroupCol,
+          selectedValueCol: this.selectedValueCol, correlationMethod: this.correlationMethod,
+        }));
+      } catch {}
+    },
+
+    restore() {
+      if (this._restored) return;
+      this._restored = true;
+      try {
+        const s = JSON.parse(localStorage.getItem("biodockify.statistics") || "{}");
+        if (s.fileName) { this.fileName = s.fileName; this.columns = s.columns || []; this.rowCount = s.rowCount || 0; this.hasData = true; this.step = 2; }
+        if (s.testType) this.testType = s.testType;
+        if (s.selectedGroupCol) this.selectedGroupCol = s.selectedGroupCol;
+        if (s.selectedValueCol) this.selectedValueCol = s.selectedValueCol;
+        if (s.correlationMethod) this.correlationMethod = s.correlationMethod;
+      } catch {}
+    },
+
     get columnOptions() {
       return this.columns.map(c => ({ value: c, label: c }));
     },
@@ -35,6 +59,7 @@ document.addEventListener("alpine:init", () => {
       this.testType = type;
       this.results = "";
       this.resultsJson = null;
+      this.persist();
     },
 
     async importData() {
@@ -62,6 +87,7 @@ document.addEventListener("alpine:init", () => {
             this.hasData = true;
             this.step = 2;
             this.results = "";
+            this.persist();
           } else {
             this.results = "Import failed: " + (data.detail || data.error || "Unknown error");
           }

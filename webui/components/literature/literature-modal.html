@@ -12,6 +12,19 @@
       total: 0,
       error: "",
       message: "",
+      _restored: false,
+
+      persist() {
+        try { localStorage.setItem("biodockify.literature", JSON.stringify({ query: this.query, database: this.database })); } catch {}
+      },
+      restore() {
+        if (this._restored) return; this._restored = true;
+        try {
+          const s = JSON.parse(localStorage.getItem("biodockify.literature") || "{}");
+          if (s.query) this.query = s.query;
+          if (s.database) this.database = s.database;
+        } catch {}
+      },
 
       async search() {
         if (!this.query.trim()) return;
@@ -31,6 +44,7 @@
           this.message = this.papers.length ? "" : "No papers found.";
         } catch (e) { this.error = e.message; }
         this.loading = false;
+        this.persist();
       },
 
       clear() {
@@ -39,6 +53,7 @@
         this.total = 0;
         this.error = "";
         this.message = "";
+        this.persist();
       },
 
       hasResults() { return this.papers.length > 0; },
@@ -110,7 +125,7 @@
   </script>
 </head>
 <body>
-  <div x-data class="literature-panel">
+  <div x-data class="literature-panel" x-init="$store.literatureModal.restore()">
     <div class="panel-header">
       <span class="material-symbols-outlined panel-icon">menu_book</span>
       <h2>Literature Search</h2>

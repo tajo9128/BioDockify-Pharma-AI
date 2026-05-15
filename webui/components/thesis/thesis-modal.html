@@ -44,6 +44,19 @@
       slideCount: 10,
       slideCitations: true,
       slideSources: [],
+      _restored: false,
+
+      persist() {
+        try { localStorage.setItem("biodockify.academic", JSON.stringify({ topic: this.topic, activeTab: this.activeTab })); } catch {}
+      },
+      restore() {
+        if (this._restored) return; this._restored = true;
+        try {
+          const s = JSON.parse(localStorage.getItem("biodockify.academic") || "{}");
+          if (s.topic) this.topic = s.topic;
+          if (s.activeTab) this.activeTab = s.activeTab;
+        } catch {}
+      },
 
       get tabs() {
         return [
@@ -79,6 +92,7 @@
         this.result = null;
         this.error = "";
         this.stopSpeech();
+        this.persist();
       },
 
       async generate() {
@@ -86,6 +100,7 @@
         this.loading = true;
         this.error = "";
         this.result = null;
+        this.persist();
 
         try {
           switch (this.activeTab) {
@@ -245,7 +260,7 @@
   </script>
 </head>
 <body>
-  <div x-data class="academic-writer">
+  <div x-data class="academic-writer" x-init="$store.academicWriter.restore()">
     <!-- Header -->
     <div class="aw-header">
       <span class="material-symbols-outlined aw-icon">description</span>

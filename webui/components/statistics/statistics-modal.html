@@ -3,7 +3,7 @@
   <script type="module" src="/components/statistics/statistics-store.js"></script>
 </head>
 <body>
-  <div x-data="statisticsModal" class="statistics-panel">
+  <div x-data="statisticsModal" class="statistics-panel" x-init="restore()">
     <div class="panel-header">
       <div class="header-left">
         <span class="material-symbols-outlined header-icon">analytics</span>
