@@ -22,9 +22,6 @@ body.right-canvas-resizing {
 }
 
 .right-canvas {
-  --right-canvas-chrome: color-mix(in srgb, var(--color-background) 94%, #000 6%);
-  --right-canvas-surface: color-mix(in srgb, var(--color-panel) 88%, var(--color-background) 12%);
-  --right-canvas-border: color-mix(in srgb, var(--color-border) 70%, transparent);
   position: relative;
   z-index: 1200;
   display: flex;
@@ -33,9 +30,9 @@ body.right-canvas-resizing {
   min-width: 0;
   max-width: none;
   overflow: hidden;
-  border-left: 1px solid var(--right-canvas-border);
-  background: var(--right-canvas-chrome);
-  transition: width 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  border-left: 1px solid var(--color-border);
+  background: var(--color-background);
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .right-canvas.is-closed {
@@ -63,32 +60,32 @@ body.right-canvas-resizing {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  min-height: 34px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
   padding: 0;
-  border-radius: 7px;
+  border-radius: 6px;
   background: transparent;
-  opacity: 0.76;
-  transition: background-color 0.16s ease, border-color 0.16s ease, opacity 0.16s ease;
+  opacity: 0.65;
+  transition: all 0.15s ease;
 }
 
 .right-canvas-icon-button:hover {
   opacity: 1;
-  border-color: color-mix(in srgb, var(--color-primary) 28%, var(--right-canvas-border));
   background: color-mix(in srgb, var(--color-background-hover) 72%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 24%, transparent);
 }
 
 .right-canvas-icon-button .material-symbols-outlined {
-  font-size: 19px;
+  font-size: 18px;
 }
 
 .right-canvas-surface-image {
   display: block;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
   object-fit: cover;
 }
 
@@ -101,82 +98,84 @@ body.right-canvas-resizing {
 }
 
 .right-canvas-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 45px;
-  padding: 7px 8px 0 10px;
-  border-bottom: 1px solid var(--right-canvas-border);
-  background: color-mix(in srgb, var(--color-background) 91%, #000 9%);
+  justify-content: space-between;
+  min-height: 42px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-panel) 94%, transparent);
+  backdrop-filter: blur(8px);
+  flex-shrink: 0;
 }
 
 .right-canvas-tabs {
   display: flex;
-  align-items: end;
-  gap: 4px;
+  align-items: stretch;
+  gap: 2px;
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+  flex: 1;
 }
 
 .right-canvas-tabs::-webkit-scrollbar {
-  height: 4px;
-}
-
-.right-canvas-tabs::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.right-canvas-tabs::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--color-border) 76%, transparent);
-  border-radius: 999px;
+  display: none;
 }
 
 .right-canvas-tab {
   display: inline-flex;
-  flex: 0 1 auto;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   min-width: 0;
-  padding: 0 10px;
+  padding: 0 12px;
   background: transparent;
-  opacity: 0.4;
+  color: var(--color-text);
+  opacity: 0.45;
   white-space: nowrap;
-  transition: border-color 0.16s ease, background-color 0.16s ease, opacity 0.16s ease;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
+  font-size: 0.82rem;
+  font-weight: 500;
 }
 
-.right-canvas-tab:hover,
+.right-canvas-tab:hover {
+  opacity: 0.8;
+  background: color-mix(in srgb, var(--color-background-hover) 40%, transparent);
+}
+
 .right-canvas-tab.is-active {
   opacity: 1;
+  border-bottom-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .right-canvas-tab .material-symbols-outlined {
   flex: 0 0 auto;
-  font-size: 18px;
+  font-size: 17px;
 }
 
 .right-canvas-tab .right-canvas-surface-image {
   flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
 }
 
 .right-canvas-tab-label {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 0.84rem;
-  font-weight: 650;
+  font-size: 0.82rem;
+  font-weight: 500;
 }
 
 .right-canvas-toolbar {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding-bottom: 6px;
+  gap: 3px;
+  flex-shrink: 0;
 }
 
 .right-canvas-panels {
@@ -186,7 +185,7 @@ body.right-canvas-resizing {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: var(--right-canvas-surface);
+  background: var(--color-panel);
 }
 
 .right-canvas-panels > x-extension {
@@ -233,22 +232,30 @@ body.right-canvas-resizing {
   flex: 1 1 auto;
   place-items: center;
   align-content: center;
-  gap: 8px;
-  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  gap: 10px;
+  color: color-mix(in srgb, var(--color-text) 45%, transparent);
 }
 
 .right-canvas-empty-state .material-symbols-outlined {
-  font-size: 28px;
+  font-size: 36px;
+  opacity: 0.5;
 }
 
 .right-canvas-resize-handle {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: -3px;
+  left: -2px;
   z-index: 3;
-  width: 7px;
+  width: 5px;
   cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.right-canvas-resize-handle:hover,
+body.right-canvas-resizing .right-canvas-resize-handle {
+  background: color-mix(in srgb, var(--color-primary) 30%, transparent);
 }
 
 body.right-canvas-overlay-mode .right-canvas {
@@ -258,7 +265,7 @@ body.right-canvas-overlay-mode .right-canvas {
   bottom: 0;
   height: 100%;
   max-width: calc(100vw - 44px);
-  box-shadow: -16px 0 38px rgba(0, 0, 0, 0.34);
+  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.28);
   transform: translateX(100%);
 }
 
@@ -284,12 +291,17 @@ body.right-canvas-mobile-mode .right-canvas {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  min-height: 40px;
-  padding: 4px 8px;
-  border-top: 1px solid var(--right-canvas-border);
-  background: color-mix(in srgb, var(--color-background) 91%, #000 9%);
+  min-height: 38px;
+  padding: 3px 8px;
+  border-top: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-panel) 94%, transparent);
   gap: 2px;
   overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.right-canvas-taskbar::-webkit-scrollbar {
+  display: none;
 }
 
 .right-canvas-taskbar > x-extension {
@@ -314,27 +326,32 @@ body.right-canvas-mobile-mode .right-canvas {
   background: transparent;
   color: var(--color-text);
   font: inherit;
-  font-size: 0.75rem;
+  font-size: 0.74rem;
   cursor: pointer;
-  opacity: 0.6;
-  transition: opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+  opacity: 0.55;
+  transition: all 0.12s ease;
 }
 
-.right-canvas-taskbar-item:hover,
+.right-canvas-taskbar-item:hover {
+  opacity: 0.85;
+  background: color-mix(in srgb, var(--color-background-hover) 60%, transparent);
+}
+
 .right-canvas-taskbar-item.is-active {
   opacity: 1;
-  background: color-mix(in srgb, var(--color-background-hover) 72%, transparent);
-  border-color: color-mix(in srgb, var(--color-primary) 28%, var(--right-canvas-border));
+  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-background));
+  border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+  color: var(--color-primary);
 }
 
 .right-canvas-taskbar-item .material-symbols-outlined {
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .right-canvas-taskbar-item .right-canvas-surface-image {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
 }
 
 .right-canvas-taskbar-label {

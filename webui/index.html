@@ -91,7 +91,28 @@
 
         <!-- Right Panel (Message History and Input Section) — Always visible -->
         <div id="right-panel" class="panel">
-
+          <div class="chat-side-icons">
+            <button class="side-icon-btn" @click="$store.rightCanvas.open('desktop')" title="Kali Linux Desktop">
+              <span class="material-symbols-outlined">desktop_windows</span>
+            </button>
+            <button class="side-icon-btn" @click="$store.rightCanvas.open('statistics')" title="Statistics">
+              <span class="material-symbols-outlined">analytics</span>
+            </button>
+            <button class="side-icon-btn" @click="$store.rightCanvas.open('literature')" title="Literature">
+              <span class="material-symbols-outlined">menu_book</span>
+            </button>
+            <button class="side-icon-btn" @click="$store.rightCanvas.open('knowledge')" title="Knowledge Base">
+              <span class="material-symbols-outlined">psychology</span>
+            </button>
+            <div class="side-icon-sep"></div>
+            <button class="side-icon-btn" @click="$store.rightCanvas.open('research-hub')" title="All Tools">
+              <span class="material-symbols-outlined">apps</span>
+            </button>
+            <button class="side-icon-btn" @click="$store.rightCanvas.open('backup-recovery')" title="Backup & Recovery">
+              <span class="material-symbols-outlined">backup</span>
+            </button>
+          </div>
+          <div class="chat-main">
             <!-- top section with time, status etc. -->
             <x-component path="chat/top-section/chat-top.html"></x-component>
 
@@ -142,6 +163,7 @@
                 <!-- Input Section -->
                 <x-component path="chat/input/chat-bar.html"></x-component>
             </div>
+          </div>
         </div>
         <x-component path="canvas/right-canvas.html"></x-component>
     </div>
