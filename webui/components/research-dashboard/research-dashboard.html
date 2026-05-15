@@ -7,6 +7,10 @@
     <div class="rd-header">
       <span class="material-symbols-outlined rd-icon">science</span>
       <h2>Research Command Center</h2>
+      <div class="rd-header-right" x-show="$store.researchDashboard.activeProject">
+        <button class="rd-btn-sm" @click="$store.researchDashboard.exportReport()" title="Export Research Report">📄 Export</button>
+        <button class="rd-btn-sm" @click="$store.researchDashboard.openInAcademicWriter()" title="Open in Academic Writer">📝 Writer</button>
+      </div>
     </div>
 
     <!-- Tabs -->
@@ -218,6 +222,7 @@
       .rd-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-shrink: 0; }
       .rd-icon { font-size: 24px; color: var(--color-primary); }
       .rd-header h2 { color: var(--color-primary); font-size: 0.95rem; margin: 0; font-weight: 700; }
+      .rd-header-right { display: flex; gap: 4px; margin-left: auto; }
 
       .rd-tabs { display: flex; gap: 2px; margin-bottom: 12px; border-bottom: 1px solid var(--color-border); }
       .rd-tab { display: flex; align-items: center; gap: 3px; padding: 6px 10px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--color-text-muted); cursor: pointer; font-size: 0.68rem; font-weight: 500; white-space: nowrap; transition: all 0.15s; }

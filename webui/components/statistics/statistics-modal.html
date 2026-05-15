@@ -333,6 +333,10 @@
               <span class="material-symbols-outlined">code</span>
               Download JSON
             </button>
+            <button class="btn-primary" @click="saveToNotebook()" :disabled="!results" style="background: #6366f1;">
+              <span class="material-symbols-outlined">bookmark</span>
+              Notebook
+            </button>
           </div>
         </div>
 

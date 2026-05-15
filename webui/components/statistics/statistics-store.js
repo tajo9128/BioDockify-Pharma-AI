@@ -329,6 +329,15 @@ document.addEventListener("alpine:init", () => {
       });
     },
 
+    saveToNotebook() {
+      if (!this.resultsJson && !this.results) return;
+      const title = `${this.activeAnalysis || 'Analysis'} on ${this.fileName || 'data'}`;
+      const content = this.results || JSON.stringify(this.resultsJson || {}, null, 2);
+      if (typeof $store !== "undefined" && $store.knowledgeModal && $store.knowledgeModal.addNoteBookEntry) {
+        $store.knowledgeModal.addNoteBookEntry(title, content, "Statistical Analysis", ["statistics", this.activeAnalysis || "analysis"]);
+      }
+    },
+
     resetData() {
       this.hasData = false;
       this.step = 1;

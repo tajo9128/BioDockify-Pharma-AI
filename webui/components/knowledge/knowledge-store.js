@@ -182,6 +182,19 @@ export const store = createStore("knowledgeModal", {
     }
   },
 
+  openInWriter(entry) {
+    if (typeof $store !== "undefined" && $store.desktopWorkspace) {
+      $store.desktopWorkspace.openWindow("thesis");
+    }
+    setTimeout(() => {
+      const input = document.querySelector(".aw-topic-input");
+      if (input) {
+        input.value = entry.question || "";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    }, 400);
+  },
+
   async addFromLiterature(paper) {
     this.addNoteBookEntry(
       paper.title,

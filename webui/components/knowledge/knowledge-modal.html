@@ -116,6 +116,7 @@
                   @click="$store.knowledgeModal.toggleFavorite(entry.id)"
                   x-text="$store.knowledgeModal.favorites.includes(entry.id) ? '⭐' : '☆'"></button>
                 <span class="nb-entry-title" x-text="entry.question"></span>
+                <button class="nb-writer-btn" @click="$store.knowledgeModal.openInWriter(entry)" title="Open in Academic Writer">📝</button>
                 <button class="nb-del-btn" @click="$store.knowledgeModal.deleteEntry(entry)">×</button>
               </div>
               <div class="nb-entry-body" x-show="entry.answer" x-text="entry.answer"></div>
@@ -198,6 +199,8 @@
       .nb-entry-header { display: flex; align-items: center; gap: 6px; }
       .nb-fav-btn { padding: 1px 4px; background: transparent; border: none; cursor: pointer; font-size: 0.7rem; color: var(--color-text-muted); }
       .nb-fav-btn.active { color: #ffd93d; }
+      .nb-writer-btn { padding: 1px 4px; background: transparent; border: none; cursor: pointer; font-size: 0.7rem; opacity: 0; transition: opacity 0.15s; }
+      .nb-entry-card:hover .nb-writer-btn { opacity: 1; }
       .nb-entry-title { flex: 1; font-size: 0.66rem; font-weight: 600; color: var(--color-text); }
       .nb-del-btn { padding: 1px 5px; background: transparent; border: none; color: var(--color-text-muted); cursor: pointer; font-size: 0.75rem; }
       .nb-del-btn:hover { color: var(--color-error-text); }

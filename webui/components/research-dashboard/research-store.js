@@ -150,13 +150,65 @@ export const store = createStore("researchDashboard", {
 
   async deleteProject(researchId) {
     if (!confirm("Delete this research project? This cannot be undone.")) return;
-    // Fallback: mark as cancelled
     try {
       await callJsonApi("research/management/task/" + researchId + "/cancel");
     } catch {}
     await this.listProjects();
     this.activeProjectId = null;
     this.dashboard = null;
+  },
+
+  exportReport() {
+    if (!this.activeProject) return;
+    const r = this.activeProject;
+    const report = [
+      `# Research Report: ${r.topic || r.title || "Untitled"}`,
+      `Type: ${r.research_type || "N/A"} | Stage: ${r.current_stage || "N/A"} | Progress: ${Math.round((r.progress || 0) * 100)}%`,
+      ``,
+      `## Pipeline Stages`,
+    ];
+    this.stages.forEach(s => {
+      report.push(`- ${s.title || s.stage || s}: ${s.status || "pending"}`);
+    });
+    if (this.tasks.length) {
+      report.push(``, `## Tasks`);
+      this.tasks.forEach(t => {
+        report.push(`- [${t.status || "pending"}] ${t.title || t.description || t.id}`);
+      });
+    }
+    if (this.milestones.length) {
+      report.push(``, `## Milestones`);
+      this.milestones.forEach(m => {
+        report.push(`- ${m.status || "pending"} (${Math.round((m.progress || 0) * 100)}%) ${m.title || ""} — Deadline: ${(m.deadline || "").substring(0, 10)}`);
+      });
+    }
+    if (this.wetlabSummary) {
+      report.push(``, `## Wet Lab: ${this.wetlabSummary.total || 0} experiments (${this.wetlabSummary.completed || 0} completed, ${this.wetlabSummary.running || 0} running)`);
+    }
+    report.push(``, `---`, `Generated: ${new Date().toISOString()}`);
+
+    const blob = new Blob([report.join("\n")], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `research-report-${(r.topic || "report").replace(/\s+/g, "-").substring(0, 40)}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  openInAcademicWriter() {
+    if (!this.activeProject) return;
+    const topic = this.activeProject.topic || this.activeProject.title || "";
+    if (typeof $store !== "undefined" && $store.desktopWorkspace) {
+      $store.desktopWorkspace.openWindow("thesis");
+    }
+    setTimeout(() => {
+      const input = document.querySelector(".aw-topic-input");
+      if (input) {
+        input.value = topic;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    }, 300);
   },
 
   stageStatusClass(stage) {
