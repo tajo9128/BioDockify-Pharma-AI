@@ -5,11 +5,6 @@
 <body>
   <div x-data x-init="$store.desktopWorkspace?.init()" class="desktop-workspace" :class="{ 'layout-split': $store.desktopWorkspace?.isSplitMode, 'layout-desktop': $store.desktopWorkspace?.isDesktopMode }">
     <div class="desktop-area">
-      <!-- Back to Chat Button -->
-      <button class="back-to-chat-btn" @click="$store.desktopWorkspace.setChatMode()" title="Back to Chat Mode">
-        <span class="material-symbols-outlined">arrow_back_ios</span>
-        <span>Back to Chat</span>
-      </button>
 
       <template x-for="win in $store.desktopWorkspace?.visibleWindows || []" :key="win.id">
         <div

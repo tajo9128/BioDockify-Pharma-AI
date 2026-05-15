@@ -1,9 +1,20 @@
 import { createStore } from "/js/AlpineStore.js";
-import { callJsonApi, fetchApi } from "/js/api.js";
+import { fetchApi } from "/js/api.js";
 
 async function apiGet(path) {
   const resp = await fetchApi(path, { method: "GET" });
-  return resp.json();
+  const text = await resp.text();
+  try { return JSON.parse(text); }
+  catch { return { error: "Invalid response from server", raw: text.substring(0, 200) }; }
+}
+
+async function apiPost(path, data) {
+  try {
+    const resp = await fetchApi(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data || {}) });
+    const text = await resp.text();
+    try { return JSON.parse(text); }
+    catch { return { error: "Invalid JSON response", raw: text.substring(0, 200) }; }
+  } catch(e) { return { error: e.message }; }
 }
 
 export const store = createStore("researchDashboard", {
