@@ -2,10 +2,27 @@
 <head></head>
 <body>
   <div x-data class="desktop-panel">
-    <iframe src="/desktop/session" class="desktop-iframe" frameborder="0"></iframe>
+    <div class="desktop-toolbar">
+      <span class="desktop-label">Kali Linux Desktop</span>
+      <div class="desktop-actions">
+        <button class="dt-btn" onclick="document.querySelector('.desktop-iframe').src = document.querySelector('.desktop-iframe').src" title="Refresh">
+          <span class="material-symbols-outlined">refresh</span>
+        </button>
+        <a class="dt-btn" href="http://localhost:6901" target="_blank" title="Open in new tab">
+          <span class="material-symbols-outlined">open_in_new</span>
+        </a>
+      </div>
+    </div>
+    <iframe src="http://localhost:6901/vnc.html?autoconnect=true" class="desktop-iframe" frameborder="0"></iframe>
     <style>
-      .desktop-panel { display: flex; width: 100%; height: 100%; overflow: hidden; }
-      .desktop-iframe { width: 100%; height: 100%; border: none; }
+      .desktop-panel { display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
+      .desktop-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 4px 12px; background: #0f0f23; border-bottom: 1px solid #2a2a4a; flex-shrink: 0; }
+      .desktop-label { font-size: 0.68rem; color: #a0a0b0; font-weight: 500; }
+      .desktop-actions { display: flex; gap: 4px; }
+      .dt-btn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; background: transparent; border: 1px solid #2a2a4a; border-radius: 4px; color: #a0a0b0; cursor: pointer; text-decoration: none; }
+      .dt-btn:hover { background: #2a2a4a; color: #fff; }
+      .dt-btn .material-symbols-outlined { font-size: 16px; }
+      .desktop-iframe { flex: 1; width: 100%; border: none; }
     </style>
   </div>
 </body>

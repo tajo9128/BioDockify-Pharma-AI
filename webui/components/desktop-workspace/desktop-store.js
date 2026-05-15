@@ -15,13 +15,12 @@ const defaultModules = [
   { id: "statistics", title: "Statistics", icon: "analytics", component: "/components/statistics/statistics-modal.html", order: 4, defaultWidth: 750, defaultHeight: 550 },
   { id: "drug-properties", title: "Drug Properties", icon: "medication", component: "/components/drug-properties/drug-properties-panel.html", order: 5, defaultWidth: 650, defaultHeight: 450 },
   { id: "literature", title: "Literature", icon: "menu_book", component: "/components/literature/literature-modal.html", order: 6, defaultWidth: 700, defaultHeight: 500 },
-  { id: "patent-analyzer", title: "Patent Analyzer", icon: "gavel", component: "/components/patent-analyzer/patent-panel.html", order: 7, defaultWidth: 750, defaultHeight: 500 },
-  { id: "knowledge", title: "Knowledge Base", icon: "psychology", component: "/components/knowledge/knowledge-modal.html", order: 8, defaultWidth: 700, defaultHeight: 500 },
-  { id: "thesis", title: "Academic Writer", icon: "description", component: "/components/thesis/thesis-modal.html", order: 9, defaultWidth: 700, defaultHeight: 500 },
-  { id: "slides", title: "Slides", icon: "slideshow", component: "/components/slides/slides-modal.html", order: 10, defaultWidth: 700, defaultHeight: 500 },
-  { id: "wetlab", title: "Wet Lab", icon: "biotech", component: "/components/wetlab/wetlab-modal.html", order: 11, defaultWidth: 700, defaultHeight: 500 },
-  { id: "lecture-builder", title: "Lecture Builder", icon: "school", component: "/components/lecture-builder/lecture-panel.html", order: 12, defaultWidth: 700, defaultHeight: 500 },
-  { id: "backup", title: "Backup", icon: "backup", component: "/components/backup-recovery/recovery-panel.html", order: 13, defaultWidth: 650, defaultHeight: 450 },
+  { id: "knowledge", title: "Knowledge Base", icon: "psychology", component: "/components/knowledge/knowledge-modal.html", order: 7, defaultWidth: 700, defaultHeight: 500 },
+  { id: "thesis", title: "Academic Writer", icon: "description", component: "/components/thesis/thesis-modal.html", order: 8, defaultWidth: 700, defaultHeight: 500 },
+  { id: "slides", title: "Slides", icon: "slideshow", component: "/components/slides/slides-modal.html", order: 9, defaultWidth: 700, defaultHeight: 500 },
+  { id: "wetlab", title: "Wet Lab", icon: "biotech", component: "/components/wetlab/wetlab-modal.html", order: 10, defaultWidth: 700, defaultHeight: 500 },
+  { id: "lecture-builder", title: "Lecture Builder", icon: "school", component: "/components/lecture-builder/lecture-panel.html", order: 11, defaultWidth: 700, defaultHeight: 500 },
+  { id: "backup", title: "Backup", icon: "backup", component: "/components/backup-recovery/recovery-panel.html", order: 12, defaultWidth: 650, defaultHeight: 450 },
 ];
 
 const model = {
