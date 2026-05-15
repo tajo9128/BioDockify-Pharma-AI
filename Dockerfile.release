@@ -1,4 +1,4 @@
-FROM tajo9128/biodockify-pharma-ai:v4.7.3
+FROM tajo9128/biodockify-pharma-ai:v4.7.0
 
 COPY webui/ /a0/webui/
 COPY plugins/ /a0/plugins/
