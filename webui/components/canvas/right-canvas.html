@@ -6,7 +6,7 @@
 </head>
 <body>
   <div x-data>
-    <template x-if="$store.rightCanvas">
+    <template x-if="$store.rightCanvas && !$store.desktopWorkspace?.isDesktopMode">
       <aside
         id="right-canvas"
         class="right-canvas"
@@ -28,6 +28,12 @@
           <x-extension id="right-canvas-shell-start"></x-extension>
 
           <header class="right-canvas-header">
+            <div class="right-canvas-header-left">
+              <span class="right-canvas-brand">BioDockify</span>
+              <span class="right-canvas-divider">|</span>
+              <span class="right-canvas-active-title" x-text="$store.rightCanvas.activeTitle()"></span>
+            </div>
+
             <div class="right-canvas-tabs" role="tablist" aria-label="Canvas tabs">
               <x-extension id="right-canvas-tabs-start"></x-extension>
               <template x-for="surface in $store.rightCanvas.panelSurfaces" :key="surface.id">
@@ -54,6 +60,15 @@
 
             <div class="right-canvas-toolbar" aria-label="Canvas toolbar">
               <x-extension id="right-canvas-toolbar-start"></x-extension>
+              <button
+                type="button"
+                class="right-canvas-icon-button"
+                title="Open Desktop Mode"
+                aria-label="Open Desktop Mode"
+                @click="$store.desktopWorkspace?.toggleDesktopMode()"
+              >
+                <span class="material-symbols-outlined">dashboard</span>
+              </button>
               <button
                 type="button"
                 class="right-canvas-icon-button"

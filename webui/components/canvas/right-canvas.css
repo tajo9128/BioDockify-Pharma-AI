@@ -22,6 +22,12 @@ body.right-canvas-resizing {
 }
 
 .right-canvas {
+  --right-canvas-chrome: color-mix(in srgb, var(--color-background) 96%, #000 4%);
+  --right-canvas-surface: color-mix(in srgb, var(--color-panel) 92%, var(--color-background) 8%);
+  --right-canvas-border: color-mix(in srgb, var(--color-border) 60%, transparent);
+  --right-canvas-header-bg: color-mix(in srgb, var(--color-background) 94%, #000 6%);
+  --right-canvas-taskbar-bg: color-mix(in srgb, var(--color-background) 97%, #000 3%);
+  --right-canvas-active-indicator: var(--color-primary);
   position: relative;
   z-index: 1200;
   display: flex;
@@ -30,16 +36,21 @@ body.right-canvas-resizing {
   min-width: 0;
   max-width: none;
   overflow: hidden;
-  border-left: 1px solid var(--color-border);
-  background: var(--color-background);
-  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-left: 1px solid var(--right-canvas-border);
+  background: var(--right-canvas-chrome);
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .right-canvas.is-closed {
   width: 0 !important;
   min-width: 0;
+  overflow: visible;
   border-left: 0;
   background: transparent;
+}
+
+.right-canvas.is-open {
+  overflow: visible;
 }
 
 .right-canvas.is-closed .right-canvas-shell,
@@ -47,6 +58,7 @@ body.right-canvas-resizing {
   display: none;
 }
 
+.right-canvas-rail-button,
 .right-canvas-icon-button,
 .right-canvas-tab {
   appearance: none;
@@ -56,27 +68,36 @@ body.right-canvas-resizing {
   cursor: pointer;
 }
 
+.right-canvas-rail-button,
 .right-canvas-icon-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  min-height: 32px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
   padding: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   background: transparent;
-  opacity: 0.65;
-  transition: all 0.15s ease;
+  opacity: 0.7;
+  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
 }
 
+.right-canvas-rail-button:hover,
 .right-canvas-icon-button:hover {
   opacity: 1;
-  background: color-mix(in srgb, var(--color-background-hover) 72%, transparent);
-  border-color: color-mix(in srgb, var(--color-primary) 24%, transparent);
+  background: color-mix(in srgb, var(--color-background-hover) 60%, transparent);
+  transform: scale(1.05);
 }
 
+.right-canvas-rail-button.is-active {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.right-canvas-rail-button .material-symbols-outlined,
 .right-canvas-icon-button .material-symbols-outlined {
   font-size: 18px;
 }
@@ -100,24 +121,51 @@ body.right-canvas-resizing {
 .right-canvas-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  min-height: 42px;
-  padding: 0 8px;
-  border-bottom: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--color-panel) 94%, transparent);
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--right-canvas-border);
+  background: var(--right-canvas-header-bg);
   backdrop-filter: blur(8px);
+}
+
+.right-canvas-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
+}
+
+.right-canvas-brand {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  letter-spacing: 0.5px;
+}
+
+.right-canvas-divider {
+  color: var(--color-border);
+  font-weight: 300;
+}
+
+.right-canvas-active-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text);
+  opacity: 0.8;
 }
 
 .right-canvas-tabs {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 2px;
   min-width: 0;
+  flex: 1 1 auto;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
-  flex: 1;
+  -ms-overflow-style: none;
+  padding: 6px 0;
 }
 
 .right-canvas-tabs::-webkit-scrollbar {
@@ -129,26 +177,36 @@ body.right-canvas-resizing {
   align-items: center;
   gap: 6px;
   min-width: 0;
-  padding: 0 12px;
+  padding: 6px 12px;
+  border-radius: 8px;
   background: transparent;
-  color: var(--color-text);
-  opacity: 0.45;
+  opacity: 0.55;
   white-space: nowrap;
-  border-bottom: 2px solid transparent;
   transition: all 0.15s ease;
-  font-size: 0.82rem;
-  font-weight: 500;
+  position: relative;
 }
 
 .right-canvas-tab:hover {
-  opacity: 0.8;
-  background: color-mix(in srgb, var(--color-background-hover) 40%, transparent);
+  opacity: 0.85;
+  background: color-mix(in srgb, var(--color-background-hover) 50%, transparent);
 }
 
 .right-canvas-tab.is-active {
   opacity: 1;
-  border-bottom-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   color: var(--color-primary);
+}
+
+.right-canvas-tab.is-active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 2px;
+  background: var(--color-primary);
+  border-radius: 2px;
 }
 
 .right-canvas-tab .material-symbols-outlined {
@@ -167,15 +225,20 @@ body.right-canvas-resizing {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 0.82rem;
-  font-weight: 500;
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 .right-canvas-toolbar {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   flex-shrink: 0;
+}
+
+.right-canvas-icon-button.right-canvas-close-button:hover {
+  background: color-mix(in srgb, var(--color-error, #ff4757) 15%, transparent);
+  color: var(--color-error, #ff4757);
 }
 
 .right-canvas-panels {
@@ -185,7 +248,7 @@ body.right-canvas-resizing {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: var(--color-panel);
+  background: var(--right-canvas-surface);
 }
 
 .right-canvas-panels > x-extension {
@@ -209,6 +272,7 @@ body.right-canvas-resizing {
   opacity: 0;
   pointer-events: none;
   z-index: 0;
+  transition: opacity 0.15s ease;
 }
 
 .right-canvas-surface-panel.is-active {
@@ -233,11 +297,11 @@ body.right-canvas-resizing {
   place-items: center;
   align-content: center;
   gap: 10px;
-  color: color-mix(in srgb, var(--color-text) 45%, transparent);
+  color: color-mix(in srgb, var(--color-text) 40%, transparent);
 }
 
 .right-canvas-empty-state .material-symbols-outlined {
-  font-size: 36px;
+  font-size: 32px;
   opacity: 0.5;
 }
 
@@ -245,17 +309,80 @@ body.right-canvas-resizing {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: -2px;
+  left: -4px;
   z-index: 3;
-  width: 5px;
+  width: 8px;
   cursor: col-resize;
-  background: transparent;
-  transition: background 0.15s ease;
 }
 
-.right-canvas-resize-handle:hover,
-body.right-canvas-resizing .right-canvas-resize-handle {
-  background: color-mix(in srgb, var(--color-primary) 30%, transparent);
+.right-canvas-resize-handle:hover {
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.right-canvas-taskbar {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 8px;
+  border-top: 1px solid var(--right-canvas-border);
+  background: var(--right-canvas-taskbar-bg);
+  backdrop-filter: blur(8px);
+}
+
+.right-canvas-taskbar-items {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.right-canvas-taskbar-items::-webkit-scrollbar {
+  display: none;
+}
+
+.right-canvas-taskbar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text);
+  opacity: 0.6;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  font-size: 0.72rem;
+}
+
+.right-canvas-taskbar-item:hover {
+  opacity: 0.9;
+  background: color-mix(in srgb, var(--color-background-hover) 50%, transparent);
+}
+
+.right-canvas-taskbar-item.is-active {
+  opacity: 1;
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 25%, transparent);
+  color: var(--color-primary);
+}
+
+.right-canvas-taskbar-item .material-symbols-outlined {
+  font-size: 15px;
+}
+
+.right-canvas-taskbar-item .right-canvas-surface-image {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+.right-canvas-taskbar-label {
+  font-weight: 500;
 }
 
 body.right-canvas-overlay-mode .right-canvas {
@@ -265,7 +392,7 @@ body.right-canvas-overlay-mode .right-canvas {
   bottom: 0;
   height: 100%;
   max-width: calc(100vw - 44px);
-  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.28);
+  box-shadow: -16px 0 38px rgba(0, 0, 0, 0.34);
   transform: translateX(100%);
 }
 
@@ -282,82 +409,12 @@ body.right-canvas-mobile-mode .right-canvas {
 }
 
 @media (max-width: 480px) {
-  .right-canvas-tab-label {
+  .right-canvas-tab-label,
+  .right-canvas-taskbar-label {
     display: none;
   }
-}
-
-.right-canvas-taskbar {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  min-height: 38px;
-  padding: 3px 8px;
-  border-top: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--color-panel) 94%, transparent);
-  gap: 2px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.right-canvas-taskbar::-webkit-scrollbar {
-  display: none;
-}
-
-.right-canvas-taskbar > x-extension {
-  display: contents;
-}
-
-.right-canvas-taskbar-items {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  min-width: 0;
-}
-
-.right-canvas-taskbar-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  padding: 4px 8px;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--color-text);
-  font: inherit;
-  font-size: 0.74rem;
-  cursor: pointer;
-  opacity: 0.55;
-  transition: all 0.12s ease;
-}
-
-.right-canvas-taskbar-item:hover {
-  opacity: 0.85;
-  background: color-mix(in srgb, var(--color-background-hover) 60%, transparent);
-}
-
-.right-canvas-taskbar-item.is-active {
-  opacity: 1;
-  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-background));
-  border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
-  color: var(--color-primary);
-}
-
-.right-canvas-taskbar-item .material-symbols-outlined {
-  font-size: 15px;
-}
-
-.right-canvas-taskbar-item .right-canvas-surface-image {
-  width: 15px;
-  height: 15px;
-  border-radius: 3px;
-}
-
-.right-canvas-taskbar-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.72rem;
+  
+  .right-canvas-header-left {
+    display: none;
+  }
 }

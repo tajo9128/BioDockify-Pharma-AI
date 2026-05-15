@@ -4,10 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <title>BioDockify Pharma AI</title>
-    <link rel="icon" type="image/svg+xml" href="public/favicon.svg?v=4.3.5">
-    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=4.3.5">
-    <link rel="shortcut icon" href="public/favicon.svg?v=4.3.5">
+    <title>Agent Zero</title>
+    <link rel="icon" type="image/svg+xml" href="public/favicon.svg">
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="css/messages.css">
     <link rel="stylesheet" href="components/messages/action-buttons/simple-action-buttons.css">
@@ -82,48 +80,26 @@
     <div class="container">
         <!-- Sidebar Overlay -->
         <div id="sidebar-overlay" x-data>
-            <template x-if="$store.sidebar">
+            <template x-if="$store.sidebar && !$store.desktopWorkspace?.isDesktopMode">
                 <div class="sidebar-overlay" :class="{'visible': $store.sidebar.isOpen && $store.sidebar.isMobile()}" @click="$store.sidebar.close()"></div>
             </template>
         </div>
         <!-- Left Sidebar (Header Icons, Quick Actions, Tabs, Chats, Tasks) -->
         <x-component path="sidebar/left-sidebar.html"></x-component>
 
-        <!-- Right Panel (Message History and Input Section) — Always visible -->
-        <div id="right-panel" class="panel">
-          <div class="chat-side-icons">
-            <button class="side-icon-btn" @click="$store.rightCanvas.open('desktop')" title="Kali Linux Desktop">
-              <span class="material-symbols-outlined">desktop_windows</span>
-            </button>
-            <button class="side-icon-btn" @click="$store.rightCanvas.open('statistics')" title="Statistics">
-              <span class="material-symbols-outlined">analytics</span>
-            </button>
-            <button class="side-icon-btn" @click="$store.rightCanvas.open('literature')" title="Literature">
-              <span class="material-symbols-outlined">menu_book</span>
-            </button>
-            <button class="side-icon-btn" @click="$store.rightCanvas.open('knowledge')" title="Knowledge Base">
-              <span class="material-symbols-outlined">psychology</span>
-            </button>
-            <div class="side-icon-sep"></div>
-            <button class="side-icon-btn" @click="$store.rightCanvas.open('research-hub')" title="All Tools">
-              <span class="material-symbols-outlined">apps</span>
-            </button>
-            <button class="side-icon-btn" @click="$store.rightCanvas.open('backup-recovery')" title="Backup & Recovery">
-              <span class="material-symbols-outlined">backup</span>
-            </button>
-          </div>
-          <div class="chat-main">
+        <!-- Right Panel (Message History and Input Section) -->
+        <div id="right-panel" class="panel" x-show="!$store.desktopWorkspace?.isDesktopMode">
+
             <!-- top section with time, status etc. -->
             <x-component path="chat/top-section/chat-top.html"></x-component>
 
-            <!-- Chat Area -->
-            <div id="chat-area-wrapper" x-data>
-              <!-- Welcome Screen -->
-              <div x-show="$store.welcomeStore && $store.welcomeStore.isVisible" style="height:100%;">
+            <!-- Welcome Screen Component -->
+            <div x-data x-show="$store.welcomeStore && $store.welcomeStore.isVisible">
                 <x-component path="welcome/welcome-screen.html"></x-component>
-              </div>
-              <!-- Message History -->
-              <div id="chat-history" x-show="!$store.welcomeStore || !$store.welcomeStore.isVisible"></div>
+            </div>
+            <!-- Message History (actual messages) -->
+            <div id="chat-area-wrapper" x-data x-show="!$store.welcomeStore || !$store.welcomeStore.isVisible">
+              <div id="chat-history"></div>
 
               <!-- Chat Navigation Buttons (floating over chat area) -->
               <div id="chat-nav-buttons" aria-label="Chat navigation" x-cloak>
@@ -163,10 +139,12 @@
                 <!-- Input Section -->
                 <x-component path="chat/input/chat-bar.html"></x-component>
             </div>
-          </div>
         </div>
         <x-component path="canvas/right-canvas.html"></x-component>
     </div>
+
+    <!-- BioDockify Desktop Workspace -->
+    <x-component path="desktop-workspace/desktop-workspace.html"></x-component>
 
     <!-- Drag and Drop Overlay Component -->
     <x-component path="chat/attachments/dragDropOverlay.html"></x-component>

@@ -1,0 +1,491 @@
+<html>
+<head>
+  <script type="module" src="/components/desktop-workspace/desktop-store.js"></script>
+</head>
+<body>
+  <div x-data x-init="$store.desktopWorkspace?.init()" class="desktop-workspace" :class="{ 'is-active': $store.desktopWorkspace?.isDesktopMode }">
+    <div class="desktop-area">
+      <template x-for="win in $store.desktopWorkspace?.visibleWindows || []" :key="win.id">
+        <div
+          class="desktop-window"
+          :class="{ 'is-active': $store.desktopWorkspace?.activeWindowId === win.id, 'is-maximized': win.maximized }"
+          :style="{
+            left: win.x + 'px',
+            top: win.y + 'px',
+            width: win.width + 'px',
+            height: win.height + 'px',
+            zIndex: win.zIndex
+          }"
+          @mousedown="$store.desktopWorkspace?.focusWindow(win.id)"
+        >
+          <div class="window-titlebar" @mousedown="$store.desktopWorkspace?.startDrag($event, win.id)">
+            <span class="window-icon material-symbols-outlined" x-text="win.icon"></span>
+            <span class="window-title" x-text="win.title"></span>
+            <div class="window-controls">
+              <button class="win-btn win-minimize" @click.stop="$store.desktopWorkspace?.minimizeWindow(win.id)" title="Minimize">
+                <span class="material-symbols-outlined">remove</span>
+              </button>
+              <button class="win-btn win-maximize" @click.stop="$store.desktopWorkspace?.maximizeWindow(win.id)" title="Maximize">
+                <span class="material-symbols-outlined" x-text="win.maximized ? 'filter_none' : 'crop_square'"></span>
+              </button>
+              <button class="win-btn win-close" @click.stop="$store.desktopWorkspace?.closeWindow(win.id)" title="Close">
+                <span class="material-symbols-outlined">close</span>
+              </button>
+            </div>
+          </div>
+          <div class="window-content">
+            <x-component :path="win.component"></x-component>
+          </div>
+          <div class="window-resize-handle" @mousedown.stop="$store.desktopWorkspace?.startResize($event, win.id)"></div>
+        </div>
+      </template>
+    </div>
+
+    <div class="desktop-taskbar">
+      <button class="taskbar-start-btn" :class="{ 'is-open': $store.desktopWorkspace?.startMenuOpen }" @click="$store.desktopWorkspace.startMenuOpen = !$store.desktopWorkspace.startMenuOpen">
+        <span class="material-symbols-outlined">apps</span>
+        <span class="start-label">BioDockify</span>
+      </button>
+
+      <div class="taskbar-divider"></div>
+
+      <div class="taskbar-windows">
+        <template x-for="win in $store.desktopWorkspace?.taskbarWindows || []" :key="win.id">
+          <button
+            class="taskbar-window-btn"
+            :class="{ 'is-active': $store.desktopWorkspace?.activeWindowId === win.id && !win.minimized, 'is-minimized': win.minimized }"
+            @click="win.minimized ? ($store.desktopWorkspace.minimizeWindow(win.id), $store.desktopWorkspace.minimizeWindow(win.id)) : ($store.desktopWorkspace.focusWindow(win.id), $store.desktopWorkspace.minimizeWindow(win.id))"
+          >
+            <span class="material-symbols-outlined taskbar-icon" x-text="win.icon"></span>
+            <span class="taskbar-label" x-text="win.title"></span>
+          </button>
+        </template>
+      </div>
+
+      <div class="taskbar-tray">
+        <button class="taskbar-tray-btn" @click="$store.desktopWorkspace.toggleDesktopMode()" title="Switch to Chat Mode">
+          <span class="material-symbols-outlined">chat</span>
+        </button>
+        <span class="taskbar-clock" x-data="{ time: '' }" x-init="time = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); setInterval(() => time = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}), 30000)" x-text="time"></span>
+      </div>
+    </div>
+
+    <div class="start-menu" :class="{ 'is-open': $store.desktopWorkspace?.startMenuOpen }" @click.away="$store.desktopWorkspace.startMenuOpen = false">
+      <div class="start-menu-header">
+        <span class="material-symbols-outlined start-menu-icon">science</span>
+        <span class="start-menu-title">BioDockify Pharma AI</span>
+      </div>
+      <div class="start-menu-search">
+        <span class="material-symbols-outlined">search</span>
+        <input type="text" placeholder="Search modules..." x-model="$store.desktopWorkspace._searchQuery" />
+      </div>
+      <div class="start-menu-grid">
+        <template x-for="mod in ($store.desktopWorkspace?.sortedModules || []).filter(m => !$store.desktopWorkspace._searchQuery || m.title.toLowerCase().includes($store.desktopWorkspace._searchQuery.toLowerCase()))" :key="mod.id">
+          <button class="start-menu-item" @click="$store.desktopWorkspace.openWindow(mod.id); $store.desktopWorkspace.startMenuOpen = false;">
+            <span class="material-symbols-outlined start-item-icon" x-text="mod.icon"></span>
+            <span class="start-item-label" x-text="mod.title"></span>
+          </button>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .desktop-workspace {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      background: var(--color-background);
+      flex-direction: column;
+    }
+
+    .desktop-workspace.is-active {
+      display: flex;
+    }
+
+    .desktop-area {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(135deg, color-mix(in srgb, var(--color-background) 95%, #000 5%) 0%, color-mix(in srgb, var(--color-background) 90%, var(--color-primary) 10%) 100%);
+    }
+
+    .desktop-window {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
+      border: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
+      min-width: 300px;
+      min-height: 200px;
+    }
+
+    .desktop-window.is-active {
+      box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
+      border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+    }
+
+    .desktop-window.is-maximized {
+      border-radius: 0;
+      border: none;
+    }
+
+    .window-titlebar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 36px;
+      padding: 0 8px 0 10px;
+      background: color-mix(in srgb, var(--color-panel) 95%, #000 5%);
+      border-bottom: 1px solid var(--color-border);
+      cursor: default;
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .desktop-window.is-active .window-titlebar {
+      background: color-mix(in srgb, var(--color-panel) 98%, var(--color-primary) 2%);
+    }
+
+    .window-icon {
+      font-size: 16px;
+      color: var(--color-primary);
+      flex-shrink: 0;
+    }
+
+    .window-title {
+      flex: 1;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--color-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .window-controls {
+      display: flex;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+
+    .win-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+
+    .win-btn:hover {
+      background: color-mix(in srgb, var(--color-background-hover) 60%, transparent);
+      color: var(--color-text);
+    }
+
+    .win-btn.win-close:hover {
+      background: color-mix(in srgb, #ff4757 80%, transparent);
+      color: white;
+    }
+
+    .win-btn .material-symbols-outlined {
+      font-size: 16px;
+    }
+
+    .window-content {
+      flex: 1;
+      overflow: hidden;
+      background: var(--color-background);
+      min-height: 0;
+    }
+
+    .window-content > x-component,
+    .window-content > x-component > div {
+      display: flex;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .window-resize-handle {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 16px;
+      height: 16px;
+      cursor: nwse-resize;
+    }
+
+    .window-resize-handle::after {
+      content: '';
+      position: absolute;
+      right: 3px;
+      bottom: 3px;
+      width: 8px;
+      height: 8px;
+      border-right: 2px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+      border-bottom: 2px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+    }
+
+    .desktop-taskbar {
+      display: flex;
+      align-items: center;
+      height: 48px;
+      padding: 0 8px;
+      background: color-mix(in srgb, var(--color-panel) 96%, #000 4%);
+      border-top: 1px solid var(--color-border);
+      gap: 4px;
+      flex-shrink: 0;
+      backdrop-filter: blur(12px);
+    }
+
+    .taskbar-start-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 36px;
+      padding: 0 12px;
+      border: none;
+      border-radius: 8px;
+      background: var(--color-primary);
+      color: white;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 600;
+      transition: all 0.15s;
+    }
+
+    .taskbar-start-btn:hover {
+      opacity: 0.9;
+      transform: scale(1.02);
+    }
+
+    .taskbar-start-btn.is-open {
+      background: color-mix(in srgb, var(--color-primary) 80%, #000 20%);
+    }
+
+    .taskbar-start-btn .material-symbols-outlined {
+      font-size: 18px;
+    }
+
+    .taskbar-divider {
+      width: 1px;
+      height: 24px;
+      background: var(--color-border);
+      margin: 0 4px;
+    }
+
+    .taskbar-windows {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      flex: 1;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .taskbar-windows::-webkit-scrollbar {
+      display: none;
+    }
+
+    .taskbar-window-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 34px;
+      padding: 0 10px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      font-size: 0.72rem;
+      white-space: nowrap;
+      transition: all 0.12s;
+      position: relative;
+    }
+
+    .taskbar-window-btn:hover {
+      background: color-mix(in srgb, var(--color-background-hover) 50%, transparent);
+      color: var(--color-text);
+    }
+
+    .taskbar-window-btn.is-active {
+      background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+      border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+      color: var(--color-primary);
+    }
+
+    .taskbar-window-btn.is-active::after {
+      content: '';
+      position: absolute;
+      bottom: 2px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 16px;
+      height: 2px;
+      background: var(--color-primary);
+      border-radius: 2px;
+    }
+
+    .taskbar-window-btn.is-minimized {
+      opacity: 0.5;
+    }
+
+    .taskbar-icon {
+      font-size: 15px;
+    }
+
+    .taskbar-tray {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
+
+    .taskbar-tray-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+
+    .taskbar-tray-btn:hover {
+      background: color-mix(in srgb, var(--color-background-hover) 50%, transparent);
+      color: var(--color-text);
+    }
+
+    .taskbar-clock {
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+      font-weight: 500;
+      padding: 0 8px;
+    }
+
+    .start-menu {
+      position: absolute;
+      bottom: 56px;
+      left: 8px;
+      width: 380px;
+      max-height: 500px;
+      background: color-mix(in srgb, var(--color-panel) 97%, #000 3%);
+      border: 1px solid var(--color-border);
+      border-radius: 12px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+      overflow: hidden;
+      display: none;
+      flex-direction: column;
+      z-index: 1000;
+      backdrop-filter: blur(16px);
+    }
+
+    .start-menu.is-open {
+      display: flex;
+    }
+
+    .start-menu-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .start-menu-icon {
+      font-size: 24px;
+      color: var(--color-primary);
+    }
+
+    .start-menu-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--color-text);
+    }
+
+    .start-menu-search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      margin: 8px 12px;
+      background: var(--color-background);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+    }
+
+    .start-menu-search .material-symbols-outlined {
+      font-size: 18px;
+      color: var(--color-text-muted);
+    }
+
+    .start-menu-search input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      color: var(--color-text);
+      font-size: 0.82rem;
+      outline: none;
+    }
+
+    .start-menu-search input::placeholder {
+      color: var(--color-text-muted);
+    }
+
+    .start-menu-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      padding: 8px 12px 14px;
+      overflow-y: auto;
+      max-height: 340px;
+    }
+
+    .start-menu-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 14px 8px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--color-text);
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+
+    .start-menu-item:hover {
+      background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    }
+
+    .start-item-icon {
+      font-size: 24px;
+      color: var(--color-primary);
+    }
+
+    .start-item-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-align: center;
+      line-height: 1.2;
+    }
+  </style>
+</body>
+</html>
