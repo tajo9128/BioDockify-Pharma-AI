@@ -2,11 +2,41 @@
 
 /* Split mode: relative flex child */
 .desktop-workspace.layout-split {
+  display: flex !important;
   position: relative;
   flex: 1 1 0;
   width: 100%;
   height: 100%;
   z-index: 1;
+  flex-direction: column;
+}
+
+/* Full desktop mode: fills remaining space after sidebar */
+.desktop-workspace.layout-desktop {
+  display: flex !important;
+  position: relative;
+  flex: 1 1 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  flex-direction: column;
+}
+
+/* Ensure desktop workspace is hidden by default (chat mode) */
+.desktop-workspace {
+  display: none;
+}
+
+/* When active, take over full viewport */
+.desktop-workspace.is-active {
+  display: flex !important;
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: var(--color-background);
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
 }
 
 /* Full desktop mode: fills remaining space after sidebar */
