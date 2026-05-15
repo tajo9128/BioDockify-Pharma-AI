@@ -158,7 +158,7 @@ BRANCH_DATA: Dict[PharmaBranch, Dict[str, Any]] = {
     PharmaBranch.PHARMA_CHEMISTRY: {
         "intro_focus": "Emphasis on molecular target context",
         "methods_mandatory": "Reaction conditions / Purification methods",
-        "results_data": "Yields, NMR/IR spectra, docking scores",
+        "results_data": "Yields, NMR/IR spectra, assay results",
         "discussion_mechanism": True  # SAR focus
     },
     PharmaBranch.PHARMACOGNOSY: {

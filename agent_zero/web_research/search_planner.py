@@ -99,7 +99,7 @@ class SearchPlanner:
             r'\b(drug|medicine|pharmaceutical|treatment|therapy)\b',
             r'\b(disease|disorder|condition|syndrome|symptom)\b',
             r'\b(protein|enzyme|receptor|ligand|binding)\b',
-            r'\b(molecular|structure|compound|docking|simulation)\b'
+            r'\b(molecular|structure|compound|simulation)\b'
         ]
         
         # Extract terms using regex

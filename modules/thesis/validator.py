@@ -101,7 +101,7 @@ class ThesisValidator:
 
         # Rule 3: Pharm.D Clinical Enforcement
         if degree == DegreeType.PHARM_D:
-            if re.search(r"molecular mechanism|binding site|docking|chemical synthesis|formulation optimization", text, re.I):
+            if re.search(r"molecular mechanism|binding site|chemical synthesis|formulation optimization", text, re.I):
                 violations.append("PHARM.D VIOLATION: Clinical project cannot include mechanistic/synthetic claims.")
             
             if chapter_enum == ChapterId.FRONT_MATTER and "Abstract" in text:
