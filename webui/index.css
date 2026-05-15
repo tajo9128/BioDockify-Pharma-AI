@@ -1705,30 +1705,4 @@ body *::-webkit-scrollbar-thumb:active {
   background-color: #8a8a8a;
 }
 
-/* -- Full-page Tool Area -- */
-.tool-fullpage {
-  display: flex; flex-direction: column; flex: 1 1 0;
-  min-width: 0; height: 100%; overflow: hidden;
-}
-.tool-fullpage-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 16px; min-height: 42px;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-panel); flex-shrink: 0;
-}
-.tool-fullpage-title {
-  font-size: 0.95rem; font-weight: 700; color: var(--color-text);
-  font-family: var(--font-family-main);
-}
-.tool-back-btn {
-  padding: 6px 14px; border-radius: 6px; border: none;
-  background: var(--color-primary); color: white; cursor: pointer;
-  font-size: 0.82rem; font-weight: 500;
-  font-family: var(--font-family-main); transition: opacity .15s;
-}
-.tool-back-btn:hover { opacity: .85; }
-.tool-fullpage-content {
-  display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; overflow: hidden;
-}
-.tool-fullpage-content > x-extension { display: contents; }
-.tool-fullpage-content > x-extension > x-component { display: contents; }
+
