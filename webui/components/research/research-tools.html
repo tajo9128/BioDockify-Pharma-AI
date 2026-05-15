@@ -6,57 +6,61 @@
 </head>
 <body>
   <div x-data class="research-tools">
-    <div class="section-header">
-      <h2>All Tools</h2>
-      <p class="section-desc">Interactive tools (click to open) · Agent-driven tools (type in chat)</p>
-    </div>
+    <h2 class="tools-heading">All Tools</h2>
+    <p class="tools-desc">Interactive tools (click to open) · Agent-driven tools (type in chat)</p>
 
     <div class="tool-grid">
-      <button class="tool-card interactive" @click="$store.rightCanvas.open('statistics')">
-        <span class="material-symbols-outlined">analytics</span><span>Statistics</span>
+      <button class="tool-card" @click="$store.rightCanvas.open('statistics')">
+        <span class="material-symbols-outlined">analytics</span>
+        <span class="tool-label">Statistics</span>
       </button>
-      <button class="tool-card interactive" @click="$store.rightCanvas.open('knowledge')">
-        <span class="material-symbols-outlined">psychology</span><span>Knowledge</span>
+      <button class="tool-card" @click="$store.rightCanvas.open('knowledge')">
+        <span class="material-symbols-outlined">psychology</span>
+        <span class="tool-label">Knowledge</span>
       </button>
-      <button class="tool-card interactive" @click="$store.rightCanvas.open('drug-properties')">
-        <span class="material-symbols-outlined">medication</span><span>Drug Properties</span>
+      <button class="tool-card" @click="$store.rightCanvas.open('drug-properties')">
+        <span class="material-symbols-outlined">medication</span>
+        <span class="tool-label">Drug Properties</span>
       </button>
-      <button class="tool-card interactive" @click="$store.rightCanvas.open('patent-analyzer')">
-        <span class="material-symbols-outlined">gavel</span><span>Patents</span>
+      <button class="tool-card" @click="$store.rightCanvas.open('patent-analyzer')">
+        <span class="material-symbols-outlined">gavel</span>
+        <span class="tool-label">Patents</span>
       </button>
-      <button class="tool-card interactive" @click="$store.rightCanvas.open('trial-scanner')">
-        <span class="material-symbols-outlined">clinical_notes</span><span>Trials</span>
+      <button class="tool-card" @click="$store.rightCanvas.open('trial-scanner')">
+        <span class="material-symbols-outlined">clinical_notes</span>
+        <span class="tool-label">Trials</span>
       </button>
-      <button class="tool-card agent" @click="$store.rightCanvas.open('literature')">
-        <span class="material-symbols-outlined">menu_book</span><span>Literature</span>
+      <button class="tool-card" @click="$store.rightCanvas.open('literature')">
+        <span class="material-symbols-outlined">menu_book</span>
+        <span class="tool-label">Literature</span>
       </button>
-      <button class="tool-card agent" @click="$store.rightCanvas.open('thesis')">
-        <span class="material-symbols-outlined">description</span><span>Academic Writer</span>
+      <button class="tool-card" @click="$store.rightCanvas.open('thesis')">
+        <span class="material-symbols-outlined">description</span>
+        <span class="tool-label">Academic Writer</span>
       </button>
-      <button class="tool-card agent" @click="$store.rightCanvas.open('slides')">
-        <span class="material-symbols-outlined">slideshow</span><span>Slides</span>
+      <button class="tool-card" @click="$store.rightCanvas.open('slides')">
+        <span class="material-symbols-outlined">slideshow</span>
+        <span class="tool-label">Slides</span>
       </button>
-      <button class="tool-card agent" @click="$store.rightCanvas.open('wetlab')">
-        <span class="material-symbols-outlined">biotech</span><span>Wet Lab</span>
+      <button class="tool-card" @click="$store.rightCanvas.open('wetlab')">
+        <span class="material-symbols-outlined">biotech</span>
+        <span class="tool-label">Wet Lab</span>
       </button>
-      <button class="tool-card agent" @click="$store.rightCanvas.open('lecture-builder')">
-        <span class="material-symbols-outlined">school</span><span>Lecture Builder</span>
+      <button class="tool-card" @click="$store.rightCanvas.open('lecture-builder')">
+        <span class="material-symbols-outlined">school</span>
+        <span class="tool-label">Lecture Builder</span>
       </button>
-    </div>
     </div>
 
     <style>
-      .research-tools { padding: var(--spacing-md); height: 100%; overflow-y: auto; }
-      .section-header { margin-bottom: var(--spacing-md); }
-      .section-header h2 { color: var(--color-primary); font-size: 1.1rem; margin: 0 0 4px 0; }
-      .section-desc { color: var(--color-text-muted); font-size: 0.75rem; margin: 0; }
+      .research-tools { padding: var(--spacing-md); height: 100%; overflow-y: auto; display: flex; flex-direction: column; }
+      .tools-heading { color: var(--color-primary); font-size: 1.15rem; margin: 0 0 2px 0; flex-shrink: 0; }
+      .tools-desc { color: var(--color-text-muted); font-size: 0.75rem; margin: 0 0 var(--spacing-md) 0; flex-shrink: 0; }
       .tool-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--spacing-sm); }
-      .tool-card { display: flex; flex-direction: column; align-items: center; gap: var(--spacing-xs); padding: 1rem; border-radius: 8px; cursor: pointer; transition: all 0.2s; background: var(--color-panel); border: 1px solid var(--color-border); }
-      .tool-card:hover { border-color: var(--color-primary); }
-      .tool-card.interactive { border-left: 3px solid var(--color-primary); }
-      .tool-card.agent { border-left: 3px solid #ffd93d; }
-      .tool-card .material-symbols-outlined { font-size: 28px; color: var(--color-primary); }
-      .tool-card span:last-child { font-size: 0.75rem; color: var(--color-text); text-align: center; }
+      .tool-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; aspect-ratio: 1 / 1; padding: 0.5rem; border-radius: 10px; cursor: pointer; transition: all 0.2s; background: var(--color-panel); border: 1px solid var(--color-border); }
+      .tool-card:hover { border-color: var(--color-primary); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+      .tool-card .material-symbols-outlined { font-size: 32px; color: var(--color-primary); }
+      .tool-label { font-size: 0.78rem; color: var(--color-text); text-align: center; line-height: 1.2; font-weight: 500; }
     </style>
   </div>
 </body>
