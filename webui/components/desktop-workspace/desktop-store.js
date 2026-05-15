@@ -23,7 +23,7 @@ const defaultModules = [
 ];
 
 const model = {
-  isDesktopMode: false,
+  desktopLayout: 'chat',
   windows: [],
   activeWindowId: null,
   nextZIndex: 100,
@@ -32,6 +32,29 @@ const model = {
   _searchQuery: "",
   _initialized: false,
 
+  get isChatMode() { return this.desktopLayout === 'chat'; },
+  get isSplitMode() { return this.desktopLayout === 'split'; },
+  get isDesktopMode() { return this.desktopLayout === 'desktop'; },
+
+  cycleLayout() {
+    const modes = ['chat', 'split', 'desktop'];
+    const idx = modes.indexOf(this.desktopLayout);
+    this.desktopLayout = modes[(idx + 1) % modes.length];
+    this.persist();
+  },
+
+  setChatMode() {
+    this.desktopLayout = 'chat';
+    this.persist();
+  },
+
+  getDesktopAreaBounds() {
+    const el = document.querySelector('.desktop-area');
+    if (!el) return { w: window.innerWidth - 100, h: window.innerHeight - 148 };
+    const r = el.getBoundingClientRect();
+    return { w: r.width - 100, h: r.height - 148 };
+  },
+
   init() {
     if (this._initialized) return;
     this._initialized = true;
@@ -39,17 +62,15 @@ const model = {
   },
 
   toggleDesktopMode() {
-    this.isDesktopMode = !this.isDesktopMode;
-    this.persist();
+    this.cycleLayout();
   },
 
   openWindow(moduleId) {
     const module = defaultModules.find(m => m.id === moduleId);
     if (!module) return;
 
-    // Auto-switch to desktop mode if not already in it
-    if (!this.isDesktopMode) {
-      this.isDesktopMode = true;
+    if (this.desktopLayout === 'chat') {
+      this.desktopLayout = 'split';
       this.persist();
     }
 
@@ -62,8 +83,9 @@ const model = {
       return;
     }
 
-    const availW = window.innerWidth - 100;
-    const availH = window.innerHeight - 148;
+    const bounds = this.getDesktopAreaBounds();
+    const availW = Math.max(300, bounds.w);
+    const availH = Math.max(200, bounds.h);
     const w = Math.min(module.defaultWidth, availW);
     const h = Math.min(module.defaultHeight, availH);
     const x = Math.max(20, Math.floor((availW - w) / 2) + Math.random() * 40 - 20);
@@ -128,10 +150,11 @@ const model = {
       win.maximized = false;
     } else {
       win.prevBounds = { x: win.x, y: win.y, width: win.width, height: win.height };
+      const bounds = this.getDesktopAreaBounds();
       win.x = 0;
       win.y = 0;
-      win.width = window.innerWidth;
-      win.height = window.innerHeight - 48;
+      win.width = Math.max(400, bounds.w + 100);
+      win.height = Math.max(300, bounds.h + 100);
       win.maximized = true;
     }
   },
@@ -193,7 +216,7 @@ const model = {
   persist() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        isDesktopMode: this.isDesktopMode,
+        desktopLayout: this.desktopLayout,
         taskbarPinned: this.taskbarPinned,
       }));
     } catch (e) {
@@ -204,7 +227,7 @@ const model = {
   restore() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-      if (saved.isDesktopMode !== undefined) this.isDesktopMode = saved.isDesktopMode;
+      if (saved.desktopLayout) this.desktopLayout = saved.desktopLayout;
       if (saved.taskbarPinned) this.taskbarPinned = saved.taskbarPinned;
     } catch (e) {
       console.warn("Could not restore desktop workspace state", e);

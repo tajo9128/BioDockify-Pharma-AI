@@ -1,11 +1,29 @@
-/* Desktop Workspace Styles - Full-screen mode with toggle */
+/* Desktop Workspace Styles - Split-pane and full-screen modes */
 
-/* Ensure desktop workspace is hidden by default */
+/* Split mode: relative flex child */
+.desktop-workspace.layout-split {
+  position: relative;
+  flex: 1 1 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* Full desktop mode: fills remaining space after sidebar */
+.desktop-workspace.layout-desktop {
+  position: relative;
+  flex: 1 1 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* Ensure desktop workspace is hidden by default (chat mode) */
 .desktop-workspace {
   display: none;
 }
 
-/* When active, take over full viewport */
+/* When active, take over full viewport or flex area */
 .desktop-workspace.is-active {
   display: flex;
   position: fixed;
@@ -17,19 +35,435 @@
   height: 100vh;
 }
 
-/* Hide right panel when in desktop mode */
+#right-panel {
+  transition: opacity 0.2s ease;
+}
+
 #right-panel.desktop-hidden {
   opacity: 0;
   pointer-events: none;
   position: absolute;
   inset: 0;
-  width: 0;
-  min-width: 0;
-  flex: 0 0 0;
-  overflow: hidden;
 }
 
-/* Sidebar should also hide in desktop mode */
-.sidebar-shell.desktop-hidden {
-  display: none !important;
+.desktop-area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-background) 95%, #000 5%) 0%, color-mix(in srgb, var(--color-background) 90%, var(--color-primary) 10%) 100%);
+}
+
+.back-to-chat-btn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 18px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-primary) 25%, var(--color-panel));
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 700;
+  backdrop-filter: blur(16px);
+  transition: all 0.2s ease;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.02em;
+}
+
+.back-to-chat-btn:hover {
+  background: color-mix(in srgb, var(--color-primary) 40%, var(--color-panel));
+  border-color: color-mix(in srgb, var(--color-primary) 60%, transparent);
+  transform: translateX(-3px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.back-to-chat-btn:active {
+  transform: translateX(-1px);
+}
+
+.back-to-chat-btn .material-symbols-outlined {
+  font-size: 20px;
+  color: white;
+}
+
+.desktop-window {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
+  border: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  min-width: 300px;
+  min-height: 200px;
+}
+
+.desktop-window.is-active {
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+}
+
+.desktop-window.is-maximized {
+  border-radius: 0;
+  border: none;
+}
+
+.window-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 8px 0 10px;
+  background: color-mix(in srgb, var(--color-panel) 95%, #000 5%);
+  border-bottom: 1px solid var(--color-border);
+  cursor: default;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.desktop-window.is-active .window-titlebar {
+  background: color-mix(in srgb, var(--color-panel) 98%, var(--color-primary) 2%);
+}
+
+.window-icon {
+  font-size: 16px;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.window-title {
+  flex: 1;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.window-controls {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.win-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.win-btn:hover {
+  background: color-mix(in srgb, var(--color-background-hover) 60%, transparent);
+  color: var(--color-text);
+}
+
+.win-btn.win-close:hover {
+  background: color-mix(in srgb, #ff4757 80%, transparent);
+  color: white;
+}
+
+.win-btn .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.window-content {
+  flex: 1;
+  overflow: hidden;
+  background: var(--color-background);
+  min-height: 0;
+}
+
+.window-content > x-component,
+.window-content > x-component > div {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.window-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+}
+
+.window-resize-handle::after {
+  content: '';
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+}
+
+.desktop-taskbar {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 8px;
+  background: color-mix(in srgb, var(--color-panel) 96%, #000 4%);
+  border-top: 1px solid var(--color-border);
+  gap: 4px;
+  flex-shrink: 0;
+  backdrop-filter: blur(12px);
+}
+
+.taskbar-start-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-primary);
+  color: white;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.taskbar-start-btn:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
+}
+
+.taskbar-start-btn.is-open {
+  background: color-mix(in srgb, var(--color-primary) 80%, #000 20%);
+}
+
+.taskbar-start-btn .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.taskbar-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--color-border);
+  margin: 0 4px;
+}
+
+.taskbar-windows {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.taskbar-windows::-webkit-scrollbar {
+  display: none;
+}
+
+.taskbar-window-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  transition: all 0.12s;
+  position: relative;
+}
+
+.taskbar-window-btn:hover {
+  background: color-mix(in srgb, var(--color-background-hover) 50%, transparent);
+  color: var(--color-text);
+}
+
+.taskbar-window-btn.is-active {
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+  color: var(--color-primary);
+}
+
+.taskbar-window-btn.is-active::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 2px;
+  background: var(--color-primary);
+  border-radius: 2px;
+}
+
+.taskbar-window-btn.is-minimized {
+  opacity: 0.5;
+}
+
+.taskbar-icon {
+  font-size: 15px;
+}
+
+.taskbar-tray {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.taskbar-tray-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.taskbar-tray-btn:hover {
+  background: color-mix(in srgb, var(--color-background-hover) 50%, transparent);
+  color: var(--color-text);
+}
+
+.taskbar-clock {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  padding: 0 8px;
+}
+
+.start-menu {
+  position: absolute;
+  bottom: 56px;
+  left: 8px;
+  width: 380px;
+  max-height: 500px;
+  background: color-mix(in srgb, var(--color-panel) 97%, #000 3%);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+  z-index: 1000;
+  backdrop-filter: blur(16px);
+}
+
+.start-menu.is-open {
+  display: flex;
+}
+
+.start-menu-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.start-menu-icon {
+  font-size: 24px;
+  color: var(--color-primary);
+}
+
+.start-menu-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.start-menu-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin: 8px 12px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.start-menu-search .material-symbols-outlined {
+  font-size: 18px;
+  color: var(--color-text-muted);
+}
+
+.start-menu-search input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.82rem;
+  outline: none;
+}
+
+.start-menu-search input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.start-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 8px 12px 14px;
+  overflow-y: auto;
+  max-height: 340px;
+}
+
+.start-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.start-menu-item:hover {
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.start-item-icon {
+  font-size: 24px;
+  color: var(--color-primary);
+}
+
+.start-item-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
 }

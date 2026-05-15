@@ -9,7 +9,7 @@
 
 <body>
   <div x-data>
-    <template x-if="$store.sidebar && !$store.desktopWorkspace?.isDesktopMode">
+    <template x-if="$store.sidebar">
       <div class="sidebar-shell">
         <x-component path="sidebar/top-section/header-icons.html"></x-component>
         <div id="left-panel" class="panel" x-data :class="{'hidden': !$store.sidebar.isOpen}">

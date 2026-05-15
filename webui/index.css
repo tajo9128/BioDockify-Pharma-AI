@@ -419,6 +419,46 @@ img {
   transition: margin-left var(--transition-speed) ease-in-out;
 }
 
+/* Split mode: chat and desktop side by side */
+.container.split-mode {
+  flex-direction: row;
+}
+
+.container.split-mode #right-panel {
+  flex: 1 1 35%;
+  min-width: 300px;
+  border-right: 2px solid var(--color-border);
+}
+
+.container.split-mode #desktop-wrapper {
+  flex: 1 1 65%;
+  min-width: 400px;
+  position: relative;
+}
+
+/* Full desktop mode: sidebar + desktop only */
+.container.desktop-mode #right-panel {
+  display: none;
+}
+
+.container.desktop-mode #desktop-wrapper {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Resize handle between panels */
+.split-divider {
+  width: 4px;
+  cursor: col-resize;
+  background: var(--color-border);
+  transition: background 0.2s;
+}
+
+.split-divider:hover {
+  background: var(--color-primary);
+}
+
 /* Chat area wrapper – contains chat-history + floating nav buttons */
 #chat-area-wrapper {
   position: relative;
