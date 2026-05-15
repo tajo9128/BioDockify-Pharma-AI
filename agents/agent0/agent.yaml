@@ -1,11 +1,34 @@
 title: BioDockify AI
-description: "BioDockify Pharma AI v4.3.5 - Main orchestrator for pharmaceutical research. Full control over all modules, APIs, and sub-agents."
+description: "BioDockify Pharma AI v5.6.3 - Research Orchestrator with full control over 15 modules, 4 sub-agents, and autonomous self-healing capabilities."
 context: ''
-
 modules:
+  research_dashboard:
+    api: GET /api/research/management/dashboard/{id}
+    routes:
+      - POST /api/research/management/comprehensive/initialize
+      - GET /api/research/management/list
+      - GET /api/research/management/dashboard/{research_id}
+      - PUT /api/research/management/task/{research_id}/{task_id}
+      - POST /api/research/management/wetlab/create
+      - POST /api/research/management/wetlab/start/{experiment_id}
+      - POST /api/research/management/wetlab/submit
+      - POST /api/research/management/thesis/initialize
+      - PUT /api/research/management/thesis/milestone
+      - GET /api/research/management/thesis/progress/{research_id}
+    description: "Research pipeline orchestrator - auto-research, thesis tracking, wet lab coordination (23 endpoints)"
+
+  molecular_toolkit:
+    api: POST /api/admet_predict
+    routes:
+      - POST /api/admet_predict
+      - POST /api/molecular_similarity
+      - POST /api/chemical_space
+    description: "ADMET prediction, molecular similarity (Tanimoto), chemical space PCA visualization"
+
   statistics:
     api: POST /api/statistics/analyze
     routes:
+      - POST /api/statistics/import-data
       - POST /api/statistics/analyze/descriptive
       - POST /api/statistics/analyze/t-test
       - POST /api/statistics/analyze/anova
@@ -13,35 +36,59 @@ modules:
       - POST /api/statistics/analyze/mann-whitney
       - POST /api/statistics/analyze/kruskal-wallis
       - POST /api/statistics/analyze/power
-      - POST /api/statistics/import-data
+      - POST /api/statistics/analyze/survival
+      - POST /api/statistics/analyze/regression
+      - POST /api/statistics/analyze/pkpd
       - GET /api/statistics/available-analyses
-      - GET /api/statistics/data-summary
-    description: "70+ statistical methods for clinical trial analysis"
+    description: "70+ statistical methods for clinical trial and pharmaceutical data analysis"
+
+  drug_properties:
+    api: POST /api/drug_properties
+    routes:
+      - POST /api/drug_properties
+    description: "Calculate MW, LogP, HBD, HBA, TPSA, Lipinski Rule-of-5 from SMILES (RDKit + fallback)"
 
   literature:
-    api: POST /api/literature/search
+    api: POST /api/literature_search
     routes:
-      - POST /api/literature/search
-      - POST /api/literature/synthesize
-    description: "Literature search across PubMed, Semantic Scholar, Europe PMC, Crossref, BioRxiv, OpenAlex"
+      - POST /api/literature_search
+    description: "Multi-database literature search (PubMed, Semantic Scholar, arXiv)"
+
+  patent:
+    api: POST /api/patent_search
+    routes:
+      - POST /api/patent_search
+    description: "Patent search and analysis (Espacenet + Google Patents)"
+
+  trial:
+    api: POST /api/trial_search
+    routes:
+      - POST /api/trial_search
+    description: "Clinical trial scanner (ClinicalTrials.gov API)"
 
   thesis:
-    api: POST /api/thesis/generate
+    api: GET /api/thesis/chapters
     routes:
       - GET /api/thesis/chapters
-      - POST /api/thesis/generate
+      - POST /api/thesis/generate-chapter
       - GET /api/thesis/branches
       - GET /api/thesis/degrees
-    description: "Thesis chapter generation with pharma branch and degree support"
+    description: "Academic Writer - literature review, research paper, thesis chapter generation"
 
   slides:
-    api: POST /api/slides/generate/from-kb
+    api: GET /api/slides/styles
     routes:
       - GET /api/slides/styles
-      - POST /api/slides/generate/from-kb
-      - POST /api/slides/generate/from-prompt
-      - POST /api/slides/assemble
-    description: "Presentation generation from knowledge base or prompts"
+      - POST /api/slides/generate-from-kb
+      - POST /api/slides/generate-from-prompt
+      - POST /api/slides/assemble-slides
+    description: "Presentation generation from knowledge base or custom prompts"
+
+  lecture:
+    api: POST /api/lecture_generate
+    routes:
+      - POST /api/lecture_generate
+    description: "Lecture builder with learning objectives, sections, homework"
 
   wetlab:
     api: POST /api/research/management/wetlab/create
@@ -57,22 +104,28 @@ modules:
     api: POST /api/knowledge/query
     routes:
       - POST /api/knowledge/query
-      - POST /api/knowledge/podcast
-    description: "RAG-based knowledge base with SurfSense integration"
+      - POST /api/knowledge/import
+    description: "Research Notebook - ChromaDB vector search, SurfSense storage, file upload, tags, favorites"
+
+  kokoro_tts:
+    api: POST /api/kokoro_tts
+    routes:
+      - POST /api/kokoro_tts
+    description: "Text-to-speech (Kokoro → Edge-TTS → browser fallback)"
 
 sub_agents:
   - name: researcher
-    role: "Deep research, literature synthesis, data analysis"
-    tools: [web_research, literature_search]
+    role: "Deep research, literature synthesis, data analysis, drug discovery"
+    tools: [web_research, literature_search, patent_search, trial_search]
   - name: biostatistician
-    role: "Statistical analysis, clinical trial data"
-    tools: [statistics_*]
+    role: "Statistical analysis, clinical trial data, hypothesis testing, PK/PD modeling"
+    tools: [statistics_*, statistical_analysis]
   - name: writer
-    role: "Academic writing, thesis, papers"
-    tools: [thesis_*, document_*]
+    role: "Academic writing, thesis chapters, research papers, literature reviews, slides"
+    tools: [thesis_*, slides_*, lecture_*, document_*]
   - name: hacker
-    role: "Code execution, technical tasks, web scraping"
-    tools: [execute_code, web_scraper]
+    role: "Code execution, web scraping, content acquisition, automation"
+    tools: [execute_code, web_scraper, browser_tool]
 
 orchestration:
   can_delegate: true
@@ -81,6 +134,33 @@ orchestration:
   can_self_repair: true
   can_manage_context: true
   can_access_tools: true
+  auto_monitor: true
+  check_interval_minutes: 30
+
+monitoring:
+  enabled: true
+  check_modules: true
+  check_apis: true
+  check_disk: true
+  check_memory: true
+  alert_on_failure: true
+  auto_repair: true
+  health_endpoints:
+    - GET /api/health
+    - GET /api/statistics/available-analyses
+    - GET /api/thesis/health
+    - GET /api/slides/styles
+    - GET /api/research/management/health
+
+self_healing:
+  enabled: true
+  max_retries: 3
+  repair_steps:
+    - detect: "Check API response for errors, timeouts, or missing data"
+    - diagnose: "Test connectivity, verify dependencies, check logs"
+    - repair: "Restart services, reinstall packages, fix configuration"
+    - verify: "Re-run failed operation and confirm success"
+    - log: "Store incident report for future learning"
 
 api_capabilities:
   can_make_http_requests: true
@@ -94,23 +174,27 @@ tools:
   - browse_files: "Access file system"
   - web_research: "Web research and scraping"
   - message_subagent: "Send message to sub-agent"
-  - callJsonApi: "Call BioDockify API endpoints (statistics, literature, thesis, slides, wetlab, knowledge)"
+  - callJsonApi: "Call any BioDockify API endpoint directly"
 
 self_control:
   can_self_diagnose: true
   can_self_repair: true
   can_configure: true
   can_check_status: true
+  can_restart_services: true
+  can_install_packages: true
+  can_modify_config: true
+  can_manage_modules: true
 
 instructions:
-  - "You are the main orchestrator - always in control"
-  - "Delegate to sub-agents for specialized tasks"
-  - "Make direct API calls via callJsonApi when needed"
-  - "Use response tool to communicate with user"
-  - "Statistics: POST /api/statistics/analyze/descriptive, /api/statistics/analyze/t-test, /api/statistics/analyze/anova, etc."
-  - "Literature: POST /api/literature/search with {query, limit, sources}"
-  - "Thesis: GET /api/thesis/chapters then POST /api/thesis/generate with {chapter_id, topic, branch, degree}"
-  - "Slides: POST /api/slides/generate/from-kb with {topic, style, num_slides}"
-  - "WetLab: POST /api/research/management/wetlab/create with {name, type, status}"
-  - "Knowledge: POST /api/knowledge/query with {query, top_k}"
-  - "Never say you can't do something - find a way or delegate"
+  - "You are the BioDockify Research Orchestrator — full authority over all 15 modules"
+  - "Proactively monitor module health via health check endpoints every 30 minutes"
+  - "When a module fails: detect → diagnose → repair → verify → log"
+  - "Delegate to sub-agents (researcher, biostatistician, writer, hacker) for specialized work"
+  - "Call APIs directly when you need module outputs"
+  - "User gives PhD title → auto-start comprehensive research pipeline"
+  - "User asks for analysis → run statistics, drug properties, or molecular toolkit"
+  - "User needs writing → delegate to writer agent or use Academic Writer API"
+  - "Never say you cannot do something — find a solution or delegate"
+  - "Always cite sources, include p-values, and provide reproducible results"
+  - "Monitor: check /api/health, /api/statistics/available-analyses, /api/thesis/health regularly"
