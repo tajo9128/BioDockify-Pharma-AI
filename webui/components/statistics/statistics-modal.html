@@ -9,7 +9,7 @@
         <span class="material-symbols-outlined header-icon">analytics</span>
         <div>
           <h2>Statistical Analysis</h2>
-          <p class="header-subtitle">Upload data, select tests, and export results</p>
+          <p class="header-subtitle">Upload data · Select test · Export results</p>
         </div>
       </div>
       <div class="step-indicator">
@@ -32,7 +32,7 @@
 
     <div class="panel-body">
       <!-- Step 1: Upload -->
-      <div x-show="step === 1" class="step-content" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+      <div x-show="step === 1" class="step-content">
         <div class="upload-card">
           <div class="upload-zone" @click="importData()" @dragover.prevent @drop.prevent="handleDrop($event)">
             <span class="material-symbols-outlined upload-icon">cloud_upload</span>
@@ -46,7 +46,7 @@
           </div>
           <div class="upload-info">
             <span class="material-symbols-outlined info-icon">info</span>
-            <span>Your data stays private — processed locally in your browser</span>
+            <span>Data stays private — processed locally in your browser</span>
           </div>
         </div>
 
@@ -58,84 +58,266 @@
             <button class="chip" @click="sendToAgent('Generate correlation matrix')">"Generate correlation matrix"</button>
           </div>
         </div>
+
+        <div class="agent-help">
+          <button class="agent-help-btn" @click="sendToAgent('Explain step-by-step how to upload and prepare my data for statistical analysis. What file formats work best? How should I structure my CSV?')">
+            <span class="material-symbols-outlined">psychology</span>
+            <span>Ask agent to explain data preparation</span>
+          </button>
+        </div>
       </div>
 
       <!-- Step 2: Select Test -->
-      <div x-show="step === 2" class="step-content" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+      <div x-show="step === 2" class="step-content">
         <div class="data-info-bar">
           <span class="material-symbols-outlined success-icon">check_circle</span>
-          <span class="file-name" x-text="fileName || 'No file loaded'"></span>
+          <span class="file-name" x-text="fileName"></span>
+          <span class="row-count" x-text="'(' + rowCount + ' rows, ' + columns.length + ' cols)'"></span>
           <button class="btn-text" @click="resetData()">Change file</button>
         </div>
 
+        <!-- Data preview -->
+        <div class="data-preview" x-show="columns.length">
+          <p class="section-label">Columns: <span x-text="columns.join(', ')"></span></p>
+        </div>
+
+        <!-- Test type selector -->
         <div class="analysis-section">
-          <h3 class="section-title">Descriptive Statistics</h3>
+          <div class="section-header-row">
+            <h3 class="section-title">Choose Analysis Type</h3>
+            <select x-model="testType" class="test-type-dropdown" @change="selectTest(testType)">
+              <option value="">-- Select test type --</option>
+              <option value="descriptive">Descriptive Statistics</option>
+              <option value="correlation">Correlation Analysis</option>
+              <option value="ttest">T-Test</option>
+              <option value="anova">ANOVA</option>
+              <option value="regression">Regression</option>
+              <option value="survival">Survival Analysis</option>
+              <option value="power">Power Analysis</option>
+              <option value="pkpd">PK/PD Analysis</option>
+            </select>
+          </div>
           <div class="analysis-grid">
-            <button class="analysis-card" @click="runAnalysis('descriptive')" :disabled="loading">
+            <button class="analysis-card" :class="{'selected': testType === 'descriptive'}" @click="selectTest('descriptive')">
               <span class="material-symbols-outlined card-icon">functions</span>
               <span class="card-title">Descriptive</span>
               <span class="card-desc">Mean, median, SD</span>
             </button>
-            <button class="analysis-card" @click="runAnalysis('correlation')" :disabled="loading">
+            <button class="analysis-card" :class="{'selected': testType === 'correlation'}" @click="selectTest('correlation')">
               <span class="material-symbols-outlined card-icon">show_chart</span>
               <span class="card-title">Correlation</span>
               <span class="card-desc">Pearson, Spearman</span>
             </button>
-          </div>
-        </div>
-
-        <div class="analysis-section">
-          <h3 class="section-title">Hypothesis Testing</h3>
-          <div class="analysis-grid">
-            <button class="analysis-card" @click="runAnalysis('ttest')" :disabled="loading">
+            <button class="analysis-card" :class="{'selected': testType === 'ttest'}" @click="selectTest('ttest')">
               <span class="material-symbols-outlined card-icon">compare_arrows</span>
               <span class="card-title">T-Test</span>
               <span class="card-desc">Compare two groups</span>
             </button>
-            <button class="analysis-card" @click="runAnalysis('anova')" :disabled="loading">
+            <button class="analysis-card" :class="{'selected': testType === 'anova'}" @click="selectTest('anova')">
               <span class="material-symbols-outlined card-icon">grid_view</span>
               <span class="card-title">ANOVA</span>
               <span class="card-desc">Multiple groups</span>
             </button>
-            <button class="analysis-card" @click="runAnalysis('regression')" :disabled="loading">
-              <span class="material-symbols-outlined card-icon">trend</span>
+            <button class="analysis-card" :class="{'selected': testType === 'regression'}" @click="selectTest('regression')">
+              <span class="material-symbols-outlined card-icon">trending_up</span>
               <span class="card-title">Regression</span>
               <span class="card-desc">Linear, logistic</span>
             </button>
-          </div>
-        </div>
-
-        <div class="analysis-section">
-          <h3 class="section-title">Advanced Analysis</h3>
-          <div class="analysis-grid">
-            <button class="analysis-card" @click="runAnalysis('survival')" :disabled="loading">
+            <button class="analysis-card" :class="{'selected': testType === 'survival'}" @click="selectTest('survival')">
               <span class="material-symbols-outlined card-icon">timeline</span>
               <span class="card-title">Survival</span>
               <span class="card-desc">Kaplan-Meier</span>
             </button>
-            <button class="analysis-card" @click="runAnalysis('power')" :disabled="loading">
+            <button class="analysis-card" :class="{'selected': testType === 'power'}" @click="selectTest('power')">
               <span class="material-symbols-outlined card-icon">bolt</span>
               <span class="card-title">Power Analysis</span>
               <span class="card-desc">Sample size calc</span>
             </button>
-            <button class="analysis-card" @click="runAnalysis('pkpd')" :disabled="loading">
+            <button class="analysis-card" :class="{'selected': testType === 'pkpd'}" @click="selectTest('pkpd')">
               <span class="material-symbols-outlined card-icon">science</span>
               <span class="card-title">PK/PD</span>
               <span class="card-desc">Pharmacokinetics</span>
             </button>
           </div>
         </div>
+
+        <!-- Test parameters form (shown after selecting a test) -->
+        <div x-show="testType" class="test-params">
+          <h3 class="section-title" x-text="'Configure: ' + ({descriptive:'Descriptive Stats',correlation:'Correlation',ttest:'T-Test',anova:'ANOVA',regression:'Regression',survival:'Survival',power:'Power Analysis',pkpd:'PK/PD'}[testType] || testType)"></h3>
+
+          <!-- Descriptive - no params needed -->
+          <template x-if="testType === 'descriptive'">
+            <div class="params-note">
+              <span class="material-symbols-outlined">info</span>
+              <span>Computes mean, median, std, min, max, quartiles for all numeric columns</span>
+            </div>
+          </template>
+
+          <!-- Correlation params -->
+          <template x-if="testType === 'correlation'">
+            <div class="params-form">
+              <div class="form-group">
+                <label class="form-label">Select columns to correlate</label>
+                <div class="checkbox-grid">
+                  <template x-for="col in columns" :key="col">
+                    <label class="checkbox-item" :class="{'checked': selectedCorrCols.includes(col)}">
+                      <input type="checkbox" :value="col" x-model="selectedCorrCols" style="display:none">
+                      <span class="checkbox-indicator" x-text="selectedCorrCols.includes(col) ? '☑' : '☐'"></span>
+                      <span x-text="col"></span>
+                    </label>
+                  </template>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Method</label>
+                  <select x-model="correlationMethod" class="form-select">
+                    <option value="pearson">Pearson</option>
+                    <option value="spearman">Spearman</option>
+                    <option value="kendall">Kendall</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- T-Test params -->
+          <template x-if="testType === 'ttest'">
+            <div class="params-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Group Column</label>
+                  <select x-model="selectedGroupCol" class="form-select">
+                    <option value="">-- Select column --</option>
+                    <template x-for="col in columns" :key="col">
+                      <option :value="col" x-text="col"></option>
+                    </template>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Value Column</label>
+                  <select x-model="selectedValueCol" class="form-select">
+                    <option value="">-- Select column --</option>
+                    <template x-for="col in columns" :key="col">
+                      <option :value="col" x-text="col"></option>
+                    </template>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Test Type</label>
+                  <div class="radio-group">
+                    <label class="radio-item">
+                      <input type="radio" value="independent" x-model="ttestType">
+                      <span>Independent</span>
+                    </label>
+                    <label class="radio-item">
+                      <input type="radio" value="paired" x-model="ttestType">
+                      <span>Paired</span>
+                    </label>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-check">
+                    <input type="checkbox" x-model="ttestEqualVar">
+                    <span>Equal variance</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- ANOVA params -->
+          <template x-if="testType === 'anova'">
+            <div class="params-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Group Column</label>
+                  <select x-model="selectedGroupCol" class="form-select">
+                    <option value="">-- Select column --</option>
+                    <template x-for="col in columns" :key="col">
+                      <option :value="col" x-text="col"></option>
+                    </template>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Value Column</label>
+                  <select x-model="selectedValueCol" class="form-select">
+                    <option value="">-- Select column --</option>
+                    <template x-for="col in columns" :key="col">
+                      <option :value="col" x-text="col"></option>
+                    </template>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <label class="form-check">
+                  <input type="checkbox" x-model="anovaPostHoc">
+                  <span>Post-hoc test (Tukey HSD)</span>
+                </label>
+              </div>
+            </div>
+          </template>
+
+          <!-- Regression / Survival / PKPD - agent-based -->
+          <template x-if="['regression', 'survival', 'pkpd'].includes(testType)">
+            <div class="params-note agent-note">
+              <span class="material-symbols-outlined">psychology</span>
+              <span>This analysis type is agent-driven. Type your request in the chat panel — the agent will perform the analysis for you.</span>
+            </div>
+          </template>
+
+          <!-- Power Analysis params -->
+          <template x-if="testType === 'power'">
+            <div class="params-form">
+              <div class="form-row three-col">
+                <div class="form-group">
+                  <label class="form-label">Effect Size (d)</label>
+                  <input type="number" x-model="powerEffectSize" step="0.1" min="0.1" max="2" class="form-input">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Alpha</label>
+                  <input type="number" x-model="powerAlpha" step="0.01" min="0.01" max="0.5" class="form-input">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Target Power</label>
+                  <input type="number" x-model="powerTarget" step="0.05" min="0.5" max="0.99" class="form-input">
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- Run button -->
+          <button class="btn-run" @click="runAnalysis()" :disabled="loading">
+            <span class="material-symbols-outlined">play_arrow</span>
+            <span x-text="loading ? 'Running...' : 'Run Analysis'"></span>
+          </button>
+
+          <!-- Loading spinner -->
+          <div x-show="loading" class="loading-bar">
+            <div class="loading-spinner"></div>
+            <span>Processing your data...</span>
+          </div>
+        </div>
+
+        <div class="agent-help">
+          <button class="agent-help-btn" @click="sendToAgent(`Explain how to choose the right statistical test. Which test should I use and when? What's the difference between t-test, ANOVA, and regression?`)">
+            <span class="material-symbols-outlined">psychology</span>
+            <span>Ask agent: how to choose the right test?</span>
+          </button>
+        </div>
       </div>
 
       <!-- Step 3: Results -->
-      <div x-show="step === 3" class="step-content" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+      <div x-show="step === 3" class="step-content">
         <div class="results-header">
           <div class="data-info-bar">
             <span class="material-symbols-outlined success-icon">check_circle</span>
-            <span class="analysis-name" x-text="'Analysis: ' + (activeAnalysis || 'None')"></span>
+            <span class="analysis-name" x-text="'Analysis: ' + ({descriptive:'Descriptive',correlation:'Correlation',ttest:'T-Test',anova:'ANOVA',regression:'Regression',survival:'Survival',power:'Power',pkpd:'PK/PD'}[activeAnalysis] || activeAnalysis || 'None')"></span>
           </div>
           <div class="results-actions">
-            <button class="btn-secondary" @click="step = 2">
+            <button class="btn-secondary" @click="step = 2; results = ''; testType = null">
               <span class="material-symbols-outlined">arrow_back</span>
               Back
             </button>
@@ -143,9 +325,13 @@
               <span class="material-symbols-outlined">refresh</span>
               New Data
             </button>
-            <button class="btn-primary" @click="downloadResults()" :disabled="!results">
+            <button class="btn-primary" @click="downloadResults('csv')" :disabled="!results">
               <span class="material-symbols-outlined">download</span>
-              Export Results
+              Download CSV
+            </button>
+            <button class="btn-primary" @click="downloadResults('json')" :disabled="!results">
+              <span class="material-symbols-outlined">code</span>
+              Download JSON
             </button>
           </div>
         </div>
@@ -172,518 +358,142 @@
           </div>
         </div>
 
-        <div class="no-results" x-show="!results">
+        <div class="no-results" x-show="!results && !loading">
           <span class="material-symbols-outlined">hourglass_empty</span>
           <p>Run an analysis to see results here</p>
         </div>
+
+        <div class="agent-help">
+          <button class="agent-help-btn" @click="sendToAgent(`Help me interpret these statistical results. Explain what p-values, effect sizes, and confidence intervals mean. ${results ? 'Here are the results: ' + results.substring(0, 500) : ''}`)">
+            <span class="material-symbols-outlined">psychology</span>
+            <span>Ask agent to interpret these results</span>
+          </button>
+        </div>
+      </div>
       </div>
     </div>
 
     <style>
-      .statistics-panel {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        overflow: hidden;
-        background: var(--color-background);
-      }
-
-      .panel-header {
-        padding: 16px 20px;
-        border-bottom: 1px solid var(--color-border);
-        background: var(--color-panel);
-      }
-
-      .header-left {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 16px;
-      }
-
-      .header-icon {
-        font-size: 28px;
-        color: var(--color-primary);
-      }
-
-      .panel-header h2 {
-        color: var(--color-text);
-        font-size: 1.1rem;
-        margin: 0;
-        font-weight: 700;
-      }
-
-      .header-subtitle {
-        color: var(--color-text-muted);
-        font-size: 0.75rem;
-        margin: 2px 0 0 0;
-      }
-
-      .step-indicator {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .step {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        opacity: 0.4;
-        transition: opacity 0.2s;
-      }
-
-      .step.active {
-        opacity: 0.7;
-      }
-
-      .step.current {
-        opacity: 1;
-      }
-
-      .step-number {
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        background: var(--color-border);
-        color: var(--color-text-muted);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.7rem;
-        font-weight: 700;
-        transition: all 0.2s;
-      }
-
-      .step.active .step-number {
-        background: var(--color-primary);
-        color: white;
-      }
-
-      .step-label {
-        font-size: 0.72rem;
-        font-weight: 600;
-        color: var(--color-text-muted);
-      }
-
-      .step.active .step-label {
-        color: var(--color-text);
-      }
-
-      .step-connector {
-        width: 30px;
-        height: 2px;
-        background: var(--color-border);
-        transition: background 0.2s;
-      }
-
-      .step-connector.active {
-        background: var(--color-primary);
-      }
-
-      .panel-body {
-        flex: 1;
-        overflow-y: auto;
-        padding: 20px;
-      }
-
-      .step-content {
-        animation: fadeIn 0.25s ease;
-      }
-
-      @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(8px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-
-      .upload-card {
-        margin-bottom: 20px;
-      }
-
-      .upload-zone {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 40px 20px;
-        border: 2px dashed var(--color-border);
-        border-radius: 12px;
-        cursor: pointer;
-        transition: all 0.2s;
-        background: var(--color-panel);
-      }
-
-      .upload-zone:hover {
-        border-color: var(--color-primary);
-        background: color-mix(in srgb, var(--color-primary) 5%, var(--color-panel));
-      }
-
-      .upload-icon {
-        font-size: 48px;
-        color: var(--color-primary);
-        margin-bottom: 12px;
-        opacity: 0.8;
-      }
-
-      .upload-title {
-        color: var(--color-text);
-        font-size: 1rem;
-        font-weight: 600;
-        margin: 0 0 4px 0;
-      }
-
-      .upload-subtitle {
-        color: var(--color-text-muted);
-        font-size: 0.8rem;
-        margin: 0 0 12px 0;
-      }
-
-      .upload-formats {
-        display: flex;
-        gap: 8px;
-      }
-
-      .format-badge {
-        padding: 4px 10px;
-        background: var(--color-background);
-        border: 1px solid var(--color-border);
-        border-radius: 6px;
-        font-size: 0.7rem;
-        font-weight: 600;
-        color: var(--color-text-muted);
-      }
-
-      .upload-info {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 14px;
-        background: color-mix(in srgb, var(--color-primary) 8%, transparent);
-        border-radius: 8px;
-        margin-top: 12px;
-        font-size: 0.75rem;
-        color: var(--color-text-muted);
-      }
-
-      .info-icon {
-        font-size: 16px;
-        color: var(--color-primary);
-      }
-
-      .quick-actions {
-        margin-top: 24px;
-      }
-
-      .section-label {
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: var(--color-text-muted);
-        margin: 0 0 10px 0;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-      }
-
-      .example-chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
-      .chip {
-        padding: 8px 14px;
-        background: var(--color-panel);
-        border: 1px solid var(--color-border);
-        border-radius: 8px;
-        font-size: 0.75rem;
-        color: var(--color-text);
-        cursor: pointer;
-        transition: all 0.15s;
-      }
-
-      .chip:hover {
-        border-color: var(--color-primary);
-        background: color-mix(in srgb, var(--color-primary) 8%, var(--color-panel));
-      }
-
-      .data-info-bar {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 14px;
-        background: var(--color-panel);
-        border: 1px solid var(--color-border);
-        border-radius: 8px;
-        margin-bottom: 20px;
-        font-size: 0.8rem;
-      }
-
-      .success-icon {
-        font-size: 18px;
-        color: #22c55e;
-      }
-
-      .file-name, .analysis-name {
-        color: var(--color-text);
-        font-weight: 500;
-      }
-
-      .btn-text {
-        margin-left: auto;
-        padding: 4px 10px;
-        background: transparent;
-        border: 1px solid var(--color-border);
-        border-radius: 6px;
-        color: var(--color-text-muted);
-        cursor: pointer;
-        font-size: 0.72rem;
-        transition: all 0.15s;
-      }
-
-      .btn-text:hover {
-        border-color: var(--color-primary);
-        color: var(--color-primary);
-      }
-
-      .analysis-section {
-        margin-bottom: 24px;
-      }
-
-      .section-title {
-        font-size: 0.85rem;
-        font-weight: 700;
-        color: var(--color-text);
-        margin: 0 0 12px 0;
-        padding-bottom: 8px;
-        border-bottom: 1px solid var(--color-border);
-      }
-
-      .analysis-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 10px;
-      }
-
-      .analysis-card {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 16px 12px;
-        background: var(--color-panel);
-        border: 1px solid var(--color-border);
-        border-radius: 10px;
-        cursor: pointer;
-        transition: all 0.2s;
-        text-align: center;
-      }
-
-      .analysis-card:hover {
-        border-color: var(--color-primary);
-        background: color-mix(in srgb, var(--color-primary) 6%, var(--color-panel));
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      }
-
-      .analysis-card:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-        transform: none;
-        box-shadow: none;
-      }
-
-      .card-icon {
-        font-size: 28px;
-        color: var(--color-primary);
-        margin-bottom: 8px;
-      }
-
-      .card-title {
-        font-size: 0.8rem;
-        font-weight: 700;
-        color: var(--color-text);
-        margin-bottom: 2px;
-      }
-
-      .card-desc {
-        font-size: 0.65rem;
-        color: var(--color-text-muted);
-      }
-
-      .results-header {
-        margin-bottom: 16px;
-      }
-
-      .results-actions {
-        display: flex;
-        gap: 8px;
-        margin-top: 12px;
-      }
-
-      .btn-secondary {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 8px 14px;
-        background: var(--color-panel);
-        border: 1px solid var(--color-border);
-        border-radius: 8px;
-        color: var(--color-text);
-        cursor: pointer;
-        font-size: 0.78rem;
-        font-weight: 500;
-        transition: all 0.15s;
-      }
-
-      .btn-secondary:hover {
-        border-color: var(--color-primary);
-      }
-
-      .btn-primary {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 8px 16px;
-        background: var(--color-primary);
-        border: none;
-        border-radius: 8px;
-        color: white;
-        cursor: pointer;
-        font-size: 0.78rem;
-        font-weight: 600;
-        transition: all 0.15s;
-      }
-
-      .btn-primary:hover:not(:disabled) {
-        opacity: 0.9;
-      }
-
-      .btn-primary:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-
-      .results-container {
-        background: var(--color-panel);
-        border: 1px solid var(--color-border);
-        border-radius: 10px;
-        overflow: hidden;
-      }
-
-      .results-toolbar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 10px 14px;
-        border-bottom: 1px solid var(--color-border);
-        background: var(--color-background);
-      }
-
-      .view-toggle {
-        display: flex;
-        gap: 4px;
-      }
-
-      .toggle-btn {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        padding: 6px 10px;
-        background: transparent;
-        border: 1px solid transparent;
-        border-radius: 6px;
-        color: var(--color-text-muted);
-        cursor: pointer;
-        font-size: 0.72rem;
-        transition: all 0.15s;
-      }
-
-      .toggle-btn:hover {
-        background: var(--color-panel);
-      }
-
-      .toggle-btn.active {
-        background: var(--color-primary);
-        color: white;
-        border-color: var(--color-primary);
-      }
-
-      .btn-icon {
-        padding: 6px;
-        background: transparent;
-        border: none;
-        border-radius: 6px;
-        color: var(--color-text-muted);
-        cursor: pointer;
-        transition: all 0.15s;
-      }
-
-      .btn-icon:hover {
-        background: var(--color-panel);
-        color: var(--color-text);
-      }
-
-      .results-content {
-        padding: 14px;
-        max-height: 400px;
-        overflow-y: auto;
-      }
-
-      .results-content pre {
-        white-space: pre-wrap;
-        font-family: var(--font-mono, 'SF Mono', Monaco, Consolas, monospace);
-        font-size: 0.75rem;
-        color: var(--color-text);
-        margin: 0;
-        line-height: 1.5;
-      }
-
-      .table-view {
-        overflow-x: auto;
-      }
-
-      .table-view table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.75rem;
-      }
-
-      .table-view th, .table-view td {
-        padding: 8px 12px;
-        text-align: left;
-        border-bottom: 1px solid var(--color-border);
-      }
-
-      .table-view th {
-        background: var(--color-background);
-        font-weight: 600;
-        color: var(--color-text);
-        position: sticky;
-        top: 0;
-      }
-
-      .table-view td {
-        color: var(--color-text-muted);
-      }
-
-      .no-results {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 60px 20px;
-        color: var(--color-text-muted);
-        text-align: center;
-      }
-
-      .no-results .material-symbols-outlined {
-        font-size: 48px;
-        opacity: 0.3;
-        margin-bottom: 12px;
-      }
-
-      .no-results p {
-        font-size: 0.85rem;
-        margin: 0;
-      }
+      .statistics-panel { display: flex; flex-direction: column; height: 100%; overflow: hidden; background: var(--color-background); }
+      .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--color-border); background: var(--color-panel); flex-shrink: 0; }
+      .header-left { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+      .header-icon { font-size: 28px; color: var(--color-primary); }
+      .panel-header h2 { color: var(--color-text); font-size: 1.05rem; margin: 0; font-weight: 700; }
+      .header-subtitle { color: var(--color-text-muted); font-size: 0.7rem; margin: 2px 0 0 0; }
+      .step-indicator { display: flex; align-items: center; gap: 6px; }
+      .step { display: flex; align-items: center; gap: 6px; opacity: 0.35; transition: opacity 0.2s; }
+      .step.active { opacity: 0.7; } .step.current { opacity: 1; }
+      .step-number { width: 22px; height: 22px; border-radius: 50%; background: var(--color-border); color: var(--color-text-muted); display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; }
+      .step.active .step-number { background: var(--color-primary); color: white; }
+      .step-label { font-size: 0.68rem; font-weight: 600; color: var(--color-text-muted); }
+      .step.active .step-label { color: var(--color-text); }
+      .step-connector { width: 24px; height: 2px; background: var(--color-border); }
+      .step-connector.active { background: var(--color-primary); }
+      .panel-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+
+      /* Upload */
+      .upload-zone { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 20px; border: 2px dashed var(--color-border); border-radius: 12px; cursor: pointer; transition: all 0.2s; background: var(--color-panel); }
+      .upload-zone:hover { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 4%, var(--color-panel)); }
+      .upload-icon { font-size: 44px; color: var(--color-primary); margin-bottom: 10px; opacity: 0.8; }
+      .upload-title { color: var(--color-text); font-size: 0.95rem; font-weight: 600; margin: 0 0 4px 0; }
+      .upload-subtitle { color: var(--color-text-muted); font-size: 0.75rem; margin: 0 0 12px 0; }
+      .upload-formats { display: flex; gap: 6px; }
+      .format-badge { padding: 3px 10px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.68rem; font-weight: 600; color: var(--color-text-muted); }
+      .upload-info { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: color-mix(in srgb, var(--color-primary) 6%, transparent); border-radius: 8px; margin-top: 10px; font-size: 0.7rem; color: var(--color-text-muted); }
+      .info-icon { font-size: 16px; color: var(--color-primary); flex-shrink: 0; }
+      .quick-actions { margin-top: 20px; }
+      .section-label { font-size: 0.7rem; font-weight: 600; color: var(--color-text-muted); margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.4px; }
+      .example-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+      .chip { padding: 6px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; font-size: 0.72rem; color: var(--color-text); cursor: pointer; transition: all 0.15s; }
+      .chip:hover { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 6%, var(--color-panel)); }
+
+      /* Data info */
+      .data-info-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 12px; font-size: 0.75rem; flex-wrap: wrap; }
+      .success-icon { font-size: 16px; color: #22c55e; flex-shrink: 0; }
+      .file-name { color: var(--color-text); font-weight: 600; }
+      .row-count { color: var(--color-text-muted); font-size: 0.7rem; }
+      .btn-text { margin-left: auto; padding: 3px 10px; background: transparent; border: 1px solid var(--color-border); border-radius: 6px; color: var(--color-text-muted); cursor: pointer; font-size: 0.68rem; }
+      .btn-text:hover { border-color: var(--color-primary); color: var(--color-primary); }
+      .data-preview { padding: 8px 12px; background: color-mix(in srgb, var(--color-primary) 4%, var(--color-background)); border-radius: 6px; margin-bottom: 12px; font-size: 0.7rem; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+      /* Analysis grid */
+      .analysis-section { margin-bottom: 16px; }
+      .section-header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+      .section-title { font-size: 0.8rem; font-weight: 700; color: var(--color-text); margin: 0; padding-bottom: 6px; border-bottom: 1px solid var(--color-border); }
+      .section-header-row .section-title { border-bottom: none; padding-bottom: 0; flex-shrink: 0; }
+      .test-type-dropdown { padding: 5px 8px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-background); color: var(--color-text); font-size: 0.68rem; font-weight: 500; cursor: pointer; min-width: 170px; }
+      .test-type-dropdown:focus { outline: none; border-color: var(--color-primary); }
+      .analysis-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+      .analysis-card { display: flex; flex-direction: column; align-items: center; padding: 12px 8px; background: var(--color-panel); border: 2px solid var(--color-border); border-radius: 10px; cursor: pointer; transition: all 0.15s; text-align: center; }
+      .analysis-card:hover { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 5%, var(--color-panel)); transform: translateY(-1px); }
+      .analysis-card.selected { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 10%, var(--color-panel)); box-shadow: 0 0 0 1px var(--color-primary); }
+      .card-icon { font-size: 26px; color: var(--color-primary); margin-bottom: 4px; }
+      .card-title { font-size: 0.74rem; font-weight: 700; color: var(--color-text); }
+      .card-desc { font-size: 0.62rem; color: var(--color-text-muted); margin-top: 2px; }
+
+      /* Test params */
+      .test-params { margin-top: 12px; padding: 14px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 10px; }
+      .params-note { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: color-mix(in srgb, var(--color-primary) 6%, var(--color-background)); border-radius: 8px; font-size: 0.72rem; color: var(--color-text-muted); }
+      .params-note .material-symbols-outlined { font-size: 18px; color: var(--color-primary); flex-shrink: 0; }
+      .agent-note { background: color-mix(in srgb, var(--color-accent, #4fc3f7) 6%, var(--color-background)); }
+      .agent-note .material-symbols-outlined { color: var(--color-accent, #4fc3f7); }
+      .params-form { display: flex; flex-direction: column; gap: 12px; }
+      .form-row { display: flex; gap: 10px; flex-wrap: wrap; }
+      .form-row.three-col > .form-group { flex: 1; min-width: 100px; }
+      .form-group { flex: 1; min-width: 140px; }
+      .form-label { display: block; font-size: 0.68rem; font-weight: 600; color: var(--color-text-muted); margin-bottom: 4px; }
+      .form-select, .form-input { width: 100%; padding: 7px 10px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-background); color: var(--color-text); font-size: 0.72rem; }
+      .form-select:focus, .form-input:focus { outline: none; border-color: var(--color-primary); }
+      .radio-group { display: flex; gap: 12px; padding: 6px 0; }
+      .radio-item { display: flex; align-items: center; gap: 4px; font-size: 0.72rem; color: var(--color-text); cursor: pointer; }
+      .radio-item input { accent-color: var(--color-primary); }
+      .form-check { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--color-text); cursor: pointer; }
+      .form-check input { accent-color: var(--color-primary); }
+      .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px; max-height: 160px; overflow-y: auto; padding: 4px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 6px; }
+      .checkbox-item { display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; color: var(--color-text); transition: background 0.12s; }
+      .checkbox-item:hover { background: color-mix(in srgb, var(--color-primary) 6%, transparent); }
+      .checkbox-indicator { font-size: 0.85rem; flex-shrink: 0; width: 16px; text-align: center; }
+
+      /* Run button */
+      .btn-run { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 14px; padding: 10px; background: var(--color-primary); border: none; border-radius: 8px; color: white; cursor: pointer; font-size: 0.82rem; font-weight: 600; transition: all 0.15s; }
+      .btn-run:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+      .btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+      .loading-bar { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 0.72rem; color: var(--color-text-muted); }
+      .loading-spinner { width: 16px; height: 16px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      /* Results */
+      .results-header { margin-bottom: 14px; }
+      .analysis-name { color: var(--color-text); font-weight: 500; }
+      .results-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+      .btn-secondary { display: flex; align-items: center; gap: 4px; padding: 7px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; color: var(--color-text); cursor: pointer; font-size: 0.72rem; font-weight: 500; }
+      .btn-secondary:hover { border-color: var(--color-primary); }
+      .btn-primary { display: flex; align-items: center; gap: 4px; padding: 7px 12px; background: var(--color-primary); border: none; border-radius: 6px; color: white; cursor: pointer; font-size: 0.72rem; font-weight: 600; }
+      .btn-primary:hover:not(:disabled) { opacity: 0.9; }
+      .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+      .results-container { background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; }
+      .results-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--color-border); background: var(--color-background); }
+      .view-toggle { display: flex; gap: 3px; }
+      .toggle-btn { display: flex; align-items: center; gap: 3px; padding: 4px 8px; background: transparent; border: 1px solid transparent; border-radius: 5px; color: var(--color-text-muted); cursor: pointer; font-size: 0.68rem; }
+      .toggle-btn:hover { background: var(--color-panel); }
+      .toggle-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
+      .btn-icon { padding: 4px; background: transparent; border: none; border-radius: 5px; color: var(--color-text-muted); cursor: pointer; }
+      .btn-icon:hover { background: var(--color-panel); color: var(--color-text); }
+      .results-content { padding: 12px; max-height: 400px; overflow-y: auto; }
+      .results-content pre { white-space: pre-wrap; font-family: var(--font-mono, 'SF Mono', Monaco, Consolas, monospace); font-size: 0.7rem; color: var(--color-text); margin: 0; line-height: 1.5; }
+      .table-view { overflow-x: auto; }
+      .table-view table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
+      .table-view th { padding: 6px 10px; text-align: left; border-bottom: 2px solid var(--color-border); background: var(--color-background); font-weight: 600; color: var(--color-text); position: sticky; top: 0; white-space: nowrap; }
+      .table-view td { padding: 5px 10px; text-align: left; border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); }
+      .no-results { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 20px; color: var(--color-text-muted); text-align: center; }
+      .no-results .material-symbols-outlined { font-size: 40px; opacity: 0.3; margin-bottom: 10px; }
+      .no-results p { font-size: 0.8rem; margin: 0; }
+
+      /* Agent help */
+      .agent-help { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--color-border); }
+      .agent-help-btn { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: color-mix(in srgb, var(--color-accent, #4fc3f7) 8%, var(--color-panel)); border: 1px solid color-mix(in srgb, var(--color-accent, #4fc3f7) 25%, var(--color-border)); border-radius: 8px; color: var(--color-text); cursor: pointer; font-size: 0.72rem; font-weight: 500; width: 100%; justify-content: center; transition: all 0.15s; }
+      .agent-help-btn:hover { background: color-mix(in srgb, var(--color-accent, #4fc3f7) 15%, var(--color-panel)); border-color: var(--color-accent, #4fc3f7); }
+      .agent-help-btn .material-symbols-outlined { font-size: 18px; color: var(--color-accent, #4fc3f7); }
     </style>
   </div>
 </body>
