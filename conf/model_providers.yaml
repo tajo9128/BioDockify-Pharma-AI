@@ -156,6 +156,20 @@ chat:
       endpoint_url: "/models"
     kwargs:
       api_base: https://api.z.ai/api/coding/paas/v4
+  kimi:
+    name: KIMI
+    litellm_provider: openai
+    models_list:
+      endpoint_url: "https://api.moonshot.cn/v1/models"
+    kwargs:
+      api_base: https://api.moonshot.cn/v1
+  minimax:
+    name: MiniMax
+    litellm_provider: openai
+    models_list:
+      endpoint_url: "https://api.minimax.chat/v1/models"
+    kwargs:
+      api_base: https://api.minimax.chat/v1
   other:
     name: Other OpenAI compatible
     litellm_provider: openai
