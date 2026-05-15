@@ -21,14 +21,7 @@ COPY docs/ /a0/docs/
 COPY deployment/ /a0/deployment/
 COPY lib/ /a0/lib/
 
-COPY agent_zero/prompts_v19/ /a0/agent_zero/prompts_v19/
-COPY agent_zero/extensions_v19/ /a0/agent_zero/extensions_v19/
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    autodock-vina \
-    openbabel \
-    2>/dev/null || true && \
-    rm -rf /var/lib/apt/lists/*
+COPY agent_zero/ /a0/agent_zero/
 
 RUN find /a0/webui/ -maxdepth 1 -name "favicon*" -type f -delete 2>/dev/null || true; \
     find /a0/webui/ -maxdepth 1 -name "*.ico" -type f -delete 2>/dev/null || true; \
@@ -36,6 +29,9 @@ RUN find /a0/webui/ -maxdepth 1 -name "favicon*" -type f -delete 2>/dev/null || 
     cp -f /a0/webui/public/favicon.svg /a0/webui/favicon.ico 2>/dev/null || true; \
     cp -f /a0/webui/public/favicon_round.svg /a0/webui/favicon_round.svg 2>/dev/null || true; \
     cp -f /a0/webui/public/icon.svg /a0/webui/icon.svg 2>/dev/null || true; \
+    find /a0 -type f -name "*docking*" -delete 2>/dev/null || true; \
+    find /a0 -type f -name "*vina*" -delete 2>/dev/null || true; \
+    find /a0 -type d -name "docking*" -exec rm -rf {} + 2>/dev/null || true; \
     sed -i 's|Agent Zero|BioDockify AI|g' /a0/prompts/*.md 2>/dev/null || true; \
     sed -i 's|agent_zero|biodockify_ai|g' /a0/prompts/*.md 2>/dev/null || true; \
     sed -i 's|Agent Zero|BioDockify AI|g' /a0/agent_zero/prompts_v19/*.md 2>/dev/null || true; \
