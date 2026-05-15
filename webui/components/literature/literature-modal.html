@@ -87,6 +87,15 @@
         if (input) { input.value = text; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); }
       },
 
+      saveToNotebook(paper) {
+        if ($store.knowledgeModal && $store.knowledgeModal.addNoteBookEntry) {
+          $store.knowledgeModal.addNoteBookEntry(paper.title, paper.abstract || '', paper.journal || paper.database || 'Literature', ['literature', 'paper']);
+        } else {
+          this.message = "Open Knowledge Base first to save entries";
+          setTimeout(() => { this.message = ""; }, 2000);
+        }
+      },
+
       speakAbstract(paper) {
         if (!paper.abstract) return;
         if (this.playing) { window.speechSynthesis?.cancel(); this.playing = false; return; }
@@ -194,6 +203,10 @@
                   <button class="action-btn" @click="$store.literatureModal.summarizePaper(paper)" title="Summarize for literature review">
                     <span class="material-symbols-outlined">summarize</span>
                     Summarize
+                  </button>
+                  <button class="action-btn" @click="$store.literatureModal.saveToNotebook(paper)" title="Save to Research Notebook">
+                    <span class="material-symbols-outlined">bookmark</span>
+                    Notebook
                   </button>
                   <button class="action-btn" @click="$store.literatureModal.speakAbstract(paper)" title="Read abstract aloud" x-show="paper.abstract">
                     <span class="material-symbols-outlined">volume_up</span>

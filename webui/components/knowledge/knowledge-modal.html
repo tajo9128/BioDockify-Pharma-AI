@@ -5,93 +5,278 @@
   </script>
 </head>
 <body>
-  <div x-data class="knowledge-modal">
-    <div class="modal-header">
-      <h2>Knowledge Base</h2>
+  <div x-data class="nb-panel" x-init="$store.knowledgeModal.restore()">
+    <!-- Header -->
+    <div class="nb-header">
+      <span class="material-symbols-outlined nb-icon">psychology</span>
+      <div>
+        <h2>Research Notebook</h2>
+        <p class="nb-sub" x-text="$store.knowledgeModal.entryCount + ' entries'"></p>
+      </div>
+      <div class="nb-header-actions">
+        <button class="nb-btn-sm" @click="$store.knowledgeModal.triggerFileUpload()" :disabled="$store.knowledgeModal.uploading" title="Upload files">
+          <span class="material-symbols-outlined">upload_file</span>
+        </button>
+        <button class="nb-btn-sm" @click="$store.knowledgeModal.buildGraph()" title="Knowledge Graph">
+          <span class="material-symbols-outlined">hub</span>
+        </button>
+        <button class="nb-btn-sm" @click="$store.knowledgeModal.exportJson()" title="Export JSON">
+          <span class="material-symbols-outlined">download</span>
+        </button>
+        <button class="nb-btn-sm" @click="$store.knowledgeModal.chatWithKB()" title="Chat with KB">
+          <span class="material-symbols-outlined">chat</span>
+        </button>
+      </div>
     </div>
 
-    <div class="toolbar">
-      <button class="upload-btn" @click="$store.knowledgeModal.triggerFileUpload()" :disabled="$store.knowledgeModal.uploading">
-        <span class="material-symbols-outlined">upload_file</span>
-        <span x-text="$store.knowledgeModal.uploading ? 'Uploading...' : 'Upload Files'"></span>
+    <!-- Search -->
+    <div class="nb-search-row">
+      <input type="text" x-model="$store.knowledgeModal.searchQuery" placeholder="Search knowledge base (ChromaDB vector search)..." class="nb-input"
+        @keyup.enter="$store.knowledgeModal.search()" />
+      <button class="nb-btn-primary" @click="$store.knowledgeModal.search()" :disabled="$store.knowledgeModal.loading">
+        <span class="material-symbols-outlined">search</span>
       </button>
     </div>
 
-    <div class="modal-content">
-      <div class="search-bar">
-        <input type="text" x-model="$store.knowledgeModal.searchQuery" placeholder="Search knowledge base..." class="search-input" @keyup.enter="$store.knowledgeModal.search()" />
-        <button class="search-btn" @click="$store.knowledgeModal.search()">Search</button>
-      </div>
+    <!-- Status -->
+    <div x-show="$store.knowledgeModal.error" class="nb-error" x-text="$store.knowledgeModal.error"></div>
+    <div x-show="$store.knowledgeModal.message" class="nb-msg" x-text="$store.knowledgeModal.message"></div>
+    <div x-show="$store.knowledgeModal.loading || $store.knowledgeModal.uploading" class="nb-loading"><div class="loading-spinner"></div><span x-text="$store.knowledgeModal.uploading ? 'Uploading...' : 'Searching...'"></span></div>
 
-      <div x-show="$store.knowledgeModal.searchResults.length" class="search-results">
-        <h3>Search Results</h3>
-        <template x-for="result in $store.knowledgeModal.searchResults">
-          <div class="result-item">
-            <div class="result-title" x-text="result.title || result.content?.substring(0, 100)"></div>
-            <div class="result-snippet" x-text="(result.content || '').substring(0, 300)"></div>
-          </div>
+    <!-- Main content area -->
+    <div class="nb-main">
+      <!-- Tags sidebar -->
+      <div class="nb-sidebar">
+        <h4 class="nb-sidebar-title">Tags</h4>
+        <button class="nb-tag" :class="{active: !$store.knowledgeModal.activeTag}" @click="$store.knowledgeModal.activeTag = null">All</button>
+        <template x-for="tag in ($store.knowledgeModal.tags||[])" :key="tag">
+          <button class="nb-tag" :class="{active: $store.knowledgeModal.activeTag === tag}" @click="$store.knowledgeModal.filterByTag(tag)" x-text="'#' + tag"></button>
         </template>
-      </div>
-
-      <div x-show="$store.knowledgeModal.error" class="error-msg" x-text="$store.knowledgeModal.error"></div>
-
-      <div class="add-entry">
-        <h3>Quick Entry</h3>
-        <div class="entry-form">
-          <input type="text" x-model="$store.knowledgeModal.newEntry.question" placeholder="Question / Concept" class="entry-input" />
-          <textarea x-model="$store.knowledgeModal.newEntry.answer" placeholder="Answer / Description" class="entry-textarea"></textarea>
-          <button class="add-btn" @click="$store.knowledgeModal.addEntry()">Add</button>
+        <div class="nb-add-tag">
+          <input type="text" placeholder="+ new tag" class="nb-tag-input"
+            @keyup.enter="if($event.target.value.trim()) { $store.knowledgeModal.addTag($event.target.value); $event.target.value = ''; }" />
         </div>
+        <button class="nb-tag nb-tag-fav" @click="$store.knowledgeModal.filterByTag('__fav__')" x-show="$store.knowledgeModal.favorites.length">
+          ⭐ Favorites ({{ $store.knowledgeModal.favorites.length }})
+        </button>
       </div>
 
-      <div class="entries-list">
-        <h3>Local Entries (<span x-text="$store.knowledgeModal.entries.length"></span>)</h3>
-        <template x-for="entry in $store.knowledgeModal.entries">
-          <div class="entry-item">
-            <div class="entry-question" x-text="entry.question"></div>
-            <div class="entry-answer" x-text="entry.answer"></div>
-            <button class="delete-btn" @click="$store.knowledgeModal.deleteEntry(entry)">×</button>
+      <!-- Content -->
+      <div class="nb-content">
+        <!-- Graph view -->
+        <div x-show="$store.knowledgeModal.showGraph" class="nb-graph-container">
+          <div class="nb-graph-header">
+            <h4>Knowledge Graph</h4>
+            <button class="nb-btn-sm" @click="$store.knowledgeModal.showGraph = false">Close</button>
           </div>
-        </template>
-        <div x-show="!$store.knowledgeModal.entries.length" class="no-entries">No entries yet. Upload files or add manually.</div>
-      </div>
+          <canvas id="nb-graph-canvas" width="600" height="400" class="nb-graph-canvas"
+            x-init="if($store.knowledgeModal.showGraph) { $nextTick(() => drawGraph($store.knowledgeModal.graphData)); }"
+            x-effect="if($store.knowledgeModal.showGraph) { $nextTick(() => drawGraph($store.knowledgeModal.graphData)); }"></canvas>
+        </div>
 
-      <div class="export-area">
-        <button class="export-btn" @click="$store.knowledgeModal.exportJson()">Export JSON</button>
+        <!-- Search Results (when active) -->
+        <div x-show="$store.knowledgeModal.searchResults.length" class="nb-results">
+          <h4 x-text="'Search Results (' + $store.knowledgeModal.searchResults.length + ')'"></h4>
+          <template x-for="r in $store.knowledgeModal.searchResults" :key="r.id || r.title">
+            <div class="nb-entry-card">
+              <div class="nb-entry-header">
+                <span class="nb-entry-title" x-text="r.title || r.content?.substring(0, 80)"></span>
+                <button class="nb-fav-btn" @click="$store.knowledgeModal.addNoteBookEntry(r.title||r.content?.substring(0,80), r.content||'', r.source||'Search', ['search'])">+ Save</button>
+              </div>
+              <div class="nb-entry-body" x-text="(r.content || '').substring(0, 400)"></div>
+              <div class="nb-entry-meta">
+                <span x-show="r.source" x-text="'Source: ' + r.source"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Add entry form -->
+        <div class="nb-form">
+          <h4>Quick Note</h4>
+          <input type="text" x-model="$store.knowledgeModal.newEntry.question" placeholder="Title / concept name" class="nb-input-sm" />
+          <textarea x-model="$store.knowledgeModal.newEntry.answer" placeholder="Notes, key findings, or description..." class="nb-textarea"></textarea>
+          <div class="nb-form-row">
+            <input type="text" x-model="$store.knowledgeModal.newEntry.source" placeholder="Source (e.g. PubMed ID, URL)" class="nb-input-sm flex-1" />
+            <input type="text" placeholder="Tags (comma-separated)"
+              class="nb-input-sm flex-1"
+              @keyup.enter="if($event.target.value) { $store.knowledgeModal.newEntry.tags = $event.target.value.split(',').map(t=>t.trim().toLowerCase().replace(/\s+/g,'-')); $store.knowledgeModal.addEntry(); $event.target.value=''; }"
+              @change="if($event.target.value) { $store.knowledgeModal.newEntry.tags = $event.target.value.split(',').map(t=>t.trim().toLowerCase().replace(/\s+/g,'-')); }" />
+          </div>
+          <button class="nb-btn-primary" @click="$store.knowledgeModal.addEntry()" :disabled="!$store.knowledgeModal.newEntry.question">Add Entry</button>
+        </div>
+
+        <!-- Entry list -->
+        <div x-show="$store.knowledgeModal.filteredEntries.length" class="nb-entries">
+          <h4 x-text="'Notebook Entries (' + $store.knowledgeModal.filteredEntries.length + ')'"></h4>
+          <template x-for="entry in $store.knowledgeModal.filteredEntries" :key="entry.id">
+            <div class="nb-entry-card" :class="{saved: $store.knowledgeModal.favorites.includes(entry.id)}">
+              <div class="nb-entry-header">
+                <button class="nb-fav-btn" :class="{active: $store.knowledgeModal.favorites.includes(entry.id)}"
+                  @click="$store.knowledgeModal.toggleFavorite(entry.id)"
+                  x-text="$store.knowledgeModal.favorites.includes(entry.id) ? '⭐' : '☆'"></button>
+                <span class="nb-entry-title" x-text="entry.question"></span>
+                <button class="nb-del-btn" @click="$store.knowledgeModal.deleteEntry(entry)">×</button>
+              </div>
+              <div class="nb-entry-body" x-show="entry.answer" x-text="entry.answer"></div>
+              <div class="nb-entry-meta">
+                <template x-for="tag in (entry.tags || [])" :key="tag">
+                  <button class="nb-entry-tag" @click="$store.knowledgeModal.filterByTag(tag)" x-text="'#' + tag"></button>
+                </template>
+                <span x-show="entry.source" class="nb-entry-source" x-text="'📄 ' + entry.source"></span>
+                <span class="nb-entry-date" x-text="entry.createdAt?.substring(0, 10)"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <div x-show="!$store.knowledgeModal.entries.length && !$store.knowledgeModal.searchResults.length && !$store.knowledgeModal.loading" class="nb-empty">
+          <span class="material-symbols-outlined nb-empty-icon">menu_book</span>
+          <p>Your research notebook is empty</p>
+          <p class="nb-empty-hint">Upload PDFs, search & save papers, or add notes manually. Save entries from Literature search with "Save to Notebook".</p>
+        </div>
       </div>
     </div>
 
     <style>
-      .knowledge-modal { padding: var(--spacing-md); max-width: 800px; height: 100%; overflow-y: auto; }
-      .modal-header { margin-bottom: var(--spacing-sm); }
-      .modal-header h2 { color: var(--color-primary); font-size: 1.1rem; margin: 0; }
-      .toolbar { margin-bottom: var(--spacing-md); }
-      .upload-btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--color-primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
-      .upload-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-      .upload-btn:hover:not(:disabled) { opacity: 0.9; }
-      .search-bar { display: flex; gap: var(--spacing-sm); margin-bottom: var(--spacing-md); }
-      .search-input { flex: 1; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); font-size: 0.85rem; }
-      .search-btn { padding: var(--spacing-sm) var(--spacing-md); background: var(--color-primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
-      .search-results { margin-bottom: var(--spacing-md); }
-      .search-results h3 { font-size: 0.85rem; color: var(--color-text); margin-bottom: var(--spacing-xs); }
-      .result-item { padding: var(--spacing-sm); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 4px; margin-bottom: var(--spacing-xs); }
-      .result-title { color: var(--color-primary); font-weight: 600; font-size: 0.8rem; }
-      .result-snippet { color: var(--color-text-muted); font-size: 0.75rem; margin-top: 2px; }
-      .error-msg { color: var(--color-error-text, #ff6b6b); font-size: 0.8rem; padding: var(--spacing-xs); margin-bottom: var(--spacing-sm); }
-      .add-entry h3 { font-size: 0.85rem; color: var(--color-text); margin-bottom: var(--spacing-xs); }
-      .entry-form { display: flex; flex-direction: column; gap: var(--spacing-xs); margin-bottom: var(--spacing-md); }
-      .entry-input { padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); font-size: 0.85rem; }
-      .entry-textarea { padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); min-height: 50px; resize: vertical; font-size: 0.85rem; }
-      .add-btn { padding: var(--spacing-xs) var(--spacing-md); background: var(--color-primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; align-self: flex-end; }
-      .entries-list h3 { font-size: 0.85rem; color: var(--color-text); margin-bottom: var(--spacing-xs); }
-      .entry-item { padding: var(--spacing-xs); border-bottom: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: flex-start; gap: var(--spacing-sm); }
-      .entry-question { color: var(--color-primary); font-weight: 600; font-size: 0.8rem; }
-      .entry-answer { color: var(--color-text); font-size: 0.75rem; }
-      .delete-btn { background: none; border: none; color: var(--color-text-muted); cursor: pointer; flex-shrink: 0; font-size: 1rem; }
-      .no-entries { color: var(--color-text-muted); padding: var(--spacing-md); text-align: center; font-size: 0.85rem; }
-      .export-area { margin-top: var(--spacing-md); }
-      .export-btn { padding: var(--spacing-xs) var(--spacing-md); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 4px; cursor: pointer; color: var(--color-text); font-size: 0.85rem; }
+      .nb-panel { display: flex; flex-direction: column; height: 100%; overflow: hidden; padding: 10px 14px; background: var(--color-background); }
+      .nb-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-shrink: 0; }
+      .nb-icon { font-size: 22px; color: var(--color-primary); }
+      .nb-header h2 { color: var(--color-primary); font-size: 0.9rem; margin: 0; font-weight: 700; }
+      .nb-sub { color: var(--color-text-muted); font-size: 0.58rem; margin: 0; }
+      .nb-header-actions { display: flex; gap: 3px; margin-left: auto; }
+      .nb-btn-sm { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 5px; color: var(--color-text-muted); cursor: pointer; font-size: 0; }
+      .nb-btn-sm:hover { border-color: var(--color-primary); color: var(--color-primary); }
+      .nb-btn-sm:disabled { opacity: 0.4; }
+      .nb-btn-sm .material-symbols-outlined { font-size: 15px; }
+
+      .nb-search-row { display: flex; gap: 5px; margin-bottom: 6px; flex-shrink: 0; }
+      .nb-input { flex: 1; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-panel); color: var(--color-text); font-size: 0.68rem; }
+      .nb-input:focus { outline: none; border-color: var(--color-primary); }
+      .nb-input::placeholder { color: var(--color-text-muted); font-size: 0.62rem; }
+      .nb-btn-primary { display: flex; align-items: center; gap: 3px; padding: 6px 10px; background: var(--color-primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.66rem; font-weight: 600; white-space: nowrap; }
+      .nb-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+      .nb-btn-primary .material-symbols-outlined { font-size: 16px; }
+
+      .nb-error { padding: 4px 8px; background: rgba(255,107,107,0.1); border-radius: 4px; color: var(--color-error-text); font-size: 0.6rem; margin-bottom: 4px; }
+      .nb-msg { padding: 4px 8px; background: rgba(0,212,170,0.08); border-radius: 4px; color: var(--color-primary); font-size: 0.6rem; margin-bottom: 4px; }
+      .nb-loading { display: flex; align-items: center; gap: 5px; font-size: 0.62rem; color: var(--color-text-muted); margin-bottom: 4px; }
+      .loading-spinner { width: 12px; height: 12px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      .nb-main { flex: 1; display: flex; gap: 8px; min-height: 0; overflow: hidden; }
+      .nb-sidebar { width: 110px; flex-shrink: 0; overflow-y: auto; padding-right: 4px; }
+      .nb-sidebar-title { font-size: 0.58rem; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.3px; margin: 0 0 4px 0; }
+      .nb-tag { display: block; width: 100%; padding: 3px 6px; background: transparent; border: none; border-radius: 4px; color: var(--color-text-muted); cursor: pointer; font-size: 0.6rem; text-align: left; transition: all 0.1s; margin-bottom: 1px; }
+      .nb-tag:hover { background: color-mix(in srgb, var(--color-primary) 6%, transparent); color: var(--color-text); }
+      .nb-tag.active { background: color-mix(in srgb, var(--color-primary) 12%, transparent); color: var(--color-primary); font-weight: 600; }
+      .nb-tag-fav { color: #ffd93d; }
+      .nb-add-tag { margin-top: 4px; }
+      .nb-tag-input { width: 100%; padding: 2px 6px; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); font-size: 0.56rem; }
+
+      .nb-content { flex: 1; overflow-y: auto; min-width: 0; }
+      .nb-graph-container { margin-bottom: 8px; }
+      .nb-graph-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+      .nb-graph-header h4 { font-size: 0.7rem; font-weight: 600; color: var(--color-text); margin: 0; }
+      .nb-graph-canvas { width: 100%; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-panel); }
+      .nb-results { margin-bottom: 8px; }
+      .nb-results h4 { font-size: 0.64rem; font-weight: 600; color: var(--color-text); margin: 0 0 4px 0; }
+
+      .nb-form { padding: 8px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 8px; }
+      .nb-form h4 { font-size: 0.64rem; font-weight: 600; color: var(--color-primary); margin: 0 0 6px 0; }
+      .nb-input-sm { width: 100%; padding: 5px 8px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-background); color: var(--color-text); font-size: 0.62rem; margin-bottom: 4px; box-sizing: border-box; }
+      .nb-input-sm:focus { outline: none; border-color: var(--color-primary); }
+      .nb-textarea { width: 100%; padding: 5px 8px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-background); color: var(--color-text); font-size: 0.62rem; min-height: 50px; resize: vertical; margin-bottom: 4px; box-sizing: border-box; }
+      .nb-textarea:focus { outline: none; border-color: var(--color-primary); }
+      .nb-form-row { display: flex; gap: 4px; }
+      .flex-1 { flex: 1; min-width: 0; }
+
+      .nb-entries { }
+      .nb-entries h4 { font-size: 0.64rem; font-weight: 600; color: var(--color-text); margin: 0 0 4px 0; }
+      .nb-entry-card { padding: 8px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 7px; margin-bottom: 4px; border-left: 3px solid var(--color-border); transition: all 0.12s; }
+      .nb-entry-card.saved { border-left-color: #ffd93d; }
+      .nb-entry-header { display: flex; align-items: center; gap: 6px; }
+      .nb-fav-btn { padding: 1px 4px; background: transparent; border: none; cursor: pointer; font-size: 0.7rem; color: var(--color-text-muted); }
+      .nb-fav-btn.active { color: #ffd93d; }
+      .nb-entry-title { flex: 1; font-size: 0.66rem; font-weight: 600; color: var(--color-text); }
+      .nb-del-btn { padding: 1px 5px; background: transparent; border: none; color: var(--color-text-muted); cursor: pointer; font-size: 0.75rem; }
+      .nb-del-btn:hover { color: var(--color-error-text); }
+      .nb-entry-body { font-size: 0.62rem; color: var(--color-text-muted); margin-top: 4px; line-height: 1.4; white-space: pre-wrap; }
+      .nb-entry-meta { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+      .nb-entry-tag { padding: 1px 6px; background: color-mix(in srgb, var(--color-primary) 8%, transparent); border: none; border-radius: 3px; font-size: 0.54rem; color: var(--color-primary); cursor: pointer; }
+      .nb-entry-tag:hover { background: color-mix(in srgb, var(--color-primary) 16%, transparent); }
+      .nb-entry-source { font-size: 0.55rem; color: var(--color-text-muted); }
+      .nb-entry-date { font-size: 0.52rem; color: var(--color-text-muted); margin-left: auto; }
+
+      .nb-empty { display: flex; flex-direction: column; align-items: center; padding: 30px 16px; text-align: center; }
+      .nb-empty-icon { font-size: 36px; color: var(--color-border); margin-bottom: 8px; }
+      .nb-empty p { font-size: 0.68rem; color: var(--color-text-muted); margin: 0 0 4px 0; }
+      .nb-empty-hint { font-size: 0.6rem; color: var(--color-text-muted); opacity: 0.7; line-height: 1.3; }
     </style>
+
+    <script>
+      function drawGraph(data) {
+        const canvas = document.getElementById("nb-graph-canvas");
+        if (!canvas || !data || !data.nodes.length) return;
+        const ctx = canvas.getContext("2d");
+        const w = canvas.width = canvas.offsetWidth || 600;
+        const h = canvas.height = 400;
+        ctx.clearRect(0, 0, w, h);
+
+        const nodes = data.nodes.map((n, i) => ({
+          ...n,
+          x: w / 2 + (Math.cos(i * 2 * Math.PI / data.nodes.length) * (w / 3)),
+          y: h / 2 + (Math.sin(i * 2 * Math.PI / data.nodes.length) * (h / 3)),
+          vx: 0, vy: 0,
+        }));
+
+        // Simple force simulation (10 iterations)
+        for (let iter = 0; iter < 20; iter++) {
+          nodes.forEach(n => {
+            n.vx = 0; n.vy = 0;
+            nodes.forEach(n2 => {
+              if (n === n2) return;
+              const dx = n.x - n2.x, dy = n.y - n2.y;
+              const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+              const force = 2000 / (dist * dist);
+              n.vx += (dx / dist) * force;
+              n.vy += (dy / dist) * force;
+            });
+            n.vx += (w / 2 - n.x) * 0.001;
+            n.vy += (h / 2 - n.y) * 0.001;
+            n.vx *= 0.5; n.vy *= 0.5;
+            n.x += n.vx; n.y += n.vy;
+            n.x = Math.max(30, Math.min(w - 30, n.x));
+            n.y = Math.max(20, Math.min(h - 20, n.y));
+          });
+        }
+
+        // Draw edges
+        ctx.strokeStyle = "rgba(150,150,170,0.3)";
+        ctx.lineWidth = 1;
+        data.edges.forEach(e => {
+          const s = nodes.find(n => n.id === e.source);
+          const t = nodes.find(n => n.id === e.target);
+          if (s && t) { ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(t.x, t.y); ctx.stroke(); }
+        });
+
+        // Draw nodes
+        nodes.forEach(n => {
+          const r = n.type === "tag" ? 8 : n.type === "source" ? 10 : 14;
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, r, 0, 2 * Math.PI);
+          ctx.fillStyle = n.type === "tag" ? "rgba(0,212,170,0.7)" : n.type === "source" ? "rgba(100,150,255,0.7)" : "rgba(255,255,255,0.8)";
+          ctx.fill();
+          ctx.strokeStyle = n.type === "tag" ? "var(--color-primary)" : "#666";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.fillStyle = n.type === "entry" ? "#000" : "#fff";
+          ctx.font = "10px Inter, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(n.label, n.x, n.y + r + 12);
+        });
+      }
+    </script>
   </div>
 </body>
 </html>
