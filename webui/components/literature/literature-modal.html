@@ -171,7 +171,7 @@
       <!-- Loading -->
       <div x-show="$store.literatureModal.loading" class="loading-bar">
         <div class="loading-spinner"></div>
-        <span>Searching {{ $store.literatureModal.database === 'pubmed' ? 'PubMed' : $store.literatureModal.database === 'semantic_scholar' ? 'Semantic Scholar' : 'arXiv' }}...</span>
+        <span>Searching <span x-text="$store.literatureModal.database === 'pubmed' ? 'PubMed' : $store.literatureModal.database === 'semantic_scholar' ? 'Semantic Scholar' : 'arXiv'"></span>...</span>
       </div>
 
       <!-- Results -->

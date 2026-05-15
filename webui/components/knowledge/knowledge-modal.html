@@ -57,7 +57,7 @@
             @keyup.enter="if($event.target.value.trim()) { $store.knowledgeModal.addTag($event.target.value); $event.target.value = ''; }" />
         </div>
         <button class="nb-tag nb-tag-fav" @click="$store.knowledgeModal.filterByTag('__fav__')" x-show="$store.knowledgeModal.favorites.length">
-          ⭐ Favorites ({{ $store.knowledgeModal.favorites.length }})
+          ⭐ Favorites (<span x-text="$store.knowledgeModal.favorites.length"></span>)
         </button>
       </div>
 
@@ -270,7 +270,7 @@
           ctx.arc(n.x, n.y, r, 0, 2 * Math.PI);
           ctx.fillStyle = n.type === "tag" ? "rgba(0,212,170,0.7)" : n.type === "source" ? "rgba(100,150,255,0.7)" : "rgba(255,255,255,0.8)";
           ctx.fill();
-          ctx.strokeStyle = n.type === "tag" ? "var(--color-primary)" : "#666";
+          ctx.strokeStyle = n.type === "tag" ? "rgba(0,180,150,1)" : "rgba(100,100,120,1)";
           ctx.lineWidth = 1;
           ctx.stroke();
           ctx.fillStyle = n.type === "entry" ? "#000" : "#fff";

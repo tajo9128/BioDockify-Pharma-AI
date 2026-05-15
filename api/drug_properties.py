@@ -110,8 +110,8 @@ class DrugProperties(ApiHandler):
             return _format_properties(smiles, mw, logp, hbd, hba, tpsa, formula)
         except ImportError:
             pass
-        except Exception:
-            pass
+        except Exception as e:
+            import logging; logging.getLogger("drug_properties").warning(f"RDKit failed: {e}")
 
         # Fallback: approximate from SMILES atoms
         atoms = _parse_atoms(smiles)

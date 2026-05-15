@@ -3,6 +3,9 @@ import urllib.request
 import urllib.parse
 import json
 import xml.etree.ElementTree as ET
+import logging
+
+logger = logging.getLogger("literature_search")
 
 
 class LiteratureSearch(ApiHandler):
@@ -42,7 +45,7 @@ class LiteratureSearch(ApiHandler):
                 f"term={urllib.parse.quote(query)}"
             )
             req = urllib.request.Request(esearch_url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=(15, 30)) as resp:
                 data = json.loads(resp.read())
             id_list = data.get("esearchresult", {}).get("idlist", [])
             count = int(data.get("esearchresult", {}).get("count", 0))
@@ -102,6 +105,7 @@ class LiteratureSearch(ApiHandler):
 
             return papers, count
         except Exception as e:
+            logger.warning(f"PubMed search failed for '{query}': {e}")
             return [], 0
 
     async def _search_semantic_scholar(self, query: str, max_results: int):
@@ -112,7 +116,7 @@ class LiteratureSearch(ApiHandler):
                 "&fields=title,abstract,authors,journal,year,externalIds,url"
             )
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=(15, 30)) as resp:
                 data = json.loads(resp.read())
 
             papers = []
@@ -128,18 +132,19 @@ class LiteratureSearch(ApiHandler):
                     "database": "Semantic Scholar",
                 })
             return papers, data.get("total", 0)
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Semantic Scholar search failed for '{query}': {e}")
             return [], 0
 
     async def _search_arxiv(self, query: str, max_results: int):
         try:
             url = (
-                "http://export.arxiv.org/api/query?"
+                "https://export.arxiv.org/api/query?"
                 f"search_query=all:{urllib.parse.quote(query)}&"
                 f"start=0&max_results={max_results}&sortBy=relevance"
             )
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=(15, 30)) as resp:
                 xml_data = resp.read()
 
             root = ET.fromstring(xml_data)
@@ -171,7 +176,8 @@ class LiteratureSearch(ApiHandler):
                     "database": "arXiv",
                 })
             return papers, len(papers)
-        except Exception:
+        except Exception as e:
+            logger.warning(f"arXiv search failed for '{query}': {e}")
             return [], 0
 
     def _get_text(self, element):

@@ -57,12 +57,6 @@
         this.persist();
       },
 
-      clear() {
-        this.smiles = "";
-        this.result = null;
-        this.error = "";
-      },
-
       get hasResult() { return this.result && this.result.properties; },
       get lipinskiPassed() { return this.result?.lipinski?.passed; },
     });

@@ -65,6 +65,10 @@
   --color-chat-background: var(--color-chat-background-dark);
   --color-error-text:var(--color-error-text-dark);
   --color-warning-text:var(--color-warning-text-dark);
+  --color-error: color-mix(in srgb, var(--color-error-text-dark) 30%, var(--color-border-dark));
+  --color-text-secondary: var(--color-text-muted-dark);
+  --color-bg-secondary: color-mix(in srgb, var(--color-background-dark) 95%, #000 5%);
+  --color-bg-tertiary: color-mix(in srgb, var(--color-background-dark) 90%, var(--color-primary-dark) 10%);
   --color-table-row: var(--color-table-row-dark);
 
   /* Spacing variables */

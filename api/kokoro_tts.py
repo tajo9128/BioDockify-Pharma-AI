@@ -3,6 +3,20 @@ from helpers.api import ApiHandler, Request, Response
 import base64
 import io
 import os
+import logging
+
+logger = logging.getLogger("kokoro_tts")
+_kokoro_instance = None
+
+def _get_kokoro():
+    global _kokoro_instance
+    if _kokoro_instance is None:
+        try:
+            from kokoro_onnx import Kokoro
+            _kokoro_instance = Kokoro()
+        except ImportError:
+            _kokoro_instance = False
+    return _kokoro_instance if _kokoro_instance is not False else None
 
 
 class KokoroTTS(ApiHandler):
@@ -37,9 +51,8 @@ class KokoroTTS(ApiHandler):
     async def _try_kokoro(self, text: str, voice: str, speed: float) -> dict | None:
         try:
             import soundfile as sf
-            from kokoro_onnx import Kokoro
-
-            kokoro = Kokoro()
+            kokoro = _get_kokoro()
+            if kokoro is None: return None
             lang_code = voice if voice in ["en-us", "en-gb", "ja", "zh", "ko"] else "en-us"
             samples, sample_rate = kokoro.create(text, voice=lang_code, speed=speed)
 
@@ -56,7 +69,8 @@ class KokoroTTS(ApiHandler):
             }
         except ImportError:
             return None
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Kokoro TTS failed: {e}")
             return None
 
     async def _try_edge_tts(self, text: str, voice: str, speed: float) -> dict | None:
@@ -91,5 +105,6 @@ class KokoroTTS(ApiHandler):
             }
         except ImportError:
             return None
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Edge-TTS failed: {e}")
             return None

@@ -40,7 +40,7 @@
 }
 
 #right-panel {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s ease, margin-left var(--transition-speed, 0.3s) ease-in-out;
 }
 
 #right-panel.desktop-hidden {

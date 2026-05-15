@@ -60,7 +60,7 @@
           <button
             class="taskbar-window-btn"
             :class="{ 'is-active': $store.desktopWorkspace?.activeWindowId === win.id && !win.minimized, 'is-minimized': win.minimized }"
-            @click="win.minimized ? ($store.desktopWorkspace.minimizeWindow(win.id), $store.desktopWorkspace.minimizeWindow(win.id)) : ($store.desktopWorkspace.focusWindow(win.id), $store.desktopWorkspace.minimizeWindow(win.id))"
+            @click="win.minimized ? (win.minimized = false, $store.desktopWorkspace.focusWindow(win.id)) : $store.desktopWorkspace.minimizeWindow(win.id)"
           >
             <span class="material-symbols-outlined taskbar-icon" x-text="win.icon"></span>
             <span class="taskbar-label" x-text="win.title"></span>
@@ -72,7 +72,7 @@
         <button class="taskbar-tray-btn" @click="$store.desktopWorkspace.cycleLayout()" title="Switch Layout Mode">
           <span class="material-symbols-outlined">chat</span>
         </button>
-        <span class="taskbar-clock" x-data="{ time: '' }" x-init="time = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); setInterval(() => time = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}), 30000)" x-text="time"></span>
+        <span class="taskbar-clock" x-data="{ time: '', _timer: null }" x-init="time = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); _timer = setInterval(() => time = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}), 30000)" x-destroy="clearInterval(_timer)" x-text="time"></span>
       </div>
     </div>
 
