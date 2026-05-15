@@ -1,2 +1,1 @@
-import { createStore } from "/js/AlpineStore.js";
-export const store = createStore("literatureModal", {});
+// Store defined inline in literature-modal.html

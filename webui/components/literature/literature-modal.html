@@ -1,12 +1,216 @@
-<html><body><div x-data class="simple-panel">
-  <div class="panel-header"><span class="material-symbols-outlined panel-icon">menu_book</span><h2>Literature Search</h2></div>
-  <div class="panel-content">
-    <p>Ask the agent in chat to search and synthesize literature across multiple databases. The agent can find papers, summarize findings, and export citations.</p>
-    <div class="examples">
-      <div class="example-item">"Search PubMed for recent papers on CRISPR cancer therapy"</div>
-      <div class="example-item">"Find systematic reviews on AI in drug discovery from 2023-2026"</div>
-      <div class="example-item">"Synthesize the top 10 papers on mRNA vaccines"</div>
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+
+    export const store = createStore("literatureModal", {
+      query: "",
+      database: "pubmed",
+      loading: false,
+      papers: [],
+      total: 0,
+      error: "",
+      message: "",
+
+      async search() {
+        if (!this.query.trim()) return;
+        this.loading = true;
+        this.error = "";
+        this.message = "";
+        this.papers = [];
+        try {
+          const resp = await callJsonApi("literature_search", {
+            query: this.query,
+            database: this.database,
+            max_results: 15,
+          });
+          if (resp.error) { this.error = resp.error; return; }
+          this.papers = resp.papers || [];
+          this.total = resp.total || 0;
+          this.message = this.papers.length ? "" : "No papers found.";
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      clear() {
+        this.query = "";
+        this.papers = [];
+        this.total = 0;
+        this.error = "";
+        this.message = "";
+      },
+
+      hasResults() { return this.papers.length > 0; },
+
+      downloadCite(format, paper) {
+        let text = "";
+        const authors = (paper.authors || []).join(", ");
+        const year = paper.year || "n.d.";
+        const title = paper.title || "";
+        const journal = paper.journal || "";
+        const url = paper.url || "";
+
+        if (format === "bibtex") {
+          const key = (authors.split(",")[0] || "unknown").trim() + year;
+          text = `@article{${key},\n  title={${title}},\n  author={${authors}},\n  journal={${journal}},\n  year={${year}},\n  url={${url}}\n}`;
+        } else if (format === "apa") {
+          text = `${authors} (${year}). ${title}. ${journal}. ${url}`;
+        } else {
+          text = `TY  - JOUR\nTI  - ${title}\nAU  - ${authors}\nJO  - ${journal}\nPY  - ${year}\nUR  - ${url}\nER  - `;
+        }
+
+        navigator.clipboard.writeText(text).then(() => {
+          this.message = "Citation copied!";
+          setTimeout(() => { this.message = ""; }, 2000);
+        });
+      },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="literature-panel">
+    <div class="panel-header">
+      <span class="material-symbols-outlined panel-icon">menu_book</span>
+      <h2>Literature Search</h2>
     </div>
+
+    <div class="panel-content">
+      <!-- Search bar -->
+      <div class="search-row">
+        <input
+          type="text"
+          x-model="$store.literatureModal.query"
+          placeholder="Search papers (e.g. CRISPR cancer therapy, AI drug discovery)..."
+          class="search-input"
+          @keyup.enter="$store.literatureModal.search()"
+        />
+        <select x-model="$store.literatureModal.database" class="db-select">
+          <option value="pubmed">PubMed</option>
+          <option value="semantic_scholar">Semantic Scholar</option>
+          <option value="arxiv">arXiv</option>
+        </select>
+        <button class="btn-primary" @click="$store.literatureModal.search()" :disabled="$store.literatureModal.loading || !$store.literatureModal.query">
+          <span class="material-symbols-outlined">search</span>
+          <span x-text="$store.literatureModal.loading ? 'Searching...' : 'Search'"></span>
+        </button>
+        <button class="btn-secondary" @click="$store.literatureModal.clear()" x-show="$store.literatureModal.query || $store.literatureModal.hasResults()">
+          <span class="material-symbols-outlined">clear</span>
+        </button>
+      </div>
+
+      <!-- Status -->
+      <div x-show="$store.literatureModal.error" class="error-banner" x-text="$store.literatureModal.error"></div>
+      <div x-show="$store.literatureModal.message" class="info-banner" x-text="$store.literatureModal.message"></div>
+
+      <!-- Loading -->
+      <div x-show="$store.literatureModal.loading" class="loading-bar">
+        <div class="loading-spinner"></div>
+        <span>Searching {{ $store.literatureModal.database === 'pubmed' ? 'PubMed' : $store.literatureModal.database === 'semantic_scholar' ? 'Semantic Scholar' : 'arXiv' }}...</span>
+      </div>
+
+      <!-- Results -->
+      <template x-if="$store.literatureModal.hasResults()">
+        <div class="results-section">
+          <p class="results-count" x-text="$store.literatureModal.papers.length + ' of ' + $store.literatureModal.total + ' results'"></p>
+
+          <div class="paper-list">
+            <template x-for="paper in $store.literatureModal.papers" :key="paper.id">
+              <div class="paper-card">
+                <div class="paper-header">
+                  <a :href="paper.url" target="_blank" class="paper-title" x-text="paper.title" rel="noopener"></a>
+                  <span class="paper-db-badge" x-text="paper.database"></span>
+                </div>
+                <div class="paper-meta">
+                  <span class="paper-authors" x-text="(paper.authors || []).join(', ')"></span>
+                  <span class="paper-journal" x-show="paper.journal" x-text="paper.journal + (paper.year ? ' (' + paper.year + ')' : '')"></span>
+                </div>
+                <div class="paper-abstract" x-show="paper.abstract" x-text="paper.abstract"></div>
+                <div class="paper-actions">
+                  <button class="action-btn" @click="$store.literatureModal.downloadCite('apa', paper)" title="Copy APA citation">
+                    <span class="material-symbols-outlined">format_quote</span>
+                    APA
+                  </button>
+                  <button class="action-btn" @click="$store.literatureModal.downloadCite('bibtex', paper)" title="Copy BibTeX citation">
+                    <span class="material-symbols-outlined">code</span>
+                    BibTeX
+                  </button>
+                  <a :href="paper.url" target="_blank" class="action-btn" rel="noopener" x-show="paper.url">
+                    <span class="material-symbols-outlined">open_in_new</span>
+                    Open
+                  </a>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <!-- Empty -->
+      <div x-show="!$store.literatureModal.hasResults() && !$store.literatureModal.loading && !$store.literatureModal.error" class="empty-state">
+        <span class="material-symbols-outlined empty-icon">menu_book</span>
+        <p>Search across PubMed, Semantic Scholar, and arXiv</p>
+        <div class="quick-chips">
+          <button class="chip" @click="$store.literatureModal.query = 'CRISPR cancer therapy'; $store.literatureModal.search()">"CRISPR cancer therapy"</button>
+          <button class="chip" @click="$store.literatureModal.query = 'AI drug discovery 2025'; $store.literatureModal.search()">"AI drug discovery 2025"</button>
+          <button class="chip" @click="$store.literatureModal.query = 'mRNA vaccines clinical trials'; $store.literatureModal.search()">"mRNA vaccines clinical trials"</button>
+        </div>
+        <p class="empty-hint">Or ask the agent: "Search PubMed for recent papers on..."</p>
+      </div>
+    </div>
+
+    <style>
+      .literature-panel { display: flex; flex-direction: column; height: 100%; overflow-y: auto; padding: 16px 20px; background: var(--color-background); }
+      .panel-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-shrink: 0; }
+      .panel-icon { font-size: 28px; color: var(--color-primary); }
+      .panel-header h2 { color: var(--color-primary); font-size: 1.05rem; margin: 0; font-weight: 700; }
+      .panel-content { flex: 1; }
+      .search-row { display: flex; gap: 8px; margin-bottom: 12px; }
+      .search-input { flex: 1; padding: 9px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-panel); color: var(--color-text); font-size: 0.8rem; }
+      .search-input:focus { outline: none; border-color: var(--color-primary); }
+      .search-input::placeholder { color: var(--color-text-muted); font-size: 0.72rem; }
+      .db-select { padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-panel); color: var(--color-text); font-size: 0.72rem; cursor: pointer; min-width: 120px; }
+      .db-select:focus { outline: none; border-color: var(--color-primary); }
+      .btn-primary, .btn-secondary { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.78rem; font-weight: 600; transition: all 0.15s; white-space: nowrap; }
+      .btn-primary { background: var(--color-primary); color: white; border: none; }
+      .btn-primary:hover:not(:disabled) { opacity: 0.9; }
+      .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+      .btn-secondary { background: var(--color-panel); border: 1px solid var(--color-border); color: var(--color-text); }
+      .btn-secondary:hover { border-color: var(--color-primary); }
+      .error-banner { padding: 8px 12px; background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.3); border-radius: 6px; color: var(--color-error-text, #ff6b6b); font-size: 0.75rem; margin-bottom: 12px; }
+      .info-banner { padding: 8px 12px; background: rgba(0,212,170,0.08); border: 1px solid rgba(0,212,170,0.2); border-radius: 6px; color: var(--color-primary); font-size: 0.75rem; margin-bottom: 12px; }
+      .loading-bar { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 0.72rem; color: var(--color-text-muted); }
+      .loading-spinner { width: 16px; height: 16px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      /* Results */
+      .results-section { margin-top: 8px; }
+      .results-count { font-size: 0.7rem; color: var(--color-text-muted); margin: 0 0 10px 0; }
+      .paper-list { display: flex; flex-direction: column; gap: 8px; }
+      .paper-card { padding: 12px 14px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 10px; border-left: 3px solid var(--color-primary); transition: box-shadow 0.15s; }
+      .paper-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+      .paper-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+      .paper-title { font-size: 0.82rem; font-weight: 600; color: var(--color-text); text-decoration: none; line-height: 1.3; }
+      .paper-title:hover { color: var(--color-primary); text-decoration: underline; }
+      .paper-db-badge { padding: 1px 8px; border-radius: 8px; font-size: 0.6rem; font-weight: 600; background: color-mix(in srgb, var(--color-primary) 10%, transparent); color: var(--color-primary); white-space: nowrap; flex-shrink: 0; }
+      .paper-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; font-size: 0.68rem; }
+      .paper-authors { color: var(--color-text-muted); }
+      .paper-journal { color: var(--color-text-muted); font-style: italic; }
+      .paper-abstract { font-size: 0.7rem; color: var(--color-text-muted); line-height: 1.5; margin-bottom: 8px; }
+      .paper-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+      .action-btn { display: flex; align-items: center; gap: 3px; padding: 4px 10px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 6px; color: var(--color-text-muted); cursor: pointer; font-size: 0.65rem; text-decoration: none; transition: all 0.12s; }
+      .action-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+      .action-btn .material-symbols-outlined { font-size: 14px; }
+
+      /* Empty */
+      .empty-state { display: flex; flex-direction: column; align-items: center; padding: 48px 20px; text-align: center; }
+      .empty-icon { font-size: 48px; color: var(--color-border); margin-bottom: 12px; }
+      .empty-state p { color: var(--color-text-muted); font-size: 0.78rem; margin: 0 0 12px 0; }
+      .quick-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 14px; }
+      .chip { padding: 6px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; font-size: 0.7rem; color: var(--color-text); cursor: pointer; transition: all 0.15s; }
+      .chip:hover { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 6%, var(--color-panel)); }
+      .empty-hint { font-size: 0.68rem; color: var(--color-text-muted); font-style: italic; }
+    </style>
   </div>
-  <style>.simple-panel{padding:var(--spacing-md);height:100%;overflow-y:auto}.panel-header{display:flex;align-items:center;gap:var(--spacing-sm);margin-bottom:var(--spacing-md)}.panel-icon{font-size:2rem;color:var(--color-primary)}.panel-header h2{color:var(--color-primary);font-size:1.1rem;margin:0}.panel-content p{color:var(--color-text);font-size:.85rem;line-height:1.5}.examples{margin-top:var(--spacing-md);display:flex;flex-direction:column;gap:var(--spacing-xs)}.example-item{padding:var(--spacing-sm);background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;font-size:.8rem;color:var(--color-text-muted);border-left:3px solid var(--color-primary)}</style>
-</div></body></html>
+</body>
+</html>

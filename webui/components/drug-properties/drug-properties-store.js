@@ -1,2 +1,1 @@
-import { createStore } from "/js/AlpineStore.js";
-export const store = createStore("drugProperties", {});
+// Store defined inline in drug-properties-panel.html
