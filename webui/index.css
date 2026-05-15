@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,100..700;1,100..700&family=Rubik:ital,wght@0,300..900;1,300..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 
 /* Add box-sizing globally for better cross-browser consistency */
 *,
@@ -8,43 +8,43 @@
 }
 
 :root {
-  /* Dark mode */
-  --color-background-dark: #131313;
+  /* BioDockify Dark mode - Docker Desktop inspired */
+  --color-background-dark: #1a1a2e;
   --color-text-dark: #ffffff;
-  --color-text-muted-dark: #d4d4d4e4;
-  --color-primary-dark: #737a81;
-  --color-secondary-dark: #656565;
-  --color-accent-dark: #cf6679;
-  --color-message-bg-dark: #2d2d2d;
-  --color-highlight-dark: #2b5ab9;
+  --color-text-muted-dark: #a0a0b0;
+  --color-primary-dark: #00d4aa;
+  --color-secondary-dark: #0d4f4f;
+  --color-accent-dark: #4fc3f7;
+  --color-message-bg-dark: #16213e;
+  --color-highlight-dark: #00d4aa;
   --color-message-text-dark: #e0e0e0;
-  --color-panel-dark: #1a1a1a;
-  --color-border-dark: #444444a8;
-  --color-input-dark: #131313;
-  --color-input-focus-dark: #101010;
-  --color-chat-background-dark: #212121;
-  --color-error-text-dark:#e72323;
-  --color-warning-text-dark:#e79c23;
-  --color-table-row-dark: #272727;
+  --color-panel-dark: #0f0f23;
+  --color-border-dark: #2a2a4a;
+  --color-input-dark: #1a1a2e;
+  --color-input-focus-dark: #16213e;
+  --color-chat-background-dark: #0f0f23;
+  --color-error-text-dark:#ff6b6b;
+  --color-warning-text-dark:#ffd93d;
+  --color-table-row-dark: #1a1a2e;
 
-  /* Light mode */
-  --color-background-light: #fafafa;
-  --color-text-light: #333333;
-  --color-text-muted-light: #333333e4;
-  --color-primary-light: #384653;
-  --color-secondary-light: #e8eaf6;
-  --color-accent-light: #b00020;
+  /* BioDockify Light mode */
+  --color-background-light: #f8f9fc;
+  --color-text-light: #1a1a2e;
+  --color-text-muted-light: #5a5a7a;
+  --color-primary-light: #00a88a;
+  --color-secondary-light: #e8faf5;
+  --color-accent-light: #2196f3;
   --color-message-bg-light: #ffffff;
-  --color-highlight-light: #2563eb;
-  --color-message-text-light: #333333;
-  --color-panel-light: #f0f0f0;
-  --color-border-light: #bdbdbdcf;
-  --color-input-light: #e4e4e4;
-  --color-input-focus-light: #dadada;
-  --color-chat-background-light: #fafafa;
-  --color-error-text-light:#920000;
-  --color-warning-text-light:#936214;
-  --color-table-row-light: #edededf3;
+  --color-highlight-light: #00d4aa;
+  --color-message-text-light: #1a1a2e;
+  --color-panel-light: #ffffff;
+  --color-border-light: #e0e0f0;
+  --color-input-light: #f0f0f8;
+  --color-input-focus-light: #e8e8f0;
+  --color-chat-background-light: #f8f9fc;
+  --color-error-text-light:#d32f2f;
+  --color-warning-text-light:#f57c00;
+  --color-table-row-light: #f0f0f8;
 
 
   /* Default to dark mode */
@@ -82,8 +82,8 @@
   --font-size-large: 1.2rem;
 
   /* Font families */
-  --font-family-main: "Rubik", Arial, Helvetica, sans-serif;
-  --font-family-code: "Roboto Mono", monospace;
+  --font-family-main: "Inter", Arial, Helvetica, sans-serif;
+  --font-family-code: "JetBrains Mono", monospace;
 
   /* Other variables */
   --border-radius: 1.125rem;
@@ -415,17 +415,8 @@ img {
   min-width: 0;
   flex-direction: column;
   flex: 1 1 0;
-  -webkit-transition: margin-left var(--transition-speed) ease-in-out, opacity 0.2s ease, flex 0.2s ease;
-  transition: margin-left var(--transition-speed) ease-in-out, opacity 0.2s ease, flex 0.2s ease;
-}
-
-#right-panel.desktop-hidden {
-  opacity: 0;
-  pointer-events: none;
-  flex: 0 0 0;
-  width: 0;
-  min-width: 0;
-  overflow: hidden;
+  -webkit-transition: margin-left var(--transition-speed) ease-in-out;
+  transition: margin-left var(--transition-speed) ease-in-out;
 }
 
 /* Chat area wrapper – contains chat-history + floating nav buttons */
@@ -463,6 +454,38 @@ img {
   background: var(--color-panel);
   box-shadow: 0 1px 4px rgba(0,0,0,0.18);
 }
+
+/* Desktop Mode Toggle – right edge, vertically centered */
+#desktop-toggle {
+  position: absolute;
+  right: var(--spacing-md);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 100;
+}
+
+#desktop-toggle .btn-icon-action {
+  padding: var(--spacing-xs);
+  border: none !important;
+  border-radius: 50%;
+  background: var(--color-panel);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  opacity: 0.5;
+  transition: all 0.2s ease;
+}
+
+#desktop-toggle .btn-icon-action:hover {
+  opacity: 1;
+  background: var(--color-primary);
+  color: var(--color-background);
+  transform: scale(1.1);
+  box-shadow: 0 4px 16px rgba(0, 212, 170, 0.3);
+}
+
+#desktop-toggle .btn-icon-action .material-symbols-outlined {
+  font-size: 22px;
+}
+
 @media (max-width: 768px) {
   #chat-nav-buttons {
     opacity: 0.85;

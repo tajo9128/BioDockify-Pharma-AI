@@ -41,31 +41,27 @@
 
                 <!-- Feature Grid - Core interactive tools -->
                 <div class="feature-grid">
-                    <button class="feature-btn" @click="$store.rightCanvas.open('research-hub')">
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('research')">
                         <span class="material-symbols-outlined">apps</span>
                         <span>All Tools</span>
                     </button>
-                    <button class="feature-btn" @click="$store.rightCanvas.open('statistics')">
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('statistics')">
                         <span class="material-symbols-outlined">analytics</span>
                         <span>Statistics</span>
                     </button>
-                    <button class="feature-btn" @click="$store.rightCanvas.open('knowledge')">
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('knowledge')">
                         <span class="material-symbols-outlined">psychology</span>
                         <span>Knowledge</span>
                     </button>
-                    <button class="feature-btn" @click="$store.rightCanvas.open('drug-properties')">
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('drug-properties')">
                         <span class="material-symbols-outlined">medication</span>
                         <span>Drug Properties</span>
                     </button>
-                    <button class="feature-btn" @click="$store.rightCanvas.open('admet')">
-                        <span class="material-symbols-outlined">monitor_heart</span>
-                        <span>ADMET</span>
-                    </button>
-                    <button class="feature-btn" @click="$store.rightCanvas.open('patent-analyzer')">
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('patent-analyzer')">
                         <span class="material-symbols-outlined">gavel</span>
                         <span>Patents</span>
                     </button>
-                    <button class="feature-btn" @click="$store.rightCanvas.open('trial-scanner')">
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('trial-scanner')">
                         <span class="material-symbols-outlined">clinical_notes</span>
                         <span>Trials</span>
                     </button>
@@ -89,9 +85,9 @@
                         <span class="material-symbols-outlined">backup</span>
                         <span>Backup</span>
                     </button>
-                    <button class="link-btn" @click="$store.rightCanvas.open('agent-tasks')">
-                        <span class="material-symbols-outlined">psychology</span>
-                        <span>Agent Tasks</span>
+                    <button class="link-btn" @click="$store.desktopWorkspace?.openWindow('desktop')">
+                        <span class="material-symbols-outlined">desktop_windows</span>
+                        <span>Desktop</span>
                     </button>
                 </div>
             </div>

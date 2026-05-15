@@ -80,7 +80,7 @@
     <div class="container">
         <!-- Sidebar Overlay -->
         <div id="sidebar-overlay" x-data>
-            <template x-if="$store.sidebar && !$store.desktopWorkspace?.isDesktopMode">
+            <template x-if="$store.sidebar">
                 <div class="sidebar-overlay" :class="{'visible': $store.sidebar.isOpen && $store.sidebar.isMobile()}" @click="$store.sidebar.close()"></div>
             </template>
         </div>
@@ -88,7 +88,7 @@
         <x-component path="sidebar/left-sidebar.html"></x-component>
 
         <!-- Right Panel (Message History and Input Section) -->
-        <div id="right-panel" class="panel" :class="{ 'desktop-hidden': $store.desktopWorkspace?.isDesktopMode }">
+        <div id="right-panel" class="panel" x-show="!$store.desktopWorkspace?.isDesktopMode">
 
             <!-- top section with time, status etc. -->
             <x-component path="chat/top-section/chat-top.html"></x-component>
@@ -114,6 +114,13 @@
                 </button>
                 <button class="btn-icon-action" title="Scroll to bottom" @click="$store.chatNavigation.scrollToBottom()">
                   <span class="material-symbols-outlined">vertical_align_bottom</span>
+                </button>
+              </div>
+
+              <!-- Desktop Mode Toggle (right edge of chat) -->
+              <div id="desktop-toggle">
+                <button class="btn-icon-action" title="Open Desktop Mode" @click="$store.desktopWorkspace.toggleDesktopMode()">
+                  <span class="material-symbols-outlined">desktop_windows</span>
                 </button>
               </div>
             </div>

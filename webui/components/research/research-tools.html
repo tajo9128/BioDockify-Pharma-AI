@@ -10,43 +10,43 @@
     <p class="tools-desc">Interactive tools (click to open) · Agent-driven tools (type in chat)</p>
 
     <div class="tool-grid">
-      <button class="tool-card" @click="$store.rightCanvas.open('statistics')">
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('statistics')">
         <span class="material-symbols-outlined">analytics</span>
         <span class="tool-label">Statistics</span>
       </button>
-      <button class="tool-card" @click="$store.rightCanvas.open('knowledge')">
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('knowledge')">
         <span class="material-symbols-outlined">psychology</span>
         <span class="tool-label">Knowledge</span>
       </button>
-      <button class="tool-card" @click="$store.rightCanvas.open('drug-properties')">
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('drug-properties')">
         <span class="material-symbols-outlined">medication</span>
         <span class="tool-label">Drug Properties</span>
       </button>
-      <button class="tool-card" @click="$store.rightCanvas.open('patent-analyzer')">
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('patent-analyzer')">
         <span class="material-symbols-outlined">gavel</span>
         <span class="tool-label">Patents</span>
       </button>
-      <button class="tool-card" @click="$store.rightCanvas.open('trial-scanner')">
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('trial-scanner')">
         <span class="material-symbols-outlined">clinical_notes</span>
         <span class="tool-label">Trials</span>
       </button>
-      <button class="tool-card" @click="$store.rightCanvas.open('literature')">
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('literature')">
         <span class="material-symbols-outlined">menu_book</span>
         <span class="tool-label">Literature</span>
       </button>
-      <button class="tool-card" @click="$store.rightCanvas.open('thesis')">
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('thesis')">
         <span class="material-symbols-outlined">description</span>
         <span class="tool-label">Academic Writer</span>
       </button>
-      <button class="tool-card" @click="$store.rightCanvas.open('slides')">
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('slides')">
         <span class="material-symbols-outlined">slideshow</span>
         <span class="tool-label">Slides</span>
       </button>
-      <button class="tool-card" @click="$store.rightCanvas.open('wetlab')">
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('wetlab')">
         <span class="material-symbols-outlined">biotech</span>
         <span class="tool-label">Wet Lab</span>
       </button>
-      <button class="tool-card" @click="$store.rightCanvas.open('lecture-builder')">
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('lecture-builder')">
         <span class="material-symbols-outlined">school</span>
         <span class="tool-label">Lecture Builder</span>
       </button>

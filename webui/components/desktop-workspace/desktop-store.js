@@ -47,6 +47,12 @@ const model = {
     const module = defaultModules.find(m => m.id === moduleId);
     if (!module) return;
 
+    // Auto-switch to desktop mode if not already in it
+    if (!this.isDesktopMode) {
+      this.isDesktopMode = true;
+      this.persist();
+    }
+
     const existing = this.windows.find(w => w.moduleId === moduleId && !w.closed);
     if (existing) {
       this.focusWindow(existing.id);
