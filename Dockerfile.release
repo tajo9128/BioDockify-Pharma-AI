@@ -1,4 +1,4 @@
-FROM tajo9128/biodockify-ai:v3.9.0
+FROM tajo9128/biodockify-pharma-ai:v4.7.0
 
 COPY webui/ /a0/webui/
 COPY plugins/ /a0/plugins/
@@ -23,12 +23,6 @@ COPY lib/ /a0/lib/
 
 COPY agent_zero/prompts_v19/ /a0/agent_zero/prompts_v19/
 COPY agent_zero/extensions_v19/ /a0/agent_zero/extensions_v19/
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    autodock-vina \
-    openbabel \
-    2>/dev/null || true && \
-    rm -rf /var/lib/apt/lists/*
 
 RUN find /a0/webui/ -maxdepth 1 -name "favicon*" -type f -delete 2>/dev/null || true; \
     find /a0/webui/ -maxdepth 1 -name "*.ico" -type f -delete 2>/dev/null || true; \
