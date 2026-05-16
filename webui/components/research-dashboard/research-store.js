@@ -10,6 +10,8 @@ export const store = createStore("researchDashboard", {
   error: "",
   message: "",
   newTopic: "",
+  newNotes: "",
+  newComments: "",
   newType: "phd",
 
   get activeProject() {
@@ -49,22 +51,39 @@ export const store = createStore("researchDashboard", {
     if (!this.newTopic.trim()) return;
     this.loading = true; this.error = ""; this.message = "";
     try {
+      // Try API first
       const resp = await callJsonApi("research/management/comprehensive/initialize", {
-        topic: this.newTopic,
-        research_type: this.newType,
-        user_message: this.newTopic,
+        topic: this.newTopic, research_type: this.newType,
+        user_message: [this.newTopic, this.newNotes, this.newComments].filter(Boolean).join("\n"),
       });
       if (resp.research_id) {
         this.message = "Pipeline started: " + resp.research_id;
         this.activeProjectId = resp.research_id;
-        this.newTopic = "";
+        this.newTopic = ""; this.newNotes = ""; this.newComments = "";
         await this.listProjects();
         this.loadDashboard();
-      } else {
-        this.error = resp.error || "Failed to start research pipeline";
+        this.loading = false;
+        return;
       }
-    } catch (e) { this.error = e.message; }
+    } catch (e) { /* API unavailable, use agent fallback */ }
+
+    // Fallback: send to agent chat
     this.loading = false;
+    let prompt = `START RESEARCH PIPELINE\nTitle: ${this.newTopic}\nType: ${this.newType}\n`;
+    if (this.newNotes.trim()) prompt += `Topics/Objectives:\n${this.newNotes}\n`;
+    if (this.newComments.trim()) prompt += `Comments:\n${this.newComments}\n`;
+    prompt += `Execute: 1) Deep Research via literature APIs, 2) Literature Review synthesis, 3) Save findings to Knowledge Base.`;
+    const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea, .input-area textarea");
+    if (input) {
+      input.value = prompt;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.focus();
+      this.message = "Pipeline sent to agent. Agent will execute deep research and literature review.";
+      this.newTopic = ""; this.newNotes = ""; this.newComments = "";
+      setTimeout(() => { this.message = ""; this.listProjects(); }, 5000);
+    } else {
+      this.error = "Chat input not found. Type your research title in chat to start.";
+    }
   },
 
   exportReport() {

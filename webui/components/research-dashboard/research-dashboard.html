@@ -26,15 +26,17 @@
     <div x-show="$store.researchDashboard.activeTab === 'projects'" class="rd-tab-content">
       <div class="rd-card hero">
         <h4>Start New Research</h4>
-        <p class="rd-hero-desc">Enter a PhD title or research topic. The pipeline auto-starts: deep research → literature review → knowledge storage → progress tracking → academic writing.</p>
+        <p class="rd-hero-desc">Enter a PhD title or research topic. The agent executes: deep research → literature review → knowledge storage → progress tracking → academic writing.</p>
+        <input type="text" x-model="$store.researchDashboard.newTopic" placeholder="Research title / PhD topic..." class="rd-input" style="margin-bottom:6px" />
+        <textarea x-model="$store.researchDashboard.newNotes" placeholder="Topics / objectives (one per line, optional)..." class="rd-textarea" rows="2"></textarea>
+        <textarea x-model="$store.researchDashboard.newComments" placeholder="Additional comments / instructions for the agent (optional)..." class="rd-textarea" rows="2" style="margin-bottom:6px"></textarea>
         <div class="rd-new-row">
-          <input type="text" x-model="$store.researchDashboard.newTopic" placeholder="e.g. Development of Novel Kinase Inhibitors for Cancer Therapy" class="rd-input" @keyup.enter="$store.researchDashboard.startResearch()" />
           <select x-model="$store.researchDashboard.newType" class="rd-select-sm">
             <option value="phd">PhD</option><option value="grand">Grand Research</option>
             <option value="review_article">Review</option><option value="general">General</option>
           </select>
-          <button class="rd-btn" @click="$store.researchDashboard.startResearch()" :disabled="$store.researchDashboard.loading || !$store.researchDashboard.newTopic">
-            <span class="material-symbols-outlined">rocket_launch</span> Start
+          <button class="rd-btn" @click="$store.researchDashboard.startResearch()" :disabled="!$store.researchDashboard.newTopic">
+            <span class="material-symbols-outlined">rocket_launch</span> Start Pipeline
           </button>
         </div>
         <div class="rd-stages-hint">
@@ -149,6 +151,8 @@
       .rd-input { flex: 1; padding: 7px 10px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-background); color: var(--color-text); font-size: 0.66rem; }
       .rd-input:focus { outline: none; border-color: var(--color-primary); }
       .rd-input::placeholder { color: var(--color-text-muted); font-size: 0.6rem; }
+      .rd-textarea { width: 100%; padding: 7px 10px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-background); color: var(--color-text); font-size: 0.6rem; resize: vertical; box-sizing: border-box; }
+      .rd-textarea:focus { outline: none; border-color: var(--color-primary); }
       .rd-select-sm { padding: 6px 8px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-background); color: var(--color-text); font-size: 0.62rem; }
       .rd-btn { display: flex; align-items: center; gap: 4px; padding: 7px 14px; background: var(--color-primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.64rem; font-weight: 600; white-space: nowrap; }
       .rd-btn:disabled { opacity: 0.5; }
