@@ -398,6 +398,13 @@ img {
   overflow: hidden;
 }
 
+.container > x-component {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .panel {
   display: -webkit-flex;
   display: flex;
