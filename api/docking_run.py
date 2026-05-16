@@ -10,15 +10,29 @@ JOBS_DIR = files.get_abs_path("tmp/docking_jobs")
 class DockingRun(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         job_id = input.get("job_id", "")
-        receptor = input.get("receptor_pdbqt", "")
-        ligand = input.get("ligand_pdbqt", "")
+        receptor = input.get("receptor_pdbqt", "") or input.get("receptor", "")
+        ligand = input.get("ligand_pdbqt", "") or input.get("ligand", "")
         center = input.get("center", {"x": 0, "y": 0, "z": 0})
         size = input.get("size", {"x": 20, "y": 20, "z": 20})
 
-        if not job_id or not receptor or not ligand:
-            return {"error": "Missing job parameters"}
+        if not job_id:
+            return {"error": "Missing job_id"}
 
         results_dir = os.path.join(JOBS_DIR, job_id)
+
+        # Auto-find receptor/ligand PDBQT files from job directory if not specified
+        if not receptor:
+            receptor = os.path.join(results_dir, "protein.pdbqt")
+        if not ligand:
+            import glob
+            lig_files = glob.glob(os.path.join(results_dir, "*.pdbqt"))
+            lig_files = [f for f in lig_files if "protein" not in os.path.basename(f)]
+            if lig_files:
+                ligand = lig_files[0]
+
+        if not receptor or not ligand:
+            return {"error": "Receptor/ligand files not found. Run docking_prepare first."}
+
         os.makedirs(results_dir, exist_ok=True)
         output_path = os.path.join(results_dir, "docking_results.pdbqt")
 

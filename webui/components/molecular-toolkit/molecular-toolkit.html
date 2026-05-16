@@ -52,17 +52,23 @@
           if (r.error) { this.error = r.error; this.loading = false; return; }
           this.dockingJobId = r.job_id; this.dockingCenter = r.center;
           this.dockingStatus = "prepared"; this.loading = false;
-          await this.dockingRun();
+          // Auto-run docking with the prepared files
+          await this.dockingRunDirect(r);
         } catch (e) { this.error = e.message; this.loading = false; }
       },
 
-      async dockingRun() {
-        if (!this.dockingJobId) return;
+      async dockingRunDirect(prepResult) {
         this.loading = true; this.dockingStatus = "running";
         try {
-          const r = await callJsonApi("docking_run", { job_id: this.dockingJobId, receptor_pdbqt: "", ligand_pdbqt: "", center: this.dockingCenter, size: this.dockingSize || { x: 20, y: 20, z: 20 } });
+          const r = await callJsonApi("docking_run", {
+            job_id: prepResult.job_id || this.dockingJobId,
+            receptor_pdbqt: prepResult.receptor_pdbqt || "",
+            ligand_pdbqt: prepResult.ligand_pdbqt || "",
+            center: prepResult.center || this.dockingCenter,
+            size: prepResult.size || this.dockingSize || { x: 20, y: 20, z: 20 },
+          });
           if (r.error) { this.error = r.error; this.dockingStatus = "error"; }
-          else { this.dockingPoses = r.poses || []; this.dockingStatus = "complete"; }
+          else { this.dockingPoses = r.poses || []; this.dockingStatus = r.poses?.length ? "complete" : "error"; if (!this.dockingPoses.length) this.error = "No binding poses found. Check PDB and ligand SMILES."; }
         } catch (e) { this.error = e.message; this.dockingStatus = "error"; }
         this.loading = false;
       },
