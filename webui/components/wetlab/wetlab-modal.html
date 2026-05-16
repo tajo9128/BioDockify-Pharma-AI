@@ -58,6 +58,12 @@
         if (input) { input.value = msg; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); }
       },
 
+      generateReport() {
+        const exps = this.experiments.slice(0, 10).map(e => `- ${e.name} [${e.status}] ${e.protocol || ''} ${e.notes.map(n => n.text).join('; ')}`).join('\n');
+        const p = `Generate a lab report for the following experiments:\n\n${exps}\n\nInclude: 1) Title, 2) Introduction, 3) Materials & Methods, 4) Results summary, 5) Discussion, 6) Conclusion. Format as a formal laboratory report.`;
+        this.sendToAgent(p);
+      },
+
       statusColor(status) {
         return { planned: "#ffd93d", running: "#4fc3f7", completed: "#22c55e" }[status] || "#888";
       },
@@ -102,6 +108,10 @@
 
       <!-- Experiments tab -->
       <div x-show="$store.wetlabStore.activeTab === 'experiments'" class="tab-content">
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <button class="btn-add" @click="$store.wetlabStore.activeTab = 'protocols'">+ New</button>
+          <button class="btn-add" @click="$store.wetlabStore.generateReport()" x-show="$store.wetlabStore.experiments.length" style="background:#6366f1">📊 Lab Report</button>
+        </div>
         <template x-if="$store.wetlabStore.experiments.length">
           <div class="exp-list">
             <template x-for="exp in $store.wetlabStore.experiments" :key="exp.id">

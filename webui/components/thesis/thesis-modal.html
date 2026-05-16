@@ -453,6 +453,10 @@
               <span class="material-symbols-outlined">psychology</span>
               Refine
             </button>
+            <button class="aw-act-btn" @click="$store.academicWriter.sendToAgent('Convert this to LaTeX format for journal submission: ' + ($store.academicWriter.result?.content?.substring(0, 500) || $store.academicWriter.topic))">
+              <span class="material-symbols-outlined">description</span>
+              LaTeX
+            </button>
             <button class="aw-act-btn" @click="$store.academicWriter.clear()">
               <span class="material-symbols-outlined">refresh</span>
               New

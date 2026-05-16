@@ -248,12 +248,15 @@
           <h4 class="mt-section-title" x-text="'Docking Results (' + $store.molecularToolkit.dockingPoses.length + ' poses)'"></h4>
           <div class="mt-dock-grid">
             <template x-for="(pose, i) in $store.molecularToolkit.dockingPoses" :key="i">
-              <div class="mt-dock-pose">
-                <span class="mt-dock-rank" x-text="'#' + (i + 1)"></span>
+              <div class="mt-dock-pose" :class="{best: i === 0}">
+                <span class="mt-dock-rank" x-text="'Pose ' + (i + 1)"></span>
                 <span class="mt-dock-energy" x-text="pose.energy != null ? pose.energy.toFixed(2) + ' kcal/mol' : 'N/A'"></span>
+                <span class="mt-dock-label" x-show="i === 0">Best</span>
+                <span class="mt-dock-bar"><span class="mt-dock-fill" :style="'width:' + Math.max(5, (1 - ((pose.energy || 0) + 10) / 20) * 100) + '%'"></span></span>
               </div>
             </template>
           </div>
+          <p class="mt-dock-note">Lower binding energy = stronger binding. First pose is best.</p>
         </div>
       </template>
 
@@ -331,10 +334,15 @@
       .mt-dock-badge.error { background: rgba(255,107,107,0.1); color: #ff6b6b; }
       .mt-dock-badge.prepared { background: rgba(255,217,61,0.1); color: #ffd93d; }
       .mt-dock-results { margin-top: 6px; }
-      .mt-dock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 4px; }
-      .mt-dock-pose { display: flex; flex-direction: column; align-items: center; padding: 8px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; gap: 2px; }
-      .mt-dock-rank { font-size: 0.6rem; font-weight: 700; color: var(--color-primary); }
-      .mt-dock-energy { font-size: 0.56rem; color: var(--color-text); font-weight: 600; }
+      .mt-dock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 4px; }
+      .mt-dock-pose { display: flex; flex-direction: column; align-items: center; padding: 8px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; gap: 2px; position: relative; }
+      .mt-dock-pose.best { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 5%, var(--color-panel)); }
+      .mt-dock-rank { font-size: 0.56rem; font-weight: 700; color: var(--color-primary); }
+      .mt-dock-label { position: absolute; top: 3px; right: 3px; font-size: 0.4rem; padding: 1px 4px; background: var(--color-primary); color: white; border-radius: 3px; }
+      .mt-dock-energy { font-size: 0.6rem; color: var(--color-text); font-weight: 600; }
+      .mt-dock-bar { width: 80%; height: 4px; background: var(--color-border); border-radius: 2px; margin-top: 2px; }
+      .mt-dock-fill { height: 100%; background: var(--color-primary); border-radius: 2px; transition: width 0.5s; }
+      .mt-dock-note { font-size: 0.46rem; color: var(--color-text-muted); margin-top: 4px; }
       .mt-dock-info { padding: 24px; text-align: center; }
       .mt-dock-info p { font-size: 0.58rem; color: var(--color-text-muted); margin: 4px 0; }
     </style>

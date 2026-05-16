@@ -30,6 +30,27 @@
       nerPaperId: null,
       nerResult: null,
 
+      // Hypothesis generation
+      hypothesisTopic: "",
+      hypothesisResult: null,
+
+      generateHypothesis() {
+        if (!this.hypothesisTopic.trim() || !this.papers.length) return;
+        const ctx = this.papers.slice(0, 5).map(p => `- ${p.title}: ${(p.abstract || '').substring(0, 200)}`).join('\n');
+        const p = `Based on this literature:\n${ctx}\n\nGenerate 3 novel research hypotheses with gaps in knowledge for: ${this.hypothesisTopic}. For each hypothesis include: 1) The hypothesis statement, 2) Rationale from literature, 3) Suggested experimental approach, 4) Expected outcomes.`;
+        const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea");
+        if (input) { input.value = p; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); this.hypothesisResult = { topic: this.hypothesisTopic, content: "Hypothesis generation sent to agent." }; }
+        else { this.error = "Chat input not found"; }
+      },
+
+      deepReview() {
+        if (!this.papers.length) return;
+        const ctx = this.papers.map(p => p.title + ". " + (p.abstract || '')).join('\n').substring(0, 4000);
+        const p = `Deep Literature Review: Analyze and synthesize these papers into a comprehensive review. For each paper extract: 1) Key findings, 2) Methodology, 3) Strengths & Limitations, 4) Contribution to the field. Then provide: 5) Cross-paper thematic analysis, 6) Research gaps identified, 7) Future research directions.\n\nPapers:\n${ctx}`;
+        const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea");
+        if (input) { input.value = p; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); this.message = "Deep review sent to agent chat"; setTimeout(() => this.message = "", 3000); }
+      },
+
       persist() {
         try { localStorage.setItem("biodockify.literature", JSON.stringify({
           query: this.query, database: this.database,
@@ -210,6 +231,9 @@
         <span class="material-symbols-outlined">notifications</span> Alerts
         <span class="lit-badge" x-show="$store.literatureModal.alerts.length" x-text="$store.literatureModal.alerts.length"></span>
       </button>
+      <button class="lit-tab" :class="{active: $store.literatureModal.activeTab === 'hypothesis'}" @click="$store.literatureModal.activeTab = 'hypothesis'">
+        <span class="material-symbols-outlined">lightbulb</span> Hypothesis
+      </button>
     </div>
 
     <div class="panel-content" x-show="$store.literatureModal.activeTab === 'search'">
@@ -249,7 +273,12 @@
       <!-- Results -->
       <template x-if="$store.literatureModal.hasResults()">
         <div class="results-section">
-          <p class="results-count" x-text="$store.literatureModal.papers.length + ' of ' + $store.literatureModal.total + ' results'"></p>
+          <div class="results-header-row">
+            <p class="results-count" x-text="$store.literatureModal.papers.length + ' of ' + $store.literatureModal.total + ' results'"></p>
+            <button class="action-btn deep-review-btn" @click="$store.literatureModal.deepReview()" x-show="$store.literatureModal.papers.length >= 3">
+              <span class="material-symbols-outlined">auto_awesome</span> Deep Review
+            </button>
+          </div>
 
           <div class="paper-list">
             <template x-for="paper in $store.literatureModal.papers" :key="paper.id">
@@ -401,6 +430,23 @@
       <div x-show="!$store.literatureModal.alerts.length" class="cm-empty"><p>No saved alerts. Add a search query above to monitor for new papers.</p></div>
     </div>
 
+    <!-- Hypothesis Tab -->
+    <div x-show="$store.literatureModal.activeTab === 'hypothesis'" class="panel-content">
+      <div class="alert-section">
+        <h4>Generate Research Hypotheses</h4>
+        <p class="screen-desc">Uses your literature search results to identify knowledge gaps and generate novel hypotheses.</p>
+        <div class="alert-row">
+          <input type="text" x-model="$store.literatureModal.hypothesisTopic" placeholder="Research domain..." class="alert-input" @keyup.enter="$store.literatureModal.generateHypothesis()" />
+          <button class="alert-btn" @click="$store.literatureModal.generateHypothesis()" :disabled="$store.literatureModal.loading || !$store.literatureModal.papers.length">Generate</button>
+        </div>
+        <span class="screen-hint" x-show="!$store.literatureModal.papers.length" x-text="'Search papers first (' + $store.literatureModal.papers.length + ' found)'"></span>
+        <span class="screen-hint" x-show="$store.literatureModal.papers.length" x-text="$store.literatureModal.papers.length + ' papers available for hypothesis generation'"></span>
+      </div>
+      <template x-if="$store.literatureModal.hypothesisResult">
+        <div class="rg-card"><p x-text="$store.literatureModal.hypothesisResult.content"></p></div>
+      </template>
+    </div>
+
     <style>
       .literature-panel { display: flex; flex-direction: column; height: 100%; overflow-y: auto; padding: 16px 20px; background: var(--color-background); }
       .panel-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-shrink: 0; }
@@ -509,6 +555,8 @@
       .ner-chip.disease { background: rgba(255,107,107,0.08); color: #ff6b6b; }
       .ner-chip.gene { background: rgba(79,195,247,0.1); color: #4fc3f7; }
       .ner-none { font-size: 0.44rem; color: var(--color-text-muted); }
+      .results-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+      .deep-review-btn { background: color-mix(in srgb, var(--color-primary) 10%, transparent); border-color: var(--color-primary); color: var(--color-primary); font-weight: 600; }
     </style>
   </div>
 </body>
