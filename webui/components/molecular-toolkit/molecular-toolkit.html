@@ -27,22 +27,13 @@
       dockingJobId: null,
       dockingPdb: "",
       dockingLigand: "",
+      dockingProteinName: "",
       dockingLigandName: "ligand",
       dockingCenter: null,
       dockingSize: { x: 20, y: 20, z: 20 },
       dockingPoses: [],
       dockingStatus: "",
       dockingError: "",
-
-      // Docking
-      dockingJobId: null,
-      dockingPdb: "",
-      dockingLigand: "",
-      dockingLigandName: "ligand",
-      dockingCenter: null,
-      dockingSize: { x: 20, y: 20, z: 20 },
-      dockingPoses: [],
-      dockingStatus: "",
 
       async dockingPrepare() {
         if (!this.dockingPdb.trim() || !this.dockingLigand.trim()) { this.error = "PDB and SMILES required"; return; }
@@ -52,7 +43,6 @@
           if (r.error) { this.error = r.error; this.loading = false; return; }
           this.dockingJobId = r.job_id; this.dockingCenter = r.center;
           this.dockingStatus = "prepared"; this.loading = false;
-          // Auto-run docking with the prepared files
           await this.dockingRunDirect(r);
         } catch (e) { this.error = e.message; this.loading = false; }
       },
@@ -73,307 +63,429 @@
         this.loading = false;
       },
 
-      // Helpers
       passClass(val) { return val ? "pass" : "fail"; },
       passIcon(val) { return val ? "✅" : "❌"; },
+
+      async runADMET() {
+        if (!this.smiles.trim()) return;
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("admet_predict", { smiles: this.smiles.trim(), preset: this.preset });
+          if (r.error) { this.error = r.error; } else { this.admetResult = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async runSimilarity() {
+        if (!this.querySmiles.trim() || !this.refSmiles.trim()) return;
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("molecular_similarity", { query_smiles: this.querySmiles.trim(), reference_smiles: this.refSmiles.trim() });
+          if (r.error) { this.error = r.error; } else { this.simResult = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async runSpace() {
+        if (!this.smilesList.trim()) return;
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("chemical_space_map", { smiles_list: this.smilesList.trim() });
+          if (r.error) { this.error = r.error; } else { this.spaceResult = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
     });
   </script>
 </head>
 <body>
-  <div x-data class="mt-panel">
-    <div class="mt-header">
-      <span class="material-symbols-outlined mt-icon">biotech</span>
-      <h2>Molecular Toolkit</h2>
+  <div x-data class="dock-panel">
+    <!-- Header -->
+    <div class="panel-header">
+      <div class="header-left">
+        <span class="material-symbols-outlined header-icon">biotech</span>
+        <div>
+          <h2>Molecular Toolkit</h2>
+          <p class="header-subtitle">ADMET · Similarity · Chemical Space · Docking</p>
+        </div>
+      </div>
+      <div class="step-indicator" x-show="$store.molecularToolkit.activeTab === 'docking'">
+        <div class="step" :class="{'active': !$store.molecularToolkit.dockingPoses.length && $store.molecularToolkit.dockingStatus !== 'complete', 'current': true}">
+          <span class="step-number">1</span>
+          <span class="step-label">Configure</span>
+        </div>
+        <div class="step-connector" :class="{'active': $store.molecularToolkit.dockingPoses.length || $store.molecularToolkit.dockingStatus === 'complete'}"></div>
+        <div class="step" :class="{'active': $store.molecularToolkit.dockingPoses.length || $store.molecularToolkit.dockingStatus === 'complete', 'current': $store.molecularToolkit.dockingPoses.length > 0}">
+          <span class="step-number">2</span>
+          <span class="step-label">Results</span>
+        </div>
+      </div>
     </div>
 
-    <div class="mt-tabs">
-      <button class="mt-tab" :class="{active: $store.molecularToolkit.activeTab === 'admet'}" @click="$store.molecularToolkit.activeTab = 'admet'">
+    <!-- Tabs -->
+    <div class="dock-tabs">
+      <button class="dock-tab" :class="{active: $store.molecularToolkit.activeTab === 'admet'}" @click="$store.molecularToolkit.activeTab = 'admet'">
         <span class="material-symbols-outlined">monitoring</span> ADMET
       </button>
-      <button class="mt-tab" :class="{active: $store.molecularToolkit.activeTab === 'similarity'}" @click="$store.molecularToolkit.activeTab = 'similarity'">
+      <button class="dock-tab" :class="{active: $store.molecularToolkit.activeTab === 'similarity'}" @click="$store.molecularToolkit.activeTab = 'similarity'">
         <span class="material-symbols-outlined">compare_arrows</span> Similarity
       </button>
-      <button class="mt-tab" :class="{active: $store.molecularToolkit.activeTab === 'space'}" @click="$store.molecularToolkit.activeTab = 'space'">
-        <span class="material-symbols-outlined">bubble_chart</span> Chemical Space
+      <button class="dock-tab" :class="{active: $store.molecularToolkit.activeTab === 'space'}" @click="$store.molecularToolkit.activeTab = 'space'">
+        <span class="material-symbols-outlined">bubble_chart</span> Chem Space
       </button>
-      <button class="mt-tab" :class="{active: $store.molecularToolkit.activeTab === 'docking'}" @click="$store.molecularToolkit.activeTab = 'docking'">
+      <button class="dock-tab" :class="{active: $store.molecularToolkit.activeTab === 'docking'}" @click="$store.molecularToolkit.activeTab = 'docking'">
         <span class="material-symbols-outlined">precision_manufacturing</span> Docking
       </button>
     </div>
 
-    <div x-show="$store.molecularToolkit.error" class="mt-error" x-text="$store.molecularToolkit.error"></div>
-    <div x-show="$store.molecularToolkit.loading" class="mt-loading"><div class="loading-spinner"></div><span>Computing...</span></div>
+    <!-- Body -->
+    <div class="panel-body">
+      <div x-show="$store.molecularToolkit.error" class="dock-error" x-text="$store.molecularToolkit.error"></div>
+      <div x-show="$store.molecularToolkit.loading" class="dock-loading"><div class="loading-spinner"></div><span>Computing...</span></div>
 
-    <!-- ADMET Tab -->
-    <div x-show="$store.molecularToolkit.activeTab === 'admet'" class="mt-content">
-      <div class="mt-input-row">
-        <input type="text" x-model="$store.molecularToolkit.smiles" placeholder="SMILES string (e.g. CC(=O)Oc1ccccc1C(=O)O)" class="mt-input" @keyup.enter="$store.molecularToolkit.runADMET()" />
-        <select x-model="$store.molecularToolkit.preset" class="mt-select" @change="$store.molecularToolkit.runADMET()">
-          <option value="">-- Preset drug --</option>
-          <template x-for="(name, key) in $store.molecularToolkit.presetLib" :key="key">
-            <option :value="key" x-text="name"></option>
-          </template>
-        </select>
-        <button class="mt-btn" @click="$store.molecularToolkit.runADMET()" :disabled="$store.molecularToolkit.loading">Run ADMET</button>
-      </div>
-
-      <template x-if="$store.molecularToolkit.admetResult">
-        <div class="mt-results">
-          <div class="mt-mol-header">
-            <span class="mt-mol-smiles" x-text="$store.molecularToolkit.admetResult.smiles"></span>
-            <span class="mt-mol-formula" x-text="$store.molecularToolkit.admetResult.formula"></span>
-          </div>
-
-          <div class="mt-props">
-            <div class="mt-prop"><span class="mt-prop-label">MW</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.mw + ' g/mol'"></span></div>
-            <div class="mt-prop"><span class="mt-prop-label">LogP</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.logp"></span></div>
-            <div class="mt-prop"><span class="mt-prop-label">HBD</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.hbd"></span></div>
-            <div class="mt-prop"><span class="mt-prop-label">HBA</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.hba"></span></div>
-            <div class="mt-prop"><span class="mt-prop-label">TPSA</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.tpsa + ' Å²'"></span></div>
-            <div class="mt-prop"><span class="mt-prop-label">Rot Bonds</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.rotatable_bonds"></span></div>
-            <div class="mt-prop"><span class="mt-prop-label">QED</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.qed"></span></div>
-          </div>
-
-          <h4 class="mt-section-title">ADMET Profile</h4>
-          <div class="mt-admet-grid">
-            <div class="mt-admet-card" :class="$store.molecularToolkit.passClass($store.molecularToolkit.admetResult.lipinski_rule_of_5)">
-              <span class="mt-admet-icon" x-text="$store.molecularToolkit.passIcon($store.molecularToolkit.admetResult.lipinski_rule_of_5)"></span>
-              <strong>Lipinski Rule of 5</strong>
-              <small>Oral drug-likeness</small>
-            </div>
-            <div class="mt-admet-card" :class="$store.molecularToolkit.passClass($store.molecularToolkit.admetResult.veber_rule)">
-              <span class="mt-admet-icon" x-text="$store.molecularToolkit.passIcon($store.molecularToolkit.admetResult.veber_rule)"></span>
-              <strong>Veber Rule</strong>
-              <small>Bioavailability</small>
-            </div>
-            <div class="mt-admet-card" :class="$store.molecularToolkit.passClass($store.molecularToolkit.admetResult.golden_triangle)">
-              <span class="mt-admet-icon" x-text="$store.molecularToolkit.passIcon($store.molecularToolkit.admetResult.golden_triangle)"></span>
-              <strong>Golden Triangle</strong>
-              <small>MW + LogP optimal</small>
-            </div>
-            <div class="mt-admet-card info">
-              <span class="mt-admet-icon">ℹ️</span>
-              <strong>GI Absorption</strong>
-              <small x-text="$store.molecularToolkit.admetResult.gi_absorption"></small>
-            </div>
-            <div class="mt-admet-card" :class="$store.molecularToolkit.passClass($store.molecularToolkit.admetResult.bbb_pass)">
-              <span class="mt-admet-icon" x-text="$store.molecularToolkit.passIcon($store.molecularToolkit.admetResult.bbb_pass)"></span>
-              <strong>BBB Permeability</strong>
-              <small x-text="'Score: ' + $store.molecularToolkit.admetResult.bbb_score"></small>
-            </div>
-            <div class="mt-admet-card" :class="$store.molecularToolkit.admetResult.herg_risk === 'Low' ? 'pass' : 'fail'">
-              <span class="mt-admet-icon" x-text="$store.molecularToolkit.admetResult.herg_risk === 'Low' ? '✅' : '⚠️'"></span>
-              <strong>hERG Risk</strong>
-              <small x-text="$store.molecularToolkit.admetResult.herg_risk"></small>
-            </div>
-          </div>
+      <!-- ADMET Tab -->
+      <div x-show="$store.molecularToolkit.activeTab === 'admet'" class="tab-content">
+        <div class="mt-input-row">
+          <input type="text" x-model="$store.molecularToolkit.smiles" placeholder="SMILES string (e.g. CC(=O)Oc1ccccc1C(=O)O)" class="mt-input" @keyup.enter="$store.molecularToolkit.runADMET()" />
+          <button class="btn-run" @click="$store.molecularToolkit.runADMET()" :disabled="$store.molecularToolkit.loading || !$store.molecularToolkit.smiles" style="flex:none;width:auto;margin-top:0">
+            <span class="material-symbols-outlined">play_arrow</span>
+            Run ADMET
+          </button>
         </div>
-      </template>
-    </div>
-
-    <!-- Similarity Tab -->
-    <div x-show="$store.molecularToolkit.activeTab === 'similarity'" class="mt-content">
-      <div class="mt-input-row">
-        <input type="text" x-model="$store.molecularToolkit.querySmiles" placeholder="Query SMILES" class="mt-input" />
-        <input type="text" x-model="$store.molecularToolkit.refSmiles" placeholder="Reference SMILES (optional)" class="mt-input" />
-        <button class="mt-btn" @click="$store.molecularToolkit.runSimilarity()" :disabled="$store.molecularToolkit.loading">Compare</button>
+        <template x-if="$store.molecularToolkit.admetResult">
+          <div class="mt-results">
+            <div class="mt-mol-header">
+              <span class="mt-mol-smiles" x-text="$store.molecularToolkit.admetResult.smiles"></span>
+              <span class="mt-mol-formula" x-text="$store.molecularToolkit.admetResult.formula"></span>
+            </div>
+            <div class="mt-props">
+              <div class="mt-prop"><span class="mt-prop-label">MW</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.mw + ' g/mol'"></span></div>
+              <div class="mt-prop"><span class="mt-prop-label">LogP</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.logp"></span></div>
+              <div class="mt-prop"><span class="mt-prop-label">HBD</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.hbd"></span></div>
+              <div class="mt-prop"><span class="mt-prop-label">HBA</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.hba"></span></div>
+              <div class="mt-prop"><span class="mt-prop-label">TPSA</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.tpsa + ' Å²'"></span></div>
+              <div class="mt-prop"><span class="mt-prop-label">Rot</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.rotatable_bonds"></span></div>
+              <div class="mt-prop"><span class="mt-prop-label">QED</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.qed"></span></div>
+            </div>
+            <div class="analysis-section">
+              <h3 class="section-title">ADMET Profile</h3>
+              <div class="analysis-grid">
+                <div class="analysis-card" :class="$store.molecularToolkit.passClass($store.molecularToolkit.admetResult.lipinski_rule_of_5) ? 'selected' : ''">
+                  <span class="material-symbols-outlined card-icon" x-text="$store.molecularToolkit.passIcon($store.molecularToolkit.admetResult.lipinski_rule_of_5)"></span>
+                  <span class="card-title">Lipinski</span>
+                  <span class="card-desc">Oral drug-likeness</span>
+                </div>
+                <div class="analysis-card" :class="$store.molecularToolkit.passClass($store.molecularToolkit.admetResult.veber_rule) ? 'selected' : ''">
+                  <span class="material-symbols-outlined card-icon" x-text="$store.molecularToolkit.passIcon($store.molecularToolkit.admetResult.veber_rule)"></span>
+                  <span class="card-title">Veber</span>
+                  <span class="card-desc">Bioavailability</span>
+                </div>
+                <div class="analysis-card" :class="$store.molecularToolkit.passClass($store.molecularToolkit.admetResult.golden_triangle) ? 'selected' : ''">
+                  <span class="material-symbols-outlined card-icon" x-text="$store.molecularToolkit.passIcon($store.molecularToolkit.admetResult.golden_triangle)"></span>
+                  <span class="card-title">Golden Triangle</span>
+                  <span class="card-desc">MW + LogP</span>
+                </div>
+                <div class="analysis-card selected">
+                  <span class="material-symbols-outlined card-icon">info</span>
+                  <span class="card-title">GI Absorption</span>
+                  <span class="card-desc" x-text="$store.molecularToolkit.admetResult.gi_absorption"></span>
+                </div>
+                <div class="analysis-card" :class="$store.molecularToolkit.passClass($store.molecularToolkit.admetResult.bbb_pass) ? 'selected' : ''">
+                  <span class="material-symbols-outlined card-icon" x-text="$store.molecularToolkit.passIcon($store.molecularToolkit.admetResult.bbb_pass)"></span>
+                  <span class="card-title">BBB Perm</span>
+                  <span class="card-desc" x-text="'Score: ' + $store.molecularToolkit.admetResult.bbb_score"></span>
+                </div>
+                <div class="analysis-card" :class="$store.molecularToolkit.admetResult.herg_risk === 'Low' ? 'selected' : ''">
+                  <span class="material-symbols-outlined card-icon" x-text="$store.molecularToolkit.admetResult.herg_risk === 'Low' ? '✅' : '⚠️'"></span>
+                  <span class="card-title">hERG Risk</span>
+                  <span class="card-desc" x-text="$store.molecularToolkit.admetResult.herg_risk"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
 
-      <template x-if="$store.molecularToolkit.simResult">
-        <div class="mt-results">
-          <div class="mt-sim-score">
-            <span class="mt-sim-label">Tanimoto Similarity</span>
-            <div class="mt-sim-bar-wrap"><div class="mt-sim-bar" :style="'width:' + ($store.molecularToolkit.simResult.max_similarity || 0) * 100 + '%'"></div></div>
-            <span class="mt-sim-val" x-text="Math.round(($store.molecularToolkit.simResult.max_similarity || 0) * 100) + '%'"></span>
+      <!-- Similarity Tab -->
+      <div x-show="$store.molecularToolkit.activeTab === 'similarity'" class="tab-content">
+        <div class="mt-input-row">
+          <input type="text" x-model="$store.molecularToolkit.querySmiles" placeholder="Query SMILES" class="mt-input" />
+          <input type="text" x-model="$store.molecularToolkit.refSmiles" placeholder="Reference SMILES" class="mt-input" />
+          <button class="btn-run" @click="$store.molecularToolkit.runSimilarity()" :disabled="$store.molecularToolkit.loading || !$store.molecularToolkit.querySmiles || !$store.molecularToolkit.refSmiles" style="flex:none;width:auto;margin-top:0">
+            <span class="material-symbols-outlined">play_arrow</span>
+            Compare
+          </button>
+        </div>
+        <template x-if="$store.molecularToolkit.simResult">
+          <div class="mt-results">
+            <div class="mt-sim-score">
+              <span class="mt-sim-label">Tanimoto Similarity</span>
+              <div class="mt-sim-bar-wrap"><div class="mt-sim-bar" :style="'width:' + ($store.molecularToolkit.simResult.max_similarity || 0) * 100 + '%'"></div></div>
+              <span class="mt-sim-val" x-text="Math.round(($store.molecularToolkit.simResult.max_similarity || 0) * 100) + '%'"></span>
+            </div>
+            <div class="mt-sim-query" x-show="$store.molecularToolkit.simResult.query_smiles">
+              <strong>Query:</strong> <code x-text="$store.molecularToolkit.simResult.query_smiles"></code>
+            </div>
+            <template x-if="$store.molecularToolkit.simResult.matches">
+              <div class="mt-sim-matches">
+                <h4 x-text="'Top Matches (' + $store.molecularToolkit.simResult.matches.length + ')'"></h4>
+                <template x-for="m in $store.molecularToolkit.simResult.matches">
+                  <div class="mt-sim-match">
+                    <span class="mt-sim-pct" x-text="Math.round((m.similarity||0)*100) + '%'"></span>
+                    <code x-text="m.smiles"></code>
+                  </div>
+                </template>
+              </div>
+            </template>
           </div>
-          <div class="mt-sim-query" x-show="$store.molecularToolkit.simResult.query_smiles">
-            <strong>Query:</strong> <code x-text="$store.molecularToolkit.simResult.query_smiles"></code>
-          </div>
-          <template x-if="$store.molecularToolkit.simResult.matches">
-            <div class="mt-sim-matches">
-              <h4 x-text="'Top Matches (' + $store.molecularToolkit.simResult.matches.length + ')'"></h4>
-              <template x-for="m in $store.molecularToolkit.simResult.matches">
-                <div class="mt-sim-match">
-                  <span class="mt-sim-pct" x-text="Math.round((m.similarity||0)*100) + '%'"></span>
-                  <code x-text="m.smiles"></code>
+        </template>
+      </div>
+
+      <!-- Chemical Space Tab -->
+      <div x-show="$store.molecularToolkit.activeTab === 'space'" class="tab-content">
+        <div class="mt-input-row">
+          <textarea x-model="$store.molecularToolkit.smilesList" placeholder="Enter SMILES (one per line or comma-separated)..." class="mt-textarea" rows="4"></textarea>
+          <button class="btn-run" @click="$store.molecularToolkit.runSpace()" :disabled="$store.molecularToolkit.loading || !$store.molecularToolkit.smilesList" style="flex:none;width:auto;margin-top:0">
+            <span class="material-symbols-outlined">play_arrow</span>
+            Map Space
+          </button>
+        </div>
+        <template x-if="$store.molecularToolkit.spaceResult">
+          <div class="mt-results">
+            <canvas id="space-canvas" class="mt-space-canvas" width="560" height="400"
+              x-init="$nextTick(() => drawSpace($store.molecularToolkit.spaceResult))"></canvas>
+            <div class="mt-space-list">
+              <template x-for="(m, i) in $store.molecularToolkit.spaceResult.molecules" :key="i">
+                <div class="mt-space-item">
+                  <span class="mt-space-dot" :style="'background: hsl(' + ((i * 60) % 360) + ', 70%, 50%)'"></span>
+                  <code x-text="m.smiles.substring(0, 40)"></code>
+                  <span class="mt-space-coords" x-text="'(' + Math.round(m.x) + ', ' + Math.round(m.y) + ')'"></span>
                 </div>
               </template>
             </div>
-          </template>
-        </div>
-      </template>
-    </div>
-
-    <!-- Chemical Space Tab -->
-    <div x-show="$store.molecularToolkit.activeTab === 'space'" class="mt-content">
-      <div class="mt-input-row">
-        <textarea x-model="$store.molecularToolkit.smilesList" placeholder="Enter SMILES (one per line or comma-separated)..." class="mt-textarea" rows="4"></textarea>
-        <button class="mt-btn" @click="$store.molecularToolkit.runSpace()" :disabled="$store.molecularToolkit.loading">Map Space</button>
+          </div>
+        </template>
       </div>
 
-      <template x-if="$store.molecularToolkit.spaceResult">
-        <div class="mt-results">
-          <canvas id="space-canvas" class="mt-space-canvas" width="560" height="400"
-            x-init="$nextTick(() => drawSpace($store.molecularToolkit.spaceResult))"></canvas>
-          <div class="mt-space-list">
-            <template x-for="(m, i) in $store.molecularToolkit.spaceResult.molecules" :key="i">
-              <div class="mt-space-item">
-                <span class="mt-space-dot" :style="'background: hsl(' + ((i * 60) % 360) + ', 70%, 50%)'"></span>
-                <code x-text="m.smiles.substring(0, 40)"></code>
-                <span class="mt-space-coords" x-text="'(' + Math.round(m.x) + ', ' + Math.round(m.y) + ')'"></span>
-              </div>
-            </template>
+      <!-- Docking Tab -->
+      <div x-show="$store.molecularToolkit.activeTab === 'docking'" class="tab-content">
+        <!-- Input Cards Row -->
+        <div class="dock-cards-row">
+          <!-- Protein Card -->
+          <div class="dock-card">
+            <div class="dock-card-header">
+              <span class="material-symbols-outlined dock-card-icon">molecule</span>
+              <h4>Protein (Receptor)</h4>
+            </div>
+            <textarea x-model="$store.molecularToolkit.dockingPdb" placeholder="Paste protein PDB content here..." class="mt-textarea" rows="5" style="flex:none;min-height:80px"></textarea>
+            <div class="dock-card-row">
+              <input type="text" x-model="$store.molecularToolkit.dockingProteinName" placeholder="Protein name (optional)" class="mt-input-sm" />
+              <label class="dock-upload-label">
+                <span class="material-symbols-outlined">upload_file</span> Upload PDB
+                <input type="file" accept=".pdb,.pdbqt,.ent" hidden @change="const f=$event.target.files[0];if(f){const r=new FileReader();r.onload=()=>{$store.molecularToolkit.dockingPdb=r.result;if(!$store.molecularToolkit.dockingProteinName)$store.molecularToolkit.dockingProteinName=f.name.replace(/\.[^/.]+$/, '');};r.readAsText(f)}" />
+              </label>
+            </div>
+          </div>
+
+          <!-- Ligand Card -->
+          <div class="dock-card">
+            <div class="dock-card-header">
+              <span class="material-symbols-outlined dock-card-icon">science</span>
+              <h4>Ligand (Small Molecule)</h4>
+            </div>
+            <input type="text" x-model="$store.molecularToolkit.dockingLigand" placeholder="Enter SMILES (e.g. CC(=O)Oc1ccccc1C(=O)O for Aspirin)" class="mt-input" />
+            <div class="dock-card-row">
+              <input type="text" x-model="$store.molecularToolkit.dockingLigandName" placeholder="Ligand name (optional)" class="mt-input-sm" />
+              <label class="dock-upload-label">
+                <span class="material-symbols-outlined">upload_file</span> Upload File
+                <input type="file" accept=".sdf,.mol,.pdb,.smi" hidden @change="const f=$event.target.files[0];if(f){const r=new FileReader();r.onload=()=>{const t=r.result;$store.molecularToolkit.dockingLigand=t.includes('SMILES')?t.split('\n').find(l=>l.trim()&&!l.startsWith('#'))||t:t;if(!$store.molecularToolkit.dockingLigandName)$store.molecularToolkit.dockingLigandName=f.name.replace(/\.[^/.]+$/, '');};r.readAsText(f)}" />
+              </label>
+            </div>
           </div>
         </div>
-      </template>
-    </div>
 
-    <!-- Docking Tab -->
-    <div x-show="$store.molecularToolkit.activeTab === 'docking'" class="mt-content">
-      <!-- Protein Card -->
-      <div class="mt-card">
-        <h4><span class="material-symbols-outlined">molecule</span> Protein (Receptor)</h4>
-        <textarea x-model="$store.molecularToolkit.dockingPdb" placeholder="Paste protein PDB content here..." class="mt-textarea" rows="5"></textarea>
-        <div class="mt-card-row">
-          <input type="text" x-model="$store.molecularToolkit.dockingLigandName" placeholder="Protein name (optional)" class="mt-input-sm" />
-          <label class="mt-upload-label">
-            <span class="material-symbols-outlined">upload_file</span> Upload PDB
-            <input type="file" accept=".pdb,.pdbqt,.ent" hidden @change="const f=$event.target.files[0];if(f){const r=new FileReader();r.onload=()=>{$store.molecularToolkit.dockingPdb=r.result};r.readAsText(f)}" />
-          </label>
+        <!-- Run Button -->
+        <button class="btn-run" @click="$store.molecularToolkit.dockingPrepare()" :disabled="$store.molecularToolkit.loading || !$store.molecularToolkit.dockingPdb || !$store.molecularToolkit.dockingLigand">
+          <span class="material-symbols-outlined">precision_manufacturing</span>
+          <span x-text="$store.molecularToolkit.loading ? 'Running Docking...' : 'Run Docking'"></span>
+        </button>
+
+        <!-- Loading -->
+        <div x-show="$store.molecularToolkit.loading && $store.molecularToolkit.activeTab === 'docking'" class="dock-loading">
+          <div class="loading-spinner"></div>
+          <span x-text="$store.molecularToolkit.dockingStatus === 'prepared' ? 'Preparing files...' : 'Running AutoDock Vina...'"></span>
         </div>
-      </div>
 
-      <!-- Ligand Card -->
-      <div class="mt-card">
-        <h4><span class="material-symbols-outlined">science</span> Ligand (Small Molecule)</h4>
-        <input type="text" x-model="$store.molecularToolkit.dockingLigand" placeholder="Enter SMILES string (e.g. CC(=O)Oc1ccccc1C(=O)O for Aspirin)..." class="mt-input" />
-        <div class="mt-card-row">
-          <input type="text" x-model="$store.molecularToolkit.dockingLigandName" placeholder="Ligand name (optional)" class="mt-input-sm" />
-          <label class="mt-upload-label">
-            <span class="material-symbols-outlined">upload_file</span> Upload File
-            <input type="file" accept=".sdf,.mol,.pdb,.smi" hidden @change="const f=$event.target.files[0];if(f){const r=new FileReader();r.onload=()=>{const t=r.result;$store.molecularToolkit.dockingLigand=t.includes('SMILES')?t.split('\n').find(l=>l.trim()&&!l.startsWith('#'))||t:t};r.readAsText(f)}" />
-          </label>
+        <!-- Status Badge -->
+        <div x-show="$store.molecularToolkit.dockingStatus && !$store.molecularToolkit.loading" class="dock-status-bar">
+          <span class="dock-badge" :class="$store.molecularToolkit.dockingStatus" x-text="$store.molecularToolkit.dockingStatus === 'complete' ? '✅ Complete' : $store.molecularToolkit.dockingStatus === 'error' ? '❌ Error' : ''"></span>
         </div>
-      </div>
 
-      <!-- Dock Button -->
-      <button class="mt-dock-btn" @click="$store.molecularToolkit.dockingPrepare()" :disabled="$store.molecularToolkit.loading || !$store.molecularToolkit.dockingPdb || !$store.molecularToolkit.dockingLigand">
-        <span class="material-symbols-outlined">precision_manufacturing</span>
-        <span x-text="$store.molecularToolkit.loading ? 'Running...' : 'Run Docking'"></span>
-      </button>
-
-      <!-- Status -->
-      <div x-show="$store.molecularToolkit.dockingStatus" class="mt-dock-status">
-        <span class="mt-dock-badge" :class="$store.molecularToolkit.dockingStatus" x-text="$store.molecularToolkit.dockingStatus === 'prepared' ? '⏳ Preparing...' : $store.molecularToolkit.dockingStatus === 'running' ? '🔄 Running Vina...' : $store.molecularToolkit.dockingStatus === 'complete' ? '✅ Complete' : '❌ Error'"></span>
-      </div>
-
-      <!-- Results -->
-      <template x-if="$store.molecularToolkit.dockingPoses.length">
-        <div class="mt-card">
-          <h4 x-text="'Binding Results (' + $store.molecularToolkit.dockingPoses.length + ' poses)'"></h4>
-          <div class="mt-dock-grid">
-            <template x-for="(pose, i) in $store.molecularToolkit.dockingPoses" :key="i">
-              <div class="mt-dock-pose" :class="{best: i === 0}">
-                <span class="mt-dock-rank" x-text="'#' + (i + 1)"></span>
-                <span class="mt-dock-energy" x-text="pose.energy != null ? pose.energy.toFixed(2) : '--'"></span>
-                <span class="mt-dock-unit">kcal/mol</span>
-                <div class="mt-dock-bar"><div class="mt-dock-fill" :style="'width:' + Math.max(5, (1 - ((pose.energy || 0) + 10) / 20) * 100) + '%'"></div></div>
-              </div>
-            </template>
+        <!-- Results Header (Statistics-style) -->
+        <div x-show="$store.molecularToolkit.dockingPoses.length" class="results-header" style="margin-top:14px">
+          <div class="data-info-bar">
+            <span class="material-symbols-outlined success-icon">check_circle</span>
+            <span class="analysis-name" x-text="'Docking: ' + ($store.molecularToolkit.dockingLigandName || 'ligand') + ' → ' + ($store.molecularToolkit.dockingProteinName || 'protein')"></span>
+            <span class="row-count" x-text="'(' + $store.molecularToolkit.dockingPoses.length + ' poses)'"></span>
           </div>
-          <p class="mt-dock-note">Lower energy = stronger binding. Best pose highlighted.</p>
         </div>
-      </template>
 
-      <div x-show="$store.molecularToolkit.dockingStatus === 'error'" class="mt-error" x-text="$store.molecularToolkit.error"></div>
+        <!-- Results Grid -->
+        <template x-if="$store.molecularToolkit.dockingPoses.length">
+          <div class="dock-results-card">
+            <h3 class="section-title" x-text="'Binding Affinity Results (' + $store.molecularToolkit.dockingPoses.length + ' poses)'"></h3>
+            <div class="dock-grid">
+              <template x-for="(pose, i) in $store.molecularToolkit.dockingPoses" :key="i">
+                <div class="dock-pose-card" :class="{best: i === 0}">
+                  <div class="pose-rank" x-text="'#' + (i + 1)"></div>
+                  <div class="pose-energy" x-text="pose.energy != null ? pose.energy.toFixed(2) : '--'"></div>
+                  <div class="pose-unit">kcal/mol</div>
+                  <div class="pose-bar"><div class="pose-bar-fill" :style="'width:' + Math.max(8, (1 - ((pose.energy || 0) + 12) / 20) * 100) + '%'"></div></div>
+                  <div class="pose-label" x-show="i === 0">Best</div>
+                </div>
+              </template>
+            </div>
+            <p class="dock-note">Lower energy = stronger binding. Best pose highlighted.</p>
 
-      <!-- Empty State -->
-      <div x-show="!$store.molecularToolkit.dockingPoses.length && $store.molecularToolkit.dockingStatus !== 'running' && $store.molecularToolkit.dockingStatus !== 'prepared'" class="mt-empty">
-        <span class="material-symbols-outlined mt-empty-icon">precision_manufacturing</span>
-        <p>Enter a protein PDB and ligand SMILES to run AutoDock Vina docking</p>
-        <p class="mt-empty-hint">Requires: RDKit + OpenBabel + AutoDock Vina</p>
+            <div class="agent-help">
+              <button class="agent-help-btn" @click="const chat=document.querySelector('#chat-input');if(chat){chat.focus();chat.value='Analyze these docking results: ' + $store.molecularToolkit.dockingLigandName + ' binding to protein. Best pose energy: ' + $store.molecularToolkit.dockingPoses[0].energy.toFixed(2) + ' kcal/mol. ' + $store.molecularToolkit.dockingPoses.length + ' poses found.';chat.dispatchEvent(new Event('input',{bubbles:true}));}">
+                <span class="material-symbols-outlined">psychology</span>
+                <span>Ask agent to analyze these docking results</span>
+              </button>
+            </div>
+          </div>
+        </template>
+
+        <!-- Empty State -->
+        <div x-show="!$store.molecularToolkit.dockingPoses.length && $store.molecularToolkit.dockingStatus !== 'running' && $store.molecularToolkit.dockingStatus !== 'prepared' && !$store.molecularToolkit.loading" class="no-results">
+          <span class="material-symbols-outlined">precision_manufacturing</span>
+          <p>Enter a protein PDB and ligand SMILES to run molecular docking</p>
+          <p style="font-size:0.68rem;opacity:0.6">Simulates AutoDock Vina — RDKit + OpenBabel recommended</p>
+        </div>
       </div>
     </div>
 
     <style>
-      .mt-panel { display: flex; flex-direction: column; height: 100%; overflow-y: auto; padding: 12px 16px; background: var(--color-background); }
-      .mt-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-      .mt-icon { font-size: 22px; color: var(--color-primary); }
-      .mt-header h2 { color: var(--color-primary); font-size: 0.9rem; margin: 0; font-weight: 700; }
-      .mt-tabs { display: flex; gap: 2px; margin-bottom: 10px; border-bottom: 1px solid var(--color-border); }
-      .mt-tab { display: flex; align-items: center; gap: 3px; padding: 5px 10px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--color-text-muted); cursor: pointer; font-size: 0.66rem; font-weight: 500; }
-      .mt-tab:hover { color: var(--color-text); }
-      .mt-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
-      .mt-tab .material-symbols-outlined { font-size: 14px; }
-      .mt-error { padding: 5px 8px; background: rgba(255,107,107,0.1); border-radius: 4px; color: var(--color-error-text); font-size: 0.62rem; margin-bottom: 6px; }
-      .mt-loading { display: flex; align-items: center; gap: 5px; font-size: 0.62rem; color: var(--color-text-muted); }
-      .loading-spinner { width: 12px; height: 12px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+      .dock-panel { display: flex; flex-direction: column; height: 100%; overflow: hidden; background: var(--color-background); }
+      .panel-header { padding: 14px 20px; border-bottom: 1px solid var(--color-border); background: var(--color-panel); flex-shrink: 0; }
+      .header-left { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+      .header-icon { font-size: 28px; color: var(--color-primary); }
+      .panel-header h2 { color: var(--color-text); font-size: 1.05rem; margin: 0; font-weight: 700; }
+      .header-subtitle { color: var(--color-text-muted); font-size: 0.7rem; margin: 2px 0 0 0; }
+      .step-indicator { display: flex; align-items: center; gap: 6px; }
+      .step { display: flex; align-items: center; gap: 6px; opacity: 0.35; transition: opacity 0.2s; }
+      .step.active { opacity: 0.7; } .step.current { opacity: 1; }
+      .step-number { width: 22px; height: 22px; border-radius: 50%; background: var(--color-border); color: var(--color-text-muted); display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; }
+      .step.active .step-number { background: var(--color-primary); color: white; }
+      .step-label { font-size: 0.68rem; font-weight: 600; color: var(--color-text-muted); }
+      .step.active .step-label { color: var(--color-text); }
+      .step-connector { width: 24px; height: 2px; background: var(--color-border); }
+      .step-connector.active { background: var(--color-primary); }
+
+      .dock-tabs { display: flex; gap: 2px; padding: 6px 20px; border-bottom: 1px solid var(--color-border); background: var(--color-panel); flex-shrink: 0; }
+      .dock-tab { display: flex; align-items: center; gap: 4px; padding: 6px 12px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--color-text-muted); cursor: pointer; font-size: 0.68rem; font-weight: 500; transition: all 0.15s; }
+      .dock-tab:hover { color: var(--color-text); }
+      .dock-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+      .dock-tab .material-symbols-outlined { font-size: 15px; }
+
+      .panel-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+      .tab-content { min-height: 200px; }
+
+      .dock-error { padding: 8px 10px; background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.2); border-radius: 6px; color: var(--color-error-text, #ff6b6b); font-size: 0.68rem; margin-bottom: 10px; }
+      .dock-loading { display: flex; align-items: center; gap: 6px; padding: 8px 0; font-size: 0.7rem; color: var(--color-text-muted); }
+      .loading-spinner { width: 15px; height: 15px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
       @keyframes spin { to { transform: rotate(360deg); } }
-      .mt-content { flex: 1; }
-      .mt-input-row { display: flex; gap: 5px; margin-bottom: 8px; }
-      .mt-input { flex: 1; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-panel); color: var(--color-text); font-size: 0.66rem; font-family: var(--font-mono, monospace); min-width: 0; }
+
+      /* Stats-style reused patterns */
+      .analysis-section { margin-bottom: 14px; }
+      .section-title { font-size: 0.78rem; font-weight: 700; color: var(--color-text); margin: 0 0 8px 0; padding-bottom: 6px; border-bottom: 1px solid var(--color-border); }
+      .analysis-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+      .analysis-card { display: flex; flex-direction: column; align-items: center; padding: 12px 8px; background: var(--color-panel); border: 2px solid var(--color-border); border-radius: 10px; text-align: center; gap: 2px; }
+      .analysis-card.selected { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 10%, var(--color-panel)); }
+      .card-icon { font-size: 24px; color: var(--color-primary); margin-bottom: 2px; }
+      .card-title { font-size: 0.72rem; font-weight: 700; color: var(--color-text); }
+      .card-desc { font-size: 0.62rem; color: var(--color-text-muted); margin-top: 1px; }
+
+      .btn-run { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 12px; padding: 10px; background: var(--color-primary); border: none; border-radius: 8px; color: white; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: all 0.15s; }
+      .btn-run:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+      .btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+      .data-info-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 10px; font-size: 0.75rem; flex-wrap: wrap; }
+      .success-icon { font-size: 16px; color: #22c55e; flex-shrink: 0; }
+      .analysis-name { color: var(--color-text); font-weight: 500; }
+      .row-count { color: var(--color-text-muted); font-size: 0.7rem; }
+
+      .no-results { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 20px; color: var(--color-text-muted); text-align: center; }
+      .no-results .material-symbols-outlined { font-size: 42px; opacity: 0.25; margin-bottom: 10px; }
+      .no-results p { font-size: 0.8rem; margin: 0 0 4px 0; }
+
+      .agent-help { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--color-border); }
+      .agent-help-btn { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: color-mix(in srgb, var(--color-accent, #4fc3f7) 8%, var(--color-panel)); border: 1px solid color-mix(in srgb, var(--color-accent, #4fc3f7) 25%, var(--color-border)); border-radius: 8px; color: var(--color-text); cursor: pointer; font-size: 0.72rem; font-weight: 500; width: 100%; justify-content: center; transition: all 0.15s; }
+      .agent-help-btn:hover { background: color-mix(in srgb, var(--color-accent, #4fc3f7) 15%, var(--color-panel)); border-color: var(--color-accent, #4fc3f7); }
+      .agent-help-btn .material-symbols-outlined { font-size: 18px; color: var(--color-accent, #4fc3f7); }
+
+      /* MT base styling */
+      .mt-input-row { display: flex; gap: 6px; margin-bottom: 10px; align-items: flex-start; }
+      .mt-input { flex: 1; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-panel); color: var(--color-text); font-size: 0.7rem; font-family: var(--font-mono, monospace); min-width: 0; }
       .mt-input:focus { outline: none; border-color: var(--color-primary); }
-      .mt-input::placeholder { font-family: var(--font-family-main); color: var(--color-text-muted); font-size: 0.6rem; }
-      .mt-select { padding: 5px 8px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-panel); color: var(--color-text); font-size: 0.64rem; }
-      .mt-btn { padding: 6px 12px; background: var(--color-primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.64rem; font-weight: 600; white-space: nowrap; }
-      .mt-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-      .mt-textarea { flex: 1; min-height: 60px; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-panel); color: var(--color-text); font-size: 0.62rem; font-family: var(--font-mono, monospace); resize: vertical; }
+      .mt-input::placeholder { font-family: var(--font-family-main); color: var(--color-text-muted); font-size: 0.64rem; }
+      .mt-input-sm { flex: 1; padding: 6px 8px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-background); color: var(--color-text); font-size: 0.65rem; min-width: 0; }
+      .mt-input-sm:focus { outline: none; border-color: var(--color-primary); }
+      .mt-input-sm::placeholder { color: var(--color-text-muted); font-size: 0.6rem; }
+      .mt-textarea { flex: 1; min-height: 60px; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-panel); color: var(--color-text); font-size: 0.64rem; font-family: var(--font-mono, monospace); resize: vertical; }
       .mt-textarea:focus { outline: none; border-color: var(--color-primary); }
-      .mt-file-input { padding: 4px 8px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-panel); color: var(--color-text-muted); font-size: 0.5rem; cursor: pointer; max-width: 40px; overflow: hidden; }
-      .mt-file-input::file-selector-button { background: var(--color-primary); color: white; border: none; padding: 2px 6px; border-radius: 3px; font-size: 0.5rem; cursor: pointer; }
-      .mt-results { }
+      .mt-results { margin-top: 10px; }
       .mt-mol-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 8px; }
-      .mt-mol-smiles { font-size: 0.62rem; font-family: var(--font-mono, monospace); color: var(--color-text); word-break: break-all; flex: 1; }
-      .mt-mol-formula { font-size: 0.7rem; font-weight: 700; color: var(--color-primary); white-space: nowrap; margin-left: 8px; }
-      .mt-props { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 4px; margin-bottom: 10px; }
-      .mt-prop { display: flex; justify-content: space-between; padding: 5px 8px; background: var(--color-panel); border-radius: 5px; font-size: 0.62rem; }
+      .mt-mol-smiles { font-size: 0.65rem; font-family: var(--font-mono, monospace); color: var(--color-text); word-break: break-all; flex: 1; }
+      .mt-mol-formula { font-size: 0.72rem; font-weight: 700; color: var(--color-primary); white-space: nowrap; margin-left: 8px; }
+      .mt-props { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 5px; margin-bottom: 12px; }
+      .mt-prop { display: flex; justify-content: space-between; padding: 6px 8px; background: var(--color-panel); border-radius: 6px; font-size: 0.64rem; }
       .mt-prop-label { color: var(--color-text-muted); }
       .mt-prop-val { color: var(--color-text); font-weight: 600; font-family: var(--font-mono, monospace); }
-      .mt-section-title { font-size: 0.66rem; font-weight: 600; color: var(--color-text); margin: 0 0 6px 0; }
-      .mt-admet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
-      .mt-admet-card { display: flex; flex-direction: column; align-items: center; padding: 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; text-align: center; gap: 2px; }
-      .mt-admet-card.pass { border-color: rgba(34,197,94,0.3); background: rgba(34,197,94,0.04); }
-      .mt-admet-card.fail { border-color: rgba(255,107,107,0.3); background: rgba(255,107,107,0.04); }
-      .mt-admet-card.info { border-color: rgba(79,195,247,0.3); background: rgba(79,195,247,0.04); }
-      .mt-admet-icon { font-size: 1.2rem; }
-      .mt-admet-card strong { font-size: 0.62rem; color: var(--color-text); }
-      .mt-admet-card small { font-size: 0.55rem; color: var(--color-text-muted); }
-
       .mt-sim-score { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-      .mt-sim-label { font-size: 0.64rem; color: var(--color-text-muted); white-space: nowrap; }
-      .mt-sim-bar-wrap { flex: 1; height: 20px; background: var(--color-border); border-radius: 10px; overflow: hidden; }
-      .mt-sim-bar { height: 100%; background: linear-gradient(90deg, var(--color-primary), #22c55e); border-radius: 10px; transition: width 0.5s; }
+      .mt-sim-label { font-size: 0.66rem; color: var(--color-text-muted); white-space: nowrap; }
+      .mt-sim-bar-wrap { flex: 1; height: 18px; background: var(--color-border); border-radius: 9px; overflow: hidden; }
+      .mt-sim-bar { height: 100%; background: linear-gradient(90deg, var(--color-primary), #22c55e); border-radius: 9px; transition: width 0.5s; }
       .mt-sim-val { font-size: 0.8rem; font-weight: 700; color: var(--color-primary); }
-      .mt-sim-query { font-size: 0.6rem; padding: 4px 8px; background: var(--color-panel); border-radius: 4px; margin-bottom: 6px; }
+      .mt-sim-query { font-size: 0.62rem; padding: 4px 8px; background: var(--color-panel); border-radius: 4px; margin-bottom: 6px; }
       .mt-sim-query code { font-family: var(--font-mono, monospace); color: var(--color-text); }
-      .mt-sim-matches h4 { font-size: 0.62rem; color: var(--color-text); margin: 0 0 4px 0; }
-      .mt-sim-match { display: flex; align-items: center; gap: 6px; padding: 3px 8px; background: var(--color-panel); border-radius: 4px; margin-bottom: 2px; font-size: 0.58rem; }
+      .mt-sim-matches h4 { font-size: 0.64rem; color: var(--color-text); margin: 0 0 4px 0; }
+      .mt-sim-match { display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: var(--color-panel); border-radius: 4px; margin-bottom: 2px; font-size: 0.6rem; }
       .mt-sim-pct { font-weight: 700; color: var(--color-primary); }
-
       .mt-space-canvas { width: 100%; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-panel); }
       .mt-space-list { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
-      .mt-space-item { display: flex; align-items: center; gap: 6px; font-size: 0.58rem; padding: 2px 6px; background: var(--color-panel); border-radius: 4px; }
+      .mt-space-item { display: flex; align-items: center; gap: 6px; font-size: 0.6rem; padding: 3px 6px; background: var(--color-panel); border-radius: 4px; }
       .mt-space-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
       .mt-space-item code { font-family: var(--font-mono, monospace); color: var(--color-text); flex: 1; }
-      .mt-space-coords { color: var(--color-text-muted); font-size: 0.54rem; }
-      .mt-dock-status { margin-bottom: 6px; }
-      .mt-dock-badge { padding: 4px 10px; border-radius: 4px; font-size: 0.58rem; font-weight: 600; }
-      .mt-dock-badge.running { background: rgba(79,195,247,0.1); color: #4fc3f7; }
-      .mt-dock-badge.complete { background: rgba(34,197,94,0.1); color: #22c55e; }
-      .mt-dock-badge.error { background: rgba(255,107,107,0.1); color: #ff6b6b; }
-      .mt-dock-badge.prepared { background: rgba(255,217,61,0.1); color: #ffd93d; }
-      .mt-dock-results { margin-top: 6px; }
-      .mt-dock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 4px; }
-      .mt-dock-pose { display: flex; flex-direction: column; align-items: center; padding: 8px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; gap: 2px; position: relative; }
-      .mt-dock-pose.best { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 5%, var(--color-panel)); }
-      .mt-dock-rank { font-size: 0.56rem; font-weight: 700; color: var(--color-primary); }
-      .mt-dock-label { position: absolute; top: 3px; right: 3px; font-size: 0.4rem; padding: 1px 4px; background: var(--color-primary); color: white; border-radius: 3px; }
-      .mt-dock-energy { font-size: 0.6rem; color: var(--color-text); font-weight: 600; }
-      .mt-dock-bar { width: 80%; height: 4px; background: var(--color-border); border-radius: 2px; margin-top: 2px; }
-      .mt-dock-fill { height: 100%; background: var(--color-primary); border-radius: 2px; transition: width 0.5s; }
-      .mt-dock-note { font-size: 0.46rem; color: var(--color-text-muted); margin-top: 4px; }
-      .mt-dock-info { padding: 24px; text-align: center; }
-      .mt-dock-info p { font-size: 0.58rem; color: var(--color-text-muted); margin: 4px 0; }
+      .mt-space-coords { color: var(--color-text-muted); font-size: 0.56rem; }
+
+      /* Docking cards */
+      .dock-cards-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 4px; }
+      .dock-card { padding: 14px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 12px; display: flex; flex-direction: column; gap: 10px; }
+      .dock-card-header { display: flex; align-items: center; gap: 8px; }
+      .dock-card-icon { font-size: 20px; color: var(--color-primary); }
+      .dock-card h4 { color: var(--color-text); font-size: 0.78rem; font-weight: 600; margin: 0; }
+      .dock-card-row { display: flex; gap: 8px; align-items: center; }
+      .dock-upload-label { display: flex; align-items: center; gap: 4px; padding: 5px 10px; background: var(--color-background); border: 1px dashed var(--color-border); border-radius: 6px; color: var(--color-text-muted); cursor: pointer; font-size: 0.64rem; white-space: nowrap; transition: all 0.15s; }
+      .dock-upload-label:hover { border-color: var(--color-primary); color: var(--color-primary); }
+      .dock-upload-label .material-symbols-outlined { font-size: 16px; }
+
+      .dock-status-bar { margin-top: 6px; }
+      .dock-badge { padding: 4px 10px; border-radius: 6px; font-size: 0.68rem; font-weight: 600; }
+      .dock-badge.complete { background: rgba(34,197,94,0.1); color: #22c55e; }
+      .dock-badge.error { background: rgba(255,107,107,0.1); color: #ff6b6b; }
+
+      .dock-results-card { padding: 14px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 10px; }
+      .dock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+      .dock-pose-card { display: flex; flex-direction: column; align-items: center; padding: 10px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 8px; gap: 3px; position: relative; transition: all 0.15s; }
+      .dock-pose-card.best { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 6%, var(--color-background)); box-shadow: 0 0 0 1px var(--color-primary); }
+      .pose-rank { font-size: 0.6rem; font-weight: 700; color: var(--color-primary); }
+      .pose-energy { font-size: 0.78rem; color: var(--color-text); font-weight: 700; font-family: var(--font-mono, monospace); }
+      .pose-unit { font-size: 0.55rem; color: var(--color-text-muted); }
+      .pose-bar { width: 70%; height: 4px; background: var(--color-border); border-radius: 2px; margin-top: 2px; }
+      .pose-bar-fill { height: 100%; background: var(--color-primary); border-radius: 2px; transition: width 0.5s; }
+      .pose-label { position: absolute; top: 4px; right: 4px; font-size: 0.5rem; padding: 1px 5px; background: var(--color-primary); color: white; border-radius: 3px; font-weight: 600; }
+      .dock-note { font-size: 0.62rem; color: var(--color-text-muted); margin-top: 8px; }
     </style>
 
     <script>
@@ -384,15 +496,12 @@
         const w = canvas.width = canvas.offsetWidth || 560;
         const h = canvas.height = 400;
         ctx.clearRect(0, 0, w, h);
-
         const molecules = data.molecules;
         const margin = 40;
         const xs = molecules.map(m => m.x || 0);
         const ys = molecules.map(m => m.y || 0);
         const xMin = Math.min(...xs), xMax = Math.max(...xs), xRange = xMax - xMin || 1;
         const yMin = Math.min(...ys), yMax = Math.max(...ys), yRange = yMax - yMin || 1;
-
-        // Axes
         ctx.strokeStyle = "rgba(150,150,170,0.3)";
         ctx.lineWidth = 1;
         ctx.beginPath();
@@ -403,12 +512,10 @@
         ctx.font = "9px Inter, sans-serif";
         ctx.fillText("PC1", w - margin, h - margin + 14);
         ctx.fillText("PC2", margin - 20, margin - 4);
-
         molecules.forEach((m, i) => {
           const x = margin + ((m.x - xMin) / xRange) * (w - 2 * margin);
           const y = h - margin - ((m.y - yMin) / yRange) * (h - 2 * margin);
           const hue = (i * 60) % 360;
-
           ctx.beginPath();
           ctx.arc(x, y, 8, 0, 2 * Math.PI);
           ctx.fillStyle = `hsla(${hue}, 70%, 50%, 0.7)`;
@@ -416,7 +523,6 @@
           ctx.strokeStyle = `hsl(${hue}, 70%, 40%)`;
           ctx.lineWidth = 1.5;
           ctx.stroke();
-
           ctx.fillStyle = "#fff";
           ctx.font = "bold 8px Inter, sans-serif";
           ctx.textAlign = "center";

@@ -14,21 +14,11 @@
             <div class="welcome-container">
                 <!-- Header -->
                 <div class="welcome-header">
-                    <svg class="welcome-logo" viewBox="0 0 960 960">
-                        <defs>
-                            <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" style="stop-color:#00d4aa"/>
-                                <stop offset="100%" style="stop-color:#00897b"/>
-                            </linearGradient>
-                        </defs>
-                        <rect width="960" height="960" rx="160" fill="url(#g)"/>
-                        <circle cx="480" cy="280" r="80" fill="#0a1929"/>
-                        <circle cx="340" cy="480" r="80" fill="#0a1929"/>
-                        <circle cx="620" cy="480" r="80" fill="#0a1929"/>
-                        <circle cx="480" cy="680" r="80" fill="#0a1929"/>
-                    </svg>
+                    <div class="welcome-logo-card">
+                        <img src="public/icon.svg" alt="BioDockify AI" class="welcome-logo-img" />
+                    </div>
                     <h1 class="welcome-title">BioDockify AI</h1>
-                    <p class="welcome-version">v6.0.6 — BioDockify Pharma AI</p>
+                    <p class="welcome-version">v6.0.7 — BioDockify Pharma AI</p>
                 </div>
 
                 <!-- Quick Actions -->
@@ -130,6 +120,24 @@
             text-align: center;
             margin-bottom: 1.5rem;
             max-width: 100%;
+        }
+
+        .welcome-logo-card {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 90px;
+            height: 90px;
+            background: rgba(0, 212, 170, 0.08);
+            border: 1px solid rgba(0, 212, 170, 0.15);
+            border-radius: 20px;
+            padding: 12px;
+            margin-bottom: 1rem;
+        }
+
+        .welcome-logo-img {
+            width: 60px;
+            height: 60px;
         }
 
         .feature-grid {
