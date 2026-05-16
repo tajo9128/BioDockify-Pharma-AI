@@ -47,7 +47,9 @@ class SystemHealth(ApiHandler):
         # RDKit
         try:
             from rdkit import Chem
-            result["checks"].append({"name": "RDKit", "status": "ok", "detail": f"v{Chem.rdkitVersion}"})
+            m = Chem.MolFromSmiles("CCO")
+            rdkit_ok = m is not None and m.GetNumAtoms() > 0
+            result["checks"].append({"name": "RDKit", "status": "ok", "detail": "Available"})
         except:
             result["checks"].append({"name": "RDKit", "status": "warn", "detail": "Not installed"})
 
@@ -79,10 +81,10 @@ class SystemHealth(ApiHandler):
         result["checks"].append({"name": "TTS", "status": tts["status"], "detail": f"Using: {tts['engine']}"})
 
         # Drug Properties fallback
-        drug_status = "ok"
+        drug_status = "ok (RDKit)"
         try:
             from rdkit import Chem
-            drug_status = "ok (RDKit)"
+            Chem.MolFromSmiles("C")
         except:
             drug_status = "fallback (approximate)"
         result["checks"].append({"name": "Drug Properties", "status": "ok" if "RDKit" in drug_status else "warn", "detail": drug_status})
