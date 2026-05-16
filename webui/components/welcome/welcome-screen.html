@@ -44,29 +44,45 @@
 
                 <!-- Feature Grid - Core interactive tools -->
                 <div class="feature-grid">
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('research')">
-                        <span class="material-symbols-outlined">apps</span>
-                        <span>All Tools</span>
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('research-dashboard')">
+                        <span class="material-symbols-outlined">rocket_launch</span>
+                        <span>Research CMD</span>
+                    </button>
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('molecular-toolkit')">
+                        <span class="material-symbols-outlined">biotech</span>
+                        <span>Mol Toolkit</span>
                     </button>
                     <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('statistics')">
                         <span class="material-symbols-outlined">analytics</span>
                         <span>Statistics</span>
                     </button>
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('literature')">
+                        <span class="material-symbols-outlined">menu_book</span>
+                        <span>Literature</span>
+                    </button>
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('drug-properties')">
+                        <span class="material-symbols-outlined">medication</span>
+                        <span>Drug Props</span>
+                    </button>
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('thesis')">
+                        <span class="material-symbols-outlined">description</span>
+                        <span>Writer</span>
+                    </button>
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('faculty-dashboard')">
+                        <span class="material-symbols-outlined">school</span>
+                        <span>Faculty CMD</span>
+                    </button>
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('journal-finder')">
+                        <span class="material-symbols-outlined">verified</span>
+                        <span>J. Finder</span>
+                    </button>
                     <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('knowledge')">
                         <span class="material-symbols-outlined">psychology</span>
                         <span>Knowledge</span>
                     </button>
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('drug-properties')">
-                        <span class="material-symbols-outlined">medication</span>
-                        <span>Drug Properties</span>
-                    </button>
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('patent-analyzer')">
-                        <span class="material-symbols-outlined">gavel</span>
-                        <span>Patents</span>
-                    </button>
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('trial-scanner')">
-                        <span class="material-symbols-outlined">clinical_notes</span>
-                        <span>Trials</span>
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('research')">
+                        <span class="material-symbols-outlined">apps</span>
+                        <span>All Tools</span>
                     </button>
                 </div>
 
@@ -191,7 +207,7 @@
 
         .feature-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(5, 1fr);
             gap: 0.75rem;
             margin-bottom: 2rem;
             max-width: 600px;
