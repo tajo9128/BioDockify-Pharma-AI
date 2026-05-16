@@ -6,7 +6,7 @@
 </head>
 <body>
   <div x-data>
-    <template x-if="$store.desktopWorkspace && !$store.desktopWorkspace?.isDesktopMode">
+    <template x-if="$store.desktopWorkspace && $store.desktopWorkspace.desktopLayout !== 'desktop'">
       <nav class="right-icon-rail" aria-label="Desktop tools">
         <template x-for="mod in $store.desktopWorkspace.sortedModules" :key="mod.id">
           <button

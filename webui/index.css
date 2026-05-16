@@ -402,6 +402,14 @@ img {
   overflow: hidden;
 }
 
+/* Ensure x-component elements participate in flex layout */
+.container > x-component {
+  display: flex;
+  flex-shrink: 0;
+  min-width: 0;
+  height: 100%;
+}
+
 .panel {
   display: -webkit-flex;
   display: flex;
