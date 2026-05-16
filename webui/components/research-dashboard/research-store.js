@@ -1,9 +1,12 @@
 import { createStore } from "/js/AlpineStore.js";
-import { callJsonApi, fetchApi } from "/js/api.js";
+import { fetchApi } from "/js/api.js";
 
-async function apiGet(path) {
-  const r = await fetchApi(path, { method: "GET" });
-  return r.json();
+async function safeGet(path) {
+  try {
+    const r = await fetchApi(path, { method: "GET" });
+    const txt = await r.text();
+    return JSON.parse(txt);
+  } catch { return []; }
 }
 
 export const store = createStore("researchDashboard", {
@@ -28,8 +31,10 @@ export const store = createStore("researchDashboard", {
 
   async listProjects() {
     this.loading = true; this.error = "";
-    try { this.projects = await apiGet("research/management/list") || []; }
-    catch (e) { this.error = e.message; this.projects = []; }
+    try {
+      const data = await safeGet("research/management/list");
+      this.projects = Array.isArray(data) ? data : [];
+    } catch (e) { this.error = e.message; this.projects = []; }
     this.loading = false;
   },
 
@@ -42,8 +47,8 @@ export const store = createStore("researchDashboard", {
     if (!this.activeProjectId) return;
     this.loading = true; this.error = "";
     try {
-      const resp = await apiGet("research/management/dashboard/" + this.activeProjectId);
-      this.dashboard = resp || null;
+      const data = await safeGet("research/management/dashboard/" + this.activeProjectId);
+      this.dashboard = data || null;
     } catch (e) { this.error = e.message; this.dashboard = null; }
     this.loading = false;
   },
@@ -52,17 +57,23 @@ export const store = createStore("researchDashboard", {
     if (!this.newTopic.trim()) return;
     this.loading = true; this.error = ""; this.message = "";
     try {
-      const resp = await callJsonApi("research/management/comprehensive/initialize", {
-        topic: this.newTopic, research_type: this.newType, user_message: this.newTopic,
+      const r = await fetchApi("research/management/comprehensive/initialize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic: this.newTopic, research_type: this.newType, user_message: this.newTopic }),
       });
-      if (resp.research_id) {
-        this.message = "Pipeline started: " + resp.research_id;
-        this.activeProjectId = resp.research_id;
-        this.newTopic = "";
-        await this.listProjects();
-        this.loadDashboard();
-      } else { this.error = resp.error || "Failed to start"; }
-    } catch (e) { this.error = e.message; }
+      const txt = await r.text();
+      try {
+        const resp = JSON.parse(txt);
+        if (resp.research_id) {
+          this.message = "Pipeline started: " + resp.research_id;
+          this.activeProjectId = resp.research_id;
+          this.newTopic = "";
+          await this.listProjects();
+          this.loadDashboard();
+        } else { this.error = resp.error || "Failed to start"; }
+      } catch { this.error = "Server returned invalid response. The research pipeline may not be configured."; }
+    } catch (e) { this.error = "Cannot reach research API. Starting research requires the backend service."; }
     this.loading = false;
   },
 
