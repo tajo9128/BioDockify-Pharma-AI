@@ -26,10 +26,6 @@ const defaultModules = [
   { id: "citation-manager", title: "Citation Manager", icon: "format_quote", component: "/components/citation-manager/citation-manager.html", order: 17, defaultWidth: 600, defaultHeight: 500 },
   { id: "regulatory", title: "Regulatory", icon: "gavel", component: "/components/regulatory/regulatory.html", order: 18, defaultWidth: 600, defaultHeight: 500 },
 ];
-  { id: "grant-writer", title: "Grant Writer", icon: "payments", component: "/components/grant-writer/grant-writer.html", order: 17, defaultWidth: 600, defaultHeight: 500 },
-  { id: "citation-manager", title: "Citation Manager", icon: "format_quote", component: "/components/citation-manager/citation-manager.html", order: 18, defaultWidth: 600, defaultHeight: 500 },
-  { id: "regulatory", title: "Regulatory", icon: "gavel", component: "/components/regulatory/regulatory.html", order: 19, defaultWidth: 600, defaultHeight: 500 },
-];
 
 const model = {
   desktopLayout: 'chat',
