@@ -7,7 +7,7 @@ function generateId() {
 }
 
 const defaultModules = [
-  { id: "desktop", title: "Kali Desktop", icon: "desktop_windows", component: "/components/desktop/desktop-panel.html", order: 1, defaultWidth: 900, defaultHeight: 600 },
+  { id: "research-dashboard", title: "Research CMD", icon: "rocket_launch", component: "/components/research-dashboard/research-dashboard.html", order: 1, defaultWidth: 800, defaultHeight: 600 },
   { id: "research-dashboard", title: "Research CMD", icon: "rocket_launch", component: "/components/research-dashboard/research-dashboard.html", order: 2, defaultWidth: 800, defaultHeight: 600 },
   { id: "molecular-toolkit", title: "Molecular Toolkit", icon: "biotech", component: "/components/molecular-toolkit/molecular-toolkit.html", order: 3, defaultWidth: 700, defaultHeight: 550 },
   { id: "research", title: "All Tools", icon: "apps", component: "/components/research/research-tools.html", order: 4, defaultWidth: 700, defaultHeight: 500 },
@@ -34,7 +34,7 @@ const model = {
   activeWindowId: null,
   nextZIndex: 100,
   startMenuOpen: false,
-  taskbarPinned: ["desktop", "research-dashboard", "research", "statistics", "knowledge"],
+  taskbarPinned: ["research-dashboard", "research", "statistics", "knowledge"],
   _searchQuery: "",
   _initialized: false,
 
