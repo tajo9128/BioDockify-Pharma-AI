@@ -63,7 +63,7 @@
 
     <script>
         // Expose git info for sidebar component
-        globalThis.gitinfo = { version: "{{version_no}}", commit_time: "{{version_time}}" };
+        globalThis.gitinfo = { version: "{{version_no}}" || "v5.7.4", commit_time: "{{version_time}}" };
 
         // Expose runtime info for frontend components (development gating, runtime-scoped cookies).
         globalThis.runtimeInfo = {
