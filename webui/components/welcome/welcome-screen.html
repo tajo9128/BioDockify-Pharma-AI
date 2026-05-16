@@ -121,11 +121,11 @@
             justify-content: center;
             height: 100%;
             width: 100%;
+            max-width: 100%;
             min-width: 0;
-            padding: 2rem;
+            padding: 1rem;
             background: var(--color-background);
-            overflow-y: auto;
-            overflow-x: hidden;
+            overflow: hidden;
         }
 
         .welcome-header {
@@ -209,17 +209,11 @@
 
         .feature-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 0.5rem;
-            margin-bottom: 2rem;
-            max-width: 650px;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 0.35rem;
+            margin-bottom: 1.5rem;
+            max-width: 100%;
             width: 100%;
-        }
-        @media (max-width: 600px) {
-            .feature-grid { grid-template-columns: repeat(3, 1fr); }
-        }
-        @media (max-width: 400px) {
-            .feature-grid { grid-template-columns: repeat(2, 1fr); }
         }
 
         .feature-btn {
@@ -252,7 +246,9 @@
 
         .quick-links {
             display: flex;
-            gap: 1rem;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         .link-btn {
