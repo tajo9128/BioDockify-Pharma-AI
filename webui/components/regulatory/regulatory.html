@@ -1,0 +1,103 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+    export const store = createStore("regulatory", {
+      activeTab: "search",
+      query: "", agency: "fda",
+      loading: false, error: "", results: [],
+      checklistType: "nda", checklist: null,
+      async search() {
+        if (!this.query.trim()) return;
+        this.loading = true; this.error = ""; this.results = [];
+        try { const r = await callJsonApi("regulatory", { action: "search", query: this.query, agency: this.agency }); this.results = r.results || []; }
+        catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async loadChecklist() {
+        this.loading = true;
+        try { const r = await callJsonApi("regulatory", { action: "checklist", type: this.checklistType }); this.checklist = r; }
+        catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+      sendToAgent(p) { const i = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea"); if (i) { i.value = p; i.dispatchEvent(new Event("input", { bubbles: true })); i.focus(); } },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="rg-panel">
+    <div class="rg-header"><span class="material-symbols-outlined rg-icon">gavel</span><h2>Regulatory</h2></div>
+    <div class="rg-tabs">
+      <button class="rg-tab" :class="{active: $store.regulatory.activeTab === 'search'}" @click="$store.regulatory.activeTab = 'search'">🔍 Search</button>
+      <button class="rg-tab" :class="{active: $store.regulatory.activeTab === 'checklist'}" @click="$store.regulatory.activeTab = 'checklist'; $store.regulatory.loadChecklist()">📋 Checklist</button>
+    </div>
+
+    <div x-show="$store.regulatory.error" class="rg-error" x-text="$store.regulatory.error"></div>
+    <div x-show="$store.regulatory.loading" class="rg-loading"><div class="loading-spinner"></div>Loading...</div>
+
+    <!-- Search -->
+    <div x-show="$store.regulatory.activeTab === 'search'">
+      <div class="rg-card"><h4>Search FDA/EMA Guidelines</h4>
+        <div class="rg-row">
+          <input type="text" x-model="$store.regulatory.query" placeholder="e.g. bioequivalence, ICH M4, GMP..." class="rg-input" @keyup.enter="$store.regulatory.search()" />
+          <select x-model="$store.regulatory.agency" class="rg-select"><option value="fda">FDA</option><option value="ema">EMA</option></select>
+          <button class="rg-btn" @click="$store.regulatory.search()" :disabled="!$store.regulatory.query">Search</button>
+        </div>
+      </div>
+      <template x-for="r in $store.regulatory.results" :key="r.id || r.title">
+        <div class="rg-card"><div class="rg-result-title"><span x-text="r.title"></span><span class="rg-badge" x-text="r.source"></span></div><p class="rg-result-text" x-text="r.guideline"></p><button class="rg-chip" @click="$store.regulatory.sendToAgent('Search regulatory guidelines for ' + r.title + ' from ' + r.source)">Search with Agent</button></div>
+      </template>
+    </div>
+
+    <!-- Checklist -->
+    <div x-show="$store.regulatory.activeTab === 'checklist'">
+      <div class="rg-card"><h4>Submission Checklist</h4>
+        <div class="rg-row">
+          <select x-model="$store.regulatory.checklistType" class="rg-select" @change="$store.regulatory.loadChecklist()"><option value="nda">NDA (FDA)</option><option value="anda">ANDA (FDA)</option><option value="mua">MAA (EMA)</option></select>
+        </div>
+      </div>
+      <template x-if="$store.regulatory.checklist">
+        <div class="rg-card"><h4 x-text="$store.regulatory.checklist.title"></h4>
+          <p class="rg-meta" x-text="$store.regulatory.checklist.total_phases + ' phases · ' + $store.regulatory.checklist.total_items + ' items'"></p>
+          <template x-for="p in $store.regulatory.checklist.phases" :key="p.phase">
+            <div class="rg-phase"><div class="rg-phase-head"><strong x-text="p.phase"></strong><span class="rg-time" x-text="p.estimated_time"></span></div><ul><template x-for="item in p.items"><li x-text="item"></li></template></ul></div>
+          </template>
+        </div>
+      </template>
+    </div>
+
+    <style>
+      .rg-panel { display: flex; flex-direction: column; height: 100%; overflow-y: auto; padding: 12px 16px; background: var(--color-background); }
+      .rg-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+      .rg-icon { font-size: 22px; color: var(--color-primary); }
+      .rg-header h2 { font-size: 0.9rem; margin: 0; font-weight: 700; color: var(--color-primary); }
+      .rg-tabs { display: flex; gap: 2px; margin-bottom: 8px; border-bottom: 1px solid var(--color-border); }
+      .rg-tab { padding: 5px 10px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--color-text-muted); cursor: pointer; font-size: 0.6rem; font-weight: 500; }
+      .rg-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+      .rg-error { padding: 4px 8px; background: rgba(255,107,107,0.1); border-radius: 4px; color: var(--color-error-text); font-size: 0.52rem; margin-bottom: 4px; }
+      .rg-loading { display: flex; align-items: center; gap: 4px; font-size: 0.54rem; color: var(--color-text-muted); }
+      .loading-spinner { width: 12px; height: 12px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .rg-card { padding: 8px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: 6px; }
+      .rg-card h4 { font-size: 0.58rem; font-weight: 600; color: var(--color-text); margin: 0 0 4px 0; }
+      .rg-row { display: flex; gap: 4px; }
+      .rg-input { flex: 1; padding: 5px 8px; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-background); color: var(--color-text); font-size: 0.54rem; }
+      .rg-select { padding: 5px 6px; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-background); color: var(--color-text); font-size: 0.52rem; }
+      .rg-btn { padding: 5px 10px; background: var(--color-primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.52rem; font-weight: 600; }
+      .rg-btn:disabled { opacity: 0.5; }
+      .rg-result-title { display: flex; align-items: center; gap: 4px; font-size: 0.56rem; font-weight: 600; color: var(--color-text); margin-bottom: 2px; }
+      .rg-badge { padding: 1px 5px; background: color-mix(in srgb, var(--color-primary) 10%, transparent); border-radius: 3px; font-size: 0.44rem; color: var(--color-primary); }
+      .rg-result-text { font-size: 0.5rem; color: var(--color-text-muted); margin: 0 0 4px 0; line-height: 1.4; }
+      .rg-chip { padding: 3px 6px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 3px; font-size: 0.46rem; color: var(--color-text-muted); cursor: pointer; }
+      .rg-meta { font-size: 0.48rem; color: var(--color-text-muted); margin: 0 0 6px 0; }
+      .rg-phase { padding: 6px 0; border-bottom: 1px solid var(--color-border); }
+      .rg-phase:last-child { border-bottom: none; }
+      .rg-phase-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; font-size: 0.54rem; }
+      .rg-time { font-size: 0.46rem; color: var(--color-text-muted); font-style: italic; }
+      .rg-phase ul { margin: 0; padding-left: 16px; font-size: 0.5rem; color: var(--color-text-muted); }
+      .rg-phase li { margin-bottom: 1px; }
+    </style>
+  </div>
+</body>
+</html>
