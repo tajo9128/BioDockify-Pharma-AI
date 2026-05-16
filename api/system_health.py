@@ -44,14 +44,20 @@ class SystemHealth(ApiHandler):
         except:
             result["checks"].append({"name": "ChromaDB", "status": "warn", "detail": "Unavailable"})
 
-        # RDKit
+        # RDKit — try multiple import paths
+        rdkit_ok = False
         try:
             from rdkit import Chem
-            m = Chem.MolFromSmiles("CCO")
-            rdkit_ok = m is not None and m.GetNumAtoms() > 0
-            result["checks"].append({"name": "RDKit", "status": "ok", "detail": "Available"})
+            rdkit_ok = Chem.MolFromSmiles("CCO") is not None
         except:
-            result["checks"].append({"name": "RDKit", "status": "warn", "detail": "Not installed"})
+            try:
+                import sys, site
+                sys.path.insert(0, site.getsitepackages()[0])
+                from rdkit import Chem
+                rdkit_ok = Chem.MolFromSmiles("CCO") is not None
+            except:
+                pass
+        result["checks"].append({"name": "RDKit", "status": "ok" if rdkit_ok else "warn", "detail": "Available" if rdkit_ok else "Not installed"})
 
         # Backend APIs - check via file existence
         api_checks = [
@@ -85,13 +91,21 @@ class SystemHealth(ApiHandler):
         result["checks"].append({"name": "TTS", "status": tts["status"], "detail": f"Using: {tts['engine']}"})
 
         # Drug Properties fallback
-        drug_status = "ok (RDKit)"
+        drug_ok = False
         try:
             from rdkit import Chem
             Chem.MolFromSmiles("C")
+            drug_ok = True
         except:
-            drug_status = "fallback (approximate)"
-        result["checks"].append({"name": "Drug Properties", "status": "ok" if "RDKit" in drug_status else "warn", "detail": drug_status})
+            try:
+                import sys, site
+                sys.path.insert(0, site.getsitepackages()[0])
+                from rdkit import Chem
+                Chem.MolFromSmiles("C")
+                drug_ok = True
+            except:
+                pass
+        result["checks"].append({"name": "Drug Properties", "status": "ok" if drug_ok else "warn", "detail": "ok (RDKit)" if drug_ok else "fallback (approximate)"})
 
         # Literature search
         result["checks"].append({"name": "Literature Search", "status": "ok", "detail": "PubMed + Semantic Scholar + arXiv"})

@@ -237,6 +237,7 @@
       <div class="mt-input-row">
         <input type="text" x-model="$store.molecularToolkit.dockingLigand" placeholder="Ligand SMILES..." class="mt-input" style="flex:2" />
         <input type="text" x-model="$store.molecularToolkit.dockingLigandName" placeholder="Name" class="mt-input" style="flex:1" />
+        <input type="file" accept=".sdf,.mol,.pdb,.smi" class="mt-file-input" @change="const f = $event.target.files[0]; if (f) { const r = new FileReader(); r.onload = () => { const t = r.result; $store.molecularToolkit.dockingLigand = t.includes('SMILES') ? t.split('\n').find(l=>l.trim()&&!l.startsWith('#')) || t : t; }; r.readAsText(f); }" title="Upload ligand file" />
         <button class="mt-btn" @click="$store.molecularToolkit.dockingPrepare()" :disabled="$store.molecularToolkit.loading || !$store.molecularToolkit.dockingPdb || !$store.molecularToolkit.dockingLigand">Dock</button>
       </div>
 
