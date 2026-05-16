@@ -1,4 +1,4 @@
-<html>
+﻿<html>
 
 <head>
     <script type="module">
@@ -15,10 +15,23 @@
                 <!-- Header -->
                 <div class="welcome-header">
                     <div class="welcome-logo-card">
-                        <img src="public/icon.svg" alt="BioDockify AI" class="welcome-logo-img" />
+                        <img src="public/icon.svg" alt="BioDockify AI" class="welcome-logo-img" onerror="this.style.display='none'" />
+                        <svg class="welcome-logo-icon" viewBox="0 0 960 960">
+                            <defs>
+                                <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#00d4aa"/>
+                                    <stop offset="100%" style="stop-color:#00897b"/>
+                                </linearGradient>
+                            </defs>
+                            <rect width="960" height="960" rx="180" fill="url(#g)"/>
+                            <circle cx="480" cy="280" r="80" fill="#0a1929"/>
+                            <circle cx="340" cy="480" r="80" fill="#0a1929"/>
+                            <circle cx="620" cy="480" r="80" fill="#0a1929"/>
+                            <circle cx="480" cy="680" r="80" fill="#0a1929"/>
+                        </svg>
                     </div>
                     <h1 class="welcome-title">BioDockify AI</h1>
-                    <p class="welcome-version">v6.0.7 — BioDockify Pharma AI</p>
+                    <p class="welcome-version">v6.0.8 - BioDockify Pharma AI</p>
                 </div>
 
                 <!-- Quick Actions -->
@@ -31,45 +44,29 @@
 
                 <!-- Feature Grid - Core interactive tools -->
                 <div class="feature-grid">
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('research-dashboard')">
-                        <span class="material-symbols-outlined">rocket_launch</span>
-                        <span>Research CMD</span>
-                    </button>
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('molecular-toolkit')">
-                        <span class="material-symbols-outlined">biotech</span>
-                        <span>Mol Toolkit</span>
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('research')">
+                        <span class="material-symbols-outlined">apps</span>
+                        <span>All Tools</span>
                     </button>
                     <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('statistics')">
                         <span class="material-symbols-outlined">analytics</span>
                         <span>Statistics</span>
                     </button>
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('literature')">
-                        <span class="material-symbols-outlined">menu_book</span>
-                        <span>Literature</span>
-                    </button>
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('drug-properties')">
-                        <span class="material-symbols-outlined">medication</span>
-                        <span>Drug Props</span>
-                    </button>
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('thesis')">
-                        <span class="material-symbols-outlined">description</span>
-                        <span>Writer</span>
-                    </button>
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('faculty-dashboard')">
-                        <span class="material-symbols-outlined">school</span>
-                        <span>Faculty CMD</span>
-                    </button>
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('journal-finder')">
-                        <span class="material-symbols-outlined">verified</span>
-                        <span>J. Finder</span>
-                    </button>
                     <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('knowledge')">
                         <span class="material-symbols-outlined">psychology</span>
                         <span>Knowledge</span>
                     </button>
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('research')">
-                        <span class="material-symbols-outlined">apps</span>
-                        <span>All Tools</span>
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('drug-properties')">
+                        <span class="material-symbols-outlined">medication</span>
+                        <span>Drug Properties</span>
+                    </button>
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('molecular-toolkit')">
+                        <span class="material-symbols-outlined">biotech</span>
+                        <span>Mol Toolkit</span>
+                    </button>
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('literature')">
+                        <span class="material-symbols-outlined">menu_book</span>
+                        <span>Literature</span>
                     </button>
                 </div>
 
@@ -101,7 +98,6 @@
     </div>
 
     <style>
-        *, *::before, *::after { box-sizing: border-box; }
         .welcome-container {
             display: flex;
             flex-direction: column;
@@ -109,66 +105,44 @@
             justify-content: center;
             height: 100%;
             width: 100%;
-            min-width: 0;
-            max-width: 100%;
-            padding: 1.5rem;
+            padding: 2rem;
             background: var(--color-background);
-            overflow: hidden;
+            overflow-y: auto;
         }
 
         .welcome-header {
             text-align: center;
-            margin-bottom: 1.5rem;
-            max-width: 100%;
+            margin-bottom: 2rem;
         }
 
         .welcome-logo-card {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 90px;
-            height: 90px;
-            background: rgba(0, 212, 170, 0.08);
-            border: 1px solid rgba(0, 212, 170, 0.15);
-            border-radius: 20px;
-            padding: 12px;
+            width: 100px;
+            height: 100px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 24px;
+            padding: 16px;
             margin-bottom: 1rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
         }
 
         .welcome-logo-img {
-            width: 60px;
-            height: 60px;
+            width: 64px;
+            height: 64px;
         }
 
-        .feature-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 0.5rem;
-            margin-bottom: 1.5rem;
-            max-width: 100%;
+        .welcome-logo-icon {
+            width: 64px;
+            height: 64px;
+            display: none;
         }
 
-        .feature-btn {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 0.25rem;
-            padding: 0.8rem 0.5rem;
-            background: var(--color-panel);
-            border: 1px solid var(--color-border);
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-            min-width: 0;
-            overflow: hidden;
-        }
-
-        .quick-links {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-            justify-content: center;
-            max-width: 100%;
+        .welcome-logo-img[src=""] + .welcome-logo-icon,
+        img.welcome-logo-img[style*="display: none"] ~ .welcome-logo-icon {
+            display: block;
         }
 
         .welcome-logo {
