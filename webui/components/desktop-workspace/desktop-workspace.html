@@ -6,6 +6,15 @@
   <div x-data x-init="$store.desktopWorkspace?.init()" class="desktop-workspace" :class="{ 'layout-split': $store.desktopWorkspace?.isSplitMode, 'layout-desktop': $store.desktopWorkspace?.isDesktopMode }">
     <div class="desktop-area">
 
+      <div class="desktop-empty" x-show="!($store.desktopWorkspace?.visibleWindows || []).length">
+        <span class="material-symbols-outlined desktop-empty-icon">science</span>
+        <h3>Desktop Workspace</h3>
+        <p>Click Start or open a tool from the sidebar to begin</p>
+        <button class="desktop-open-btn" @click="$store.desktopWorkspace?.openWindow('research-dashboard')">
+          <span class="material-symbols-outlined">rocket_launch</span> Open Research CMD
+        </button>
+      </div>
+
       <template x-for="win in $store.desktopWorkspace?.visibleWindows || []" :key="win.id">
         <div
           class="desktop-window"
@@ -98,6 +107,23 @@
       overflow: hidden;
       background: linear-gradient(135deg, color-mix(in srgb, var(--color-background) 95%, #000 5%) 0%, color-mix(in srgb, var(--color-background) 90%, var(--color-primary) 10%) 100%);
     }
+
+    .desktop-empty {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--color-text-muted);
+      text-align: center;
+    }
+    .desktop-empty-icon { font-size: 48px; opacity: 0.3; color: var(--color-primary); }
+    .desktop-empty h3 { font-size: 0.9rem; color: var(--color-text); margin: 0; }
+    .desktop-empty p { font-size: 0.7rem; margin: 0; }
+    .desktop-open-btn { display: flex; align-items: center; gap: 6px; padding: 8px 18px; background: var(--color-primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 0.72rem; font-weight: 600; margin-top: 8px; }
+    .desktop-open-btn:hover { opacity: 0.9; }
 
     .back-to-chat-btn {
       position: absolute;
