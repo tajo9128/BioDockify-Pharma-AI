@@ -14,24 +14,21 @@
             <div class="welcome-container">
                 <!-- Header -->
                 <div class="welcome-header">
-                    <div class="welcome-logo-card">
-                        <img src="public/icon.svg" alt="BioDockify AI" class="welcome-logo-img" onerror="this.style.display='none'" />
-                        <svg class="welcome-logo-icon" viewBox="0 0 960 960" width="80" height="80">
-                            <defs>
-                                <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" style="stop-color:#00d4aa"/>
-                                    <stop offset="100%" style="stop-color:#00897b"/>
-                                </linearGradient>
-                            </defs>
-                            <rect width="960" height="960" rx="180" fill="url(#g)"/>
-                            <circle cx="480" cy="280" r="80" fill="#0a1929"/>
-                            <circle cx="340" cy="480" r="80" fill="#0a1929"/>
-                            <circle cx="620" cy="480" r="80" fill="#0a1929"/>
-                            <circle cx="480" cy="680" r="80" fill="#0a1929"/>
-                        </svg>
-                    </div>
+                    <svg class="welcome-logo" viewBox="0 0 960 960">
+                        <defs>
+                            <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#00d4aa"/>
+                                <stop offset="100%" style="stop-color:#00897b"/>
+                            </linearGradient>
+                        </defs>
+                        <rect width="960" height="960" rx="160" fill="url(#g)"/>
+                        <circle cx="480" cy="280" r="80" fill="#0a1929"/>
+                        <circle cx="340" cy="480" r="80" fill="#0a1929"/>
+                        <circle cx="620" cy="480" r="80" fill="#0a1929"/>
+                        <circle cx="480" cy="680" r="80" fill="#0a1929"/>
+                    </svg>
                     <h1 class="welcome-title">BioDockify AI</h1>
-                    <p class="welcome-version">v6.0.0 — BioDockify Pharma AI</p>
+                    <p class="welcome-version">v6.0.6 — BioDockify Pharma AI</p>
                 </div>
 
                 <!-- Quick Actions -->
@@ -44,45 +41,29 @@
 
                 <!-- Feature Grid - Core interactive tools -->
                 <div class="feature-grid">
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('research-dashboard')">
-                        <span class="material-symbols-outlined">rocket_launch</span>
-                        <span>Research CMD</span>
-                    </button>
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('molecular-toolkit')">
-                        <span class="material-symbols-outlined">biotech</span>
-                        <span>Mol Toolkit</span>
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('research')">
+                        <span class="material-symbols-outlined">apps</span>
+                        <span>All Tools</span>
                     </button>
                     <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('statistics')">
                         <span class="material-symbols-outlined">analytics</span>
                         <span>Statistics</span>
                     </button>
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('literature')">
-                        <span class="material-symbols-outlined">menu_book</span>
-                        <span>Literature</span>
-                    </button>
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('drug-properties')">
-                        <span class="material-symbols-outlined">medication</span>
-                        <span>Drug Props</span>
-                    </button>
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('thesis')">
-                        <span class="material-symbols-outlined">description</span>
-                        <span>Writer</span>
-                    </button>
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('faculty-dashboard')">
-                        <span class="material-symbols-outlined">school</span>
-                        <span>Faculty CMD</span>
-                    </button>
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('journal-finder')">
-                        <span class="material-symbols-outlined">verified</span>
-                        <span>J. Finder</span>
-                    </button>
                     <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('knowledge')">
                         <span class="material-symbols-outlined">psychology</span>
                         <span>Knowledge</span>
                     </button>
-                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('research')">
-                        <span class="material-symbols-outlined">apps</span>
-                        <span>All Tools</span>
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('drug-properties')">
+                        <span class="material-symbols-outlined">medication</span>
+                        <span>Drug Properties</span>
+                    </button>
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('patent-analyzer')">
+                        <span class="material-symbols-outlined">gavel</span>
+                        <span>Patents</span>
+                    </button>
+                    <button class="feature-btn" @click="$store.desktopWorkspace?.openWindow('trial-scanner')">
+                        <span class="material-symbols-outlined">clinical_notes</span>
+                        <span>Trials</span>
                     </button>
                 </div>
 
@@ -121,9 +102,9 @@
             justify-content: center;
             height: 100%;
             width: 100%;
-            max-width: 100%;
             min-width: 0;
-            padding: 1rem;
+            max-width: 100%;
+            padding: 2rem;
             background: var(--color-background);
             overflow: hidden;
         }
@@ -131,36 +112,6 @@
         .welcome-header {
             text-align: center;
             margin-bottom: 2rem;
-        }
-
-        .welcome-logo-card {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 100px;
-            height: 100px;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 24px;
-            padding: 16px;
-            margin-bottom: 1rem;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-        }
-
-        .welcome-logo-img {
-            width: 64px;
-            height: 64px;
-        }
-
-        .welcome-logo-icon {
-            width: 64px;
-            height: 64px;
-            display: none;
-        }
-
-        .welcome-logo-img[src=""] + .welcome-logo-icon,
-        img.welcome-logo-img[style*="display: none"] ~ .welcome-logo-icon {
-            display: block;
         }
 
         .welcome-logo {
@@ -209,11 +160,10 @@
 
         .feature-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-            gap: 0.35rem;
-            margin-bottom: 1.5rem;
-            max-width: 100%;
-            width: 100%;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.75rem;
+            margin-bottom: 2rem;
+            max-width: 600px;
         }
 
         .feature-btn {
@@ -246,9 +196,7 @@
 
         .quick-links {
             display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-            justify-content: center;
+            gap: 1rem;
         }
 
         .link-btn {
