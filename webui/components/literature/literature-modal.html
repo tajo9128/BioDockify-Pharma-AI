@@ -5,6 +5,7 @@
     import { callJsonApi } from "/js/api.js";
 
     export const store = createStore("literatureModal", {
+      activeTab: "search",
       query: "",
       database: "pubmed",
       loading: false,
@@ -14,8 +15,26 @@
       message: "",
       _restored: false,
 
+      // Screening
+      screenCriteria: "",
+      screenedPapers: [],
+      screenIncluded: 0,
+      screenExcluded: 0,
+
+      // Alerts
+      alerts: [],
+      newAlertQuery: "",
+      newAlertFreq: "daily",
+
+      // Entity extraction
+      nerPaperId: null,
+      nerResult: null,
+
       persist() {
-        try { localStorage.setItem("biodockify.literature", JSON.stringify({ query: this.query, database: this.database })); } catch {}
+        try { localStorage.setItem("biodockify.literature", JSON.stringify({
+          query: this.query, database: this.database,
+          alerts: this.alerts, screenCriteria: this.screenCriteria
+        })); } catch {}
       },
       restore() {
         if (this._restored) return; this._restored = true;
@@ -23,7 +42,46 @@
           const s = JSON.parse(localStorage.getItem("biodockify.literature") || "{}");
           if (s.query) this.query = s.query;
           if (s.database) this.database = s.database;
+          if (s.alerts) this.alerts = s.alerts;
+          if (s.screenCriteria) this.screenCriteria = s.screenCriteria;
         } catch {}
+      },
+
+      // Screening
+      screenPapers() {
+        if (!this.screenCriteria.trim()) return;
+        const incTerms = this.screenCriteria.toLowerCase().split(/[,\n]+/).map(t => t.trim()).filter(Boolean).filter(t => !t.startsWith("exclude:"));
+        const excTerms = this.screenCriteria.toLowerCase().split(/[,\n]+/).map(t => t.trim()).filter(Boolean).filter(t => t.startsWith("exclude:")).map(t => t.replace("exclude:", "").trim());
+        this.screenedPapers = this.papers.map(p => {
+          const txt = (p.title + " " + (p.abstract || "")).toLowerCase();
+          const included = incTerms.length ? incTerms.some(t => txt.includes(t)) : true;
+          const excluded = excTerms.some(t => txt.includes(t));
+          return { ...p, included: included && !excluded };
+        });
+        this.screenIncluded = this.screenedPapers.filter(p => p.included).length;
+        this.screenExcluded = this.screenedPapers.length - this.screenIncluded;
+      },
+
+      // Alerts
+      addAlert() {
+        if (!this.newAlertQuery.trim()) return;
+        this.alerts.push({ query: this.newAlertQuery, freq: this.newAlertFreq, created: new Date().toISOString(), lastCheck: "" });
+        this.newAlertQuery = ""; this.persist();
+      },
+      removeAlert(idx) { this.alerts.splice(idx, 1); this.persist(); },
+      runAlert(alert) {
+        this.query = alert.query; this.database = "pubmed";
+        alert.lastCheck = new Date().toISOString(); this.search(); this.persist();
+      },
+
+      // Entity extraction
+      async extractEntities(paper) {
+        if (!paper.abstract) return;
+        this.loading = true; this.nerPaperId = paper.id || paper.title; this.nerResult = null;
+        try {
+          this.nerResult = await callJsonApi("bio_ner", { text: paper.abstract.substring(0, 3000) });
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
       },
 
       async search() {
@@ -137,10 +195,24 @@
   <div x-data class="literature-panel" x-init="$store.literatureModal.restore()">
     <div class="panel-header">
       <span class="material-symbols-outlined panel-icon">menu_book</span>
-      <h2>Literature Search</h2>
+      <h2>Literature</h2>
     </div>
 
-    <div class="panel-content">
+    <!-- Tabs -->
+    <div class="lit-tabs">
+      <button class="lit-tab" :class="{active: $store.literatureModal.activeTab === 'search'}" @click="$store.literatureModal.activeTab = 'search'">
+        <span class="material-symbols-outlined">search</span> Search
+      </button>
+      <button class="lit-tab" :class="{active: $store.literatureModal.activeTab === 'screening'}" @click="$store.literatureModal.activeTab = 'screening'">
+        <span class="material-symbols-outlined">filter_list</span> Screening
+      </button>
+      <button class="lit-tab" :class="{active: $store.literatureModal.activeTab === 'alerts'}" @click="$store.literatureModal.activeTab = 'alerts'">
+        <span class="material-symbols-outlined">notifications</span> Alerts
+        <span class="lit-badge" x-show="$store.literatureModal.alerts.length" x-text="$store.literatureModal.alerts.length"></span>
+      </button>
+    </div>
+
+    <div class="panel-content" x-show="$store.literatureModal.activeTab === 'search'">
       <!-- Search bar -->
       <div class="search-row">
         <input
@@ -212,6 +284,10 @@
                     <span class="material-symbols-outlined">volume_up</span>
                     Read
                   </button>
+                  <button class="action-btn" @click="$store.literatureModal.extractEntities(paper)" title="Extract drugs/genes/diseases" x-show="paper.abstract">
+                    <span class="material-symbols-outlined">biotech</span>
+                    Entities
+                  </button>
                   <a :href="paper.url" target="_blank" class="action-btn" rel="noopener" x-show="paper.url">
                     <span class="material-symbols-outlined">open_in_new</span>
                     Open
@@ -222,6 +298,28 @@
           </div>
         </div>
       </template>
+
+      <!-- Entity Extraction Results -->
+      <div x-show="$store.literatureModal.nerResult" class="ner-box">
+        <h4>Extracted Entities</h4>
+        <div class="ner-grid">
+          <div class="ner-cat">
+            <span class="ner-label">💊 Drugs</span>
+            <div class="ner-chips"><template x-for="d in $store.literatureModal.nerResult.entities?.drugs || []" :key="d"><span class="ner-chip drug" x-text="d"></span></template></div>
+            <span x-show="!$store.literatureModal.nerResult.entities?.drugs?.length" class="ner-none">None found</span>
+          </div>
+          <div class="ner-cat">
+            <span class="ner-label">🦠 Diseases</span>
+            <div class="ner-chips"><template x-for="d in $store.literatureModal.nerResult.entities?.diseases || []" :key="d"><span class="ner-chip disease" x-text="d"></span></template></div>
+            <span x-show="!$store.literatureModal.nerResult.entities?.diseases?.length" class="ner-none">None found</span>
+          </div>
+          <div class="ner-cat">
+            <span class="ner-label">🧬 Genes</span>
+            <div class="ner-chips"><template x-for="g in $store.literatureModal.nerResult.entities?.genes || []" :key="g"><span class="ner-chip gene" x-text="g"></span></template></div>
+            <span x-show="!$store.literatureModal.nerResult.entities?.genes?.length" class="ner-none">None found</span>
+          </div>
+        </div>
+      </div>
 
       <!-- Empty -->
       <div x-show="!$store.literatureModal.hasResults() && !$store.literatureModal.loading && !$store.literatureModal.error" class="empty-state">
@@ -234,6 +332,73 @@
         </div>
         <p class="empty-hint">Or ask the agent: "Search PubMed for recent papers on..."</p>
       </div>
+    </div>
+
+    <!-- Screening Tab -->
+    <div x-show="$store.literatureModal.activeTab === 'screening'" class="panel-content">
+      <div class="screen-section">
+        <h4>PRISMA Paper Screening</h4>
+        <p class="screen-desc">Enter inclusion/exclusion criteria (one per line, prefix exclusions with "exclude:").</p>
+        <textarea x-model="$store.literatureModal.screenCriteria" placeholder="inclusion criteria (one per line)&#10;drug discovery&#10;clinical trial&#10;exclude: review article&#10;exclude: case report" class="screen-textarea" rows="4"></textarea>
+        <button class="screen-btn" @click="$store.literatureModal.screenPapers()" :disabled="$store.literatureModal.loading || !$store.literatureModal.screenCriteria || !$store.literatureModal.papers.length">Screen Papers</button>
+        <span class="screen-hint" x-show="!$store.literatureModal.papers.length">Search papers first in the Search tab</span>
+      </div>
+
+      <template x-if="$store.literatureModal.screenedPapers.length">
+        <div class="screen-flow">
+          <div class="screen-box"><span class="screen-num" x-text="$store.literatureModal.papers.length"></span>Total</div>
+          <span class="screen-arrow">→</span>
+          <div class="screen-box screened"><span class="screen-num" x-text="$store.literatureModal.screenedPapers.length"></span>Screened</div>
+          <span class="screen-arrow">→</span>
+          <div class="screen-box included"><span class="screen-num" x-text="$store.literatureModal.screenIncluded"></span>Included</div>
+          <span class="screen-arrow">→</span>
+          <div class="screen-box excluded"><span class="screen-num" x-text="$store.literatureModal.screenExcluded"></span>Excluded</div>
+        </div>
+      </template>
+
+      <template x-if="$store.literatureModal.screenedPapers.length">
+        <div class="screen-list">
+          <template x-for="p in $store.literatureModal.screenedPapers" :key="p.id || p.title">
+            <div class="screen-paper" :class="{included: p.included, excluded: !p.included}">
+              <span class="screen-badge" x-text="p.included ? '✅' : '❌'"></span>
+              <span class="screen-paper-title" x-text="p.title"></span>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+
+    <!-- Alerts Tab -->
+    <div x-show="$store.literatureModal.activeTab === 'alerts'" class="panel-content">
+      <div class="alert-section">
+        <h4>Saved Search Alerts</h4>
+        <div class="alert-row">
+          <input type="text" x-model="$store.literatureModal.newAlertQuery" placeholder="Search query to monitor..." class="alert-input" @keyup.enter="$store.literatureModal.addAlert()" />
+          <select x-model="$store.literatureModal.newAlertFreq" class="alert-select">
+            <option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option>
+          </select>
+          <button class="alert-btn" @click="$store.literatureModal.addAlert()" :disabled="!$store.literatureModal.newAlertQuery">Add Alert</button>
+        </div>
+      </div>
+
+      <template x-if="$store.literatureModal.alerts.length">
+        <div class="alert-list">
+          <template x-for="(a, i) in $store.literatureModal.alerts" :key="i">
+            <div class="alert-item">
+              <div class="alert-info">
+                <span class="alert-query" x-text="a.query"></span>
+                <span class="alert-meta" x-text="a.freq + ' | Created: ' + (a.created || '').substring(0,10)"></span>
+                <span class="alert-last" x-show="a.lastCheck" x-text="'Last check: ' + a.lastCheck.substring(0,10)"></span>
+              </div>
+              <div class="alert-actions">
+                <button class="alert-run" @click="$store.literatureModal.runAlert(a)">Run Now</button>
+                <button class="alert-del" @click="$store.literatureModal.removeAlert(i)">×</button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+      <div x-show="!$store.literatureModal.alerts.length" class="cm-empty"><p>No saved alerts. Add a search query above to monitor for new papers.</p></div>
     </div>
 
     <style>
@@ -287,6 +452,63 @@
       .chip { padding: 6px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; font-size: 0.7rem; color: var(--color-text); cursor: pointer; transition: all 0.15s; }
       .chip:hover { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 6%, var(--color-panel)); }
       .empty-hint { font-size: 0.68rem; color: var(--color-text-muted); font-style: italic; }
+
+      /* Tabs */
+      .lit-tabs { display: flex; gap: 2px; margin-bottom: 8px; border-bottom: 1px solid var(--color-border); flex-shrink: 0; }
+      .lit-tab { display: flex; align-items: center; gap: 3px; padding: 5px 10px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--color-text-muted); cursor: pointer; font-size: 0.62rem; font-weight: 500; position: relative; }
+      .lit-tab:hover { color: var(--color-text); }
+      .lit-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+      .lit-tab .material-symbols-outlined { font-size: 14px; }
+      .lit-badge { position: absolute; top: 0; right: 0; background: var(--color-primary); color: white; font-size: 0.45rem; padding: 0 3px; border-radius: 6px; min-width: 12px; text-align: center; }
+
+      /* Screening */
+      .screen-section { margin-bottom: 10px; }
+      .screen-section h4 { font-size: 0.62rem; font-weight: 600; color: var(--color-text); margin: 0 0 4px 0; }
+      .screen-desc { font-size: 0.52rem; color: var(--color-text-muted); margin: 0 0 6px 0; }
+      .screen-textarea { width: 100%; padding: 6px 8px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-background); color: var(--color-text); font-size: 0.54rem; resize: vertical; min-height: 60px; margin-bottom: 6px; box-sizing: border-box; }
+      .screen-btn { padding: 5px 10px; background: var(--color-primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.54rem; font-weight: 600; }
+      .screen-btn:disabled { opacity: 0.5; }
+      .screen-hint { font-size: 0.5rem; color: var(--color-text-muted); margin-left: 6px; }
+      .screen-flow { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+      .screen-box { padding: 8px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; text-align: center; min-width: 50px; }
+      .screen-box.screened { border-color: #4fc3f7; }
+      .screen-box.included { border-color: #22c55e; background: rgba(34,197,94,0.04); }
+      .screen-box.excluded { border-color: #ff6b6b; background: rgba(255,107,107,0.04); }
+      .screen-num { display: block; font-size: 1rem; font-weight: 700; color: var(--color-text); }
+      .screen-box + .screen-arrow { font-size: 0.7rem; color: var(--color-text-muted); }
+      .screen-list { display: flex; flex-direction: column; gap: 2px; }
+      .screen-paper { display: flex; align-items: center; gap: 4px; padding: 4px 6px; background: var(--color-panel); border-radius: 3px; font-size: 0.52rem; color: var(--color-text); }
+      .screen-paper.included { border-left: 2px solid #22c55e; }
+      .screen-paper.excluded { border-left: 2px solid #ff6b6b; opacity: 0.6; }
+      .screen-badge { font-size: 0.6rem; flex-shrink: 0; }
+
+      /* Alerts */
+      .alert-section h4 { font-size: 0.62rem; font-weight: 600; color: var(--color-text); margin: 0 0 6px 0; }
+      .alert-row { display: flex; gap: 4px; margin-bottom: 8px; }
+      .alert-input { flex: 1; padding: 5px 8px; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-background); color: var(--color-text); font-size: 0.54rem; }
+      .alert-select { padding: 5px 6px; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-background); color: var(--color-text); font-size: 0.52rem; }
+      .alert-btn { padding: 5px 10px; background: var(--color-primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.52rem; font-weight: 600; }
+      .alert-list { display: flex; flex-direction: column; gap: 4px; }
+      .alert-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 5px; }
+      .alert-info { font-size: 0.52rem; color: var(--color-text-muted); flex: 1; }
+      .alert-query { color: var(--color-text); font-weight: 500; display: block; }
+      .alert-meta, .alert-last { font-size: 0.46rem; }
+      .alert-actions { display: flex; gap: 3px; }
+      .alert-run { padding: 3px 6px; background: var(--color-primary); color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.48rem; }
+      .alert-del { padding: 2px 5px; background: transparent; border: none; color: var(--color-text-muted); cursor: pointer; font-size: 0.6rem; }
+
+      /* Entity extraction */
+      .ner-box { padding: 8px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: 8px; }
+      .ner-box h4 { font-size: 0.56rem; font-weight: 600; color: var(--color-primary); margin: 0 0 6px 0; }
+      .ner-grid { display: flex; flex-direction: column; gap: 4px; }
+      .ner-cat { display: flex; align-items: flex-start; gap: 4px; }
+      .ner-label { font-size: 0.5rem; font-weight: 600; color: var(--color-text); white-space: nowrap; min-width: 55px; }
+      .ner-chips { display: flex; flex-wrap: wrap; gap: 2px; }
+      .ner-chip { padding: 1px 5px; border-radius: 3px; font-size: 0.46rem; }
+      .ner-chip.drug { background: rgba(0,212,170,0.1); color: var(--color-primary); }
+      .ner-chip.disease { background: rgba(255,107,107,0.08); color: #ff6b6b; }
+      .ner-chip.gene { background: rgba(79,195,247,0.1); color: #4fc3f7; }
+      .ner-none { font-size: 0.44rem; color: var(--color-text-muted); }
     </style>
   </div>
 </body>
