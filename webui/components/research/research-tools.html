@@ -7,28 +7,24 @@
 <body>
   <div x-data class="research-tools">
     <h2 class="tools-heading">All Tools</h2>
-    <p class="tools-desc">Interactive tools (click to open) · Agent-driven tools (type in chat)</p>
+    <p class="tools-desc">20 integrated research modules</p>
 
     <div class="tool-grid">
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('research-dashboard')">
+        <span class="material-symbols-outlined">rocket_launch</span>
+        <span class="tool-label">Research CMD</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('molecular-toolkit')">
+        <span class="material-symbols-outlined">biotech</span>
+        <span class="tool-label">Mol Toolkit</span>
+      </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('statistics')">
         <span class="material-symbols-outlined">analytics</span>
         <span class="tool-label">Statistics</span>
       </button>
-      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('knowledge')">
-        <span class="material-symbols-outlined">psychology</span>
-        <span class="tool-label">Knowledge</span>
-      </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('drug-properties')">
         <span class="material-symbols-outlined">medication</span>
-        <span class="tool-label">Drug Properties</span>
-      </button>
-      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('patent-analyzer')">
-        <span class="material-symbols-outlined">gavel</span>
-        <span class="tool-label">Patents</span>
-      </button>
-      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('trial-scanner')">
-        <span class="material-symbols-outlined">clinical_notes</span>
-        <span class="tool-label">Trials</span>
+        <span class="tool-label">Drug Props</span>
       </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('literature')">
         <span class="material-symbols-outlined">menu_book</span>
@@ -36,31 +32,67 @@
       </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('thesis')">
         <span class="material-symbols-outlined">description</span>
-        <span class="tool-label">Academic Writer</span>
+        <span class="tool-label">Writer</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('faculty-dashboard')">
+        <span class="material-symbols-outlined">school</span>
+        <span class="tool-label">Faculty CMD</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('grant-writer')">
+        <span class="material-symbols-outlined">payments</span>
+        <span class="tool-label">Grant Writer</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('journal-finder')">
+        <span class="material-symbols-outlined">verified</span>
+        <span class="tool-label">J. Finder</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('citation-manager')">
+        <span class="material-symbols-outlined">format_quote</span>
+        <span class="tool-label">Citations</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('regulatory')">
+        <span class="material-symbols-outlined">gavel</span>
+        <span class="tool-label">Regulatory</span>
       </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('slides')">
         <span class="material-symbols-outlined">slideshow</span>
         <span class="tool-label">Slides</span>
       </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('lecture-builder')">
+        <span class="material-symbols-outlined">cast</span>
+        <span class="tool-label">Lectures</span>
+      </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('wetlab')">
-        <span class="material-symbols-outlined">biotech</span>
+        <span class="material-symbols-outlined">science</span>
         <span class="tool-label">Wet Lab</span>
       </button>
-      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('lecture-builder')">
-        <span class="material-symbols-outlined">school</span>
-        <span class="tool-label">Lecture Builder</span>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('knowledge')">
+        <span class="material-symbols-outlined">psychology</span>
+        <span class="tool-label">Knowledge</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('system-health')">
+        <span class="material-symbols-outlined">monitoring</span>
+        <span class="tool-label">Health</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('backup')">
+        <span class="material-symbols-outlined">backup</span>
+        <span class="tool-label">Backup</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.cycleLayout()">
+        <span class="material-symbols-outlined">desktop_windows</span>
+        <span class="tool-label">Desktop</span>
       </button>
     </div>
 
     <style>
       .research-tools { padding: var(--spacing-md); height: 100%; overflow-y: auto; display: flex; flex-direction: column; }
-      .tools-heading { color: var(--color-primary); font-size: 1.15rem; margin: 0 0 2px 0; flex-shrink: 0; }
-      .tools-desc { color: var(--color-text-muted); font-size: 0.75rem; margin: 0 0 var(--spacing-md) 0; flex-shrink: 0; }
+      .tools-heading { color: var(--color-primary); font-size: 1.1rem; margin: 0 0 2px 0; flex-shrink: 0; }
+      .tools-desc { color: var(--color-text-muted); font-size: 0.7rem; margin: 0 0 var(--spacing-md) 0; flex-shrink: 0; }
       .tool-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--spacing-sm); }
-      .tool-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; aspect-ratio: 1 / 1; padding: 0.5rem; border-radius: 10px; cursor: pointer; transition: all 0.2s; background: var(--color-panel); border: 1px solid var(--color-border); }
+      .tool-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; aspect-ratio: 1; padding: 0.4rem; border-radius: 10px; cursor: pointer; transition: all 0.2s; background: var(--color-panel); border: 1px solid var(--color-border); }
       .tool-card:hover { border-color: var(--color-primary); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
-      .tool-card .material-symbols-outlined { font-size: 32px; color: var(--color-primary); }
-      .tool-label { font-size: 0.78rem; color: var(--color-text); text-align: center; line-height: 1.2; font-weight: 500; }
+      .tool-card .material-symbols-outlined { font-size: 28px; color: var(--color-primary); }
+      .tool-label { font-size: 0.65rem; color: var(--color-text); text-align: center; line-height: 1.2; font-weight: 500; }
     </style>
   </div>
 </body>
