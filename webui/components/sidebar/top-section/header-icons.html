@@ -33,70 +33,46 @@
       </div>
 
       <div class="research-icons">
-        <!-- Pinned / Priority -->
-        <button class="config-button header-action-button" @click="$store.desktopWorkspace?.openWindow('research-dashboard')" title="Research Command Center">
+        <button class="config-button header-action-button" @click="$store.desktopWorkspace.openWindow('research-dashboard')" title="Research Command Center">
           <span class="material-symbols-outlined">rocket_launch</span>
-          <span class="icon-label">Research CMD</span>
         </button>
-
-        <button class="config-button header-action-button" @click="$store.desktopWorkspace?.openWindow('faculty-dashboard')" title="Faculty Command Center">
+        <button class="config-button header-action-button" @click="$store.desktopWorkspace.openWindow('faculty-dashboard')" title="Faculty Command Center">
           <span class="material-symbols-outlined">school</span>
-          <span class="icon-label">Faculty CMD</span>
         </button>
-
-        <button class="config-button header-action-button" @click="$store.desktopWorkspace?.openWindow('journal-finder')" title="Journal Finder">
+        <button class="config-button header-action-button" @click="$store.desktopWorkspace.openWindow('journal-finder')" title="Journal Finder">
           <span class="material-symbols-outlined">verified</span>
-          <span class="icon-label">J. Finder</span>
         </button>
-
-        <button class="config-button header-action-button" @click="$store.desktopWorkspace?.openWindow('research')" title="All Tools">
+        <button class="config-button header-action-button" @click="$store.desktopWorkspace.openWindow('research')" title="All Tools">
           <span class="material-symbols-outlined">apps</span>
-          <span class="icon-label">All Tools</span>
         </button>
 
-        <!-- Core Research -->
-        <div class="section-header-secondary">
-          <span class="section-title">Core Tools</span>
-        </div>
+        <button class="config-button header-action-button" @click="$store.desktopWorkspace.openWindow('statistics')" title="Statistics">
+          <span class="material-symbols-outlined">analytics</span>
+        </button>
 
-        <button class="config-button header-action-button" @click="$store.desktopWorkspace?.openWindow('statistics')" title="Statistics">
+        <button class="config-button header-action-button" @click="$store.desktopWorkspace.cycleLayout()" title="Kali Linux Desktop">
+          <span class="material-symbols-outlined">desktop_windows</span>
+          <span class="icon-label">Desktop</span>
+        </button>
+
+        <button class="config-button header-action-button" @click="$store.desktopWorkspace.openWindow('statistics')" title="Statistics">
           <span class="material-symbols-outlined">analytics</span>
           <span class="icon-label">Statistics</span>
         </button>
 
-        <button class="config-button header-action-button" @click="$store.desktopWorkspace?.openWindow('literature')" title="Literature">
+        <button class="config-button header-action-button" @click="$store.desktopWorkspace.openWindow('literature')" title="Literature">
           <span class="material-symbols-outlined">menu_book</span>
           <span class="icon-label">Literature</span>
         </button>
 
-        <button class="config-button header-action-button" @click="$store.desktopWorkspace?.openWindow('drug-properties')" title="Drug Properties">
-          <span class="material-symbols-outlined">medication</span>
-          <span class="icon-label">Drug Props</span>
-        </button>
-
-        <button class="config-button header-action-button" @click="$store.desktopWorkspace?.openWindow('molecular-toolkit')" title="Molecular Toolkit">
-          <span class="material-symbols-outlined">biotech</span>
-          <span class="icon-label">Mol Toolkit</span>
-        </button>
-
-        <!-- Writing & Output -->
-        <div class="section-header-secondary">
-          <span class="section-title">Writing</span>
-        </div>
-
-        <button class="config-button header-action-button" @click="$store.desktopWorkspace?.openWindow('thesis')" title="Academic Writer">
-          <span class="material-symbols-outlined">description</span>
-          <span class="icon-label">Writer</span>
-        </button>
-
-        <button class="config-button header-action-button" @click="$store.desktopWorkspace?.openWindow('knowledge')" title="Knowledge Base">
+        <button class="config-button header-action-button" @click="$store.desktopWorkspace.openWindow('knowledge')" title="Knowledge Base">
           <span class="material-symbols-outlined">psychology</span>
           <span class="icon-label">Knowledge</span>
         </button>
 
-        <button class="config-button header-action-button" @click="$store.desktopWorkspace?.openWindow('system-health')" title="System Health">
-          <span class="material-symbols-outlined">monitoring</span>
-          <span class="icon-label">Health</span>
+        <button class="config-button header-action-button" @click="$store.desktopWorkspace.openWindow('backup')" title="Backup & Recovery">
+          <span class="material-symbols-outlined">backup</span>
+          <span class="icon-label">Backup</span>
         </button>
       </div>
 

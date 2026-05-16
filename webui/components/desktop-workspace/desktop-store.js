@@ -18,13 +18,12 @@ const defaultModules = [
   { id: "slides", title: "Slides", icon: "slideshow", component: "/components/slides/slides-modal.html", order: 9, defaultWidth: 700, defaultHeight: 500 },
   { id: "wetlab", title: "Wet Lab", icon: "science", component: "/components/wetlab/wetlab-modal.html", order: 10, defaultWidth: 700, defaultHeight: 500 },
   { id: "backup", title: "Backup & Recovery", icon: "backup", component: "/components/backup-recovery/recovery-panel.html", order: 11, defaultWidth: 650, defaultHeight: 450 },
-  { id: "backup", title: "Backup & Recovery", icon: "backup", component: "/components/backup-recovery/recovery-panel.html", order: 12, defaultWidth: 650, defaultHeight: 450 },
-  { id: "system-health", title: "System Health", icon: "monitoring", component: "/components/system-health/system-health.html", order: 13, defaultWidth: 500, defaultHeight: 500 },
-  { id: "faculty-dashboard", title: "Faculty CMD", icon: "school", component: "/components/faculty-dashboard/faculty-dashboard.html", order: 14, defaultWidth: 700, defaultHeight: 550 },
-  { id: "journal-finder", title: "Journal Finder", icon: "verified", component: "/components/journal-finder/journal-finder.html", order: 15, defaultWidth: 600, defaultHeight: 550 },
-  { id: "grant-writer", title: "Grant Writer", icon: "payments", component: "/components/grant-writer/grant-writer.html", order: 16, defaultWidth: 600, defaultHeight: 500 },
-  { id: "citation-manager", title: "Citation Manager", icon: "format_quote", component: "/components/citation-manager/citation-manager.html", order: 17, defaultWidth: 600, defaultHeight: 500 },
-  { id: "regulatory", title: "Regulatory", icon: "gavel", component: "/components/regulatory/regulatory.html", order: 18, defaultWidth: 600, defaultHeight: 500 },
+  { id: "system-health", title: "System Health", icon: "monitoring", component: "/components/system-health/system-health.html", order: 12, defaultWidth: 500, defaultHeight: 500 },
+  { id: "faculty-dashboard", title: "Faculty CMD", icon: "school", component: "/components/faculty-dashboard/faculty-dashboard.html", order: 13, defaultWidth: 700, defaultHeight: 550 },
+  { id: "journal-finder", title: "Journal Finder", icon: "verified", component: "/components/journal-finder/journal-finder.html", order: 14, defaultWidth: 600, defaultHeight: 550 },
+  { id: "grant-writer", title: "Grant Writer", icon: "payments", component: "/components/grant-writer/grant-writer.html", order: 15, defaultWidth: 600, defaultHeight: 500 },
+  { id: "citation-manager", title: "Citation Manager", icon: "format_quote", component: "/components/citation-manager/citation-manager.html", order: 16, defaultWidth: 600, defaultHeight: 500 },
+  { id: "regulatory", title: "Regulatory", icon: "gavel", component: "/components/regulatory/regulatory.html", order: 17, defaultWidth: 600, defaultHeight: 500 },
 ];
 
 const model = {

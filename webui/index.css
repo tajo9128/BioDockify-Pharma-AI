@@ -65,10 +65,6 @@
   --color-chat-background: var(--color-chat-background-dark);
   --color-error-text:var(--color-error-text-dark);
   --color-warning-text:var(--color-warning-text-dark);
-  --color-error: color-mix(in srgb, var(--color-error-text-dark) 30%, var(--color-border-dark));
-  --color-text-secondary: var(--color-text-muted-dark);
-  --color-bg-secondary: color-mix(in srgb, var(--color-background-dark) 95%, #000 5%);
-  --color-bg-tertiary: color-mix(in srgb, var(--color-background-dark) 90%, var(--color-primary-dark) 10%);
   --color-table-row: var(--color-table-row-dark);
 
   /* Spacing variables */
@@ -402,14 +398,6 @@ img {
   overflow: hidden;
 }
 
-/* Ensure x-component elements participate in flex layout */
-.container > x-component {
-  display: flex;
-  flex-shrink: 0;
-  min-width: 0;
-  height: 100%;
-}
-
 .panel {
   display: -webkit-flex;
   display: flex;
@@ -547,41 +535,6 @@ body.split-resizing {
 
 #desktop-toggle .btn-icon-action .material-symbols-outlined {
   font-size: 22px;
-}
-
-/* Layout Toggle Bar - below chat, right-aligned */
-#layout-toggle-bar {
-  display: flex;
-  justify-content: flex-end;
-  gap: 4px;
-  padding: 6px var(--spacing-md);
-  flex-shrink: 0;
-}
-#layout-toggle-bar .layout-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-panel);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  font-size: 0.72rem;
-  font-weight: 500;
-  transition: all 0.15s;
-}
-#layout-toggle-bar .layout-btn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-text);
-}
-#layout-toggle-bar .layout-btn.active {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
-}
-#layout-toggle-bar .layout-btn .material-symbols-outlined {
-  font-size: 16px;
 }
 
 @media (max-width: 768px) {

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <title>BioDockify AI v5.7</title>
+    <title>Agent Zero</title>
     <link rel="icon" type="image/svg+xml" href="public/favicon.svg">
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="css/messages.css">
@@ -63,7 +63,7 @@
 
     <script>
         // Expose git info for sidebar component
-        globalThis.gitinfo = { version: "{{version_no}}" || "v5.7.4", commit_time: "{{version_time}}" };
+        globalThis.gitinfo = { version: "{{version_no}}", commit_time: "{{version_time}}" };
 
         // Expose runtime info for frontend components (development gating, runtime-scoped cookies).
         globalThis.runtimeInfo = {
@@ -124,19 +124,6 @@
                   <span class="material-symbols-outlined">desktop_windows</span>
                 </button>
               </div>
-            </div>
-
-            <!-- Layout Toggle (below chat, right-aligned) -->
-            <div id="layout-toggle-bar" x-data x-show="$store.desktopWorkspace">
-              <button class="layout-btn" :class="{active: $store.desktopWorkspace.isChatMode}" @click="$store.desktopWorkspace.setChatMode()" title="Chat Mode">
-                <span class="material-symbols-outlined">chat</span> Chat
-              </button>
-              <button class="layout-btn" :class="{active: $store.desktopWorkspace.isSplitMode}" @click="$store.desktopWorkspace.desktopLayout = 'split'; $store.desktopWorkspace.persist(); $store.desktopWorkspace._applySplitRatio()" title="Split Mode">
-                <span class="material-symbols-outlined">vertical_split</span> Split
-              </button>
-              <button class="layout-btn" :class="{active: $store.desktopWorkspace.isDesktopMode}" @click="$store.desktopWorkspace.desktopLayout = 'desktop'; $store.desktopWorkspace.persist()" title="Full Desktop">
-                <span class="material-symbols-outlined">desktop_windows</span> Desktop
-              </button>
             </div>
 
             <!-- NEW: Toast Stack Component -->
