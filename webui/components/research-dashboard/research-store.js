@@ -27,8 +27,11 @@ export const store = createStore("researchDashboard", {
 
   async listProjects() {
     this.loading = true; this.error = "";
-    try { this.projects = await callJsonApi("research/management/list") || []; }
-    catch (e) { this.error = e.message; }
+    try {
+      const data = await safeGet("research/management/list");
+      this.projects = Array.isArray(data) ? data : [];
+      if (!this.projects.length) this.loading = false;
+    } catch (e) { this.projects = []; }
     this.loading = false;
   },
 
@@ -73,7 +76,7 @@ export const store = createStore("researchDashboard", {
     if (this.newNotes.trim()) prompt += `Topics/Objectives:\n${this.newNotes}\n`;
     if (this.newComments.trim()) prompt += `Comments:\n${this.newComments}\n`;
     prompt += `Execute: 1) Deep Research via literature APIs, 2) Literature Review synthesis, 3) Save findings to Knowledge Base.`;
-    const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea, .input-area textarea");
+    const input = document.querySelector("#chat-input, #chat-bar-input textarea, .chat-bar-input textarea");
     if (input) {
       input.value = prompt;
       input.dispatchEvent(new Event("input", { bubbles: true }));
