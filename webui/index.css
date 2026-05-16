@@ -428,6 +428,15 @@ img {
   transition: margin-left var(--transition-speed) ease-in-out;
 }
 
+/* Welcome screen constraint */
+#right-panel > div > x-component {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* Split mode: chat and desktop side by side */
 .container.split-mode {
   flex-direction: row;
