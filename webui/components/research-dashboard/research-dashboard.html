@@ -5,123 +5,189 @@
 <body>
   <div x-data class="rd-panel" x-init="$store.researchDashboard.init()">
     <div class="rd-header">
-      <span class="material-symbols-outlined rd-icon">science</span>
+      <span class="material-symbols-outlined rd-icon">rocket_launch</span>
       <h2>Research Command Center</h2>
+      <p class="rd-sub">Auto-research pipeline · Thesis tracking · Wet lab coordination</p>
     </div>
 
     <div class="rd-tabs">
-      <button class="rd-tab" :class="{active: $store.researchDashboard.activeTab === 'projects'}" @click="$store.researchDashboard.activeTab = 'projects'">Projects</button>
-      <button class="rd-tab" :class="{active: $store.researchDashboard.activeTab === 'pipeline'}" @click="$store.researchDashboard.activeTab = 'pipeline'; $store.researchDashboard.loadDashboard()" :disabled="!$store.researchDashboard.activeProjectId">Pipeline</button>
+      <button class="rd-tab" :class="{active: $store.researchDashboard.activeTab === 'projects'}" @click="$store.researchDashboard.activeTab = 'projects'">
+        <span class="material-symbols-outlined">folder</span> Projects
+      </button>
+      <button class="rd-tab" :class="{active: $store.researchDashboard.activeTab === 'pipeline'}" @click="$store.researchDashboard.activeTab = 'pipeline'; $store.researchDashboard.loadDashboard()" :disabled="!$store.researchDashboard.activeProjectId">
+        <span class="material-symbols-outlined">account_tree</span> Pipeline
+      </button>
     </div>
 
     <div x-show="$store.researchDashboard.error" class="rd-error" x-text="$store.researchDashboard.error"></div>
     <div x-show="$store.researchDashboard.message" class="rd-msg" x-text="$store.researchDashboard.message"></div>
 
     <!-- Projects Tab -->
-    <div x-show="$store.researchDashboard.activeTab === 'projects'">
-      <div class="rd-card">
+    <div x-show="$store.researchDashboard.activeTab === 'projects'" class="rd-tab-content">
+      <div class="rd-card hero">
         <h4>Start New Research</h4>
+        <p class="rd-hero-desc">Enter a PhD title or research topic. The pipeline auto-starts: deep research → literature review → knowledge storage → progress tracking → academic writing.</p>
         <div class="rd-new-row">
-          <input type="text" x-model="$store.researchDashboard.newTopic" placeholder="Enter PhD title..." class="rd-input" @keyup.enter="$store.researchDashboard.startResearch()" />
+          <input type="text" x-model="$store.researchDashboard.newTopic" placeholder="e.g. Development of Novel Kinase Inhibitors for Cancer Therapy" class="rd-input" @keyup.enter="$store.researchDashboard.startResearch()" />
           <select x-model="$store.researchDashboard.newType" class="rd-select-sm">
             <option value="phd">PhD</option><option value="grand">Grand Research</option>
             <option value="review_article">Review</option><option value="general">General</option>
           </select>
-          <button class="rd-btn" @click="$store.researchDashboard.startResearch()" :disabled="$store.researchDashboard.loading || !$store.researchDashboard.newTopic">Start</button>
+          <button class="rd-btn" @click="$store.researchDashboard.startResearch()" :disabled="$store.researchDashboard.loading || !$store.researchDashboard.newTopic">
+            <span class="material-symbols-outlined">rocket_launch</span> Start
+          </button>
+        </div>
+        <div class="rd-stages-hint">
+          <span class="rd-stage-tag">🔍 Topic Detection</span><span>→</span>
+          <span class="rd-stage-tag">📚 Lit Review</span><span>→</span>
+          <span class="rd-stage-tag">🌐 Web Scraping</span><span>→</span>
+          <span class="rd-stage-tag">📊 Analysis</span><span>→</span>
+          <span class="rd-stage-tag">💾 Storage</span><span>→</span>
+          <span class="rd-stage-tag">✅ Complete</span>
         </div>
       </div>
 
       <template x-if="$store.researchDashboard.projects.length">
         <div class="rd-card">
-          <h4>Projects (<span x-text="$store.researchDashboard.projects.length"></span>)</h4>
+          <h4>Active Projects (<span x-text="$store.researchDashboard.projects.length"></span>)</h4>
           <template x-for="p in $store.researchDashboard.projects" :key="p.research_id">
             <div class="rd-proj" :class="{selected: $store.researchDashboard.activeProjectId === p.research_id}" @click="$store.researchDashboard.selectProject(p.research_id)">
               <div class="rd-proj-head">
                 <span class="rd-proj-title" x-text="p.topic || p.title || 'Untitled'"></span>
                 <span class="rd-proj-type" x-text="p.research_type"></span>
               </div>
-              <div class="rd-bar"><div class="rd-fill" :style="'width:' + Math.round((p.progress||0)*100) + '%'"></div></div>
-              <span class="rd-pct" x-text="Math.round((p.progress||0)*100) + '%'"></span>
+              <div class="rd-bar-wrap">
+                <div class="rd-bar"><div class="rd-fill" :style="'width:' + Math.round((p.progress||0)*100) + '%'"></div></div>
+                <span class="rd-pct" x-text="Math.round((p.progress||0)*100) + '%'"></span>
+              </div>
+              <div class="rd-proj-meta">
+                <span x-text="'Stage: ' + (p.current_stage || 'N/A')"></span>
+                <span x-text="'Type: ' + (p.research_type || 'N/A')"></span>
+                <button class="rd-btn-sm" @click.stop="$store.researchDashboard.exportReport()" x-show="$store.researchDashboard.activeProjectId === p.research_id">Export</button>
+              </div>
             </div>
           </template>
         </div>
       </template>
+      <div x-show="!$store.researchDashboard.projects.length" class="rd-empty">
+        <span class="material-symbols-outlined rd-empty-icon">science</span>
+        <p>No research projects yet. Enter a PhD title above to start the auto-research pipeline.</p>
+      </div>
     </div>
 
     <!-- Pipeline Tab -->
-    <div x-show="$store.researchDashboard.activeTab === 'pipeline'">
+    <div x-show="$store.researchDashboard.activeTab === 'pipeline'" class="rd-tab-content">
       <template x-if="$store.researchDashboard.activeProject">
         <div>
           <div class="rd-card">
-            <div class="rd-proj-head">
-              <span x-text="$store.researchDashboard.activeProject.topic || $store.researchDashboard.activeProject.title"></span>
-              <button class="rd-btn-sm" @click="$store.researchDashboard.exportReport()">Export</button>
-            </div>
+            <h4 x-text="$store.researchDashboard.activeProject.topic || $store.researchDashboard.activeProject.title"></h4>
             <div class="rd-bar big"><div class="rd-fill" :style="'width:' + $store.researchDashboard.progressPct + '%'" x-text="$store.researchDashboard.progressPct + '%'"></div></div>
           </div>
 
           <div class="rd-card" x-show="$store.researchDashboard.dashboard?.tasks?.length">
-            <h4>Tasks</h4>
+            <h4>Pipeline Tasks</h4>
             <template x-for="t in $store.researchDashboard.dashboard.tasks" :key="t.id">
-              <div class="rd-task"><span x-text="t.status === 'completed' ? '✅' : t.status === 'in_progress' ? '🔄' : '⬜'"></span> <span x-text="t.title || t.id"></span></div>
+              <div class="rd-task" :class="t.status">
+                <span class="rd-task-dot" :class="t.status"></span>
+                <span class="rd-task-title" x-text="t.title || t.id"></span>
+                <span class="rd-task-pri" x-show="t.priority" x-text="'⬆'.repeat(t.priority)"></span>
+              </div>
             </template>
           </div>
 
           <div class="rd-card" x-show="$store.researchDashboard.dashboard?.milestones?.length">
             <h4>Milestones</h4>
             <template x-for="m in $store.researchDashboard.dashboard.milestones" :key="m.milestone_id">
-              <div class="rd-ms"><span class="rd-ms-dot" :style="'background:' + (m.status === 'completed' ? '#22c55e' : m.status === 'in_progress' ? '#4fc3f7' : '#555')"></span><span x-text="m.title"></span><span class="rd-ms-pct" x-text="Math.round((m.progress||0)*100) + '%'"></span></div>
+              <div class="rd-ms">
+                <div class="rd-ms-left">
+                  <span class="rd-ms-dot" :style="'background:' + (m.status === 'completed' ? '#22c55e' : m.status === 'in_progress' ? '#4fc3f7' : m.status === 'delayed' ? '#ffd93d' : '#555')"></span>
+                  <span x-text="m.title"></span>
+                </div>
+                <span class="rd-ms-pct" x-text="Math.round((m.progress||0)*100) + '%'"></span>
+              </div>
             </template>
           </div>
 
           <div class="rd-card" x-show="$store.researchDashboard.dashboard?.wetlab_summary">
-            <h4>Wet Lab</h4>
+            <h4>Wet Lab Overview</h4>
             <div class="rd-stats">
-              <span x-text="'Total: ' + ($store.researchDashboard.dashboard.wetlab_summary.total || 0)"></span>
-              <span x-text="'Completed: ' + ($store.researchDashboard.dashboard.wetlab_summary.completed || 0)"></span>
+              <div class="rd-stat"><span class="rd-stat-num" x-text="$store.researchDashboard.dashboard.wetlab_summary.total || 0"></span>Total</div>
+              <div class="rd-stat"><span class="rd-stat-num done" x-text="$store.researchDashboard.dashboard.wetlab_summary.completed || 0"></span>Completed</div>
+              <div class="rd-stat"><span class="rd-stat-num active" x-text="$store.researchDashboard.dashboard.wetlab_summary.running || 0"></span>Running</div>
             </div>
           </div>
         </div>
       </template>
-      <div x-show="!$store.researchDashboard.activeProjectId" class="rd-empty">Select a project first</div>
+      <div x-show="!$store.researchDashboard.activeProjectId" class="rd-empty">
+        <span class="material-symbols-outlined rd-empty-icon">folder_open</span>
+        <p>Select a project from the Projects tab to view its pipeline.</p>
+        <button class="rd-chip" @click="$store.researchDashboard.activeTab = 'projects'">← Go to Projects</button>
+      </div>
     </div>
 
     <style>
-      .rd-panel { display: flex; flex-direction: column; height: 100%; overflow-y: auto; padding: 12px 14px; background: var(--color-background); }
-      .rd-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-      .rd-icon { font-size: 22px; color: var(--color-primary); }
-      .rd-header h2 { font-size: 0.9rem; margin: 0; font-weight: 700; color: var(--color-primary); }
-      .rd-tabs { display: flex; gap: 2px; margin-bottom: 8px; }
-      .rd-tab { padding: 5px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 4px 4px 0 0; color: var(--color-text-muted); cursor: pointer; font-size: 0.66rem; }
-      .rd-tab.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-      .rd-tab:disabled { opacity: 0.4; cursor: not-allowed; }
+      .rd-panel { display: flex; flex-direction: column; height: 100%; overflow-y: auto; padding: 14px 18px; background: var(--color-background); }
+      .rd-header { margin-bottom: 8px; flex-shrink: 0; }
+      .rd-header h2 { color: var(--color-primary); font-size: 0.95rem; margin: 0 0 2px 0; font-weight: 700; }
+      .rd-sub { font-size: 0.58rem; color: var(--color-text-muted); margin: 0; }
+      .rd-tabs { display: flex; gap: 2px; margin-bottom: 10px; border-bottom: 1px solid var(--color-border); }
+      .rd-tab { display: flex; align-items: center; gap: 4px; padding: 6px 12px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--color-text-muted); cursor: pointer; font-size: 0.66rem; font-weight: 500; }
+      .rd-tab:hover { color: var(--color-text); }
+      .rd-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+      .rd-tab:disabled { opacity: 0.3; cursor: not-allowed; }
+      .rd-tab .material-symbols-outlined { font-size: 15px; }
+      .rd-tab-content { flex: 1; }
       .rd-error { padding: 5px 8px; background: rgba(255,107,107,0.1); border-radius: 4px; color: var(--color-error-text); font-size: 0.6rem; margin-bottom: 6px; }
       .rd-msg { padding: 5px 8px; background: rgba(0,212,170,0.08); border-radius: 4px; color: var(--color-primary); font-size: 0.6rem; margin-bottom: 6px; }
-      .rd-card { padding: 10px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: 6px; }
-      .rd-card h4 { font-size: 0.64rem; font-weight: 600; color: var(--color-text-muted); margin: 0 0 6px 0; }
+      .rd-card { padding: 12px 14px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 8px; }
+      .rd-card.hero { border-color: color-mix(in srgb, var(--color-primary) 25%, var(--color-border)); background: color-mix(in srgb, var(--color-primary) 3%, var(--color-panel)); }
+      .rd-card h4 { font-size: 0.66rem; font-weight: 600; color: var(--color-text); margin: 0 0 8px 0; }
+      .rd-hero-desc { font-size: 0.6rem; color: var(--color-text-muted); margin: 0 0 10px 0; line-height: 1.4; }
+      .rd-stages-hint { display: flex; align-items: center; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+      .rd-stage-tag { font-size: 0.55rem; padding: 2px 6px; background: color-mix(in srgb, var(--color-primary) 8%, transparent); border-radius: 4px; color: var(--color-text-muted); }
       .rd-new-row { display: flex; gap: 5px; }
-      .rd-input { flex: 1; padding: 6px 8px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-background); color: var(--color-text); font-size: 0.64rem; }
+      .rd-input { flex: 1; padding: 7px 10px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-background); color: var(--color-text); font-size: 0.66rem; }
       .rd-input:focus { outline: none; border-color: var(--color-primary); }
-      .rd-select-sm { padding: 5px 8px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-background); color: var(--color-text); font-size: 0.62rem; }
-      .rd-btn { padding: 6px 12px; background: var(--color-primary); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.62rem; font-weight: 600; }
+      .rd-input::placeholder { color: var(--color-text-muted); font-size: 0.6rem; }
+      .rd-select-sm { padding: 6px 8px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-background); color: var(--color-text); font-size: 0.62rem; }
+      .rd-btn { display: flex; align-items: center; gap: 4px; padding: 7px 14px; background: var(--color-primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.64rem; font-weight: 600; white-space: nowrap; }
       .rd-btn:disabled { opacity: 0.5; }
-      .rd-btn-sm { padding: 3px 8px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 4px; color: var(--color-text); cursor: pointer; font-size: 0.58rem; }
-      .rd-proj { padding: 8px 10px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 5px; margin-bottom: 4px; cursor: pointer; }
-      .rd-proj.selected { border-color: var(--color-primary); }
+      .rd-btn .material-symbols-outlined { font-size: 16px; }
+      .rd-btn-sm { padding: 3px 8px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 4px; color: var(--color-text); cursor: pointer; font-size: 0.56rem; }
+      .rd-btn-sm:hover { border-color: var(--color-primary); }
+      .rd-proj { padding: 8px 10px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: 4px; cursor: pointer; transition: all 0.12s; }
+      .rd-proj:hover { border-color: var(--color-primary); }
+      .rd-proj.selected { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 4%, var(--color-background)); }
       .rd-proj-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-      .rd-proj-title { font-size: 0.66rem; font-weight: 600; color: var(--color-text); }
-      .rd-proj-type { font-size: 0.54rem; color: var(--color-primary); }
-      .rd-bar { height: 6px; background: var(--color-border); border-radius: 3px; overflow: hidden; margin-bottom: 2px; }
-      .rd-bar.big { height: 16px; border-radius: 8px; }
-      .rd-fill { height: 100%; background: var(--color-primary); border-radius: 3px; transition: width 0.3s; }
-      .rd-bar.big .rd-fill { font-size: 0.55rem; color: white; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; font-weight: 700; }
-      .rd-pct { font-size: 0.55rem; color: var(--color-text-muted); }
-      .rd-task { display: flex; gap: 6px; font-size: 0.6rem; color: var(--color-text); padding: 2px 0; }
-      .rd-ms { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 0.6rem; color: var(--color-text); }
-      .rd-ms-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-      .rd-ms-pct { margin-left: auto; font-size: 0.55rem; color: var(--color-text-muted); }
-      .rd-stats { display: flex; gap: 10px; font-size: 0.6rem; color: var(--color-text-muted); }
-      .rd-empty { padding: 20px; text-align: center; font-size: 0.66rem; color: var(--color-text-muted); }
+      .rd-proj-title { font-size: 0.66rem; font-weight: 600; color: var(--color-text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .rd-proj-type { font-size: 0.52rem; color: var(--color-primary); padding: 1px 6px; background: color-mix(in srgb, var(--color-primary) 10%, transparent); border-radius: 4px; white-space: nowrap; }
+      .rd-bar-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+      .rd-bar { flex: 1; height: 6px; background: var(--color-border); border-radius: 3px; overflow: hidden; }
+      .rd-bar.big { height: 18px; border-radius: 9px; margin-top: 6px; }
+      .rd-fill { height: 100%; background: var(--color-primary); border-radius: 3px; transition: width 0.5s; }
+      .rd-bar.big .rd-fill { border-radius: 9px; font-size: 0.56rem; color: white; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; font-weight: 700; min-width: 40px; }
+      .rd-pct { font-size: 0.55rem; color: var(--color-primary); font-weight: 600; }
+      .rd-proj-meta { display: flex; gap: 8px; align-items: center; font-size: 0.54rem; color: var(--color-text-muted); }
+      .rd-task { display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: var(--color-background); border-radius: 4px; margin-bottom: 2px; font-size: 0.6rem; color: var(--color-text); }
+      .rd-task-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-border); flex-shrink: 0; }
+      .rd-task-dot.completed { background: #22c55e; } .rd-task-dot.in_progress { background: #4fc3f7; } .rd-task-dot.failed { background: #ff6b6b; }
+      .rd-task.completed { opacity: 0.5; }
+      .rd-task-title { flex: 1; }
+      .rd-task-pri { color: #ffd93d; font-size: 0.5rem; }
+      .rd-ms { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--color-border); font-size: 0.6rem; color: var(--color-text); }
+      .rd-ms:last-child { border-bottom: none; }
+      .rd-ms-left { display: flex; align-items: center; gap: 6px; }
+      .rd-ms-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+      .rd-ms-pct { font-size: 0.55rem; color: var(--color-text-muted); }
+      .rd-stats { display: flex; gap: 10px; }
+      .rd-stat { flex: 1; text-align: center; padding: 8px; background: var(--color-background); border-radius: 6px; }
+      .rd-stat-num { display: block; font-size: 1rem; font-weight: 700; color: var(--color-text); }
+      .rd-stat-num.done { color: #22c55e; } .rd-stat-num.active { color: #4fc3f7; }
+      .rd-empty { display: flex; flex-direction: column; align-items: center; padding: 30px; text-align: center; }
+      .rd-empty-icon { font-size: 36px; color: var(--color-border); margin-bottom: 8px; }
+      .rd-empty p { font-size: 0.66rem; color: var(--color-text-muted); margin: 0 0 8px 0; }
+      .rd-chip { padding: 5px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 5px; font-size: 0.6rem; color: var(--color-text); cursor: pointer; }
+      .rd-chip:hover { border-color: var(--color-primary); }
     </style>
   </div>
 </body>

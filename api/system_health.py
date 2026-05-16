@@ -51,20 +51,19 @@ class SystemHealth(ApiHandler):
         except:
             result["checks"].append({"name": "RDKit", "status": "warn", "detail": "Not installed"})
 
-        # Backend APIs - check via imports instead of HTTP to avoid unreachable false positives
+        # Backend APIs - check via Python imports
         api_checks = [
-            ("Statistics", "modules.statistics.orchestrator"),
-            ("Thesis", "modules.thesis.engine"),
-            ("Research Mgmt", "modules.research_persistence"),
-            ("Backup", "modules.backup.manager"),
+            ("Statistics", ["statistics.orchestrator", "StatisticsOrchestrator"]),
+            ("Thesis", ["thesis.engine", "get_thesis_engine"]),
+            ("Research Mgmt", ["research_persistence", "ResearchPersistenceManager"]),
+            ("Backup", ["backup.manager", None]),
         ]
-        for name, mod_path in api_checks:
+        for name, (mod_name, _) in api_checks:
             try:
-                import importlib
-                importlib.import_module(mod_path)
+                import importlib; importlib.import_module(f"modules.{mod_name}")
                 result["checks"].append({"name": name, "status": "ok", "detail": "Module loaded"})
             except:
-                result["checks"].append({"name": name, "status": "warn", "detail": "Module not found"})
+                result["checks"].append({"name": name, "status": "warn", "detail": "Not loadable"})
 
         # TTS fallback status
         tts = {"status": "ok", "engine": "browser"}

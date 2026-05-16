@@ -58,6 +58,9 @@ RUN find /a0/webui/ -maxdepth 1 -name "favicon*" -type f -delete 2>/dev/null || 
     sed -i 's|Agent Zero|BioDockify AI|g' /a0/webui/index.html 2>/dev/null || true; \
     sed -i 's|Agent Zero|BioDockify AI|g' /a0/webui/js/*.js 2>/dev/null || true
 
+# Install RDKit for molecular calculations (critical for Drug Properties, ADMET, Molecular Toolkit)
+RUN apt-get update -qq && apt-get install -y -qq python3-rdkit 2>/dev/null || echo "RDKit apt unavailable"
+
 EXPOSE 50001
 
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 CMD curl -f http://localhost:50001/api/health || exit 1
