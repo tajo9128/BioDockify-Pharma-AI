@@ -95,6 +95,7 @@
     </div>
 
     <style>
+        *, *::before, *::after { box-sizing: border-box; }
         .welcome-container {
             display: flex;
             flex-direction: column;
@@ -104,14 +105,46 @@
             width: 100%;
             min-width: 0;
             max-width: 100%;
-            padding: 2rem;
+            padding: 1.5rem;
             background: var(--color-background);
             overflow: hidden;
         }
 
         .welcome-header {
             text-align: center;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
+            max-width: 100%;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            max-width: 100%;
+        }
+
+        .feature-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.8rem 0.5rem;
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .quick-links {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 100%;
         }
 
         .welcome-logo {
