@@ -23,6 +23,8 @@ const defaultModules = [
   { id: "system-health", title: "System Health", icon: "monitoring", component: "/components/system-health/system-health.html", order: 14, defaultWidth: 500, defaultHeight: 500 },
   { id: "faculty-dashboard", title: "Faculty CMD", icon: "school", component: "/components/faculty-dashboard/faculty-dashboard.html", order: 15, defaultWidth: 700, defaultHeight: 550 },
   { id: "journal-finder", title: "Journal Finder", icon: "verified", component: "/components/journal-finder/journal-finder.html", order: 16, defaultWidth: 600, defaultHeight: 550 },
+  { id: "grant-writer", title: "Grant Writer", icon: "payments", component: "/components/grant-writer/grant-writer.html", order: 17, defaultWidth: 600, defaultHeight: 500 },
+  { id: "citation-manager", title: "Citation Manager", icon: "format_quote", component: "/components/citation-manager/citation-manager.html", order: 18, defaultWidth: 600, defaultHeight: 500 },
 ];
 
 const model = {

@@ -23,47 +23,47 @@
       smilesList: "",
       spaceResult: null,
 
-      get presetLib() {
-        return {
-          aspirin: "Aspirin", ibuprofen: "Ibuprofen", metformin: "Metformin",
-          caffeine: "Caffeine", warfarin: "Warfarin", sildenafil: "Sildenafil",
-        };
+      // Docking
+      dockingJobId: null,
+      dockingPdb: "",
+      dockingLigand: "",
+      dockingLigandName: "ligand",
+      dockingCenter: null,
+      dockingSize: { x: 20, y: 20, z: 20 },
+      dockingPoses: [],
+      dockingStatus: "",
+      dockingError: "",
+
+      // Docking
+      dockingJobId: null,
+      dockingPdb: "",
+      dockingLigand: "",
+      dockingLigandName: "ligand",
+      dockingCenter: null,
+      dockingSize: { x: 20, y: 20, z: 20 },
+      dockingPoses: [],
+      dockingStatus: "",
+
+      async dockingPrepare() {
+        if (!this.dockingPdb.trim() || !this.dockingLigand.trim()) { this.error = "PDB and SMILES required"; return; }
+        this.loading = true; this.error = ""; this.dockingPoses = []; this.dockingStatus = "";
+        try {
+          const r = await callJsonApi("docking_prepare", { protein_pdb: this.dockingPdb, ligand_smiles: this.dockingLigand, ligand_name: this.dockingLigandName || "ligand" });
+          if (r.error) { this.error = r.error; this.loading = false; return; }
+          this.dockingJobId = r.job_id; this.dockingCenter = r.center;
+          this.dockingStatus = "prepared"; this.loading = false;
+          await this.dockingRun();
+        } catch (e) { this.error = e.message; this.loading = false; }
       },
 
-      async runADMET() {
-        if (!this.smiles.trim() && !this.preset) return;
-        this.loading = true; this.error = ""; this.admetResult = null;
+      async dockingRun() {
+        if (!this.dockingJobId) return;
+        this.loading = true; this.dockingStatus = "running";
         try {
-          const payload = { smiles: this.smiles };
-          if (this.preset) payload.preset = this.preset;
-          const r = await callJsonApi("admet_predict", payload);
-          if (r.error) { this.error = r.error; } else { this.admetResult = r; }
-        } catch (e) { this.error = e.message; }
-        this.loading = false;
-      },
-
-      async runSimilarity() {
-        if (!this.querySmiles.trim()) return;
-        this.loading = true; this.error = ""; this.simResult = null;
-        try {
-          const r = await callJsonApi("molecular_similarity", {
-            query_smiles: this.querySmiles,
-            reference_smiles: this.refSmiles,
-          });
-          if (r.error) { this.error = r.error; } else { this.simResult = r; }
-        } catch (e) { this.error = e.message; }
-        this.loading = false;
-      },
-
-      async runSpace() {
-        if (!this.smilesList.trim()) return;
-        this.loading = true; this.error = ""; this.spaceResult = null;
-        try {
-          const list = this.smilesList.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
-          if (list.length < 2) { this.error = "Enter at least 2 SMILES"; this.loading = false; return; }
-          const r = await callJsonApi("chemical_space", { smiles_list: list });
-          if (r.error) { this.error = r.error; } else { this.spaceResult = r; }
-        } catch (e) { this.error = e.message; }
+          const r = await callJsonApi("docking_run", { job_id: this.dockingJobId, receptor_pdbqt: "", ligand_pdbqt: "", center: this.dockingCenter, size: this.dockingSize || { x: 20, y: 20, z: 20 } });
+          if (r.error) { this.error = r.error; this.dockingStatus = "error"; }
+          else { this.dockingPoses = r.poses || []; this.dockingStatus = "complete"; }
+        } catch (e) { this.error = e.message; this.dockingStatus = "error"; }
         this.loading = false;
       },
 
@@ -89,6 +89,9 @@
       </button>
       <button class="mt-tab" :class="{active: $store.molecularToolkit.activeTab === 'space'}" @click="$store.molecularToolkit.activeTab = 'space'">
         <span class="material-symbols-outlined">bubble_chart</span> Chemical Space
+      </button>
+      <button class="mt-tab" :class="{active: $store.molecularToolkit.activeTab === 'docking'}" @click="$store.molecularToolkit.activeTab = 'docking'">
+        <span class="material-symbols-outlined">precision_manufacturing</span> Docking
       </button>
     </div>
 
@@ -219,6 +222,43 @@
       </template>
     </div>
 
+    <!-- Docking Tab -->
+    <div x-show="$store.molecularToolkit.activeTab === 'docking'" class="mt-content">
+      <div class="mt-input-row">
+        <textarea x-model="$store.molecularToolkit.dockingPdb" placeholder="Paste protein PDB content here..." class="mt-textarea" rows="4"></textarea>
+      </div>
+      <div class="mt-input-row">
+        <input type="text" x-model="$store.molecularToolkit.dockingLigand" placeholder="Ligand SMILES..." class="mt-input" style="flex:2" />
+        <input type="text" x-model="$store.molecularToolkit.dockingLigandName" placeholder="Name" class="mt-input" style="flex:1" />
+        <button class="mt-btn" @click="$store.molecularToolkit.dockingPrepare()" :disabled="$store.molecularToolkit.loading || !$store.molecularToolkit.dockingPdb || !$store.molecularToolkit.dockingLigand">Dock</button>
+      </div>
+
+      <div x-show="$store.molecularToolkit.dockingStatus" class="mt-dock-status">
+        <span class="mt-dock-badge" :class="$store.molecularToolkit.dockingStatus" x-text="$store.molecularToolkit.dockingStatus === 'prepared' ? '⏳ Preparing...' : $store.molecularToolkit.dockingStatus === 'running' ? '🔄 Running Vina...' : $store.molecularToolkit.dockingStatus === 'complete' ? '✅ Complete' : '❌ Error'"></span>
+      </div>
+
+      <template x-if="$store.molecularToolkit.dockingPoses.length">
+        <div class="mt-dock-results">
+          <h4 class="mt-section-title" x-text="'Docking Results (' + $store.molecularToolkit.dockingPoses.length + ' poses)'"></h4>
+          <div class="mt-dock-grid">
+            <template x-for="(pose, i) in $store.molecularToolkit.dockingPoses" :key="i">
+              <div class="mt-dock-pose">
+                <span class="mt-dock-rank" x-text="'#' + (i + 1)"></span>
+                <span class="mt-dock-energy" x-text="pose.energy != null ? pose.energy.toFixed(2) + ' kcal/mol' : 'N/A'"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <div x-show="$store.molecularToolkit.dockingStatus === 'error'" class="mt-error" x-text="$store.molecularToolkit.error"></div>
+      <div x-show="!$store.molecularToolkit.dockingStatus || $store.molecularToolkit.dockingStatus === 'error'" class="mt-empty mt-dock-info">
+        <span class="material-symbols-outlined" style="font-size:32px;color:var(--color-border);margin-bottom:6px;display:block">precision_manufacturing</span>
+        <p>Paste a protein PDB file and a ligand SMILES to run AutoDock Vina docking.</p>
+        <p class="mt-hint" style="font-size:0.52rem;color:var(--color-text-muted)">Requires: RDKit + OpenBabel + AutoDock Vina</p>
+      </div>
+    </div>
+
     <style>
       .mt-panel { display: flex; flex-direction: column; height: 100%; overflow-y: auto; padding: 12px 16px; background: var(--color-background); }
       .mt-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -278,6 +318,19 @@
       .mt-space-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
       .mt-space-item code { font-family: var(--font-mono, monospace); color: var(--color-text); flex: 1; }
       .mt-space-coords { color: var(--color-text-muted); font-size: 0.54rem; }
+      .mt-dock-status { margin-bottom: 6px; }
+      .mt-dock-badge { padding: 4px 10px; border-radius: 4px; font-size: 0.58rem; font-weight: 600; }
+      .mt-dock-badge.running { background: rgba(79,195,247,0.1); color: #4fc3f7; }
+      .mt-dock-badge.complete { background: rgba(34,197,94,0.1); color: #22c55e; }
+      .mt-dock-badge.error { background: rgba(255,107,107,0.1); color: #ff6b6b; }
+      .mt-dock-badge.prepared { background: rgba(255,217,61,0.1); color: #ffd93d; }
+      .mt-dock-results { margin-top: 6px; }
+      .mt-dock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 4px; }
+      .mt-dock-pose { display: flex; flex-direction: column; align-items: center; padding: 8px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; gap: 2px; }
+      .mt-dock-rank { font-size: 0.6rem; font-weight: 700; color: var(--color-primary); }
+      .mt-dock-energy { font-size: 0.56rem; color: var(--color-text); font-weight: 600; }
+      .mt-dock-info { padding: 24px; text-align: center; }
+      .mt-dock-info p { font-size: 0.58rem; color: var(--color-text-muted); margin: 4px 0; }
     </style>
 
     <script>

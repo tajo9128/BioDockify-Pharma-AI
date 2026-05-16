@@ -1,0 +1,98 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    export const store = createStore("grantWriter", {
+      title: "", agency: "", budget: "", duration: "", goals: "",
+      loading: false, error: "", result: null,
+      async generate() {
+        if (!this.title.trim()) return;
+        this.loading = true; this.error = ""; this.result = null;
+        const p = `Write a grant proposal on "${this.title}" for ${this.agency || 'a research funding agency'}. Budget: ${this.budget || 'standard'}. Duration: ${this.duration || '3 years'}. Include: 1) Abstract, 2) Specific Aims, 3) Background & Significance, 4) Research Design & Methods, 5) Timeline with milestones, 6) Budget Justification, 7) Expected Outcomes & Impact, 8) References. Format professionally.`;
+        const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea");
+        if (input) { input.value = p; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); this.result = { title: this.title, content: "Grant proposal sent to agent chat." }; }
+        else { this.error = "Chat input not found"; }
+        this.loading = false;
+      },
+      sendToAgent(p) { const i = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea"); if (i) { i.value = p; i.dispatchEvent(new Event("input", { bubbles: true })); i.focus(); } },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="gw-panel">
+    <div class="gw-header"><span class="material-symbols-outlined gw-icon">payments</span><h2>Grant Writer</h2></div>
+
+    <div class="gw-card">
+      <h4>Generate Grant Proposal</h4>
+      <div class="gw-form">
+        <input type="text" x-model="$store.grantWriter.title" placeholder="Project title..." class="gw-input" @keyup.enter="$store.grantWriter.generate()" />
+        <div class="gw-row">
+          <input type="text" x-model="$store.grantWriter.agency" placeholder="Funding agency (e.g. NIH, DST, ICMR)..." class="gw-input" />
+          <input type="text" x-model="$store.grantWriter.budget" placeholder="Budget (e.g. ₹50 Lakhs, $500K)..." class="gw-input" />
+          <input type="text" x-model="$store.grantWriter.duration" placeholder="Duration (e.g. 3 years)..." class="gw-input" />
+        </div>
+        <textarea x-model="$store.grantWriter.goals" placeholder="Key goals / objectives (optional)..." class="gw-textarea" rows="2"></textarea>
+        <button class="gw-btn" @click="$store.grantWriter.generate()" :disabled="$store.grantWriter.loading || !$store.grantWriter.title">
+          <span class="material-symbols-outlined">auto_awesome</span> Generate Proposal
+        </button>
+      </div>
+    </div>
+
+    <div x-show="$store.grantWriter.error" class="gw-error" x-text="$store.grantWriter.error"></div>
+    <div x-show="$store.grantWriter.loading" class="gw-loading"><div class="loading-spinner"></div> Sending to agent...</div>
+
+    <template x-if="$store.grantWriter.result">
+      <div class="gw-card">
+        <h4 x-text="$store.grantWriter.result.title"></h4>
+        <p x-text="$store.grantWriter.result.content"></p>
+        <div class="gw-prompt">
+          <button class="gw-chip" @click="$store.grantWriter.sendToAgent('Write a strong abstract for my grant proposal on ' + $store.grantWriter.title)">Abstract</button>
+          <button class="gw-chip" @click="$store.grantWriter.sendToAgent('Write specific aims for my grant on ' + $store.grantWriter.title)">Specific Aims</button>
+          <button class="gw-chip" @click="$store.grantWriter.sendToAgent('Write research methodology for my grant on ' + $store.grantWriter.title)">Methods</button>
+          <button class="gw-chip" @click="$store.grantWriter.sendToAgent('Create a timeline with milestones for my grant on ' + $store.grantWriter.title)">Timeline</button>
+          <button class="gw-chip" @click="$store.grantWriter.sendToAgent('Write budget justification for my grant on ' + $store.grantWriter.title)">Budget</button>
+          <button class="gw-chip" @click="$store.grantWriter.sendToAgent('Write impact statement for my grant on ' + $store.grantWriter.title)">Impact</button>
+        </div>
+        <button class="gw-btn-sm" @click="$store.grantWriter.sendToAgent('Improve and expand this grant proposal: ' + $store.grantWriter.title)">Refine with Agent</button>
+      </div>
+    </template>
+
+    <div x-show="!$store.grantWriter.result" class="gw-empty">
+      <span class="material-symbols-outlined gw-empty-icon">payments</span>
+      <p>Enter project title, funding agency, budget, and duration to generate a complete grant proposal.</p>
+      <div class="gw-quick">
+        <button class="gw-chip" @click="$store.grantWriter.title='Development of Novel Kinase Inhibitors for Cancer Therapy'; $store.grantWriter.agency='NIH R01'; $store.grantWriter.budget='$1.5M'; $store.grantWriter.duration='5 years'; $store.grantWriter.generate()">NIH: Cancer drug discovery</button>
+        <button class="gw-chip" @click="$store.grantWriter.title='AI-Driven Drug Repurposing for Rare Diseases'; $store.grantWriter.agency='DST-SERB'; $store.grantWriter.budget='₹75 Lakhs'; $store.grantWriter.duration='3 years'; $store.grantWriter.generate()">SERB: AI drug repurposing</button>
+      </div>
+    </div>
+
+    <style>
+      .gw-panel { display: flex; flex-direction: column; height: 100%; overflow-y: auto; padding: 12px 16px; background: var(--color-background); }
+      .gw-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+      .gw-icon { font-size: 22px; color: var(--color-primary); }
+      .gw-header h2 { font-size: 0.9rem; margin: 0; font-weight: 700; color: var(--color-primary); }
+      .gw-card { padding: 10px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 8px; }
+      .gw-card h4 { font-size: 0.62rem; font-weight: 600; color: var(--color-text); margin: 0 0 6px 0; }
+      .gw-form { display: flex; flex-direction: column; gap: 5px; }
+      .gw-row { display: flex; gap: 4px; }
+      .gw-input { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-background); color: var(--color-text); font-size: 0.58rem; }
+      .gw-input:focus { outline: none; border-color: var(--color-primary); }
+      .gw-textarea { padding: 6px 8px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-background); color: var(--color-text); font-size: 0.56rem; resize: vertical; box-sizing: border-box; }
+      .gw-btn { display: inline-flex; align-items: center; gap: 3px; padding: 6px 12px; background: var(--color-primary); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.58rem; font-weight: 600; }
+      .gw-btn:disabled { opacity: 0.5; }
+      .gw-btn-sm { display: inline-flex; padding: 4px 8px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 4px; color: var(--color-text); cursor: pointer; font-size: 0.54rem; margin-top: 4px; }
+      .gw-error { padding: 4px 8px; background: rgba(255,107,107,0.1); border-radius: 4px; color: var(--color-error-text); font-size: 0.54rem; margin-bottom: 4px; }
+      .gw-loading { display: flex; align-items: center; gap: 4px; font-size: 0.54rem; color: var(--color-text-muted); }
+      .loading-spinner { width: 12px; height: 12px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .gw-prompt { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 4px; }
+      .gw-chip { padding: 3px 7px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 4px; font-size: 0.52rem; color: var(--color-text); cursor: pointer; }
+      .gw-chip:hover { border-color: var(--color-primary); }
+      .gw-empty { display: flex; flex-direction: column; align-items: center; padding: 24px; text-align: center; }
+      .gw-empty-icon { font-size: 32px; color: var(--color-border); margin-bottom: 6px; }
+      .gw-empty p { font-size: 0.56rem; color: var(--color-text-muted); margin: 0 0 8px 0; }
+      .gw-quick { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
+    </style>
+  </div>
+</body>
+</html>

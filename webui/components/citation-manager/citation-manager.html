@@ -1,0 +1,136 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    const LS = "biodockify.citations";
+    export const store = createStore("citationManager", {
+      citations: [], activeTab: "library", loading: false, error: "", message: "",
+      newCitation: { title: "", authors: "", journal: "", year: "", doi: "", abstract: "" },
+      searchQuery: "", exportStyle: "apa", projectName: "", projects: ["Default"],
+      _restored: false,
+      persist() { try { localStorage.setItem(LS, JSON.stringify({ citations: this.citations, projects: this.projects })); } catch {} },
+      restore() { if (this._restored) return; this._restored = true; try { const s = JSON.parse(localStorage.getItem(LS) || "{}"); if (s.citations) this.citations = s.citations; if (s.projects) this.projects = s.projects; } catch {} },
+      addCitation() {
+        if (!this.newCitation.title.trim()) return;
+        this.citations.unshift({ ...this.newCitation, id: Date.now(), added: new Date().toISOString(), project: this.projectName || "Default" });
+        this.newCitation = { title: "", authors: "", journal: "", year: "", doi: "", abstract: "" }; this.persist();
+      },
+      importFromLiterature(paper) {
+        if (!paper?.title) return;
+        const exists = this.citations.find(c => c.doi && paper.doi && c.doi === paper.doi);
+        if (exists) { this.message = "Already in library"; setTimeout(() => this.message = "", 2000); return; }
+        this.citations.unshift({ id: Date.now(), title: paper.title, authors: (paper.authors || []).join(", "), journal: paper.journal || "", year: paper.year || "", doi: paper.url || "", abstract: paper.abstract || "", added: new Date().toISOString(), project: this.projectName || "Default" });
+        this.persist(); this.message = "Citation added"; setTimeout(() => this.message = "", 2000);
+      },
+      removeCitation(id) { this.citations = this.citations.filter(c => c.id !== id); this.persist(); },
+      formatCite(citation, style) {
+        const a = citation.authors || ""; const y = citation.year || "n.d."; const t = citation.title || ""; const j = citation.journal || ""; const d = citation.doi || "";
+        const fmts = {
+          apa: `${a} (${y}). ${t}. ${j}.`,
+          nature: `${a}. ${t}. ${j} (${y}).`,
+          ama: `${a}. ${t}. ${j}. ${y};`,
+          vancouver: `${a}. ${t}. ${j}. ${y};`,
+          bibtex: `@article{${a.split(",")[0] || "ref"}${y},\n  title={${t}},\n  author={${a}},\n  journal={${j}},\n  year={${y}}\n}`,
+        };
+        return fmts[style] || fmts.apa;
+      },
+      copyCite(citation, style) {
+        navigator.clipboard.writeText(this.formatCite(citation, style)).then(() => { this.message = "Copied!"; setTimeout(() => this.message = "", 1500); });
+      },
+      exportAll(style) {
+        let out = this.citations.map(c => this.formatCite(c, style)).join("\n\n");
+        const b = new Blob([out], { type: "text/plain" }); const u = URL.createObjectURL(b); const a = document.createElement("a");
+        a.href = u; a.download = `citations.${style === "bibtex" ? "bib" : "txt"}`; a.click(); URL.revokeObjectURL(u);
+      },
+      get filtered() { return this.searchQuery ? this.citations.filter(c => (c.title + c.authors + c.journal).toLowerCase().includes(this.searchQuery.toLowerCase())) : this.citations; },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="cm-panel" x-init="$store.citationManager.restore()">
+    <div class="cm-header"><span class="material-symbols-outlined cm-icon">format_quote</span><h2>Citation Manager</h2></div>
+
+    <div class="cm-tabs">
+      <button class="cm-tab" :class="{active: $store.citationManager.activeTab === 'library'}" @click="$store.citationManager.activeTab = 'library'">My Library</button>
+      <button class="cm-tab" :class="{active: $store.citationManager.activeTab === 'add'}" @click="$store.citationManager.activeTab = 'add'">+ Add</button>
+      <button class="cm-tab" :class="{active: $store.citationManager.activeTab === 'export'}" @click="$store.citationManager.activeTab = 'export'">Export</button>
+    </div>
+
+    <div x-show="$store.citationManager.error" class="cm-error" x-text="$store.citationManager.error"></div>
+    <div x-show="$store.citationManager.message" class="cm-msg" x-text="$store.citationManager.message"></div>
+
+    <!-- Library -->
+    <div x-show="$store.citationManager.activeTab === 'library'">
+      <input type="text" x-model="$store.citationManager.searchQuery" placeholder="Search citations..." class="cm-input" style="margin-bottom:6px" />
+      <div class="cm-count" x-text="$store.citationManager.filtered.length + ' citations'"></div>
+      <template x-for="c in $store.citationManager.filtered" :key="c.id">
+        <div class="cm-card">
+          <div class="cm-title" x-text="c.title"></div>
+          <div class="cm-meta"><span x-text="c.authors"></span><span x-show="c.journal" x-text="' | ' + c.journal"></span><span x-show="c.year" x-text="' (' + c.year + ')'"></span></div>
+          <div class="cm-actions">
+            <button class="cm-act" @click="$store.citationManager.copyCite(c, 'apa')">APA</button>
+            <button class="cm-act" @click="$store.citationManager.copyCite(c, 'nature')">Nature</button>
+            <button class="cm-act" @click="$store.citationManager.copyCite(c, 'bibtex')">BibTeX</button>
+            <button class="cm-act del" @click="$store.citationManager.removeCitation(c.id)">×</button>
+          </div>
+        </div>
+      </template>
+      <div x-show="!$store.citationManager.filtered.length" class="cm-empty"><p>No citations yet. Add manually or import from Literature.</p></div>
+    </div>
+
+    <!-- Add -->
+    <div x-show="$store.citationManager.activeTab === 'add'">
+      <div class="cm-card">
+        <h4>Add Citation Manually</h4>
+        <div class="cm-form">
+          <input type="text" x-model="$store.citationManager.newCitation.title" placeholder="Title *" class="cm-input" />
+          <div class="cm-row"><input type="text" x-model="$store.citationManager.newCitation.authors" placeholder="Authors (comma-separated)" class="cm-input" /><input type="text" x-model="$store.citationManager.newCitation.year" placeholder="Year" class="cm-input-sm" /></div>
+          <div class="cm-row"><input type="text" x-model="$store.citationManager.newCitation.journal" placeholder="Journal" class="cm-input" /><input type="text" x-model="$store.citationManager.newCitation.doi" placeholder="DOI/URL" class="cm-input" /></div>
+          <button class="cm-btn" @click="$store.citationManager.addCitation()" :disabled="!$store.citationManager.newCitation.title">Add Citation</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Export -->
+    <div x-show="$store.citationManager.activeTab === 'export'">
+      <div class="cm-card">
+        <h4>Export Citations</h4>
+        <div class="cm-row"><select x-model="$store.citationManager.exportStyle" class="cm-input"><option value="apa">APA 7th</option><option value="nature">Nature</option><option value="ama">AMA</option><option value="vancouver">Vancouver</option><option value="bibtex">BibTeX</option></select><button class="cm-btn" @click="$store.citationManager.exportAll($store.citationManager.exportStyle)">Download All</button></div>
+      </div>
+      <div class="cm-card"><h4>Preview</h4><div class="cm-preview"><template x-for="c in $store.citationManager.citations.slice(0, 5)" :key="c.id"><div class="cm-preview-item" x-text="$store.citationManager.formatCite(c, $store.citationManager.exportStyle)"></div></template></div></div>
+    </div>
+
+    <style>
+      .cm-panel { display: flex; flex-direction: column; height: 100%; overflow-y: auto; padding: 12px 16px; background: var(--color-background); }
+      .cm-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+      .cm-icon { font-size: 22px; color: var(--color-primary); }
+      .cm-header h2 { font-size: 0.9rem; margin: 0; font-weight: 700; color: var(--color-primary); }
+      .cm-tabs { display: flex; gap: 2px; margin-bottom: 6px; border-bottom: 1px solid var(--color-border); }
+      .cm-tab { padding: 4px 10px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--color-text-muted); cursor: pointer; font-size: 0.56rem; font-weight: 500; }
+      .cm-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+      .cm-error { padding: 4px 8px; background: rgba(255,107,107,0.1); border-radius: 4px; color: var(--color-error-text); font-size: 0.5rem; margin-bottom: 4px; }
+      .cm-msg { padding: 4px 8px; background: rgba(0,212,170,0.08); border-radius: 4px; color: var(--color-primary); font-size: 0.5rem; margin-bottom: 4px; }
+      .cm-count { font-size: 0.5rem; color: var(--color-text-muted); margin-bottom: 4px; }
+      .cm-input { width: 100%; padding: 5px 8px; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-background); color: var(--color-text); font-size: 0.54rem; margin-bottom: 4px; box-sizing: border-box; }
+      .cm-input:focus { outline: none; border-color: var(--color-primary); }
+      .cm-input-sm { width: 80px; padding: 5px 8px; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-background); color: var(--color-text); font-size: 0.54rem; }
+      .cm-row { display: flex; gap: 4px; }
+      .cm-btn { padding: 5px 10px; background: var(--color-primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.52rem; font-weight: 600; }
+      .cm-btn:disabled { opacity: 0.5; }
+      .cm-card { padding: 8px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: 4px; }
+      .cm-card h4 { font-size: 0.56rem; font-weight: 600; color: var(--color-text); margin: 0 0 4px 0; }
+      .cm-form { display: flex; flex-direction: column; gap: 3px; }
+      .cm-title { font-size: 0.58rem; font-weight: 600; color: var(--color-text); margin-bottom: 2px; }
+      .cm-meta { font-size: 0.5rem; color: var(--color-text-muted); }
+      .cm-actions { display: flex; gap: 3px; margin-top: 4px; }
+      .cm-act { padding: 2px 6px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 3px; font-size: 0.48rem; color: var(--color-text-muted); cursor: pointer; }
+      .cm-act:hover { border-color: var(--color-primary); color: var(--color-primary); }
+      .cm-act.del { color: var(--color-error-text); }
+      .cm-preview { font-size: 0.52rem; color: var(--color-text-muted); }
+      .cm-preview-item { padding: 3px 0; border-bottom: 1px solid var(--color-border); line-height: 1.4; }
+      .cm-empty { padding: 16px; text-align: center; }
+      .cm-empty p { font-size: 0.54rem; color: var(--color-text-muted); }
+    </style>
+  </div>
+</body>
+</html>
