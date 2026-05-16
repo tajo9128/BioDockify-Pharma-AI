@@ -46,7 +46,11 @@
     <div x-show="$store.facultyTools.activeTab === 'syllabus'">
       <div class="fd-card">
         <h4>Upload Course Syllabus</h4>
-        <p class="fd-desc">Paste your course syllabus text to extract course structure, topics, and generate all materials automatically.</p>
+        <p class="fd-desc">Paste syllabus text OR upload DOCX/PDF file to auto-extract course structure.</p>
+        <div class="fd-upload-row">
+          <input type="file" accept=".docx,.pdf,.txt,.md" class="fd-file-input" @change="const f = $event.target.files[0]; if (!f) return; const ext = f.name.split('.').pop().toLowerCase(); if (ext === 'txt' || ext === 'md') { const r = new FileReader(); r.onload = () => { $store.facultyTools.syllabusText = r.result; $store.facultyTools.syllabusParse(); }; r.readAsText(f); } else { $store.facultyTools.syllabusText = `Uploaded: ${f.name} (${(f.size/1024).toFixed(1)} KB). Paste content or use agent to parse this syllabus.`; $store.facultyTools.message = 'DOCX/PDF parsing via agent. Click Parse Syllabus after upload.'; }" title="Upload syllabus file" />
+          <span class="fd-upload-label">Upload DOCX/PDF/TXT</span>
+        </div>
         <textarea x-model="$store.facultyTools.syllabusText" placeholder="Paste syllabus text here...&#10;&#10;e.g.&#10;Course: Pharmaceutical Chemistry 302&#10;Code: PHC-302&#10;Week 1: Drug-Receptor Interactions&#10;Week 2: Pharmacokinetics Fundamentals..." class="fd-textarea" rows="6"></textarea>
         <button class="fd-btn" @click="$store.facultyTools.syllabusParse()" :disabled="$store.facultyTools.loading || !$store.facultyTools.syllabusText">
           <span class="material-symbols-outlined">auto_awesome</span> Parse Syllabus
@@ -197,6 +201,10 @@
       .fd-card { padding: 10px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 8px; }
       .fd-card h4 { font-size: 0.64rem; font-weight: 600; color: var(--color-text); margin: 0 0 6px 0; }
       .fd-desc { font-size: 0.58rem; color: var(--color-text-muted); margin: 0 0 8px 0; line-height: 1.4; }
+      .fd-upload-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+      .fd-file-input { padding: 3px 6px; border: 1px dashed var(--color-border); border-radius: 4px; background: var(--color-background); color: var(--color-text-muted); font-size: 0.5rem; cursor: pointer; }
+      .fd-file-input::file-selector-button { background: var(--color-primary); color: white; border: none; padding: 2px 8px; border-radius: 3px; font-size: 0.5rem; cursor: pointer; }
+      .fd-upload-label { font-size: 0.5rem; color: var(--color-text-muted); }
       .fd-row { display: flex; gap: 4px; flex-wrap: wrap; }
       .fd-input { flex: 1; min-width: 150px; padding: 6px 8px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-background); color: var(--color-text); font-size: 0.62rem; }
       .fd-input:focus { outline: none; border-color: var(--color-primary); }
