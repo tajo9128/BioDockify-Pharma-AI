@@ -6,8 +6,7 @@
 </head>
 <body>
   <div x-data>
-    <template x-if="$store.desktopWorkspace && $store.desktopWorkspace.desktopLayout !== 'desktop'">
-      <nav class="right-icon-rail" aria-label="Desktop tools">
+    <nav class="right-icon-rail" aria-label="Desktop tools" x-show="$store.desktopWorkspace && $store.desktopWorkspace.desktopLayout !== 'desktop'">
         <template x-for="mod in $store.desktopWorkspace.sortedModules" :key="mod.id">
           <button
             class="right-icon-btn"
@@ -18,7 +17,6 @@
           </button>
         </template>
       </nav>
-    </template>
   </div>
 
   <style>
