@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://hub.docker.com/r/tajo9128/biodockify-pharma-ai"><img src="https://img.shields.io/badge/docker-tajo9128%2Fbiodockify--pharma--ai-blue.svg" alt="Docker"/></a>
-  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v5.7.1-green.svg" alt="Version"/></a>
+  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v5.9.3-green.svg" alt="Version"/></a>
   <a href="https://github.com/tajo9128/BioDockify-Pharma-AI"><img src="https://img.shields.io/badge/GitHub-BioDockify--Pharma--AI-181717?style=flat&logo=github" alt="GitHub"/></a>
 </p>
 
@@ -24,26 +24,30 @@
 
 ## Features
 
-### 16 Integrated Research Modules
+### 20 Integrated Research Modules
 
 | # | Module | Function | Backend |
 |---|--------|----------|---------|
 | 1 | **Research Command Center** | Auto-research pipeline, thesis tracking, wet lab coordination | 23 REST endpoints |
-| 2 | **Molecular Toolkit** | ADMET prediction, molecular similarity, chemical space PCA | RDKit-powered |
-| 3 | **Statistics** | 70+ methods: descriptive, t-test, ANOVA, survival, PK/PD, power | Full FastAPI router |
-| 4 | **Drug Properties** | MW, LogP, HBD, HBA, TPSA, Lipinski Rule-of-5 | RDKit + fallback |
-| 5 | **Literature Search** | PubMed, Semantic Scholar, arXiv — with citation export | 3 database APIs |
+| 2 | **Molecular Toolkit** | ADMET, Tanimoto similarity, chemical space PCA, AutoDock Vina docking | RDKit + Vina |
+| 3 | **Statistics** | 70+ methods: descriptive, t-test, ANOVA, survival, PK/PD, power | FastAPI router |
+| 4 | **Drug Properties** | MW, LogP, HBD, HBA, TPSA, Lipinski Rule-of-5 | RDKit |
+| 5 | **Literature** | PubMed/Semantic Scholar/arXiv + PRISMA screening + alerts + BioNER | 3 DB + bio_ner |
 | 6 | **Academic Writer** | 5-tab: Literature Review, Research Paper, Thesis, Lecture, Slides | Thesis + Lecture APIs |
-| 7 | **Slides Generator** | Academic, Clinical, Corporate, Minimal styles | Slides API |
-| 8 | **Lecture Builder** | Learning objectives, sections, homework, lab practical | Lecture API |
-| 9 | **Wet Lab Manager** | Experiment tracking, protocols, notes, status | localStorage + API |
-| 10 | **Patent Analyzer** | Espacenet + Google Patents search | Live patent DBs |
-| 11 | **Trial Scanner** | ClinicalTrials.gov with phase/status/condition filters | Live CT.gov API |
-| 12 | **Research Notebook** | ChromaDB vector search, SurfSense storage, tags, knowledge graph | Knowledge API |
-| 13 | **System Health** | Internet, ChromaDB, RDKit, Disk, Memory monitoring | Connection Doctor |
-| 14 | **Backup & Recovery** | Docker volume + GDrive cloud backup | Backup API |
-| 15 | **Kali Desktop** | Full Linux desktop iframe | /desktop/session |
-| 16 | **All Tools** | Quick-launch grid for all modules | N/A |
+| 7 | **Faculty CMD** | Syllabus parser, lecture/assignment/rubric generator, plagiarism checker | faculty_tools |
+| 8 | **Grant Writer** | Full grant proposals: abstract, aims, methods, timeline, budget | Agent-driven |
+| 9 | **Journal Finder** | Verify legitimacy (Scopus/WoS/SCImago/DOAJ) + suggest where to publish | 8 data sources |
+| 10 | **Citation Manager** | Collect, organize, export in APA/Nature/AMA/Vancouver/BibTeX | localStorage |
+| 11 | **Regulatory** | FDA/EMA guideline search + NDA/ANDA/MAA submission checklists | FDA API |
+| 12 | **Slides Generator** | Academic, Clinical, Corporate, Minimal presentation styles | Slides API |
+| 13 | **Lecture Builder** | Learning objectives, sections, homework, lab practical | Lecture API |
+| 14 | **Wet Lab Manager** | Experiment tracking, protocols, notes, status (planned/running/completed) | localStorage + API |
+| 15 | **Research Notebook** | ChromaDB vector search, SurfSense storage, tags, favorites, knowledge graph | Knowledge API |
+| 16 | **System Health** | Internet, ChromaDB, RDKit, Disk, Memory monitoring | Connection Doctor |
+| 17 | **Backup & Recovery** | Docker volume + GDrive cloud backup | Backup API |
+| 18 | **Kali Desktop** | Full Linux desktop environment | /desktop/session |
+| 19 | **Docking Studio** | AutoDock Vina: PDB + SMILES → binding energy poses | docking_prepare/run |
+| 20 | **All Tools** | Quick-launch grid for all modules | N/A |
 
 ### 4 Specialized Sub-Agents
 
@@ -88,7 +92,7 @@ All research data — memory, chats, settings, knowledge base, projects, AND bac
 
 ```bash
 # ⚠️  The -v flag is REQUIRED. Without it, ALL data is lost on container delete.
-docker run -d -p 3000:3000 --name biodockify-pharma \
+docker run -d -p 50001:50001 --name biodockify-pharma \
   -v biodockify_pharma_usr:/a0/usr \
   tajo9128/biodockify-pharma-ai:latest
 
