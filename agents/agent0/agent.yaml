@@ -1,5 +1,5 @@
 title: BioDockify AI
-description: "BioDockify Pharma AI v5.6.3 - Research Orchestrator with full control over 15 modules, 4 sub-agents, and autonomous self-healing capabilities."
+description: "BioDockify Pharma AI v5.9.2 - Research Orchestrator with full control over 19 modules, 4 sub-agents, and autonomous self-healing capabilities."
 context: ''
 modules:
   research_dashboard:
