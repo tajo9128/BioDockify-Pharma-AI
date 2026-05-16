@@ -126,19 +126,6 @@
               </div>
             </div>
 
-            <!-- Layout Toggle (below chat, right-aligned) -->
-            <div id="layout-toggle-bar" x-data x-show="$store.desktopWorkspace">
-              <button class="layout-btn" :class="{active: $store.desktopWorkspace.isChatMode}" @click="$store.desktopWorkspace.setChatMode()" title="Chat Mode">
-                <span class="material-symbols-outlined">chat</span>
-              </button>
-              <button class="layout-btn" :class="{active: $store.desktopWorkspace.isSplitMode}" @click="$store.desktopWorkspace.desktopLayout = 'split'; $store.desktopWorkspace.persist(); $store.desktopWorkspace._applySplitRatio()" title="Split Mode">
-                <span class="material-symbols-outlined">vertical_split</span>
-              </button>
-              <button class="layout-btn" :class="{active: $store.desktopWorkspace.isDesktopMode}" @click="$store.desktopWorkspace.desktopLayout = 'desktop'; $store.desktopWorkspace.persist()" title="Full Desktop">
-                <span class="material-symbols-outlined">desktop_windows</span>
-              </button>
-            </div>
-
             <!-- NEW: Toast Stack Component -->
             <div style="position: relative; height: 0;">
                 <x-component path="notifications/notification-toast-stack.html"></x-component>

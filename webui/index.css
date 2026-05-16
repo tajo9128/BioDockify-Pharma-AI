@@ -541,12 +541,12 @@ body.split-resizing {
   font-size: 22px;
 }
 
-/* Layout Toggle Bar - below chat, right-aligned */
+/* Layout Toggle Bar - above chat input, right-aligned */
 #layout-toggle-bar {
   display: flex;
   justify-content: flex-end;
   gap: 4px;
-  padding: 6px var(--spacing-md);
+  padding: 4px var(--spacing-md);
   flex-shrink: 0;
 }
 #layout-toggle-bar .layout-btn {
