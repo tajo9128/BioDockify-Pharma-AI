@@ -52,41 +52,37 @@ export const store = createStore("researchDashboard", {
 
   async startResearch() {
     if (!this.newTopic.trim()) return;
-    this.loading = true; this.error = ""; this.message = "";
-    try {
-      // Try API first
-      const resp = await callJsonApi("research/management/comprehensive/initialize", {
-        topic: this.newTopic, research_type: this.newType,
-        user_message: [this.newTopic, this.newNotes, this.newComments].filter(Boolean).join("\n"),
-      });
-      if (resp.research_id) {
-        this.message = "Pipeline started: " + resp.research_id;
-        this.activeProjectId = resp.research_id;
-        this.newTopic = ""; this.newNotes = ""; this.newComments = "";
-        await this.listProjects();
-        this.loadDashboard();
-        this.loading = false;
-        return;
-      }
-    } catch (e) { /* API unavailable, use agent fallback */ }
+    this.loading = true; this.message = "";
 
-    // Fallback: send to agent chat
-    this.loading = false;
-    let prompt = `START RESEARCH PIPELINE\nTitle: ${this.newTopic}\nType: ${this.newType}\n`;
-    if (this.newNotes.trim()) prompt += `Topics/Objectives:\n${this.newNotes}\n`;
-    if (this.newComments.trim()) prompt += `Comments:\n${this.newComments}\n`;
-    prompt += `Execute: 1) Deep Research via literature APIs, 2) Literature Review synthesis, 3) Save findings to Knowledge Base.`;
+    // 1. Open project creation modal
+    if (typeof $store !== "undefined" && $store.projects) {
+      try { $store.projects.openProjectsModal(); } catch {}
+    }
+
+    // 2. Send research prompt to agent
+    let prompt = `CREATE RESEARCH PROJECT & START PIPELINE\n\nProject Title: ${this.newTopic}\nType: ${this.newType}\n`;
+    if (this.newNotes.trim()) prompt += `Topics:\n${this.newNotes}\n`;
+    if (this.newComments.trim()) prompt += `Instructions:\n${this.newComments}\n`;
+    prompt += `\nExecute complete research workflow:\n`;
+    prompt += `1. Create a new project named "${this.newTopic}" via projects system\n`;
+    prompt += `2. Deep Research: search PubMed, Semantic Scholar, arXiv\n`;
+    prompt += `3. Literature Review: synthesize findings, identify gaps\n`;
+    prompt += `4. Save all papers to Knowledge Base with #${this.newType} tag\n`;
+    prompt += `5. Track progress and provide regular updates\n`;
+
     const input = document.querySelector("#chat-input, #chat-bar-input textarea, .chat-bar-input textarea");
     if (input) {
       input.value = prompt;
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.focus();
-      this.message = "Pipeline sent to agent. Agent will execute deep research and literature review.";
-      this.newTopic = ""; this.newNotes = ""; this.newComments = "";
-      setTimeout(() => { this.message = ""; this.listProjects(); }, 5000);
+      this.message = "Project creation + research pipeline sent to agent!";
     } else {
-      this.error = "Chat input not found. Type your research title in chat to start.";
+      this.message = "Project modal opened. Type your research title in chat to start.";
     }
+
+    this.newTopic = ""; this.newNotes = ""; this.newComments = "";
+    this.loading = false;
+    setTimeout(() => { this.message = ""; this.listProjects(); }, 5000);
   },
 
   exportReport() {
