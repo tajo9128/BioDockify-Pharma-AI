@@ -14,19 +14,22 @@
             <div class="welcome-container">
                 <!-- Header -->
                 <div class="welcome-header">
-                    <svg class="welcome-logo" viewBox="0 0 960 960">
-                        <defs>
-                            <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" style="stop-color:#00d4aa"/>
-                                <stop offset="100%" style="stop-color:#00897b"/>
-                            </linearGradient>
-                        </defs>
-                        <rect width="960" height="960" rx="160" fill="url(#g)"/>
-                        <circle cx="480" cy="280" r="80" fill="#0a1929"/>
-                        <circle cx="340" cy="480" r="80" fill="#0a1929"/>
-                        <circle cx="620" cy="480" r="80" fill="#0a1929"/>
-                        <circle cx="480" cy="680" r="80" fill="#0a1929"/>
-                    </svg>
+                    <div class="welcome-logo-card">
+                        <img src="public/icon.svg" alt="BioDockify AI" class="welcome-logo-img" onerror="this.style.display='none'" />
+                        <svg class="welcome-logo-icon" viewBox="0 0 960 960">
+                            <defs>
+                                <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#00d4aa"/>
+                                    <stop offset="100%" style="stop-color:#00897b"/>
+                                </linearGradient>
+                            </defs>
+                            <rect width="960" height="960" rx="180" fill="url(#g)"/>
+                            <circle cx="480" cy="280" r="80" fill="#0a1929"/>
+                            <circle cx="340" cy="480" r="80" fill="#0a1929"/>
+                            <circle cx="620" cy="480" r="80" fill="#0a1929"/>
+                            <circle cx="480" cy="680" r="80" fill="#0a1929"/>
+                        </svg>
+                    </div>
                     <h1 class="welcome-title">BioDockify AI</h1>
                     <p class="welcome-version">v5.7.4 — BioDockify Pharma AI</p>
                 </div>
@@ -110,6 +113,36 @@
         .welcome-header {
             text-align: center;
             margin-bottom: 2rem;
+        }
+
+        .welcome-logo-card {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100px;
+            height: 100px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 24px;
+            padding: 16px;
+            margin-bottom: 1rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+
+        .welcome-logo-img {
+            width: 64px;
+            height: 64px;
+        }
+
+        .welcome-logo-icon {
+            width: 64px;
+            height: 64px;
+            display: none;
+        }
+
+        .welcome-logo-img[src=""] + .welcome-logo-icon,
+        img.welcome-logo-img[style*="display: none"] ~ .welcome-logo-icon {
+            display: block;
         }
 
         .welcome-logo {
