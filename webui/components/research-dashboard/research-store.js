@@ -1,5 +1,10 @@
 import { createStore } from "/js/AlpineStore.js";
-import { callJsonApi } from "/js/api.js";
+import { callJsonApi, fetchApi } from "/js/api.js";
+
+async function apiGet(path) {
+  const r = await fetchApi(path, { method: "GET" });
+  return r.json();
+}
 
 export const store = createStore("researchDashboard", {
   activeTab: "projects",
@@ -19,14 +24,12 @@ export const store = createStore("researchDashboard", {
     return Math.round((this.activeProject?.progress || 0) * 100);
   },
 
-  async init() {
-    await this.listProjects();
-  },
+  async init() { await this.listProjects(); },
 
   async listProjects() {
     this.loading = true; this.error = "";
-    try { this.projects = await callJsonApi("research/management/list") || []; }
-    catch (e) { this.error = e.message; }
+    try { this.projects = await apiGet("research/management/list") || []; }
+    catch (e) { this.error = e.message; this.projects = []; }
     this.loading = false;
   },
 
@@ -39,9 +42,9 @@ export const store = createStore("researchDashboard", {
     if (!this.activeProjectId) return;
     this.loading = true; this.error = "";
     try {
-      const resp = await callJsonApi(`research/management/dashboard/${this.activeProjectId}`, {});
+      const resp = await apiGet("research/management/dashboard/" + this.activeProjectId);
       this.dashboard = resp || null;
-    } catch (e) { this.error = e.message; }
+    } catch (e) { this.error = e.message; this.dashboard = null; }
     this.loading = false;
   },
 
@@ -50,9 +53,7 @@ export const store = createStore("researchDashboard", {
     this.loading = true; this.error = ""; this.message = "";
     try {
       const resp = await callJsonApi("research/management/comprehensive/initialize", {
-        topic: this.newTopic,
-        research_type: this.newType,
-        user_message: this.newTopic,
+        topic: this.newTopic, research_type: this.newType, user_message: this.newTopic,
       });
       if (resp.research_id) {
         this.message = "Pipeline started: " + resp.research_id;
@@ -60,9 +61,7 @@ export const store = createStore("researchDashboard", {
         this.newTopic = "";
         await this.listProjects();
         this.loadDashboard();
-      } else {
-        this.error = resp.error || "Failed to start research pipeline";
-      }
+      } else { this.error = resp.error || "Failed to start"; }
     } catch (e) { this.error = e.message; }
     this.loading = false;
   },

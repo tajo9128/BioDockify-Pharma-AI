@@ -59,6 +59,11 @@ class SystemHealth(ApiHandler):
             ("Thesis", "modules/thesis/engine.py"),
             ("Research Mgmt", "modules/research_persistence.py"),
             ("Backup", "modules/backup/manager.py"),
+            ("Faculty Tools", "api/faculty_tools.py"),
+            ("Journal Finder", "modules/journal_intel/__init__.py"),
+            ("Bio NER", "api/bio_ner.py"),
+            ("Regulatory", "api/regulatory.py"),
+            ("Docking", "api/docking_run.py"),
         ]
         for name, file_path in api_checks:
             full = os.path.join("/a0", file_path)

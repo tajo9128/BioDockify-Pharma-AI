@@ -232,6 +232,7 @@
     <div x-show="$store.molecularToolkit.activeTab === 'docking'" class="mt-content">
       <div class="mt-input-row">
         <textarea x-model="$store.molecularToolkit.dockingPdb" placeholder="Paste protein PDB content here..." class="mt-textarea" rows="4"></textarea>
+        <input type="file" accept=".pdb,.pdbqt,.ent" class="mt-file-input" @change="const f = $event.target.files[0]; if (f) { const r = new FileReader(); r.onload = () => { $store.molecularToolkit.dockingPdb = r.result; }; r.readAsText(f); }" title="Upload PDB file" />
       </div>
       <div class="mt-input-row">
         <input type="text" x-model="$store.molecularToolkit.dockingLigand" placeholder="Ligand SMILES..." class="mt-input" style="flex:2" />
@@ -292,6 +293,8 @@
       .mt-btn:disabled { opacity: 0.5; cursor: not-allowed; }
       .mt-textarea { flex: 1; min-height: 60px; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-panel); color: var(--color-text); font-size: 0.62rem; font-family: var(--font-mono, monospace); resize: vertical; }
       .mt-textarea:focus { outline: none; border-color: var(--color-primary); }
+      .mt-file-input { padding: 4px 8px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-panel); color: var(--color-text-muted); font-size: 0.5rem; cursor: pointer; max-width: 40px; overflow: hidden; }
+      .mt-file-input::file-selector-button { background: var(--color-primary); color: white; border: none; padding: 2px 6px; border-radius: 3px; font-size: 0.5rem; cursor: pointer; }
       .mt-results { }
       .mt-mol-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 8px; }
       .mt-mol-smiles { font-size: 0.62rem; font-family: var(--font-mono, monospace); color: var(--color-text); word-break: break-all; flex: 1; }
