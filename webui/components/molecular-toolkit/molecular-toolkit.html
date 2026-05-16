@@ -230,44 +230,68 @@
 
     <!-- Docking Tab -->
     <div x-show="$store.molecularToolkit.activeTab === 'docking'" class="mt-content">
-      <div class="mt-input-row">
-        <textarea x-model="$store.molecularToolkit.dockingPdb" placeholder="Paste protein PDB content here..." class="mt-textarea" rows="4"></textarea>
-        <input type="text" x-model="$store.molecularToolkit.dockingLigandName" placeholder="Protein name" class="mt-input" style="flex:1" />
-        <input type="file" accept=".pdb,.pdbqt,.ent" class="mt-file-input" @change="const f = $event.target.files[0]; if (f) { const r = new FileReader(); r.onload = () => { $store.molecularToolkit.dockingPdb = r.result; }; r.readAsText(f); }" title="Upload PDB file" />
-      </div>
-      <div class="mt-input-row">
-        <input type="text" x-model="$store.molecularToolkit.dockingLigand" placeholder="Ligand SMILES..." class="mt-input" style="flex:2" />
-        <input type="text" x-model="$store.molecularToolkit.dockingLigandName" placeholder="Ligand name" class="mt-input" style="flex:1" />
-        <input type="file" accept=".sdf,.mol,.pdb,.smi" class="mt-file-input" @change="const f = $event.target.files[0]; if (f) { const r = new FileReader(); r.onload = () => { const t = r.result; $store.molecularToolkit.dockingLigand = t.includes('SMILES') ? t.split('\n').find(l=>l.trim()&&!l.startsWith('#')) || t : t; }; r.readAsText(f); }" title="Upload ligand file" />
-        <button class="mt-btn" @click="$store.molecularToolkit.dockingPrepare()" :disabled="$store.molecularToolkit.loading || !$store.molecularToolkit.dockingPdb || !$store.molecularToolkit.dockingLigand">Dock</button>
+      <!-- Protein Card -->
+      <div class="mt-card">
+        <h4><span class="material-symbols-outlined">molecule</span> Protein (Receptor)</h4>
+        <textarea x-model="$store.molecularToolkit.dockingPdb" placeholder="Paste protein PDB content here..." class="mt-textarea" rows="5"></textarea>
+        <div class="mt-card-row">
+          <input type="text" x-model="$store.molecularToolkit.dockingLigandName" placeholder="Protein name (optional)" class="mt-input-sm" />
+          <label class="mt-upload-label">
+            <span class="material-symbols-outlined">upload_file</span> Upload PDB
+            <input type="file" accept=".pdb,.pdbqt,.ent" hidden @change="const f=$event.target.files[0];if(f){const r=new FileReader();r.onload=()=>{$store.molecularToolkit.dockingPdb=r.result};r.readAsText(f)}" />
+          </label>
+        </div>
       </div>
 
+      <!-- Ligand Card -->
+      <div class="mt-card">
+        <h4><span class="material-symbols-outlined">science</span> Ligand (Small Molecule)</h4>
+        <input type="text" x-model="$store.molecularToolkit.dockingLigand" placeholder="Enter SMILES string (e.g. CC(=O)Oc1ccccc1C(=O)O for Aspirin)..." class="mt-input" />
+        <div class="mt-card-row">
+          <input type="text" x-model="$store.molecularToolkit.dockingLigandName" placeholder="Ligand name (optional)" class="mt-input-sm" />
+          <label class="mt-upload-label">
+            <span class="material-symbols-outlined">upload_file</span> Upload File
+            <input type="file" accept=".sdf,.mol,.pdb,.smi" hidden @change="const f=$event.target.files[0];if(f){const r=new FileReader();r.onload=()=>{const t=r.result;$store.molecularToolkit.dockingLigand=t.includes('SMILES')?t.split('\n').find(l=>l.trim()&&!l.startsWith('#'))||t:t};r.readAsText(f)}" />
+          </label>
+        </div>
+      </div>
+
+      <!-- Dock Button -->
+      <button class="mt-dock-btn" @click="$store.molecularToolkit.dockingPrepare()" :disabled="$store.molecularToolkit.loading || !$store.molecularToolkit.dockingPdb || !$store.molecularToolkit.dockingLigand">
+        <span class="material-symbols-outlined">precision_manufacturing</span>
+        <span x-text="$store.molecularToolkit.loading ? 'Running...' : 'Run Docking'"></span>
+      </button>
+
+      <!-- Status -->
       <div x-show="$store.molecularToolkit.dockingStatus" class="mt-dock-status">
         <span class="mt-dock-badge" :class="$store.molecularToolkit.dockingStatus" x-text="$store.molecularToolkit.dockingStatus === 'prepared' ? '⏳ Preparing...' : $store.molecularToolkit.dockingStatus === 'running' ? '🔄 Running Vina...' : $store.molecularToolkit.dockingStatus === 'complete' ? '✅ Complete' : '❌ Error'"></span>
       </div>
 
+      <!-- Results -->
       <template x-if="$store.molecularToolkit.dockingPoses.length">
-        <div class="mt-dock-results">
-          <h4 class="mt-section-title" x-text="'Docking Results (' + $store.molecularToolkit.dockingPoses.length + ' poses)'"></h4>
+        <div class="mt-card">
+          <h4 x-text="'Binding Results (' + $store.molecularToolkit.dockingPoses.length + ' poses)'"></h4>
           <div class="mt-dock-grid">
             <template x-for="(pose, i) in $store.molecularToolkit.dockingPoses" :key="i">
               <div class="mt-dock-pose" :class="{best: i === 0}">
-                <span class="mt-dock-rank" x-text="'Pose ' + (i + 1)"></span>
-                <span class="mt-dock-energy" x-text="pose.energy != null ? pose.energy.toFixed(2) + ' kcal/mol' : 'N/A'"></span>
-                <span class="mt-dock-label" x-show="i === 0">Best</span>
-                <span class="mt-dock-bar"><span class="mt-dock-fill" :style="'width:' + Math.max(5, (1 - ((pose.energy || 0) + 10) / 20) * 100) + '%'"></span></span>
+                <span class="mt-dock-rank" x-text="'#' + (i + 1)"></span>
+                <span class="mt-dock-energy" x-text="pose.energy != null ? pose.energy.toFixed(2) : '--'"></span>
+                <span class="mt-dock-unit">kcal/mol</span>
+                <div class="mt-dock-bar"><div class="mt-dock-fill" :style="'width:' + Math.max(5, (1 - ((pose.energy || 0) + 10) / 20) * 100) + '%'"></div></div>
               </div>
             </template>
           </div>
-          <p class="mt-dock-note">Lower binding energy = stronger binding. First pose is best.</p>
+          <p class="mt-dock-note">Lower energy = stronger binding. Best pose highlighted.</p>
         </div>
       </template>
 
       <div x-show="$store.molecularToolkit.dockingStatus === 'error'" class="mt-error" x-text="$store.molecularToolkit.error"></div>
-      <div x-show="!$store.molecularToolkit.dockingStatus || $store.molecularToolkit.dockingStatus === 'error'" class="mt-empty mt-dock-info">
-        <span class="material-symbols-outlined" style="font-size:32px;color:var(--color-border);margin-bottom:6px;display:block">precision_manufacturing</span>
-        <p>Paste a protein PDB file and a ligand SMILES to run AutoDock Vina docking.</p>
-        <p class="mt-hint" style="font-size:0.52rem;color:var(--color-text-muted)">Requires: RDKit + OpenBabel + AutoDock Vina</p>
+
+      <!-- Empty State -->
+      <div x-show="!$store.molecularToolkit.dockingPoses.length && $store.molecularToolkit.dockingStatus !== 'running' && $store.molecularToolkit.dockingStatus !== 'prepared'" class="mt-empty">
+        <span class="material-symbols-outlined mt-empty-icon">precision_manufacturing</span>
+        <p>Enter a protein PDB and ligand SMILES to run AutoDock Vina docking</p>
+        <p class="mt-empty-hint">Requires: RDKit + OpenBabel + AutoDock Vina</p>
       </div>
     </div>
 
