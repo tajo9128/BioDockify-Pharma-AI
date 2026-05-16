@@ -9,7 +9,7 @@ const model = {
     const clean = v.replace(/^M\s*/, "").replace(/^v/, "v");
     // Ensure we show the correct version (override old git tags)
     const num = parseFloat(clean.replace(/^v/, ""));
-    return `BioDockify v6.0.0`;
+    return `BioDockify v6.0.3`;
   },
 
   init() {
