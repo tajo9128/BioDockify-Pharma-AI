@@ -1,12 +1,7 @@
-import { fetchApi } from "/js/api.js";
+import { createStore } from "/js/AlpineStore.js";
+import { callJsonApi } from "/js/api.js";
 
-async function apiGet(path) {
-  const resp = await fetchApi(path, { method: "GET" });
-  const txt = await resp.text();
-  try { return JSON.parse(txt); } catch { return []; }
-}
-
-export const store = Alpine.reactive({
+export const store = createStore("researchDashboard", {
   activeTab: "projects",
   projects: [],
   activeProjectId: null,
@@ -17,13 +12,20 @@ export const store = Alpine.reactive({
   newTopic: "",
   newType: "phd",
 
+  get activeProject() {
+    return this.projects.find(p => p.research_id === this.activeProjectId) || null;
+  },
+  get progressPct() {
+    return Math.round((this.activeProject?.progress || 0) * 100);
+  },
+
   async init() {
     await this.listProjects();
   },
 
   async listProjects() {
     this.loading = true; this.error = "";
-    try { this.projects = await apiGet("research/management/list") || []; }
+    try { this.projects = await callJsonApi("research/management/list") || []; }
     catch (e) { this.error = e.message; }
     this.loading = false;
   },
@@ -36,8 +38,10 @@ export const store = Alpine.reactive({
   async loadDashboard() {
     if (!this.activeProjectId) return;
     this.loading = true; this.error = "";
-    try { this.dashboard = await apiGet("research/management/dashboard/" + this.activeProjectId); }
-    catch (e) { this.error = e.message; }
+    try {
+      const resp = await callJsonApi(`research/management/dashboard/${this.activeProjectId}`, {});
+      this.dashboard = resp || null;
+    } catch (e) { this.error = e.message; }
     this.loading = false;
   },
 
@@ -45,39 +49,31 @@ export const store = Alpine.reactive({
     if (!this.newTopic.trim()) return;
     this.loading = true; this.error = ""; this.message = "";
     try {
-      const resp = await fetchApi("research/management/comprehensive/initialize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: this.newTopic, research_type: this.newType, user_message: this.newTopic }),
+      const resp = await callJsonApi("research/management/comprehensive/initialize", {
+        topic: this.newTopic,
+        research_type: this.newType,
+        user_message: this.newTopic,
       });
-      const data = await resp.json();
-      if (data.research_id) {
-        this.message = "Started: " + data.research_id;
-        this.activeProjectId = data.research_id;
+      if (resp.research_id) {
+        this.message = "Pipeline started: " + resp.research_id;
+        this.activeProjectId = resp.research_id;
         this.newTopic = "";
         await this.listProjects();
-      } else if (data.error) { this.error = data.error; }
-      else { this.error = "Failed to start research"; }
+        this.loadDashboard();
+      } else {
+        this.error = resp.error || "Failed to start research pipeline";
+      }
     } catch (e) { this.error = e.message; }
     this.loading = false;
   },
 
-  get activeProject() {
-    return this.projects.find(p => p.research_id === this.activeProjectId) || null;
-  },
-
-  get progressPct() { return Math.round((this.activeProject?.progress || 0) * 100); },
-
   exportReport() {
     const p = this.activeProject; if (!p) return;
     const d = this.dashboard || {};
-    let md = `# Research: ${p.topic || p.title}\nType: ${p.research_type || "N/A"} | Progress: ${this.progressPct}%\n\n`;
-    (d.tasks || []).forEach(t => { md += `- [${t.status}] ${t.title || t.id}\n`; });
-    (d.milestones || []).forEach(m => { md += `- ${m.status} ${Math.round((m.progress||0)*100)}% ${m.title}\n`; });
+    let md = `# ${p.topic || p.title}\nType: ${p.research_type} | Progress: ${this.progressPct}%\n\n`;
+    (d.tasks || []).forEach(t => md += `- [${t.status}] ${t.title || t.id}\n`);
     const b = new Blob([md], { type: "text/plain" });
     const u = URL.createObjectURL(b); const a = document.createElement("a");
-    a.href = u; a.download = "research-report.md"; a.click(); URL.revokeObjectURL(u);
+    a.href = u; a.download = "report.md"; a.click(); URL.revokeObjectURL(u);
   },
 });
-
-Alpine.store("researchDashboard", Alpine.raw(store));

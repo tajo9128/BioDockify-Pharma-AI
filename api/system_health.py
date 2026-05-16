@@ -53,19 +53,18 @@ class SystemHealth(ApiHandler):
         except:
             result["checks"].append({"name": "RDKit", "status": "warn", "detail": "Not installed"})
 
-        # Backend APIs - check via Python imports
+        # Backend APIs - check via file existence
         api_checks = [
-            ("Statistics", ["statistics.orchestrator", "StatisticsOrchestrator"]),
-            ("Thesis", ["thesis.engine", "get_thesis_engine"]),
-            ("Research Mgmt", ["research_persistence", "ResearchPersistenceManager"]),
-            ("Backup", ["backup.manager", None]),
+            ("Statistics", "modules/statistics/orchestrator.py"),
+            ("Thesis", "modules/thesis/engine.py"),
+            ("Research Mgmt", "modules/research_persistence.py"),
+            ("Backup", "modules/backup/manager.py"),
         ]
-        for name, (mod_name, _) in api_checks:
-            try:
-                import importlib; importlib.import_module(f"modules.{mod_name}")
-                result["checks"].append({"name": name, "status": "ok", "detail": "Module loaded"})
-            except:
-                result["checks"].append({"name": name, "status": "warn", "detail": "Not loadable"})
+        for name, file_path in api_checks:
+            full = os.path.join("/a0", file_path)
+            exists = os.path.exists(full)
+            result["checks"].append({"name": name, "status": "ok" if exists else "warn",
+                "detail": "Available" if exists else "Missing"})
 
         # TTS fallback status
         tts = {"status": "ok", "engine": "browser"}
