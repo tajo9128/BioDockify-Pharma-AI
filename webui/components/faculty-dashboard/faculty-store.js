@@ -122,4 +122,21 @@ export const store = createStore("facultyTools", {
     const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea");
     if (input) { input.value = prompt; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); }
   },
+
+  litReview() {
+    const name = this.syllabusResult?.course_name || this.subjects[this.activeSubject-1].name;
+    this.sendToAgent(`Conduct a comprehensive literature review for: ${name}. Search PubMed, Semantic Scholar, arXiv for recent papers (last 5 years). Structure: 1) Introduction, 2) Current State of Knowledge, 3) Key Findings, 4) Research Gaps, 5) Future Directions. Include 10+ citations.`);
+  },
+
+  prepareNotes() {
+    const name = this.syllabusResult?.course_name || this.subjects[this.activeSubject-1].name;
+    const topics = (this.syllabusResult?.topics || []).join(', ');
+    this.sendToAgent(`Prepare structured study notes for: ${name}. Topics: ${topics}. For each topic provide: 1) Key concepts (bullet points), 2) Important definitions, 3) Diagrams to draw, 4) Memory aids/mnemonics, 5) Practice questions. Format as student-ready notes.`);
+  },
+
+  makeSlides() {
+    const name = this.syllabusResult?.course_name || this.subjects[this.activeSubject-1].name;
+    const topics = (this.syllabusResult?.topics || []).slice(0, 10).join(', ');
+    this.sendToAgent(`Create a ${Math.min(this.syllabusResult?.topic_count || 10, 15)}-slide presentation for: ${name}. Topics to cover: ${topics}. For each slide: Slide number, Title, 3-4 bullet points, Speaker notes. Style: Academic. Include introduction and summary slides.`);
+  },
 });

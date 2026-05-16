@@ -48,6 +48,11 @@
         <h4>Upload Course Syllabus</h4>
         <p class="fd-desc">Paste syllabus text OR upload DOCX/PDF file to auto-extract course structure.</p>
         <div class="fd-upload-row">
+          <select class="fd-select-sm" @change="$store.facultyTools.switchSubject(parseInt($event.target.value))">
+            <template x-for="sub in $store.facultyTools.subjects" :key="sub.id">
+              <option :value="sub.id" :selected="$store.facultyTools.activeSubject === sub.id" x-text="sub.name"></option>
+            </template>
+          </select>
           <input type="file" accept=".docx,.pdf,.txt,.md" class="fd-file-input" @change="const f = $event.target.files[0]; if (!f) return; const ext = f.name.split('.').pop().toLowerCase(); if (ext === 'txt' || ext === 'md') { const r = new FileReader(); r.onload = () => { $store.facultyTools.syllabusText = r.result; $store.facultyTools.syllabusParse(); }; r.readAsText(f); } else { $store.facultyTools.syllabusText = `Uploaded: ${f.name} (${(f.size/1024).toFixed(1)} KB). Paste content or use agent to parse this syllabus.`; $store.facultyTools.message = 'DOCX/PDF parsing via agent. Click Parse Syllabus after upload.'; }" title="Upload syllabus file" />
           <span class="fd-upload-label">Upload DOCX/PDF/TXT</span>
         </div>
@@ -72,14 +77,20 @@
             </template>
           </div>
           <div class="fd-actions">
+            <button class="fd-btn-sm" @click="$store.facultyTools.litReview()">
+              <span class="material-symbols-outlined">menu_book</span> Literature Review
+            </button>
+            <button class="fd-btn-sm" @click="$store.facultyTools.prepareNotes()">
+              <span class="material-symbols-outlined">edit_note</span> Prep Notes
+            </button>
+            <button class="fd-btn-sm" @click="$store.facultyTools.makeSlides()">
+              <span class="material-symbols-outlined">slideshow</span> Make Slides
+            </button>
             <button class="fd-btn-sm" @click="$store.facultyTools.lectureTopic = $store.facultyTools.syllabusResult.course_name; $store.facultyTools.activeTab = 'lecture'">
-              <span class="material-symbols-outlined">cast</span> Generate Lectures
+              <span class="material-symbols-outlined">cast</span> Lectures
             </button>
             <button class="fd-btn-sm" @click="$store.facultyTools.assignTopic = $store.facultyTools.syllabusResult.course_name; $store.facultyTools.activeTab = 'assignment'">
-              <span class="material-symbols-outlined">assignment</span> Generate Assignments
-            </button>
-            <button class="fd-btn-sm" @click="$store.facultyTools.qbTopic = $store.facultyTools.syllabusResult.course_name; $store.facultyTools.activeTab = 'questions'">
-              <span class="material-symbols-outlined">quiz</span> Generate Q-Bank
+              <span class="material-symbols-outlined">assignment</span> Assignments
             </button>
           </div>
         </div>
