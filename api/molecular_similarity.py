@@ -45,7 +45,14 @@ class MolecularSimilarity(ApiHandler):
                 results.append({"smiles": s, "similarity": round(sim, 4)})
 
             results.sort(key=lambda x: x["similarity"], reverse=True)
-            return {"results": results[:30], "total": len(results)}
+            top = results[:30]
+            max_sim = top[0]["similarity"] if top else 0
+            return {
+                "matches": top,
+                "total": len(results),
+                "max_similarity": max_sim,
+                "query_smiles": query_smiles,
+            }
 
         except ImportError:
             return {"error": "RDKit not available"}
