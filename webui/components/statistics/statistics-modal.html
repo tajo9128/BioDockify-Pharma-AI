@@ -80,6 +80,10 @@
           <button class="btn-text" @click="resetData()">Change file</button>
         </div>
 
+        <!-- Error message (shown in step 2) -->
+        <div x-show="errorMessage" class="stats-error" x-text="errorMessage" @click="errorMessage = ''" style="cursor:pointer"></div>
+        <div x-show="loading" class="dock-loading" style="margin-bottom:8px"><div class="loading-spinner"></div><span>Running analysis...</span></div>
+
         <!-- Data preview -->
         <div class="data-preview" x-show="columns.length">
           <p class="section-label">Columns: <span x-text="columns.join(', ')"></span></p>
@@ -502,6 +506,11 @@
       .agent-help-btn { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: color-mix(in srgb, var(--color-accent, #4fc3f7) 8%, var(--color-panel)); border: 1px solid color-mix(in srgb, var(--color-accent, #4fc3f7) 25%, var(--color-border)); border-radius: 8px; color: var(--color-text); cursor: pointer; font-size: 0.72rem; font-weight: 500; width: 100%; justify-content: center; transition: all 0.15s; }
       .agent-help-btn:hover { background: color-mix(in srgb, var(--color-accent, #4fc3f7) 15%, var(--color-panel)); border-color: var(--color-accent, #4fc3f7); }
       .agent-help-btn .material-symbols-outlined { font-size: 18px; color: var(--color-accent, #4fc3f7); }
+
+      .stats-error { padding: 8px 12px; background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.2); border-radius: 6px; color: var(--color-error-text, #ff6b6b); font-size: 0.68rem; margin-bottom: 8px; }
+      .dock-loading { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; color: var(--color-text-muted); }
+      .loading-spinner { width: 15px; height: 15px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
     </style>
   </div>
 </body>

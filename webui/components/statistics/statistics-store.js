@@ -25,6 +25,7 @@ Alpine.data("statisticsModal", () => ({
   loading: false,
   activeAnalysis: "",
   viewMode: "table",
+  errorMessage: "",
 
   persist() {
     try {
@@ -51,7 +52,7 @@ Alpine.data("statisticsModal", () => ({
 
   get columnOptions() { return this.columns.map(c => ({ value: c, label: c })); },
 
-  selectTest(type) { this.testType = type; this.results = ""; this.resultsJson = null; this.persist(); },
+  selectTest(type) { this.testType = type; this.results = ""; this.resultsJson = null; this.errorMessage = ""; this.activeAnalysis = ""; this.persist(); },
 
   async importData() {
     const input = document.createElement("input");
@@ -65,9 +66,10 @@ Alpine.data("statisticsModal", () => ({
       try {
         const formData = new FormData();
         formData.append("file", file);
+        const token = await getCsrfToken();
         const resp = await fetch("/api/statistics/import-data", {
           method: "POST", body: formData,
-          headers: { "X-CSRF-Token": await getCsrfToken() }
+          headers: { "X-CSRF-Token": token }
         });
         const data = await resp.json();
         if (data.status === "success" || data.data_summary) {
@@ -77,53 +79,57 @@ Alpine.data("statisticsModal", () => ({
           this.hasData = true;
           this.step = 2;
           this.results = "";
+          this.errorMessage = "";
           this.persist();
         } else {
-          this.results = "Import failed: " + (data.detail || data.error || "Unknown error");
+          this.errorMessage = "Import failed: " + (data.detail || data.error || "Unknown error");
         }
-      } catch (e) { this.results = "Import error: " + e.message; }
+      } catch (e) { this.errorMessage = "Import error: " + e.message; }
       this.loading = false;
     };
     input.click();
   },
 
   async runAnalysis() {
-    if (!this.testType) return;
+    if (!this.testType) { this.errorMessage = "Select an analysis type first"; return; }
     this.activeAnalysis = this.testType;
     this.loading = true;
     this.results = "";
+    this.errorMessage = "";
     try {
       let endpoint = "";
       let payload = {};
       switch (this.testType) {
         case "descriptive": endpoint = "statistics/analyze/descriptive"; break;
         case "correlation":
-          if (this.selectedCorrCols.length < 2) { this.results = "Select at least 2 columns"; this.loading = false; return; }
+          if (this.selectedCorrCols.length < 2) { this.errorMessage = "Select at least 2 columns for correlation"; this.loading = false; return; }
           endpoint = "statistics/analyze/correlation";
           payload = { columns: this.selectedCorrCols, method: this.correlationMethod }; break;
         case "ttest":
-          if (!this.selectedGroupCol || !this.selectedValueCol) { this.results = "Select Group and Value columns"; this.loading = false; return; }
+          if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select both Group and Value columns"; this.loading = false; return; }
           endpoint = "statistics/analyze/t-test";
           payload = { group_col: this.selectedGroupCol, value_col: this.selectedValueCol, test_type: this.ttestType, equal_var: this.ttestEqualVar }; break;
         case "anova":
-          if (!this.selectedGroupCol || !this.selectedValueCol) { this.results = "Select Group and Value columns"; this.loading = false; return; }
+          if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select both Group and Value columns for ANOVA"; this.loading = false; return; }
           endpoint = "statistics/analyze/anova";
           payload = { group_col: this.selectedGroupCol, value_col: this.selectedValueCol, post_hoc: this.anovaPostHoc }; break;
         case "regression":
         case "survival":
         case "pkpd":
-          this.results = `${this.testType}: Use agent chat for this analysis type`;
+          this.errorMessage = "This analysis runs via the AI agent. Ask in the chat panel.";
           this.loading = false; return;
         case "power":
           endpoint = "statistics/analyze/power";
           payload = { test_type: "ttest_ind", effect_size: this.powerEffectSize, alpha: this.powerAlpha, power: this.powerTarget }; break;
-        default: this.results = "Unknown analysis"; this.loading = false; return;
+        default: this.errorMessage = "Unknown analysis type"; this.loading = false; return;
       }
       const result = await callJsonApi(endpoint, payload);
       this.resultsJson = result;
       this.results = JSON.stringify(result, null, 2);
       this.step = 3;
-    } catch (e) { this.results = "Error: " + e.message; }
+    } catch (e) {
+      this.errorMessage = "Analysis failed: " + (e.message || "API unavailable. Try asking the agent instead.");
+    }
     this.loading = false;
   },
 
@@ -180,27 +186,37 @@ Alpine.data("statisticsModal", () => ({
   resetData() {
     this.hasData = false; this.step = 1; this.fileName = ""; this.columns = []; this.rowCount = 0;
     this.selectedGroupCol = ""; this.selectedValueCol = ""; this.selectedCorrCols = [];
-    this.testType = null; this.results = ""; this.resultsJson = null;
+    this.testType = null; this.results = ""; this.resultsJson = null; this.errorMessage = "";
     this.activeAnalysis = ""; this.viewMode = "table";
   },
 
   sendToAgent(prompt) {
-    const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea, .input-area textarea");
-    if (input) { input.value = prompt; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); }
+    const input = document.getElementById("chat-input");
+    if (input) {
+      input.value = prompt;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.focus();
+    }
   },
 
-  handleDrop(event) {
+  async handleDrop(event) {
     const file = event.dataTransfer?.files?.[0];
     if (!file) return;
     this.loading = true; this.fileName = file.name;
-    const fd = new FormData(); fd.append("file", file);
-    fetch("/api/statistics/import-data", { method: "POST", body: fd, headers: { "X-CSRF-Token": getCsrfToken() } })
-      .then(r => r.json()).then(d => {
-        const s = d.data_summary || d;
-        this.columns = s.column_names || []; this.rowCount = s.rows || 0;
-        this.hasData = true; this.step = 2;
-      }).catch(e => { this.results = "Import error: " + e.message; })
-      .finally(() => { this.loading = false; });
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const token = await getCsrfToken();
+      const resp = await fetch("/api/statistics/import-data", {
+        method: "POST", body: fd,
+        headers: { "X-CSRF-Token": token }
+      });
+      const d = await resp.json();
+      const s = d.data_summary || d;
+      this.columns = s.column_names || []; this.rowCount = s.rows || 0;
+      this.hasData = true; this.step = 2;
+      this.persist();
+    } catch (e) { this.errorMessage = "Import error: " + e.message; }
+    this.loading = false;
   },
 
   closeModal() { this.resetData(); closeTopModal(); },
