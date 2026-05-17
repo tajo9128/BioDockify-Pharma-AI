@@ -222,8 +222,12 @@ except Exception as e:
 # CORS Configuration - Whitelist specific origins for security
 allowed_origins = [
     "http://localhost:3000",
+    "http://localhost:5000",
+    "http://localhost:50001",
     "http://localhost:8234",
     "http://127.0.0.1:3000",
+    "http://127.0.0.1:5000",
+    "http://127.0.0.1:50001",
     "http://127.0.0.1:8234",
     "tauri://localhost",  # Tauri desktop app
 ]
@@ -250,6 +254,13 @@ async def add_security_headers(request: Request, call_next):
         # Simple Origin/Referer check against allowed origins
         is_valid_origin = any(o in (origin or "") for o in allowed_origins)
         is_valid_referer = any(o in (referer or "") for o in allowed_origins)
+
+        # Always allow localhost regardless of port
+        if not (is_valid_origin or is_valid_referer):
+            if (origin or "").startswith(("http://localhost", "http://127.0.0.1", "https://localhost", "https://127.0.0.1")):
+                is_valid_origin = True
+            if (referer or "").startswith(("http://localhost", "http://127.0.0.1", "https://localhost", "https://127.0.0.1")):
+                is_valid_referer = True
 
         if not (is_valid_origin or is_valid_referer):
             # If it's a browser request (has origin/referer) but from wrong source
