@@ -1,4 +1,4 @@
-<html>
+﻿<html>
 <head>
   <script type="module">
     import { createStore } from "/js/AlpineStore.js";
@@ -54,7 +54,7 @@
       },
 
       sendToAgent(msg) {
-        const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea");
+        const input = document.getElementById("chat-input");
         if (input) { input.value = msg; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); }
       },
 
@@ -110,7 +110,7 @@
       <div x-show="$store.wetlabStore.activeTab === 'experiments'" class="tab-content">
         <div style="display:flex;gap:6px;margin-bottom:8px">
           <button class="btn-add" @click="$store.wetlabStore.activeTab = 'protocols'">+ New</button>
-          <button class="btn-add" @click="$store.wetlabStore.generateReport()" x-show="$store.wetlabStore.experiments.length" style="background:#6366f1">📊 Lab Report</button>
+          <button class="btn-add" @click="$store.wetlabStore.generateReport()" x-show="$store.wetlabStore.experiments.length" style="background:#6366f1">ðŸ“Š Lab Report</button>
         </div>
         <template x-if="$store.wetlabStore.experiments.length">
           <div class="exp-list">
@@ -120,7 +120,7 @@
                   <span class="exp-status" :style="'background:' + $store.wetlabStore.statusColor(exp.status)" @click="$store.wetlabStore.toggleStatus(exp.id)" :title="'Click to change (currently: ' + exp.status + ')'"></span>
                   <span class="exp-name" x-text="exp.name"></span>
                   <span class="exp-date" x-text="exp.createdAt"></span>
-                  <button class="btn-del" @click="$store.wetlabStore.deleteExperiment(exp.id)">×</button>
+                  <button class="btn-del" @click="$store.wetlabStore.deleteExperiment(exp.id)">Ã—</button>
                 </div>
                 <div class="exp-protocol" x-show="exp.protocol" x-text="exp.protocol"></div>
                 <div class="exp-notes" x-show="exp.notes.length">

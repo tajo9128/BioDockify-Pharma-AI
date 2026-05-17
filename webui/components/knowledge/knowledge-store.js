@@ -1,4 +1,4 @@
-import { createStore } from "/js/AlpineStore.js";
+﻿import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi } from "/js/api.js";
 
 const LS_KEY = "biodockify.notebook";
@@ -174,7 +174,7 @@ export const store = createStore("knowledgeModal", {
     const ctx = this.searchResults.length
       ? this.searchResults.map(r => (r.title || r.content || "").substring(0, 200)).join("\n")
       : this.entries.map(e => e.question + ": " + e.answer).join("\n").substring(0, 3000);
-    const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea");
+    const input = document.getElementById("chat-input");
     if (input) {
       input.value = `Based on this knowledge base content, answer my question:\n\n${ctx}\n\nQuestion: `;
       input.dispatchEvent(new Event("input", { bubbles: true }));

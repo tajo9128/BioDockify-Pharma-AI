@@ -19,7 +19,7 @@
         this.error = "";
         this.result = null;
         try {
-          const resp = await callJsonApi("slides/generate-from-kb", {
+          const resp = await callJsonApi("slides/generate", {
             topic: this.topic,
             style: this.style,
             num_slides: this.numSlides,
@@ -27,17 +27,21 @@
           });
           if (resp.error) { this.error = resp.error; return; }
           this.result = resp;
-        } catch (e) { this.error = e.message; }
+        } catch (e) {
+          this.sendToAgent();
+        }
         this.loading = false;
       },
 
       sendToAgent() {
-        const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea");
+        const input = document.getElementById("chat-input");
         if (input) {
-          input.value = `Create a ${this.numSlides}-slide presentation on "${this.topic}" in ${this.style} style.`;
+          input.value = `Create a ${this.numSlides}-slide presentation on "${this.topic}" in ${this.style} style. For each slide provide: slide number, title, 3-4 bullet points, and speaker notes. Format: Slide N: [Title]\n• Point 1\n• Point 2\n\nSpeaker notes: ...`;
           input.dispatchEvent(new Event("input", { bubbles: true }));
           input.focus();
-          this.result = { message: "Task sent to agent chat", slides: [] };
+          this.result = { topic: this.topic, slides: [], message: "Slide task sent to agent chat. Check the chat panel." };
+        } else {
+          this.error = "Chat input not found. Open a new chat first.";
         }
       },
 

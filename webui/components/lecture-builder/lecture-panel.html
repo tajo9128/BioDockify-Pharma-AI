@@ -1,4 +1,4 @@
-<html>
+﻿<html>
 <head>
   <script type="module">
     import { createStore } from "/js/AlpineStore.js";
@@ -128,7 +128,7 @@
           </template>
 
           <div class="agent-help">
-            <button class="agent-help-btn" @click="const p=`Refine this lecture on ${$store.lectureBuilder.topic}. Add more examples and interactive elements.`; const el=document.querySelector('#chat-bar-input textarea, .chat-bar-input textarea'); if(el){el.value=p;el.dispatchEvent(new Event('input',{bubbles:true}));el.focus()}">
+            <button class="agent-help-btn" @click="const p=`Refine this lecture on ${$store.lectureBuilder.topic}. Add more examples and interactive elements.`; const el=document.querySelector('chat-input'); if(el){el.value=p;el.dispatchEvent(new Event('input',{bubbles:true}));el.focus()}">
               <span class="material-symbols-outlined">psychology</span>
               Agent: refine and add interactive elements
             </button>

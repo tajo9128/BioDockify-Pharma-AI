@@ -1,4 +1,4 @@
-<html>
+﻿<html>
 <head>
   <script type="module">
     import { createStore } from "/js/AlpineStore.js";
@@ -9,12 +9,12 @@
         if (!this.title.trim()) return;
         this.loading = true; this.error = ""; this.result = null;
         const p = `Write a grant proposal on "${this.title}" for ${this.agency || 'a research funding agency'}. Budget: ${this.budget || 'standard'}. Duration: ${this.duration || '3 years'}. Include: 1) Abstract, 2) Specific Aims, 3) Background & Significance, 4) Research Design & Methods, 5) Timeline with milestones, 6) Budget Justification, 7) Expected Outcomes & Impact, 8) References. Format professionally.`;
-        const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea");
+        const input = document.getElementById("chat-input");
         if (input) { input.value = p; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); this.result = { title: this.title, content: "Grant proposal sent to agent chat." }; }
         else { this.error = "Chat input not found"; }
         this.loading = false;
       },
-      sendToAgent(p) { const i = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea"); if (i) { i.value = p; i.dispatchEvent(new Event("input", { bubbles: true })); i.focus(); } },
+      sendToAgent(p) { const i = document.getElementById("chat-input"); if (i) { i.value = p; i.dispatchEvent(new Event("input", { bubbles: true })); i.focus(); } },
     });
   </script>
 </head>
@@ -28,7 +28,7 @@
         <input type="text" x-model="$store.grantWriter.title" placeholder="Project title..." class="gw-input" @keyup.enter="$store.grantWriter.generate()" />
         <div class="gw-row">
           <input type="text" x-model="$store.grantWriter.agency" placeholder="Funding agency (e.g. NIH, DST, ICMR)..." class="gw-input" />
-          <input type="text" x-model="$store.grantWriter.budget" placeholder="Budget (e.g. ₹50 Lakhs, $500K)..." class="gw-input" />
+          <input type="text" x-model="$store.grantWriter.budget" placeholder="Budget (e.g. â‚¹50 Lakhs, $500K)..." class="gw-input" />
           <input type="text" x-model="$store.grantWriter.duration" placeholder="Duration (e.g. 3 years)..." class="gw-input" />
         </div>
         <textarea x-model="$store.grantWriter.goals" placeholder="Key goals / objectives (optional)..." class="gw-textarea" rows="2"></textarea>
@@ -62,7 +62,7 @@
       <p>Enter project title, funding agency, budget, and duration to generate a complete grant proposal.</p>
       <div class="gw-quick">
         <button class="gw-chip" @click="$store.grantWriter.title='Development of Novel Kinase Inhibitors for Cancer Therapy'; $store.grantWriter.agency='NIH R01'; $store.grantWriter.budget='$1.5M'; $store.grantWriter.duration='5 years'; $store.grantWriter.generate()">NIH: Cancer drug discovery</button>
-        <button class="gw-chip" @click="$store.grantWriter.title='AI-Driven Drug Repurposing for Rare Diseases'; $store.grantWriter.agency='DST-SERB'; $store.grantWriter.budget='₹75 Lakhs'; $store.grantWriter.duration='3 years'; $store.grantWriter.generate()">SERB: AI drug repurposing</button>
+        <button class="gw-chip" @click="$store.grantWriter.title='AI-Driven Drug Repurposing for Rare Diseases'; $store.grantWriter.agency='DST-SERB'; $store.grantWriter.budget='â‚¹75 Lakhs'; $store.grantWriter.duration='3 years'; $store.grantWriter.generate()">SERB: AI drug repurposing</button>
       </div>
     </div>
 

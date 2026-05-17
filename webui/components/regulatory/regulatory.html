@@ -1,4 +1,4 @@
-<html>
+﻿<html>
 <head>
   <script type="module">
     import { createStore } from "/js/AlpineStore.js";
@@ -21,7 +21,7 @@
         catch (e) { this.error = e.message; }
         this.loading = false;
       },
-      sendToAgent(p) { const i = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea"); if (i) { i.value = p; i.dispatchEvent(new Event("input", { bubbles: true })); i.focus(); } },
+      sendToAgent(p) { const i = document.getElementById("chat-input"); if (i) { i.value = p; i.dispatchEvent(new Event("input", { bubbles: true })); i.focus(); } },
     });
   </script>
 </head>
@@ -29,8 +29,8 @@
   <div x-data class="rg-panel">
     <div class="rg-header"><span class="material-symbols-outlined rg-icon">gavel</span><h2>Regulatory</h2></div>
     <div class="rg-tabs">
-      <button class="rg-tab" :class="{active: $store.regulatory.activeTab === 'search'}" @click="$store.regulatory.activeTab = 'search'">🔍 Search</button>
-      <button class="rg-tab" :class="{active: $store.regulatory.activeTab === 'checklist'}" @click="$store.regulatory.activeTab = 'checklist'; $store.regulatory.loadChecklist()">📋 Checklist</button>
+      <button class="rg-tab" :class="{active: $store.regulatory.activeTab === 'search'}" @click="$store.regulatory.activeTab = 'search'">ðŸ” Search</button>
+      <button class="rg-tab" :class="{active: $store.regulatory.activeTab === 'checklist'}" @click="$store.regulatory.activeTab = 'checklist'; $store.regulatory.loadChecklist()">ðŸ“‹ Checklist</button>
     </div>
 
     <div x-show="$store.regulatory.error" class="rg-error" x-text="$store.regulatory.error"></div>
@@ -59,7 +59,7 @@
       </div>
       <template x-if="$store.regulatory.checklist">
         <div class="rg-card"><h4 x-text="$store.regulatory.checklist.title"></h4>
-          <p class="rg-meta" x-text="$store.regulatory.checklist.total_phases + ' phases · ' + $store.regulatory.checklist.total_items + ' items'"></p>
+          <p class="rg-meta" x-text="$store.regulatory.checklist.total_phases + ' phases Â· ' + $store.regulatory.checklist.total_items + ' items'"></p>
           <template x-for="p in $store.regulatory.checklist.phases" :key="p.phase">
             <div class="rg-phase"><div class="rg-phase-head"><strong x-text="p.phase"></strong><span class="rg-time" x-text="p.estimated_time"></span></div><ul><template x-for="item in p.items"><li x-text="item"></li></template></ul></div>
           </template>
