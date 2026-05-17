@@ -28,18 +28,78 @@
       dockingPdb: "",
       dockingLigand: "",
       dockingProteinName: "",
+      dockingProteinFile: "",
+      dockingProteinFormat: "",
       dockingLigandName: "ligand",
+      dockingLigandFile: "",
+      dockingLigandFormat: "",
       dockingCenter: null,
       dockingSize: { x: 20, y: 20, z: 20 },
       dockingPoses: [],
       dockingStatus: "",
       dockingError: "",
 
+      handleProteinUpload(event) {
+        const f = event.target.files[0];
+        if (!f) return;
+        const ext = f.name.split('.').pop().toLowerCase();
+        this.dockingProteinFile = f.name;
+        this.dockingProteinFormat = ext;
+        if (!this.dockingProteinName) this.dockingProteinName = f.name.replace(/\.[^/.]+$/, '');
+        const r = new FileReader();
+        r.onload = () => { this.dockingPdb = r.result; this.error = ""; };
+        r.onerror = () => { this.error = "Failed to read protein file"; };
+        r.readAsText(f);
+      },
+
+      handleLigandUpload(event) {
+        const f = event.target.files[0];
+        if (!f) return;
+        const ext = f.name.split('.').pop().toLowerCase();
+        this.dockingLigandFile = f.name;
+        this.dockingLigandFormat = ext;
+        if (!this.dockingLigandName || this.dockingLigandName === 'ligand')
+          this.dockingLigandName = f.name.replace(/\.[^/.]+$/, '');
+        const r = new FileReader();
+        r.onload = () => {
+          const t = r.result;
+          if (ext === 'smi' || ext === 'smiles') {
+            this.dockingLigand = t.split('\n').find(l => l.trim() && !l.startsWith('#'))?.trim() || t;
+            this.dockingLigandFormat = 'smiles';
+          } else {
+            this.dockingLigand = t;
+          }
+          this.error = "";
+        };
+        r.onerror = () => { this.error = "Failed to read ligand file"; };
+        r.readAsText(f);
+      },
+
+      clearProtein() {
+        this.dockingPdb = "";
+        this.dockingProteinFile = "";
+        this.dockingProteinFormat = "";
+        this.dockingProteinName = "";
+      },
+
+      clearLigand() {
+        this.dockingLigand = "";
+        this.dockingLigandFile = "";
+        this.dockingLigandFormat = "";
+        this.dockingLigandName = "ligand";
+      },
+
       async dockingPrepare() {
-        if (!this.dockingPdb.trim() || !this.dockingLigand.trim()) { this.error = "PDB and SMILES required"; return; }
+        if (!this.dockingPdb.trim() || !this.dockingLigand.trim()) { this.error = "Protein and Ligand data required"; return; }
         this.loading = true; this.error = ""; this.dockingPoses = []; this.dockingStatus = "";
         try {
-          const r = await callJsonApi("docking_prepare", { protein_pdb: this.dockingPdb, ligand_smiles: this.dockingLigand, ligand_name: this.dockingLigandName || "ligand" });
+          const r = await callJsonApi("docking_prepare", {
+            protein_content: this.dockingPdb,
+            protein_format: this.dockingProteinFormat || "pdb",
+            ligand_content: this.dockingLigand,
+            ligand_format: this.dockingLigandFormat || "smiles",
+            ligand_name: this.dockingLigandName || "ligand"
+          });
           if (r.error) { this.error = r.error; this.loading = false; return; }
           this.dockingJobId = r.job_id; this.dockingCenter = r.center;
           this.dockingStatus = "prepared"; this.loading = false;
@@ -276,14 +336,26 @@
             <div class="dock-card-header">
               <span class="material-symbols-outlined dock-card-icon">molecule</span>
               <h4>Protein (Receptor)</h4>
+              <div class="format-badges">
+                <span class="fmt-badge">PDB</span><span class="fmt-badge">PDBQT</span><span class="fmt-badge">CIF</span><span class="fmt-badge">MOL2</span><span class="fmt-badge">ENT</span>
+              </div>
             </div>
-            <textarea x-model="$store.molecularToolkit.dockingPdb" placeholder="Paste protein PDB content here..." class="mt-textarea" rows="5" style="flex:none;min-height:80px"></textarea>
+            <textarea x-model="$store.molecularToolkit.dockingPdb" placeholder="Paste protein structure content here..." class="mt-textarea" rows="5" style="flex:none;min-height:80px"></textarea>
             <div class="dock-card-row">
               <input type="text" x-model="$store.molecularToolkit.dockingProteinName" placeholder="Protein name (optional)" class="mt-input-sm" />
               <label class="dock-upload-label">
-                <span class="material-symbols-outlined">upload_file</span> Upload PDB
-                <input type="file" accept=".pdb,.pdbqt,.ent" hidden @change="const f=$event.target.files[0];if(f){const r=new FileReader();r.onload=()=>{$store.molecularToolkit.dockingPdb=r.result;if(!$store.molecularToolkit.dockingProteinName)$store.molecularToolkit.dockingProteinName=f.name.replace(/\.[^/.]+$/, '');};r.readAsText(f)}" />
+                <span class="material-symbols-outlined">upload_file</span> Upload
+                <input type="file" accept=".pdb,.pdbqt,.ent,.cif,.mol2,.txt" hidden @change="$store.molecularToolkit.handleProteinUpload($event)" />
               </label>
+              <button class="dock-clear-btn" x-show="$store.molecularToolkit.dockingPdb" @click="$store.molecularToolkit.clearProtein()" title="Clear">
+                <span class="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <!-- Upload status -->
+            <div class="dock-upload-status" x-show="$store.molecularToolkit.dockingProteinFile">
+              <span class="material-symbols-outlined">check_circle</span>
+              <span x-text="$store.molecularToolkit.dockingProteinFile"></span>
+              <span class="fmt-tag" x-text="$store.molecularToolkit.dockingProteinFormat?.toUpperCase()"></span>
             </div>
           </div>
 
@@ -292,14 +364,26 @@
             <div class="dock-card-header">
               <span class="material-symbols-outlined dock-card-icon">science</span>
               <h4>Ligand (Small Molecule)</h4>
+              <div class="format-badges">
+                <span class="fmt-badge">SMILES</span><span class="fmt-badge">SDF</span><span class="fmt-badge">MOL</span><span class="fmt-badge">PDB</span><span class="fmt-badge">MOL2</span>
+              </div>
             </div>
-            <input type="text" x-model="$store.molecularToolkit.dockingLigand" placeholder="Enter SMILES (e.g. CC(=O)Oc1ccccc1C(=O)O for Aspirin)" class="mt-input" />
+            <input type="text" x-model="$store.molecularToolkit.dockingLigand" :placeholder="$store.molecularToolkit.dockingLigandFormat === 'smiles' ? 'SMILES string' : 'Enter SMILES or upload a ligand file...'" class="mt-input" />
             <div class="dock-card-row">
               <input type="text" x-model="$store.molecularToolkit.dockingLigandName" placeholder="Ligand name (optional)" class="mt-input-sm" />
               <label class="dock-upload-label">
-                <span class="material-symbols-outlined">upload_file</span> Upload File
-                <input type="file" accept=".sdf,.mol,.pdb,.smi" hidden @change="const f=$event.target.files[0];if(f){const r=new FileReader();r.onload=()=>{const t=r.result;$store.molecularToolkit.dockingLigand=t.includes('SMILES')?t.split('\n').find(l=>l.trim()&&!l.startsWith('#'))||t:t;if(!$store.molecularToolkit.dockingLigandName)$store.molecularToolkit.dockingLigandName=f.name.replace(/\.[^/.]+$/, '');};r.readAsText(f)}" />
+                <span class="material-symbols-outlined">upload_file</span> Upload
+                <input type="file" accept=".sdf,.mol,.pdb,.mol2,.smi,.smiles,.txt" hidden @change="$store.molecularToolkit.handleLigandUpload($event)" />
               </label>
+              <button class="dock-clear-btn" x-show="$store.molecularToolkit.dockingLigand" @click="$store.molecularToolkit.clearLigand()" title="Clear">
+                <span class="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <!-- Upload status -->
+            <div class="dock-upload-status" x-show="$store.molecularToolkit.dockingLigandFile">
+              <span class="material-symbols-outlined">check_circle</span>
+              <span x-text="$store.molecularToolkit.dockingLigandFile"></span>
+              <span class="fmt-tag" x-text="$store.molecularToolkit.dockingLigandFormat?.toUpperCase()"></span>
             </div>
           </div>
         </div>
@@ -465,10 +549,17 @@
       .dock-card-header { display: flex; align-items: center; gap: 8px; }
       .dock-card-icon { font-size: 20px; color: var(--color-primary); }
       .dock-card h4 { color: var(--color-text); font-size: 0.78rem; font-weight: 600; margin: 0; }
-      .dock-card-row { display: flex; gap: 8px; align-items: center; }
+      .format-badges { display: flex; gap: 3px; margin-top: 4px; }
+      .fmt-badge { padding: 1px 5px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 3px; font-size: 0.5rem; color: var(--color-text-muted); font-weight: 600; }
+      .fmt-tag { padding: 1px 5px; background: var(--color-primary); color: white; border-radius: 3px; font-size: 0.5rem; font-weight: 700; }
+      .dock-card-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
       .dock-upload-label { display: flex; align-items: center; gap: 4px; padding: 5px 10px; background: var(--color-background); border: 1px dashed var(--color-border); border-radius: 6px; color: var(--color-text-muted); cursor: pointer; font-size: 0.64rem; white-space: nowrap; transition: all 0.15s; }
       .dock-upload-label:hover { border-color: var(--color-primary); color: var(--color-primary); }
       .dock-upload-label .material-symbols-outlined { font-size: 16px; }
+      .dock-clear-btn { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: none; background: rgba(255,107,107,0.1); border-radius: 50%; cursor: pointer; color: #ff6b6b; padding: 0; flex-shrink: 0; }
+      .dock-clear-btn:hover { background: rgba(255,107,107,0.25); }
+      .dock-clear-btn .material-symbols-outlined { font-size: 14px; }
+      .dock-upload-status { display: flex; align-items: center; gap: 5px; margin-top: 6px; padding: 4px 8px; background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.2); border-radius: 4px; font-size: 0.58rem; color: #22c55e; }
 
       .dock-status-bar { margin-top: 6px; }
       .dock-badge { padding: 4px 10px; border-radius: 6px; font-size: 0.68rem; font-weight: 600; }
