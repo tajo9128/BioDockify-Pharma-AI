@@ -15,11 +15,11 @@ class MolecularDocking(Tool):
 
         workdir = tempfile.mkdtemp(prefix="docking_")
         try:
-            # Prepare receptor PDBQT
+            # Prepare receptor PDBQT (proteins already have 3D coords)
             receptor_pdbqt = os.path.join(workdir, "receptor.pdbqt")
             subprocess.run(
-                ["obabel", receptor_pdb, "-O", receptor_pdbqt, "--gen3D"],
-                capture_output=True, text=True, timeout=120
+                ["obabel", receptor_pdb, "-O", receptor_pdbqt, "-xr"],
+                capture_output=True, text=True, timeout=60
             )
 
             # Convert SMILES to SDF

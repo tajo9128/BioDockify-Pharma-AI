@@ -50,9 +50,11 @@ class DockingPrepare(ApiHandler):
         receptor_pdbqt = os.path.join(job_dir, "protein.pdbqt")
         try:
             subprocess.run(
-                ["obabel", pdb_path, "-O", receptor_pdbqt, "--gen3D"],
-                capture_output=True, text=True, timeout=120
+                ["obabel", pdb_path, "-O", receptor_pdbqt, "-xr"],
+                capture_output=True, text=True, timeout=60
             )
+        except subprocess.TimeoutExpired:
+            return {"error": "Receptor prep timed out. Try a smaller protein PDB file."}
         except Exception as e:
             return {"error": f"Receptor prep failed: {str(e)}"}
 
