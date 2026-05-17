@@ -34,21 +34,37 @@
       hypothesisTopic: "",
       hypothesisResult: null,
 
+      sendToAgent(prompt) {
+        const input = document.getElementById("chat-input");
+        if (input) {
+          input.value = prompt;
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          input.focus();
+          return true;
+        }
+        return false;
+      },
+
       generateHypothesis() {
-        if (!this.hypothesisTopic.trim() || !this.papers.length) return;
+        if (!this.hypothesisTopic.trim()) { this.error = "Enter a research domain first"; return; }
+        if (!this.papers.length) { this.error = "Search for papers first in the Search tab"; return; }
         const ctx = this.papers.slice(0, 5).map(p => `- ${p.title}: ${(p.abstract || '').substring(0, 200)}`).join('\n');
         const p = `Based on this literature:\n${ctx}\n\nGenerate 3 novel research hypotheses with gaps in knowledge for: ${this.hypothesisTopic}. For each hypothesis include: 1) The hypothesis statement, 2) Rationale from literature, 3) Suggested experimental approach, 4) Expected outcomes.`;
-        const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea");
-        if (input) { input.value = p; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); this.hypothesisResult = { topic: this.hypothesisTopic, content: "Hypothesis generation sent to agent." }; }
-        else { this.error = "Chat input not found"; }
+        if (this.sendToAgent(p)) {
+          this.hypothesisResult = { topic: this.hypothesisTopic, content: "Hypothesis generation sent to agent. Check the chat panel for results." };
+          this.message = "Hypothesis generation sent to agent";
+          setTimeout(() => this.message = "", 3000);
+        } else { this.error = "Chat input not found. Open a new chat first."; }
       },
 
       deepReview() {
         if (!this.papers.length) return;
         const ctx = this.papers.map(p => p.title + ". " + (p.abstract || '')).join('\n').substring(0, 4000);
         const p = `Deep Literature Review: Analyze and synthesize these papers into a comprehensive review. For each paper extract: 1) Key findings, 2) Methodology, 3) Strengths & Limitations, 4) Contribution to the field. Then provide: 5) Cross-paper thematic analysis, 6) Research gaps identified, 7) Future research directions.\n\nPapers:\n${ctx}`;
-        const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea");
-        if (input) { input.value = p; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); this.message = "Deep review sent to agent chat"; setTimeout(() => this.message = "", 3000); }
+        if (this.sendToAgent(p)) {
+          this.message = "Deep review sent to agent chat";
+          setTimeout(() => this.message = "", 3000);
+        }
       },
 
       persist() {
@@ -162,8 +178,10 @@
 
       summarizePaper(paper) {
         const text = `Summarize this research paper for my literature review. Provide: 1) Key findings, 2) Methodology, 3) Significance, 4) Limitations.\n\nTitle: ${paper.title}\nAuthors: ${(paper.authors || []).join(', ')}\nAbstract: ${paper.abstract || ''}`;
-        const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea, .input-area textarea");
-        if (input) { input.value = text; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); }
+        if (this.sendToAgent(text)) {
+          this.message = "Summarize request sent to agent";
+          setTimeout(() => this.message = "", 2000);
+        }
       },
 
       saveToNotebook(paper) {
