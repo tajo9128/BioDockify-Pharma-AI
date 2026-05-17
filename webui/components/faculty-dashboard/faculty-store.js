@@ -139,17 +139,37 @@ export const store = createStore("facultyTools", {
 
   async genLecture() {
     this._syncToSub();
-    if (!this.lectureTopic.trim()) return;
-    this.loading = true; this.error = ""; this.lectureResult = null;
+    if (!this.lectureTopic.trim()) { this.error = "Enter a lecture topic first"; return; }
+    this.loading = true; this.error = ""; this.message = ""; this.lectureResult = null;
     try {
-      this.lectureResult = await callJsonApi("faculty_tools", { action: "lecture", topic: this.lectureTopic, duration: this.lectureDuration, level: this.lectureLevel });
-      if (this.lectureResult) {
-        this.subjects[this.activeSubject - 1].lectureResult = this.lectureResult;
+      const result = await callJsonApi("faculty_tools", { action: "lecture", topic: this.lectureTopic, duration: this.lectureDuration, level: this.lectureLevel });
+      if (result && !result.error) {
+        this.lectureResult = result;
+        this.subjects[this.activeSubject - 1].lectureResult = result;
+        this.message = "Lecture generated successfully";
+      } else {
+        throw new Error(result?.error || "API returned empty");
       }
     } catch (e) {
-      this.sendToAgent(`Generate a detailed ${this.lectureDuration}-minute lecture on: "${this.lectureTopic}" at ${this.lectureLevel} level. Include: 1) Learning objectives, 2) Lecture structure with timings, 3) Key concepts, 4) Examples, 5) Homework/assignments.`);
+      this.sendToAgent(`Generate a detailed ${this.lectureDuration}-minute lecture on: "${this.lectureTopic}" at ${this.lectureLevel} level. Include: 1) Learning objectives (3-5 bullet points), 2) Lecture structure with timing breakdown per section, 3) Key concepts with definitions, 4) Real-world examples and case studies, 5) 3-5 homework questions. Format each section clearly with headings.`);
+      this.message = "Sent to agent for lecture generation";
     }
     this.loading = false;
+  },
+
+  genFromKnowledgeBase() {
+    const name = this.syllabusResult?.course_name || this.subjects[this.activeSubject-1].name;
+    const topics = (this.syllabusResult?.topics || []).slice(0, 5).join(', ');
+    const topic = this.lectureTopic || name;
+    this.sendToAgent(`Using your knowledge base and the syllabus for "${name}" (topics: ${topics}), prepare a comprehensive ${this.lectureDuration}-minute lecture on "${topic}" at ${this.lectureLevel} level. Pull relevant concepts, definitions, and examples from your knowledge base. Include: 1) Learning objectives, 2) Lecture structure with timings, 3) Key concepts, 4) Examples, 5) Homework. Cross-reference with uploaded knowledge base documents.`);
+    this.message = "Generating lecture from knowledge base...";
+  },
+
+  genFromLiterature() {
+    const name = this.syllabusResult?.course_name || this.subjects[this.activeSubject-1].name;
+    const topic = this.lectureTopic || name;
+    this.sendToAgent(`Search PubMed, Semantic Scholar, and academic databases for the latest research on "${topic}" in the context of ${name}. Prepare a ${this.lectureDuration}-minute lecture integrating recent findings. Include: 1) Current state of research, 2) Key papers and findings (last 5 years), 3) Lecture structure with citations, 4) Discussion questions based on recent papers, 5) Further reading list with DOIs.`);
+    this.message = "Searching literature and generating lecture...";
   },
 
   async genAssignment() {

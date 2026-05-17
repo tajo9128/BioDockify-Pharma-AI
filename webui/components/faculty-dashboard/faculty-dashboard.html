@@ -132,7 +132,23 @@
     <div x-show="$store.facultyTools.activeTab === 'lecture'" class="fd-tab-content">
       <div class="fd-card">
         <h4><span class="material-symbols-outlined">cast</span> Generate Lecture</h4>
+
+        <!-- Topic selector from syllabus topics -->
+        <div x-show="$store.facultyTools.syllabusResult?.topics?.length" class="fd-topic-selector">
+          <span class="fd-label">From Syllabus:</span>
+          <div class="fd-topic-chips">
+            <template x-for="t in $store.facultyTools.syllabusResult.topics" :key="t">
+              <button class="fd-topic-chip-btn" :class="{active: $store.facultyTools.lectureTopic === t}" @click="$store.facultyTools.lectureTopic = t">
+                <span class="material-symbols-outlined" style="font-size:13px">push_pin</span>
+                <span x-text="t"></span>
+              </button>
+            </template>
+          </div>
+          <span class="fd-or-divider">or type manually</span>
+        </div>
+
         <input type="text" x-model="$store.facultyTools.lectureTopic" placeholder="Lecture topic (e.g. Pharmacokinetics of Oral Drugs)..." class="fd-input" @keyup.enter="$store.facultyTools.genLecture()" />
+
         <div class="fd-row">
           <select x-model="$store.facultyTools.lectureDuration" class="fd-select">
             <option value="30">30 min</option><option value="60">60 min</option><option value="90">90 min</option>
@@ -142,6 +158,18 @@
           </select>
           <button class="fd-btn" @click="$store.facultyTools.genLecture()" :disabled="$store.facultyTools.loading || !$store.facultyTools.lectureTopic">
             <span class="material-symbols-outlined">auto_awesome</span> Generate
+          </button>
+        </div>
+
+        <!-- Knowledge Base option -->
+        <div class="fd-kb-row" x-show="$store.facultyTools.syllabusResult">
+          <button class="fd-kb-btn" @click="$store.facultyTools.genFromKnowledgeBase()" :disabled="$store.facultyTools.loading">
+            <span class="material-symbols-outlined">psychology</span>
+            Generate from Knowledge Base + Syllabus
+          </button>
+          <button class="fd-kb-btn" @click="$store.facultyTools.genFromLiterature()" :disabled="$store.facultyTools.loading">
+            <span class="material-symbols-outlined">menu_book</span>
+            Generate from Literature Review
           </button>
         </div>
       </div>
@@ -165,7 +193,8 @@
 
       <div x-show="!$store.facultyTools.lectureResult && !$store.facultyTools.loading" class="fd-empty">
         <span class="material-symbols-outlined fd-empty-icon">cast</span>
-        <p>Enter a topic and generate a structured lecture plan</p>
+        <p>Select a topic from the syllabus above, or type a custom topic and generate</p>
+        <p class="fd-empty-hint">Uses AI agent when backend API is unavailable</p>
       </div>
     </div>
 
@@ -318,6 +347,20 @@
       .fd-action-card:hover:not(:disabled) { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 6%, var(--color-background)); transform: translateY(-1px); }
       .fd-action-card:disabled { opacity: 0.4; cursor: not-allowed; }
       .fd-action-card .material-symbols-outlined { font-size: 22px; color: var(--color-primary); }
+
+      /* Topic selector chips */
+      .fd-topic-selector { margin-bottom: 8px; }
+      .fd-label { font-size: 0.56rem; font-weight: 600; color: var(--color-text-muted); display: block; margin-bottom: 4px; }
+      .fd-topic-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+      .fd-topic-chip-btn { display: flex; align-items: center; gap: 3px; padding: 3px 8px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 5px; cursor: pointer; font-size: 0.54rem; color: var(--color-text-muted); transition: all 0.12s; }
+      .fd-topic-chip-btn:hover { border-color: var(--color-primary); color: var(--color-text); }
+      .fd-topic-chip-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
+      .fd-or-divider { display: block; font-size: 0.5rem; color: var(--color-text-muted); font-style: italic; margin: 4px 0 6px 0; }
+      .fd-kb-row { display: flex; gap: 5px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--color-border); }
+      .fd-kb-btn { display: flex; align-items: center; gap: 4px; flex: 1; padding: 6px 8px; background: color-mix(in srgb, var(--color-accent, #4fc3f7) 8%, transparent); border: 1px solid color-mix(in srgb, var(--color-accent, #4fc3f7) 20%, var(--color-border)); border-radius: 6px; color: var(--color-text); cursor: pointer; font-size: 0.56rem; font-weight: 500; justify-content: center; transition: all 0.12s; }
+      .fd-kb-btn:hover:not(:disabled) { border-color: var(--color-accent, #4fc3f7); background: color-mix(in srgb, var(--color-accent, #4fc3f7) 15%, transparent); }
+      .fd-kb-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+      .fd-kb-btn .material-symbols-outlined { font-size: 15px; color: var(--color-accent, #4fc3f7); }
 
       /* Sections */
       .fd-section { padding: 6px 0; border-top: 1px solid var(--color-border); }
