@@ -67,6 +67,14 @@ RUN apt-get update -qq && apt-get install -y -qq python3-rdkit 2>/dev/null || tr
     ); \
     $VENV_PY -c "from rdkit import Chem; print('RDKit OK')" 2>/dev/null || echo "RDKit unavailable in venv"
 
+# Install OpenBabel + AutoDock Vina for molecular docking
+RUN apt-get update -qq && apt-get install -y -qq \
+    openbabel \
+    autodock-vina \
+    2>/dev/null || true; \
+    echo "OpenBabel: $(obabel -V 2>&1 || echo 'not found')"; \
+    echo "Vina: $(vina --version 2>&1 || echo 'not found')"
+
 EXPOSE 50001
 
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 CMD curl -f http://localhost:50001/api/health || exit 1

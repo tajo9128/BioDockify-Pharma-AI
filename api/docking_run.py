@@ -96,6 +96,11 @@ class DockingRun(ApiHandler):
             with open(log_path, "w") as f:
                 f.write("\n".join(log_content))
 
+            # Check for Vina errors
+            if result.returncode != 0:
+                error_msg = result.stderr or "Vina exited with non-zero code"
+                return {"status": "error", "error": f"Vina failed: {error_msg[:500]}", "stdout": result.stdout[:1000]}
+
             # Parse poses from stdout
             poses = []
             for line in result.stdout.split("\n"):
