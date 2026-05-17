@@ -95,7 +95,7 @@
             <x-component path="chat/top-section/chat-top.html"></x-component>
 
             <!-- Welcome Screen Component -->
-            <div x-data x-show="$store.welcomeStore && $store.welcomeStore.isVisible">
+            <div x-data x-show="$store.welcomeStore && $store.welcomeStore.isVisible" class="welcome-wrapper">
                 <x-component path="welcome/welcome-screen.html"></x-component>
             </div>
             <!-- Message History (actual messages) -->

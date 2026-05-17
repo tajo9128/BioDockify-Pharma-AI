@@ -437,6 +437,20 @@ img {
   overflow: hidden;
 }
 
+.welcome-wrapper {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.welcome-wrapper > x-component {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
 /* Split mode: chat and desktop side by side */
 .container.split-mode {
   flex-direction: row;
