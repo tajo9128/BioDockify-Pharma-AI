@@ -177,9 +177,13 @@
           slides: `Create a ${this.slideCount}-slide presentation on "${this.topic}" in ${this.slideStyle} style. For each slide provide: slide number, title, bullet points, and speaker notes.${this.slideSources.length ? `\n\nSource materials to include:\n${this.slideSources.map(s => `- ${s.title || s}`).join('\n')}` : ''}`,
         };
         const p = prompts[this.activeTab] || prompts.literature;
-        const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea, .input-area textarea");
+        this.sendToAgent(p);
+      },
+
+      sendToAgent(prompt) {
+        const input = document.getElementById("chat-input");
         if (input) {
-          input.value = p;
+          input.value = prompt;
           input.dispatchEvent(new Event("input", { bubbles: true }));
           input.focus();
           this.result = {
@@ -253,8 +257,7 @@
       refineWithAgent() {
         const text = this.result?.content?.substring(0, 1000) || "";
         const p = `Please refine and improve this text. Add more key references, fix any inaccuracies, and polish the academic language:\n\n${text}...`;
-        const input = document.querySelector("#chat-bar-input textarea, .chat-bar-input textarea, .input-area textarea");
-        if (input) { input.value = p; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); }
+        this.sendToAgent(p);
       },
     });
   </script>
