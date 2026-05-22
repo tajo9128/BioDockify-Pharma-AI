@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://hub.docker.com/r/tajo9128/biodockify-pharma-ai"><img src="https://img.shields.io/badge/docker-tajo9128%2Fbiodockify--pharma--ai-blue.svg" alt="Docker"/></a>
-  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v5.9.3-green.svg" alt="Version"/></a>
+  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v6.3.0-green.svg" alt="Version"/></a>
   <a href="https://github.com/tajo9128/BioDockify-Pharma-AI"><img src="https://img.shields.io/badge/GitHub-BioDockify--Pharma--AI-181717?style=flat&logo=github" alt="GitHub"/></a>
 </p>
 
@@ -49,6 +49,31 @@
 | 19 | **Docking Studio** | AutoDock Vina: PDB + SMILES → binding energy poses | docking_prepare/run |
 | 20 | **All Tools** | Quick-launch grid for all modules | N/A |
 
+### 7 Computational Chemistry Plugins (v6.3.0)
+
+| # | Plugin | Function | Backend |
+|---|--------|----------|---------|
+| 21 | **QSAR Modeler** | Train/predict with 6 ML models (RF, GBM, SVR, PLS, Ridge, Lasso) on 42 molecular descriptors | RDKit + sklearn |
+| 22 | **Pharmacophore** | Detect H-bond donors/acceptors, hydrophobic, aromatic, ionizable features; library screening | RDKit ChemicalFeatures |
+| 23 | **Docking Deep Analysis** | 3D viewer (3Dmol.js), 2D interaction SVG, per-residue energy, RMSD clustering, torsion analysis | docking_analysis API |
+| 24 | **Molecular Optimizer** | Bioisosteric replacement, group addition (OH/F/CH₃), ring expansion, flexible receptor detection | RDKit + Dunbrack rotamers |
+| 25 | **Drug Analysis (Advanced)** | PAINS, Brenk, NIH substructure filters for compound quality assessment | RDKit SMARTS |
+| 26 | **Molecule Editor** | Ketcher-based 2D molecular drawing with bidirectional SMILES sync | Ketcher (CDN) |
+| 27 | **Benchmark Suite** | Dependency checks, API health, storage, RDKit validation | Python subprocess |
+
+### GNINA CNN Docking (v6.3.0)
+
+GNINA deep-learning docking auto-chains after AutoDock Vina with the same prepared PDBQT files:
+
+| Mode | Description |
+|------|-------------|
+| `rescore` (default) | CNN rescoring of Vina poses |
+| `all` | CNN scoring on all generated poses |
+| `refinement` | CNN-guided ligand pose refinement |
+| `none` | Traditional Vina scoring only |
+
+Outputs: `gnina_docked.pdbqt`, `gnina_docked.sdf`, `gnina_log.txt` alongside Vina results. Downloadable from the Docking tab.
+
 ### 4 Specialized Sub-Agents
 
 | Agent | Role | Tools |
@@ -69,10 +94,39 @@ Agent0 (Main Orchestrator)
      ↓
 ├─→ Researcher ─→ Hacker (if blocked)
 │         ↓
-│    Biostatistician (stats)
+│    Biostatistician (stats) + QSAR (predictions)
 │         ↓
-└─→ Writer (output)
+│    Pharmacophore (feature detection)
+│         ↓
+├─→ Molecular Toolkit (Docking: Vina → GNINA)
+│         ↓
+│    Deep Analysis (3D View, Interactions, Clusters)
+│         ↓
+└─→ Writer (output) + Mol Optimizer (lead optimization)
 ```
+
+---
+
+## What's New in v6.3.0
+
+### GNINA CNN Docking
+AutoDock Vina is now paired with **GNINA CNN deep-learning scoring**. After Vina completes, GNINA automatically runs with the same prepared PDBQT files. Download GNINA PDBQT, SDF, and log alongside Vina outputs. CNN scoring modes: `none`, `all`, `rescore`, `refinement`.
+
+### 7 Computational Chemistry Plugins
+QSAR modeling (6 ML algorithms), Pharmacophore detection and library screening, Deep Docking Analysis (3D molecular viewer + 6 analysis tabs), Molecular Optimization, Advanced Drug-Likeness Filters (PAINS/Brenk/NIH), 2D Molecule Editor, and System Benchmarking Suite.
+
+### Deep Docking Analysis
+Six-tab analysis panel with **3Dmol.js molecular viewer** (all 16 MoleculeViewer features: cartoon/stick/ball+stick/sphere, chain coloring, surface, H-bond cylinders, snapshot PNG, 4 quick presets), 2D interaction diagram (RDKit SVG), per-residue energy decomposition bar chart, RMSD pose clustering, and ligand torsion analysis.
+
+### Bug Fixes
+- Docking download links fixed (path segments → query params)
+- Pose ranking corrected (explicit energy sort, most-negative = 1st)
+- Grid box auto-detection from protein atom coordinates
+- Structured Vina log with detailed energy table
+- SurfSense KB search fixed (await/sync method name mismatch)
+- Knowledge Base file upload handler fixed
+- Podcast generation wired to edge-tts (was hardcoded stub)
+- Docking prepare format detection cleaned up
 
 ---
 

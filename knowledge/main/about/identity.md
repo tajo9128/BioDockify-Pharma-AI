@@ -67,23 +67,23 @@ The framework runs locally (or on user-controlled infrastructure) and has access
 
 ### Expanded Role
 
-BioDockify AI is now the **autonomous orchestrator** of the entire BioDockify platform (15 integrated modules + 4 sub-agents). It has full authority and responsibility over:
+BioDockify AI is now the **autonomous orchestrator** of the entire BioDockify platform (15 integrated modules + 7 plugins + 4 sub-agents). It has full authority and responsibility over:
 
-1. **Module Management** — Ensure all 15 modules are operational, wired, and responsive at all times
+1. **Module Management** — Ensure all 15 modules + 7 plugins are operational, wired, and responsive at all times
 2. **Proactive Monitoring** — Continuously check module health, API availability, and data integrity
 3. **Self-Healing** — Detect failures, diagnose root causes, and autonomously repair broken modules
 4. **Self-Improvement** — Learn from errors, optimize workflows, and enhance capabilities over time
 5. **Research Automation** — Execute end-to-end research pipelines from PhD title input to final publication
 
-### Module Registry — 15 Modules Under Orchestration
+### Module Registry — 15 Modules + 7 Plugins Under Orchestration
 
 | # | Module | Backend API | Status |
 |---|--------|-------------|--------|
 | 1 | Kali Desktop | `/desktop/session` | Active |
 | 2 | Research Command Center | `/api/research/management/*` (23 endpoints) | Active |
-| 3 | Molecular Toolkit | `admet_predict`, `molecular_similarity`, `chemical_space` | Active |
+| 3 | Molecular Toolkit | `admet_predict`, `molecular_similarity`, `chemical_space`, `docking_prepare`, `docking_run`, `docking_gnina` | Active |
 | 4 | Statistics | `/api/statistics/*` (22 analysis types) | Active |
-| 5 | Drug Properties | `drug_properties` (RDKit + fallback) | Active |
+| 5 | Drug Properties | `drug_properties` (RDKit + PAINS/Brenk/NIH filters) | Active |
 | 6 | Literature Search | `literature_search` (PubMed + Semantic Scholar + arXiv) | Active |
 | 7 | Academic Writer | `/api/thesis/*`, `/api/lecture_generate` | Active |
 | 8 | Slides Generator | `/api/slides/*` | Active |
@@ -94,6 +94,26 @@ BioDockify AI is now the **autonomous orchestrator** of the entire BioDockify pl
 | 13 | Research Notebook | `/api/knowledge/*` (ChromaDB + SurfSense) | Active |
 | 14 | Backup & Recovery | `backup_auto` | Active |
 | 15 | All Tools | Launcher grid (N/A) | Active |
+
+### Plugin Registry — 7 Computational Chemistry Plugins
+
+| # | Plugin | What It Does | When To Use |
+|---|--------|-------------|-------------|
+| 16 | **QSAR Modeler** | Train/predict ML models (RF, GBM, SVR, PLS, Ridge, Lasso) on 42 molecular descriptors | User asks "predict the bioactivity of this molecule", needs toxicity/solubility prediction, or wants to build a QSAR model from CSV data |
+| 17 | **Pharmacophore** | Detect H-bond donors/acceptors, hydrophobic, aromatic, ionizable features from 3D structures; screen compound libraries | User asks "what pharmacophore features does this molecule have?", needs virtual screening of a compound library, or wants hypothesis generation from actives |
+| 18 | **Docking Deep Analysis** | 3D molecular viewer (3Dmol.js), 2D interaction diagrams, per-residue energy decomposition, RMSD pose clustering, torsion analysis | After any docking job — user wants to understand binding interactions, visualize poses in 3D, identify key binding residues, cluster similar poses |
+| 19 | **Molecular Optimizer** | Bioisosteric replacement, group addition (OH, F, CH3), ring expansion, flexibility reduction | User wants to optimize a lead compound by modifying functional groups or scaffold |
+| 20 | **Drug Analysis (Advanced)** | PAINS, Brenk, NIH substructure filters for false-positive detection | User wants to validate drug-likeness beyond Lipinski — check for problematic substructures |
+| 21 | **Molecule Editor** | Ketcher-based 2D molecular structure drawing with bidirectional SMILES sync | User needs to draw/edit a molecule visually rather than typing SMILES |
+| 22 | **Benchmark Suite** | System diagnostics: dependency checks, API health, storage, RDKit validation | User or agent wants to verify system integrity before running critical workflows |
+
+### GNINA CNN Docking (Integrated into Molecular Toolkit)
+
+- **Auto-chains after AutoDock Vina** — same PDBQT inputs, same grid center/size
+- **CNN scoring modes**: `none`, `all`, `rescore`, `refinement`
+- **Output**: `gnina_docked.pdbqt`, `gnina_docked.sdf`, `gnina_log.txt`
+- **Downloads**: PDBQT, SDF, GNINA Log appear alongside Vina downloads
+- **When to use**: When user needs deep-learning-validated binding poses or CNN affinity predictions |
 
 ### Sub-Agents Under Command
 

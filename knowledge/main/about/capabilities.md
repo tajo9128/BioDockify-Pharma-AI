@@ -80,3 +80,66 @@ An external REST API is available for programmatic task submission. Agent-to-Age
 - **Container boundary**: the agent cannot affect systems outside the Docker container unless network access or volume mounts are configured.
 - **Model capability ceiling**: tool usage quality and reasoning depth are bounded by the underlying LLM. Small models may struggle with complex multi-step tool use.
 - **No real-time data** beyond web search. The agent's own knowledge cutoff is the underlying model's training cutoff.
+
+## Molecular Docking & Analysis
+
+### AutoDock Vina Docking
+The Docking Studio module (Molecular Toolkit → Docking tab) runs full AutoDock Vina docking:
+- Input: Protein structure (PDB/PDBQT/CIF/MOL2/ENT) + Ligand (SMILES/SDF/MOL/PDB/MOL2)
+- Auto-detects binding site center from atom coordinates and computes optimal grid size
+- Returns docked poses sorted by binding energy (most negative = strongest binding = 1st)
+- Downloadable: docked_output.pdbqt, docked_poses.sdf, vina_log.txt
+
+### GNINA CNN Docking (Auto-Chained)
+After Vina completes, GNINA runs automatically with the same prepared PDBQT files:
+- CNN deep-learning scoring (rescore mode by default)
+- Outputs gnina_docked.pdbqt, gnina_docked.sdf, gnina_log.txt alongside Vina results
+- Use when: CNN-validated poses are needed for publication or high-confidence binding prediction
+
+### Deep Docking Analysis (3Dmol.js + Interaction Analysis)
+After docking, use the Deep Analysis panel (6-tab UI) for:
+- **3D View**: All 16 MoleculeViewer features (cartoon/stick/sphere/line, chain coloring, surface, H-bond cylinders, snapshot PNG, 4 quick presets, zoom/spin controls)
+- **2D Diagram**: RDKit-generated SVG interaction map with annotated H-bonds/Hydrophobic/Pi-stacking
+- **Interactions**: Summary cards + expandable per-interaction details
+- **Residue Energy**: Per-residue binding contribution bar chart (identifies key binding residues)
+- **Clusters**: RMSD-based hierarchical clustering of poses
+- **Torsion**: Dihedral angle analysis of ligand conformations
+
+## QSAR Modeling (ML on Molecular Descriptors)
+Train and predict using 6 ML models on 42 molecular descriptors across 4 groups:
+- **Models**: RandomForest, GradientBoosting, SVR, PLS, Ridge, Lasso
+- **Descriptors**: Physicochemical (MW, LogP, TPSA, etc.), Topological, Electronic, Fragment
+- **CV metrics**: R², RMSE, MAE with k-fold cross-validation
+- **Applicability domain**: Leverage-based in-domain/warning/out-of-domain assessment
+- Use when: User wants to predict bioactivity, toxicity, solubility, or any quantitative endpoint from SMILES
+
+## Pharmacophore Modeling
+RDKit-based pharmacophore feature detection:
+- **6 feature types**: H-bond Donor (blue), Acceptor (red), Hydrophobic (gold), Aromatic (purple), PosIonizable (green), NegIonizable (orange)
+- **Input**: SMILES string → 3D conformer generation (ETKDG + MMFF) → feature extraction
+- **Library screening**: Screen compound libraries against a pharmacophore query
+- **Hypothesis generation**: Find common features across multiple active molecules
+- **Exclusion volumes**: Generate receptor surface clash spheres
+- Use when: User wants pharmacophore-based screening, feature visualization, or hypothesis from active compounds
+
+## Molecular Optimization
+AI-driven lead optimization with mutation strategies:
+- **Bioisosteric replacement**: Carboxyl→Tetrazole, Ester→Amide
+- **Group addition**: Hydroxyl, Fluorine, Methyl on aromatic rings
+- **Ring expansion**: 5→6 membered rings
+- **Flexible receptor docking**: Identify flexible residues (16 residue types with Dunbrack rotamer library)
+- Each mutant shows calculated MW, LogP, HBD, HBA with "Dock This" action
+
+## Advanced Drug-Likeness Filters
+Beyond Lipinski Rule of 5:
+- **PAINS**: 8 Pan-Assay Interference Compound substructures (false positives)
+- **Brenk**: 10 undesirable functional groups (toxicity alerts)
+- **NIH**: 8 unwanted substructures
+- Use when: User wants to validate compounds for screening library suitability
+
+## Benchmarking & Diagnostics
+System integrity checks available via Benchmark plugin:
+- Dependency checks: RDKit, NumPy, sklearn, Vina, GNINA, OpenBabel
+- API health: Response time and status code validation
+- Storage: Disk free space check
+- RDKit test: SMILES parsing and descriptor calculation validation
