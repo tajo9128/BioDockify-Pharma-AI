@@ -7,7 +7,7 @@
 <body>
   <div x-data class="research-tools">
     <h2 class="tools-heading">All Tools</h2>
-    <p class="tools-desc">20 integrated research modules</p>
+    <p class="tools-desc">28 integrated research modules</p>
 
     <div class="tool-grid">
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('research-dashboard')">
@@ -25,6 +25,26 @@
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('drug-properties')">
         <span class="material-symbols-outlined">medication</span>
         <span class="tool-label">Drug Props</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('drug-analysis')">
+        <span class="material-symbols-outlined">medication</span>
+        <span class="tool-label">Drug Analysis</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('qsar')">
+        <span class="material-symbols-outlined">model_training</span>
+        <span class="tool-label">QSAR</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('pharmacophore')">
+        <span class="material-symbols-outlined">ads_click</span>
+        <span class="tool-label">Pharmacophore</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('docking-analysis')">
+        <span class="material-symbols-outlined">biotech</span>
+        <span class="tool-label">Dock Analysis</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('mol-optimizer')">
+        <span class="material-symbols-outlined">auto_fix_high</span>
+        <span class="tool-label">Mol Optimizer</span>
       </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('literature')">
         <span class="material-symbols-outlined">menu_book</span>
@@ -70,13 +90,33 @@
         <span class="material-symbols-outlined">psychology</span>
         <span class="tool-label">Knowledge</span>
       </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('molecule-editor')">
+        <span class="material-symbols-outlined">draw</span>
+        <span class="tool-label">Mol Editor</span>
+      </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('system-health')">
         <span class="material-symbols-outlined">monitoring</span>
         <span class="tool-label">Health</span>
       </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('benchmark')">
+        <span class="material-symbols-outlined">monitoring</span>
+        <span class="tool-label">Benchmark</span>
+      </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('backup')">
         <span class="material-symbols-outlined">backup</span>
         <span class="tool-label">Backup</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('browser')">
+        <span class="material-symbols-outlined">language</span>
+        <span class="tool-label">Browser</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('editor')">
+        <span class="material-symbols-outlined">article</span>
+        <span class="tool-label">Editor</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('office')">
+        <span class="material-symbols-outlined">description</span>
+        <span class="tool-label">Office</span>
       </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.cycleLayout()">
         <span class="material-symbols-outlined">desktop_windows</span>
