@@ -137,7 +137,7 @@
         if (!this.dockingJobId) return;
         const jobId = this.dockingJobId;
         window._pendingDeepAnalysisJob = jobId;
-        window.openModal?.("/plugins/docking_analysis/webui/docking_analysis.html");
+        window.openModal?.("components/docking-analysis/docking-analysis.html");
       },
 
       passClass(val) { return val ? "pass" : "fail"; },

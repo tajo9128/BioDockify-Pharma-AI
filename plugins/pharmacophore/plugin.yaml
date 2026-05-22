@@ -1,8 +1,0 @@
-name: pharmacophore
-title: Pharmacophore Modeler
-description: RDKit-based pharmacophore feature detection and library screening. Detect H-bond donors/acceptors, hydrophobic, aromatic, and ionizable features.
-version: "1.0.0"
-settings_sections:
-  - developer
-per_project_config: false
-per_agent_config: false

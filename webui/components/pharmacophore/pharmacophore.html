@@ -12,7 +12,7 @@
         if (!this.smiles) { this.error = "Enter a SMILES string"; return; }
         this.loading = true; this.error = "";
         try {
-          const r = await callJsonApi("plugins/pharmacophore/pharmacophore", { action: "generate", smiles: this.smiles });
+          const r = await callJsonApi("pharmacophore", { action: "generate", smiles: this.smiles });
           if (!r.success) { this.error = r.error; } else { this.features = r.features; this.featureSummary = r.feature_summary; }
         } catch (e) { this.error = e.message; }
         this.loading = false;
@@ -22,7 +22,7 @@
         if (!this.querySmiles || !this.librarySmiles) { this.error = "Enter query and library SMILES"; return; }
         this.screenLoading = true; this.error = "";
         try {
-          const r = await callJsonApi("plugins/pharmacophore/pharmacophore", { action: "screen", query_smiles: this.querySmiles, library_smiles: this.librarySmiles });
+          const r = await callJsonApi("pharmacophore", { action: "screen", query_smiles: this.querySmiles, library_smiles: this.librarySmiles });
           if (!r.success) { this.error = r.error; } else { this.hits = r.hits; }
         } catch (e) { this.error = e.message; }
         this.screenLoading = false;

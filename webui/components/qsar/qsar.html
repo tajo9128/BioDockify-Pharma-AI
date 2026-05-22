@@ -33,7 +33,7 @@
         if (!this.uploadedContent) { this.error = "Upload a CSV file first"; return; }
         this.loading = true; this.error = "";
         try {
-          const r = await callJsonApi("plugins/qsar/qsar", {
+          const r = await callJsonApi("qsar", {
             action: "process_dataset", content: this.uploadedContent,
             smiles_col: this.smilesCol, activity_col: this.activityCol,
             groups: this.descriptorGroups.join(","),
@@ -47,7 +47,7 @@
         if (!this.datasetProcessed) { this.error = "Process dataset first"; return; }
         this.loading = true; this.error = "";
         try {
-          const r = await callJsonApi("plugins/qsar/qsar", {
+          const r = await callJsonApi("qsar", {
             action: "train", X: this.datasetProcessed.X, y: this.datasetProcessed.y,
             feature_names: this.datasetProcessed.feature_names,
             model_type: this.modelType, model_name: this.modelName || `QSAR ${Date.now()}`,
@@ -63,7 +63,7 @@
 
       async pollTraining() {
         if (!this.trainingJobId) return;
-        const r = await callJsonApi("plugins/qsar/qsar", { action: "training_status", job_id: this.trainingJobId });
+        const r = await callJsonApi("qsar", { action: "training_status", job_id: this.trainingJobId });
         this.trainingStatus = r.status;
         if (r.status === "completed") {
           this.message = `Model trained! CV R²: ${r.result?.metrics?.cv_r2?.toFixed(3)}`;
@@ -77,7 +77,7 @@
 
       async loadModels() {
         try {
-          const r = await callJsonApi("plugins/qsar/qsar", { action: "models" });
+          const r = await callJsonApi("qsar", { action: "models" });
           this.savedModels = r.models || [];
         } catch (e) {}
       },
@@ -86,14 +86,14 @@
         if (!this.predictSmiles || !this.selectedModelId) { this.error = "Enter SMILES and select a model"; return; }
         this.loading = true; this.error = "";
         try {
-          const r = await callJsonApi("plugins/qsar/qsar", { action: "predict", model_id: this.selectedModelId, smiles: this.predictSmiles });
+          const r = await callJsonApi("qsar", { action: "predict", model_id: this.selectedModelId, smiles: this.predictSmiles });
           if (r.error) { this.error = r.error; } else { this.predictResult = r; }
         } catch (e) { this.error = e.message; }
         this.loading = false;
       },
 
       async deleteModel(id) {
-        await callJsonApi("plugins/qsar/qsar", { action: "delete_model", model_id: id });
+        await callJsonApi("qsar", { action: "delete_model", model_id: id });
         await this.loadModels();
       },
     });

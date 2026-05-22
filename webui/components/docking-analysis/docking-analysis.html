@@ -31,7 +31,7 @@
         if (!this.jobId) { this.error = "Enter a docking job ID"; return; }
         this.loading = true; this.error = "";
         try {
-          const r = await callJsonApi("plugins/docking_analysis/docking_analysis", { action: "deep_analysis", job_id: this.jobId });
+          const r = await callJsonApi("docking_analysis", { action: "deep_analysis", job_id: this.jobId });
           if (!r.success) { this.error = r.error; } else { this.deepData = r; this.energies = r.energies || []; this.$nextTick(() => this.init3DView()); }
         } catch (e) { this.error = e.message; }
         this.loading = false;

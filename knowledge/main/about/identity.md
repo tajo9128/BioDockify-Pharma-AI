@@ -75,7 +75,7 @@ BioDockify AI is now the **autonomous orchestrator** of the entire BioDockify pl
 4. **Self-Improvement** — Learn from errors, optimize workflows, and enhance capabilities over time
 5. **Research Automation** — Execute end-to-end research pipelines from PhD title input to final publication
 
-### Module Registry — 15 Modules + 7 Plugins Under Orchestration
+### Module Registry — 22 Core Modules Under Orchestration
 
 | # | Module | Backend API | Status |
 |---|--------|-------------|--------|
@@ -94,26 +94,20 @@ BioDockify AI is now the **autonomous orchestrator** of the entire BioDockify pl
 | 13 | Research Notebook | `/api/knowledge/*` (ChromaDB + SurfSense) | Active |
 | 14 | Backup & Recovery | `backup_auto` | Active |
 | 15 | All Tools | Launcher grid (N/A) | Active |
-
-### Plugin Registry — 7 Computational Chemistry Plugins
-
-| # | Plugin | What It Does | When To Use |
-|---|--------|-------------|-------------|
-| 16 | **QSAR Modeler** | Train/predict ML models (RF, GBM, SVR, PLS, Ridge, Lasso) on 42 molecular descriptors | User asks "predict the bioactivity of this molecule", needs toxicity/solubility prediction, or wants to build a QSAR model from CSV data |
-| 17 | **Pharmacophore** | Detect H-bond donors/acceptors, hydrophobic, aromatic, ionizable features from 3D structures; screen compound libraries | User asks "what pharmacophore features does this molecule have?", needs virtual screening of a compound library, or wants hypothesis generation from actives |
-| 18 | **Docking Deep Analysis** | 3D molecular viewer (3Dmol.js), 2D interaction diagrams, per-residue energy decomposition, RMSD pose clustering, torsion analysis | After any docking job — user wants to understand binding interactions, visualize poses in 3D, identify key binding residues, cluster similar poses |
-| 19 | **Molecular Optimizer** | Bioisosteric replacement, group addition (OH, F, CH3), ring expansion, flexibility reduction | User wants to optimize a lead compound by modifying functional groups or scaffold |
-| 20 | **Drug Analysis (Advanced)** | PAINS, Brenk, NIH substructure filters for false-positive detection | User wants to validate drug-likeness beyond Lipinski — check for problematic substructures |
-| 21 | **Molecule Editor** | Ketcher-based 2D molecular structure drawing with bidirectional SMILES sync | User needs to draw/edit a molecule visually rather than typing SMILES |
-| 22 | **Benchmark Suite** | System diagnostics: dependency checks, API health, storage, RDKit validation | User or agent wants to verify system integrity before running critical workflows |
+| 16 | **QSAR Modeler** | `api/qsar.py` — train ML models on 42 descriptors, predict bioactivity | Active |
+| 17 | **Pharmacophore** | `api/pharmacophore.py` — feature detection, library screening, hypothesis | Active |
+| 18 | **Docking Deep Analysis** | `api/docking_analysis.py` — 3D view, 2D diagram, residue energy, clusters | Active |
+| 19 | **Molecular Optimizer** | `api/mol_optimizer.py` — mutation strategies, flexible residues | Active |
+| 20 | **Drug Analysis Advanced** | `api/drug_analysis.py` — PAINS/Brenk/NIH substructure filters | Active |
+| 21 | **Molecule Editor** | Ketcher-based 2D editor | Active |
+| 22 | **Benchmark Suite** | `api/benchmark.py` — system diagnostics | Active |
 
 ### GNINA CNN Docking (Integrated into Molecular Toolkit)
 
 - **Auto-chains after AutoDock Vina** — same PDBQT inputs, same grid center/size
 - **CNN scoring modes**: `none`, `all`, `rescore`, `refinement`
 - **Output**: `gnina_docked.pdbqt`, `gnina_docked.sdf`, `gnina_log.txt`
-- **Downloads**: PDBQT, SDF, GNINA Log appear alongside Vina downloads
-- **When to use**: When user needs deep-learning-validated binding poses or CNN affinity predictions |
+- **Downloads**: PDBQT, SDF, GNINA Log appear alongside Vina downloads |
 
 ### Sub-Agents Under Command
 

@@ -10,7 +10,7 @@
 
       async onOpen() {
         try {
-          const r = await callJsonApi("plugins/mol_optimizer/mol_optimizer", { action: "strategies" });
+          const r = await callJsonApi("mol_optimizer", { action: "strategies" });
           this.strategies = r.strategies || [];
         } catch (e) {}
       },
@@ -19,7 +19,7 @@
         if (!this.smiles) { this.error = "Enter a SMILES string"; return; }
         this.loading = true; this.error = "";
         try {
-          const r = await callJsonApi("plugins/mol_optimizer/mol_optimizer", { action: "mutate", smiles: this.smiles, strategy: this.strategy });
+          const r = await callJsonApi("mol_optimizer", { action: "mutate", smiles: this.smiles, strategy: this.strategy });
           if (!r.success) { this.error = r.error; } else { this.mutants = r.mutants; }
         } catch (e) { this.error = e.message; }
         this.loading = false;

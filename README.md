@@ -48,11 +48,6 @@
 | 18 | **Kali Desktop** | Full Linux desktop environment | /desktop/session |
 | 19 | **Docking Studio** | AutoDock Vina: PDB + SMILES → binding energy poses | docking_prepare/run |
 | 20 | **All Tools** | Quick-launch grid for all modules | N/A |
-
-### 7 Computational Chemistry Plugins (v6.3.0)
-
-| # | Plugin | Function | Backend |
-|---|--------|----------|---------|
 | 21 | **QSAR Modeler** | Train/predict with 6 ML models (RF, GBM, SVR, PLS, Ridge, Lasso) on 42 molecular descriptors | RDKit + sklearn |
 | 22 | **Pharmacophore** | Detect H-bond donors/acceptors, hydrophobic, aromatic, ionizable features; library screening | RDKit ChemicalFeatures |
 | 23 | **Docking Deep Analysis** | 3D viewer (3Dmol.js), 2D interaction SVG, per-residue energy, RMSD clustering, torsion analysis | docking_analysis API |
