@@ -133,9 +133,7 @@ async def enhanced_chat_endpoint(
         todo_list = get_todo_list_summary(request.context_id)
         
         # Generate response indicating research started
-        response = f"🔬 Research topic detected: '{plan.topic}' ({plan.research_type})
-
-"
+        response = f"\U0001f52c Research topic detected: '{plan.topic}' ({plan.research_type})\n\n"
         response += f"Research plan created with {len(plan.tasks)} tasks. "
         response += f"Executing research workflow automatically..."
         
