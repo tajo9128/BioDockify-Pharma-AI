@@ -1,0 +1,9 @@
+chat:
+  codex_oauth:
+    name: Codex/ChatGPT Account
+    litellm_provider: openai
+    models_list:
+      endpoint_url: "/models"
+    kwargs:
+      api_base: "http://127.0.0.1/oauth/codex/v1"
+      api_key: "oauth"
