@@ -1,0 +1,217 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+
+    export const store = createStore("qsarModeler", {
+      activeTab: "train",
+      loading: false, error: "", message: "",
+
+      uploadedContent: null, uploadedFileName: "",
+      smilesCol: "smiles", activityCol: "activity",
+      descriptorGroups: ["all"], modelType: "RandomForest", cvFolds: 5,
+      modelName: "", datasetProcessed: null, trainingJobId: null, trainingStatus: "",
+
+      predictSmiles: "", selectedModelId: "", predictResult: null,
+      predictBatchSmiles: "", batchPredictions: [],
+
+      savedModels: [],
+
+      async onOpen() { await this.loadModels(); },
+
+      handleFileUpload(event) {
+        const f = event.target.files[0];
+        if (!f) return;
+        this.uploadedFileName = f.name;
+        const r = new FileReader();
+        r.onload = () => { this.uploadedContent = r.result; };
+        r.readAsText(f);
+      },
+
+      async processDataset() {
+        if (!this.uploadedContent) { this.error = "Upload a CSV file first"; return; }
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("plugins/qsar/qsar", {
+            action: "process_dataset", content: this.uploadedContent,
+            smiles_col: this.smilesCol, activity_col: this.activityCol,
+            groups: this.descriptorGroups.join(","),
+          });
+          if (r.error) { this.error = r.error; } else { this.datasetProcessed = r; this.message = `${r.n_compounds} compounds processed, ${r.n_features} features`; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async startTraining() {
+        if (!this.datasetProcessed) { this.error = "Process dataset first"; return; }
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("plugins/qsar/qsar", {
+            action: "train", X: this.datasetProcessed.X, y: this.datasetProcessed.y,
+            feature_names: this.datasetProcessed.feature_names,
+            model_type: this.modelType, model_name: this.modelName || `QSAR ${Date.now()}`,
+            descriptor_groups: this.descriptorGroups, cv_folds: this.cvFolds,
+          });
+          if (r.error) { this.error = r.error; } else {
+            this.trainingJobId = r.job_id; this.trainingStatus = "pending";
+            this.pollTraining();
+          }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async pollTraining() {
+        if (!this.trainingJobId) return;
+        const r = await callJsonApi("plugins/qsar/qsar", { action: "training_status", job_id: this.trainingJobId });
+        this.trainingStatus = r.status;
+        if (r.status === "completed") {
+          this.message = `Model trained! CV R²: ${r.result?.metrics?.cv_r2?.toFixed(3)}`;
+          await this.loadModels();
+        } else if (r.status === "failed") {
+          this.error = r.error || "Training failed";
+        } else {
+          setTimeout(() => this.pollTraining(), 2000);
+        }
+      },
+
+      async loadModels() {
+        try {
+          const r = await callJsonApi("plugins/qsar/qsar", { action: "models" });
+          this.savedModels = r.models || [];
+        } catch (e) {}
+      },
+
+      async runPrediction() {
+        if (!this.predictSmiles || !this.selectedModelId) { this.error = "Enter SMILES and select a model"; return; }
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("plugins/qsar/qsar", { action: "predict", model_id: this.selectedModelId, smiles: this.predictSmiles });
+          if (r.error) { this.error = r.error; } else { this.predictResult = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async deleteModel(id) {
+        await callJsonApi("plugins/qsar/qsar", { action: "delete_model", model_id: id });
+        await this.loadModels();
+      },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="dock-panel">
+    <div class="panel-header">
+      <div class="header-left">
+        <span class="material-symbols-outlined header-icon">model_training</span>
+        <div><h2>QSAR Modeler</h2><p class="header-subtitle">Train ML models on molecular descriptors</p></div>
+      </div>
+    </div>
+
+    <div class="dock-tabs">
+      <button class="dock-tab" :class="{active: $store.qsarModeler.activeTab === 'train'}" @click="$store.qsarModeler.activeTab = 'train'"><span class="material-symbols-outlined">upload</span> Train</button>
+      <button class="dock-tab" :class="{active: $store.qsarModeler.activeTab === 'predict'}" @click="$store.qsarModeler.activeTab = 'predict'"><span class="material-symbols-outlined">psychology</span> Predict</button>
+      <button class="dock-tab" :class="{active: $store.qsarModeler.activeTab === 'models'}" @click="$store.qsarModeler.activeTab = 'models'"><span class="material-symbols-outlined">inventory_2</span> Models</button>
+    </div>
+
+    <div class="panel-body">
+      <div x-show="$store.qsarModeler.error" class="dock-error" x-text="$store.qsarModeler.error"></div>
+      <div x-show="$store.qsarModeler.message" class="dock-message" x-text="$store.qsarModeler.message"></div>
+      <div x-show="$store.qsarModeler.loading" class="dock-loading"><div class="loading-spinner"></div><span>Computing...</span></div>
+
+      <!-- Train Tab -->
+      <div x-show="$store.qsarModeler.activeTab === 'train'" class="tab-content">
+        <div class="mt-input-row">
+          <label class="dock-upload-label" style="flex:none">
+            <span class="material-symbols-outlined">upload_file</span> Upload CSV
+            <input type="file" accept=".csv" hidden @change="$store.qsarModeler.handleFileUpload($event)" />
+          </label>
+          <span class="upload-name" x-text="$store.qsarModeler.uploadedFileName || 'No file selected'" style="font-size:0.68rem;color:var(--color-text-muted);align-self:center"></span>
+        </div>
+        <div class="mt-input-row">
+          <input type="text" x-model="$store.qsarModeler.smilesCol" placeholder="SMILES column name" class="mt-input-sm" />
+          <input type="text" x-model="$store.qsarModeler.activityCol" placeholder="Activity column name" class="mt-input-sm" />
+          <input type="text" x-model="$store.qsarModeler.modelName" placeholder="Model name" class="mt-input-sm" />
+        </div>
+        <div class="mt-input-row">
+          <select x-model="$store.qsarModeler.modelType" class="mt-input-sm">
+            <option>RandomForest</option><option>GradientBoosting</option><option>SVR</option><option>PLS</option><option>Ridge</option><option>Lasso</option>
+          </select>
+          <input type="number" x-model="$store.qsarModeler.cvFolds" class="mt-input-sm" placeholder="CV folds" min="2" max="10" style="width:60px;flex:none" />
+        </div>
+        <p x-show="$store.qsarModeler.datasetProcessed" style="font-size:0.65rem;color:var(--color-primary)">
+          <span x-text="$store.qsarModeler.datasetProcessed.n_compounds + ' compounds, ' + $store.qsarModeler.datasetProcessed.n_features + ' features'"></span>
+        </p>
+        <button class="btn-run" @click="$store.qsarModeler.processDataset()" :disabled="$store.qsarModeler.loading || !$store.qsarModeler.uploadedContent">Process Dataset</button>
+        <button class="btn-run" @click="$store.qsarModeler.startTraining()" :disabled="$store.qsarModeler.loading || !$store.qsarModeler.datasetProcessed" style="background:#22c55e">Start Training</button>
+        <p x-show="$store.qsarModeler.trainingJobId" style="font-size:0.65rem;color:var(--color-text-muted)">Status: <span x-text="$store.qsarModeler.trainingStatus" style="font-weight:600;text-transform:uppercase"></span></p>
+      </div>
+
+      <!-- Predict Tab -->
+      <div x-show="$store.qsarModeler.activeTab === 'predict'" class="tab-content">
+        <select x-model="$store.qsarModeler.selectedModelId" class="mt-input" style="margin-bottom:8px">
+          <option value="">-- Select Model --</option>
+          <template x-for="m in $store.qsarModeler.savedModels" :key="m.model_id">
+            <option :value="m.model_id" x-text="m.name + ' (' + m.model_type + ')'"></option>
+          </template>
+        </select>
+        <input type="text" x-model="$store.qsarModeler.predictSmiles" placeholder="SMILES string" class="mt-input" style="margin-bottom:8px" @keyup.enter="$store.qsarModeler.runPrediction()" />
+        <button class="btn-run" @click="$store.qsarModeler.runPrediction()" :disabled="$store.qsarModeler.loading || !$store.qsarModeler.predictSmiles">Predict</button>
+        <div x-show="$store.qsarModeler.predictResult" style="margin-top:10px;padding:12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px">
+          <p style="font-size:0.75rem"><strong>SMILES:</strong> <code x-text="$store.qsarModeler.predictResult.smiles"></code></p>
+          <p style="font-size:0.9rem;font-weight:700;color:var(--color-primary)">Predicted: <span x-text="$store.qsarModeler.predictResult.predicted_activity?.toFixed(4)"></span></p>
+          <p style="font-size:0.65rem">Domain: <span x-text="$store.qsarModeler.predictResult.ad_status" :style="'color:' + ($store.qsarModeler.predictResult.ad_status === 'in_domain' ? '#22c55e' : '#ff6b6b')"></span></p>
+        </div>
+      </div>
+
+      <!-- Models Tab -->
+      <div x-show="$store.qsarModeler.activeTab === 'models'" class="tab-content">
+        <template x-if="!$store.qsarModeler.savedModels.length">
+          <p style="color:var(--color-text-muted);font-size:0.75rem">No models trained yet. Go to Train tab.</p>
+        </template>
+        <template x-for="m in $store.qsarModeler.savedModels" :key="m.model_id">
+          <div style="padding:10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <p style="font-size:0.75rem;font-weight:600;color:var(--color-text);margin:0" x-text="m.name"></p>
+              <p style="font-size:0.62rem;color:var(--color-text-muted);margin:2px 0 0" x-text="m.model_type + ' | CV R²: ' + (m.metrics?.cv_r2?.toFixed(3) || 'N/A') + ' | ' + m.n_features + ' features'"></p>
+            </div>
+            <button @click="$store.qsarModeler.deleteModel(m.model_id)" style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:0.7rem">Delete</button>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <style>
+      .dock-panel { display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background) }
+      .panel-header { padding:14px 20px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0 }
+      .header-left { display:flex;align-items:center;gap:12px }
+      .header-icon { font-size:28px;color:var(--color-primary) }
+      .panel-header h2 { color:var(--color-text);font-size:1.05rem;margin:0;font-weight:700 }
+      .header-subtitle { color:var(--color-text-muted);font-size:0.7rem;margin:0 }
+      .dock-tabs { display:flex;gap:2px;padding:6px 20px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0 }
+      .dock-tab { display:flex;align-items:center;gap:4px;padding:6px 12px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--color-text-muted);cursor:pointer;font-size:0.68rem;font-weight:500;transition:all 0.15s }
+      .dock-tab:hover { color:var(--color-text) }
+      .dock-tab.active { color:var(--color-primary);border-bottom-color:var(--color-primary) }
+      .dock-tab .material-symbols-outlined { font-size:15px }
+      .panel-body { flex:1;overflow-y:auto;padding:16px 20px }
+      .dock-error { padding:8px 10px;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.2);border-radius:6px;color:#ff6b6b;font-size:0.68rem;margin-bottom:10px }
+      .dock-message { padding:8px 10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);border-radius:6px;color:#22c55e;font-size:0.68rem;margin-bottom:10px }
+      .dock-loading { display:flex;align-items:center;gap:6px;padding:8px 0;font-size:0.7rem;color:var(--color-text-muted) }
+      .loading-spinner { width:15px;height:15px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin 0.8s linear infinite }
+      @keyframes spin { to { transform:rotate(360deg) } }
+      .tab-content { min-height:200px }
+      .mt-input-row { display:flex;gap:6px;margin-bottom:8px;align-items:center }
+      .mt-input { flex:1;padding:8px 10px;border:1px solid var(--color-border);border-radius:7px;background:var(--color-panel);color:var(--color-text);font-size:0.7rem;font-family:monospace;min-width:0 }
+      .mt-input:focus { outline:none;border-color:var(--color-primary) }
+      .mt-input-sm { flex:1;padding:6px 8px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-background);color:var(--color-text);font-size:0.65rem;min-width:0 }
+      .mt-input-sm:focus { outline:none;border-color:var(--color-primary) }
+      .btn-run { display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px;padding:10px;background:var(--color-primary);border:none;border-radius:8px;color:white;cursor:pointer;font-size:0.8rem;font-weight:600;transition:all 0.15s }
+      .btn-run:hover:not(:disabled) { opacity:0.9 }
+      .btn-run:disabled { opacity:0.5;cursor:not-allowed }
+      .dock-upload-label { display:flex;align-items:center;gap:4px;padding:6px 10px;background:var(--color-background);border:1px dashed var(--color-border);border-radius:6px;color:var(--color-text-muted);cursor:pointer;font-size:0.64rem;white-space:nowrap;transition:all 0.15s }
+      .dock-upload-label:hover { border-color:var(--color-primary);color:var(--color-primary) }
+      .dock-upload-label .material-symbols-outlined { font-size:14px }
+    </style>
+  </div>
+</body>
+</html>

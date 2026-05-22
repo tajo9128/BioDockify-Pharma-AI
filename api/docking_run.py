@@ -257,6 +257,27 @@ class DockingRun(ApiHandler):
             except Exception:
                 pass
 
+            # ── GNINA CNN Docking (auto-chain after Vina) ──
+            gnina_result = None
+            try:
+                from api.docking_gnina import run_gnina
+                gnina_result = run_gnina(
+                    job_id=job_id,
+                    receptor_pdbqt=receptor,
+                    ligand_pdbqt=ligand,
+                    center=center,
+                    size=size,
+                    exhaustiveness=exhaustiveness,
+                    num_modes=num_modes,
+                    cnn_scoring="rescore",
+                )
+                if gnina_result.get("success"):
+                    log.info(f"GNINA completed for job {job_id}")
+                else:
+                    log.warning(f"GNINA skipped or failed: {gnina_result.get('error', 'unknown')}")
+            except Exception as gnina_err:
+                log.warning(f"GNINA chaining error: {gnina_err}")
+
             return {
                 "status": "complete",
                 "job_id": job_id,
@@ -271,7 +292,11 @@ class DockingRun(ApiHandler):
                     "pdbqt": f"/api/docking_download?job_id={job_id}&filename=docked_output.pdbqt",
                     "sdf": f"/api/docking_download?job_id={job_id}&filename=docked_poses.sdf" if sdf_available else None,
                     "log": f"/api/docking_download?job_id={job_id}&filename=vina_log.txt",
+                    "gnina_pdbqt": gnina_result.get("download_links", {}).get("gnina_pdbqt") if gnina_result else None,
+                    "gnina_sdf": gnina_result.get("download_links", {}).get("gnina_sdf") if gnina_result else None,
+                    "gnina_log": gnina_result.get("download_links", {}).get("gnina_log") if gnina_result else None,
                 },
+                "gnina": gnina_result,
             }
 
         except subprocess.TimeoutExpired:

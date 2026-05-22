@@ -74,21 +74,18 @@ class SurfSenseClient:
         try:
             logger.info(f"Searching ChromaDB for: {query[:50]}...")
             
-            # Import ChromaDB vector store (built-in)
             from modules.rag.vector_store import get_vector_store
             
-            # Query ChromaDB
-            vector_store = await get_vector_store()
-            results = await vector_store.similarity_search(query, k=top_k)
+            vector_store = get_vector_store()
+            results = await vector_store.search(query, k=top_k)
             
-            # Format results to match expected structure
             formatted_results = []
             for doc in results:
                 formatted_results.append({
-                    "text": doc.page_content,
-                    "source": doc.metadata.get("source", "unknown"),
-                    "score": doc.metadata.get("score", 1.0),
-                    "metadata": doc.metadata
+                    "text": doc.get("text", ""),
+                    "source": doc.get("metadata", {}).get("source", "unknown"),
+                    "score": doc.get("score", 1.0),
+                    "metadata": doc.get("metadata", {})
                 })
             
             logger.info(f"ChromaDB search returned {len(formatted_results)} results")
@@ -103,79 +100,54 @@ class SurfSenseClient:
         """
         CHAT WITH KNOWLEDGE BASE - Uses ChromaDB + Single LLM API.
         
-        This does NOT use SurfSense's chat API.
-        Instead:
         1. Search ChromaDB for relevant documents
-        2. Send question + context to your single LLM API
+        2. Send question + context to the configured LLM
         3. Return answer with citations
         """
         try:
-            logger.info(f"Processing chat query via ChromaDB + LLM API: {message[:50]}...")
-            
-            # Step 1: Search ChromaDB for relevant context
+            logger.info(f"Processing chat query via ChromaDB + LLM: {message[:50]}...")
+
             context_docs = await self.search(message, top_k=5)
-            
+
             if not context_docs:
-                return {
-                    "response": "I couldn't find relevant information in the knowledge base.",
-                    "citations": []
-                }
-            
-            # Step 2: Build context from search results
+                return {"response": "I couldn't find relevant information in the knowledge base.", "citations": []}
+
             context_text = "\n\n".join([doc["text"] for doc in context_docs])
             sources = list(set([doc["source"] for doc in context_docs]))
-            
-            # Step 3: Use your single LLM API for answer generation
-            from nanobot.providers.litellm_provider import LiteLLMProvider
-            import json
-            
-            # Load config to get your single LLM API settings
-            from runtime.config_loader import load_config
-            from orchestration.planner.orchestrator import OrchestratorConfig
-            
-            cfg = load_config()
-            ai_config = OrchestratorConfig(**{
-                "primary_model": cfg.get("ai_provider", {}).get("mode", "custom"),
-                "custom_base_url": cfg.get("ai_provider", {}).get("lm_studio_url"),
-                "custom_model": cfg.get("ai_provider", {}).get("lm_studio_model"),
-                "glm_key": cfg.get("ai_provider", {}).get("glm_key")
-            })
-            
-            # Initialize LLM provider with your single API
-            provider = LiteLLMProvider(
-                api_key=ai_config.glm_key,
-                api_base=ai_config.custom_base_url,
-                default_model=ai_config.custom_model
-            )
-            
-            # Build prompt with context
-            system_prompt = """You are a helpful research assistant. Answer the user's question based ONLY on the provided context.
-Include citations to your sources using [source: filename] format.
-If the answer is not in the context, say 'I cannot find information about this in the knowledge base.'"""
-            
-            user_prompt = f"""Context:
-{context_text[:4000]}
 
-Question: {message}
+            try:
+                import litellm
+                from helpers.settings import get_settings
 
-Answer the question based on the context. Include citations."""
-            
-            # Call your single LLM API
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ]
-            
-            response = await provider.chat(messages)
-            
-            logger.info(f"Generated response via single LLM API")
-            
-            return {
-                "response": response.content,
-                "citations": sources,
-                "sources_used": len(context_docs)
-            }
-            
+                settings = get_settings()
+                model = settings.get("chat_model_name", "gpt-4o")
+                api_base = settings.get("chat_model_api_base", "")
+
+                system_prompt = (
+                    "You are a helpful research assistant. Answer based ONLY on the provided context. "
+                    "Include citations to your sources using [source: filename] format. "
+                    "If the answer is not in the context, say so."
+                )
+                user_prompt = f"Context:\n{context_text[:4000]}\n\nQuestion: {message}\n\nAnswer with citations."
+
+                response = await litellm.acompletion(
+                    model=model,
+                    api_base=api_base or None,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                )
+                answer = response.choices[0].message.content
+                return {"response": answer, "citations": sources, "sources_used": len(context_docs)}
+
+            except ImportError:
+                return {
+                    "response": f"Found {len(context_docs)} relevant documents. LLM integration not available.",
+                    "citations": sources,
+                    "sources_used": len(context_docs),
+                }
+
         except Exception as e:
             logger.error(f"Chat error: {e}")
             return {"error": str(e)}
@@ -260,7 +232,7 @@ Answer the question based on the context. Include citations."""
         """List all documents in the knowledge base (via ChromaDB)."""
         try:
             from modules.rag.vector_store import get_vector_store
-            vector_store = await get_vector_store()
+            vector_store = get_vector_store()
             # ChromaDB doesn't have a simple "list all" - return metadata instead
             return [{"info": "Use ChromaDB query interface for document listing"}]
         except Exception as e:

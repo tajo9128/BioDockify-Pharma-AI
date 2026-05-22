@@ -133,6 +133,15 @@ class DocumentIngestor:
             
         return chunks
 
+    def ingest_text(self, text: str, metadata: Dict[str, Any] = None) -> List[Dict[str, Any]]:
+        """Ingest raw text string directly (used by file upload endpoints)."""
+        if not text or not text.strip():
+            return []
+        return [{
+            "text": text,
+            "metadata": metadata or {"source": "upload", "type": "text"}
+        }]
+
     def _parse_text(self, path: Path) -> List[Dict[str, Any]]:
         """Parses text/markdown files."""
         with open(path, "r", encoding="utf-8") as f:

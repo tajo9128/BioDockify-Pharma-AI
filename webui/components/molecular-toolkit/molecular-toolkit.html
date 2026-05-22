@@ -40,6 +40,7 @@
       dockingError: "",
       dockingLog: "",
       dockingDownloadLinks: null,
+      dockingGninaResult: null,
 
       handleProteinUpload(event) {
         const f = event.target.files[0];
@@ -124,11 +125,19 @@
             this.dockingPoses = r.poses || [];
             this.dockingLog = r.stdout || "";
             this.dockingDownloadLinks = r.download_links || null;
+            this.dockingGninaResult = r.gnina || null;
             this.dockingStatus = r.poses?.length ? "complete" : "error";
             if (!this.dockingPoses.length) this.error = "No binding poses found. Check PDB and ligand SMILES.";
           }
         } catch (e) { this.error = e.message; this.dockingStatus = "error"; }
         this.loading = false;
+      },
+
+      openDeepAnalysis() {
+        if (!this.dockingJobId) return;
+        const jobId = this.dockingJobId;
+        window._pendingDeepAnalysisJob = jobId;
+        window.openModal?.("/plugins/docking_analysis/webui/docking_analysis.html");
       },
 
       passClass(val) { return val ? "pass" : "fail"; },
@@ -451,6 +460,37 @@
               <a class="download-btn" :href="$store.molecularToolkit.dockingDownloadLinks.log" download title="Download Vina log">
                 <span class="material-symbols-outlined">description</span> Log
               </a>
+            </div>
+
+            <!-- GNINA CNN Docking Results -->
+            <div x-show="$store.molecularToolkit.dockingGninaResult" style="margin-top:8px;padding:10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+                <span class="material-symbols-outlined" style="font-size:16px;color:#ffd93d">memory</span>
+                <span style="font-size:0.68rem;font-weight:600;color:var(--color-text)">
+                  GNINA CNN Scoring — <span x-show="$store.molecularToolkit.dockingGninaResult.success" style="color:#22c55e">Complete</span>
+                  <span x-show="!$store.molecularToolkit.dockingGninaResult.success" style="color:#ffd93d" x-text="$store.molecularToolkit.dockingGninaResult.error?.substring(0,60) || 'Skipped'"></span>
+                </span>
+              </div>
+              <div class="dock-downloads" style="margin-top:0;padding-top:0;border-top:none" x-show="$store.molecularToolkit.dockingDownloadLinks?.gnina_log">
+                <span class="download-label" style="font-size:0.6rem">GNINA:</span>
+                <a class="download-btn" :href="$store.molecularToolkit.dockingDownloadLinks.gnina_pdbqt" download x-show="$store.molecularToolkit.dockingDownloadLinks.gnina_pdbqt" title="Download GNINA PDBQT (CNN docked poses)">
+                  <span class="material-symbols-outlined">download</span> PDBQT
+                </a>
+                <a class="download-btn" :href="$store.molecularToolkit.dockingDownloadLinks.gnina_sdf" download x-show="$store.molecularToolkit.dockingDownloadLinks.gnina_sdf" title="Download GNINA SDF">
+                  <span class="material-symbols-outlined">download</span> SDF
+                </a>
+                <a class="download-btn" :href="$store.molecularToolkit.dockingDownloadLinks.gnina_log" download title="Download GNINA log">
+                  <span class="material-symbols-outlined">description</span> GNINA Log
+                </a>
+              </div>
+            </div>
+
+            <!-- Deep Analysis Button -->
+            <div class="agent-help" x-show="$store.molecularToolkit.dockingJobId && $store.molecularToolkit.dockingStatus === 'complete'">
+              <button class="agent-help-btn" @click="$store.molecularToolkit.openDeepAnalysis()" style="border-color:var(--color-primary);color:var(--color-primary)">
+                <span class="material-symbols-outlined">biotech</span>
+                <span>Deep Analysis — 3D View, Interactions, Clusters, Residue Energy</span>
+              </button>
             </div>
 
             <!-- Vina Log Output -->

@@ -1,0 +1,102 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+
+    export const store = createStore("pharmacophore", {
+      smiles: "", features: [], featureSummary: {}, loading: false, error: "",
+      querySmiles: "", librarySmiles: "", hits: [], screenLoading: false,
+
+      async generate() {
+        if (!this.smiles) { this.error = "Enter a SMILES string"; return; }
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("plugins/pharmacophore/pharmacophore", { action: "generate", smiles: this.smiles });
+          if (!r.success) { this.error = r.error; } else { this.features = r.features; this.featureSummary = r.feature_summary; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async screen() {
+        if (!this.querySmiles || !this.librarySmiles) { this.error = "Enter query and library SMILES"; return; }
+        this.screenLoading = true; this.error = "";
+        try {
+          const r = await callJsonApi("plugins/pharmacophore/pharmacophore", { action: "screen", query_smiles: this.querySmiles, library_smiles: this.librarySmiles });
+          if (!r.success) { this.error = r.error; } else { this.hits = r.hits; }
+        } catch (e) { this.error = e.message; }
+        this.screenLoading = false;
+      },
+
+      featureColor(type) { const c = {Donor:'#4169E1',Acceptor:'#DC143C',Hydrophobic:'#FFD700',Aromatic:'#9932CC',PosIonizable:'#32CD32',NegIonizable:'#FF8C00'}; return c[type]||'#888' },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="dock-panel">
+    <div class="panel-header"><div class="header-left"><span class="material-symbols-outlined header-icon">ads_click</span><div><h2>Pharmacophore Modeler</h2><p class="header-subtitle">Feature detection &amp; library screening</p></div></div></div>
+    <div class="panel-body">
+      <div x-show="$store.pharmacophore.error" class="dock-error" x-text="$store.pharmacophore.error"></div>
+
+      <h3 class="section-title">Generate Pharmacophore</h3>
+      <div class="mt-input-row">
+        <input type="text" x-model="$store.pharmacophore.smiles" placeholder="SMILES (e.g. CC(=O)Oc1ccccc1C(=O)O)" class="mt-input" @keyup.enter="$store.pharmacophore.generate()" />
+        <button class="btn-run" @click="$store.pharmacophore.generate()" style="flex:none;width:auto;margin-top:0" :disabled="$store.pharmacophore.loading || !$store.pharmacophore.smiles">Generate</button>
+      </div>
+      <div x-show="$store.pharmacophore.loading" class="dock-loading"><div class="loading-spinner"></div><span>Extracting features...</span></div>
+
+      <template x-if="$store.pharmacophore.features.length">
+        <div style="margin-top:10px">
+          <p style="font-size:0.68rem;color:var(--color-text-muted)">Found <strong x-text="$store.pharmacophore.features.length"></strong> features:</p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+            <template x-for="(count, type) in $store.pharmacophore.featureSummary">
+              <span style="padding:3px 8px;border-radius:4px;font-size:0.62rem;font-weight:600;color:white" :style="'background:' + $store.pharmacophore.featureColor(type)" x-text="type + ': ' + count"></span>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <hr style="border-color:var(--color-border);margin:16px 0">
+
+      <h3 class="section-title">Library Screening</h3>
+      <input type="text" x-model="$store.pharmacophore.querySmiles" placeholder="Query SMILES" class="mt-input" style="margin-bottom:6px" />
+      <textarea x-model="$store.pharmacophore.librarySmiles" placeholder="Library SMILES (one per line)..." class="mt-textarea" rows="4" style="margin-bottom:6px"></textarea>
+      <button class="btn-run" @click="$store.pharmacophore.screen()" :disabled="$store.pharmacophore.screenLoading || !$store.pharmacophore.querySmiles || !$store.pharmacophore.librarySmiles">Screen Library</button>
+
+      <template x-if="$store.pharmacophore.hits.length">
+        <div style="margin-top:10px">
+          <p style="font-size:0.68rem" x-text="$store.pharmacophore.hits.length + ' hits found'"></p>
+          <template x-for="h in $store.pharmacophore.hits" :key="h.smiles">
+            <div style="padding:6px 8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;margin-bottom:4px;font-size:0.65rem;display:flex;justify-content:space-between">
+              <code style="color:var(--color-text)" x-text="h.smiles.substring(0,50)"></code>
+              <span style="color:var(--color-primary);font-weight:600" x-text="(h.score * 100).toFixed(0) + '%'"></span>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+
+    <style>
+      .dock-panel { display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background) }
+      .panel-header { padding:14px 20px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0 }
+      .header-left { display:flex;align-items:center;gap:12px }
+      .header-icon { font-size:28px;color:var(--color-primary) }
+      .panel-header h2 { color:var(--color-text);font-size:1.05rem;margin:0;font-weight:700 }
+      .header-subtitle { color:var(--color-text-muted);font-size:0.7rem;margin:0 }
+      .panel-body { flex:1;overflow-y:auto;padding:16px 20px }
+      .section-title { font-size:0.78rem;font-weight:700;color:var(--color-text);margin:0 0 8px 0;padding-bottom:6px;border-bottom:1px solid var(--color-border) }
+      .dock-error { padding:8px 10px;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.2);border-radius:6px;color:#ff6b6b;font-size:0.68rem;margin-bottom:10px }
+      .dock-loading { display:flex;align-items:center;gap:6px;padding:8px 0;font-size:0.7rem;color:var(--color-text-muted) }
+      .loading-spinner { width:15px;height:15px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin 0.8s linear infinite }
+      @keyframes spin { to { transform:rotate(360deg) } }
+      .mt-input-row { display:flex;gap:6px;margin-bottom:8px;align-items:center }
+      .mt-input { flex:1;padding:8px 10px;border:1px solid var(--color-border);border-radius:7px;background:var(--color-panel);color:var(--color-text);font-size:0.7rem;font-family:monospace;min-width:0 }
+      .mt-input:focus { outline:none;border-color:var(--color-primary) }
+      .mt-textarea { flex:1;min-height:60px;padding:8px 10px;border:1px solid var(--color-border);border-radius:7px;background:var(--color-panel);color:var(--color-text);font-size:0.64rem;font-family:monospace;resize:vertical }
+      .btn-run { display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px;padding:10px;background:var(--color-primary);border:none;border-radius:8px;color:white;cursor:pointer;font-size:0.8rem;font-weight:600 }
+      .btn-run:hover:not(:disabled) { opacity:0.9 }
+      .btn-run:disabled { opacity:0.5;cursor:not-allowed }
+    </style>
+  </div>
+</body>
+</html>

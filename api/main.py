@@ -911,7 +911,7 @@ async def knowledge_import(request: Request):
         from modules.rag.ingestor import DocumentIngestor
 
         store = get_vector_store()
-        ingestor = DocumentIngestor(store)
+        ingestor = DocumentIngestor()
         count = 0
         for upload_file in files:
             filename = upload_file.filename or "unknown"
@@ -920,7 +920,9 @@ async def knowledge_import(request: Request):
                 text = content.decode("utf-8")
             except UnicodeDecodeError:
                 text = content.decode("latin-1")
-            ingestor.ingest_text(text, metadata={"source": filename, "type": "upload"})
+            chunks = ingestor.ingest_text(text, metadata={"source": filename, "type": "upload"})
+            if chunks:
+                await store.add_documents(chunks)
             count += 1
 
         return {"success": True, "count": count, "message": f"{count} document(s) imported"}

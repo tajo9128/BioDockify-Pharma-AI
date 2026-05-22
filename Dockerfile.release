@@ -75,6 +75,17 @@ RUN apt-get update -qq && apt-get install -y -qq \
     echo "OpenBabel: $(obabel -V 2>&1 || echo 'not found')"; \
     echo "Vina: $(vina --version 2>&1 || echo 'not found')"
 
+# Install GNINA CNN scoring for deep-learning docking
+RUN if ! command -v gnina >/dev/null 2>&1; then \
+      echo "Downloading GNINA binary..."; \
+      GNINA_URL="https://github.com/gnina/gnina/releases/download/v1.3/gnina"; \
+      wget -q "$GNINA_URL" -O /usr/local/bin/gnina 2>/dev/null || \
+      wget -q "https://github.com/gnina/gnina/releases/download/v1.2.1/gnina" -O /usr/local/bin/gnina 2>/dev/null || \
+      echo "GNINA download failed — docking will use Vina only"; \
+      chmod +x /usr/local/bin/gnina 2>/dev/null || true; \
+    fi; \
+    echo "GNINA: $(gnina --version 2>&1 || echo 'not found')"
+
 EXPOSE 50001
 
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 CMD curl -f http://localhost:50001/api/health || exit 1

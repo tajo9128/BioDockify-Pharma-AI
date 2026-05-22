@@ -1,0 +1,8 @@
+name: mol_optimizer
+title: Molecular Optimizer
+description: AI-driven molecular optimization — bioisosteric replacement, group addition, ring expansion, flexible receptor docking.
+version: "1.0.0"
+settings_sections:
+  - developer
+per_project_config: false
+per_agent_config: false

@@ -1,0 +1,8 @@
+name: benchmark
+title: Benchmark Suite
+description: Validation benchmarks for docking speed, QSAR accuracy, pharmacophore generation, API response, and memory usage.
+version: "1.0.0"
+settings_sections:
+  - developer
+per_project_config: false
+per_agent_config: false

@@ -1,0 +1,88 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+
+    export const store = createStore("moleculeEditor", {
+      open: false,
+      smiles: "",
+      sourceElementId: null,
+
+      openEditor(smiles, sourceId) {
+        this.smiles = smiles || "";
+        this.sourceElementId = sourceId;
+        this.open = true;
+        this.$nextTick(() => this.initKetcher());
+      },
+
+      initKetcher() {
+        const container = document.getElementById("ketcher-container");
+        if (!container || container.hasChildNodes()) return;
+
+        const iframe = document.createElement("iframe");
+        iframe.id = "ketcher-frame";
+        iframe.src = "https://lifescience.opensource.epam.com/ketcher/ketcher.html";
+        iframe.style.cssText = "width:100%;height:100%;border:none;";
+        container.appendChild(iframe);
+
+        iframe.onload = () => {
+          if (this.smiles) {
+            iframe.contentWindow.postMessage({ type: "open", data: this.smiles }, "*");
+          }
+        };
+
+        window.addEventListener("message", (e) => {
+          if (e.data && e.data.type === "export") {
+            this.smiles = e.data.data;
+          }
+        });
+      },
+
+      applyAndClose() {
+        if (this.sourceElementId) {
+          const el = document.getElementById(this.sourceElementId);
+          if (el) {
+            el.value = this.smiles;
+            el.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+        }
+        this.open = false;
+        document.getElementById("ketcher-container").innerHTML = "";
+      },
+
+      closeEditor() {
+        this.open = false;
+        const c = document.getElementById("ketcher-container");
+        if (c) c.innerHTML = "";
+      },
+    });
+  </script>
+</head>
+<body>
+  <div x-data>
+    <template x-if="$store.moleculeEditor?.open">
+      <div style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center" @click.self="$store.moleculeEditor.closeEditor()">
+        <div style="background:var(--color-panel,#1e1e2e);border-radius:12px;width:90vw;max-width:800px;height:80vh;display:flex;flex-direction:column;overflow:hidden">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--color-border)">
+            <h3 style="margin:0;font-size:0.9rem;color:var(--color-text)">Molecule Editor</h3>
+            <div style="display:flex;gap:8px">
+              <button @click="$store.moleculeEditor.applyAndClose()" style="padding:6px 14px;background:var(--color-primary);border:none;border-radius:6px;color:white;cursor:pointer;font-size:0.75rem;font-weight:600">Apply</button>
+              <button @click="$store.moleculeEditor.closeEditor()" style="padding:6px 14px;background:var(--color-background);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text);cursor:pointer;font-size:0.75rem">Cancel</button>
+            </div>
+          </div>
+          <div style="padding:8px 16px;display:flex;align-items:center;gap:8px">
+            <span style="font-size:0.68rem;color:var(--color-text-muted)">SMILES:</span>
+            <input type="text" x-model="$store.moleculeEditor.smiles" style="flex:1;padding:6px 8px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-background);color:var(--color-text);font-size:0.7rem;font-family:monospace" />
+          </div>
+          <div id="ketcher-container" style="flex:1;min-height:0"></div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Trigger button (inserted next to SMILES inputs via openEditor) -->
+    <div style="display:none">
+      <button id="molecule-editor-trigger" @click="$store.moleculeEditor.openEditor('', '')"></button>
+    </div>
+  </div>
+</body>
+</html>
