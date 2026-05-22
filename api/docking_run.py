@@ -4,10 +4,106 @@ import os
 import subprocess
 import json
 import logging
+import re
 
 log = logging.getLogger("docking_run")
 
 JOBS_DIR = files.get_abs_path("tmp/docking_jobs")
+
+
+def _parse_energy_table(stdout: str):
+    """Parse Vina's detailed energy table (mode | affinity | rmsd l.b. | rmsd u.b.) from stdout."""
+    lines = stdout.split("\n")
+    table_start = -1
+    for i, line in enumerate(lines):
+        if "mode" in line.lower() and "affinity" in line.lower():
+            table_start = i + 1
+            break
+        if "-----+" in line:
+            table_start = i + 1
+            break
+
+    entries = []
+    if table_start >= 0:
+        for line in lines[table_start:]:
+            stripped = line.strip()
+            if not stripped:
+                break
+            parts = stripped.split()
+            if len(parts) >= 2:
+                try:
+                    mode = int(parts[0])
+                    affinity = float(parts[1])
+                    rmsd_lb = float(parts[2]) if len(parts) >= 3 else None
+                    rmsd_ub = float(parts[3]) if len(parts) >= 4 else None
+                    entries.append({
+                        "mode": mode,
+                        "affinity": affinity,
+                        "rmsd_lb": rmsd_lb,
+                        "rmsd_ub": rmsd_ub,
+                    })
+                except (ValueError, IndexError):
+                    pass
+    return entries
+
+
+def _format_log(
+    job_id: str,
+    receptor: str,
+    ligand: str,
+    center: dict,
+    size: dict,
+    exhaustiveness: int,
+    num_modes: int,
+    returncode: int,
+    stdout: str,
+    stderr: str,
+    table_entries: list,
+) -> str:
+    lines = []
+    lines.append("=" * 68)
+    lines.append("  AutoDock Vina — Molecular Docking Report")
+    lines.append("=" * 68)
+    lines.append("")
+    lines.append("Job ID:         " + job_id)
+    lines.append("Receptor:       " + os.path.basename(receptor))
+    lines.append("Ligand:         " + os.path.basename(ligand))
+    lines.append(f"Grid Center:    ({center.get('x',0):.3f}, {center.get('y',0):.3f}, {center.get('z',0):.3f})")
+    lines.append(f"Grid Size:      {size.get('x',20):.1f} x {size.get('y',20):.1f} x {size.get('z',20):.1f} \u00c5")
+    lines.append(f"Exhaustiveness: {exhaustiveness}")
+    lines.append(f"Num Modes:      {num_modes}")
+    lines.append(f"Exit Code:      {returncode}")
+    lines.append("")
+
+    if table_entries:
+        lines.append("-" * 68)
+        lines.append(f"{'Mode':>5}  {'Affinity (kcal/mol)':>22}  {'RMSD l.b.':>10}  {'RMSD u.b.':>10}")
+        lines.append("-" * 68)
+        for e in table_entries:
+            rmsd_lb = f"{e.get('rmsd_lb',0):.3f}" if e.get('rmsd_lb') is not None else "  ---"
+            rmsd_ub = f"{e.get('rmsd_ub',0):.3f}" if e.get('rmsd_ub') is not None else "  ---"
+            lines.append(f"{e['mode']:>5}  {e['affinity']:>22.2f}  {rmsd_lb:>10}  {rmsd_ub:>10}")
+        lines.append("-" * 68)
+        lines.append("")
+        if table_entries:
+            best = table_entries[0]
+            lines.append(f"Best Binding Affinity:  {best['affinity']:.2f} kcal/mol  (mode {best['mode']})")
+        lines.append(f"Total Poses Found:      {len(table_entries)}")
+        lines.append("")
+
+    lines.append("=" * 68)
+    lines.append("  Raw Vina STDOUT")
+    lines.append("=" * 68)
+    lines.append(stdout)
+
+    if stderr.strip():
+        lines.append("=" * 68)
+        lines.append("  Raw Vina STDERR")
+        lines.append("=" * 68)
+        lines.append(stderr)
+
+    lines.append("=" * 68)
+    return "\n".join(lines)
 
 
 class DockingRun(ApiHandler):
@@ -71,57 +167,60 @@ class DockingRun(ApiHandler):
                 capture_output=True, text=True, timeout=600
             )
 
-            # Save log file
-            log_content = []
-            log_content.append("=" * 60)
-            log_content.append("  AutoDock Vina Docking Log")
-            log_content.append("=" * 60)
-            log_content.append(f"Job ID: {job_id}")
-            log_content.append(f"Receptor: {receptor}")
-            log_content.append(f"Ligand: {ligand}")
-            log_content.append(f"Grid Center: ({center.get('x',0)}, {center.get('y',0)}, {center.get('z',0)})")
-            log_content.append(f"Grid Size: ({size.get('x',20)}x{size.get('y',20)}x{size.get('z',20)})")
-            log_content.append(f"Exhaustiveness: {exhaustiveness}")
-            log_content.append(f"Num Modes: {num_modes}")
-            log_content.append(f"Return Code: {result.returncode}")
-            log_content.append("-" * 60)
-            log_content.append("STDOUT:")
-            log_content.append(result.stdout)
-            if result.stderr:
-                log_content.append("-" * 60)
-                log_content.append("STDERR:")
-                log_content.append(result.stderr)
-            log_content.append("=" * 60)
+            # Parse detailed energy table from Vina stdout
+            table_entries = _parse_energy_table(result.stdout)
 
+            # Write structured log file
+            log_content = _format_log(
+                job_id=job_id,
+                receptor=receptor,
+                ligand=ligand,
+                center=center,
+                size=size,
+                exhaustiveness=exhaustiveness,
+                num_modes=num_modes,
+                returncode=result.returncode,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                table_entries=table_entries,
+            )
             with open(log_path, "w") as f:
-                f.write("\n".join(log_content))
+                f.write(log_content)
 
             # Check for Vina errors
             if result.returncode != 0:
                 error_msg = result.stderr or "Vina exited with non-zero code"
                 return {"status": "error", "error": f"Vina failed: {error_msg[:500]}", "stdout": result.stdout[:1000]}
 
-            # Parse poses from stdout
+            # Parse poses: prefer detailed table, fall back to REMARK lines, then output file
             poses = []
-            for line in result.stdout.split("\n"):
-                line_stripped = line.strip()
-                if line_stripped.startswith("REMARK VINA RESULT:"):
-                    parts = line_stripped.split()
-                    if len(parts) >= 4:
-                        try:
-                            energy = float(parts[3])
-                            # RMSD values if available
-                            rmsd_lb = float(parts[4]) if len(parts) >= 5 else None
-                            rmsd_ub = float(parts[5]) if len(parts) >= 6 else None
-                            poses.append({
-                                "energy": energy,
-                                "rmsd_lb": rmsd_lb,
-                                "rmsd_ub": rmsd_ub,
-                            })
-                        except (ValueError, IndexError):
-                            pass
+            if table_entries:
+                for e in table_entries:
+                    poses.append({
+                        "energy": e["affinity"],
+                        "rmsd_lb": e.get("rmsd_lb"),
+                        "rmsd_ub": e.get("rmsd_ub"),
+                    })
+            else:
+                # Fallback: parse REMARK VINA RESULT lines from stdout
+                for line in result.stdout.split("\n"):
+                    line_stripped = line.strip()
+                    if line_stripped.startswith("REMARK VINA RESULT:"):
+                        parts = line_stripped.split()
+                        if len(parts) >= 4:
+                            try:
+                                energy = float(parts[3])
+                                rmsd_lb = float(parts[4]) if len(parts) >= 5 else None
+                                rmsd_ub = float(parts[5]) if len(parts) >= 6 else None
+                                poses.append({
+                                    "energy": energy,
+                                    "rmsd_lb": rmsd_lb,
+                                    "rmsd_ub": rmsd_ub,
+                                })
+                            except (ValueError, IndexError):
+                                pass
 
-            # If no REMARK lines, parse from output file
+            # If still no poses, parse from output PDBQT file
             if not poses:
                 try:
                     with open(output_path) as f:
@@ -143,6 +242,9 @@ class DockingRun(ApiHandler):
                                 current_pose = None
                 except Exception:
                     pass
+
+            # CRITICAL: sort poses by energy ascending (most-negative = strongest binding = 1st)
+            poses.sort(key=lambda p: p.get("energy", 0) if p.get("energy") is not None else 0)
 
             # Try converting to SDF for better compatibility
             sdf_available = False
@@ -166,9 +268,9 @@ class DockingRun(ApiHandler):
                 "stdout": result.stdout[:3000],
                 "stderr": result.stderr[:1000] if result.stderr else "",
                 "download_links": {
-                    "pdbqt": f"/api/docking_download/{job_id}/docked_output.pdbqt",
-                    "sdf": f"/api/docking_download/{job_id}/docked_poses.sdf" if sdf_available else None,
-                    "log": f"/api/docking_download/{job_id}/vina_log.txt",
+                    "pdbqt": f"/api/docking_download?job_id={job_id}&filename=docked_output.pdbqt",
+                    "sdf": f"/api/docking_download?job_id={job_id}&filename=docked_poses.sdf" if sdf_available else None,
+                    "log": f"/api/docking_download?job_id={job_id}&filename=vina_log.txt",
                 },
             }
 

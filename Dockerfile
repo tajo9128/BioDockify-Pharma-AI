@@ -68,8 +68,8 @@ ENV LC_ALL=C.UTF-8
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates libpq5 \
     libgl1 libglib2.0-0 ffmpeg poppler-utils \
-
     nginx supervisor chromium chromium-driver \
+    autodock-vina openbabel \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/* && apt-get clean

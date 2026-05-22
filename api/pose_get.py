@@ -14,7 +14,7 @@ class PoseGet(ApiHandler):
 
         # Look for docking results
         results_dir = files.get_abs_path(f"tmp/docking_jobs/{job_id}")
-        pdbqt_path = os.path.join(results_dir, "docking_results.pdbqt")
+        pdbqt_path = os.path.join(results_dir, "docked_output.pdbqt")
         lig_pdbqt = os.path.join(results_dir, f"{input.get('ligand_name', 'ligand')}.pdbqt")
 
         if not os.path.exists(pdbqt_path):

@@ -43,7 +43,6 @@ def _detect_format(content, filename_hint=""):
     content = content.strip()
     # SMILES detection
     if not any(content.startswith(prefix) for prefix in ["HEADER", "ATOM", "HETATM", "data_", "MODEL", "@<TRIPOS>", "CRYST1", "TITLE"]):
-        # Likely SMILES or name
         if len(content.split()) == 1 and len(content) < 500:
             return "smiles"
     # PDB detection
@@ -59,12 +58,58 @@ def _detect_format(content, filename_hint=""):
     if "@<TRIPOS>" in content:
         return "mol2"
     # SDF/MOL detection
-    if "V2000" in content or "V3000" in content or content.startswith("M  END"):
+    if "V2000" in content or "V3000" in content or "M  END" in content:
         return "sdf"
     # ENT (PDB variant)
-    if "END" in content.split("\n")[-3:]:
+    if content.strip().endswith("END"):
         return "ent"
     return filename_hint or "unknown"
+
+
+def _compute_search_box(pdb_path: str):
+    """Compute binding site center and auto-detected grid size from protein atom coordinates.
+
+    Returns (center_dict, size_dict) where center is the geometric center of all atoms
+    and size is the bounding box plus a 10 Å margin, capped at 30 Å per dimension.
+    """
+    xs, ys, zs = [], [], []
+    try:
+        with open(pdb_path) as f:
+            for line in f:
+                if line.startswith("ATOM") or line.startswith("HETATM"):
+                    try:
+                        xs.append(float(line[30:38].strip()))
+                        ys.append(float(line[38:46].strip()))
+                        zs.append(float(line[46:54].strip()))
+                    except ValueError:
+                        pass
+    except Exception:
+        pass
+
+    if not xs:
+        log.warning(f"No atoms found in receptor PDB {pdb_path}, docking grid defaults to origin + 20 Å box")
+        return {"x": 0.0, "y": 0.0, "z": 0.0}, {"x": 20.0, "y": 20.0, "z": 20.0}
+
+    # Center = geometric mean of all atom coordinates
+    cx = round(sum(xs) / len(xs), 3)
+    cy = round(sum(ys) / len(ys), 3)
+    cz = round(sum(zs) / len(zs), 3)
+
+    # Box = protein bounding box plus margin
+    margin = 8.0
+    max_dim = 30.0
+    min_dim = 15.0
+
+    dx = (max(xs) - min(xs)) + margin * 2
+    dy = (max(ys) - min(ys)) + margin * 2
+    dz = (max(zs) - min(zs)) + margin * 2
+
+    sx = round(min(max(dx, min_dim), max_dim), 1)
+    sy = round(min(max(dy, min_dim), max_dim), 1)
+    sz = round(min(max(dz, min_dim), max_dim), 1)
+
+    log.info(f"Auto grid: center=({cx},{cy},{cz}) size=({sx}x{sy}x{sz}) from {len(xs)} atoms")
+    return {"x": cx, "y": cy, "z": cz}, {"x": sx, "y": sy, "z": sz}
 
 
 class DockingPrepare(ApiHandler):
@@ -74,7 +119,6 @@ class DockingPrepare(ApiHandler):
         job_dir = os.path.join(JOBS_DIR, job_id)
         os.makedirs(job_dir, exist_ok=True)
 
-        # Accept both old field names and new field names
         protein_content = input.get("protein_content") or input.get("protein_pdb", "")
         protein_format = input.get("protein_format", "").lower() or "pdb"
         ligand_content = input.get("ligand_content") or input.get("ligand_smiles", "").strip()
@@ -103,7 +147,6 @@ class DockingPrepare(ApiHandler):
             with open(pdb_path, "w") as f:
                 f.write(protein_content)
         elif _obabel_available():
-            # Convert non-PDB formats to PDB
             tmp_input = os.path.join(job_dir, f"protein_input.{protein_format}")
             with open(tmp_input, "w") as f:
                 f.write(protein_content)
@@ -128,12 +171,10 @@ class DockingPrepare(ApiHandler):
         ligand_prep_ok = False
         ligand_errors = []
 
-        # Strategy: try to get SMILES first (if not already SMILES)
         smiles = None
         if ligand_format in ("smiles", "smi"):
             smiles = ligand_content.split()[0] if ligand_content.split() else ligand_content
         elif _obabel_available():
-            # Try SMILES extraction from other formats
             ok, stdout, stderr = _run_obabel(
                 ["obabel", lig_input_path, "-osmi"],
                 timeout=15, label="extract SMILES"
@@ -218,7 +259,6 @@ class DockingPrepare(ApiHandler):
             else:
                 receptor_errors.append(f"obabel: {stderr.strip()}")
 
-        # Fallback: raw PDB as PDBQT
         if not receptor_prep_ok:
             receptor_errors.append("Using raw PDB as fallback")
             try:
@@ -235,26 +275,8 @@ class DockingPrepare(ApiHandler):
                 "hint": "Install OpenBabel (apt install openbabel) or try a smaller PDB file."
             }
 
-        # === Compute binding site center ===
-        center_x, center_y, center_z = 0, 0, 0
-        atom_count = 0
-        try:
-            with open(pdb_path) as f:
-                for line in f:
-                    if line.startswith("ATOM") or line.startswith("HETATM"):
-                        try:
-                            center_x += float(line[30:38].strip())
-                            center_y += float(line[38:46].strip())
-                            center_z += float(line[46:54].strip())
-                            atom_count += 1
-                        except ValueError:
-                            pass
-            if atom_count > 0:
-                center_x /= atom_count
-                center_y /= atom_count
-                center_z /= atom_count
-        except Exception:
-            pass
+        # === Auto-detect binding site center AND grid size from protein ===
+        center, size = _compute_search_box(pdb_path)
 
         return {
             "job_id": job_id,
@@ -262,7 +284,7 @@ class DockingPrepare(ApiHandler):
             "ligand_pdbqt": ligand_pdbqt,
             "ligand_name": ligand_name,
             "detected_formats": {"protein": protein_format, "ligand": ligand_format},
-            "center": {"x": round(center_x, 2), "y": round(center_y, 2), "z": round(center_z, 2)},
-            "size": {"x": 20, "y": 20, "z": 20},
+            "center": center,
+            "size": size,
             "prep_notes": "; ".join(receptor_errors + ligand_errors) if (receptor_errors or ligand_errors) else "OK",
         }
