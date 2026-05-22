@@ -24,7 +24,7 @@ export default async function registerDesktopSurface(surfaces) {
     id: "desktop",
     title: "Desktop",
     icon: "desktop_windows",
-    order: 20,
+    order: 90,
     modalPath: "/plugins/_desktop/webui/main.html",
     async beginDockHandoff() {
       desktopStore.beforeDesktopHostHandoff?.();

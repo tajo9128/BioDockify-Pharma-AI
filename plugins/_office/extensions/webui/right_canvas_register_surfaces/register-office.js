@@ -26,7 +26,7 @@ export default async function registerOfficeSurface(canvas) {
     id: "office",
     title: "Office",
     icon: "desktop_windows",
-    order: 20,
+    order: 92,
     modalPath: "/plugins/_office/webui/main.html",
     async beginDockHandoff() {
       const office = globalThis.Alpine?.store?.("office");

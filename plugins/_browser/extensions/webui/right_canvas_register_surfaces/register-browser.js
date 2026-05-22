@@ -74,7 +74,7 @@ export default async function registerBrowserSurface(canvas) {
     id: "browser",
     title: "Browser",
     icon: "language",
-    order: 10,
+    order: 91,
     modalPath: "/plugins/_browser/webui/main.html",
     beginDockHandoff() {
       browserStore.beginSurfaceHandoff?.();

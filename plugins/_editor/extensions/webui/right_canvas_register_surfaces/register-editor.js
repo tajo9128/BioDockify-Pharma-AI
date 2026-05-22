@@ -24,7 +24,7 @@ export default async function registerEditorSurface(surfaces) {
     id: "editor",
     title: "Editor",
     icon: "article",
-    order: 30,
+    order: 93,
     modalPath: "/plugins/_editor/webui/main.html",
     beginDockHandoff() {
       editorStore.beginSurfaceHandoff?.();
