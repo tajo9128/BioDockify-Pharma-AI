@@ -24,7 +24,7 @@ function waitForElement(selector, timeoutMs = 10000) {
 export default async function registerOfficeSurface(canvas) {
   canvas.registerSurface({
     id: "office",
-    title: "Desktop",
+    title: "Office",
     icon: "desktop_windows",
     order: 20,
     modalPath: "/plugins/_office/webui/main.html",
