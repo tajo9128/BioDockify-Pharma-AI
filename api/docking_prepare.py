@@ -288,8 +288,11 @@ class DockingPrepare(ApiHandler):
         }
 
 
+VALID_AD_TYPES = {'C', 'A', 'N', 'NA', 'OA', 'SA', 'HD', 'H', 'F', 'Cl', 'Br', 'I', 'P', 'S', 'Z', 'G', 'GA'}
+
+
 def _validate_pdbqt(filepath: str) -> tuple:
-    """Validate PDBQT file before passing to Vina/GNINA. Checks column structure."""
+    """Validate PDBQT file before passing to Vina/GNINA."""
     import os
     try:
         if not os.path.exists(filepath):
@@ -320,18 +323,18 @@ def _validate_pdbqt(filepath: str) -> tuple:
                     except ValueError:
                         charge_errors += 1
                 atype = line[77:79].strip()
-                if atype == '' or atype == 'X':
+                if atype not in VALID_AD_TYPES:
                     type_errors += 1
 
         if atom_count == 0:
             return False, "No ATOM/HETATM records found"
 
-        if charge_errors > atom_count * 0.5:
-            return False, f"{charge_errors}/{atom_count} atoms have invalid charges (cols 69-76)"
-        if type_errors > atom_count * 0.5:
-            return False, f"{type_errors}/{atom_count} atoms have invalid atom types (cols 78-79)"
+        if charge_errors > 0:
+            return False, f"{charge_errors}/{atom_count} atoms have invalid charges"
+        if type_errors > 0:
+            return False, f"{type_errors}/{atom_count} atoms have non-AutoDock4 types"
 
-        return True, f"Valid: {atom_count} atoms"
+        return True, f"Valid: {atom_count} atoms, all AD4 types + charges OK"
     except Exception as e:
         return False, f"Validation error: {str(e)}"
 
