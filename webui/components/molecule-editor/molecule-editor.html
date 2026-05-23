@@ -2,117 +2,361 @@
 <head>
   <script type="module">
     import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+
+    const RECENT_KEY = "molecule_editor_recent";
+    const DEBOUNCE_MS = 500;
 
     export const store = createStore("moleculeEditor", {
       smiles: "", molFile: null, loading: false, error: "", message: "",
+      activeTab: "3d",
+      mw: null, logP: null, hbd: null, hba: null, tpsa: null,
+      rotBonds: null, formula: "", lipinskiPass: null, propsLoaded: false,
+      pubchemQuery: "", pubchemLoading: false,
+      recent: [], jsmeReady: false, _viewerReady: false, _viewer: null,
+
+      init() {
+        try { this.recent = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); } catch(e) { this.recent = []; }
+        this._loadJSME();
+      },
+
+      _loadJSME() {
+        if (typeof window.JSME !== "undefined") { this._initJSME(); return; }
+        const s = document.createElement("script");
+        s.src = "/vendor/jsme/jsme.nocache.js";
+        s.onload = () => setTimeout(() => this._initJSME(), 300);
+        s.onerror = () => { this.error = "JSME editor failed to load"; };
+        document.head.appendChild(s);
+      },
+
+      _initJSME() {
+        if (this.jsmeReady) return;
+        const el = document.getElementById("jsme-container");
+        if (!el || el.clientWidth === 0) { setTimeout(() => this._initJSME(), 200); return; }
+        try {
+          const applet = new window.JSME("jsme-container", "380px", "340px", {
+            options: "query,hydrogens,polarnitro,nocanonize",
+          });
+          applet.setCallBack("afterStructureModified", (jsmeEvent) => {
+            try {
+              const mol = jsmeEvent ? (jsmeEvent.src || jsmeEvent) : null;
+              if (mol && typeof mol.smiles === "function") {
+                const smi = mol.smiles();
+                if (smi && smi !== this.smiles) { this.smiles = smi; this._onSmilesChange(); }
+              }
+            } catch(e) {}
+          });
+          this._jsme = applet;
+          this.jsmeReady = true;
+          window._jsmeApplet = applet;
+        } catch(e) { this.error = "JSME init error: " + e.message; }
+      },
+
+      clearJSME() {
+        try { if (this._jsme) this._jsme.reset(); } catch(e) {}
+        this.smiles = ""; this.mw = null; this.propsLoaded = false;
+      },
+
+      _onSmilesChange() {
+        clearTimeout(this._debounceTimer);
+        this._debounceTimer = setTimeout(() => { this.loadProperties(); this.init3DView(); }, DEBOUNCE_MS);
+      },
+
+      validateSmiles() {
+        if (!this.smiles) { this.error = "Enter a SMILES string"; return; }
+        callJsonApi("structure_3d", { smiles: this.smiles }).then(r => {
+          if (r.success) { this.message = `Valid: ${r.num_atoms} atoms`; this.error = ""; this._addRecent(); }
+          else { this.error = r.error || "Invalid SMILES"; }
+        });
+      },
+
+      copySmiles() {
+        if (!this.smiles) return;
+        navigator.clipboard.writeText(this.smiles).then(() => {
+          this.message = "SMILES copied"; setTimeout(() => this.message = "", 1500);
+        }).catch(() => { this.message = "Copy failed"; });
+      },
+
+      async loadProperties() {
+        if (!this.smiles) { this.propsLoaded = false; return; }
+        try {
+          const r = await callJsonApi("drug_properties", { action: "analyze", smiles: this.smiles });
+          if (r.molecular_weight) {
+            this.mw = r.molecular_weight; this.logP = r.logp; this.hbd = r.hbd;
+            this.hba = r.hba; this.tpsa = r.tpsa; this.rotBonds = r.rotatable_bonds;
+            this.formula = r.formula; this.lipinskiPass = r.lipinski_pass; this.propsLoaded = true;
+          }
+        } catch(e) {}
+      },
+
+      init3DView() {
+        if (this.activeTab !== "3d" || !this.smiles || this._viewerReady) return;
+        if (typeof window.$3Dmol === "undefined") {
+          const s = document.createElement("script");
+          s.src = "https://3Dmol.org/build/3Dmol-min.js";
+          s.onload = () => setTimeout(() => this.init3DView(), 300);
+          document.head.appendChild(s);
+          return;
+        }
+        const el = document.getElementById("me-3d-canvas");
+        if (!el || el.clientWidth === 0) { setTimeout(() => this.init3DView(), 200); return; }
+        callJsonApi("structure_3d", { smiles: this.smiles }).then(r => {
+          if (!r.success) return;
+          const v = window.$3Dmol.createViewer(el, { backgroundColor: "#ffffff", antialias: true });
+          v.addModel(r.sdf, "sdf");
+          v.setStyle({}, { stick: { radius: 0.15 }, sphere: { scale: 0.25 } });
+          v.zoomTo(); v.render();
+          this._viewer = v; this._viewerReady = true; window._meViewer = v;
+        }).catch(() => {});
+      },
+
+      toggleStyle(style) {
+        const v = this._viewer; if (!v) return;
+        v.removeAllSurfaces();
+        if (style === "stick") v.setStyle({}, { stick: {} });
+        else if (style === "sphere") v.setStyle({}, { sphere: {} });
+        else if (style === "ballstick") v.setStyle({}, { stick: { radius: 0.15 }, sphere: { scale: 0.25 } });
+        else if (style === "cartoon") v.setStyle({}, { cartoon: { color: "spectrum" } });
+        else if (style === "surface") v.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.6, colorscheme: "whiteCarbon" });
+        v.render();
+      },
+
+      async searchPubchem() {
+        const q = this.pubchemQuery.trim(); if (!q) return;
+        this.pubchemLoading = true;
+        try {
+          const r = await callJsonApi("pubchem_lookup", { query: q });
+          if (r.success) {
+            this.smiles = r.smiles; this._onSmilesChange();
+            try { if (this._jsme) this._jsme.readGenericMolecularInput(r.smiles); } catch(e) {}
+            this.message = `Loaded: ${r.name} (CID ${r.cid})`;
+            setTimeout(() => this.message = "", 2500);
+          } else { this.error = r.error || "Not found"; }
+        } catch(e) { this.error = e.message; }
+        this.pubchemLoading = false;
+      },
+
+      exportMolecule(fmt) {
+        if (!this.smiles) { this.error = "Enter SMILES first"; return; }
+        window.open(`/api/structure_export?smiles=${encodeURIComponent(this.smiles)}&format=${fmt}`, "_blank");
+      },
+
+      sendToDocking() {
+        if (!this.smiles) { this.error = "Enter or load a SMILES string first"; return; }
+        const inputs = document.querySelectorAll('#smiles-input-dock, input[placeholder*="SMILES"]');
+        for (const el of inputs) {
+          if (!el.value) { el.value = this.smiles; el.dispatchEvent(new Event("input", { bubbles: true })); break; }
+        }
+        this.message = "SMILES sent to docking tab"; setTimeout(() => this.message = "", 2000);
+      },
+
+      sendToADMET() {
+        if (!this.smiles) { this.error = "Enter or load a SMILES string first"; return; }
+        const inputs = document.querySelectorAll('#admet-input, input[placeholder*="ADMET"]');
+        for (const el of inputs) {
+          if (!el.value) { el.value = this.smiles; el.dispatchEvent(new Event("input", { bubbles: true })); break; }
+        }
+        this.message = "SMILES sent to ADMET"; setTimeout(() => this.message = "", 2000);
+      },
+
+      _addRecent() {
+        if (!this.smiles) return;
+        this.recent = this.recent.filter(r => r.smiles !== this.smiles);
+        this.recent.unshift({ smiles: this.smiles, label: this.smiles.length > 30 ? this.smiles.slice(0, 30) + "..." : this.smiles, ts: Date.now() });
+        if (this.recent.length > 10) this.recent = this.recent.slice(0, 10);
+        try { localStorage.setItem(RECENT_KEY, JSON.stringify(this.recent)); } catch(e) {}
+      },
+
+      loadRecent(smiles) {
+        this.smiles = smiles; this._onSmilesChange();
+        try { if (this._jsme) this._jsme.readGenericMolecularInput(smiles); } catch(e) {}
+      },
+
+      loadExample(name) {
+        const examples = {
+          "Aspirin": "CC(=O)Oc1ccccc1C(=O)O", "Caffeine": "Cn1cnc2c1c(=O)n(c(=O)n2C)C",
+          "Ibuprofen": "CC(C)Cc1ccc(cc1)C(C)C(=O)O", "Glucose": "OC[C@H]1OC(O)[C@H](O)[C@@H](O)[C@@H]1O",
+          "Sildenafil": "CCCC1=C2N(C(=O)N1CCC)CCCC2c3ccc(cc3)S(=O)(=O)N",
+          "Paracetamol": "CC(=O)Nc1ccc(O)cc1",
+        };
+        this.smiles = examples[name] || ""; this._onSmilesChange();
+        try { if (this._jsme && this.smiles) this._jsme.readGenericMolecularInput(this.smiles); } catch(e) {}
+      },
 
       handleFileUpload(e) {
         const f = e.target.files[0]; if (!f) return;
         const r = new FileReader();
         r.onload = () => {
           const t = r.result;
-          const ext = f.name.split('.').pop().toLowerCase();
-          if (ext === 'smi' || ext === 'smiles') {
-            this.smiles = t.split('\n').find(l => l.trim() && !l.startsWith('#'))?.trim() || t.trim();
-          } else {
-            this.molFile = { name: f.name, content: t, ext: ext };
-          }
+          const ext = f.name.split(".").pop().toLowerCase();
+          if (ext === "smi" || ext === "smiles") {
+            this.smiles = t.split("\n").find(l => l.trim() && !l.startsWith("#"))?.trim() || t.trim();
+            this._onSmilesChange();
+            try { if (this._jsme) this._jsme.readGenericMolecularInput(this.smiles); } catch(e) {}
+          } else { this.molFile = { name: f.name, content: t, ext: ext }; this.message = `${f.name} loaded (${ext})`; }
         };
         r.readAsText(f);
       },
-
-      sendToDocking() {
-        if (!this.smiles) { this.error = "Enter or load a SMILES string first"; return; }
-        const inputs = document.querySelectorAll('#smiles-input-dock, input[placeholder*=\"SMILES\"]');
-        for (const el of inputs) {
-          if (!el.value) { el.value = this.smiles; el.dispatchEvent(new Event('input', { bubbles: true })); break; }
-        }
-        this.message = "SMILES sent to docking tab";
-        setTimeout(() => this.message = "", 2000);
-      },
-
-      sendToADMET() {
-        if (!this.smiles) { this.error = "Enter or load a SMILES string first"; return; }
-        const inputs = document.querySelectorAll('#admet-input, input[placeholder*=\"ADMET\"]');
-        for (const el of inputs) {
-          if (!el.value) { el.value = this.smiles; el.dispatchEvent(new Event('input', { bubbles: true })); break; }
-        }
-        this.message = "SMILES sent to ADMET";
-        setTimeout(() => this.message = "", 2000);
-      },
-
-      loadExample(name) {
-        const examples = {
-          "Aspirin": "CC(=O)Oc1ccccc1C(=O)O",
-          "Caffeine": "Cn1cnc2c1c(=O)n(c(=O)n2C)C",
-          "Ibuprofen": "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
-          "Glucose": "OC[C@H]1OC(O)[C@H](O)[C@@H](O)[C@@H]1O",
-          "Morphine": "CN1CCc2c(O)ccc(c2C1)C(O)=O",
-          "Sildenafil": "CCCC1=C2N(C(=O)N1CCC)CCCC2c3ccc(cc3)S(=O)(=O)N",
-        };
-        this.smiles = examples[name] || "";
-      },
     });
   </script>
+  <style>
+    .me-layout { display: grid; grid-template-columns: 400px 1fr; gap: 10px; height: 100%; }
+    .me-left { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+    .me-right { display: flex; flex-direction: column; overflow-y: auto; }
+    .me-canvas-wrap { border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; background: #fff; min-height: 340px; display: flex; align-items: center; justify-content: center; }
+    .me-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--color-border); margin-bottom: 8px; flex-shrink: 0; }
+    .me-tab { padding: 5px 12px; font-size: 0.64rem; font-weight: 600; cursor: pointer; border: none; background: none; color: var(--color-text-muted); border-bottom: 2px solid transparent; transition: all 0.15s; }
+    .me-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+    .me-3d-view { flex: 1; min-height: 300px; border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; background: #fff; position: relative; }
+    .me-props { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
+    .me-prop { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: var(--color-panel); border-radius: 4px; font-size: 0.6rem; }
+    .me-prop-label { color: var(--color-text-muted); font-weight: 500; }
+    .me-prop-value { color: var(--color-text); font-weight: 600; font-family: monospace; }
+    .me-prop-pass { color: #22c55e; } .me-prop-fail { color: #ef4444; }
+    .me-style-row { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 4px; }
+    .me-style-btn { padding: 2px 8px; font-size: 0.55rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); cursor: pointer; }
+    .me-style-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+    .me-export-row { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 6px; }
+    .me-export-btn { padding: 3px 10px; font-size: 0.58rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-background); color: var(--color-text); cursor: pointer; font-weight: 500; }
+    .me-export-btn:hover { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+    .me-export-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .me-recent-item { cursor: pointer; padding: 3px 8px; font-size: 0.56rem; border-radius: 4px; background: color-mix(in srgb, var(--color-primary) 6%, transparent); color: var(--color-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+    .me-recent-item:hover { background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
+    @media (max-width: 750px) { .me-layout { grid-template-columns: 1fr; } .me-left { max-height: 50vh; } }
+  </style>
 </head>
 <body style="margin:0">
-  <div x-data class="nb-panel">
+  <div x-data class="nb-panel" x-create="$store.moleculeEditor.init()">
     <div class="nb-header">
       <span class="material-symbols-outlined nb-icon">draw</span>
-      <div><h2>Molecule Editor</h2><p class="nb-sub">Draw, edit &amp; load molecules</p></div>
+      <div><h2>Molecule Editor</h2><p class="nb-sub" x-text="$store.moleculeEditor.smiles ? $store.moleculeEditor.smiles.slice(0, 50) + ($store.moleculeEditor.smiles.length > 50 ? '...' : '') : 'Draw, edit & load molecules'"></p></div>
     </div>
 
-    <div x-show="$store.moleculeEditor.error" class="nb-error" x-text="$store.moleculeEditor.error"></div>
+    <div x-show="$store.moleculeEditor.error" class="nb-error" x-text="$store.moleculeEditor.error" @click="$store.moleculeEditor.error=''" style="cursor:pointer"></div>
     <div x-show="$store.moleculeEditor.message" class="nb-msg" x-text="$store.moleculeEditor.message"></div>
 
-    <div class="nb-content">
-      <!-- Quick examples -->
-      <div class="nb-form"><h4>Quick Load</h4>
-        <div style="display:flex;gap:3px;flex-wrap:wrap">
-          <template x-for="smiles in ['Aspirin','Caffeine','Ibuprofen','Glucose','Morphine','Sildenafil']">
-            <button @click="$store.moleculeEditor.loadExample(smiles)" class="nb-tag" style="cursor:pointer" x-text="smiles"></button>
-          </template>
-        </div>
-      </div>
-
-      <!-- SMILES input -->
-      <div class="nb-form"><h4>SMILES Input</h4>
-        <input type="text" x-model="$store.moleculeEditor.smiles" placeholder="Enter or edit SMILES string..." class="nb-input" style="font-family:monospace;margin-bottom:4px" id="smiles-input-dock" />
-        <div class="nb-form-row">
-          <button class="nb-btn-primary" @click="$store.moleculeEditor.sendToDocking()" :disabled="!$store.moleculeEditor.smiles" style="background:#22c55e;flex:1">Send to Docking</button>
-          <button class="nb-btn-primary" @click="$store.moleculeEditor.sendToADMET()" :disabled="!$store.moleculeEditor.smiles" style="flex:1">Send to ADMET</button>
-        </div>
-      </div>
-
-      <!-- 2D Structure Viewer -->
-      <div class="nb-form"><h4>2D Structure</h4>
-        <div style="width:100%;min-height:160px;border:1px solid var(--color-border);border-radius:8px;overflow:hidden;background:white;display:flex;align-items:center;justify-content:center">
-          <img x-show="$store.moleculeEditor.smiles" :src="'/api/structure_image?smiles=' + encodeURIComponent($store.moleculeEditor.smiles)" 
-               style="max-width:100%;max-height:300px" 
-               onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'"
-               @error="this.style.display='none'; this.nextElementSibling.style.display='flex'" />
-          <div x-show="!$store.moleculeEditor.smiles" style="display:flex;flex-direction:column;align-items:center;padding:20px;color:var(--color-text-muted)">
-            <span class="material-symbols-outlined" style="font-size:36px;opacity:0.3;margin-bottom:8px">image</span>
-            <p style="font-size:0.68rem;margin:0">Enter SMILES above to preview structure</p>
+    <div class="me-layout">
+      <div class="me-left">
+        <div class="nb-form">
+          <h4>Draw Molecule</h4>
+          <div class="me-canvas-wrap" id="jsme-container">
+            <div x-show="!$store.moleculeEditor.jsmeReady" style="color:var(--color-text-muted);font-size:0.6rem;text-align:center;padding:20px">
+              <span class="material-symbols-outlined" style="font-size:32px;opacity:0.3">hourglass</span>
+              <p>Loading editor...</p>
+            </div>
+          </div>
+          <div style="display:flex;gap:4px;margin-top:4px">
+            <button class="nb-btn-primary" @click="$store.moleculeEditor.clearJSME()" style="flex:1;font-size:0.6rem;padding:4px 8px">Clear Canvas</button>
           </div>
         </div>
-        <div style="display:flex;gap:4px;margin-top:4px">
-          <a :href="'https://lifescience.opensource.epam.com/ketcher/ketcher.html'" target="_blank" rel="noopener" 
-             class="nb-tag" style="text-decoration:none;cursor:pointer" title="Opens Ketcher molecular editor in new tab">
-            <span class="material-symbols-outlined" style="font-size:12px">open_in_new</span> Open Ketcher
-          </a>
-          <span style="font-size:0.5rem;color:var(--color-text-muted);align-self:center">Draw in Ketcher → Copy SMILES → Paste above</span>
+
+        <div class="nb-form">
+          <h4>SMILES</h4>
+          <div style="display:flex;gap:4px">
+            <input type="text" x-model="$store.moleculeEditor.smiles" @input.debounce.600ms="$store.moleculeEditor._onSmilesChange()" placeholder="SMILES string..." class="nb-input" style="font-family:monospace" id="smiles-input-dock" />
+            <button class="nb-btn-primary" @click="$store.moleculeEditor.copySmiles()" style="padding:4px 8px;font-size:0.58rem" title="Copy SMILES"><span class="material-symbols-outlined" style="font-size:14px">content_copy</span></button>
+          </div>
+          <div style="display:flex;gap:3px;margin-top:4px">
+            <button class="me-style-btn" @click="$store.moleculeEditor.validateSmiles()">Validate</button>
+          </div>
+        </div>
+
+        <div class="nb-form">
+          <h4>PubChem Search</h4>
+          <div style="display:flex;gap:4px">
+            <input type="text" x-model="$store.moleculeEditor.pubchemQuery" @keydown.enter="$store.moleculeEditor.searchPubchem()" placeholder="e.g. aspirin, caffeine..." class="nb-input" style="flex:1" />
+            <button class="nb-btn-primary" @click="$store.moleculeEditor.searchPubchem()" :disabled="$store.moleculeEditor.pubchemLoading" style="padding:4px 10px;font-size:0.58rem">
+              <span x-show="!$store.moleculeEditor.pubchemLoading">Search</span>
+              <span x-show="$store.moleculeEditor.pubchemLoading">...</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="nb-form">
+          <h4>Quick Load</h4>
+          <div style="display:flex;gap:3px;flex-wrap:wrap">
+            <template x-for="name in ['Aspirin','Caffeine','Ibuprofen','Glucose','Sildenafil','Paracetamol']">
+              <button @click="$store.moleculeEditor.loadExample(name)" class="me-recent-item" x-text="name"></button>
+            </template>
+          </div>
+        </div>
+
+        <div class="nb-form">
+          <h4>Recent</h4>
+          <div style="display:flex;gap:3px;flex-wrap:wrap">
+            <template x-for="r in $store.moleculeEditor.recent" :key="r.ts">
+              <button @click="$store.moleculeEditor.loadRecent(r.smiles)" class="me-recent-item" :title="r.smiles" x-text="r.label"></button>
+            </template>
+            <span x-show="!$store.moleculeEditor.recent.length" style="font-size:0.56rem;color:var(--color-text-muted)">No recent molecules</span>
+          </div>
+        </div>
+
+        <div class="nb-form">
+          <h4>Load from File</h4>
+          <label class="nb-upload-label" style="justify-content:center">
+            <span class="material-symbols-outlined">upload_file</span>
+            <span>.sdf .mol .pdb .smi .smiles</span>
+            <input type="file" accept=".sdf,.mol,.pdb,.pdbqt,.smi,.smiles,.txt" hidden @change="$store.moleculeEditor.handleFileUpload($event)" />
+          </label>
+          <div x-show="$store.moleculeEditor.molFile" class="nb-msg" style="margin-top:4px" x-text="$store.moleculeEditor.molFile.name + ' loaded'"></div>
         </div>
       </div>
 
-      <!-- File upload -->
-      <div class="nb-form"><h4>Load from File</h4>
-        <label class="nb-upload-label" style="justify-content:center">
-          <span class="material-symbols-outlined">upload_file</span>
-          <span>Upload .sdf/.mol/.pdb/.smi</span>
-          <input type="file" accept=".sdf,.mol,.pdb,.pdbqt,.smi,.smiles,.txt" hidden @change="$store.moleculeEditor.handleFileUpload($event)" />
-        </label>
-        <div x-show="$store.moleculeEditor.molFile" class="nb-msg" style="margin-top:4px" x-text="$store.moleculeEditor.molFile.name + ' loaded'"></div>
+      <div class="me-right">
+        <div class="me-tabs">
+          <button class="me-tab" :class="{ active: $store.moleculeEditor.activeTab === '3d' }" @click="$store.moleculeEditor.activeTab = '3d'; $nextTick(() => $store.moleculeEditor.init3DView())">3D View</button>
+          <button class="me-tab" :class="{ active: $store.moleculeEditor.activeTab === 'props' }" @click="$store.moleculeEditor.activeTab = 'props'; $store.moleculeEditor.loadProperties()">Properties</button>
+        </div>
+
+        <div x-show="$store.moleculeEditor.activeTab === '3d'" style="flex:1;display:flex;flex-direction:column">
+          <div class="me-3d-view" id="me-3d-canvas">
+            <div x-show="!$store.moleculeEditor.smiles" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--color-panel);color:var(--color-text-muted);font-size:0.62rem;pointer-events:none">
+              <span class="material-symbols-outlined" style="font-size:40px;opacity:0.2;margin-bottom:6px">view_in_ar</span>
+              <span>Enter SMILES or draw to view 3D</span>
+            </div>
+          </div>
+          <div class="me-style-row">
+            <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('stick')">Stick</button>
+            <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('ballstick')">Ball+Stick</button>
+            <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('sphere')">Sphere</button>
+            <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('cartoon')">Cartoon</button>
+            <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('surface')">Surface</button>
+          </div>
+        </div>
+
+        <div x-show="$store.moleculeEditor.activeTab === 'props'" style="flex:1">
+          <div x-show="!$store.moleculeEditor.propsLoaded" style="padding:20px;text-align:center;color:var(--color-text-muted);font-size:0.62rem">
+            Enter SMILES or draw to see properties
+          </div>
+          <div x-show="$store.moleculeEditor.propsLoaded" class="me-props">
+            <div class="me-prop"><span class="me-prop-label">Formula</span><span class="me-prop-value" x-text="$store.moleculeEditor.formula || '—'"></span></div>
+            <div class="me-prop"><span class="me-prop-label">MW</span><span class="me-prop-value" x-text="$store.moleculeEditor.mw ? $store.moleculeEditor.mw.toFixed(2) + ' Da' : '—'"></span></div>
+            <div class="me-prop"><span class="me-prop-label">LogP</span><span class="me-prop-value" x-text="$store.moleculeEditor.logP ? $store.moleculeEditor.logP.toFixed(2) : '—'"></span></div>
+            <div class="me-prop"><span class="me-prop-label">TPSA</span><span class="me-prop-value" x-text="$store.moleculeEditor.tpsa ? $store.moleculeEditor.tpsa.toFixed(1) + ' Å²' : '—'"></span></div>
+            <div class="me-prop"><span class="me-prop-label">H-Bond Donors</span><span class="me-prop-value" x-text="$store.moleculeEditor.hbd ?? '—'"></span></div>
+            <div class="me-prop"><span class="me-prop-label">H-Bond Acceptors</span><span class="me-prop-value" x-text="$store.moleculeEditor.hba ?? '—'"></span></div>
+            <div class="me-prop"><span class="me-prop-label">Rotatable Bonds</span><span class="me-prop-value" x-text="$store.moleculeEditor.rotBonds ?? '—'"></span></div>
+            <div class="me-prop"><span class="me-prop-label">Lipinski Rule of 5</span><span class="me-prop-value" :class="$store.moleculeEditor.lipinskiPass ? 'me-prop-pass' : 'me-prop-fail'" x-text="$store.moleculeEditor.lipinskiPass ? 'PASS' : 'FAIL'"></span></div>
+          </div>
+        </div>
+
+        <div class="nb-form" style="flex-shrink:0">
+          <h4>Export</h4>
+          <div class="me-export-row">
+            <button class="me-export-btn" @click="$store.moleculeEditor.exportMolecule('png')" :disabled="!$store.moleculeEditor.smiles">PNG</button>
+            <button class="me-export-btn" @click="$store.moleculeEditor.exportMolecule('svg')" :disabled="!$store.moleculeEditor.smiles">SVG</button>
+            <button class="me-export-btn" @click="$store.moleculeEditor.exportMolecule('mol')" :disabled="!$store.moleculeEditor.smiles">MOL</button>
+            <button class="me-export-btn" @click="$store.moleculeEditor.exportMolecule('sdf')" :disabled="!$store.moleculeEditor.smiles">SDF 3D</button>
+          </div>
+        </div>
+
+        <div class="nb-form" style="flex-shrink:0">
+          <h4>Send To</h4>
+          <div style="display:flex;gap:4px">
+            <button class="nb-btn-primary" @click="$store.moleculeEditor.sendToDocking()" :disabled="!$store.moleculeEditor.smiles" style="background:#22c55e;flex:1">Send to Docking</button>
+            <button class="nb-btn-primary" @click="$store.moleculeEditor.sendToADMET()" :disabled="!$store.moleculeEditor.smiles" style="flex:1">Send to ADMET</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -122,18 +366,14 @@
       .nb-icon { font-size:22px;color:var(--color-primary) }
       .nb-header h2 { color:var(--color-primary);font-size:0.9rem;margin:0;font-weight:700 }
       .nb-sub { color:var(--color-text-muted);font-size:0.58rem;margin:0 }
-      .nb-content { flex:1;overflow-y:auto }
       .nb-error { padding:4px 8px;background:rgba(255,107,107,0.1);border-radius:4px;color:var(--color-error-text);font-size:0.6rem;margin-bottom:4px }
       .nb-msg { padding:4px 8px;background:rgba(0,212,170,0.08);border-radius:4px;color:var(--color-primary);font-size:0.6rem;margin-bottom:4px }
       .nb-form { padding:8px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:8px }
       .nb-form h4 { font-size:0.64rem;font-weight:600;color:var(--color-primary);margin:0 0 6px 0 }
-      .nb-form-row { display:flex;gap:4px }
       .nb-input { width:100%;padding:6px 10px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-background);color:var(--color-text);font-size:0.68rem;box-sizing:border-box }
       .nb-input:focus { outline:none;border-color:var(--color-primary) }
-      .nb-input::placeholder { color:var(--color-text-muted);font-size:0.62rem }
       .nb-btn-primary { display:flex;align-items:center;justify-content:center;gap:3px;padding:6px 10px;background:var(--color-primary);color:white;border:none;border-radius:6px;cursor:pointer;font-size:0.66rem;font-weight:600 }
       .nb-btn-primary:disabled { opacity:0.5;cursor:not-allowed }
-      .nb-tag { display:inline-block;padding:2px 8px;background:color-mix(in srgb, var(--color-primary) 8%, transparent);border:1px solid transparent;border-radius:4px;color:var(--color-primary);font-size:0.58rem;font-weight:500 }
       .nb-upload-label { display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--color-background);border:1px dashed var(--color-border);border-radius:6px;color:var(--color-text-muted);cursor:pointer;font-size:0.64rem;transition:all 0.15s }
       .nb-upload-label:hover { border-color:var(--color-primary);color:var(--color-primary) }
       .nb-upload-label .material-symbols-outlined { font-size:18px }
