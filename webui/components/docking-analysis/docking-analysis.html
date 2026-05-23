@@ -5,27 +5,13 @@
     import { callJsonApi } from "/js/api.js";
 
     export const store = createStore("dockingAnalysis", {
-      jobId: "", activeTab: "deep",
-      loading: false, error: "", message: "",
-
-      // Deep analysis result
+      jobId: "", activeTab: "deep", loading: false, error: "",
       deepData: null, poseIndex: 0, energies: [],
-
-      // 3D View state
       viewerReady: false, viewerRef: null,
       proteinStyle: "cartoon", proteinColor: "spectrum", proteinShow: true, proteinOpacity: 1.0,
       ligandStyle: "stick", ligandColor: "greenCarbon", ligandShow: true,
       showSurface: false, showHBonds: true, showLabels: false, bgColor: "#ffffff",
       spinning: false, zoomLevel: 100,
-      distanceMode: false, clickAtoms: [],
-
-      async onOpen() {
-        if (window._pendingDeepAnalysisJob) {
-          this.jobId = window._pendingDeepAnalysisJob;
-          delete window._pendingDeepAnalysisJob;
-          await this.analyze();
-        }
-      },
 
       async analyze() {
         if (!this.jobId) { this.error = "Enter a docking job ID"; return; }
@@ -36,357 +22,234 @@
         } catch (e) { this.error = e.message; }
         this.loading = false;
       },
-
       async analyzeJobId(id) { this.jobId = id; await this.analyze(); },
-
-      // ─── 3D Viewer ────────────────────────────────────────────────
       get3DViewer() { return this.viewerRef || window._dockingViewer; },
       init3DView() {
         if (!window.$3Dmol || this.viewerRef) return;
         const el = document.getElementById("da-3d-canvas");
         if (!el || el.clientWidth === 0) { setTimeout(() => this.init3DView(), 200); return; }
-        try {
-          const v = window.$3Dmol.createViewer(el, { backgroundColor: this.bgColor, antialias: true, cartoonQuality: 10 });
-          this.viewerRef = v; window._dockingViewer = v; this.viewerReady = true;
-          this.renderScene();
-        } catch (e) { console.error("3Dmol init:", e); }
+        const v = window.$3Dmol.createViewer(el, { backgroundColor: this.bgColor, antialias: true, cartoonQuality: 10 });
+        this.viewerRef = v; window._dockingViewer = v; this.viewerReady = true; this.renderScene();
       },
-
       renderScene() {
         const v = this.get3DViewer(); if (!v || !this.deepData) return;
         v.removeAllModels(); v.removeAllLabels(); v.removeAllSurfaces();
-
-        const overlay = this.deepData.overlay;
         const pdb = (s) => s && (s.includes("ATOM") || s.includes("HETATM"));
-
-        // Protein
-        if (overlay?.receptor_pdb && pdb(overlay.receptor_pdb) && this.proteinShow) {
-          v.addModel(overlay.receptor_pdb, "pdb");
-          const styleObj = {};
-          const scheme = this.proteinColor === "ss" ? "rasmol" : this.proteinColor;
-          if (this.proteinStyle === "cartoon") styleObj.cartoon = { colorscheme: scheme, opacity: this.proteinOpacity };
-          else if (this.proteinStyle === "stick") styleObj.stick = { colorscheme: scheme, radius: 0.15, opacity: this.proteinOpacity };
-          else if (this.proteinStyle === "sphere") styleObj.sphere = { colorscheme: scheme, radius: 0.5, opacity: this.proteinOpacity };
-          else if (this.proteinStyle === "line") styleObj.line = { colorscheme: scheme, linewidth: 1.5, opacity: this.proteinOpacity };
-          else if (this.proteinStyle === "cross") styleObj.cross = { colorscheme: scheme, radius: 0.1, opacity: this.proteinOpacity };
-          v.setStyle({}, styleObj);
+        const ov = this.deepData.overlay;
+        if (ov?.receptor_pdb && pdb(ov.receptor_pdb) && this.proteinShow) {
+          v.addModel(ov.receptor_pdb, "pdb");
+          const sc = this.proteinColor === "ss" ? "rasmol" : this.proteinColor;
+          const so = { cartoon:{}, stick:{radius:0.15}, sphere:{radius:0.5}, line:{linewidth:1.5}, cross:{radius:0.1} };
+          so[this.proteinStyle] = so[this.proteinStyle] || {};
+          Object.assign(so[this.proteinStyle], { colorscheme: sc, opacity: this.proteinOpacity });
+          v.setStyle({}, so);
         }
-
-        // Ligand (selected pose)
-        if (overlay?.poses && this.poseIndex < overlay.poses.length && this.ligandShow) {
-          const posePdb = overlay.poses[this.poseIndex].pdb;
-          if (pdb(posePdb)) {
-            v.addModel(posePdb, "pdb");
-            const last = v.getModel(-1);
-            if (this.ligandStyle === "ballstick") {
-              last.setStyle({}, { stick: { colorscheme: this.ligandColor, radius: 0.15 }, sphere: { colorscheme: this.ligandColor, scale: 0.35 } });
-            } else if (this.ligandStyle === "stick") {
-              last.setStyle({}, { stick: { colorscheme: this.ligandColor, radius: 0.22 } });
-            } else if (this.ligandStyle === "sphere") {
-              last.setStyle({}, { sphere: { colorscheme: this.ligandColor, radius: 0.4 } });
-            } else if (this.ligandStyle === "line") {
-              last.setStyle({}, { line: { colorscheme: this.ligandColor, linewidth: 2.5 } });
-            }
-          }
+        if (ov?.poses && this.poseIndex < ov.poses.length && this.ligandShow) {
+          const pp = ov.poses[this.poseIndex].pdb;
+          if (pdb(pp)) { v.addModel(pp, "pdb"); const lm = v.getModel(-1); if (this.ligandStyle === "ballstick") lm.setStyle({}, { stick: { colorscheme: this.ligandColor, radius: 0.15 }, sphere: { colorscheme: this.ligandColor, scale: 0.35 } }); else if (this.ligandStyle === "stick") lm.setStyle({}, { stick: { colorscheme: this.ligandColor, radius: 0.22 } }); else if (this.ligandStyle === "sphere") lm.setStyle({}, { sphere: { colorscheme: this.ligandColor, radius: 0.4 } }); else if (this.ligandStyle === "line") lm.setStyle({}, { line: { colorscheme: this.ligandColor, linewidth: 2.5 } }); }
         }
-
-        // Surface
-        if (this.showSurface) {
-          try { v.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.5, colorscheme: "whiteCarbon" }, { hetflag: false }); } catch (e) {}
-        }
-
-        // H-Bonds from analyze data
+        if (this.showSurface) try { v.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.5, colorscheme: "whiteCarbon" }, { hetflag: false }); } catch (e) {}
         if (this.showHBonds && this.deepData?.interactions?.hydrogen_bonds) {
-          this.deepData.interactions.hydrogen_bonds.forEach(hb => {
-            try {
-              const pAtoms = v.selectedAtoms({ resi: hb.resseq, chain: hb.chain });
-              const lAtoms = v.selectedAtoms({ hetflag: true });
-              if (pAtoms.length && lAtoms.length) {
-                v.addCylinder({ start: pAtoms[0], end: lAtoms[0], radius: 0.08, color: "#facc15", dashed: true });
-                if (this.showLabels) v.addLabel(`${hb.distance}Å`, { position: { x: (pAtoms[0].x + lAtoms[0].x) / 2, y: (pAtoms[0].y + lAtoms[0].y) / 2, z: (pAtoms[0].z + lAtoms[0].z) / 2 }, backgroundColor: "black", fontColor: "white", fontSize: 10 });
-              }
-            } catch (e) {}
-          });
+          this.deepData.interactions.hydrogen_bonds.forEach(hb => { try { const pA = v.selectedAtoms({ resi: hb.resseq, chain: hb.chain }); const lA = v.selectedAtoms({ hetflag: true }); if (pA.length && lA.length) { v.addCylinder({ start: pA[0], end: lA[0], radius: 0.08, color: "#facc15", dashed: true }); if (this.showLabels) v.addLabel(`${hb.distance}Å`, { position: { x: (pA[0].x + lA[0].x) / 2, y: (pA[0].y + lA[0].y) / 2, z: (pA[0].z + lA[0].z) / 2 }, backgroundColor: "black", fontColor: "white", fontSize: 10 }); } } catch (e) {} });
         }
-
-        if (this.showLabels && this.ligandShow) {
-          try { v.addPropertyLabels("resn", { hetflag: true }, { fontColor: this.bgColor === "#ffffff" ? "black" : "white", fontSize: 10, showBackground: false }); } catch (e) {}
-        }
-
-        v.zoomTo(this.ligandShow ? { hetflag: true } : undefined);
-        v.render();
+        if (this.showLabels && this.ligandShow) try { v.addPropertyLabels("resn", { hetflag: true }, { fontColor: this.bgColor === "#ffffff" ? "black" : "white", fontSize: 10, showBackground: false }); } catch (e) {}
+        v.zoomTo(this.ligandShow ? { hetflag: true } : undefined); v.render();
       },
-
       zoomIn() { const v = this.get3DViewer(); if (v) { v.zoom(0.8, 500); this.zoomLevel = Math.min(this.zoomLevel + 20, 200); } },
       zoomOut() { const v = this.get3DViewer(); if (v) { v.zoom(1.25, 500); this.zoomLevel = Math.max(this.zoomLevel - 20, 20); } },
       resetView() { const v = this.get3DViewer(); if (v) { v.zoomTo(); this.zoomLevel = 100; v.render(); } },
       toggleSpin() { this.spinning = !this.spinning; const v = this.get3DViewer(); if (v) v.spin(this.spinning ? 0.5 : 0); },
-      takeSnapshot() { const v = this.get3DViewer(); if (!v) return; try { const url = v.pngURI(); const a = document.createElement("a"); a.href = url; a.download = `biodockify_docking_${this.jobId}.png`; a.click(); } catch (e) { this.error = "Snapshot failed"; } },
+      takeSnapshot() { const v = this.get3DViewer(); if (!v) return; try { const u = v.pngURI(); const a = document.createElement("a"); a.href = u; a.download = `biodockify_dock_${this.jobId}.png`; a.click(); } catch (e) {} },
       setBg(c) { this.bgColor = c; const v = this.get3DViewer(); if (v) { v.setBackgroundColor(c); v.render(); } },
-      applyPreset(name) {
-        if (name === "default") { this.proteinStyle = "cartoon"; this.proteinColor = "ss"; this.ligandStyle = "stick"; this.ligandColor = "greenCarbon"; this.bgColor = "#ffffff"; }
-        else if (name === "dark") { this.proteinStyle = "cartoon"; this.proteinColor = "spectrum"; this.ligandStyle = "stick"; this.ligandColor = "orangeCarbon"; this.bgColor = "#1a1a2e"; }
-        else if (name === "surface") { this.proteinStyle = "cartoon"; this.proteinOpacity = 0.6; this.showSurface = true; this.ligandStyle = "ballstick"; this.ligandColor = "magentaCarbon"; }
-        else if (name === "analysis") { this.proteinStyle = "stick"; this.proteinColor = "rasmol"; this.ligandStyle = "ballstick"; this.ligandColor = "cyanCarbon"; this.bgColor = "#f0f4f8"; }
+      applyPreset(n) {
+        if (n === "default") { this.proteinStyle = "cartoon"; this.proteinColor = "ss"; this.ligandStyle = "stick"; this.ligandColor = "greenCarbon"; this.bgColor = "#ffffff"; }
+        else if (n === "dark") { this.proteinStyle = "cartoon"; this.proteinColor = "spectrum"; this.ligandStyle = "stick"; this.ligandColor = "orangeCarbon"; this.bgColor = "#1a1a2e"; }
+        else if (n === "surface") { this.proteinOpacity = 0.6; this.showSurface = true; this.ligandStyle = "ballstick"; this.ligandColor = "magentaCarbon"; }
+        else if (n === "analysis") { this.proteinStyle = "stick"; this.proteinColor = "rasmol"; this.ligandStyle = "ballstick"; this.ligandColor = "cyanCarbon"; this.bgColor = "#f0f4f8"; }
         this.$nextTick(() => this.renderScene());
       },
-
-      // ─── Deep analysis helpers ───
       energyColor(v) { return v < 0 ? "#22c55e" : "#ff6b6b"; },
-      domainColor(s) { return s === "in_domain" ? "#22c55e" : s === "warning" ? "#ffd93d" : "#ff6b6b"; },
     });
 
-    // Lazy load 3Dmol.js
-    if (typeof window.$3Dmol === "undefined") {
-      const s = document.createElement("script");
-      s.src = "https://3Dmol.org/build/3Dmol-min.js";
-      s.onload = () => { if (window._dockingViewer) window._dockingViewer.render(); };
-      document.head.appendChild(s);
-    }
+    if (typeof window.$3Dmol === "undefined") { const s = document.createElement("script"); s.src = "https://3Dmol.org/build/3Dmol-min.js"; s.onload = () => { if (window._dockingViewer) window._dockingViewer.render(); }; document.head.appendChild(s); }
   </script>
 </head>
 <body>
-  <div x-data class="dock-panel">
-    <div class="panel-header"><div class="header-left"><span class="material-symbols-outlined header-icon">biotech</span><div><h2>Docking Deep Analysis</h2><p class="header-subtitle">3D View · 2D Diagram · Clusters · Residue Energy · Torsion</p></div></div></div>
+  <div x-data class="nb-panel">
+    <div class="nb-header"><span class="material-symbols-outlined nb-icon">biotech</span><div><h2>Docking Deep Analysis</h2><p class="nb-sub">3D View · 2D Diagram · Clusters · Residue Energy · Torsion</p></div></div>
 
-    <div class="panel-body">
-      <div x-show="$store.dockingAnalysis.error" class="dock-error" x-text="$store.dockingAnalysis.error"></div>
-
-      <div class="mt-input-row">
-        <input type="text" x-model="$store.dockingAnalysis.jobId" placeholder="Docking Job ID" class="mt-input" @keyup.enter="$store.dockingAnalysis.analyze()" />
-        <button class="btn-run" @click="$store.dockingAnalysis.analyze()" style="flex:none;width:auto;margin-top:0" :disabled="$store.dockingAnalysis.loading || !$store.dockingAnalysis.jobId">Analyze</button>
-      </div>
-
-      <div x-show="$store.dockingAnalysis.loading" class="dock-loading"><div class="loading-spinner"></div><span>Deep analysis running...</span></div>
-
-      <template x-if="$store.dockingAnalysis.deepData">
-        <div>
-          <!-- Pose selector -->
-          <div style="display:flex;align-items:center;gap:8px;margin:8px 0;flex-wrap:wrap">
-            <span class="material-symbols-outlined" style="font-size:16px;color:var(--color-primary)">layers</span>
-            <span style="font-size:0.68rem;color:var(--color-text-muted)" x-text="'Pose ' + ($store.dockingAnalysis.poseIndex + 1) + ' of ' + ($store.dockingAnalysis.deepData.num_poses || 0)"></span>
-            <template x-for="(e, i) in $store.dockingAnalysis.energies" :key="i">
-              <button @click="$store.dockingAnalysis.poseIndex = i; $store.dockingAnalysis.renderScene()" style="padding:3px 8px;border:1px solid;border-radius:4px;font-size:0.6rem;font-family:monospace;cursor:pointer" :style="'color:' + ($store.dockingAnalysis.poseIndex === i ? 'white' : 'var(--color-text-muted)') + ';background:' + ($store.dockingAnalysis.poseIndex === i ? 'var(--color-primary)' : 'var(--color-background)') + ';border-color:' + ($store.dockingAnalysis.poseIndex === i ? 'var(--color-primary)' : 'var(--color-border)')" x-text="'#'+(i+1)+' '+e.toFixed(1)"></button>
-            </template>
-          </div>
-
-          <!-- Tabs -->
-          <div class="dock-tabs">
-            <button class="dock-tab" :class="{active: $store.dockingAnalysis.activeTab === '3dview'}" @click="$store.dockingAnalysis.activeTab = '3dview'; $store.dockingAnalysis.$nextTick(() => $store.dockingAnalysis.init3DView())"><span class="material-symbols-outlined">view_in_ar</span> 3D View</button>
-            <button class="dock-tab" :class="{active: $store.dockingAnalysis.activeTab === '2d'}" @click="$store.dockingAnalysis.activeTab = '2d'"><span class="material-symbols-outlined">draw</span> 2D Diagram</button>
-            <button class="dock-tab" :class="{active: $store.dockingAnalysis.activeTab === 'deep'}" @click="$store.dockingAnalysis.activeTab = 'deep'"><span class="material-symbols-outlined">analytics</span> Interactions</button>
-            <button class="dock-tab" :class="{active: $store.dockingAnalysis.activeTab === 'energy'}" @click="$store.dockingAnalysis.activeTab = 'energy'"><span class="material-symbols-outlined">bar_chart</span> Residue Energy</button>
-            <button class="dock-tab" :class="{active: $store.dockingAnalysis.activeTab === 'clusters'}" @click="$store.dockingAnalysis.activeTab = 'clusters'"><span class="material-symbols-outlined">group_work</span> Clusters</button>
-            <button class="dock-tab" :class="{active: $store.dockingAnalysis.activeTab === 'torsion'}" @click="$store.dockingAnalysis.activeTab = 'torsion'"><span class="material-symbols-outlined">rotate_360</span> Torsion</button>
-          </div>
-
-          <!-- ═══ 3D VIEW TAB ═══ -->
-          <div x-show="$store.dockingAnalysis.activeTab === '3dview'" class="tab-content" style="position:relative">
-            <!-- Quick presets -->
-            <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap">
-              <button @click="$store.dockingAnalysis.applyPreset('default')" class="preset-btn">Default</button>
-              <button @click="$store.dockingAnalysis.applyPreset('dark')" class="preset-btn">Dark</button>
-              <button @click="$store.dockingAnalysis.applyPreset('surface')" class="preset-btn">Surface</button>
-              <button @click="$store.dockingAnalysis.applyPreset('analysis')" class="preset-btn">Analysis</button>
-            </div>
-
-            <!-- Settings Row -->
-            <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;align-items:center">
-              <label style="font-size:0.58rem;color:var(--color-text-muted)">Protein:</label>
-              <select x-model="$store.dockingAnalysis.proteinStyle" @change="$store.dockingAnalysis.renderScene()" class="da-select">
-                <option value="cartoon">Cartoon</option><option value="stick">Stick</option><option value="sphere">Sphere</option><option value="line">Line</option>
-              </select>
-              <select x-model="$store.dockingAnalysis.proteinColor" @change="$store.dockingAnalysis.renderScene()" class="da-select">
-                <option value="ss">SS</option><option value="spectrum">Spectrum</option><option value="chain">Chain</option><option value="rasmol">Residue</option>
-              </select>
-              <input type="range" x-model="$store.dockingAnalysis.proteinOpacity" @change="$store.dockingAnalysis.renderScene()" min="0.1" max="1" step="0.05" style="width:60px;height:4px" />
-              <label style="font-size:0.58rem;color:var(--color-text-muted);margin-left:6px">Ligand:</label>
-              <select x-model="$store.dockingAnalysis.ligandStyle" @change="$store.dockingAnalysis.renderScene()" class="da-select">
-                <option value="stick">Stick</option><option value="ballstick">Ball+Stick</option><option value="sphere">Sphere</option><option value="line">Line</option>
-              </select>
-              <select x-model="$store.dockingAnalysis.ligandColor" @change="$store.dockingAnalysis.renderScene()" class="da-select">
-                <option value="greenCarbon">Green</option><option value="cyanCarbon">Cyan</option><option value="orangeCarbon">Orange</option><option value="magentaCarbon">Magenta</option><option value="yellowCarbon">Yellow</option>
-              </select>
-            </div>
-
-            <!-- Toggles -->
-            <div style="display:flex;gap:10px;margin-bottom:4px;flex-wrap:wrap">
-              <label style="font-size:0.58rem;cursor:pointer"><input type="checkbox" x-model="$store.dockingAnalysis.showSurface" @change="$store.dockingAnalysis.renderScene()" /> Surface</label>
-              <label style="font-size:0.58rem;cursor:pointer"><input type="checkbox" x-model="$store.dockingAnalysis.showHBonds" @change="$store.dockingAnalysis.renderScene()" /> H-Bonds</label>
-              <label style="font-size:0.58rem;cursor:pointer"><input type="checkbox" x-model="$store.dockingAnalysis.showLabels" @change="$store.dockingAnalysis.renderScene()" /> Labels</label>
-              <template x-for="c in ['#ffffff','#1a1a2e','#0f2027','#f0f4f8','#111827','#1e3a5f']">
-                <span @click="$store.dockingAnalysis.setBg(c)" style="display:inline-block;width:18px;height:18px;border-radius:50%;border:2px solid;cursor:pointer" :style="'background:' + c + ';border-color:' + ($store.dockingAnalysis.bgColor === c ? 'var(--color-primary)' : 'var(--color-border)')"></span>
-              </template>
-            </div>
-
-            <!-- 3Dmol canvas -->
-            <div id="da-3d-canvas" style="width:100%;height:420px;border-radius:8px;border:1px solid var(--color-border);position:relative">
-              <div x-show="$store.dockingAnalysis.energies && $store.dockingAnalysis.energies.length" style="position:absolute;top:8px;right:8px;z-index:10;background:var(--color-primary);color:white;padding:4px 10px;border-radius:6px;font-size:0.7rem;font-weight:700" x-text="'Affinity: ' + ($store.dockingAnalysis.energies[$store.dockingAnalysis.poseIndex]?.toFixed(1) || '--') + ' kcal/mol'"></div>
-            </div>
-
-            <!-- Bottom toolbar -->
-            <div style="display:flex;gap:4px;margin-top:4px;align-items:center;flex-wrap:wrap">
-              <div style="display:flex;align-items:center;gap:2px;border:1px solid var(--color-border);border-radius:6px;padding:2px 4px">
-                <button @click="$store.dockingAnalysis.zoomOut()" class="da-btn" title="Zoom Out">−</button>
-                <span x-text="$store.dockingAnalysis.zoomLevel + '%'" style="font-size:0.55rem;color:var(--color-text-muted);width:35px;text-align:center"></span>
-                <button @click="$store.dockingAnalysis.zoomIn()" class="da-btn" title="Zoom In">+</button>
-              </div>
-              <button @click="$store.dockingAnalysis.toggleSpin()" class="da-btn" :style="$store.dockingAnalysis.spinning ? 'background:var(--color-primary);color:white' : ''">Spin</button>
-              <button @click="$store.dockingAnalysis.resetView()" class="da-btn">Reset</button>
-              <button @click="$store.dockingAnalysis.takeSnapshot()" class="da-btn" style="background:#22c55e;color:white">Snapshot</button>
-            </div>
-          </div>
-
-          <!-- ═══ 2D DIAGRAM TAB ═══ -->
-          <div x-show="$store.dockingAnalysis.activeTab === '2d'" class="tab-content">
-            <template x-if="$store.dockingAnalysis.deepData.svg">
-              <div x-html="$store.dockingAnalysis.deepData.svg.replace('<svg', '<svg style=\"max-width:100%;height:auto\"')" style="background:white;border-radius:8px;border:1px solid var(--color-border);padding:10px;overflow:auto"></div>
-            </template>
-            <template x-if="!$store.dockingAnalysis.deepData.svg">
-              <p class="no-results-text">SVG diagram not available — requires RDKit.</p>
-            </template>
-          </div>
-
-          <!-- ═══ INTERACTIONS TAB ═══ -->
-          <div x-show="$store.dockingAnalysis.activeTab === 'deep'" class="tab-content">
-            <template x-if="$store.dockingAnalysis.deepData.interactions">
-              <div>
-                <!-- Summary cards -->
-                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin-bottom:12px">
-                  <div class="int-card-green"><div class="int-card-num" x-text="$store.dockingAnalysis.deepData.interactions.summary?.total_hbonds || 0"></div><div class="int-card-label">H-Bonds</div></div>
-                  <div class="int-card-amber"><div class="int-card-num" x-text="$store.dockingAnalysis.deepData.interactions.summary?.total_hydrophobic || 0"></div><div class="int-card-label">Hydrophobic</div></div>
-                  <div class="int-card-violet"><div class="int-card-num" x-text="$store.dockingAnalysis.deepData.interactions.summary?.total_pi_stacking || 0"></div><div class="int-card-label">Pi-Stacking</div></div>
-                  <div class="int-card-orange"><div class="int-card-num" x-text="$store.dockingAnalysis.deepData.interactions.summary?.total_salt_bridges || 0"></div><div class="int-card-label">Salt Bridges</div></div>
-                </div>
-                <!-- Binding site -->
-                <div style="padding:8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:8px">
-                  <span style="font-size:0.65rem;font-weight:600;color:var(--color-text)">Binding Site Residues: </span>
-                  <span style="font-size:0.6rem;color:var(--color-text-muted)" x-text="$store.dockingAnalysis.deepData.interactions.binding_site_residues?.map(r => r.resname + r.resseq).join(', ')"></span>
-                </div>
-                <!-- H-Bond table -->
-                <template x-if="$store.dockingAnalysis.deepData.interactions.hydrogen_bonds?.length">
-                  <details style="margin-bottom:4px"><summary class="int-summary">H-Bonds (<span x-text="$store.dockingAnalysis.deepData.interactions.hydrogen_bonds.length"></span>)</summary>
-                    <template x-for="hb in $store.dockingAnalysis.deepData.interactions.hydrogen_bonds"><p class="int-line" x-text="hb.residue + hb.resseq + ':' + hb.atom + ' — ' + hb.distance + 'Å (' + hb.type + ')'"></p></template>
-                  </details>
-                </template>
-                <template x-if="$store.dockingAnalysis.deepData.interactions.hydrophobic_contacts?.length">
-                  <details style="margin-bottom:4px"><summary class="int-summary">Hydrophobic (<span x-text="$store.dockingAnalysis.deepData.interactions.hydrophobic_contacts.length"></span>)</summary>
-                    <template x-for="hp in $store.dockingAnalysis.deepData.interactions.hydrophobic_contacts"><p class="int-line" x-text="hp.residue + hp.resseq + ' — ' + hp.distance + 'Å'"></p></template>
-                  </details>
-                </template>
-              </div>
-            </template>
-          </div>
-
-          <!-- ═══ RESIDUE ENERGY TAB ═══ -->
-          <div x-show="$store.dockingAnalysis.activeTab === 'energy'" class="tab-content">
-            <template x-if="$store.dockingAnalysis.deepData.residue_energy?.length">
-              <div>
-                <p style="font-size:0.65rem;color:var(--color-text-muted)" x-text="$store.dockingAnalysis.deepData.residue_energy.length + ' residues contributing to binding'"></p>
-                <template x-for="r in $store.dockingAnalysis.deepData.residue_energy.slice(0,20)" :key="r.residue_label">
-                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;padding:6px 8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px">
-                    <span style="font-size:0.65rem;font-weight:600;color:var(--color-text);width:80px;flex-shrink:0" x-text="r.residue_label"></span>
-                    <div style="flex:1;height:10px;background:var(--color-background);border-radius:5px;overflow:hidden">
-                      <div style="height:100%;border-radius:5px;transition:width 0.4s" :style="'width:' + Math.min(100, Math.abs(r.energy) * 40) + '%;background:' + $store.dockingAnalysis.energyColor(r.energy)"></div>
-                    </div>
-                    <span style="font-size:0.6rem;font-family:monospace;color:var(--color-text);width:55px;text-align:right" x-text="r.energy.toFixed(2) + ' kcal'"></span>
-                    <span style="font-size:0.55rem" :style="'color:' + ($store.dockingAnalysis.energyColor(r.energy))" x-text="r.is_favorable ? 'favorable' : 'unfav'"></span>
-                  </div>
-                </template>
-              </div>
-            </template>
-            <p x-show="!$store.dockingAnalysis.deepData.residue_energy?.length" class="no-results-text">Run full analysis first.</p>
-          </div>
-
-          <!-- ═══ CLUSTERS TAB ═══ -->
-          <div x-show="$store.dockingAnalysis.activeTab === 'clusters'" class="tab-content">
-            <template x-if="$store.dockingAnalysis.deepData.clusters?.length">
-              <div>
-                <p style="font-size:0.65rem;color:var(--color-text-muted)" x-text="$store.dockingAnalysis.deepData.clusters.length + ' clusters found (RMSD cutoff 2.0Å)'"></p>
-                <template x-for="c in $store.dockingAnalysis.deepData.clusters" :key="c.cluster_id">
-                  <div style="padding:8px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
-                    <div>
-                      <p style="font-size:0.7rem;font-weight:600;color:var(--color-text);margin:0" x-text="'Cluster ' + c.cluster_id + ' (' + c.size + ' poses)'"></p>
-                      <p style="font-size:0.6rem;color:var(--color-text-muted);margin:2px 0 0" x-text="'Representative: Pose #' + (c.representative + 1) + (c.avg_energy != null ? ' | Avg energy: ' + c.avg_energy.toFixed(1) + ' kcal/mol' : '')"></p>
-                    </div>
-                    <button @click="$store.dockingAnalysis.poseIndex = c.representative; $store.dockingAnalysis.activeTab = '3dview'; $store.dockingAnalysis.$nextTick(() => { $store.dockingAnalysis.init3DView(); $store.dockingAnalysis.renderScene(); })" style="padding:3px 8px;background:var(--color-primary);border:none;border-radius:4px;color:white;cursor:pointer;font-size:0.6rem">View</button>
-                  </div>
-                </template>
-              </div>
-            </template>
-            <p x-show="!$store.dockingAnalysis.deepData.clusters?.length" class="no-results-text">Clustering requires ≥ 2 poses.</p>
-          </div>
-
-          <!-- ═══ TORSION TAB ═══ -->
-          <div x-show="$store.dockingAnalysis.activeTab === 'torsion'" class="tab-content">
-            <template x-if="$store.dockingAnalysis.deepData.torsions?.length">
-              <div>
-                <p style="font-size:0.65rem;color:var(--color-text-muted)" x-text="$store.dockingAnalysis.deepData.torsions.length + ' dihedral angles'"></p>
-                <template x-for="t in $store.dockingAnalysis.deepData.torsions" :key="t.atoms.join('-')">
-                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;padding:6px 8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px">
-                    <span style="font-size:0.62rem;font-family:monospace;color:var(--color-text);flex:1" x-text="t.atoms.join(' - ')"></span>
-                    <span style="font-size:0.65rem;font-weight:700;font-family:monospace;color:var(--color-primary)" x-text="t.angle + '°'"></span>
-                  </div>
-                </template>
-              </div>
-            </template>
-            <p x-show="!$store.dockingAnalysis.deepData.torsions?.length" class="no-results-text">Need ≥ 4 atoms in ligand.</p>
-          </div>
-
-        </div>
-      </template>
-
-      <!-- Empty state -->
-      <template x-if="!$store.dockingAnalysis.deepData && !$store.dockingAnalysis.loading">
-        <div class="no-results">
-          <span class="material-symbols-outlined">biotech</span>
-          <p>Enter a docking job ID and click Analyze</p>
-          <p style="font-size:0.62rem;opacity:0.6">Deep analysis: 3D view, 2D diagram, interactions, residue energy, clusters, torsion</p>
-        </div>
-      </template>
+    <div class="nb-form-row" style="margin-bottom:6px;flex-shrink:0">
+      <input type="text" x-model="$store.dockingAnalysis.jobId" placeholder="Docking Job ID" class="nb-input flex-1" style="font-family:monospace" @keyup.enter="$store.dockingAnalysis.analyze()" />
+      <button class="nb-btn-primary" @click="$store.dockingAnalysis.analyze()" style="flex:none;width:auto" :disabled="$store.dockingAnalysis.loading || !$store.dockingAnalysis.jobId">Analyze</button>
     </div>
 
+    <div x-show="$store.dockingAnalysis.error" class="nb-error" x-text="$store.dockingAnalysis.error"></div>
+    <div x-show="$store.dockingAnalysis.loading" class="nb-loading"><div class="loading-spinner"></div><span>Deep analysis running...</span></div>
+
+    <template x-if="$store.dockingAnalysis.deepData">
+      <div class="nb-content">
+        <div class="nb-form-row" style="margin-bottom:6px;flex-wrap:wrap;gap:3px">
+          <span class="nb-entry-meta" x-text="'Pose ' + ($store.dockingAnalysis.poseIndex + 1) + ' of ' + ($store.dockingAnalysis.deepData.num_poses || 0)"></span>
+          <template x-for="(e, i) in $store.dockingAnalysis.energies">
+            <button @click="$store.dockingAnalysis.poseIndex = i; $store.dockingAnalysis.renderScene()" class="nb-tag" :class="{active: $store.dockingAnalysis.poseIndex === i}" x-text="'#'+(i+1)+' '+e.toFixed(1)"></button>
+          </template>
+        </div>
+
+        <div class="nb-tabs">
+          <button class="nb-tab" :class="{active: $store.dockingAnalysis.activeTab === '3dview'}" @click="$store.dockingAnalysis.activeTab = '3dview'; $store.dockingAnalysis.$nextTick(() => $store.dockingAnalysis.init3DView())">3D View</button>
+          <button class="nb-tab" :class="{active: $store.dockingAnalysis.activeTab === '2d'}" @click="$store.dockingAnalysis.activeTab = '2d'">2D Diagram</button>
+          <button class="nb-tab" :class="{active: $store.dockingAnalysis.activeTab === 'deep'}" @click="$store.dockingAnalysis.activeTab = 'deep'">Interactions</button>
+          <button class="nb-tab" :class="{active: $store.dockingAnalysis.activeTab === 'energy'}" @click="$store.dockingAnalysis.activeTab = 'energy'">Residue Energy</button>
+          <button class="nb-tab" :class="{active: $store.dockingAnalysis.activeTab === 'clusters'}" @click="$store.dockingAnalysis.activeTab = 'clusters'">Clusters</button>
+          <button class="nb-tab" :class="{active: $store.dockingAnalysis.activeTab === 'torsion'}" @click="$store.dockingAnalysis.activeTab = 'torsion'">Torsion</button>
+        </div>
+
+        <!-- 3D View -->
+        <div x-show="$store.dockingAnalysis.activeTab === '3dview'">
+          <div class="nb-form-row" style="margin-bottom:4px;gap:3px;flex-wrap:wrap">
+            <button @click="$store.dockingAnalysis.applyPreset('default')" class="nb-tag">Default</button>
+            <button @click="$store.dockingAnalysis.applyPreset('dark')" class="nb-tag">Dark</button>
+            <button @click="$store.dockingAnalysis.applyPreset('surface')" class="nb-tag">Surface</button>
+            <button @click="$store.dockingAnalysis.applyPreset('analysis')" class="nb-tag">Analysis</button>
+          </div>
+          <div class="nb-form-row" style="margin-bottom:4px;gap:4px;flex-wrap:wrap">
+            <select x-model="$store.dockingAnalysis.proteinStyle" @change="$store.dockingAnalysis.renderScene()" class="nb-select" style="flex:none;width:auto"><option value="cartoon">Cartoon</option><option value="stick">Stick</option><option value="sphere">Sphere</option><option value="line">Line</option></select>
+            <select x-model="$store.dockingAnalysis.proteinColor" @change="$store.dockingAnalysis.renderScene()" class="nb-select" style="flex:none;width:auto"><option value="ss">SS</option><option value="spectrum">Spectrum</option><option value="chain">Chain</option><option value="rasmol">Residue</option></select>
+            <input type="range" x-model="$store.dockingAnalysis.proteinOpacity" @change="$store.dockingAnalysis.renderScene()" min="0.1" max="1" step="0.05" style="width:50px" />
+            <select x-model="$store.dockingAnalysis.ligandStyle" @change="$store.dockingAnalysis.renderScene()" class="nb-select" style="flex:none;width:auto"><option value="stick">Stick</option><option value="ballstick">Ball+Stick</option><option value="sphere">Sphere</option><option value="line">Line</option></select>
+            <select x-model="$store.dockingAnalysis.ligandColor" @change="$store.dockingAnalysis.renderScene()" class="nb-select" style="flex:none;width:auto"><option value="greenCarbon">Green</option><option value="cyanCarbon">Cyan</option><option value="orangeCarbon">Orange</option><option value="magentaCarbon">Magenta</option><option value="yellowCarbon">Yellow</option></select>
+            <label class="nb-check-label"><input type="checkbox" x-model="$store.dockingAnalysis.showSurface" @change="$store.dockingAnalysis.renderScene()" /> Surface</label>
+            <label class="nb-check-label"><input type="checkbox" x-model="$store.dockingAnalysis.showHBonds" @change="$store.dockingAnalysis.renderScene()" /> H-Bonds</label>
+            <label class="nb-check-label"><input type="checkbox" x-model="$store.dockingAnalysis.showLabels" @change="$store.dockingAnalysis.renderScene()" /> Labels</label>
+            <template x-for="c in ['#ffffff','#1a1a2e','#0f2027','#f0f4f8','#111827','#1e3a5f']"><span @click="$store.dockingAnalysis.setBg(c)" style="display:inline-block;width:16px;height:16px;border-radius:50%;border:2px solid;cursor:pointer" :style="'background:' + c + ';border-color:' + ($store.dockingAnalysis.bgColor === c ? 'var(--color-primary)' : 'var(--color-border)')"></span></template>
+          </div>
+          <div id="da-3d-canvas" style="width:100%;height:360px;border-radius:8px;border:1px solid var(--color-border);position:relative">
+            <div x-show="$store.dockingAnalysis.energies && $store.dockingAnalysis.energies.length" style="position:absolute;top:8px;right:8px;z-index:10;background:var(--color-primary);color:white;padding:4px 10px;border-radius:6px;font-size:0.7rem;font-weight:700" x-text="(($store.dockingAnalysis.energies[$store.dockingAnalysis.poseIndex] || 0).toFixed(1)) + ' kcal/mol'"></div>
+          </div>
+          <div class="nb-form-row" style="margin-top:4px;gap:3px">
+            <div style="display:flex;align-items:center;gap:2px;border:1px solid var(--color-border);border-radius:5px;padding:2px 4px">
+              <button @click="$store.dockingAnalysis.zoomOut()" class="nb-btn-sm">−</button>
+              <span x-text="$store.dockingAnalysis.zoomLevel + '%'" style="font-size:0.55rem;color:var(--color-text-muted);width:35px;text-align:center"></span>
+              <button @click="$store.dockingAnalysis.zoomIn()" class="nb-btn-sm">+</button>
+            </div>
+            <button @click="$store.dockingAnalysis.toggleSpin()" class="nb-tag" :class="{active: $store.dockingAnalysis.spinning}">Spin</button>
+            <button @click="$store.dockingAnalysis.resetView()" class="nb-tag">Reset</button>
+            <button @click="$store.dockingAnalysis.takeSnapshot()" class="nb-tag" style="background:#22c55e;color:white">Snapshot</button>
+          </div>
+        </div>
+
+        <!-- 2D Diagram -->
+        <div x-show="$store.dockingAnalysis.activeTab === '2d'" x-html="$store.dockingAnalysis.deepData.svg ? $store.dockingAnalysis.deepData.svg.replace('<svg', '<svg style=\"max-width:100%;height:auto\"') : ''" style="background:white;border-radius:8px;border:1px solid var(--color-border);padding:10px;overflow:auto"></div>
+        <div x-show="$store.dockingAnalysis.activeTab === '2d' && !$store.dockingAnalysis.deepData.svg" class="nb-empty"><span class="material-symbols-outlined nb-empty-icon">draw</span><p>SVG diagram not available</p><p class="nb-empty-hint">Requires RDKit</p></div>
+
+        <!-- Interactions -->
+        <div x-show="$store.dockingAnalysis.activeTab === 'deep'">
+          <template x-if="$store.dockingAnalysis.deepData.interactions">
+            <div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:4px;margin-bottom:6px">
+                <div class="int-card int-green"><div class="int-num" x-text="$store.dockingAnalysis.deepData.interactions.summary?.total_hbonds || 0"></div><div class="int-label">H-Bonds</div></div>
+                <div class="int-card int-amber"><div class="int-num" x-text="$store.dockingAnalysis.deepData.interactions.summary?.total_hydrophobic || 0"></div><div class="int-label">Hydrophobic</div></div>
+                <div class="int-card int-violet"><div class="int-num" x-text="$store.dockingAnalysis.deepData.interactions.summary?.total_pi_stacking || 0"></div><div class="int-label">Pi-Stacking</div></div>
+                <div class="int-card int-orange"><div class="int-num" x-text="$store.dockingAnalysis.deepData.interactions.summary?.total_salt_bridges || 0"></div><div class="int-label">Salt Bridges</div></div>
+              </div>
+              <div class="nb-entry-card">
+                <span class="nb-entry-meta">Binding site residues:</span>
+                <span style="font-size:0.58rem;color:var(--color-text)" x-text="$store.dockingAnalysis.deepData.interactions.binding_site_residues?.map(r => r.resname + r.resseq).join(', ')"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Residue Energy -->
+        <div x-show="$store.dockingAnalysis.activeTab === 'energy'">
+          <template x-if="$store.dockingAnalysis.deepData.residue_energy?.length">
+            <div><div class="nb-entry-meta" style="margin-bottom:4px" x-text="$store.dockingAnalysis.deepData.residue_energy.length + ' residues contributing to binding'"></div>
+              <template x-for="r in $store.dockingAnalysis.deepData.residue_energy.slice(0,20)">
+                <div class="nb-entry-card" style="display:flex;align-items:center;gap:6px">
+                  <span class="nb-entry-title" style="width:70px;flex-shrink:0" x-text="r.residue_label"></span>
+                  <div style="flex:1;height:8px;background:var(--color-border);border-radius:4px;overflow:hidden"><div style="height:100%;border-radius:4px;transition:width 0.4s" :style="'width:' + Math.min(100, Math.abs(r.energy) * 40) + '%;background:' + $store.dockingAnalysis.energyColor(r.energy)"></div></div>
+                  <span style="font-size:0.55rem;font-family:monospace;color:var(--color-text);width:50px;text-align:right" x-text="r.energy.toFixed(2) + ' kcal'"></span>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- Clusters -->
+        <div x-show="$store.dockingAnalysis.activeTab === 'clusters'">
+          <template x-if="$store.dockingAnalysis.deepData.clusters?.length">
+            <div><div class="nb-entry-meta" style="margin-bottom:4px" x-text="$store.dockingAnalysis.deepData.clusters.length + ' clusters (RMSD cutoff 2.0Å)'"></div>
+              <template x-for="c in $store.dockingAnalysis.deepData.clusters">
+                <div class="nb-entry-card" style="display:flex;justify-content:space-between;align-items:center">
+                  <div><div class="nb-entry-title" x-text="'Cluster ' + c.cluster_id + ' (' + c.size + ' poses)'"></div><div class="nb-entry-meta" x-text="'Rep: Pose #' + (c.representative + 1) + (c.avg_energy != null ? ' · Avg: ' + c.avg_energy.toFixed(1) + ' kcal/mol' : '')"></div></div>
+                  <button @click="$store.dockingAnalysis.poseIndex = c.representative; $store.dockingAnalysis.activeTab = '3dview'; $store.dockingAnalysis.$nextTick(() => { $store.dockingAnalysis.init3DView(); $store.dockingAnalysis.renderScene(); })" class="nb-tag">View</button>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- Torsion -->
+        <div x-show="$store.dockingAnalysis.activeTab === 'torsion'">
+          <template x-if="$store.dockingAnalysis.deepData.torsions?.length">
+            <div><div class="nb-entry-meta" style="margin-bottom:4px" x-text="$store.dockingAnalysis.deepData.torsions.length + ' dihedral angles'"></div>
+              <template x-for="t in $store.dockingAnalysis.deepData.torsions">
+                <div class="nb-entry-card" style="display:flex;align-items:center;gap:6px;justify-content:space-between">
+                  <span style="font-size:0.58rem;font-family:monospace;color:var(--color-text)" x-text="t.atoms.join(' - ')"></span>
+                  <span style="font-size:0.62rem;font-weight:700;font-family:monospace;color:var(--color-primary)" x-text="t.angle + '°'"></span>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+    </template>
+
+    <template x-if="!$store.dockingAnalysis.deepData && !$store.dockingAnalysis.loading"><div class="nb-empty"><span class="material-symbols-outlined nb-empty-icon">biotech</span><p>Enter a docking job ID</p><p class="nb-empty-hint">Deep analysis: 3D view, 2D diagram, interactions, residue energy, clusters, torsion</p></div></template>
+
     <style>
-      .dock-panel { display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background) }
-      .panel-header { padding:14px 20px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0 }
-      .header-left { display:flex;align-items:center;gap:12px }
-      .header-icon { font-size:28px;color:var(--color-primary) }
-      .panel-header h2 { color:var(--color-text);font-size:1.05rem;margin:0;font-weight:700 }
-      .header-subtitle { color:var(--color-text-muted);font-size:0.7rem;margin:0 }
-      .panel-body { flex:1;overflow-y:auto;padding:16px 20px }
-      .dock-error { padding:8px 10px;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.2);border-radius:6px;color:#ff6b6b;font-size:0.68rem;margin-bottom:10px }
-      .dock-loading { display:flex;align-items:center;gap:6px;padding:8px 0;font-size:0.7rem;color:var(--color-text-muted) }
-      .loading-spinner { width:15px;height:15px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin 0.8s linear infinite }
+      .nb-panel { display:flex;flex-direction:column;height:100%;overflow:hidden;padding:10px 14px;background:var(--color-background) }
+      .nb-header { display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0 }
+      .nb-icon { font-size:22px;color:var(--color-primary) }
+      .nb-header h2 { color:var(--color-primary);font-size:0.9rem;margin:0;font-weight:700 }
+      .nb-sub { color:var(--color-text-muted);font-size:0.58rem;margin:0 }
+      .nb-content { flex:1;overflow-y:auto;min-width:0;min-height:0 }
+      .nb-error { padding:4px 8px;background:rgba(255,107,107,0.1);border-radius:4px;color:var(--color-error-text);font-size:0.6rem;margin-bottom:4px;flex-shrink:0 }
+      .nb-loading { display:flex;align-items:center;gap:5px;font-size:0.62rem;color:var(--color-text-muted);margin-bottom:4px;flex-shrink:0 }
+      .loading-spinner { width:12px;height:12px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin 0.8s linear infinite }
       @keyframes spin { to { transform:rotate(360deg) } }
-      .mt-input-row { display:flex;gap:6px;margin-bottom:8px;align-items:center }
-      .mt-input { flex:1;padding:8px 10px;border:1px solid var(--color-border);border-radius:7px;background:var(--color-panel);color:var(--color-text);font-size:0.7rem;font-family:monospace;min-width:0 }
-      .mt-input:focus { outline:none;border-color:var(--color-primary) }
-      .btn-run { display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px;padding:10px;background:var(--color-primary);border:none;border-radius:8px;color:white;cursor:pointer;font-size:0.8rem;font-weight:600 }
-      .btn-run:hover:not(:disabled) { opacity:0.9 }
-      .btn-run:disabled { opacity:0.5;cursor:not-allowed }
-      .dock-tabs { display:flex;gap:2px;margin-bottom:8px;flex-wrap:wrap;border-bottom:1px solid var(--color-border);padding-bottom:4px }
-      .dock-tab { display:flex;align-items:center;gap:3px;padding:5px 10px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--color-text-muted);cursor:pointer;font-size:0.64rem;font-weight:500;transition:all 0.15s }
-      .dock-tab:hover { color:var(--color-text) }
-      .dock-tab.active { color:var(--color-primary);border-bottom-color:var(--color-primary) }
-      .dock-tab .material-symbols-outlined { font-size:14px }
-      .tab-content { min-height:200px }
-      .no-results { display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 20px;color:var(--color-text-muted);text-align:center }
-      .no-results .material-symbols-outlined { font-size:42px;opacity:0.25;margin-bottom:10px }
-      .no-results p { font-size:0.8rem;margin:0 }
-      .no-results-text { font-size:0.7rem;color:var(--color-text-muted);text-align:center;padding:20px }
-      .preset-btn { padding:3px 8px;border:1px solid var(--color-border);border-radius:4px;background:var(--color-background);color:var(--color-text-muted);cursor:pointer;font-size:0.58rem;font-weight:500;transition:all 0.12s }
-      .preset-btn:hover { border-color:var(--color-primary);color:var(--color-primary) }
-      .da-select { padding:2px 4px;border:1px solid var(--color-border);border-radius:4px;background:var(--color-background);color:var(--color-text);font-size:0.58rem }
-      .da-btn { padding:3px 7px;border:1px solid var(--color-border);border-radius:4px;background:var(--color-background);color:var(--color-text-muted);cursor:pointer;font-size:0.58rem;transition:all 0.12s }
-      .da-btn:hover { border-color:var(--color-primary);color:var(--color-primary) }
-      .int-card-green { padding:10px;background:#22c55e10;border:1px solid #22c55e30;border-radius:8px;text-align:center }
-      .int-card-amber { padding:10px;background:#ffd93d10;border:1px solid #ffd93d30;border-radius:8px;text-align:center }
-      .int-card-violet { padding:10px;background:#9932cc10;border:1px solid #9932cc30;border-radius:8px;text-align:center }
-      .int-card-orange { padding:10px;background:#ff8c0010;border:1px solid #ff8c0030;border-radius:8px;text-align:center }
-      .int-card-num { font-size:1.4rem;font-weight:700;color:var(--color-text) }
-      .int-card-label { font-size:0.58rem;color:var(--color-text-muted);margin-top:2px }
-      .int-summary { font-size:0.62rem;color:var(--color-primary);cursor:pointer;padding:4px 0 }
-      .int-line { font-size:0.56rem;color:var(--color-text-muted);margin:2px 0;padding-left:8px }
+      .nb-form-row { display:flex;gap:4px;align-items:center }
+      .nb-input { flex:1;padding:6px 10px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-panel);color:var(--color-text);font-size:0.68rem;min-width:0 }
+      .nb-input:focus { outline:none;border-color:var(--color-primary) }
+      .nb-input::placeholder { color:var(--color-text-muted);font-size:0.62rem }
+      .nb-tabs { display:flex;gap:1px;margin-bottom:4px;flex-wrap:wrap;border-bottom:1px solid var(--color-border);padding-bottom:3px }
+      .nb-tab { padding:4px 8px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--color-text-muted);cursor:pointer;font-size:0.6rem;font-weight:500;transition:all 0.15s }
+      .nb-tab:hover { color:var(--color-text) }
+      .nb-tab.active { color:var(--color-primary);border-bottom-color:var(--color-primary) }
+      .nb-tag { display:inline-block;padding:2px 6px;background:transparent;border:1px solid var(--color-border);border-radius:4px;color:var(--color-text-muted);cursor:pointer;font-size:0.58rem;transition:all 0.1s }
+      .nb-tag:hover { border-color:var(--color-primary);color:var(--color-primary) }
+      .nb-tag.active { background:color-mix(in srgb, var(--color-primary) 12%, transparent);color:var(--color-primary);font-weight:600;border-color:var(--color-primary) }
+      .nb-select { padding:3px 6px;border:1px solid var(--color-border);border-radius:4px;background:var(--color-background);color:var(--color-text);font-size:0.58rem }
+      .nb-check-label { font-size:0.56rem;color:var(--color-text-muted);display:flex;align-items:center;gap:2px;cursor:pointer }
+      .nb-btn-sm { display:flex;align-items:center;justify-content:center;padding:2px 6px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:4px;color:var(--color-text-muted);cursor:pointer;font-size:0.6rem }
+      .nb-btn-sm:hover { border-color:var(--color-primary);color:var(--color-primary) }
+      .nb-btn-primary { display:flex;align-items:center;justify-content:center;gap:3px;padding:6px 10px;background:var(--color-primary);color:white;border:none;border-radius:6px;cursor:pointer;font-size:0.66rem;font-weight:600;white-space:nowrap;box-sizing:border-box }
+      .nb-btn-primary:disabled { opacity:0.5;cursor:not-allowed }
+      .nb-entry-card { padding:8px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:7px;margin-bottom:3px }
+      .nb-entry-title { flex:1;font-size:0.66rem;font-weight:600;color:var(--color-text) }
+      .nb-entry-meta { display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:2px;font-size:0.55rem;color:var(--color-text-muted) }
+      .nb-empty { display:flex;flex-direction:column;align-items:center;padding:30px 16px;text-align:center }
+      .nb-empty-icon { font-size:36px;color:var(--color-border);margin-bottom:8px }
+      .nb-empty p { font-size:0.68rem;color:var(--color-text-muted);margin:0 0 4px 0 }
+      .nb-empty-hint { font-size:0.6rem;color:var(--color-text-muted);opacity:0.7;line-height:1.3 }
+      .flex-1 { flex:1;min-width:0 }
+      .int-card { padding:8px;border-radius:7px;text-align:center }
+      .int-green { background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2) }
+      .int-amber { background:rgba(255,217,61,0.08);border:1px solid rgba(255,217,61,0.2) }
+      .int-violet { background:rgba(153,50,204,0.08);border:1px solid rgba(153,50,204,0.2) }
+      .int-orange { background:rgba(255,140,0,0.08);border:1px solid rgba(255,140,0,0.2) }
+      .int-num { font-size:1.2rem;font-weight:700;color:var(--color-text) }
+      .int-label { font-size:0.55rem;color:var(--color-text-muted);margin-top:1px }
     </style>
   </div>
 </body>
