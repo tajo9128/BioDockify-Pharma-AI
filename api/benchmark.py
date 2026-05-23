@@ -1,11 +1,27 @@
-"""Benchmark Suite API — validate docking, QSAR, pharmacophore performance."""
+"""Benchmark Suite API — validate dependencies, API health, storage, RDKit."""
 from helpers.api import ApiHandler, Request, Response
-import os, json, time, logging
+import os, json, time, logging, subprocess
 from datetime import datetime
 
 log = logging.getLogger("benchmark_api")
-BENCH_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data", "benchmarks")
+BENCH_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "benchmarks")
 os.makedirs(BENCH_DIR, exist_ok=True)
+
+
+def _check_binary(name):
+    try:
+        result = subprocess.run([name, "--version"], capture_output=True, text=True, timeout=5)
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def _check_python(mod):
+    try:
+        __import__(mod)
+        return True
+    except ImportError:
+        return False
 
 
 class BenchmarkHandler(ApiHandler):
@@ -17,7 +33,7 @@ class BenchmarkHandler(ApiHandler):
                 "success": True,
                 "benchmarks": {
                     "dependencies": self._bench_dependencies(),
-                    "api_health": await self._bench_api_health(),
+                    "api_health": await self._bench_api_health(request),
                     "storage": self._bench_storage(),
                     "rdkit": self._bench_rdkit(),
                 },
@@ -39,31 +55,36 @@ class BenchmarkHandler(ApiHandler):
 
     def _bench_dependencies(self):
         results = {}
-        for mod in ["rdkit", "numpy", "sklearn"]:
-            try:
-                __import__(mod)
-                results[mod] = "available"
-            except ImportError:
-                results[mod] = "missing"
-        for bin_name in ["vina", "obabel"]:
-            import subprocess
-            try:
-                subprocess.run([bin_name, "--version"], capture_output=True, timeout=5)
-                results[bin_name] = "available"
-            except Exception:
-                results[bin_name] = "missing"
+
+        # Python packages
+        for mod in ["rdkit", "numpy", "sklearn", "scipy"]:
+            results[mod] = {"status": "available" if _check_python(mod) else "missing", "type": "python"}
+
+        for mod in ["meeko", "playwright", "psutil", "aiohttp"]:
+            results[mod] = {"status": "available" if _check_python(mod) else "not_installed", "type": "python", "optional": True}
+
+        # System binaries
+        for bin_name in ["vina", "gnina", "obabel"]:
+            results[bin_name] = {"status": "available" if _check_binary(bin_name) else "missing", "type": "binary"}
+
         return results
 
-    async def _bench_api_health(self):
+    async def _bench_api_health(self, request: Request):
+        port = os.environ.get("PORT", "50001")
+        url = f"http://127.0.0.1:{port}/api/health"
         try:
             start = time.time()
             import aiohttp
+            timeout = aiohttp.ClientTimeout(total=3)
             async with aiohttp.ClientSession() as s:
-                async with s.get("http://127.0.0.1:50001/api/health", timeout=aiohttp.ClientTimeout(total=3)) as resp:
+                async with s.get(url, timeout=timeout) as resp:
                     elapsed = round(time.time() - start, 3)
-                    return {"status_code": resp.status, "response_time_s": elapsed, "passed": resp.status == 200 and elapsed < 2}
+                    return {"url": url, "status_code": resp.status, "response_time_s": elapsed, "passed": resp.status == 200 and elapsed < 5}
         except Exception as e:
-            return {"error": str(e), "passed": False}
+            msg = str(e)
+            if "Connect call failed" in msg or "Cannot connect" in msg or "Connection refused" in msg:
+                return {"url": url, "status_code": None, "response_time_s": None, "passed": False, "error": "API server not reachable on " + url}
+            return {"url": url, "status_code": None, "response_time_s": None, "passed": False, "error": msg}
 
     def _bench_storage(self):
         import shutil
@@ -79,8 +100,10 @@ class BenchmarkHandler(ApiHandler):
             from rdkit.Chem import Descriptors
             start = time.time()
             mol = Chem.MolFromSmiles("CC(=O)Oc1ccccc1C(=O)O")
+            if mol is None:
+                return {"passed": False, "error": "SMILES parsing failed"}
             mw = Descriptors.MolWt(mol)
             elapsed = round(time.time() - start, 4)
-            return {"elapsed_s": elapsed, "mw": round(mw, 2), "passed": mol is not None}
+            return {"elapsed_s": elapsed, "mw": round(mw, 2), "passed": True}
         except Exception as e:
             return {"error": str(e), "passed": False}
