@@ -57,7 +57,32 @@ class SystemHealth(ApiHandler):
                 rdkit_ok = Chem.MolFromSmiles("CCO") is not None
             except:
                 pass
-        result["checks"].append({"name": "RDKit", "status": "ok" if rdkit_ok else "warn", "detail": "Available" if rdkit_ok else "Not installed"})
+        result["checks"].append({"name": "RDKit", "status": "ok" if rdkit_ok else "warn", "detail": "Docking available (RDKit)" if rdkit_ok else "Docking disabled"})
+
+        # Docking dependencies
+        import subprocess
+        for bin_name, label, critical in [
+            ("vina", "AutoDock Vina", True), ("gnina", "GNINA CNN", True),
+            ("obabel", "OpenBabel", False),
+        ]:
+            try:
+                r = subprocess.run([bin_name, "--version"], capture_output=True, text=True, timeout=5)
+                ok = r.returncode == 0
+                detail = "Available" if ok else "Not found"
+                status = "ok" if ok else ("fail" if critical else "warn")
+            except:
+                status = "fail" if critical else "warn"
+                detail = "Missing — CNN scoring unavailable" if critical and bin_name == "gnina" else \
+                         "Missing — docking unavailable" if critical else \
+                         "Optional — not installed"
+            result["checks"].append({"name": label, "status": status, "detail": detail})
+
+        # meeko — optional Python package
+        try:
+            from meeko import MoleculePreparation
+            result["checks"].append({"name": "Meeko (AD4 typing)", "status": "ok", "detail": "Available"})
+        except:
+            result["checks"].append({"name": "Meeko (AD4 typing)", "status": "warn", "detail": "Optional — not installed"})
 
         # Backend APIs - check via file existence
         api_checks = [
@@ -70,6 +95,7 @@ class SystemHealth(ApiHandler):
             ("Bio NER", "api/bio_ner.py"),
             ("Regulatory", "api/regulatory.py"),
             ("Docking", "api/docking_run.py"),
+            ("Docking (GNINA)", "api/docking_gnina.py"),
         ]
         for name, file_path in api_checks:
             full = os.path.join("/a0", file_path)

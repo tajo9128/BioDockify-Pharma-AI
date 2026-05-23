@@ -66,18 +66,22 @@ class BenchmarkHandler(ApiHandler):
                 results[mod] = {"status": "available", "label": label, "critical": critical}
             else:
                 results[mod] = {"status": "not_installed", "label": label, "critical": critical,
-                    "note": "Required for docking" if critical else "Optional — some features disabled"}
+                    "note": "Required for docking" if critical else
+                           "Optional — not needed for docking" if mod == "meeko" else
+                           "Optional — some features disabled"}
 
         # System binaries
         for bin_name, label, critical in [
-            ("vina", "AutoDock Vina", True), ("obabel", "OpenBabel", True),
-            ("gnina", "GNINA CNN", False),
+            ("vina", "AutoDock Vina", True), ("gnina", "GNINA CNN", True),
+            ("obabel", "OpenBabel", False),
         ]:
             if _check_binary(bin_name):
                 results[bin_name] = {"status": "available", "label": label, "critical": critical}
             else:
                 results[bin_name] = {"status": "missing", "label": label, "critical": critical,
-                    "note": "Docking disabled" if critical else "CNN scoring skipped — Vina only"}
+                    "note": "CNN scoring unavailable" if critical and bin_name == "gnina" else
+                           "Docking unavailable" if critical else
+                           "Optional — RDKit handles conversion"}
 
         return results
 
