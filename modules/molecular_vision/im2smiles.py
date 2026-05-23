@@ -33,12 +33,8 @@ def is_decimer_available() -> bool:
     try:
         from DECIMER import predict_SMILES
         return True
-    except:
+    except ImportError:
         return False
-
-def is_decimer_available() -> bool:
-    """Check if the DECIMER engine is loaded and ready."""
-    return DECIMER_AVAILABLE
 
 def extract_smiles_from_image(image_path: str) -> str:
     """

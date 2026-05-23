@@ -21,7 +21,6 @@ from typing import Dict, List, Any, Optional, Union
 from datetime import datetime
 import json
 
-warnings.filterwarnings('ignore')
 
 class AdvancedBiostatistics:
     """Advanced biostatistical analysis for pharmaceutical research"""
