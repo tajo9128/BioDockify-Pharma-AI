@@ -79,7 +79,7 @@
     <div class="sh-card">
       <h4>Docking &amp; Computational Chemistry</h4>
       <div class="sh-grid">
-        <template x-for="c in ($store.systemHealth?.checks || []).filter(c => ['AutoDock Vina','Docking (Vina)','Docking (GNINA)','GNINA CNN','OpenBabel','RDKit','RDKit Pharm Features','NumPy','SciPy (Clusters)','sklearn (QSAR)'].includes(c.name))" :key="c.name">
+        <template x-for="c in ($store.systemHealth?.checks || []).filter(c => ['AutoDock Vina','Docking (Vina)','Docking (GNINA)','GNINA CNN','RDKit','RDKit Pharm Features','NumPy','SciPy (Clusters)','sklearn (QSAR)'].includes(c.name))" :key="c.name">
           <div class="sh-item">
             <span class="sh-dot" :style="'background:' + $store.systemHealth?.statusColor(c.status)"></span>
             <div class="sh-item-info">

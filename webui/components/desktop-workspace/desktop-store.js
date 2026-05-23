@@ -32,9 +32,7 @@ const defaultModules = [
   { id: "drug-analysis", title: "Drug Analysis", icon: "medication", component: "/components/drug-analysis/drug-analysis.html", order: 23, defaultWidth: 600, defaultHeight: 450 },
   { id: "molecule-editor", title: "Molecule Editor", icon: "draw", component: "/components/molecule-editor/molecule-editor.html", order: 24, defaultWidth: 800, defaultHeight: 600 },
   { id: "benchmark", title: "Benchmark", icon: "monitoring", component: "/components/benchmark/benchmark.html", order: 25, defaultWidth: 500, defaultHeight: 400 },
-  { id: "desktop", title: "Desktop", icon: "desktop_windows", component: "/plugins/_desktop/webui/main.html", order: 90, defaultWidth: 800, defaultHeight: 600 },
   { id: "browser", title: "Browser", icon: "language", component: "/plugins/_browser/webui/main.html", order: 91, defaultWidth: 800, defaultHeight: 600 },
-  { id: "office", title: "Office", icon: "description", component: "/plugins/_office/webui/main.html", order: 92, defaultWidth: 800, defaultHeight: 600 },
   { id: "editor", title: "Editor", icon: "article", component: "/plugins/_editor/webui/main.html", order: 93, defaultWidth: 700, defaultHeight: 550 },
 ];
 

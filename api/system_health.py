@@ -63,7 +63,6 @@ class SystemHealth(ApiHandler):
         import subprocess
         for bin_name, label, critical in [
             ("vina", "AutoDock Vina", True), ("gnina", "GNINA CNN", True),
-            ("obabel", "OpenBabel", False),
         ]:
             try:
                 r = subprocess.run([bin_name, "--version"], capture_output=True, text=True, timeout=5)
@@ -76,13 +75,6 @@ class SystemHealth(ApiHandler):
                          "Missing — docking unavailable" if critical else \
                          "Optional — not installed"
             result["checks"].append({"name": label, "status": status, "detail": detail})
-
-        # meeko — optional Python package
-        try:
-            from meeko import MoleculePreparation
-            result["checks"].append({"name": "Meeko (AD4 typing)", "status": "ok", "detail": "Available"})
-        except:
-            result["checks"].append({"name": "Meeko (AD4 typing)", "status": "warn", "detail": "Optional — not installed"})
 
         # Backend APIs - check via file existence
         api_checks = [

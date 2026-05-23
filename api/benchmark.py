@@ -59,7 +59,7 @@ class BenchmarkHandler(ApiHandler):
         # Python packages — critical for docking
         for mod, label, critical in [
             ("rdkit", "RDKit", True), ("numpy", "NumPy", True), ("sklearn", "scikit-learn", False),
-            ("scipy", "SciPy", False), ("meeko", "Meeko (AD4 typing)", False),
+            ("scipy", "SciPy", False),
             ("playwright", "Playwright (Browser)", False), ("psutil", "psutil", False),
         ]:
             if _check_python(mod):
@@ -67,13 +67,11 @@ class BenchmarkHandler(ApiHandler):
             else:
                 results[mod] = {"status": "not_installed", "label": label, "critical": critical,
                     "note": "Required for docking" if critical else
-                           "Optional — not needed for docking" if mod == "meeko" else
                            "Optional — some features disabled"}
 
         # System binaries
         for bin_name, label, critical in [
             ("vina", "AutoDock Vina", True), ("gnina", "GNINA CNN", True),
-            ("obabel", "OpenBabel", False),
         ]:
             if _check_binary(bin_name):
                 results[bin_name] = {"status": "available", "label": label, "critical": critical}

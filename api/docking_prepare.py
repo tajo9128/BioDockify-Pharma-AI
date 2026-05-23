@@ -260,21 +260,19 @@ class DockingPrepare(ApiHandler):
                 receptor_errors.append(f"obabel: {stderr.strip()}")
 
         if not receptor_prep_ok:
-            receptor_errors.append("Using raw PDB as fallback")
-            try:
-                with open(pdb_path) as src:
-                    with open(receptor_pdbqt, "w") as dst:
-                        dst.write(src.read())
-                receptor_prep_ok = True
-            except Exception as e:
-                receptor_errors.append(f"PDB copy fallback: {str(e)}")
-
-        if not receptor_prep_ok:
+            receptor_errors.append("OpenBabel not available — cannot prepare receptor PDBQT")
             return {
                 "error": f"Receptor preparation failed: {'; '.join(receptor_errors)}",
-                "hint": "Install OpenBabel (apt install openbabel) or try a smaller PDB file."
+                "hint": "Install OpenBabel (apt install openbabel) for PDB→PDBQT conversion."
             }
 
+        # === Validate PDBQT files before returning ===
+        ok, msg = _validate_pdbqt(receptor_pdbqt)
+        if not ok:
+            return {"error": f"Receptor PDBQT validation failed: {msg}", "hint": "The protein preparation produced an invalid PDBQT file."}
+        ok, msg = _validate_pdbqt(ligand_pdbqt)
+        if not ok:
+            return {"error": f"Ligand PDBQT validation failed: {msg}", "hint": "The ligand preparation produced an invalid PDBQT file."}
         # === Auto-detect binding site center AND grid size from protein ===
         center, size = _compute_search_box(pdb_path)
 
@@ -288,3 +286,24 @@ class DockingPrepare(ApiHandler):
             "size": size,
             "prep_notes": "; ".join(receptor_errors + ligand_errors) if (receptor_errors or ligand_errors) else "OK",
         }
+
+
+def _validate_pdbqt(filepath: str) -> tuple:
+    """Validate PDBQT file before passing to Vina/GNINA."""
+    import os
+    try:
+        if not os.path.exists(filepath):
+            return False, "File does not exist"
+        size = os.path.getsize(filepath)
+        if size < 100:
+            return False, f"File too small ({size} bytes)"
+        with open(filepath, 'r') as f:
+            content = f.read()
+        if content.startswith("HEADER") and "REMARK" not in content and "MODEL" not in content:
+            return False, "File appears to be raw PDB, not PDBQT"
+        atom_count = sum(1 for l in content.split('\n') if l.startswith('ATOM') or l.startswith('HETATM'))
+        if atom_count == 0:
+            return False, "No ATOM/HETATM records found"
+        return True, f"Valid: {atom_count} atoms"
+    except Exception as e:
+        return False, f"Validation error: {str(e)}"

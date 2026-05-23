@@ -1542,6 +1542,7 @@ async def resource_monitor_middleware(request: Request, call_next):
     # Skip for simple health checks and critical auth/settings endpoints
     if request.url.path in [
         "/health",
+        "/api/health",
         "/api/system/info",
         "/api/auth/verify",
         "/api/auth/verify-emergency",

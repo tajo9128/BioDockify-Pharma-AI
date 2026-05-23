@@ -1,6 +1,7 @@
 from helpers.api import ApiHandler, Request, Response
 from helpers import errors, git
 
+
 class HealthCheck(ApiHandler):
 
     @classmethod
@@ -23,4 +24,12 @@ class HealthCheck(ApiHandler):
         except Exception as e:
             error = errors.error_text(e)
 
-        return {"gitinfo": gitinfo, "error": error}
+        health = {"status": "ok"}
+        try:
+            from api.system_health import SystemHealth
+            health_check = SystemHealth()
+            health = await health_check.process({"action": "all"}, request)
+        except Exception:
+            pass
+
+        return {"gitinfo": gitinfo, "health": health, "error": error}
