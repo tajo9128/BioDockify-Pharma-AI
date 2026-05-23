@@ -143,3 +143,97 @@ System integrity checks available via Benchmark plugin:
 - API health: Response time and status code validation
 - Storage: Disk free space check
 - RDKit test: SMILES parsing and descriptor calculation validation
+
+## SPSS Statistics Suite (20 Analysis Types)
+BioDockify offers a comprehensive statistics module comparable to IBM SPSS:
+- **Descriptive Statistics**: Mean, median, SD, min, max, quartiles, frequencies
+- **Correlation**: Pearson, Spearman, Kendall with correlation heatmap
+- **T-Test**: Independent, paired, Welch's (unequal variance)
+- **ANOVA**: One-way with Tukey, Bonferroni, Dunnett, Scheffe post-hoc tests
+- **Regression**: Linear, multiple, logistic, Poisson, negative binomial, stepwise (AIC/BIC forward/backward)
+- **Non-Parametric**: Mann-Whitney U, Wilcoxon Signed Rank, Kruskal-Wallis, Friedman, Chi-Square, Fisher Exact, McNemar
+- **Survival Analysis**: Kaplan-Meier, Log-Rank, Cox Proportional Hazards
+- **Diagnostics**: Normality (Shapiro-Wilk, K-S, Anderson-Darling), Homogeneity (Levene, Bartlett), VIF, Outliers
+- **Data Reduction**: PCA/Factor Analysis (eigenvalues, loadings, scree plot), Cronbach's Alpha reliability, K-Means + Hierarchical clustering with dendrogram
+- **Data Transformation**: Compute variable (formula), Recode, Rank cases, Fill missing (mean/median/interpolate), Standardize (z-score/minmax/robust)
+- **ROC Analysis**: AUC, optimal cutoff (Youden Index), sensitivity/specificity coordinates, DeLong comparison
+- **Curve Estimation**: 11 models (linear through exponential, logistic, power, growth, s-curve)
+- **Missing Value Analysis**: Patterns, per-column/per-row stats, mean imputation recommendations
+- **Charts**: Histogram, boxplot, scatter, Q-Q plot, bar chart, ROC curve, survival curve, correlation heatmap — auto-generated base64 PNG from results
+- **Power Analysis**: Sample size calculation for t-tests
+- **PK/PD**: Non-compartmental analysis, AUC, Cmax/Tmax, half-life, bioavailability
+- **Multiplicity Control**: Bonferroni, Holm, Benjamini-Hochberg FDR, Sidak
+- **Bioequivalence**: TOST, crossover ANOVA
+- **Meta-Analysis**: Fixed-effects and random-effects models with forest plots
+- Use when: User needs statistical analysis of clinical/experimental data, normality checking, appropriate test selection, automated chart generation
+
+## Autonomous Research Pipeline (25-Stage, 9-Phase)
+A complete autonomous drug discovery workflow comparable to AutoResearchClaw:
+- **Phase A — Scoping**: Topic decomposition, research question formulation
+- **Phase B — Literature Discovery**: Multi-source search across 10 databases with PRISMA screening
+- **Phase C — Molecular Analysis**: Drug properties, ADMET, PAINS/Brenk/NIH filters, pharmacophore detection
+- **Phase D — QSAR**: Train/predict with 6 ML models, screen compound libraries
+- **Phase E — Docking**: Vina → GNINA CNN docking with deep analysis (3D, interactions, clusters)
+- **Phase F — Statistics & Analysis**: Statistical testing, RMSD clustering, multi-perspective result analysis
+- **Phase G — Decision**: PIVOT/REFINE/PROCEED auto-decision with rationale
+- **Phase H — Writing**: Paper outline, section-by-section drafting, multi-agent peer review
+- **Phase I — Finalization**: 5 quality gates, 5-layer citation verification, export to LaTeX/DOCX/slides
+- Pipeline API: `POST /api/pipeline` (start, status, advance, retry, abort, history, stages)
+- Quality Gates: Literature (≥5 papers), Molecular (Lipinski, PAINS, MW), Docking (≥3 poses, energy check), Statistical (significance, normality, effect size), Publication (citation integrity, IMRAD)
+- Agent tool: `Pipeline action=start topic="..."`
+- Use when: User wants end-to-end autonomous research from topic to paper
+
+## Multi-Agent Debate System
+Structured scientific debate for rigorous hypothesis testing:
+- **Hypothesis Debate**: Pharmacologist vs Biostatistician vs Medicinal Chemist
+- **Method Debate**: Docking vs QSAR vs Pharmacophore vs Literature Review
+- **Results Debate**: Writer (interpretation) vs Biostatistician (statistical validity)
+- Each produces: winner, rationale, dissenting opinion, confidence score
+- Agent tool: `Debate action=hypothesis topic="..."`
+
+## Self-Healing Execution (PIVOT/REFINE)
+Autonomous error recovery for computational workflows:
+- **Docking failures**: Grid expansion, exhaustiveness increase, GNINA switch, PDBQT sanitizer
+- **QSAR failures**: Model switch (RF→GBM→SVR→PLS→Ridge→Lasso), descriptor group expansion
+- **Statistics failures**: Normality violation → non-parametric, variance → Welch correction
+- **Literature failures**: Query expansion, database switch
+- Max 3 retries per domain, then PIVOT to alternative method
+- Agent tool: `SelfHeal action=analyze domain=docking error_type=no_poses`
+
+## 5-Layer Citation & Claim Verification
+Pharma-grade verification stack:
+- Layer 1: PubMed ID validation via NCBI e-utilities
+- Layer 2: CrossRef DOI resolution
+- Layer 3: ClinicalTrials.gov NCT verification
+- Layer 4: PubChem CID validation
+- Layer 5: LLM relevance check (agent-performed)
+- Claim extraction: numeric, statistical, significance claims auto-extracted from text
+- Agent tool: `Verify action=verify text="..."`
+
+## Human-in-the-Loop (HITL) Control
+8 intervention modes for research oversight:
+- Full Auto, Gate Only (3 gates), Checkpoint (9 phases), Co-Pilot, Step-by-Step, Express, Regulatory (ICH E9), Custom
+- Gate approval/reject/collaborate/inject guidance
+- Agent tool: `HITL action=approve pipeline_id=ID gate_id=5`
+
+## Cross-Run Knowledge Evolution
+Pharma knowledge retention across research sessions:
+- 6 categories: target memory, compound memory, method memory, literature memory, failure patterns, quality lessons
+- Ebbinghaus 30-day time decay for lesson relevance
+- Auto-deduction from completed pipeline runs
+- Agent tool: `Evolution action=store category=target lesson="..."`
+
+## Literature Search (10 Databases)
+Multi-source academic literature discovery:
+- PubMed, Semantic Scholar, Google Scholar (citation-ranked), Scopus, Web of Science
+- arXiv, Elsevier (ScienceDirect), Springer Nature, Europe PMC, bioRxiv/medRxiv
+- Scopus/WoS/Elsevier/Springer use CrossRef proxy + 36,145-journal ISSN database for filtering
+- PRISMA screening, BioNER entity extraction, APA/BibTeX citation export
+- Agent tool: "Search PubMed for recent papers on EGFR inhibitors"
+
+## Journal Recommender
+Suggests journals for manuscript submission:
+- 36,145 journals from Scopus + WoS master lists
+- Filter by indexing (Scopus/WoS/dual), open access, subject category
+- Quality scoring: novelty, rigor, breadth, evidence, clarity → tier assignment
+- Agent tool: "Recommend a journal for my EGFR docking paper"
