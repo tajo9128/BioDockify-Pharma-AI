@@ -84,12 +84,25 @@
         </div>
       </div>
 
-      <!-- Ketcher 2D viewer -->
+      <!-- 2D Structure Viewer -->
       <div class="nb-form"><h4>2D Structure</h4>
-        <div id="ketcher-frame-container" style="width:100%;height:320px;border:1px solid var(--color-border);border-radius:8px;overflow:hidden;background:white">
-          <iframe id="ketcher-frame" src="https://lifescience.opensource.epam.com/ketcher/ketcher.html" style="width:100%;height:100%;border:none" onload="this.contentWindow.postMessage({type:'open',data:document.querySelector('[x-model]')?.value||''},'*')"></iframe>
+        <div style="width:100%;min-height:160px;border:1px solid var(--color-border);border-radius:8px;overflow:hidden;background:white;display:flex;align-items:center;justify-content:center">
+          <img x-show="$store.moleculeEditor.smiles" :src="'/api/structure_image?smiles=' + encodeURIComponent($store.moleculeEditor.smiles)" 
+               style="max-width:100%;max-height:300px" 
+               onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'"
+               @error="this.style.display='none'; this.nextElementSibling.style.display='flex'" />
+          <div x-show="!$store.moleculeEditor.smiles" style="display:flex;flex-direction:column;align-items:center;padding:20px;color:var(--color-text-muted)">
+            <span class="material-symbols-outlined" style="font-size:36px;opacity:0.3;margin-bottom:8px">image</span>
+            <p style="font-size:0.68rem;margin:0">Enter SMILES above to preview structure</p>
+          </div>
         </div>
-        <p style="font-size:0.52rem;color:var(--color-text-muted);margin-top:4px;text-align:center">Ketcher molecular editor — draw structures, SMILES syncs above</p>
+        <div style="display:flex;gap:4px;margin-top:4px">
+          <a :href="'https://lifescience.opensource.epam.com/ketcher/ketcher.html'" target="_blank" rel="noopener" 
+             class="nb-tag" style="text-decoration:none;cursor:pointer" title="Opens Ketcher molecular editor in new tab">
+            <span class="material-symbols-outlined" style="font-size:12px">open_in_new</span> Open Ketcher
+          </a>
+          <span style="font-size:0.5rem;color:var(--color-text-muted);align-self:center">Draw in Ketcher → Copy SMILES → Paste above</span>
+        </div>
       </div>
 
       <!-- File upload -->
