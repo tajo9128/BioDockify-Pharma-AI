@@ -35,7 +35,7 @@
       hypothesisResult: null,
 
       databaseName() {
-        const names = { pubmed: "PubMed", semantic_scholar: "Semantic Scholar", arxiv: "arXiv", google_scholar: "Google Scholar", scopus: "Scopus", wos: "Web of Science" };
+        const names = { pubmed: "PubMed", semantic_scholar: "Semantic Scholar", google_scholar: "Google Scholar", scopus: "Scopus", wos: "Web of Science", arxiv: "arXiv", elsevier: "Elsevier", springer: "Springer Nature", europe_pmc: "Europe PMC", biorxiv: "bioRxiv/medRxiv" };
         return names[this.database] || this.database;
       },
 
@@ -272,10 +272,14 @@
         <select x-model="$store.literatureModal.database" class="db-select">
           <option value="pubmed">PubMed</option>
           <option value="semantic_scholar">Semantic Scholar</option>
-          <option value="arxiv">arXiv</option>
           <option value="google_scholar">Google Scholar</option>
           <option value="scopus">Scopus</option>
           <option value="wos">Web of Science</option>
+          <option value="arxiv">arXiv</option>
+          <option value="elsevier">Elsevier (ScienceDirect)</option>
+          <option value="springer">Springer Nature</option>
+          <option value="europe_pmc">Europe PMC</option>
+          <option value="biorxiv">bioRxiv/medRxiv</option>
         </select>
         <button class="btn-primary" @click="$store.literatureModal.search()" :disabled="$store.literatureModal.loading || !$store.literatureModal.query">
           <span class="material-symbols-outlined">search</span>
@@ -379,7 +383,7 @@
       <!-- Empty -->
       <div x-show="!$store.literatureModal.hasResults() && !$store.literatureModal.loading && !$store.literatureModal.error" class="empty-state">
         <span class="material-symbols-outlined empty-icon">menu_book</span>
-        <p>Search across PubMed, Semantic Scholar, arXiv, Google Scholar, Scopus, Web of Science</p>
+        <p>Search across 10 databases: PubMed, Scopus, WoS, Google Scholar & more</p>
         <div class="quick-chips">
           <button class="chip" @click="$store.literatureModal.query = 'CRISPR cancer therapy'; $store.literatureModal.search()">"CRISPR cancer therapy"</button>
           <button class="chip" @click="$store.literatureModal.query = 'AI drug discovery 2025'; $store.literatureModal.search()">"AI drug discovery 2025"</button>

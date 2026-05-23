@@ -32,6 +32,14 @@ class LiteratureSearch(ApiHandler):
             papers, total = await self._search_scopus(query, max_results)
         elif database == "wos":
             papers, total = await self._search_wos(query, max_results)
+        elif database == "elsevier":
+            papers, total = await self._search_elsevier(query, max_results)
+        elif database == "springer":
+            papers, total = await self._search_springer(query, max_results)
+        elif database == "europe_pmc":
+            papers, total = await self._search_europe_pmc(query, max_results)
+        elif database == "biorxiv":
+            papers, total = await self._search_biorxiv(query, max_results)
         else:
             return {"error": f"Unknown database: {database}", "papers": [], "total": 0}
 
@@ -308,6 +316,156 @@ class LiteratureSearch(ApiHandler):
             return papers, len(papers)
         except Exception as e:
             logger.warning(f"{label} search failed for '{query}': {e}")
+            return [], 0
+
+    async def _search_elsevier(self, query: str, max_results: int):
+        """Search CrossRef filtered to Elsevier/ScienceDirect journals."""
+        return await self._search_publisher_filtered(query, max_results, "Elsevier", "ScienceDirect (Elsevier)")
+
+    async def _search_springer(self, query: str, max_results: int):
+        """Search CrossRef filtered to Springer Nature journals."""
+        return await self._search_publisher_filtered(query, max_results, "Springer", "Springer Nature")
+
+    async def _search_publisher_filtered(self, query: str, max_results: int, publisher_name: str, label: str):
+        """Search CrossRef, filter to specific publisher's journals using our ISSN database."""
+        try:
+            import sqlite3, os
+            db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "skills", "journal-recommender", "assets", "journals.db")
+            has_db = os.path.exists(db_path)
+
+            encoded = urllib.parse.quote(query)
+            url = (
+                f"https://api.crossref.org/works"
+                f"?query={encoded}&rows={max_results * 3}"
+                f"&filter=type:journal-article"
+            )
+            req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0 (mailto:biodockify@example.com)"})
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                data = json.loads(resp.read())
+
+            publisher_issns = set()
+            if has_db:
+                try:
+                    conn = sqlite3.connect(db_path)
+                    rows = conn.execute(
+                        "SELECT issn, eissn FROM journals WHERE publisher LIKE ?", 
+                        (f"%{publisher_name}%",)
+                    ).fetchall()
+                    for r in rows:
+                        for v in r:
+                            if v:
+                                publisher_issns.add(str(v).strip().upper())
+                    conn.close()
+                except Exception:
+                    pass
+
+            papers = []
+            for item in data.get("message", {}).get("items", []):
+                if len(papers) >= max_results:
+                    break
+
+                issns = item.get("ISSN", [])
+                in_publisher = not has_db
+                for issn_val in (issns if isinstance(issns, list) else [issns]):
+                    if str(issn_val).strip().upper() in publisher_issns:
+                        in_publisher = True
+                        break
+                    # Also check publisher from CrossRef response
+                    pub = (item.get("publisher", "") or "").lower()
+                    if publisher_name.lower() in pub:
+                        in_publisher = True
+                        break
+
+                if not in_publisher:
+                    continue
+
+                authors = []
+                for a in (item.get("author", []) or [])[:5]:
+                    authors.append(f"{a.get('given','')} {a.get('family','')}".strip() or a.get('family',''))
+
+                container = item.get("container-title", []) or []
+                issued = item.get("issued", {}) or {}
+                date_parts = issued.get("date-parts", [[None]])[0]
+
+                papers.append({
+                    "id": item.get("DOI", ""),
+                    "title": (item.get("title", [""]) or [""])[0],
+                    "abstract": "",
+                    "authors": authors,
+                    "journal": container[0] if container else "",
+                    "year": str(date_parts[0]) if date_parts and date_parts[0] else "",
+                    "url": item.get("URL", f"https://doi.org/{item.get('DOI','')}"),
+                    "database": label,
+                })
+
+            return papers, len(papers)
+        except Exception as e:
+            logger.warning(f"{label} search failed for '{query}': {e}")
+            return [], 0
+
+    async def _search_europe_pmc(self, query: str, max_results: int):
+        """Search Europe PMC — free biomedical literature database."""
+        try:
+            encoded = urllib.parse.quote(query)
+            url = (
+                f"https://www.ebi.ac.uk/europepmc/webservices/rest/search"
+                f"?query={encoded}&resultType=lite&pageSize={max_results}"
+                f"&format=json&sort=RELEVANCE"
+            )
+            req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read())
+
+            papers = []
+            for r in data.get("resultList", {}).get("result", []):
+                authors = (r.get("authorString", "") or "").split(", ")[:5]
+                papers.append({
+                    "id": r.get("id", ""),
+                    "title": r.get("title", ""),
+                    "abstract": (r.get("abstractText", "") or "")[:800],
+                    "authors": authors,
+                    "journal": r.get("journalTitle", ""),
+                    "year": str(r.get("pubYear", "")),
+                    "url": f"https://europepmc.org/article/{r.get('source','')}/{r.get('id','')}",
+                    "database": "Europe PMC",
+                })
+
+            return papers, len(papers)
+        except Exception as e:
+            logger.warning(f"Europe PMC search failed for '{query}': {e}")
+            return [], 0
+
+    async def _search_biorxiv(self, query: str, max_results: int):
+        """Search bioRxiv + medRxiv preprints via Europe PMC."""
+        try:
+            encoded = urllib.parse.quote(query)
+            url = (
+                f"https://www.ebi.ac.uk/europepmc/webservices/rest/search"
+                f"?query={encoded}%20AND%20(SRC:PPR%20OR%20SRC:MED)"
+                f"&resultType=lite&pageSize={max_results}"
+                f"&format=json&sort=RELEVANCE"
+            )
+            req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read())
+
+            papers = []
+            for r in data.get("resultList", {}).get("result", []):
+                authors = (r.get("authorString", "") or "").split(", ")[:5]
+                papers.append({
+                    "id": r.get("id", ""),
+                    "title": r.get("title", ""),
+                    "abstract": (r.get("abstractText", "") or "")[:800],
+                    "authors": authors,
+                    "journal": r.get("bookOrReportDetails", {}).get("publisher", "bioRxiv") if isinstance(r.get("bookOrReportDetails"), dict) else "bioRxiv",
+                    "year": str(r.get("pubYear", "")),
+                    "url": f"https://europepmc.org/article/PPR/{r.get('id','')}",
+                    "database": "bioRxiv/medRxiv",
+                })
+
+            return papers, len(papers)
+        except Exception as e:
+            logger.warning(f"bioRxiv search failed for '{query}': {e}")
             return [], 0
 
     def _get_text(self, element):
