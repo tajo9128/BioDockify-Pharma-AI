@@ -1,21 +1,60 @@
-<<<<<<< HEAD
-# Ignore common unwanted files globally
-**/.DS_Store
-**/.env
-**/__pycache__/
+# System & Environment
+.DS_Store
+Thumbs.db
+.env
+.env.local
+.venv/
+.venv311/
+venv/
+env/
+__pycache__/
 *.py[cod]
-**/.conda/
-**/node_modules/
 
-#Ignore IDE files
+# IDE files
 .cursor/
 .windsurf/
+.claude/
+.agent/
+
+# Configuration & Secrets (CRITICAL)
+.a0proj/secrets.env
+.a0proj/variables.env
+runtime/config.yaml
+runtime/secrets.yaml
+*.pem
+*.key
+
+# Node / Frontend
+node_modules/
+npm-debug.log
+yarn-error.log
+.next/
+out/
+build/
+dist/
+
+# Python / Backend
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Logs & Temporary
+logs/
+data/tasks/
+data/exports/
+data/test_chroma/
+data/vectors/
+data/deep_drive/
+benchmarks/results/
+external/
+*.log
+tmp/
+*_backup.tsx
+*.tar
 
 # ignore test files in root dir
 /*.test.py
-
-# Ignore all contents of the virtual environment directory
-.venv/
 
 # obsolete folders
 /memory/
@@ -42,64 +81,35 @@ usr/**/*
 # But allow .gitkeep files
 !usr/**/.gitkeep
 
-
 # Global rule to include .gitkeep files anywhere
 !**/.gitkeep
 
 # for browser-use
 agent_history.gif
 
-.agent/**
-.claude/**
-=======
-# System & Environment
-.DS_Store
-Thumbs.db
-.env
-.env.local
-.venv/
-.venv311/
-venv/
-env/
-__pycache__/
-*.py[cod]
+# Runtime data (should not be in git)
+db/*.db
+ui/db/*.db
+data/workspace/*.db
+data/workspace/test_script.py
+data/workspace/nanobot/
+data/workspace/__pycache__/
 
-# Configuration & Secrets (CRITICAL)
-runtime/config.yaml
-runtime/secrets.yaml
-*.pem
-*.key
+# Temp files
+*.docx
+*.mp3
 
-# Node / Frontend
-node_modules/
-npm-debug.log
-yarn-error.log
-.next/
-out/
-build/
-dist/
+# Graphify output
+graphify-out/
 
-# Rust / Tauri
-desktop/tauri/src-tauri/target/
-desktop/tauri/src-tauri/Cargo.lock
+# Version binary
+version.txt
 
-# Python / Backend
-.pytest_cache/
-.coverage
-htmlcov/
-*.egg-info/
+# Backup files
+*_backup_*
 
-# Logs & Temporary
-logs/
-data/tasks/
-data/exports/
-data/test_chroma/
-data/vectors/
-data/deep_drive/
-benchmarks/results/
-external/
-*.log
-tmp/
-*_backup.tsx
-*.tar
->>>>>>> 3768e8a174058c75c6c7fdc6d99db17d246d1fed
+# Docker one-off fixes
+Dockerfile.cmdfix
+Dockerfile.overlay
+rebrand*.sh
+run_BIO.sh
