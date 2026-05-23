@@ -94,8 +94,8 @@
             <!-- top section with time, status etc. -->
             <x-component path="chat/top-section/chat-top.html"></x-component>
 
-            <!-- Welcome Screen Component -->
-            <div x-data x-show="$store.welcomeStore && $store.welcomeStore.isVisible">
+            <!-- Welcome Screen Component (chat mode only) -->
+            <div x-data x-show="$store.welcomeStore && $store.welcomeStore.isVisible && $store.desktopWorkspace?.isChatMode">
                 <x-component path="welcome/welcome-screen.html"></x-component>
             </div>
             <!-- Message History (actual messages) -->
