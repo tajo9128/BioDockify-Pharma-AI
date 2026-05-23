@@ -138,6 +138,15 @@ class DockingRun(ApiHandler):
         if not ligand or not os.path.exists(ligand):
             return {"error": "Ligand PDBQT not found. Run docking_prepare first."}
 
+        # Validate PDBQT files before passing to Vina
+        from api.docking_prepare import _validate_pdbqt
+        ok, msg = _validate_pdbqt(receptor)
+        if not ok:
+            return {"error": f"Receptor PDBQT invalid: {msg}", "action": "reprepare"}
+        ok, msg = _validate_pdbqt(ligand)
+        if not ok:
+            return {"error": f"Ligand PDBQT invalid: {msg}", "action": "reprepare"}
+
         os.makedirs(results_dir, exist_ok=True)
         output_path = os.path.join(results_dir, "docked_output.pdbqt")
         log_path = os.path.join(results_dir, "vina_log.txt")

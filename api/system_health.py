@@ -65,15 +65,26 @@ class SystemHealth(ApiHandler):
             ("vina", "AutoDock Vina", True), ("gnina", "GNINA CNN", True),
         ]:
             try:
-                r = subprocess.run([bin_name, "--version"], capture_output=True, text=True, timeout=5)
-                ok = r.returncode == 0
+                r = subprocess.run([bin_name, "--help"], capture_output=True, text=True, timeout=5)
+                ok = r.returncode <= 1  # --help often returns 1 but is valid
+                if not ok:
+                    r = subprocess.run([bin_name, "--version"], capture_output=True, text=True, timeout=5)
+                    ok = r.returncode == 0
+                if not ok:
+                    r = subprocess.run([bin_name], capture_output=True, text=True, timeout=5)
+                    ok = r.returncode <= 1
                 detail = "Available" if ok else "Not found"
                 status = "ok" if ok else ("fail" if critical else "warn")
-            except:
+            except FileNotFoundError:
                 status = "fail" if critical else "warn"
                 detail = "Missing — CNN scoring unavailable" if critical and bin_name == "gnina" else \
                          "Missing — docking unavailable" if critical else \
-                         "Optional — not installed"
+                         "Not installed"
+            except Exception:
+                status = "fail" if critical else "warn"
+                detail = "Missing — CNN scoring unavailable" if critical and bin_name == "gnina" else \
+                         "Missing — docking unavailable" if critical else \
+                         "Not available"
             result["checks"].append({"name": label, "status": status, "detail": detail})
 
         # Backend APIs - check via file existence
@@ -90,8 +101,9 @@ class SystemHealth(ApiHandler):
             ("Docking (GNINA)", "api/docking_gnina.py"),
         ]
         for name, file_path in api_checks:
-            full = os.path.join("/a0", file_path)
-            exists = os.path.exists(full)
+            full_docker = os.path.join("/a0", file_path)
+            full_local = os.path.join(os.path.dirname(__file__), "..", file_path)
+            exists = os.path.exists(full_docker) or os.path.exists(os.path.normpath(full_local))
             result["checks"].append({"name": name, "status": "ok" if exists else "warn",
                 "detail": "Available" if exists else "Missing"})
 
@@ -125,8 +137,17 @@ class SystemHealth(ApiHandler):
                 pass
         result["checks"].append({"name": "Drug Properties", "status": "ok" if drug_ok else "warn", "detail": "ok (RDKit)" if drug_ok else "fallback (approximate)"})
 
-        # Literature search
-        result["checks"].append({"name": "Literature Search", "status": "ok", "detail": "PubMed + Semantic Scholar + arXiv"})
+        # Literature search — check PubMed API
+        lit_status = "ok"
+        lit_detail = "PubMed + Semantic Scholar + 10 databases"
+        try:
+            import urllib.request
+            req = urllib.request.Request("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/einfo.fcgi", headers={"User-Agent": "BioDockify/6.4"})
+            urllib.request.urlopen(req, timeout=5)
+        except:
+            lit_status = "warn"
+            lit_detail = "PubMed API unreachable — search may be limited"
+        result["checks"].append({"name": "Literature Search", "status": lit_status, "detail": lit_detail})
 
         # Disk usage
         try:
