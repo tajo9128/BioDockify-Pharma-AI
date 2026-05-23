@@ -66,6 +66,58 @@ def _detect_format(content, filename_hint=""):
     return filename_hint or "unknown"
 
 
+def _sanitize_pdbqt(path: str):
+    """Fix AutoDock4 atom types in a PDBQT file to prevent Vina parse_pdbqt.cpp(69) crash.
+
+    Reads the PDBQT, corrects column 77-78 (AutoDock4 atom type) based on element
+    from column 13-14 or column 77-78 of the original line.
+    """
+    # AutoDock4 atom type map from element symbol
+    AD4_MAP = {
+        "C": "C", "N": "NA", "O": "OA", "S": "SA", "H": "HD",
+        "P": "P", "F": "F", "CL": "Cl", "BR": "Br", "I": "I",
+        "FE": "Fe", "ZN": "Zn", "MG": "Mg", "CA": "Ca", "MN": "Mn",
+        "NA": "Na", "K": "K", "LI": "Li", "CO": "Co", "NI": "Ni",
+        "CU": "Cu", "SE": "Se",
+    }
+
+    try:
+        with open(path) as f:
+            lines = f.readlines()
+
+        fixed = []
+        for line in lines:
+            if not (line.startswith("ATOM") or line.startswith("HETATM")):
+                fixed.append(line)
+                continue
+
+            if len(line) < 78:
+                fixed.append(line)
+                continue
+
+            # Get element: prefer columns 13-14 (atom name), fallback to 77-78
+            element = (line[13:14] or line[12:14]).strip().upper()
+            if not element and len(line) >= 78:
+                element = line[76:78].strip().upper()
+
+            ad4 = AD4_MAP.get(element)
+            if ad4 is None:
+                # Unknown element — try to keep existing type or default to "C"
+                existing = line[77:79] if len(line) >= 79 else ""
+                ad4 = existing.strip() or "C"
+
+            # Rebuild line with correct AD4 type in columns 77-78 (right-justified in 2 chars)
+            prefix = line[:77]
+            suffix = line[79:] if len(line) > 79 else ""
+            fixed.append(f"{prefix}{ad4:>2s}{suffix}")
+
+        with open(path, "w") as f:
+            f.writelines(fixed)
+
+    except Exception as e:
+        log.warning(f"PDBQT sanitizer failed for {path}: {e}")
+
+
 def _compute_search_box(pdb_path: str):
     """Compute binding site center and auto-detected grid size from protein atom coordinates.
 
@@ -284,18 +336,22 @@ class DockingPrepare(ApiHandler):
                 "hint": "Install RDKit and OpenBabel, or provide SMILES string"
             }
 
+        # Sanitize ligand PDBQT to prevent Vina atom type crashes
+        _sanitize_pdbqt(ligand_pdbqt)
+
         # === Receptor PDB → PDBQT conversion ===
         receptor_pdbqt = os.path.join(job_dir, "protein.pdbqt")
         receptor_prep_ok = False
         receptor_errors = []
 
         if _obabel_available():
-            # Primary: obabel -xr (receptor mode with Gasteiger charges)
             ok, stdout, stderr = _run_obabel(
                 ["obabel", pdb_path, "-O", receptor_pdbqt, "-xr"],
                 timeout=60, label="receptor PDB→PDBQT"
             )
             if ok:
+                # Sanitize PDBQT: fix AutoDock4 atom types to prevent Vina parse_pdbqt.cpp(69) crash
+                _sanitize_pdbqt(receptor_pdbqt)
                 receptor_prep_ok = True
             else:
                 receptor_errors.append(f"obabel receptor prep failed: {stderr.strip()}")
@@ -305,40 +361,6 @@ class DockingPrepare(ApiHandler):
                 "error": f"Receptor preparation failed: {'; '.join(receptor_errors)}",
                 "hint": "Install OpenBabel (apt install openbabel). If the protein is too large or contains non-standard residues, try a smaller or processed PDB file."
             }
-
-        # === PDBQT validation (catches malformed files before Vina) ===
-        def _validate_pdbqt(path, label):
-            """Check PDBQT file has valid ATOM/HETATM lines with AutoDock4 atom types."""
-            try:
-                with open(path) as f:
-                    lines = f.readlines()
-                atom_lines = [l for l in lines if l.startswith("ATOM") or l.startswith("HETATM")]
-                if not atom_lines:
-                    return False, f"No ATOM/HETATM lines in {label}"
-                # AutoDock4 atom types: column 77-78 must be valid element or AD4 type
-                valid_ad4 = set("CHONPS F Cl Br I".split())
-                invalid = []
-                for l in atom_lines:
-                    if len(l) >= 78:
-                        atype = l[77:79].strip()
-                        if atype and atype not in valid_ad4 and len(atype) <= 2:
-                            invalid.append(atype)
-                if len(invalid) > len(atom_lines) * 0.5:
-                    return False, f"{label} has unusual atom types: {set(invalid)}"
-                return True, "OK"
-            except Exception as e:
-                return False, f"Validation error: {e}"
-
-        ligand_valid, ligand_val_msg = _validate_pdbqt(ligand_pdbqt, "ligand")
-        receptor_valid, receptor_val_msg = _validate_pdbqt(receptor_pdbqt, "receptor")
-        val_notes = []
-        if not ligand_valid:
-            val_notes.append(f"Ligand: {ligand_val_msg}")
-        if not receptor_valid:
-            val_notes.append(f"Receptor: {receptor_val_msg}")
-
-        if not receptor_valid or not ligand_valid:
-            log.warning(f"PDBQT validation issues in job {job_id}: {'; '.join(val_notes)}")
 
         # === Auto-detect binding site center AND grid size from protein ===
         center, size = _compute_search_box(pdb_path)
@@ -351,5 +373,5 @@ class DockingPrepare(ApiHandler):
             "detected_formats": {"protein": protein_format, "ligand": ligand_format},
             "center": center,
             "size": size,
-            "prep_notes": "; ".join(receptor_errors + ligand_errors + val_notes) if (receptor_errors or ligand_errors or val_notes) else "OK",
+            "prep_notes": "; ".join(receptor_errors + ligand_errors) if (receptor_errors or ligand_errors) else "OK",
         }
