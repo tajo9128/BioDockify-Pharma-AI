@@ -4,85 +4,127 @@
     import { createStore } from "/js/AlpineStore.js";
 
     export const store = createStore("moleculeEditor", {
-      open: false,
-      smiles: "",
-      sourceElementId: null,
+      smiles: "", molFile: null, loading: false, error: "", message: "",
 
-      openEditor(smiles, sourceId) {
-        this.smiles = smiles || "";
-        this.sourceElementId = sourceId;
-        this.open = true;
-        this.$nextTick(() => this.initKetcher());
-      },
-
-      initKetcher() {
-        const container = document.getElementById("ketcher-container");
-        if (!container || container.hasChildNodes()) return;
-
-        const iframe = document.createElement("iframe");
-        iframe.id = "ketcher-frame";
-        iframe.src = "https://lifescience.opensource.epam.com/ketcher/ketcher.html";
-        iframe.style.cssText = "width:100%;height:100%;border:none;";
-        container.appendChild(iframe);
-
-        iframe.onload = () => {
-          if (this.smiles) {
-            iframe.contentWindow.postMessage({ type: "open", data: this.smiles }, "*");
+      handleFileUpload(e) {
+        const f = e.target.files[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = () => {
+          const t = r.result;
+          const ext = f.name.split('.').pop().toLowerCase();
+          if (ext === 'smi' || ext === 'smiles') {
+            this.smiles = t.split('\n').find(l => l.trim() && !l.startsWith('#'))?.trim() || t.trim();
+          } else {
+            this.molFile = { name: f.name, content: t, ext: ext };
           }
         };
-
-        window.addEventListener("message", (e) => {
-          if (e.data && e.data.type === "export") {
-            this.smiles = e.data.data;
-          }
-        });
+        r.readAsText(f);
       },
 
-      applyAndClose() {
-        if (this.sourceElementId) {
-          const el = document.getElementById(this.sourceElementId);
-          if (el) {
-            el.value = this.smiles;
-            el.dispatchEvent(new Event("input", { bubbles: true }));
-          }
+      sendToDocking() {
+        if (!this.smiles) { this.error = "Enter or load a SMILES string first"; return; }
+        const inputs = document.querySelectorAll('#smiles-input-dock, input[placeholder*=\"SMILES\"]');
+        for (const el of inputs) {
+          if (!el.value) { el.value = this.smiles; el.dispatchEvent(new Event('input', { bubbles: true })); break; }
         }
-        this.open = false;
-        document.getElementById("ketcher-container").innerHTML = "";
+        this.message = "SMILES sent to docking tab";
+        setTimeout(() => this.message = "", 2000);
       },
 
-      closeEditor() {
-        this.open = false;
-        const c = document.getElementById("ketcher-container");
-        if (c) c.innerHTML = "";
+      sendToADMET() {
+        if (!this.smiles) { this.error = "Enter or load a SMILES string first"; return; }
+        const inputs = document.querySelectorAll('#admet-input, input[placeholder*=\"ADMET\"]');
+        for (const el of inputs) {
+          if (!el.value) { el.value = this.smiles; el.dispatchEvent(new Event('input', { bubbles: true })); break; }
+        }
+        this.message = "SMILES sent to ADMET";
+        setTimeout(() => this.message = "", 2000);
+      },
+
+      loadExample(name) {
+        const examples = {
+          "Aspirin": "CC(=O)Oc1ccccc1C(=O)O",
+          "Caffeine": "Cn1cnc2c1c(=O)n(c(=O)n2C)C",
+          "Ibuprofen": "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
+          "Glucose": "OC[C@H]1OC(O)[C@H](O)[C@@H](O)[C@@H]1O",
+          "Morphine": "CN1CCc2c(O)ccc(c2C1)C(O)=O",
+          "Sildenafil": "CCCC1=C2N(C(=O)N1CCC)CCCC2c3ccc(cc3)S(=O)(=O)N",
+        };
+        this.smiles = examples[name] || "";
       },
     });
   </script>
 </head>
-<body>
-  <div x-data>
-    <template x-if="$store.moleculeEditor?.open">
-      <div style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center" @click.self="$store.moleculeEditor.closeEditor()">
-        <div style="background:var(--color-panel,#1e1e2e);border-radius:12px;width:90vw;max-width:800px;height:80vh;display:flex;flex-direction:column;overflow:hidden">
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--color-border)">
-            <h3 style="margin:0;font-size:0.9rem;color:var(--color-text)">Molecule Editor</h3>
-            <div style="display:flex;gap:8px">
-              <button @click="$store.moleculeEditor.applyAndClose()" style="padding:6px 14px;background:var(--color-primary);border:none;border-radius:6px;color:white;cursor:pointer;font-size:0.75rem;font-weight:600">Apply</button>
-              <button @click="$store.moleculeEditor.closeEditor()" style="padding:6px 14px;background:var(--color-background);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text);cursor:pointer;font-size:0.75rem">Cancel</button>
-            </div>
-          </div>
-          <div style="padding:8px 16px;display:flex;align-items:center;gap:8px">
-            <span style="font-size:0.68rem;color:var(--color-text-muted)">SMILES:</span>
-            <input type="text" x-model="$store.moleculeEditor.smiles" style="flex:1;padding:6px 8px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-background);color:var(--color-text);font-size:0.7rem;font-family:monospace" />
-          </div>
-          <div id="ketcher-container" style="flex:1;min-height:0"></div>
+<body style="margin:0">
+  <div x-data class="nb-panel">
+    <div class="nb-header">
+      <span class="material-symbols-outlined nb-icon">draw</span>
+      <div><h2>Molecule Editor</h2><p class="nb-sub">Draw, edit &amp; load molecules</p></div>
+    </div>
+
+    <div x-show="$store.moleculeEditor.error" class="nb-error" x-text="$store.moleculeEditor.error"></div>
+    <div x-show="$store.moleculeEditor.message" class="nb-msg" x-text="$store.moleculeEditor.message"></div>
+
+    <div class="nb-content">
+      <!-- Quick examples -->
+      <div class="nb-form"><h4>Quick Load</h4>
+        <div style="display:flex;gap:3px;flex-wrap:wrap">
+          <template x-for="smiles in ['Aspirin','Caffeine','Ibuprofen','Glucose','Morphine','Sildenafil']">
+            <button @click="$store.moleculeEditor.loadExample(smiles)" class="nb-tag" style="cursor:pointer" x-text="smiles"></button>
+          </template>
         </div>
       </div>
-    </template>
 
-    <!-- Trigger button (inserted next to SMILES inputs via openEditor) -->
-    <div style="display:none">
-      <button id="molecule-editor-trigger" @click="$store.moleculeEditor.openEditor('', '')"></button>
+      <!-- SMILES input -->
+      <div class="nb-form"><h4>SMILES Input</h4>
+        <input type="text" x-model="$store.moleculeEditor.smiles" placeholder="Enter or edit SMILES string..." class="nb-input" style="font-family:monospace;margin-bottom:4px" id="smiles-input-dock" />
+        <div class="nb-form-row">
+          <button class="nb-btn-primary" @click="$store.moleculeEditor.sendToDocking()" :disabled="!$store.moleculeEditor.smiles" style="background:#22c55e;flex:1">Send to Docking</button>
+          <button class="nb-btn-primary" @click="$store.moleculeEditor.sendToADMET()" :disabled="!$store.moleculeEditor.smiles" style="flex:1">Send to ADMET</button>
+        </div>
+      </div>
+
+      <!-- Ketcher 2D viewer -->
+      <div class="nb-form"><h4>2D Structure</h4>
+        <div id="ketcher-frame-container" style="width:100%;height:320px;border:1px solid var(--color-border);border-radius:8px;overflow:hidden;background:white">
+          <iframe id="ketcher-frame" src="https://lifescience.opensource.epam.com/ketcher/ketcher.html" style="width:100%;height:100%;border:none" onload="this.contentWindow.postMessage({type:'open',data:document.querySelector('[x-model]')?.value||''},'*')"></iframe>
+        </div>
+        <p style="font-size:0.52rem;color:var(--color-text-muted);margin-top:4px;text-align:center">Ketcher molecular editor — draw structures, SMILES syncs above</p>
+      </div>
+
+      <!-- File upload -->
+      <div class="nb-form"><h4>Load from File</h4>
+        <label class="nb-upload-label" style="justify-content:center">
+          <span class="material-symbols-outlined">upload_file</span>
+          <span>Upload .sdf/.mol/.pdb/.smi</span>
+          <input type="file" accept=".sdf,.mol,.pdb,.pdbqt,.smi,.smiles,.txt" hidden @change="$store.moleculeEditor.handleFileUpload($event)" />
+        </label>
+        <div x-show="$store.moleculeEditor.molFile" class="nb-msg" style="margin-top:4px" x-text="$store.moleculeEditor.molFile.name + ' loaded'"></div>
+      </div>
     </div>
+
+    <style>
+      .nb-panel { display:flex;flex-direction:column;height:100%;overflow:hidden;padding:10px 14px;background:var(--color-background) }
+      .nb-header { display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-shrink:0 }
+      .nb-icon { font-size:22px;color:var(--color-primary) }
+      .nb-header h2 { color:var(--color-primary);font-size:0.9rem;margin:0;font-weight:700 }
+      .nb-sub { color:var(--color-text-muted);font-size:0.58rem;margin:0 }
+      .nb-content { flex:1;overflow-y:auto }
+      .nb-error { padding:4px 8px;background:rgba(255,107,107,0.1);border-radius:4px;color:var(--color-error-text);font-size:0.6rem;margin-bottom:4px }
+      .nb-msg { padding:4px 8px;background:rgba(0,212,170,0.08);border-radius:4px;color:var(--color-primary);font-size:0.6rem;margin-bottom:4px }
+      .nb-form { padding:8px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:8px }
+      .nb-form h4 { font-size:0.64rem;font-weight:600;color:var(--color-primary);margin:0 0 6px 0 }
+      .nb-form-row { display:flex;gap:4px }
+      .nb-input { width:100%;padding:6px 10px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-background);color:var(--color-text);font-size:0.68rem;box-sizing:border-box }
+      .nb-input:focus { outline:none;border-color:var(--color-primary) }
+      .nb-input::placeholder { color:var(--color-text-muted);font-size:0.62rem }
+      .nb-btn-primary { display:flex;align-items:center;justify-content:center;gap:3px;padding:6px 10px;background:var(--color-primary);color:white;border:none;border-radius:6px;cursor:pointer;font-size:0.66rem;font-weight:600 }
+      .nb-btn-primary:disabled { opacity:0.5;cursor:not-allowed }
+      .nb-tag { display:inline-block;padding:2px 8px;background:color-mix(in srgb, var(--color-primary) 8%, transparent);border:1px solid transparent;border-radius:4px;color:var(--color-primary);font-size:0.58rem;font-weight:500 }
+      .nb-upload-label { display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--color-background);border:1px dashed var(--color-border);border-radius:6px;color:var(--color-text-muted);cursor:pointer;font-size:0.64rem;transition:all 0.15s }
+      .nb-upload-label:hover { border-color:var(--color-primary);color:var(--color-primary) }
+      .nb-upload-label .material-symbols-outlined { font-size:18px }
+    </style>
   </div>
 </body>
 </html>

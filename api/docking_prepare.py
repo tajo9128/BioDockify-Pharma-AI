@@ -290,6 +290,7 @@ class DockingPrepare(ApiHandler):
         receptor_errors = []
 
         if _obabel_available():
+            # Primary: obabel -xr (receptor mode with Gasteiger charges)
             ok, stdout, stderr = _run_obabel(
                 ["obabel", pdb_path, "-O", receptor_pdbqt, "-xr"],
                 timeout=60, label="receptor PDB→PDBQT"
@@ -297,23 +298,47 @@ class DockingPrepare(ApiHandler):
             if ok:
                 receptor_prep_ok = True
             else:
-                receptor_errors.append(f"obabel: {stderr.strip()}")
-
-        if not receptor_prep_ok:
-            receptor_errors.append("Using raw PDB as fallback")
-            try:
-                with open(pdb_path) as src:
-                    with open(receptor_pdbqt, "w") as dst:
-                        dst.write(src.read())
-                receptor_prep_ok = True
-            except Exception as e:
-                receptor_errors.append(f"PDB copy fallback: {str(e)}")
+                receptor_errors.append(f"obabel receptor prep failed: {stderr.strip()}")
 
         if not receptor_prep_ok:
             return {
                 "error": f"Receptor preparation failed: {'; '.join(receptor_errors)}",
-                "hint": "Install OpenBabel (apt install openbabel) or try a smaller PDB file."
+                "hint": "Install OpenBabel (apt install openbabel). If the protein is too large or contains non-standard residues, try a smaller or processed PDB file."
             }
+
+        # === PDBQT validation (catches malformed files before Vina) ===
+        def _validate_pdbqt(path, label):
+            """Check PDBQT file has valid ATOM/HETATM lines with AutoDock4 atom types."""
+            try:
+                with open(path) as f:
+                    lines = f.readlines()
+                atom_lines = [l for l in lines if l.startswith("ATOM") or l.startswith("HETATM")]
+                if not atom_lines:
+                    return False, f"No ATOM/HETATM lines in {label}"
+                # AutoDock4 atom types: column 77-78 must be valid element or AD4 type
+                valid_ad4 = set("CHONPS F Cl Br I".split())
+                invalid = []
+                for l in atom_lines:
+                    if len(l) >= 78:
+                        atype = l[77:79].strip()
+                        if atype and atype not in valid_ad4 and len(atype) <= 2:
+                            invalid.append(atype)
+                if len(invalid) > len(atom_lines) * 0.5:
+                    return False, f"{label} has unusual atom types: {set(invalid)}"
+                return True, "OK"
+            except Exception as e:
+                return False, f"Validation error: {e}"
+
+        ligand_valid, ligand_val_msg = _validate_pdbqt(ligand_pdbqt, "ligand")
+        receptor_valid, receptor_val_msg = _validate_pdbqt(receptor_pdbqt, "receptor")
+        val_notes = []
+        if not ligand_valid:
+            val_notes.append(f"Ligand: {ligand_val_msg}")
+        if not receptor_valid:
+            val_notes.append(f"Receptor: {receptor_val_msg}")
+
+        if not receptor_valid or not ligand_valid:
+            log.warning(f"PDBQT validation issues in job {job_id}: {'; '.join(val_notes)}")
 
         # === Auto-detect binding site center AND grid size from protein ===
         center, size = _compute_search_box(pdb_path)
@@ -326,5 +351,5 @@ class DockingPrepare(ApiHandler):
             "detected_formats": {"protein": protein_format, "ligand": ligand_format},
             "center": center,
             "size": size,
-            "prep_notes": "; ".join(receptor_errors + ligand_errors) if (receptor_errors or ligand_errors) else "OK",
+            "prep_notes": "; ".join(receptor_errors + ligand_errors + val_notes) if (receptor_errors or ligand_errors or val_notes) else "OK",
         }
