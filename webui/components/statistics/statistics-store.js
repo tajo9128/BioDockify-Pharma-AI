@@ -25,6 +25,8 @@ Alpine.data("statisticsModal", () => ({
   loading: false,
   activeAnalysis: "",
   viewMode: "table",
+  chartImage: null,
+  chartLoading: false,
   errorMessage: "",
 
   persist() {
@@ -131,6 +133,40 @@ Alpine.data("statisticsModal", () => ({
       this.errorMessage = "Analysis failed: " + (e.message || "API unavailable. Try asking the agent instead.");
     }
     this.loading = false;
+  },
+
+  async generateChart() {
+    if (!this.resultsJson) return;
+    this.chartLoading = true;
+    this.chartImage = null;
+    const data = this.resultsJson;
+    try {
+      let chartType = "histogram";
+      let payload = { chart_type: chartType };
+
+      if (data.values || data.data) {
+        payload = { chart_type: "histogram", values: data.values || data.data, title: this.activeAnalysis + " Distribution" };
+      } else if (data.correlation_matrix) {
+        const m = data.correlation_matrix;
+        const cols = data.columns || Object.keys(m[0] || {}).slice(0, 1);
+        const matrix = Array.isArray(m) ? m : Object.values(m);
+        payload = { chart_type: "correlation_heatmap", matrix: matrix, labels: cols, title: "Correlation Matrix" };
+      } else if (data.anova_table || data.f_statistic) {
+        const groups = data.group_means || data.groups || {};
+        payload = { chart_type: "boxplot", groups: groups, title: "Group Comparison" };
+      } else if (data.coefficients || data.r_squared !== undefined) {
+        const res = data.results || data;
+        payload = { chart_type: "scatter", x: res.x || [], y: res.y_pred || res.y || [], title: "Regression Fit", x_label: "Predicted", y_label: "Actual" };
+      } else if (data.survival) {
+        payload = { chart_type: "survival", times: data.times || [], survival: data.survival || [], title: "Survival Curve" };
+      } else {
+        payload = { chart_type: "bar", labels: Object.keys(data.results || data), values: Object.values(data.results || data).map(v => typeof v === "number" ? v : 0), title: this.activeAnalysis + " Results" };
+      }
+
+      const r = await callJsonApi("statistics_charts", payload);
+      if (r.success && r.chart) this.chartImage = r.chart;
+    } catch (e) {}
+    this.chartLoading = false;
   },
 
   formatTable(json) {
