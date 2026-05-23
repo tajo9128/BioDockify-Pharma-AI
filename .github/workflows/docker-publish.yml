@@ -35,7 +35,7 @@ jobs:
             VERSION="${{ github.event.inputs.force_version }}"
           else
             # Get latest tag
-            git fetch --tags origin
+            git fetch --tags --force origin
             LAST_TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+' | head -1 | sed 's/^v//')
             if [ -z "$LAST_TAG" ]; then
               LAST_TAG="0.0"
