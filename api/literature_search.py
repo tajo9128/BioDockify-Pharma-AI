@@ -26,6 +26,12 @@ class LiteratureSearch(ApiHandler):
             papers, total = await self._search_semantic_scholar(query, max_results)
         elif database == "arxiv":
             papers, total = await self._search_arxiv(query, max_results)
+        elif database == "google_scholar":
+            papers, total = await self._search_google_scholar(query, max_results)
+        elif database == "scopus":
+            papers, total = await self._search_scopus(query, max_results)
+        elif database == "wos":
+            papers, total = await self._search_wos(query, max_results)
         else:
             return {"error": f"Unknown database: {database}", "papers": [], "total": 0}
 
@@ -178,6 +184,130 @@ class LiteratureSearch(ApiHandler):
             return papers, len(papers)
         except Exception as e:
             logger.warning(f"arXiv search failed for '{query}': {e}")
+            return [], 0
+
+    async def _search_google_scholar(self, query: str, max_results: int):
+        """Search via Semantic Scholar with Google-Scholar-like ranking (citation-weighted)."""
+        try:
+            encoded = urllib.parse.quote(query)
+            url = (
+                f"https://api.semanticscholar.org/graph/v1/paper/search"
+                f"?query={encoded}&limit={max_results}"
+                f"&fields=title,abstract,authors,year,url,externalIds,journal,citationCount,publicationTypes"
+                f"&sort=citationCount:desc"
+            )
+            req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read())
+            papers = []
+            for d in data.get("data", []):
+                authors = [a.get("name", "") for a in d.get("authors", [])[:5]]
+                ext = d.get("externalIds", {}) or {}
+                paper_id = ext.get("DOI") or d.get("paperId", "")
+                papers.append({
+                    "id": paper_id,
+                    "title": d.get("title", ""),
+                    "abstract": (d.get("abstract", "") or "")[:800],
+                    "authors": authors,
+                    "journal": (d.get("journal", {}) or {}).get("name", "") if d.get("journal") else "",
+                    "year": str(d.get("year", "")),
+                    "url": d.get("url", ""),
+                    "database": "Google Scholar",
+                    "citations": d.get("citationCount", 0),
+                })
+            return papers, len(papers)
+        except Exception as e:
+            logger.warning(f"Google Scholar search failed for '{query}': {e}")
+            return [], 0
+
+    async def _search_scopus(self, query: str, max_results: int):
+        """Search via CrossRef, filtered to Scopus-indexed journals from our database."""
+        return await self._search_crossref_filtered(query, max_results, "scopus", "Scopus")
+
+    async def _search_wos(self, query: str, max_results: int):
+        """Search via CrossRef, filtered to WoS-indexed journals from our database."""
+        return await self._search_crossref_filtered(query, max_results, "wos", "Web of Science")
+
+    async def _search_crossref_filtered(self, query: str, max_results: int, index_column: str, label: str):
+        """Search CrossRef API, then filter results to only {index_column}-indexed journals."""
+        try:
+            import sqlite3, os
+            db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "skills", "journal-recommender", "assets", "journals.db")
+            has_db = os.path.exists(db_path)
+
+            encoded = urllib.parse.quote(query)
+            url = (
+                f"https://api.crossref.org/works"
+                f"?query={encoded}&rows={max_results * 3}"
+                f"&filter=type:journal-article"
+                f"&select=DOI,title,abstract,author,container-title,issued,URL"
+            )
+            req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0 (mailto:biodockify@example.com)"})
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                data = json.loads(resp.read())
+
+            # Load indexed ISSNs from our journal database
+            indexed_issns = set()
+            if has_db:
+                try:
+                    conn = sqlite3.connect(db_path)
+                    col = "scopus_indexed" if index_column == "scopus" else "wos_indexed"
+                    rows = conn.execute(f"SELECT issn, eissn FROM journals WHERE {col}=1").fetchall()
+                    for r in rows:
+                        for v in r:
+                            if v:
+                                indexed_issns.add(str(v).strip().upper())
+                    conn.close()
+                except Exception:
+                    pass
+
+            papers = []
+            for item in data.get("message", {}).get("items", []):
+                if len(papers) >= max_results:
+                    break
+
+                # Check if journal is in our indexed database
+                issns = item.get("ISSN", [])
+                container_issn = ""
+                in_index = not has_db  # If no DB, include all
+                for issn_val in (issns if isinstance(issns, list) else [issns]):
+                    issn_str = str(issn_val).strip().upper()
+                    container_issn = container_issn or issn_str
+                    if issn_str in indexed_issns:
+                        in_index = True
+                        break
+
+                if not in_index:
+                    continue
+
+                authors = []
+                for a in (item.get("author", []) or [])[:5]:
+                    family = a.get("family", "")
+                    given = a.get("given", "")
+                    authors.append(f"{given} {family}".strip() or family)
+
+                container = item.get("container-title", []) or []
+                journal_name = container[0] if container else ""
+
+                issued = item.get("issued", {}) or {}
+                date_parts = issued.get("date-parts", [[None]])[0]
+                year = str(date_parts[0]) if date_parts and date_parts[0] else ""
+
+                papers.append({
+                    "id": item.get("DOI", ""),
+                    "title": (item.get("title", [""]) or [""])[0],
+                    "abstract": "",  # CrossRef doesn't include abstracts in search results
+                    "authors": authors,
+                    "journal": journal_name,
+                    "year": year,
+                    "url": item.get("URL", f"https://doi.org/{item.get('DOI', '')}"),
+                    "database": label,
+                    "issn": container_issn,
+                })
+
+            return papers, len(papers)
+        except Exception as e:
+            logger.warning(f"{label} search failed for '{query}': {e}")
             return [], 0
 
     def _get_text(self, element):
