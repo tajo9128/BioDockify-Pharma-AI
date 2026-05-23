@@ -103,6 +103,9 @@
               <option value="survival">Survival Analysis</option>
               <option value="power">Power Analysis</option>
               <option value="pkpd">PK/PD Analysis</option>
+              <option value="factor">Factor Analysis (PCA)</option>
+              <option value="reliability">Reliability (Cronbach's α)</option>
+              <option value="cluster">Cluster Analysis</option>
             </select>
           </div>
           <div class="analysis-grid">
@@ -146,12 +149,27 @@
               <span class="card-title">PK/PD</span>
               <span class="card-desc">Pharmacokinetics</span>
             </button>
+            <button class="analysis-card" :class="{'selected': testType === 'factor'}" @click="selectTest('factor')">
+              <span class="material-symbols-outlined card-icon">account_tree</span>
+              <span class="card-title">Factor Analysis</span>
+              <span class="card-desc">PCA, loadings</span>
+            </button>
+            <button class="analysis-card" :class="{'selected': testType === 'reliability'}" @click="selectTest('reliability')">
+              <span class="material-symbols-outlined card-icon">verified</span>
+              <span class="card-title">Reliability</span>
+              <span class="card-desc">Cronbach's α</span>
+            </button>
+            <button class="analysis-card" :class="{'selected': testType === 'cluster'}" @click="selectTest('cluster')">
+              <span class="material-symbols-outlined card-icon">bubble_chart</span>
+              <span class="card-title">Cluster</span>
+              <span class="card-desc">K-Means, Hierarchical</span>
+            </button>
           </div>
         </div>
 
         <!-- Test parameters form (shown after selecting a test) -->
         <div x-show="testType" class="test-params">
-          <h3 class="section-title" x-text="'Configure: ' + ({descriptive:'Descriptive Stats',correlation:'Correlation',ttest:'T-Test',anova:'ANOVA',regression:'Regression',survival:'Survival',power:'Power Analysis',pkpd:'PK/PD'}[testType] || testType)"></h3>
+          <h3 class="section-title" x-text="'Configure: ' + ({descriptive:'Descriptive Stats',correlation:'Correlation',ttest:'T-Test',anova:'ANOVA',regression:'Regression',survival:'Survival',power:'Power Analysis',pkpd:'PK/PD',factor:'Factor Analysis',reliability:'Reliability',cluster:'Cluster'}[testType] || testType)"></h3>
 
           <!-- Descriptive - no params needed -->
           <template x-if="testType === 'descriptive'">
@@ -273,6 +291,41 @@
             <div class="params-note agent-note">
               <span class="material-symbols-outlined">psychology</span>
               <span>This analysis type is agent-driven. Type your request in the chat panel — the agent will perform the analysis for you.</span>
+            </div>
+          </template>
+
+          <!-- Factor Analysis - no params needed (runs on all numeric cols) -->
+          <template x-if="testType === 'factor'">
+            <div class="params-note">
+              <span class="material-symbols-outlined">info</span>
+              <span>Performs PCA on all numeric columns. Returns eigenvalues, loadings, scree plot.</span>
+            </div>
+          </template>
+
+          <!-- Reliability - no params needed -->
+          <template x-if="testType === 'reliability'">
+            <div class="params-note">
+              <span class="material-symbols-outlined">info</span>
+              <span>Computes Cronbach's alpha from all numeric columns. Returns item-total statistics.</span>
+            </div>
+          </template>
+
+          <!-- Cluster params -->
+          <template x-if="testType === 'cluster'">
+            <div class="params-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Clusters (K)</label>
+                  <input type="number" x-model="clusterK" min="2" max="10" value="3" class="form-input" style="width:80px" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Method</label>
+                  <select x-model="clusterMethod" class="form-select">
+                    <option value="kmeans">K-Means</option>
+                    <option value="hierarchical">Hierarchical</option>
+                  </select>
+                </div>
+              </div>
             </div>
           </template>
 

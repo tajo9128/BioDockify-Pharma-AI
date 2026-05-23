@@ -19,6 +19,8 @@ Alpine.data("statisticsModal", () => ({
   powerEffectSize: 0.5,
   powerAlpha: 0.05,
   powerTarget: 0.80,
+  clusterK: 3,
+  clusterMethod: "kmeans",
 
   results: "",
   resultsJson: null,
@@ -27,7 +29,70 @@ Alpine.data("statisticsModal", () => ({
   viewMode: "table",
   chartImage: null,
   chartLoading: false,
+  rawData: null,         // Raw numeric data arrays for factor/reliability/cluster
   errorMessage: "",
+
+  async _parseLocalFile(file) {
+    try {
+      const text = await file.text();
+      if (file.name.endsWith(".json")) {
+        const obj = JSON.parse(text);
+        const arr = Array.isArray(obj) ? obj : (obj.data || Object.values(obj)[0]);
+        this._extractColumns(arr);
+      } else {
+        // CSV parsing
+        const lines = text.split("\n").filter(l => l.trim());
+        if (lines.length < 2) return;
+        const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
+        const rows = [];
+        for (let i = 1; i < lines.length; i++) {
+          const vals = lines[i].split(",").map(v => {
+            const cleaned = v.trim().replace(/^"|"$/g, "");
+            const n = parseFloat(cleaned);
+            return isNaN(n) ? cleaned : n;
+          });
+          rows.push(vals);
+        }
+        this._setRawData(headers, rows);
+      }
+    } catch (e) {}
+  },
+
+  _extractColumns(arr) {
+    if (!arr || !arr.length) return;
+    const cols = Object.keys(arr[0]);
+    this._setRawData(cols, arr.map(r => cols.map(c => r[c])));
+  },
+
+  _setRawData(headers, rows) {
+    const numericCols = [];
+    const data = [];
+    for (let ci = 0; ci < headers.length; ci++) {
+      const col = [];
+      for (const row of rows) {
+        const v = row[ci];
+        if (typeof v === "number" && !isNaN(v)) col.push(v);
+      }
+      if (col.length > 1) {
+        numericCols.push(ci);
+        data.push(col);
+      }
+    }
+    if (data.length > 0) {
+      const minLen = Math.min(...data.map(c => c.length));
+      const aligned = data.map(c => c.slice(0, minLen));
+      // Transpose: columns → rows for API
+      const result = [];
+      for (let i = 0; i < minLen; i++) {
+        const row = [];
+        for (let j = 0; j < aligned.length; j++) {
+          row.push(aligned[j][i]);
+        }
+        result.push(row);
+      }
+      this.rawData = result;
+    }
+  },
 
   persist() {
     try {
@@ -65,6 +130,8 @@ Alpine.data("statisticsModal", () => ({
       if (!file) return;
       this.loading = true;
       this.fileName = file.name;
+      // Parse raw data locally for factor/reliability/cluster APIs
+      this._parseLocalFile(file);
       try {
         const formData = new FormData();
         formData.append("file", file);
@@ -80,6 +147,8 @@ Alpine.data("statisticsModal", () => ({
           this.rowCount = summary.rows || 0;
           this.hasData = true;
           this.step = 2;
+          // Parse file locally for factor/reliability/cluster APIs
+          this._parseRawData(file);
           this.results = "";
           this.errorMessage = "";
           this.persist();
@@ -123,6 +192,17 @@ Alpine.data("statisticsModal", () => ({
         case "power":
           endpoint = "statistics/analyze/power";
           payload = { test_type: "ttest_ind", effect_size: this.powerEffectSize, alpha: this.powerAlpha, power: this.powerTarget }; break;
+        case "factor":
+          endpoint = "statistics_reduction";
+          payload = { action: "factor", data: this.rawData || [], columns: this.columns, n_components: null }; break;
+        case "reliability":
+          endpoint = "statistics_reduction";
+          payload = { action: "reliability", data: this.rawData || [], columns: this.columns }; break;
+        case "cluster":
+          endpoint = "statistics_reduction";
+          payload = { action: this.clusterMethod === "hierarchical" ? "cluster_hierarchical" : "cluster_kmeans",
+                       data: this.rawData || [], columns: this.columns, n_clusters: this.clusterK || 3,
+                       method: this.clusterMethod === "hierarchical" ? "ward" : undefined }; break;
         default: this.errorMessage = "Unknown analysis type"; this.loading = false; return;
       }
       const result = await callJsonApi(endpoint, payload);
