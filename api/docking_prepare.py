@@ -66,58 +66,6 @@ def _detect_format(content, filename_hint=""):
     return filename_hint or "unknown"
 
 
-def _sanitize_pdbqt(path: str):
-    """Fix AutoDock4 atom types in a PDBQT file to prevent Vina parse_pdbqt.cpp(69) crash.
-
-    Reads the PDBQT, corrects column 77-78 (AutoDock4 atom type) based on element
-    from column 13-14 or column 77-78 of the original line.
-    """
-    # AutoDock4 atom type map from element symbol
-    AD4_MAP = {
-        "C": "C", "N": "NA", "O": "OA", "S": "SA", "H": "HD",
-        "P": "P", "F": "F", "CL": "Cl", "BR": "Br", "I": "I",
-        "FE": "Fe", "ZN": "Zn", "MG": "Mg", "CA": "Ca", "MN": "Mn",
-        "NA": "Na", "K": "K", "LI": "Li", "CO": "Co", "NI": "Ni",
-        "CU": "Cu", "SE": "Se",
-    }
-
-    try:
-        with open(path) as f:
-            lines = f.readlines()
-
-        fixed = []
-        for line in lines:
-            if not (line.startswith("ATOM") or line.startswith("HETATM")):
-                fixed.append(line)
-                continue
-
-            if len(line) < 78:
-                fixed.append(line)
-                continue
-
-            # Get element: prefer columns 13-14 (atom name), fallback to 77-78
-            element = (line[13:14] or line[12:14]).strip().upper()
-            if not element and len(line) >= 78:
-                element = line[76:78].strip().upper()
-
-            ad4 = AD4_MAP.get(element)
-            if ad4 is None:
-                # Unknown element — try to keep existing type or default to "C"
-                existing = line[77:79] if len(line) >= 79 else ""
-                ad4 = existing.strip() or "C"
-
-            # Rebuild line with correct AD4 type in columns 77-78 (right-justified in 2 chars)
-            prefix = line[:77]
-            suffix = line[79:] if len(line) > 79 else ""
-            fixed.append(f"{prefix}{ad4:>2s}{suffix}")
-
-        with open(path, "w") as f:
-            f.writelines(fixed)
-
-    except Exception as e:
-        log.warning(f"PDBQT sanitizer failed for {path}: {e}")
-
-
 def _compute_search_box(pdb_path: str):
     """Compute binding site center and auto-detected grid size from protein atom coordinates.
 
@@ -234,48 +182,8 @@ class DockingPrepare(ApiHandler):
             if ok and stdout.strip():
                 smiles = stdout.strip().split()[0] if stdout.strip().split() else stdout.strip()
 
-        # Strategy 0: meeko-based preparation (proper AutoDock4 atom types — recommended)
+        # Strategy 1: RDKit SMILES → SDF → PDBQT
         if smiles:
-            try:
-                from rdkit import Chem
-                from rdkit.Chem import AllChem
-                mol = Chem.MolFromSmiles(smiles)
-                if mol is None:
-                    ligand_errors.append(f"Invalid SMILES: {smiles[:50]}")
-                else:
-                    mol = Chem.AddHs(mol)
-                    AllChem.EmbedMolecule(mol, AllChem.ETKDG())
-                    AllChem.MMFFOptimizeMolecule(mol)
-                    writer = Chem.SDWriter(sdf_path)
-                    writer.write(mol)
-                    writer.close()
-
-                    # Try meeko for proper AutoDock4 atom typing
-                    try:
-                        from meeko import MoleculePreparation, PDBQTWriterLegacy
-                        preparator = MoleculePreparation()
-                        mol_setups = preparator.prepare(mol)
-                        if mol_setups:
-                            pdbqt_string, is_ok, error_msg = PDBQTWriterLegacy.write_string(mol_setups[0])
-                            if is_ok and pdbqt_string:
-                                with open(ligand_pdbqt, "w") as f:
-                                    f.write(pdbqt_string)
-                                ligand_prep_ok = True
-                            else:
-                                ligand_errors.append(f"meeko write failed: {error_msg}")
-                        else:
-                            ligand_errors.append("meeko preparation returned empty")
-                    except ImportError:
-                        ligand_errors.append("meeko not available (falling back to obabel)")
-                    except Exception as e:
-                        ligand_errors.append(f"meeko error: {str(e)}")
-            except ImportError:
-                ligand_errors.append("RDKit not available")
-            except Exception as e:
-                ligand_errors.append(f"RDKit prep: {str(e)}")
-
-        # Strategy 1: RDKit SMILES → SDF → obabel PDBQT (fallback)
-        if not ligand_prep_ok and smiles:
             try:
                 from rdkit import Chem
                 from rdkit.Chem import AllChem
@@ -336,9 +244,6 @@ class DockingPrepare(ApiHandler):
                 "hint": "Install RDKit and OpenBabel, or provide SMILES string"
             }
 
-        # Sanitize ligand PDBQT to prevent Vina atom type crashes
-        _sanitize_pdbqt(ligand_pdbqt)
-
         # === Receptor PDB → PDBQT conversion ===
         receptor_pdbqt = os.path.join(job_dir, "protein.pdbqt")
         receptor_prep_ok = False
@@ -350,16 +255,24 @@ class DockingPrepare(ApiHandler):
                 timeout=60, label="receptor PDB→PDBQT"
             )
             if ok:
-                # Sanitize PDBQT: fix AutoDock4 atom types to prevent Vina parse_pdbqt.cpp(69) crash
-                _sanitize_pdbqt(receptor_pdbqt)
                 receptor_prep_ok = True
             else:
-                receptor_errors.append(f"obabel receptor prep failed: {stderr.strip()}")
+                receptor_errors.append(f"obabel: {stderr.strip()}")
+
+        if not receptor_prep_ok:
+            receptor_errors.append("Using raw PDB as fallback")
+            try:
+                with open(pdb_path) as src:
+                    with open(receptor_pdbqt, "w") as dst:
+                        dst.write(src.read())
+                receptor_prep_ok = True
+            except Exception as e:
+                receptor_errors.append(f"PDB copy fallback: {str(e)}")
 
         if not receptor_prep_ok:
             return {
                 "error": f"Receptor preparation failed: {'; '.join(receptor_errors)}",
-                "hint": "Install OpenBabel (apt install openbabel). If the protein is too large or contains non-standard residues, try a smaller or processed PDB file."
+                "hint": "Install OpenBabel (apt install openbabel) or try a smaller PDB file."
             }
 
         # === Auto-detect binding site center AND grid size from protein ===

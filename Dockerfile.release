@@ -67,29 +67,13 @@ RUN apt-get update -qq && apt-get install -y -qq python3-rdkit 2>/dev/null || tr
     ); \
     $VENV_PY -c "from rdkit import Chem; print('RDKit OK')" 2>/dev/null || echo "RDKit unavailable in venv"
 
-# Install meeko for AutoDock4 atom typing
-RUN echo "=== Installing meeko (AutoDock4 ligand preparation) ==="; \
-    VENV_PY="/opt/venv-a0/bin/python"; \
-    $VENV_PY -m pip install meeko numpy scipy 2>&1 | tail -3; \
-    $VENV_PY -c "from meeko import MoleculePreparation; print('Meeko OK')" || echo "WARNING: Meeko unavailable — ligand preparation will use obabel fallback"
-
 # Install OpenBabel + AutoDock Vina for molecular docking
-RUN echo "=== Installing OpenBabel + AutoDock Vina ==="; \
-    apt-get update -qq && apt-get install -y -qq --no-install-recommends openbabel autodock-vina 2>&1 | tail -3; \
-    obabel -V && echo "OpenBabel OK" || echo "WARNING: OpenBabel not found"; \
-    vina --version && echo "Vina OK" || echo "WARNING: Vina not found"
-
-# Install GNINA CNN scoring
-RUN echo "=== Installing GNINA CNN scoring ==="; \
-    if command -v gnina >/dev/null 2>&1; then \
-      echo "GNINA already installed: $(gnina --version 2>&1)"; \
-    else \
-      echo "Downloading GNINA..."; \
-      (wget -q "https://github.com/gnina/gnina/releases/download/v1.3/gnina" -O /usr/local/bin/gnina 2>/dev/null && chmod +x /usr/local/bin/gnina && echo "GNINA v1.3 OK") || \
-      (wget -q "https://github.com/gnina/gnina/releases/download/v1.2.1/gnina" -O /usr/local/bin/gnina 2>/dev/null && chmod +x /usr/local/bin/gnina && echo "GNINA v1.2.1 OK") || \
-      (wget -q "https://github.com/gnina/gnina/releases/download/v1.1/gnina" -O /usr/local/bin/gnina 2>/dev/null && chmod +x /usr/local/bin/gnina && echo "GNINA v1.1 OK") || \
-      echo "WARNING: GNINA download failed — CNN docking will be skipped"; \
-    fi
+RUN apt-get update -qq && apt-get install -y -qq \
+    openbabel \
+    autodock-vina \
+    2>/dev/null || true; \
+    echo "OpenBabel: $(obabel -V 2>&1 || echo 'not found')"; \
+    echo "Vina: $(vina --version 2>&1 || echo 'not found')"
 
 EXPOSE 50001
 
