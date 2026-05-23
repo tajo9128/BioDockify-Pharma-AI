@@ -56,16 +56,28 @@ class BenchmarkHandler(ApiHandler):
     def _bench_dependencies(self):
         results = {}
 
-        # Python packages
-        for mod in ["rdkit", "numpy", "sklearn", "scipy"]:
-            results[mod] = {"status": "available" if _check_python(mod) else "missing", "type": "python"}
-
-        for mod in ["meeko", "playwright", "psutil", "aiohttp"]:
-            results[mod] = {"status": "available" if _check_python(mod) else "not_installed", "type": "python", "optional": True}
+        # Python packages — critical for docking
+        for mod, label, critical in [
+            ("rdkit", "RDKit", True), ("numpy", "NumPy", True), ("sklearn", "scikit-learn", False),
+            ("scipy", "SciPy", False), ("meeko", "Meeko (AD4 typing)", False),
+            ("playwright", "Playwright (Browser)", False), ("psutil", "psutil", False),
+        ]:
+            if _check_python(mod):
+                results[mod] = {"status": "available", "label": label, "critical": critical}
+            else:
+                results[mod] = {"status": "not_installed", "label": label, "critical": critical,
+                    "note": "Required for docking" if critical else "Optional — some features disabled"}
 
         # System binaries
-        for bin_name in ["vina", "gnina", "obabel"]:
-            results[bin_name] = {"status": "available" if _check_binary(bin_name) else "missing", "type": "binary"}
+        for bin_name, label, critical in [
+            ("vina", "AutoDock Vina", True), ("obabel", "OpenBabel", True),
+            ("gnina", "GNINA CNN", False),
+        ]:
+            if _check_binary(bin_name):
+                results[bin_name] = {"status": "available", "label": label, "critical": critical}
+            else:
+                results[bin_name] = {"status": "missing", "label": label, "critical": critical,
+                    "note": "Docking disabled" if critical else "CNN scoring skipped — Vina only"}
 
         return results
 

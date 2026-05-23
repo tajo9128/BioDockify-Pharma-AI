@@ -20,8 +20,8 @@
         <div class="nb-form"><h4>Dependencies</h4>
           <template x-for="(v, name) in $store.benchmarkModal.results.benchmarks.dependencies">
             <div class="nb-entry-card" style="display:flex;justify-content:space-between;align-items:center">
-              <div><span class="nb-entry-title" x-text="name"></span><span class="nb-entry-meta" style="margin-left:6px" x-text="v.type || ''"></span></div>
-              <span style="font-size:0.6rem;font-weight:700" :style="'color:' + (v.status === 'available' ? '#22c55e' : v.status === 'not_installed' ? '#ffd93d' : '#ff6b6b')" x-text="v.status"></span>
+              <div style="flex:1"><span class="nb-entry-title" x-text="v.label || name"></span><span class="nb-entry-meta" style="margin-left:6px" x-text="v.note || ''"></span></div>
+              <span style="font-size:0.6rem;font-weight:700;white-space:nowrap" :style="'color:' + (v.status === 'available' ? '#22c55e' : v.critical ? '#ff6b6b' : '#ffd93d')" x-text="v.status === 'available' ? 'OK' : v.status === 'not_installed' ? 'MISSING' : 'MISSING'"></span>
             </div>
           </template>
         </div>
@@ -31,7 +31,7 @@
         <div class="nb-form"><h4>API Health</h4>
           <div class="nb-entry-card" style="display:flex;justify-content:space-between;align-items:center">
             <div><span class="nb-entry-title" x-text="$store.benchmarkModal.results.benchmarks.api_health.url || 'Self-check'"></span></div>
-            <span style="font-size:0.6rem;font-weight:700" :style="'color:' + ($store.benchmarkModal.results.benchmarks.api_health.passed ? '#22c55e' : '#ff6b6b')" x-text="$store.benchmarkModal.results.benchmarks.api_health.passed ? 'PASS (' + ($store.benchmarkModal.results.benchmarks.api_health.response_time_s||0) + 's)' : ($store.benchmarkModal.results.benchmarks.api_health.error || 'FAIL')"></span>
+            <span style="font-size:0.6rem;font-weight:700;white-space:nowrap" :style="'color:' + ($store.benchmarkModal.results.benchmarks.api_health.skipped ? '#ffd93d' : $store.benchmarkModal.results.benchmarks.api_health.passed ? '#22c55e' : '#ff6b6b')" x-text="$store.benchmarkModal.results.benchmarks.api_health.skipped ? 'SKIPPED' : $store.benchmarkModal.results.benchmarks.api_health.passed ? 'PASS' : ($store.benchmarkModal.results.benchmarks.api_health.reason || 'FAIL')"></span>
           </div>
         </div>
       </template>

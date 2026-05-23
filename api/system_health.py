@@ -162,9 +162,9 @@ class SystemHealth(ApiHandler):
         try:
             obabel_check = subprocess.run(["obabel", "-V"], capture_output=True, text=True, timeout=5)
             obabel_ok = obabel_check.returncode == 0
-            result["checks"].append({"name": "OpenBabel", "status": "ok" if obabel_ok else "warn", "detail": "Available" if obabel_ok else "Missing — format conversion disabled"})
+            result["checks"].append({"name": "OpenBabel", "status": "ok" if obabel_ok else "fail", "detail": "Available" if obabel_ok else "Missing — docking disabled"})
         except:
-            result["checks"].append({"name": "OpenBabel", "status": "warn", "detail": "Not installed"})
+            result["checks"].append({"name": "OpenBabel", "status": "fail", "detail": "Not installed — docking disabled"})
 
         # AutoDock Vina
         try:
@@ -172,7 +172,7 @@ class SystemHealth(ApiHandler):
             vina_ok = vina_check.returncode == 0
             result["checks"].append({"name": "AutoDock Vina", "status": "ok" if vina_ok else "fail", "detail": "Available" if vina_ok else "Missing — docking disabled"})
         except:
-            result["checks"].append({"name": "AutoDock Vina", "status": "fail", "detail": "Not installed"})
+            result["checks"].append({"name": "AutoDock Vina", "status": "fail", "detail": "Not installed — docking disabled"})
 
         # Playwright — Browser plugin
         try:
