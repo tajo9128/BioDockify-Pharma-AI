@@ -16,6 +16,7 @@ torchvision==0.19.0+cpu
 # Chemistry & Molecular Analysis
 decimer>=2.2.0
 rdkit>=2023.9.4
+meeko>=0.5.0
 
 # Browser Automation (Requires binary download)
 playwright>=1.41.0

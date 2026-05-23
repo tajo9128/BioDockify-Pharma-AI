@@ -50,6 +50,7 @@ boto3>=1.35.0
 exchangelib>=5.4.3
 pywinpty==3.0.2; sys_platform == "win32"
 python-socketio>=5.14.2
+meeko>=0.5.0
 uvicorn>=0.38.0
 watchdog==6.0.0
 wsproto>=1.2.0

@@ -182,8 +182,48 @@ class DockingPrepare(ApiHandler):
             if ok and stdout.strip():
                 smiles = stdout.strip().split()[0] if stdout.strip().split() else stdout.strip()
 
-        # Strategy 1: RDKit SMILES → SDF → PDBQT
+        # Strategy 0: meeko-based preparation (proper AutoDock4 atom types — recommended)
         if smiles:
+            try:
+                from rdkit import Chem
+                from rdkit.Chem import AllChem
+                mol = Chem.MolFromSmiles(smiles)
+                if mol is None:
+                    ligand_errors.append(f"Invalid SMILES: {smiles[:50]}")
+                else:
+                    mol = Chem.AddHs(mol)
+                    AllChem.EmbedMolecule(mol, AllChem.ETKDG())
+                    AllChem.MMFFOptimizeMolecule(mol)
+                    writer = Chem.SDWriter(sdf_path)
+                    writer.write(mol)
+                    writer.close()
+
+                    # Try meeko for proper AutoDock4 atom typing
+                    try:
+                        from meeko import MoleculePreparation, PDBQTWriterLegacy
+                        preparator = MoleculePreparation()
+                        mol_setups = preparator.prepare(mol)
+                        if mol_setups:
+                            pdbqt_string, is_ok, error_msg = PDBQTWriterLegacy.write_string(mol_setups[0])
+                            if is_ok and pdbqt_string:
+                                with open(ligand_pdbqt, "w") as f:
+                                    f.write(pdbqt_string)
+                                ligand_prep_ok = True
+                            else:
+                                ligand_errors.append(f"meeko write failed: {error_msg}")
+                        else:
+                            ligand_errors.append("meeko preparation returned empty")
+                    except ImportError:
+                        ligand_errors.append("meeko not available (falling back to obabel)")
+                    except Exception as e:
+                        ligand_errors.append(f"meeko error: {str(e)}")
+            except ImportError:
+                ligand_errors.append("RDKit not available")
+            except Exception as e:
+                ligand_errors.append(f"RDKit prep: {str(e)}")
+
+        # Strategy 1: RDKit SMILES → SDF → obabel PDBQT (fallback)
+        if not ligand_prep_ok and smiles:
             try:
                 from rdkit import Chem
                 from rdkit.Chem import AllChem

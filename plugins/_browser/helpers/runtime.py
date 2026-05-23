@@ -2212,7 +2212,10 @@ class _BrowserRuntimeCore:
                 while self._pending_popups:
                     waiter = self._pending_popups.pop(0)
                     if not waiter.done():
-                        waiter.set_result(new_id)
+                        try:
+                            waiter.set_result(new_id)
+                        except Exception:
+                            pass
                         break
                 if new_id not in self._background_popup_pages:
                     self.last_interacted_browser_id = new_id

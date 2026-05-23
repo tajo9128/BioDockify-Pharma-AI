@@ -67,6 +67,11 @@ RUN apt-get update -qq && apt-get install -y -qq python3-rdkit 2>/dev/null || tr
     ); \
     $VENV_PY -c "from rdkit import Chem; print('RDKit OK')" 2>/dev/null || echo "RDKit unavailable in venv"
 
+# Install meeko for AutoDock4 atom typing (better PDBQT preparation than obabel)
+RUN VENV_PY="/opt/venv-a0/bin/python"; \
+    $VENV_PY -m pip install meeko 2>/dev/null || true; \
+    $VENV_PY -c "from meeko import MoleculePreparation; print('Meeko OK')" 2>/dev/null || echo "Meeko unavailable"
+
 # Install OpenBabel + AutoDock Vina for molecular docking
 RUN apt-get update -qq && apt-get install -y -qq \
     openbabel \
