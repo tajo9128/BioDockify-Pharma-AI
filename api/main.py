@@ -227,9 +227,10 @@ from modules.proactive_integration import create_proactive_guidance_routes
 
 # Initialize proactive guidance system
 try:
-    proactive_guidance_manager = create_proactive_guidance_routes(config, app)
+    proactive_guidance_manager = create_proactive_guidance_routes({}, app)
 except Exception as e:
     proactive_guidance_manager = None
+    logging.getLogger("biodockify_api").warning(f"Proactive guidance init skipped: {e}")
 # ========================================================================
 
 # CORS Configuration - Whitelist specific origins for security
@@ -1200,16 +1201,6 @@ def analyze_statistics(req: StatisticsRequest):
     Unified Statistical Analysis Endpoint.
     Routes to the 3-Tier Statistical Engine.
     """
-    # License Check for Statistics features
-    if not verify_license():
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": "license_required",
-                "message": "The free version of BioDockify requires a one-time verification to unlock Advanced Statistics. Please go to Settings.",
-            },
-        )
-
     engine = StatisticalEngine()
     result = engine.analyze(req.data, req.design, req.tier)
 

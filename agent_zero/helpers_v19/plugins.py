@@ -15,8 +15,6 @@ from typing import (
     TypedDict,
 )
 
-from regex import W
-
 from helpers import (
     files,
     git,

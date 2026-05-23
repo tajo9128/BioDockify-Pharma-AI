@@ -96,7 +96,7 @@
           <span>Home</span>
         </button>
 
-        <button class="dropdown-item" @click="chatsStore.newChat(); $store.sidebar.menuClose()">
+        <button class="dropdown-item" @click="$store.chats.newChat(); $store.sidebar.menuClose()">
           <span class="material-symbols-outlined">add_comment</span>
           <span>New Chat</span>
         </button>
