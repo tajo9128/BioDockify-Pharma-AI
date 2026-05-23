@@ -289,7 +289,7 @@ class DockingPrepare(ApiHandler):
 
 
 def _validate_pdbqt(filepath: str) -> tuple:
-    """Validate PDBQT file before passing to Vina/GNINA."""
+    """Validate PDBQT file before passing to Vina/GNINA. Checks column structure."""
     import os
     try:
         if not os.path.exists(filepath):
@@ -301,9 +301,86 @@ def _validate_pdbqt(filepath: str) -> tuple:
             content = f.read()
         if content.startswith("HEADER") and "REMARK" not in content and "MODEL" not in content:
             return False, "File appears to be raw PDB, not PDBQT"
-        atom_count = sum(1 for l in content.split('\n') if l.startswith('ATOM') or l.startswith('HETATM'))
+
+        atom_count = 0
+        charge_errors = 0
+        type_errors = 0
+        for line in content.split('\n'):
+            if line.startswith('ATOM') or line.startswith('HETATM'):
+                atom_count += 1
+                if len(line) < 79:
+                    type_errors += 1
+                    continue
+                charge_str = line[70:76].strip()
+                if charge_str == '':
+                    charge_errors += 1
+                else:
+                    try:
+                        float(charge_str)
+                    except ValueError:
+                        charge_errors += 1
+                atype = line[77:79].strip()
+                if atype == '' or atype == 'X':
+                    type_errors += 1
+
         if atom_count == 0:
             return False, "No ATOM/HETATM records found"
+
+        if charge_errors > atom_count * 0.5:
+            return False, f"{charge_errors}/{atom_count} atoms have invalid charges (cols 71-76)"
+        if type_errors > atom_count * 0.5:
+            return False, f"{type_errors}/{atom_count} atoms have invalid atom types (cols 78-79)"
+
         return True, f"Valid: {atom_count} atoms"
     except Exception as e:
         return False, f"Validation error: {str(e)}"
+
+
+def _sanitize_pdbqt(filepath: str) -> tuple:
+    """Fix common PDBQT issues: empty charges, bad atom types. Returns (ok, detail, path)."""
+    import os, tempfile, shutil
+    try:
+        with open(filepath, 'r') as f:
+            lines = f.readlines()
+
+        fixed = 0
+        out_lines = []
+        ELEMENT_TO_ATYPE = {
+            'H': 'HD', 'C': 'C', 'N': 'NA', 'O': 'OA', 'F': 'F',
+            'P': 'P', 'S': 'SA', 'Cl': 'Cl', 'Br': 'Br', 'I': 'I',
+            'Na': 'Na', 'K': 'K', 'Ca': 'Ca', 'Fe': 'Fe', 'Zn': 'Zn',
+            'Mg': 'Mg', 'Mn': 'Mn', 'Cu': 'Cu', 'Se': 'Se', 'B': 'B',
+            'Si': 'Si', 'Li': 'Li',
+        }
+        for line in lines:
+            if line.startswith('ATOM') or line.startswith('HETATM'):
+                if len(line) < 79:
+                    out_lines.append(line.rstrip() + ' ' * (79 - len(line.rstrip())) + '\n')
+                    fixed += 1
+                    continue
+                charge_str = line[70:76].strip()
+                if charge_str == '':
+                    line = line[:70] + '  0.00' + line[76:]
+                    fixed += 1
+                else:
+                    try:
+                        float(charge_str)
+                    except ValueError:
+                        line = line[:70] + '  0.00' + line[76:]
+                        fixed += 1
+                atype = line[77:79].strip()
+                if atype == '' or atype == 'X':
+                    element = line[76:78].strip()
+                    if not element:
+                        element = line[12:16].strip()[:2].rstrip('0123456789')
+                    default = ELEMENT_TO_ATYPE.get(element, 'C')
+                    line = line[:77] + default.ljust(2) + line[79:]
+                    fixed += 1
+            out_lines.append(line)
+
+        with open(filepath, 'w') as f:
+            f.writelines(out_lines)
+
+        return (True, f"{fixed} fields fixed" if fixed else "No fixes needed", filepath)
+    except Exception as e:
+        return (False, f"Sanitizer error: {str(e)}", filepath)

@@ -67,19 +67,27 @@ RUN apt-get update -qq && apt-get install -y -qq python3-rdkit 2>/dev/null || tr
     ); \
     $VENV_PY -c "from rdkit import Chem; print('RDKit OK')" 2>/dev/null || echo "RDKit unavailable in venv"
 
-# Install OpenBabel + AutoDock Vina for molecular docking
+# Install OpenBabel + AutoDock Vina + GNINA for molecular docking
 RUN apt-get update -qq && apt-get install -y -qq \
     openbabel \
     autodock-vina \
+    wget \
     2>/dev/null || true; \
     echo "OpenBabel: $(obabel -V 2>&1 || echo 'not found')"; \
     echo "Vina: $(vina --version 2>&1 || echo 'not found')"
+
+# Install GNINA CNN Docking (pre-built binary from GitHub)
+RUN wget -q -O /usr/local/bin/gnina "https://github.com/gnina/gnina/releases/download/v1.3/gnina" 2>/dev/null || \
+    wget -q -O /usr/local/bin/gnina "https://github.com/gnina/gnina/releases/download/v1.2/gnina" 2>/dev/null || true; \
+    chmod +x /usr/local/bin/gnina 2>/dev/null || true; \
+    echo "GNINA: $(gnina --help 2>&1 | head -1 || echo 'not found')"
 
 EXPOSE 50001
 
 HEALTHCHECK --interval=30s --timeout=15s --retries=3 CMD \
   python3 -c "from rdkit import Chem; Chem.MolFromSmiles('CCO')" && \
   vina --version >/dev/null 2>&1 && \
+  gnina --help >/dev/null 2>&1 && \
   curl -sf http://localhost:50001/api/health || exit 1
 
 CMD ["/exe/initialize.sh", "main"]
