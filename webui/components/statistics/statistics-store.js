@@ -245,6 +245,9 @@ Alpine.data("statisticsModal", () => ({
       this.resultsJson = result;
       this.results = JSON.stringify(result, null, 2);
       this.step = 3;
+      this.chartImage = null;
+      // Auto-generate chart
+      this.generateChart();
     } catch (e) {
       this.errorMessage = "Analysis failed: " + (e.message || "API unavailable. Try asking the agent instead.");
     }
@@ -257,56 +260,50 @@ Alpine.data("statisticsModal", () => ({
     this.chartImage = null;
     const data = this.resultsJson;
     try {
-      let chartType = "histogram";
-      let payload = { chart_type: chartType };
-
-      if (data.values || data.data) {
-        payload = { chart_type: "histogram", values: data.values || data.data, title: this.activeAnalysis + " Distribution" };
+      let payload = { chart_type: "histogram", title: this.activeAnalysis };
+      // Detect best chart type from result structure
+      if (data.eigenvalues) {
+        // PCA — use scree plot from result itself
+        this.chartImage = data.scree_plot || null;
+        this.chartLoading = false;
+        return;
+      }
+      if (data.dendrogram) {
+        this.chartImage = data.dendrogram;
+        this.chartLoading = false;
+        return;
+      }
+      if (data.roc || data.auc !== undefined) {
+        payload = { chart_type: "roc", fpr: data.fpr || [], tpr: data.tpr || [], auc: data.auc, title: "ROC Curve (AUC=" + (data.auc || 0).toFixed(3) + ")" };
+      } else if (data.survival || data.times) {
+        payload = { chart_type: "survival", times: data.times || [], survival: data.survival || [], title: "Survival Curve" };
       } else if (data.correlation_matrix) {
-        const m = data.correlation_matrix;
-        const cols = data.columns || Object.keys(m[0] || {}).slice(0, 1);
-        const matrix = Array.isArray(m) ? m : Object.values(m);
-        payload = { chart_type: "correlation_heatmap", matrix: matrix, labels: cols, title: "Correlation Matrix" };
-      } else if (data.anova_table || data.f_statistic) {
-        const groups = data.group_means || data.groups || {};
+        const cols = data.columns || [];
+        payload = { chart_type: "correlation_heatmap", matrix: data.correlation_matrix, labels: cols, title: "Correlation Matrix" };
+      } else if (data.anova_table || data.f_statistic !== undefined) {
+        const groups = data.group_means || {};
         payload = { chart_type: "boxplot", groups: groups, title: "Group Comparison" };
       } else if (data.coefficients || data.r_squared !== undefined) {
-        const res = data.results || data;
-        payload = { chart_type: "scatter", x: res.x || [], y: res.y_pred || res.y || [], title: "Regression Fit", x_label: "Predicted", y_label: "Actual" };
-      } else if (data.survival) {
-        payload = { chart_type: "survival", times: data.times || [], survival: data.survival || [], title: "Survival Curve" };
+        payload = { chart_type: "scatter", x: data.x || data.fitted || [], y: data.y || data.y_actual || [], title: "Fit Plot", x_label: "Predicted", y_label: "Actual" };
+      } else if (data.fpr) {
+        payload = { chart_type: "roc", fpr: data.fpr, tpr: data.tpr, auc: data.auc, title: "ROC Curve" };
+      } else if (data.values || data.data) {
+        payload = { chart_type: "histogram", values: data.values || data.data, title: this.activeAnalysis };
       } else {
-        payload = { chart_type: "bar", labels: Object.keys(data.results || data), values: Object.values(data.results || data).map(v => typeof v === "number" ? v : 0), title: this.activeAnalysis + " Results" };
+        payload = { chart_type: "bar", labels: Object.keys(data.results || data).slice(0, 10), values: Object.values(data.results || data).slice(0, 10).map(v => typeof v === "number" ? v : 0), title: this.activeAnalysis };
       }
-
       const r = await callJsonApi("statistics_charts", payload);
       if (r.success && r.chart) this.chartImage = r.chart;
     } catch (e) {}
     this.chartLoading = false;
   },
 
-  async runTransform(action) {
-    if (!this.rawData || !this.rawData.length) { this.errorMessage = "No data loaded. Upload a file first."; return; }
-    this.loading = true; this.errorMessage = "";
-    try {
-      const payload = { action: action, data: this.rawData, columns: this.columns };
-      if (action === "compute") payload.formula = this.transformFormula;
-      if (action === "recode") payload.mapping = [{ from: 1, to: 0 }]; // simplified
-      if (action === "rank") payload.method = "average";
-      if (action === "fill_missing") payload.method = "mean";
-      if (action === "standardize") payload.method = "zscore";
-
-      const r = await callJsonApi("statistics_transform", payload);
-      if (r.success) {
-        this.resultsJson = r;
-        this.results = JSON.stringify(r, null, 2);
-        this.step = 3;
-        this.activeAnalysis = "transform_" + action;
-      } else {
-        this.errorMessage = r.error || "Transform failed";
-      }
-    } catch (e) { this.errorMessage = "Transform error: " + e.message; }
-    this.loading = false;
+  downloadChart() {
+    if (!this.chartImage) return;
+    const a = document.createElement("a");
+    a.href = "data:image/png;base64," + this.chartImage;
+    a.download = (this.activeAnalysis || "chart") + ".png";
+    a.click();
   },
 
   formatTable(json) {

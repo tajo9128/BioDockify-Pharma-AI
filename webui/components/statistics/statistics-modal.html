@@ -169,8 +169,9 @@
 
         <!-- Test type selector -->
         <div class="analysis-section">
-          <div class="section-header-row">
+          <div class="section-header-row" style="margin-bottom:6px">
             <h3 class="section-title">Choose Analysis Type</h3>
+            <span style="font-size:0.58rem;color:var(--color-text-muted)" x-text="'20 tests'"></span>
             <select x-model="testType" class="test-type-dropdown" @change="selectTest(testType)">
               <option value="">-- Select test type --</option>
               <option value="descriptive">Descriptive Statistics</option>
@@ -416,6 +417,58 @@
             </div>
           </template>
 
+          <!-- Non-parametric / Diagnostic test params (same as t-test — group + value cols) -->
+          <template x-if="['mannwhitney','wilcoxon','kruskalwallis','homogeneity','chisquare'].includes(testType)">
+            <div class="params-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Group Column</label>
+                  <select x-model="selectedGroupCol" class="form-select">
+                    <option value="">-- Select column --</option>
+                    <template x-for="col in columns" :key="col"><option :value="col" x-text="col"></option></template>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Value Column</label>
+                  <select x-model="selectedValueCol" class="form-select">
+                    <option value="">-- Select column --</option>
+                    <template x-for="col in columns" :key="col"><option :value="col" x-text="col"></option></template>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- Friedman + Fisher + Normality — all columns -->
+          <template x-if="['friedman','fisher','normality'].includes(testType)">
+            <div class="params-note">
+              <span class="material-symbols-outlined">info</span>
+              <span>Uses all numeric columns automatically</span>
+            </div>
+          </template>
+
+          <!-- ROC params -->
+          <template x-if="testType === 'roc'">
+            <div class="params-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">True Labels Column</label>
+                  <select x-model="selectedGroupCol" class="form-select">
+                    <option value="">-- Select column --</option>
+                    <template x-for="col in columns" :key="col"><option :value="col" x-text="col"></option></template>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Predicted Score Column</label>
+                  <select x-model="selectedValueCol" class="form-select">
+                    <option value="">-- Select column --</option>
+                    <template x-for="col in columns" :key="col"><option :value="col" x-text="col"></option></template>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </template>
+
           <!-- Power Analysis params -->
           <template x-if="testType === 'power'">
             <div class="params-form">
@@ -504,6 +557,9 @@
                 Charts
               </button>
             </div>
+            <button class="btn-icon" @click="downloadChart()" x-show="chartImage" title="Download chart as PNG">
+              <span class="material-symbols-outlined">download</span>
+            </button>
             <button class="btn-icon" @click="copyResults()" title="Copy to clipboard">
               <span class="material-symbols-outlined">content_copy</span>
             </button>
