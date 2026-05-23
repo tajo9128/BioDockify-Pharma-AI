@@ -237,8 +237,8 @@ Alpine.data("statisticsModal", () => ({
           if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select Group and Value columns"; this.loading = false; return; }
           payload = { group_col: this.selectedGroupCol, value_col: this.selectedValueCol }; break;
         case "roc":
-          endpoint = "statistics_charts";
-          payload = { chart_type: "roc", title: "ROC Curve" }; break;
+          endpoint = "statistics_advanced";
+          payload = { action: "roc", y_true: this.rawData?.[0] || [], y_score: this.rawData?.[1] || [] }; break;
         default: this.errorMessage = "Unknown analysis type"; this.loading = false; return;
       }
       const result = await callJsonApi(endpoint, payload);
