@@ -69,19 +69,7 @@ class SystemHealth(ApiHandler):
             ("Journal Finder", "modules/journal_intel/__init__.py"),
             ("Bio NER", "api/bio_ner.py"),
             ("Regulatory", "api/regulatory.py"),
-            ("Docking (Vina)", "api/docking_run.py"),
-            ("Docking (GNINA)", "api/docking_gnina.py"),
-            ("QSAR Modeler", "api/qsar.py"),
-            ("Pharmacophore", "api/pharmacophore.py"),
-            ("Docking Analysis", "api/docking_analysis.py"),
-            ("Mol Optimizer", "api/mol_optimizer.py"),
-            ("Drug Analysis", "api/drug_analysis.py"),
-            ("Benchmark", "api/benchmark.py"),
-            ("Browser Plugin", "plugins/_browser/plugin.yaml"),
-            ("Desktop Plugin", "plugins/_desktop/plugin.yaml"),
-            ("Editor Plugin", "plugins/_editor/plugin.yaml"),
-            ("Office Plugin", "plugins/_office/plugin.yaml"),
-            ("Knowledge Import", "modules/rag/ingestor.py"),
+            ("Docking", "api/docking_run.py"),
         ]
         for name, file_path in api_checks:
             full = os.path.join("/a0", file_path)
@@ -118,75 +106,6 @@ class SystemHealth(ApiHandler):
             except:
                 pass
         result["checks"].append({"name": "Drug Properties", "status": "ok" if drug_ok else "warn", "detail": "ok (RDKit)" if drug_ok else "fallback (approximate)"})
-
-        # ── New Module Dependencies (v6.3.0) ──
-
-        # sklearn — QSAR model training
-        try:
-            import sklearn
-            result["checks"].append({"name": "sklearn (QSAR)", "status": "ok", "detail": f"v{sklearn.__version__}"})
-        except:
-            result["checks"].append({"name": "sklearn (QSAR)", "status": "warn", "detail": "Not installed — QSAR training disabled"})
-
-        # numpy — RMSD, clusters, torsion
-        try:
-            import numpy as np
-            result["checks"].append({"name": "NumPy", "status": "ok", "detail": f"v{np.__version__}"})
-        except:
-            result["checks"].append({"name": "NumPy", "status": "fail", "detail": "Missing — deep analysis disabled"})
-
-        # scipy — RMSD clustering
-        try:
-            import scipy
-            result["checks"].append({"name": "SciPy (Clusters)", "status": "ok", "detail": f"v{scipy.__version__}"})
-        except:
-            result["checks"].append({"name": "SciPy (Clusters)", "status": "warn", "detail": "Not installed — clustering limited"})
-
-        # RDKit ChemicalFeatures — Pharmacophore
-        try:
-            from rdkit.Chem import ChemicalFeatures
-            result["checks"].append({"name": "RDKit Pharm Features", "status": "ok", "detail": "Available"})
-        except:
-            result["checks"].append({"name": "RDKit Pharm Features", "status": "warn", "detail": "Pharmacophore disabled"})
-
-        # GNINA binary
-        try:
-            import subprocess
-            gnina_check = subprocess.run(["gnina", "--version"], capture_output=True, text=True, timeout=5)
-            gnina_ok = gnina_check.returncode == 0
-            result["checks"].append({"name": "GNINA CNN", "status": "ok" if gnina_ok else "warn", "detail": "Available" if gnina_ok else "Not installed"})
-        except:
-            result["checks"].append({"name": "GNINA CNN", "status": "warn", "detail": "Not installed — Vina only"})
-
-        # OpenBabel
-        try:
-            obabel_check = subprocess.run(["obabel", "-V"], capture_output=True, text=True, timeout=5)
-            obabel_ok = obabel_check.returncode == 0
-            result["checks"].append({"name": "OpenBabel", "status": "ok" if obabel_ok else "fail", "detail": "Available" if obabel_ok else "Missing — docking disabled"})
-        except:
-            result["checks"].append({"name": "OpenBabel", "status": "fail", "detail": "Not installed — docking disabled"})
-
-        # AutoDock Vina
-        try:
-            vina_check = subprocess.run(["vina", "--version"], capture_output=True, text=True, timeout=5)
-            vina_ok = vina_check.returncode == 0
-            result["checks"].append({"name": "AutoDock Vina", "status": "ok" if vina_ok else "fail", "detail": "Available" if vina_ok else "Missing — docking disabled"})
-        except:
-            result["checks"].append({"name": "AutoDock Vina", "status": "fail", "detail": "Not installed — docking disabled"})
-
-        # Playwright — Browser plugin
-        try:
-            import playwright
-            result["checks"].append({"name": "Playwright (Browser)", "status": "ok", "detail": "Available"})
-        except:
-            result["checks"].append({"name": "Playwright (Browser)", "status": "warn", "detail": "Not installed — browser limited"})
-
-        # psutil — System monitoring + Benchmark
-        try:
-            import psutil
-            result["checks"].append({"name": "psutil", "status": "ok", "detail": f"v{psutil.__version__}"})
-        except:
-            result["checks"].append({"name": "psutil", "status": "warn", "detail": "Not installed"})
 
         # Literature search
         result["checks"].append({"name": "Literature Search", "status": "ok", "detail": "PubMed + Semantic Scholar + arXiv"})
