@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://hub.docker.com/r/tajo9128/biodockify-pharma-ai"><img src="https://img.shields.io/badge/docker-tajo9128%2Fbiodockify--pharma--ai-blue.svg" alt="Docker"/></a>
-  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v6.4.0-green.svg" alt="Version"/></a>
+  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v6.6.0-green.svg" alt="Version"/></a>
   <a href="https://github.com/tajo9128/BioDockify-Pharma-AI"><img src="https://img.shields.io/badge/GitHub-BioDockify--Pharma--AI-181717?style=flat&logo=github" alt="GitHub"/></a>
 </p>
 
@@ -14,7 +14,7 @@
   <img src="assets/screenshot.png" alt="BioDockify Pharma AI Screenshot" width="800">
 </p>
 
-**BioDockify Pharma AI** is a comprehensive pharmaceutical research platform with 29 integrated modules. It combines GNINA CNN molecular docking, SPSS-level biostatistics (20 analysis types + 8 charts), a 25-stage autonomous research pipeline, 10 literature databases, 6-model QSAR, pharmacophore screening, and a 36,145-journal recommender — all with 4 specialized AI sub-agents for deep research, statistics, writing, and execution.
+**BioDockify Pharma AI** is a comprehensive pharmaceutical research platform with 29 integrated modules. It combines GNINA CNN molecular docking, SPSS-level biostatistics (20 analysis types + 8 charts), a 25-stage autonomous research pipeline, 10 literature databases, 6-model QSAR, pharmacophore screening, a 36,145-journal recommender with hijacked journal detection, an avant-garde JSME molecule editor with 3Dmol.js viewer, and 4 specialized AI sub-agents for deep research, statistics, writing, and execution.
 
 ---
 
@@ -42,7 +42,7 @@
 | 6 | **Academic Writer** | 5-tab: Literature Review, Research Paper, Thesis, Lecture, Slides | Thesis + Lecture APIs |
 | 7 | **Faculty CMD** | Syllabus parser, lecture/assignment/rubric generator, plagiarism checker | faculty_tools |
 | 8 | **Grant Writer** | Full grant proposals: abstract, aims, methods, timeline, budget | Agent-driven |
-| 9 | **Journal Finder** | 36,145 Scopus/WoS journals + legitimacy check + quality scoring + submission tier | journals.db + 10 APIs |
+| 9 | **Journal Finder** | 36,145 Scopus/WoS journals + verify (Scopus/WoS/DOAJ/SCImago/hijacked) + dossier + suggest + DB search | journals.db + 8 live APIs |
 | 10 | **Citation Manager** | Collect, organize, export in APA/Nature/AMA/Vancouver/BibTeX | localStorage |
 | 11 | **Regulatory** | FDA/EMA guideline search + NDA/ANDA/MAA submission checklists | FDA API |
 | 12 | **Slides Generator** | Academic, Clinical, Corporate, Minimal + SVG→PPTX native engine (17 files) | Slides API |
@@ -59,10 +59,10 @@
 | 23 | **Docking Deep Analysis** | 3D viewer (3Dmol.js), 2D interaction SVG, per-residue energy, RMSD clustering, torsion analysis | docking_analysis API |
 | 24 | **Molecular Optimizer** | Bioisosteric replacement, group addition (OH/F/CH₃), ring expansion, flexible receptor detection | RDKit + Dunbrack rotamers |
 | 25 | **Drug Analysis (Advanced)** | PAINS (8), Brenk (10), NIH (8) substructure filters for compound quality assessment | RDKit SMARTS |
-| 26 | **Molecule Editor** | RDKit 2D structure preview + Ketcher external editor link | RDKit + Ketcher |
+| 26 | **Molecule Editor** | JSME in-browser drawing + 3Dmol.js 3D viewer + property panel + PubChem search + PNG/SVG/MOL/SDF export | JSME + 3Dmol.js + RDKit |
 | 27 | **Benchmark Suite** | Dependency checks, API health, storage, RDKit validation | Python subprocess |
 | 28 | **AutoResearchClaw Pipeline** | 25-stage autonomous research (9 phases): scoping → literature → molecular → QSAR → docking → stats → decision → writing → publication | 10-dimension engine |
-| 29 | **Research Intelligence** | Triple debate (3 types), self-healing (PIVOT/REFINE), 5-layer verification, 5 quality gates, 8-mode HITL, cross-run knowledge evolution | debate/self_heal/verification/hitl/evolution APIs |
+| 29 | **Research Intelligence** | Triple debate (3 types), self-healing (PDBQT sanitizer + PIVOT/REFINE), 5-layer verification, 5 quality gates, 8-mode HITL, cross-run knowledge evolution | debate/self_heal/verification/hitl/evolution APIs |
 
 ### GNINA CNN Docking (v6.3.0)
 
@@ -113,7 +113,33 @@ Agent0 (Main Orchestrator)
 
 ---
 
-## What's New in v6.4.0
+## What's New in v6.6.0
+
+### Avant-Garde Molecule Editor
+Full-featured molecular editor replacing basic SMILES input:
+- **JSME Drawing Canvas**: Self-hosted in-browser molecular drawing (atoms, bonds, rings). Bidirectional sync with SMILES text input.
+- **3Dmol.js Viewer**: 3D structure in 5 styles (Stick, Ball+Stick, Sphere, Cartoon, Surface). Conformer from RDKit ETKDG+MMFF.
+- **Property Panel**: Real-time MW, LogP, TPSA, HBD, HBA, Rotatable Bonds, Lipinski pass/fail.
+- **PubChem Search**: Type compound name → auto-load SMILES + CID + formula.
+- **Export**: PNG, SVG, MOL, SDF 3D — all generated by RDKit backend.
+- **History**: Last 10 molecules saved in localStorage.
+- **Quick Load**: 6 drug examples (Aspirin, Caffeine, Ibuprofen, Glucose, Sildenafil, Paracetamol).
+- 3 new backend APIs: `structure_3d`, `structure_export`, `pubchem_lookup`.
+
+### Journal Finder Agentic Research Engine
+Journal module rebuilt from fragmented state into a unified research engine:
+- **DB-Powered**: DecisionEngine now queries the 36,145-journal SQLite database FIRST before live API calls.
+- **Unified API**: Replaced two siloed APIs with a single handler supporting 6 actions: search, verify, profile, suggest, stats, history.
+- **Hijacked Journal Detection**: Cross-references against `data/integrity/hijacked_journals.json` on every verification.
+- **Agent Tool Rewrite**: Was a ghost tool (returned instructions). Now actually executes DB queries and live API calls with 7 actions.
+- **Frontend**: 4 tabs — Verify, Search DB (36K journals), Suggest, Dossier (full journal profile with hijacked alerts).
+- **Bug Fix**: Fixed broken `verify_journal` pipeline action in `api/main.py` (TypeError on url param + dict attribute access).
+
+### Vina PDBQT Crash Prevention + GNINA Docker Install
+- **PDBQT Sanitizer**: 3-layer defense against `parse_pdbqt.cpp(69)` Vina crashes. Deep validation checks charge (col 71-76) and atom type (col 78-79) on every record. Auto-fixes blank charges → 0.00, infers atom types from elements.
+- **GNINA**: Added to `Dockerfile.release` (wget from GitHub releases v1.3). Added to Docker HEALTHCHECK.
+
+### What's New in v6.4.0
 
 ### AutoResearchClaw Pipeline (10 Dimensions)
 A fully autonomous 25-stage research pipeline comparable to the paid AutoResearchClaw product:

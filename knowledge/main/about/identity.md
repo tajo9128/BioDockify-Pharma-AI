@@ -167,19 +167,31 @@ Full Auto | Gate Only | Checkpoint | Co-Pilot | Step-by-Step | Express | Regulat
 - **Auto-chains after AutoDock Vina** — same PDBQT inputs, same grid center/size
 - **CNN scoring modes**: `none`, `all`, `rescore`, `refinement`
 - **Output**: `gnina_docked.pdbqt`, `gnina_docked.sdf`, `gnina_log.txt`
-- **Downloads**: PDBQT, SDF, GNINA Log appear alongside Vina downloads
+- **Installed via Dockerfile**: GNINA v1.3 binary from GitHub releases
+- **PDBQT Self-Healing**: 3-layer defense (prepare validate → run validate → sanitize → re-validate) prevents `parse_pdbqt.cpp(69)` crashes. Auto-fixes blank charges, invalid atom types, short lines.
 
 ### 10 Literature Databases
 
 PubMed · Semantic Scholar · Google Scholar (citation-ranked) · Scopus · Web of Science · arXiv · Elsevier (ScienceDirect) · Springer Nature · Europe PMC · bioRxiv/medRxiv
 
-Scopus, WoS, Elsevier, and Springer use CrossRef proxy + 36,145-journal ISSN filter.
-
-### Journal Recommender
+### Journal Recommender & Research Engine
 
 - 36,145 journals from Scopus (Mar 2025) + WoS (Mar 2024) master lists
-- Filter by: indexing, open access, subject category
-- Quality scoring: novelty, rigor, breadth, evidence, clarity → tier assignment
+- **Search**: Full-text with Scopus/WoS/OA filters, paginated results
+- **Verify**: Multi-source check (Scopus API, Clarivate MJL, SCImago JR, DOAJ API, local DB, hijacked journal database)
+- **Dossier**: Comprehensive profile with publisher, indexing, OA policy, APC, SCImago quartile, subjects, hijacked alerts
+- **Suggest**: DB keyword search + Elsevier Journal Finder + JANE biosemantics, scored by relevance/authority/speed/access
+- **Deep Research**: Agent provides SCImago/JCR/DOAJ/PubMed/Google Scholar URLs; can delegate to Hacker sub-agent for web scraping
+- Agent tool `JournalRecommender` with 7 actions: search, verify, profile, recommend, history, stats
+
+### Avant-Garde Molecule Editor
+
+- **JSME Drawing Canvas**: Self-hosted in-browser molecular editor (no CDN dependency)
+- **3Dmol.js Viewer**: 5 styles (stick, ball+stick, sphere, cartoon, surface), generates 3D conformer from RDKit
+- **Property Panel**: Real-time MW, LogP, TPSA, HBD, HBA, rotatable bonds, Lipinski pass/fail
+- **PubChem Search**: Name → SMILES auto-load via PubChem PUG REST API
+- **Export**: PNG, SVG, MOL, SDF 3D via `/api/structure_export`
+- **History**: Last 10 molecules in localStorage
 
 ### Sub-Agents Under Command
 

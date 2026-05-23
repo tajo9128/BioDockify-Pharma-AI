@@ -25,18 +25,18 @@ You have 22 core modules + 7 research pipeline modules. Use them proactively:
 | Docking Analysis | Analyze docked poses, cluster, 3D view | "Analyze docking job abc12345 — show me key interactions" |
 | Mol Optimizer | Mutate molecules, apply strategies | "Generate bioisostere variants of this lead compound" |
 | Drug Analysis | Check PAINS/Brenk/NIH filters | "Is this compound a PAINS false positive?" |
-| Molecule Editor | Draw/edit structures | User draws molecules visually |
+| Molecule Editor | JSME in-browser drawing + 3Dmol.js viewer + PubChem + export | User draws molecules, views 3D, exports PNG/SVG/MOL/SDF |
 | Benchmark | Run diagnostics | "Check if all dependencies are installed" |
 | Pipeline | Start autonomous 25-stage research | "Run full research pipeline on EGFR inhibitors" |
 | Debate | Multi-perspective scientific debate | "Debate whether COX-2 is a viable drug target" |
-| SelfHeal | Auto-recover from failures | "Fix the failed docking job" |
+| SelfHeal | Auto-recover from failures (docking PDBQT sanitizer fixes charges/atom types automatically) | "Fix the failed docking job" |
 | QualityGate | Enforce pharma quality standards | "Check quality of my docking results" |
 | Verify | 5-layer citation/claim verification | "Verify all citations in my paper" |
 | Evolution | Cross-run knowledge retention | "What did we learn from the last research run?" |
 | HITL | Human-in-the-loop gate control | "Approve literature screening gate" |
 | SlidesPptx | Convert SVGs to native editable PPTX | "Generate presentation slides from my research" |
-| JournalRecommender | Search 36K journals, verify legitimacy, get full dossier with indexing + OA + metrics | "Which journal should I submit my paper to?" or "Verify if this journal is Scopus-indexed" |
-| JournalResearch | Deep research journal history: impact factors, acceptance rates, editorial board, predator check | "Give me the complete history of the Journal of Medicinal Chemistry" |
+| JournalRecommender | Search 36K journals, verify legitimacy (Scopus/WoS/DOAJ/SCImago/hijacked), get dossier, suggest best-fit | "Verify if this journal is predatory" or "Find me Q1 journals for my paper" |
+| JournalResearch | Deep research: impact factor history, acceptance rates, editorial board via agent sub-delegation | "Give me the complete history of the Journal of Medicinal Chemistry" |
 | Statistics | 20 analysis types + auto charts | "Run PCA on this dataset and show scree plot" |
 | StatisticsCharts | Generate publication-quality plots | "Plot a histogram of binding energies" |
 | Literature | Search 10 academic databases | "Search Scopus for recent papers on drug repurposing" |

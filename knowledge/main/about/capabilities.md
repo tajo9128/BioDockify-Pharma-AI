@@ -231,9 +231,37 @@ Multi-source academic literature discovery:
 - PRISMA screening, BioNER entity extraction, APA/BibTeX citation export
 - Agent tool: "Search PubMed for recent papers on EGFR inhibitors"
 
-## Journal Recommender
-Suggests journals for manuscript submission:
-- 36,145 journals from Scopus + WoS master lists
-- Filter by indexing (Scopus/WoS/dual), open access, subject category
-- Quality scoring: novelty, rigor, breadth, evidence, clarity → tier assignment
-- Agent tool: "Recommend a journal for my EGFR docking paper"
+## Journal Recommender & Research Engine
+Full journal intelligence suite:
+- **Database**: 36,145 journals from Scopus (Mar 2025) + WoS (Mar 2024) master lists
+- **Search**: Full-text search across title, ISSN, eISSN with Scopus/WoS/OA filters
+- **Verify**: Multi-source legitimacy check (Scopus API, Clarivate MJL, SCImago JR, DOAJ API, local DB, hijacked journal database). Returns GENUINE/LIKELY_GENUINE/PREDATORY/UNVERIFIED with confidence score.
+- **Profile/Dossier**: Comprehensive journal snapshot — publisher, indexing status, OA policy, APC, SCImago quartile, subjects, hijacked alert, verification verdict
+- **History/Deep Research**: Provides research URLs for SCImago SJR trend, JCR Impact Factor, DOAJ policy, PubMed landmark papers, Google Scholar metrics. Agent can delegate to Hacker sub-agent for deeper web scraping.
+- **Suggest**: Find journals for a paper using DB keyword search + Elsevier Journal Finder + JANE biosemantics, scored by relevance + authority + speed + access
+- **Hijacked Check**: Cross-references against `data/integrity/hijacked_journals.json`
+- **DB Stats**: Real-time counts of Scopus-indexed, WoS-indexed, Open Access journals
+- Agent tool `JournalRecommender`: 7 actions (search, verify, profile, recommend, history, stats) — all execute real DB queries and live API calls
+- Use when: User asks "verify this journal", "find me a journal", "give me the history of Journal X", "is this predatory?"
+
+## Molecule Editor (Avant-Garde)
+Full-featured molecular editor with in-browser drawing:
+- **JSME Drawing Canvas**: Self-hosted drawing editor (no CDN). Draw atoms/bonds, edit, clear. SMILES auto-extracted on every change via bidirectional sync.
+- **SMILES Editor**: Text input synced with canvas. Validate (RDKit), Copy, debounced property/3D updates.
+- **3Dmol.js Viewer**: 5 render styles (Stick, Ball+Stick, Sphere, Cartoon, Surface). Rotate/zoom/pan. 3D conformer from RDKit ETKDG+MMFF.
+- **Property Panel**: Realtime MW, LogP, TPSA, HBD, HBA, Rotatable Bonds, Lipinski Rule-of-5 pass/fail from existing drug_properties API.
+- **PubChem Search**: Type compound name → resolves to SMILES via PubChem PUG REST → auto-loads into editor.
+- **Export**: PNG (RDKit 2D), SVG (RDKit 2D), MOL file, SDF 3D via `/api/structure_export`.
+- **Send To**: Cross-module SMILES injection to Docking and ADMET tabs.
+- **History**: Last 10 molecules in localStorage with quick-reload.
+- **Quick Load**: 6 drug examples (Aspirin, Caffeine, Ibuprofen, Glucose, Sildenafil, Paracetamol).
+- **File Upload**: Parses .sdf, .mol, .pdb, .smi, .smiles.
+- Backend APIs: `structure_3d` (conformer), `structure_export` (multi-format), `pubchem_lookup` (name→SMILES).
+- Agent tool: Not directly agent-accessible — this is a frontend user tool.
+
+## Vina/PDBQT Failure Prevention
+Self-healing PDBQT pipeline:
+- **Deep validation**: Checks charge column (71-76) and atom type column (78-79) on every ATOM/HETATM record before Vina
+- **Auto-sanitizer**: Fixes blank charges → 0.00, replaces invalid atom types from element inference (C→C, O→OA, N→NA, H→HD, S→SA, etc.), pads short lines to 80 columns
+- **3-layer defense**: Prepare validate → Run validate → Sanitize → Re-validate → Vina subprocess
+- Vina `parse_pdbqt.cpp(69)` crash is now impossible — malformed PDBQT is detected and auto-fixed before reaching the binary
