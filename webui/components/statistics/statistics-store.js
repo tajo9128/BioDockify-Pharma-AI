@@ -7,6 +7,10 @@ Alpine.data("statisticsModal", () => ({
   columns: [],
   rowCount: 0,
   _restored: false,
+  transformMode: "",       // compute, recode, rank, fill, standardize
+  transformFormula: "",
+  transformColumn: "",
+  transformTarget: "",
 
   testType: null,
   selectedGroupCol: "",
@@ -247,6 +251,30 @@ Alpine.data("statisticsModal", () => ({
       if (r.success && r.chart) this.chartImage = r.chart;
     } catch (e) {}
     this.chartLoading = false;
+  },
+
+  async runTransform(action) {
+    if (!this.rawData || !this.rawData.length) { this.errorMessage = "No data loaded. Upload a file first."; return; }
+    this.loading = true; this.errorMessage = "";
+    try {
+      const payload = { action: action, data: this.rawData, columns: this.columns };
+      if (action === "compute") payload.formula = this.transformFormula;
+      if (action === "recode") payload.mapping = [{ from: 1, to: 0 }]; // simplified
+      if (action === "rank") payload.method = "average";
+      if (action === "fill_missing") payload.method = "mean";
+      if (action === "standardize") payload.method = "zscore";
+
+      const r = await callJsonApi("statistics_transform", payload);
+      if (r.success) {
+        this.resultsJson = r;
+        this.results = JSON.stringify(r, null, 2);
+        this.step = 3;
+        this.activeAnalysis = "transform_" + action;
+      } else {
+        this.errorMessage = r.error || "Transform failed";
+      }
+    } catch (e) { this.errorMessage = "Transform error: " + e.message; }
+    this.loading = false;
   },
 
   formatTable(json) {

@@ -89,6 +89,38 @@
           <p class="section-label">Columns: <span x-text="columns.join(', ')"></span></p>
         </div>
 
+        <!-- Data Transformation (quick actions) -->
+        <div class="transform-section" x-show="hasData && step === 2">
+          <h4 class="section-title" style="margin-bottom:4px">Transform Data</h4>
+          <div class="analysis-grid" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr));margin-bottom:8px">
+            <button class="analysis-card" @click="runTransform('standardize')" :disabled="loading">
+              <span class="material-symbols-outlined card-icon">swap_vert</span>
+              <span class="card-title">Standardize</span>
+              <span class="card-desc">Z-score</span>
+            </button>
+            <button class="analysis-card" @click="runTransform('fill_missing')" :disabled="loading">
+              <span class="material-symbols-outlined card-icon">healing</span>
+              <span class="card-title">Fill Missing</span>
+              <span class="card-desc">Mean</span>
+            </button>
+            <button class="analysis-card" @click="runTransform('rank')" :disabled="loading">
+              <span class="material-symbols-outlined card-icon">format_list_numbered</span>
+              <span class="card-title">Rank Cases</span>
+              <span class="card-desc">Ordinal</span>
+            </button>
+            <button class="analysis-card" @click="runTransform('compute')" :disabled="loading">
+              <span class="material-symbols-outlined card-icon">calculate</span>
+              <span class="card-title">Compute</span>
+              <span class="card-desc">Formula</span>
+            </button>
+            <button class="analysis-card" @click="runTransform('recode')" :disabled="loading">
+              <span class="material-symbols-outlined card-icon">autorenew</span>
+              <span class="card-title">Recode</span>
+              <span class="card-desc">Remap</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Test type selector -->
         <div class="analysis-section">
           <div class="section-header-row">
