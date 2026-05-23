@@ -140,8 +140,8 @@ class DockingRun(ApiHandler):
 
         # ALWAYS sanitize PDBQT files before passing to Vina (obabel can produce bad atom types)
         from api.docking_prepare import _sanitize_pdbqt, _validate_pdbqt
-        _, detail_r, _ = _sanitize_pdbqt(receptor)
-        _, detail_l, _ = _sanitize_pdbqt(ligand)
+        _, detail_r, _ = _sanitize_pdbqt(receptor, is_ligand=False)
+        _, detail_l, _ = _sanitize_pdbqt(ligand, is_ligand=True)
         ok, msg = _validate_pdbqt(receptor)
         if not ok:
             return {"error": f"Receptor PDBQT invalid after sanitization: {msg}", "detail": detail_r, "action": "reprepare"}

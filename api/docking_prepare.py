@@ -339,27 +339,60 @@ def _validate_pdbqt(filepath: str) -> tuple:
         return False, f"Validation error: {str(e)}"
 
 
-def _sanitize_pdbqt(filepath: str) -> tuple:
-    """Fix common PDBQT issues: empty charges, bad atom types. Returns (ok, detail, path)."""
+def _sanitize_pdbqt(filepath: str, is_ligand: bool = False) -> tuple:
+    """Fix PDBQT issues: atom types, charges, ROOT/ENDROOT/TORSDOF for ligands, strip markers for receptor."""
     try:
         with open(filepath, 'r') as f:
-            lines = f.readlines()
+            content = f.read()
 
+        lines = content.split('\n')
         fixed = 0
         out_lines = []
-        ELEMENT_TO_ATYPE = {
+        AD_ELEMENTS = {
             'H': 'HD', 'C': 'C', 'N': 'NA', 'O': 'OA', 'F': 'F',
             'P': 'P', 'S': 'SA', 'Cl': 'Cl', 'Br': 'Br', 'I': 'I',
             'Na': 'Na', 'K': 'K', 'Ca': 'Ca', 'Fe': 'Fe', 'Zn': 'Zn',
-            'Mg': 'Mg', 'Mn': 'Mn', 'Cu': 'Cu', 'Se': 'Se', 'B': 'B',
-            'Si': 'Si', 'Li': 'Li',
+            'Mg': 'Mg', 'Se': 'Se', 'B': 'B', 'Si': 'Si', 'Li': 'Li',
         }
+        METAL_TYPES = {'Na', 'K', 'Ca', 'Fe', 'Zn', 'Mg', 'Se', 'B', 'Si', 'Li'}
+        has_atom = False
+        has_root = False
+        has_endroot = False
+        has_torsdof = False
+
         for line in lines:
-            if line.startswith('ATOM') or line.startswith('HETATM'):
-                if len(line) < 79:
-                    out_lines.append(line.rstrip() + ' ' * (79 - len(line.rstrip())) + '\n')
+            stripped = line.strip()
+
+            if is_ligand:
+                if stripped == 'ROOT':
+                    has_root = True
+                    out_lines.append(line)
+                    continue
+                if stripped == 'ENDROOT':
+                    has_endroot = True
+                    out_lines.append(line)
+                    continue
+                if stripped.startswith('TORSDOF'):
+                    has_torsdof = True
+                    out_lines.append(line)
+                    continue
+                if stripped.startswith('BRANCH') or stripped.startswith('ENDBRANCH'):
+                    out_lines.append(line)
+                    continue
+            else:
+                if stripped in ('ROOT', 'ENDROOT') or stripped.startswith('BRANCH') or stripped.startswith('ENDBRANCH'):
                     fixed += 1
                     continue
+                if stripped.startswith('TORSDOF'):
+                    fixed += 1
+                    continue
+
+            if line.startswith('ATOM') or line.startswith('HETATM'):
+                has_atom = True
+                if len(line) < 79:
+                    line = line.rstrip() + ' ' * (79 - len(line.rstrip())) + '\n' if line.endswith('\n') else line.rstrip() + ' ' * (79 - len(line.rstrip()))
+                    fixed += 1
+
                 charge_str = line[68:76].strip()
                 if charge_str == '':
                     line = line[:68] + '   0.000' + line[76:]
@@ -370,22 +403,42 @@ def _sanitize_pdbqt(filepath: str) -> tuple:
                     except ValueError:
                         line = line[:68] + '   0.000' + line[76:]
                         fixed += 1
+
                 atype = line[77:79].strip()
-                if atype == '' or atype == 'X':
+                atype_valid = atype in VALID_AD_TYPES
+                if not atype_valid:
                     element = line[12:16].strip()
-                    if not element or element[0] not in 'CHONPSFClBrI':
+                    if not element or element[0] not in 'CHONPSFClBrIMgZnFeCaKNaSeBSiLi':
                         element = line[76:78].strip()
                     element = (element or 'C').rstrip('0123456789')
                     if len(element) > 2:
                         element = element[:2].rstrip('0123456789')
-                    default = ELEMENT_TO_ATYPE.get(element, 'C')
+                    default = AD_ELEMENTS.get(element, 'C')
                     line = line[:77] + default.ljust(2) + line[79:]
                     fixed += 1
+
             out_lines.append(line)
 
-        with open(filepath, 'w') as f:
-            f.writelines(out_lines)
+        if is_ligand and has_atom:
+            if not has_root:
+                atom_lines = [i for i, l in enumerate(out_lines) if l.startswith('ATOM') or l.startswith('HETATM')]
+                if atom_lines:
+                    out_lines.insert(atom_lines[0], 'ROOT')
+                    fixed += 1
+            if not has_endroot:
+                atom_lines = [i for i, l in enumerate(out_lines) if l.startswith('ATOM') or l.startswith('HETATM')]
+                if atom_lines:
+                    out_lines.insert(atom_lines[-1] + 1, 'ENDROOT')
+                    fixed += 1
+            if not has_torsdof and has_atom:
+                num_atoms = sum(1 for l in out_lines if l.startswith('ATOM') or l.startswith('HETATM'))
+                torsdof = max(0, num_atoms - 5)
+                out_lines.append(f'TORSDOF {torsdof}')
+                fixed += 1
 
-        return (True, f"{fixed} fields fixed" if fixed else "No fixes needed", filepath)
+        with open(filepath, 'w') as f:
+            f.write('\n'.join(out_lines))
+
+        return (True, f"{fixed} fixes" if fixed else "No fixes needed", filepath)
     except Exception as e:
         return (False, f"Sanitizer error: {str(e)}", filepath)
