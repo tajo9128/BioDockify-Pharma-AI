@@ -207,6 +207,38 @@ Alpine.data("statisticsModal", () => ({
           payload = { action: this.clusterMethod === "hierarchical" ? "cluster_hierarchical" : "cluster_kmeans",
                        data: this.rawData || [], columns: this.columns, n_clusters: this.clusterK || 3,
                        method: this.clusterMethod === "hierarchical" ? "ward" : undefined }; break;
+        case "chisquare":
+          endpoint = "statistics/analyze/chi-square-independence";
+          if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select Group and Value columns"; this.loading = false; return; }
+          payload = { group_col: this.selectedGroupCol, value_col: this.selectedValueCol }; break;
+        case "mannwhitney":
+          endpoint = "statistics/analyze/mann-whitney";
+          if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select Group and Value columns"; this.loading = false; return; }
+          payload = { group_col: this.selectedGroupCol, value_col: this.selectedValueCol }; break;
+        case "wilcoxon":
+          endpoint = "statistics/analyze/wilcoxon-signed-rank";
+          if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select Group and Value columns"; this.loading = false; return; }
+          payload = { group_col: this.selectedGroupCol, value_col: this.selectedValueCol }; break;
+        case "kruskalwallis":
+          endpoint = "statistics/analyze/kruskal-wallis";
+          if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select Group and Value columns"; this.loading = false; return; }
+          payload = { group_col: this.selectedGroupCol, value_col: this.selectedValueCol }; break;
+        case "friedman":
+          endpoint = "statistics/analyze/friedman";
+          payload = { data: this.rawData || [], columns: this.columns }; break;
+        case "fisher":
+          endpoint = "statistics/analyze/fisher-exact";
+          payload = { data: this.rawData || [], columns: this.columns }; break;
+        case "normality":
+          endpoint = "statistics/diagnostic/normality";
+          payload = { data: this.rawData || [], columns: this.columns }; break;
+        case "homogeneity":
+          endpoint = "statistics/diagnostic/homogeneity";
+          if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select Group and Value columns"; this.loading = false; return; }
+          payload = { group_col: this.selectedGroupCol, value_col: this.selectedValueCol }; break;
+        case "roc":
+          endpoint = "statistics_charts";
+          payload = { chart_type: "roc", title: "ROC Curve" }; break;
         default: this.errorMessage = "Unknown analysis type"; this.loading = false; return;
       }
       const result = await callJsonApi(endpoint, payload);

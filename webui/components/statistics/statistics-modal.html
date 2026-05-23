@@ -51,16 +51,62 @@
           <button class="btn-sample" @click="useSampleData()" style="margin-top:10px;width:100%;padding:8px;background:var(--color-panel);border:1px dashed var(--color-border);border-radius:8px;color:var(--color-text-muted);cursor:pointer;font-size:0.72rem">
             <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px">science</span>
             Use sample data to explore features (skip upload)
-          </button>
-        </div>
-
-        <div class="quick-actions">
-          <p class="section-label">Quick start with agent</p>
-          <div class="example-chips">
-            <button class="chip" @click="sendToAgent('Run descriptive stats on my data')">"Run descriptive stats on my data"</button>
-            <button class="chip" @click="sendToAgent('Perform t-test on column X by group Y')">"Perform t-test on column X by group Y"</button>
-            <button class="chip" @click="sendToAgent('Generate correlation matrix')">"Generate correlation matrix"</button>
+            </button>
           </div>
+
+          <h4 class="section-subtitle" style="margin-top:10px;font-size:0.62rem;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.5px">Non-Parametric Tests</h4>
+          <div class="analysis-grid" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr))">
+            <button class="analysis-card" :class="{'selected': testType === 'chisquare'}" @click="selectTest('chisquare')">
+              <span class="material-symbols-outlined card-icon">table_chart</span>
+              <span class="card-title">Chi-Square</span>
+              <span class="card-desc">Independence</span>
+            </button>
+            <button class="analysis-card" :class="{'selected': testType === 'mannwhitney'}" @click="selectTest('mannwhitney')">
+              <span class="material-symbols-outlined card-icon">sort</span>
+              <span class="card-title">Mann-Whitney</span>
+              <span class="card-desc">U test</span>
+            </button>
+            <button class="analysis-card" :class="{'selected': testType === 'wilcoxon'}" @click="selectTest('wilcoxon')">
+              <span class="material-symbols-outlined card-icon">swap_horiz</span>
+              <span class="card-title">Wilcoxon</span>
+              <span class="card-desc">Signed rank</span>
+            </button>
+            <button class="analysis-card" :class="{'selected': testType === 'kruskalwallis'}" @click="selectTest('kruskalwallis')">
+              <span class="material-symbols-outlined card-icon">view_list</span>
+              <span class="card-title">Kruskal-Wallis</span>
+              <span class="card-desc">Rank ANOVA</span>
+            </button>
+            <button class="analysis-card" :class="{'selected': testType === 'friedman'}" @click="selectTest('friedman')">
+              <span class="material-symbols-outlined card-icon">repeat</span>
+              <span class="card-title">Friedman</span>
+              <span class="card-desc">Repeated</span>
+            </button>
+            <button class="analysis-card" :class="{'selected': testType === 'fisher'}" @click="selectTest('fisher')">
+              <span class="material-symbols-outlined card-icon">grid_on</span>
+              <span class="card-title">Fisher Exact</span>
+              <span class="card-desc">2x2 table</span>
+            </button>
+          </div>
+
+          <h4 class="section-subtitle" style="margin-top:10px;font-size:0.62rem;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.5px">Diagnostics &amp; Post-Hoc</h4>
+          <div class="analysis-grid" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr))">
+            <button class="analysis-card" :class="{'selected': testType === 'normality'}" @click="selectTest('normality')">
+              <span class="material-symbols-outlined card-icon">checklist</span>
+              <span class="card-title">Normality</span>
+              <span class="card-desc">Shapiro-Wilk</span>
+            </button>
+            <button class="analysis-card" :class="{'selected': testType === 'homogeneity'}" @click="selectTest('homogeneity')">
+              <span class="material-symbols-outlined card-icon">balance</span>
+              <span class="card-title">Homogeneity</span>
+              <span class="card-desc">Levene</span>
+            </button>
+            <button class="analysis-card" :class="{'selected': testType === 'roc'}" @click="selectTest('roc')">
+              <span class="material-symbols-outlined card-icon">show_chart</span>
+              <span class="card-title">ROC Curve</span>
+              <span class="card-desc">AUC analysis</span>
+            </button>
+          </div>
+        </div>
         </div>
 
         <div class="agent-help">
@@ -138,6 +184,15 @@
               <option value="factor">Factor Analysis (PCA)</option>
               <option value="reliability">Reliability (Cronbach's α)</option>
               <option value="cluster">Cluster Analysis</option>
+              <option value="chisquare">Chi-Square Test</option>
+              <option value="mannwhitney">Mann-Whitney U</option>
+              <option value="wilcoxon">Wilcoxon Signed Rank</option>
+              <option value="kruskalwallis">Kruskal-Wallis</option>
+              <option value="friedman">Friedman Test</option>
+              <option value="fisher">Fisher Exact</option>
+              <option value="normality">Normality Test</option>
+              <option value="homogeneity">Homogeneity (Levene)</option>
+              <option value="roc">ROC Curve</option>
             </select>
           </div>
           <div class="analysis-grid">
@@ -201,7 +256,7 @@
 
         <!-- Test parameters form (shown after selecting a test) -->
         <div x-show="testType" class="test-params">
-          <h3 class="section-title" x-text="'Configure: ' + ({descriptive:'Descriptive Stats',correlation:'Correlation',ttest:'T-Test',anova:'ANOVA',regression:'Regression',survival:'Survival',power:'Power Analysis',pkpd:'PK/PD',factor:'Factor Analysis',reliability:'Reliability',cluster:'Cluster'}[testType] || testType)"></h3>
+          <h3 class="section-title" x-text="'Configure: ' + ({descriptive:'Descriptive Stats',correlation:'Correlation',ttest:'T-Test',anova:'ANOVA',regression:'Regression',survival:'Survival',power:'Power Analysis',pkpd:'PK/PD',factor:'Factor Analysis',reliability:'Reliability',cluster:'Cluster',chisquare:'Chi-Square',mannwhitney:'Mann-Whitney',wilcoxon:'Wilcoxon',kruskalwallis:'Kruskal-Wallis',friedman:'Friedman',fisher:'Fisher Exact',normality:'Normality',homogeneity:'Homogeneity',roc:'ROC Curve'}[testType] || testType)"></h3>
 
           <!-- Descriptive - no params needed -->
           <template x-if="testType === 'descriptive'">
