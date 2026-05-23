@@ -25,6 +25,19 @@ from typing import Dict, Any, Optional, List
 import uuid
 
 
+async def startup_event():
+    """Initialize BioDockify subsystems on startup."""
+    logging.basicConfig(level=logging.INFO)
+    log = logging.getLogger("biodockify_api")
+    log.info("BioDockify API starting...")
+    try:
+        from rdkit import Chem
+        Chem.MolFromSmiles("CCO")
+        log.info("RDKit available")
+    except Exception:
+        log.warning("RDKit not available — docking disabled")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
