@@ -2220,13 +2220,14 @@ async def agent_execute(request: AgentExecuteRequest):
             from modules.journal_intel import DecisionEngine
 
             engine = DecisionEngine()
-            result = engine.verify(issn=issn, title=title, url=url)
+            result = engine.verify(title=title, issn=issn)
+            risk_factors = engine._check_predatory(title, url) if url else []
             return {
                 "status": "success",
                 "action": "verify_journal",
-                "decision": result.decision,
-                "confidence": result.confidence_level,
-                "risk_factors": result.risk_factors,
+                "decision": result.get("decision", "UNVERIFIED"),
+                "confidence": result.get("confidence", 0.0),
+                "risk_factors": risk_factors,
             }
 
         # ANALYZE_STATS: Run statistical analysis

@@ -1,226 +1,257 @@
 <html>
 <head>
-  <script type="module" src="/components/journal-finder/journal-store.js"></script>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+  </script>
+  <style>
+    .jf-panel { display:flex;flex-direction:column;height:100%;overflow:hidden;padding:10px 14px;background:var(--color-background) }
+    .jf-header { display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-shrink:0 }
+    .jf-icon { font-size:22px;color:var(--color-primary) }
+    .jf-header h2 { color:var(--color-primary);font-size:0.9rem;margin:0;font-weight:700 }
+    .jf-sub { color:var(--color-text-muted);font-size:0.58rem;margin:0 }
+    .jf-error { padding:4px 8px;background:rgba(255,107,107,0.1);border-radius:4px;color:var(--color-error-text);font-size:0.6rem;margin-bottom:4px;cursor:pointer }
+    .jf-msg { padding:4px 8px;background:rgba(0,212,170,0.08);border-radius:4px;color:var(--color-primary);font-size:0.6rem;margin-bottom:4px }
+    .jf-tabs { display:flex;gap:0;border-bottom:1px solid var(--color-border);margin-bottom:8px;flex-shrink:0 }
+    .jf-tab { padding:5px 12px;font-size:0.64rem;font-weight:600;cursor:pointer;border:none;background:none;color:var(--color-text-muted);border-bottom:2px solid transparent;transition:all 0.15s }
+    .jf-tab.active { color:var(--color-primary);border-bottom-color:var(--color-primary) }
+    .jf-content { flex:1;overflow-y:auto }
+    .jf-form { padding:8px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:8px }
+    .jf-form h4 { font-size:0.64rem;font-weight:600;color:var(--color-primary);margin:0 0 6px 0 }
+    .jf-form-row { display:flex;gap:4px;align-items:center }
+    .jf-input { padding:6px 10px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-background);color:var(--color-text);font-size:0.68rem;box-sizing:border-box;flex:1 }
+    .jf-input:focus { outline:none;border-color:var(--color-primary) }
+    .jf-btn { padding:6px 14px;background:var(--color-primary);color:white;border:none;border-radius:6px;cursor:pointer;font-size:0.66rem;font-weight:600 }
+    .jf-btn:disabled { opacity:0.5;cursor:not-allowed }
+    .jf-btn-sm { padding:3px 10px;font-size:0.58rem;border:1px solid var(--color-border);border-radius:4px;background:var(--color-panel);color:var(--color-text);cursor:pointer }
+    .jf-btn-sm:hover { border-color:var(--color-primary);color:var(--color-primary) }
+    .jf-tag { display:inline-block;padding:2px 7px;background:color-mix(in srgb, var(--color-primary) 8%, transparent);border-radius:4px;color:var(--color-primary);font-size:0.56rem;font-weight:500;cursor:pointer }
+    .jf-tag:hover { background:color-mix(in srgb, var(--color-primary) 15%, transparent) }
+    .jf-card { padding:10px 12px;background:var(--color-background);border:1px solid var(--color-border);border-radius:8px;margin-bottom:6px }
+    .jf-card h3 { font-size:0.72rem;color:var(--color-text);margin:0 0 4px 0;font-weight:600 }
+    .jf-card .jf-meta { font-size:0.56rem;color:var(--color-text-muted);margin-bottom:4px }
+    .jf-row { display:flex;gap:6px;flex-wrap:wrap;align-items:center }
+    .jf-badge { display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:3px;font-size:0.54rem;font-weight:600 }
+    .jf-badge-green { background:rgba(34,197,94,0.12);color:#22c55e }
+    .jf-badge-red { background:rgba(239,68,68,0.1);color:#ef4444 }
+    .jf-badge-yellow { background:rgba(234,179,8,0.1);color:#ca8a04 }
+    .jf-badge-blue { background:rgba(59,130,246,0.1);color:#3b82f6 }
+    .jf-verdict { padding:10px 12px;border-radius:8px;margin-bottom:8px }
+    .verdict-genuine { background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2) }
+    .verdict-likely { background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2) }
+    .verdict-predatory { background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2) }
+    .verdict-unverified { background:rgba(234,179,8,0.06);border:1px solid rgba(234,179,8,0.15) }
+    .jf-profile-section { padding:8px 10px;background:var(--color-panel);border-radius:6px;margin-bottom:6px }
+    .jf-profile-section h5 { font-size:0.6rem;font-weight:600;color:var(--color-primary);margin:0 0 4px 0 }
+    .jf-chips { display:flex;gap:3px;flex-wrap:wrap }
+  </style>
 </head>
-<body>
-  <div x-data class="jf-panel">
+<body style="margin:0">
+  <div x-data class="jf-panel" x-create="$store.journalFinder.loadStats()">
     <div class="jf-header">
-      <span class="material-symbols-outlined jf-icon">verified</span>
-      <div>
-        <h2>Journal Finder</h2>
-        <p class="jf-sub">Verify legitimacy · Find where to publish</p>
-      </div>
+      <span class="material-symbols-outlined jf-icon">menu_book</span>
+      <div><h2>Journal Finder</h2><p class="jf-sub">36,145 journals · Scopus + WoS</p></div>
     </div>
+
+    <div x-show="$store.journalFinder.error" class="jf-error" x-text="$store.journalFinder.error" @click="$store.journalFinder.error=''"></div>
+    <div x-show="$store.journalFinder.message" class="jf-msg" x-text="$store.journalFinder.message" @click="$store.journalFinder.message=''"></div>
 
     <div class="jf-tabs">
-      <button class="jf-tab" :class="{active: $store.journalFinder.mode === 'verify'}" @click="$store.journalFinder.mode = 'verify'">
-        <span class="material-symbols-outlined">search</span> Verify Journal
-      </button>
-      <button class="jf-tab" :class="{active: $store.journalFinder.mode === 'suggest'}" @click="$store.journalFinder.mode = 'suggest'">
-        <span class="material-symbols-outlined">lightbulb</span> Suggest Journal
-      </button>
+      <button class="jf-tab" :class="{ active: $store.journalFinder.mode === 'verify' }" @click="$store.journalFinder.mode='verify'">Verify</button>
+      <button class="jf-tab" :class="{ active: $store.journalFinder.mode === 'search' }" @click="$store.journalFinder.mode='search'">Search DB</button>
+      <button class="jf-tab" :class="{ active: $store.journalFinder.mode === 'suggest' }" @click="$store.journalFinder.mode='suggest'">Suggest</button>
+      <button class="jf-tab" :class="{ active: $store.journalFinder.mode === 'profile' }" @click="$store.journalFinder.mode='profile'">Dossier</button>
     </div>
 
-    <div x-show="$store.journalFinder.error" class="jf-error" x-text="$store.journalFinder.error"></div>
-    <div x-show="$store.journalFinder.loading" class="jf-loading"><div class="loading-spinner"></div>Searching databases...</div>
-
-    <!-- Verify Mode -->
-    <div x-show="$store.journalFinder.mode === 'verify'">
-      <div class="jf-card">
-        <h4>Verify Journal Legitimacy</h4>
-        <p class="jf-desc">Check if a journal is indexed in Scopus, Web of Science, SCImago, DOAJ — and detect predatory publishers.</p>
-        <div class="jf-row">
-          <input type="text" x-model="$store.journalFinder.jTitle" placeholder="Journal name..." class="jf-input" @keyup.enter="$store.journalFinder.verify()" />
-          <input type="text" x-model="$store.journalFinder.jIssn" placeholder="ISSN (optional)" class="jf-input-sm" />
-          <button class="jf-btn" @click="$store.journalFinder.verify()" :disabled="$store.journalFinder.loading || (!$store.journalFinder.jTitle && !$store.journalFinder.jIssn)">
-            <span class="material-symbols-outlined">search</span> Verify
-          </button>
-        </div>
-      </div>
-
-      <template x-if="$store.journalFinder.verifyResult">
-        <div class="jf-card">
-          <div class="jf-verdict" :class="$store.journalFinder.verdictClass($store.journalFinder.verifyResult.verdict)">
-            <span class="jf-verdict-icon" x-text="$store.journalFinder.verdictIcon($store.journalFinder.verifyResult.verdict)"></span>
-            <span class="jf-verdict-text" x-text="$store.journalFinder.verdictLabel($store.journalFinder.verifyResult.verdict)"></span>
-            <span class="jf-verdict-conf" x-text="Math.round(($store.journalFinder.verifyResult.confidence || 0) * 100) + '% confidence'"></span>
+    <div class="jf-content">
+      <!-- VERIFY TAB -->
+      <div x-show="$store.journalFinder.mode === 'verify'">
+        <div class="jf-form">
+          <h4>Verify Journal</h4>
+          <input type="text" x-model="$store.journalFinder.jTitle" placeholder="Journal name..." class="jf-input" style="margin-bottom:4px" />
+          <div class="jf-form-row">
+            <input type="text" x-model="$store.journalFinder.jIssn" placeholder="ISSN (optional)" class="jf-input" style="max-width:160px" />
+            <button class="jf-btn" @click="$store.journalFinder.verify()" :disabled="$store.journalFinder.loading">Verify</button>
           </div>
-
-          <div class="jf-meta" x-text="'Checked: ' + ($store.journalFinder.verifyResult.sources_checked || []).join(', ')"></div>
-
-          <div class="jf-section" x-show="$store.journalFinder.verifyResult.indexing">
-            <h5>Indexing Status</h5>
-            <div class="jf-grid">
-              <template x-for="(data, source) in $store.journalFinder.verifyResult.indexing" :key="source">
-                <div class="jf-item">
-                  <span class="jf-dot" :class="data.indexed ? 'ok' : 'fail'"></span>
-                  <div>
-                    <strong x-text="source === 'wos' ? 'Web of Science / Clarivate' : source === 'scimago' ? 'SCImago JR' : source.toUpperCase()"></strong>
-                    <span class="jf-item-detail" x-text="data.title || data.detail || (data.indexed ? 'Indexed' : 'Not Indexed')"></span>
-                  </div>
-                  <span class="jf-item-status" :class="data.indexed ? 'ok' : 'fail'" x-text="data.indexed ? '✅' : '❌'"></span>
+        </div>
+        <template x-if="$store.journalFinder.verifyResult">
+          <div>
+            <div class="jf-verdict" :class="$store.journalFinder.verdictClass($store.journalFinder.verifyResult.verdict)">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                <span class="material-symbols-outlined" x-text="$store.journalFinder.verdictIcon($store.journalFinder.verifyResult.verdict)" style="font-size:18px"></span>
+                <strong x-text="$store.journalFinder.verifyResult.verdict" style="font-size:0.72rem"></strong>
+                <span style="font-size:0.56rem;color:var(--color-text-muted)" x-text="Math.round($store.journalFinder.verifyResult.confidence * 100) + '% confidence'"></span>
+              </div>
+              <div x-text="$store.journalFinder.verdictLabel($store.journalFinder.verifyResult.verdict)" style="font-size:0.58rem;color:var(--color-text-muted)"></div>
+              <template x-if="$store.journalFinder.verifyResult.predatory_flags?.length">
+                <div style="margin-top:6px">
+                  <template x-for="f in $store.journalFinder.verifyResult.predatory_flags">
+                    <div class="jf-badge jf-badge-red" style="margin-right:3px;margin-bottom:3px" x-text="f"></div>
+                  </template>
                 </div>
               </template>
             </div>
-          </div>
-
-          <div class="jf-section" x-show="$store.journalFinder.verifyResult.access">
-            <h5>Access & Cost</h5>
-            <template x-if="$store.journalFinder.verifyResult.access.doaj">
-              <div class="jf-info">
-                <span class="jf-dot ok"></span>
-                <span>Open Access via DOAJ</span>
-                <span x-show="$store.journalFinder.verifyResult.access.doaj.apc" x-text="' | APC: ' + ($store.journalFinder.verifyResult.access.doaj.apc_currency || '$') + ' ' + $store.journalFinder.verifyResult.access.doaj.apc"></span>
+            <div class="jf-card">
+              <h3>Indexing Sources</h3>
+              <div class="jf-row">
+                <template x-for="(data, source) in $store.journalFinder.verifyResult.indexing">
+                  <span class="jf-badge" :class="data.indexed ? 'jf-badge-green' : 'jf-badge-yellow'" x-text="source.toUpperCase() + ': ' + (data.indexed ? 'Indexed' : 'Not found')"></span>
+                </template>
               </div>
-            </template>
-          </div>
-
-          <div class="jf-section" x-show="$store.journalFinder.verifyResult.predatory_flags?.length">
-            <h5>⚠️ Risk Factors</h5>
-            <template x-for="flag in $store.journalFinder.verifyResult.predatory_flags">
-              <div class="jf-flag" x-text="flag"></div>
-            </template>
-          </div>
-        </div>
-      </template>
-
-      <div x-show="!$store.journalFinder.verifyResult && !$store.journalFinder.loading" class="jf-empty">
-        <span class="material-symbols-outlined jf-empty-icon">verified</span>
-        <p>Enter a journal name or ISSN to verify its legitimacy</p>
-        <div class="jf-quick">
-          <button class="jf-chip" @click="$store.journalFinder.jTitle = 'Nature Reviews Drug Discovery'; $store.journalFinder.verify()">Nature Reviews Drug Discovery</button>
-          <button class="jf-chip" @click="$store.journalFinder.jTitle = 'International Journal of Novel Pharma Research'; $store.journalFinder.verify()">Suspicious journal example</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Suggest Mode -->
-    <div x-show="$store.journalFinder.mode === 'suggest'">
-      <div class="jf-card">
-        <h4>Find Where to Publish</h4>
-        <p class="jf-desc">Enter your article title, abstract, and keywords to get matched journal suggestions with impact, cost, and review time.</p>
-        <input type="text" x-model="$store.journalFinder.sTitle" placeholder="Article title..." class="jf-input" style="margin-bottom:6px" />
-        <textarea x-model="$store.journalFinder.sAbstract" placeholder="Abstract (optional)" class="jf-textarea" rows="3"></textarea>
-        <input type="text" x-model="$store.journalFinder.sKeywords" placeholder="Keywords (comma-separated)" class="jf-input" style="margin-bottom:6px" />
-        <div class="jf-filters">
-          <label class="jf-check"><input type="checkbox" x-model="$store.journalFinder.sOaOnly"> OA Only</label>
-          <label class="jf-check">
-            <span>Max APC $</span>
-            <select x-model="$store.journalFinder.sMaxApc" class="jf-select-sm">
-              <option value="0">Any</option><option value="1000">$1,000</option><option value="2000">$2,000</option><option value="3000">$3,000</option>
-            </select>
-          </label>
-          <label class="jf-check">
-            <span>Min Quartile</span>
-            <select x-model="$store.journalFinder.sQMin" class="jf-select-sm">
-              <option value="">Any</option><option value="Q1">Q1</option><option value="Q2">Q2</option><option value="Q3">Q3</option>
-            </select>
-          </label>
-          <button class="jf-btn" @click="$store.journalFinder.suggest()" :disabled="$store.journalFinder.loading || !$store.journalFinder.sTitle">
-            <span class="material-symbols-outlined">lightbulb</span> Find Journals
-          </button>
-        </div>
-      </div>
-
-      <template x-if="$store.journalFinder.suggestResults.length">
-        <div>
-          <div class="jf-meta" x-text="$store.journalFinder.suggestResults.length + ' journals found'"></div>
-          <template x-for="(j, i) in $store.journalFinder.suggestResults" :key="j.title">
-            <div class="jf-sug-card">
-              <div class="jf-sug-header">
-                <span class="jf-sug-rank" x-text="'#' + (i + 1)"></span>
-                <span class="jf-sug-title" x-text="j.title"></span>
-                <span class="jf-sug-score" x-text="j.match_pct + '% match'"></span>
-              </div>
-              <div class="jf-sug-meta">
-                <span class="jf-sug-tag" x-show="j.quartile" x-text="j.quartile"></span>
-                <span class="jf-sug-tag" x-show="j.access_type" x-text="j.access_type"></span>
-                <span x-show="j.publisher" x-text="j.publisher"></span>
-              </div>
-              <div class="jf-sug-details">
-                <span x-show="j.apc" x-text="'💰 APC: ' + j.apc"></span>
-                <span x-show="j.review_time" x-text="'⏱️ Review: ' + j.review_time"></span>
-                <span x-show="j.acceptance" x-text="'📊 Acceptance: ' + j.acceptance"></span>
-              </div>
-              <div class="jf-sug-source" x-text="'Source: ' + (j.source || 'BioDockify DB')"></div>
             </div>
-          </template>
-        </div>
-      </template>
+            <template x-if="$store.journalFinder.verifyResult.access?.doaj">
+              <div class="jf-card">
+                <h3>Access & Cost</h3>
+                <div class="jf-row">
+                  <span class="jf-badge jf-badge-green">DOAJ Listed</span>
+                  <span class="jf-badge jf-badge-blue" x-text="'APC: ' + ($store.journalFinder.verifyResult.access.doaj.apc || 'N/A') + ' ' + ($store.journalFinder.verifyResult.access.doaj.apc_currency || '')"></span>
+                </div>
+              </div>
+            </template>
+            <div class="jf-form-row" style="margin-top:4px">
+              <button class="jf-btn-sm" @click="$store.journalFinder.jIssn = $store.journalFinder.verifyResult.issn || ''; $store.journalFinder.mode = 'profile'; $store.journalFinder.profile()">View Dossier</button>
+            </div>
+          </div>
+        </template>
+      </div>
 
-      <div x-show="!$store.journalFinder.suggestResults.length && !$store.journalFinder.loading" class="jf-empty">
-        <span class="material-symbols-outlined jf-empty-icon">lightbulb</span>
-        <p>Enter your article details to find suitable journals</p>
+      <!-- SEARCH DB TAB -->
+      <div x-show="$store.journalFinder.mode === 'search'">
+        <div class="jf-form">
+          <h4>Search 36,145 Journals</h4>
+          <input type="text" x-model="$store.journalFinder.searchQuery" @keydown.enter="$store.journalFinder.search()" placeholder="Journal name, keywords..." class="jf-input" style="margin-bottom:4px" />
+          <div class="jf-chips" style="margin-bottom:4px">
+            <button class="jf-btn-sm" :style="$store.journalFinder.searchScopus ? 'background:var(--color-primary);color:#fff' : ''" @click="$store.journalFinder.searchScopus = $store.journalFinder.searchScopus ? null : true">Scopus</button>
+            <button class="jf-btn-sm" :style="$store.journalFinder.searchWos ? 'background:var(--color-primary);color:#fff' : ''" @click="$store.journalFinder.searchWos = $store.journalFinder.searchWos ? null : true">WoS</button>
+            <button class="jf-btn-sm" :style="$store.journalFinder.searchOA ? 'background:var(--color-primary);color:#fff' : ''" @click="$store.journalFinder.searchOA = $store.journalFinder.searchOA ? null : true">Open Access</button>
+          </div>
+          <button class="jf-btn" @click="$store.journalFinder.search()" :disabled="$store.journalFinder.loading" style="width:100%">Search</button>
+        </div>
+        <template x-if="$store.journalFinder.dbStats">
+          <div class="jf-row" style="margin-bottom:8px">
+            <span class="jf-badge jf-badge-blue" x-text="$store.journalFinder.dbStats.total_journals?.toLocaleString() + ' journals'"></span>
+            <span class="jf-badge jf-badge-green" x-text="$store.journalFinder.dbStats.scopus_indexed?.toLocaleString() + ' Scopus'"></span>
+            <span class="jf-badge jf-badge-green" x-text="$store.journalFinder.dbStats.wos_indexed?.toLocaleString() + ' WoS'"></span>
+            <span class="jf-badge jf-badge-yellow" x-text="$store.journalFinder.dbStats.open_access?.toLocaleString() + ' OA'"></span>
+          </div>
+        </template>
+        <template x-for="j in $store.journalFinder.searchResults" :key="j.issn || j.title">
+          <div class="jf-card" style="cursor:pointer" @click="$store.journalFinder.jIssn = j.issn || ''; $store.journalFinder.jTitle = j.title || ''; $store.journalFinder.mode = 'profile'; $store.journalFinder.profile()">
+            <h3 x-text="j.title" style="font-size:0.68rem"></h3>
+            <div class="jf-meta" x-text="j.publisher + ' · ' + (j.issn || '')"></div>
+            <div class="jf-row">
+              <span x-show="j.scopus_indexed" class="jf-badge jf-badge-green">Scopus</span>
+              <span x-show="j.wos_indexed" class="jf-badge jf-badge-green">WoS</span>
+              <span x-show="j.oa_status === 'OA'" class="jf-badge jf-badge-yellow">OA</span>
+              <span class="jf-badge jf-badge-blue" x-text="j.source_type || ''" x-show="j.source_type"></span>
+            </div>
+            <div x-show="j.scopus_subjects" class="jf-meta" style="margin-top:3px" x-text="j.scopus_subjects?.slice(0, 150)"></div>
+          </div>
+        </template>
+      </div>
+
+      <!-- SUGGEST TAB -->
+      <div x-show="$store.journalFinder.mode === 'suggest'">
+        <div class="jf-form">
+          <h4>Find Journals for Your Paper</h4>
+          <input type="text" x-model="$store.journalFinder.sTitle" placeholder="Article title..." class="jf-input" style="margin-bottom:4px" />
+          <textarea x-model="$store.journalFinder.sAbstract" placeholder="Abstract (optional)..." class="jf-input" rows="3" style="margin-bottom:4px;resize:vertical"></textarea>
+          <input type="text" x-model="$store.journalFinder.sKeywords" placeholder="Keywords (optional)..." class="jf-input" style="margin-bottom:4px" />
+          <div class="jf-chips" style="margin-bottom:4px">
+            <button class="jf-btn-sm" :style="$store.journalFinder.sOaOnly ? 'background:var(--color-primary);color:#fff' : ''" @click="$store.journalFinder.sOaOnly = !$store.journalFinder.sOaOnly">OA Only</button>
+            <select x-model="$store.journalFinder.sQMin" class="jf-input" style="width:80px;font-size:0.6rem"><option value="">Any Q</option><option value="Q1">Q1+</option><option value="Q2">Q2+</option><option value="Q3">Q3+</option></select>
+          </div>
+          <button class="jf-btn" @click="$store.journalFinder.suggest()" :disabled="$store.journalFinder.loading" style="width:100%">Suggest Journals</button>
+        </div>
+        <template x-for="s in $store.journalFinder.suggestResults" :key="s.title">
+          <div class="jf-card">
+            <h3 x-text="s.title" style="font-size:0.68rem"></h3>
+            <div class="jf-meta" x-text="s.publisher + ' · Match: ' + (s.match_pct || 0) + '%'"></div>
+            <div class="jf-row">
+              <span x-show="s.scopus" class="jf-badge jf-badge-green">Scopus</span>
+              <span x-show="s.wos" class="jf-badge jf-badge-green">WoS</span>
+              <span class="jf-badge jf-badge-blue" x-text="s.quartile || ''" x-show="s.quartile"></span>
+              <span class="jf-badge jf-badge-yellow" x-text="s.source || ''"></span>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- DOSSIER TAB -->
+      <div x-show="$store.journalFinder.mode === 'profile'">
+        <div class="jf-form">
+          <h4>Journal Dossier</h4>
+          <div class="jf-form-row">
+            <input type="text" x-model="$store.journalFinder.jIssn" placeholder="ISSN" class="jf-input" style="max-width:140px" />
+            <input type="text" x-model="$store.journalFinder.jTitle" placeholder="or title..." class="jf-input" />
+            <button class="jf-btn" @click="$store.journalFinder.profile()" :disabled="$store.journalFinder.loading">Lookup</button>
+          </div>
+        </div>
+        <template x-if="$store.journalFinder.profileResult">
+          <div>
+            <div class="jf-card">
+              <h3 x-text="$store.journalFinder.profileResult.title" style="font-size:0.78rem"></h3>
+              <div class="jf-meta">
+                <span x-text="$store.journalFinder.profileResult.publisher"></span>
+                <span x-show="$store.journalFinder.profileResult.issn"> · ISSN: </span><span x-text="$store.journalFinder.profileResult.issn"></span>
+                <span x-show="$store.journalFinder.profileResult.eissn"> · eISSN: </span><span x-text="$store.journalFinder.profileResult.eissn"></span>
+              </div>
+              <div class="jf-row" style="margin-top:4px">
+                <span x-show="$store.journalFinder.profileResult.scopus_indexed" class="jf-badge jf-badge-green">Scopus</span>
+                <span x-show="$store.journalFinder.profileResult.wos_indexed" class="jf-badge jf-badge-green">WoS</span>
+                <span class="jf-badge" :class="$store.journalFinder.profileResult.oa_status === 'OA' ? 'jf-badge-yellow' : 'jf-badge-blue'" x-text="$store.journalFinder.profileResult.oa_status || 'Subscription'"></span>
+              </div>
+            </div>
+            <template x-if="$store.journalFinder.profileResult.verification">
+              <div class="jf-profile-section">
+                <h5>Verification</h5>
+                <div class="jf-row">
+                  <span class="jf-badge" :class="$store.journalFinder.profileResult.verification.verdict === 'GENUINE' ? 'jf-badge-green' : $store.journalFinder.profileResult.verification.verdict === 'PREDATORY' ? 'jf-badge-red' : 'jf-badge-yellow'" x-text="$store.journalFinder.profileResult.verification.verdict"></span>
+                  <span style="font-size:0.56rem;color:var(--color-text-muted)" x-text="Math.round($store.journalFinder.profileResult.verification.confidence * 100) + '% confidence'"></span>
+                </div>
+                <template x-if="$store.journalFinder.profileResult.verification.flags?.length">
+                  <div style="margin-top:3px">
+                    <template x-for="f in $store.journalFinder.profileResult.verification.flags">
+                      <span class="jf-badge jf-badge-red" x-text="f"></span>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
+            <template x-if="$store.journalFinder.profileResult.hijacked?.flagged">
+              <div class="jf-profile-section" style="border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.05)">
+                <h5 style="color:#ef4444">Hijacked Journal Alert</h5>
+                <template x-for="d in $store.journalFinder.profileResult.hijacked.details">
+                  <div style="font-size:0.56rem;color:var(--color-text-muted)" x-text="d"></div>
+                </template>
+              </div>
+            </template>
+            <template x-if="$store.journalFinder.profileResult.scopus_subjects">
+              <div class="jf-profile-section">
+                <h5>Subjects</h5>
+                <div style="font-size:0.58rem;color:var(--color-text-muted)" x-text="$store.journalFinder.profileResult.scopus_subjects"></div>
+              </div>
+            </template>
+            <template x-if="$store.journalFinder.profileResult.oa_policy">
+              <div class="jf-profile-section">
+                <h5>OA Policy</h5>
+                <div class="jf-row">
+                  <span class="jf-badge jf-badge-blue" x-text="'APC: ' + ($store.journalFinder.profileResult.oa_policy.apc || 'N/A')"></span>
+                  <span class="jf-badge jf-badge-blue" x-text="'License: ' + ($store.journalFinder.profileResult.oa_policy.license || 'N/A')"></span>
+                </div>
+              </div>
+            </template>
+            <template x-if="$store.journalFinder.profileResult.metrics">
+              <div class="jf-profile-section">
+                <h5>Metrics</h5>
+                <div class="jf-row">
+                  <span class="jf-badge jf-badge-green" x-text="'SCImago: ' + ($store.journalFinder.profileResult.metrics.quartile || 'N/A')"></span>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
       </div>
     </div>
-
-    <style>
-      .jf-panel { display: flex; flex-direction: column; height: 100%; overflow-y: auto; padding: 12px 16px; background: var(--color-background); }
-      .jf-header { margin-bottom: 6px; }
-      .jf-header h2 { color: var(--color-primary); font-size: 0.9rem; margin: 0 0 2px 0; font-weight: 700; }
-      .jf-sub { font-size: 0.54rem; color: var(--color-text-muted); margin: 0; }
-      .jf-tabs { display: flex; gap: 2px; margin-bottom: 8px; border-bottom: 1px solid var(--color-border); }
-      .jf-tab { display: flex; align-items: center; gap: 3px; padding: 5px 10px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--color-text-muted); cursor: pointer; font-size: 0.62rem; font-weight: 500; }
-      .jf-tab:hover { color: var(--color-text); }
-      .jf-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
-      .jf-tab .material-symbols-outlined { font-size: 14px; }
-      .jf-error { padding: 4px 8px; background: rgba(255,107,107,0.1); border-radius: 4px; color: var(--color-error-text); font-size: 0.56rem; margin-bottom: 4px; }
-      .jf-loading { display: flex; align-items: center; gap: 5px; font-size: 0.58rem; color: var(--color-text-muted); margin-bottom: 6px; }
-      .loading-spinner { width: 12px; height: 12px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
-      @keyframes spin { to { transform: rotate(360deg); } }
-      .jf-card { padding: 10px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 8px; }
-      .jf-card h4 { font-size: 0.62rem; font-weight: 600; color: var(--color-text); margin: 0 0 4px 0; }
-      .jf-desc { font-size: 0.54rem; color: var(--color-text-muted); margin: 0 0 8px 0; line-height: 1.3; }
-      .jf-row { display: flex; gap: 4px; }
-      .jf-input { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-background); color: var(--color-text); font-size: 0.58rem; }
-      .jf-input:focus { outline: none; border-color: var(--color-primary); }
-      .jf-input-sm { width: 120px; padding: 6px 8px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-background); color: var(--color-text); font-size: 0.58rem; }
-      .jf-btn { display: inline-flex; align-items: center; gap: 3px; padding: 6px 12px; background: var(--color-primary); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.58rem; font-weight: 600; white-space: nowrap; }
-      .jf-btn:disabled { opacity: 0.5; }
-      .jf-meta { font-size: 0.52rem; color: var(--color-text-muted); margin: 4px 0; }
-      .jf-verdict { display: flex; align-items: center; gap: 8px; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
-      .jf-verdict.genuine { background: rgba(34,197,94,0.08); }
-      .jf-verdict.likely { background: rgba(255,217,61,0.08); }
-      .jf-verdict.predatory { background: rgba(255,107,107,0.08); }
-      .jf-verdict.unverified { background: rgba(150,150,150,0.08); }
-      .jf-verdict-icon { font-size: 1.2rem; }
-      .jf-verdict-text { font-size: 0.7rem; font-weight: 700; }
-      .jf-verdict.genuine .jf-verdict-text { color: #22c55e; }
-      .jf-verdict.predatory .jf-verdict-text { color: #ff6b6b; }
-      .jf-verdict-conf { font-size: 0.52rem; color: var(--color-text-muted); }
-      .jf-section { margin-top: 8px; border-top: 1px solid var(--color-border); padding-top: 6px; }
-      .jf-section h5 { font-size: 0.56rem; font-weight: 600; color: var(--color-text-muted); margin: 0 0 4px 0; text-transform: uppercase; }
-      .jf-grid { display: flex; flex-direction: column; gap: 3px; }
-      .jf-item { display: flex; align-items: center; gap: 6px; font-size: 0.56rem; color: var(--color-text); }
-      .jf-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: #888; }
-      .jf-dot.ok { background: #22c55e; } .jf-dot.fail { background: #ff6b6b; }
-      .jf-item strong { font-size: 0.55rem; text-transform: uppercase; color: var(--color-text-muted); display: block; }
-      .jf-item-detail { font-size: 0.5rem; color: var(--color-text-muted); }
-      .jf-item-status { margin-left: auto; font-size: 0.65rem; }
-      .jf-flag { padding: 3px 6px; background: rgba(255,107,107,0.06); border-radius: 3px; font-size: 0.52rem; color: #ff6b6b; margin-top: 2px; }
-      .jf-info { display: flex; align-items: center; gap: 6px; font-size: 0.56rem; color: var(--color-text); }
-      .jf-filters { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-      .jf-check { display: flex; align-items: center; gap: 3px; font-size: 0.54rem; color: var(--color-text-muted); cursor: pointer; }
-      .jf-check input { accent-color: var(--color-primary); }
-      .jf-select-sm { padding: 3px 5px; border: 1px solid var(--color-border); border-radius: 3px; background: var(--color-background); color: var(--color-text); font-size: 0.5rem; }
-      .jf-textarea { width: 100%; padding: 6px 8px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-background); color: var(--color-text); font-size: 0.56rem; resize: vertical; margin-bottom: 4px; box-sizing: border-box; }
-      .jf-textarea:focus { outline: none; border-color: var(--color-primary); }
-      .jf-sug-card { padding: 8px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: 4px; border-left: 3px solid var(--color-primary); }
-      .jf-sug-header { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
-      .jf-sug-rank { font-size: 0.7rem; font-weight: 700; color: var(--color-primary); }
-      .jf-sug-title { flex: 1; font-size: 0.6rem; font-weight: 600; color: var(--color-text); }
-      .jf-sug-score { font-size: 0.54rem; color: var(--color-primary); font-weight: 600; }
-      .jf-sug-meta { display: flex; gap: 4px; margin-bottom: 3px; font-size: 0.52rem; color: var(--color-text-muted); }
-      .jf-sug-tag { padding: 1px 5px; background: color-mix(in srgb, var(--color-primary) 10%, transparent); border-radius: 3px; }
-      .jf-sug-details { display: flex; gap: 8px; font-size: 0.5rem; color: var(--color-text-muted); }
-      .jf-sug-source { font-size: 0.46rem; color: var(--color-text-muted); margin-top: 2px; opacity: 0.6; }
-      .jf-empty { display: flex; flex-direction: column; align-items: center; padding: 24px; text-align: center; }
-      .jf-empty-icon { font-size: 32px; color: var(--color-border); margin-bottom: 6px; }
-      .jf-empty p { font-size: 0.6rem; color: var(--color-text-muted); margin: 0 0 8px 0; }
-      .jf-quick { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
-      .jf-chip { padding: 4px 8px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 4px; font-size: 0.52rem; color: var(--color-text); cursor: pointer; }
-      .jf-chip:hover { border-color: var(--color-primary); }
-    </style>
   </div>
 </body>
 </html>

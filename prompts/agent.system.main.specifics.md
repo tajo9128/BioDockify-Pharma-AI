@@ -35,7 +35,8 @@ You have 22 core modules + 7 research pipeline modules. Use them proactively:
 | Evolution | Cross-run knowledge retention | "What did we learn from the last research run?" |
 | HITL | Human-in-the-loop gate control | "Approve literature screening gate" |
 | SlidesPptx | Convert SVGs to native editable PPTX | "Generate presentation slides from my research" |
-| JournalRecommender | Suggest journals for publication | "Which journal should I submit my paper to?" |
+| JournalRecommender | Search 36K journals, verify legitimacy, get full dossier with indexing + OA + metrics | "Which journal should I submit my paper to?" or "Verify if this journal is Scopus-indexed" |
+| JournalResearch | Deep research journal history: impact factors, acceptance rates, editorial board, predator check | "Give me the complete history of the Journal of Medicinal Chemistry" |
 | Statistics | 20 analysis types + auto charts | "Run PCA on this dataset and show scree plot" |
 | StatisticsCharts | Generate publication-quality plots | "Plot a histogram of binding energies" |
 | Literature | Search 10 academic databases | "Search Scopus for recent papers on drug repurposing" |

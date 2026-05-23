@@ -1,32 +1,130 @@
 """
 Journal Intelligence Module
-DecisionEngine + Checkers + Suggesters for journal verification and suggestion.
+DecisionEngine + DB query + hijacked journals + profile + history + suggest.
 """
 import logging
 import urllib.request
 import urllib.parse
 import json
 import re
+import os
+import sqlite3
 from typing import Dict, List, Any, Optional
 
 logger = logging.getLogger("journal_intel")
 
-# Known predatory journal patterns
 PREDATORY_FLAGS = [
     "international journal of", "world journal of", "global journal of",
-    "american journal of" # when not actually American
+    "american journal of"
 ]
 
-# Popular legitimate publishers
 LEGITIMATE_PUBLISHERS = [
     "elsevier", "springer", "wiley", "taylor & francis", "sage", "oxford university press",
     "cambridge university press", "nature publishing", "ieee", "acs", "rsc", "bmj",
     "lancet", "cell press", "plos", "frontiers", "mdpi", "biomed central", "bentham",
 ]
 
+DB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "skills", "journal-recommender", "assets", "journals.db")
+HIJACKED_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "integrity", "hijacked_journals.json")
+
+
+def _load_hijacked() -> List[Dict]:
+    try:
+        with open(HIJACKED_PATH, "r") as f:
+            return json.load(f)
+    except:
+        return []
+
+
+def _query_db(query: str = "", scopus: bool = None, wos: bool = None, oa: bool = None,
+              subject: str = "", limit: int = 50, offset: int = 0, fts: bool = False) -> Dict:
+    """Query the 36,145-journal SQLite database."""
+    try:
+        db = sqlite3.connect(DB_PATH)
+        db.row_factory = sqlite3.Row
+        cur = db.cursor()
+
+        conditions = []
+        params = []
+        if query:
+            if fts:
+                conditions.append("(title LIKE ? OR issn LIKE ? OR eissn LIKE ?)")
+                like = f"%{query}%"
+                params.extend([like, like, like])
+            else:
+                like = f"%{query}%"
+                conditions.append("title LIKE ?")
+                params.append(like)
+        if scopus is True:
+            conditions.append("scopus_indexed = 1")
+        elif scopus is False:
+            conditions.append("scopus_indexed = 0")
+        if wos is True:
+            conditions.append("wos_indexed = 1")
+        elif wos is False:
+            conditions.append("wos_indexed = 0")
+        if oa is True:
+            conditions.append("oa_status = 'OA'")
+        if subject:
+            sub_like = f"%{subject}%"
+            conditions.append("(scopus_subjects LIKE ? OR wos_categories LIKE ? OR asjc_codes LIKE ?)")
+            params.extend([sub_like, sub_like, sub_like])
+
+        where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+        sql = f"SELECT * FROM journals {where} ORDER BY title LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+
+        count_sql = f"SELECT COUNT(*) FROM journals {where}"
+        cur.execute(count_sql, params[:-2])
+        total = cur.fetchone()[0]
+
+        cur.execute("SELECT COUNT(*) FROM journals")
+        db_total = cur.fetchone()[0]
+
+        cur.execute("SELECT COUNT(*) FROM journals WHERE scopus_indexed=1")
+        scopus_count = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM journals WHERE wos_indexed=1")
+        wos_count = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM journals WHERE oa_status='OA'")
+        oa_count = cur.fetchone()[0]
+
+        db.close()
+
+        journals = [dict(r) for r in rows]
+        return {
+            "journals": journals, "total": total, "limit": limit, "offset": offset,
+            "db_total": db_total, "scopus_count": scopus_count,
+            "wos_count": wos_count, "oa_count": oa_count,
+        }
+    except Exception as e:
+        logger.warning(f"DB query failed: {e}")
+        return {"journals": [], "total": 0, "error": str(e)}
+
+
+def _db_lookup(issn: str = "", title: str = "") -> Optional[Dict]:
+    """Look up a single journal by ISSN or title in the database."""
+    try:
+        db = sqlite3.connect(DB_PATH)
+        db.row_factory = sqlite3.Row
+        cur = db.cursor()
+        if issn:
+            cur.execute("SELECT * FROM journals WHERE issn = ? OR eissn = ?", [issn, issn])
+        elif title:
+            cur.execute("SELECT * FROM journals WHERE title LIKE ?", [f"%{title}%"])
+        else:
+            return None
+        row = cur.fetchone()
+        db.close()
+        return dict(row) if row else None
+    except:
+        return None
+
 
 class DecisionEngine:
-    """Coordinates all journal verification checks."""
+    """Coordinates all journal verification, suggestion, profiling, and history."""
 
     def verify(self, title: str = "", issn: str = "") -> Dict[str, Any]:
         if not title and not issn:
@@ -36,58 +134,64 @@ class DecisionEngine:
         issn = issn.strip()
 
         result = {
-            "journal": title,
-            "issn": issn,
-            "verdict": "UNVERIFIED",
-            "confidence": 0,
-            "sources_checked": [],
-            "indexing": {},
-            "access": {},
-            "metrics": {},
-            "publisher": "",
-            "predatory_flags": [],
+            "journal": title, "issn": issn, "verdict": "UNVERIFIED", "confidence": 0,
+            "sources_checked": [], "indexing": {}, "access": {}, "metrics": {},
+            "publisher": "", "predatory_flags": [],
         }
 
-        # 1. Scopus check
-        scopus = _check_scopus(title, issn)
-        if scopus:
-            result["sources_checked"].append("scopus")
-            result["indexing"]["scopus"] = scopus
+        # 0. DB lookup first (fastest, most reliable)
+        db_entry = _db_lookup(issn=issn, title=title)
+        if db_entry:
+            result["sources_checked"].append("database")
+            result["publisher"] = db_entry.get("publisher", "")
+            if db_entry.get("scopus_indexed"):
+                result["indexing"]["scopus"] = {"indexed": True, "source": "Local DB (Scopus Mar 2025)"}
+            if db_entry.get("wos_indexed"):
+                result["indexing"]["wos"] = {"indexed": True, "source": "Local DB (WoS Mar 2024)"}
+            if db_entry.get("oa_status") == "OA":
+                result["access"]["oa"] = True
 
-        # 2. WoS/Clarivate check
-        wos = _check_clarivate(title, issn)
-        if wos:
-            result["sources_checked"].append("clarivate")
-            result["indexing"]["wos"] = wos
+        # 1-4: Live API checks (complement DB)
+        if not result["indexing"].get("scopus"):
+            scopus = _check_scopus(title, issn)
+            if scopus and scopus.get("indexed"):
+                result["indexing"]["scopus"] = scopus
+                result["sources_checked"].append("scopus")
 
-        # 3. SCImago check
+        if not result["indexing"].get("wos"):
+            wos = _check_clarivate(title, issn)
+            if wos and wos.get("indexed"):
+                result["indexing"]["wos"] = wos
+                result["sources_checked"].append("clarivate")
+
         scimago = _check_scimago(title, issn)
-        if scimago:
-            result["sources_checked"].append("scimago")
+        if scimago and scimago.get("indexed"):
             result["indexing"]["scimago"] = scimago
+            result["sources_checked"].append("scimago")
 
-        # 4. DOAJ check
         doaj = _check_doaj(title, issn)
         if doaj:
-            result["sources_checked"].append("doaj")
             result["access"]["doaj"] = doaj
+            result["sources_checked"].append("doaj")
 
-        # 5. Predatory check
+        # Predatory check + hijacked check
         predatory = _check_predatory(title, issn)
-        result["predatory_flags"] = predatory.get("flags", [])
+        hijacked = _check_hijacked(title)
+        predatory["flags"].extend(hijacked)
+        result["predatory_flags"] = predatory["flags"]
         result["sources_checked"].append("predatory_db")
 
         # Compute verdict
         indexed_count = sum(1 for v in result["indexing"].values() if v.get("indexed"))
         if indexed_count >= 2 and not result["predatory_flags"]:
             result["verdict"] = "GENUINE"
-            result["confidence"] = 0.85 + (indexed_count - 2) * 0.05
+            result["confidence"] = min(0.85 + (indexed_count - 2) * 0.05, 0.99)
         elif indexed_count >= 1 and not result["predatory_flags"]:
             result["verdict"] = "LIKELY_GENUINE"
             result["confidence"] = 0.6
         elif result["predatory_flags"]:
             result["verdict"] = "PREDATORY"
-            result["confidence"] = 0.75 + len(result["predatory_flags"]) * 0.05
+            result["confidence"] = min(0.75 + len(result["predatory_flags"]) * 0.05, 0.99)
         else:
             result["verdict"] = "UNVERIFIED"
             result["confidence"] = 0.2
@@ -96,39 +200,53 @@ class DecisionEngine:
 
     def suggest(self, title: str = "", abstract: str = "", keywords: str = "",
                 oa_only: bool = False, max_apc: int = 0, q_min: str = "") -> List[Dict]:
-        """Suggest suitable journals based on article content."""
         if not title:
             return [{"error": "Article title required for suggestion"}]
 
-        # Extract search terms
         terms = _extract_terms(title, abstract, keywords)
-
         suggestions = []
 
-        # Try Elsevier Journal Finder
+        # Source 1: DB keyword search
+        db_result = _query_db(query=" ".join(terms[:3]), limit=20)
+        for j in db_result.get("journals", []):
+            suggestions.append({
+                "title": j.get("title", ""),
+                "issn": j.get("issn", ""),
+                "publisher": j.get("publisher", ""),
+                "scopus": bool(j.get("scopus_indexed")),
+                "wos": bool(j.get("wos_indexed")),
+                "oa": j.get("oa_status") == "OA",
+                "source": "Biodockify DB",
+                "match_score": 0.5,
+            })
+
+        # Source 2: Elsevier Journal Finder
         elsevier = _suggest_elsevier(title, abstract)
-        if elsevier:
-            suggestions.extend(elsevier)
+        suggestions.extend(elsevier)
 
-        # Try JANE (biosemantics) for biomedical
+        # Source 3: JANE biosemantics
         jane = _suggest_jane(title, abstract)
-        if jane:
-            suggestions.extend(jane)
+        suggestions.extend(jane)
 
-        # Fallback: suggest from keyword matching against known database
-        if not suggestions:
-            suggestions = _suggest_from_keywords(terms)
+        # Deduplicate by title
+        seen = set()
+        unique = []
+        for s in suggestions:
+            key = s.get("title", "").lower().strip()
+            if key and key not in seen:
+                seen.add(key)
+                unique.append(s)
+        suggestions = unique
 
         # Score and rank
         for s in suggestions:
             relevance = _compute_relevance(terms, s)
             authority = _authority_score(s)
             speed = _speed_score(s)
-            access = _access_score(s)
-            s["match_score"] = round(relevance * 0.4 + authority * 0.3 + speed * 0.15 + access * 0.15, 1)
+            access_s = _access_score(s)
+            s["match_score"] = round(relevance * 0.4 + authority * 0.3 + speed * 0.15 + access_s * 0.15, 1)
             s["match_pct"] = round(s["match_score"] * 100)
 
-        # Filter
         if oa_only:
             suggestions = [s for s in suggestions if s.get("access_type") == "OA"]
         if max_apc > 0:
@@ -140,11 +258,91 @@ class DecisionEngine:
         suggestions.sort(key=lambda s: -s.get("match_score", 0))
         return suggestions[:15]
 
+    def profile(self, issn: str = "", title: str = "") -> Dict:
+        """Comprehensive journal profile from DB + live enrichment."""
+        if not issn and not title:
+            return {"error": "Provide ISSN or title"}
 
-# ── Checkers ──────────────────────────────────────────────────
+        db_entry = _db_lookup(issn=issn, title=title)
+        if not db_entry:
+            return {"error": f"Journal not found in database (36,145 journals)", "detail": "Try verifying with live APIs instead"}
+
+        profile = {
+            "title": db_entry.get("title", ""),
+            "issn": db_entry.get("issn", ""),
+            "eissn": db_entry.get("eissn", ""),
+            "publisher": db_entry.get("publisher", ""),
+            "oa_status": db_entry.get("oa_status", ""),
+            "scopus_indexed": bool(db_entry.get("scopus_indexed")),
+            "wos_indexed": bool(db_entry.get("wos_indexed")),
+            "scopus_subjects": db_entry.get("scopus_subjects", ""),
+            "wos_categories": db_entry.get("wos_categories", ""),
+            "asjc_codes": db_entry.get("asjc_codes", ""),
+            "source_type": db_entry.get("source_type", ""),
+        }
+
+        # Enrich with live verification
+        ver = self.verify(title=profile["title"], issn=profile.get("issn", ""))
+        profile["verification"] = {
+            "verdict": ver.get("verdict"),
+            "confidence": ver.get("confidence"),
+            "flags": ver.get("predatory_flags", []),
+            "indexing_verified": {k: bool(v.get("indexed")) for k, v in ver.get("indexing", {}).items()},
+        }
+
+        # Check hijacked
+        hijacked = _check_hijacked(profile["title"])
+        profile["hijacked"] = {"flagged": len(hijacked) > 0, "details": hijacked}
+
+        # Live metrics attempt
+        scimago = _check_scimago(profile["title"], profile.get("issn", ""))
+        if scimago and scimago.get("quartile"):
+            profile["metrics"] = {"quartile": scimago.get("quartile"), "source": "SCImago"}
+
+        # DOAJ info
+        doaj = _check_doaj(profile["title"], profile.get("issn", ""))
+        if doaj:
+            profile["oa_policy"] = doaj
+
+        return profile
+
+    def history(self, title: str = "") -> Dict:
+        """Research a journal's history — metrics timeline, publisher history, editorial details."""
+        if not title:
+            return {"error": "Journal title required"}
+        result = {
+            "title": title,
+            "db_profile": None,
+            "verification": None,
+            "research_instructions": [],
+        }
+        db_entry = _db_lookup(title=title)
+        if db_entry:
+            result["db_profile"] = {
+                "publisher": db_entry.get("publisher"),
+                "scopus": bool(db_entry.get("scopus_indexed")),
+                "wos": bool(db_entry.get("wos_indexed")),
+                "subjects": db_entry.get("scopus_subjects"),
+            }
+        ver = self.verify(title=title)
+        result["verification"] = ver
+
+        # Instructions for agent to do deeper research
+        issn = db_entry.get("issn", "") if db_entry else ""
+        result["research_instructions"] = [
+            f"Search SCImago for {title} SJR trend: https://www.scimagojr.com/journalsearch.php?q={urllib.parse.quote(title)}",
+            f"Check JCR Impact Factor: https://jcr.clarivate.com (search {issn or title})",
+            f"Search DOAJ for OA policy: https://doaj.org/search/journals/{urllib.parse.quote(title)}",
+            f"Check Researcher.life for review speed: https://researcher.life/journal/{urllib.parse.quote(title.replace(' ', '-').lower())}",
+            f"PubMed search for recent articles: https://pubmed.ncbi.nlm.nih.gov/?term={urllib.parse.quote(title)}[journal]",
+            f"Google Scholar metrics: https://scholar.google.com/citations?view_op=search_journals&hl=en&mauthors={urllib.parse.quote(title)}",
+        ]
+        return result
+
+
+# ── Checkers ──
 
 def _check_scopus(title: str, issn: str) -> Optional[Dict]:
-    """Check Scopus indexing via Elsevier API or scraping."""
     try:
         query = issn if issn else title
         url = f"https://api.elsevier.com/content/search/scopus?query=ISSN({query})&count=1"
@@ -154,18 +352,12 @@ def _check_scopus(title: str, issn: str) -> Optional[Dict]:
             entries = data.get("search-results", {}).get("entry", [])
             if entries:
                 e = entries[0]
-                return {
-                    "indexed": True,
-                    "title": e.get("dc:title", title),
-                    "cite_score": e.get("prism:coverDate", "")[:4],
-                    "source": "Scopus API"
-                }
+                return {"indexed": True, "title": e.get("dc:title", title), "source": "Scopus API"}
     except urllib.error.HTTPError as e:
         if e.code == 401:
-            logger.info("Scopus API key required — using heuristic")
-            pass
+            logger.info("Scopus API key required")
     except: pass
-    return {"indexed": False, "title": title, "detail": "Not found or API unavailable"}
+    return None
 
 
 def _check_clarivate(title: str, issn: str) -> Optional[Dict]:
@@ -178,7 +370,7 @@ def _check_clarivate(title: str, issn: str) -> Optional[Dict]:
             if "no-results" not in html.lower() and len(html) > 500:
                 return {"indexed": True, "source": "Clarivate MJL"}
     except: pass
-    return {"indexed": False, "detail": "Not found in Master Journal List"}
+    return None
 
 
 def _check_scimago(title: str, issn: str) -> Optional[Dict]:
@@ -195,7 +387,7 @@ def _check_scimago(title: str, issn: str) -> Optional[Dict]:
                 elif "Q4" in html: q = "Q4"
                 return {"indexed": True, "quartile": q, "source": "SCImago JR"}
     except: pass
-    return {"indexed": False, "detail": "Not found in SCImago"}
+    return None
 
 
 def _check_doaj(title: str, issn: str) -> Optional[Dict]:
@@ -209,13 +401,12 @@ def _check_doaj(title: str, issn: str) -> Optional[Dict]:
             if results:
                 j = results[0].get("bibjson", {})
                 return {
-                    "indexed": True,
-                    "oa": True,
+                    "indexed": True, "oa": True,
                     "apc": j.get("apc", {}).get("amount", "Unknown"),
                     "apc_currency": j.get("apc", {}).get("currency", "USD"),
                     "license": j.get("license", [{}])[0].get("type", "Unknown"),
                     "publisher": j.get("publisher", {}).get("name", ""),
-                    "source": "DOAJ"
+                    "source": "DOAJ",
                 }
     except: pass
     return None
@@ -232,11 +423,22 @@ def _check_predatory(title: str, issn: str) -> Dict:
     return {"flags": flags, "count": len(flags)}
 
 
-# ── Suggesters ────────────────────────────────────────────────
+def _check_hijacked(title: str) -> List[str]:
+    flags = []
+    try:
+        entries = _load_hijacked()
+        low = title.lower()
+        for entry in entries:
+            if entry.get("journal_name", "").lower() in low:
+                flags.append(f"Hijacked journal detected: {entry.get('journal_name')}. Real site: {entry.get('authentic_url', 'N/A')}")
+    except: pass
+    return flags
+
+
+# ── Suggesters ──
 
 def _suggest_elsevier(title: str, abstract: str) -> List[Dict]:
     try:
-        import urllib.parse
         data = urllib.parse.urlencode({"title": title, "abstract": abstract}).encode()
         url = "https://journalfinder.elsevier.com/api/journal-finder"
         req = urllib.request.Request(url, data=data, headers={"User-Agent": "BioDockify/1.0", "Content-Type": "application/x-www-form-urlencoded"})
@@ -244,12 +446,9 @@ def _suggest_elsevier(title: str, abstract: str) -> List[Dict]:
             result = json.loads(resp.read())
             journals = result.get("journals", result.get("results", []))
             return [{
-                "title": j.get("title", j.get("name", "")),
-                "publisher": "Elsevier",
-                "match_score": j.get("match", 0.5),
-                "source": "Elsevier Journal Finder",
-                "quartile": j.get("quartile", "Q2"),
-                "apc": str(j.get("apc", "Unknown")),
+                "title": j.get("title", j.get("name", "")), "publisher": "Elsevier",
+                "match_score": j.get("match", 0.5), "source": "Elsevier Journal Finder",
+                "quartile": j.get("quartile", "Q2"), "apc": str(j.get("apc", "Unknown")),
                 "review_time": str(j.get("review_time", "")) or "6-10 weeks",
                 "access_type": "Hybrid OA",
             } for j in journals[:10]]
@@ -265,86 +464,73 @@ def _suggest_jane(title: str, abstract: str) -> List[Dict]:
             result = json.loads(resp.read())
             return [{
                 "title": j.get("title", j.get("journal_name", "")),
-                "match_score": j.get("score", 0.5),
-                "source": "JANE (biosemantics)",
-            } for j in (result if isinstance(result, list) else result.get("journals", []))[:10]]
+                "match_score": j.get("score", 0.5), "source": "JANE (biosemantics)",
+                "quartile": "Q2", "review_time": "4-8 weeks",
+            } for j in result[:10]]
     except: return []
 
 
 def _suggest_from_keywords(terms: List[str]) -> List[Dict]:
-    suggestions = []
-    # Popular pharma journals by category
-    pharma_journals = [
-        {"title": "European Journal of Medicinal Chemistry", "quartile": "Q1", "apc": "$2,800", "access_type": "Hybrid OA", "review_time": "6 weeks", "acceptance": "20%", "field": "medicinal chemistry", "publisher": "Elsevier"},
-        {"title": "Journal of Medicinal Chemistry", "quartile": "Q1", "apc": "$3,500", "access_type": "Hybrid OA", "review_time": "8 weeks", "acceptance": "15%", "field": "medicinal chemistry", "publisher": "ACS"},
-        {"title": "Bioorganic & Medicinal Chemistry Letters", "quartile": "Q2", "apc": "$2,200", "access_type": "Hybrid OA", "review_time": "4 weeks", "acceptance": "35%", "field": "medicinal chemistry", "publisher": "Elsevier"},
-        {"title": "Pharmaceutical Research", "quartile": "Q1", "apc": "$3,190", "access_type": "Hybrid OA", "review_time": "10 weeks", "acceptance": "25%", "field": "pharmaceutics", "publisher": "Springer"},
-        {"title": "International Journal of Pharmaceutics", "quartile": "Q1", "apc": "$2,950", "access_type": "Hybrid OA", "review_time": "6 weeks", "acceptance": "30%", "field": "pharmaceutics", "publisher": "Elsevier"},
-        {"title": "Drug Discovery Today", "quartile": "Q1", "apc": "$3,500", "access_type": "Hybrid OA", "review_time": "8 weeks", "acceptance": "18%", "field": "drug discovery", "publisher": "Elsevier"},
-        {"title": "Journal of Pharmaceutical Sciences", "quartile": "Q2", "apc": "$2,500", "access_type": "Hybrid OA", "review_time": "6 weeks", "acceptance": "28%", "field": "pharmaceutical sciences", "publisher": "Elsevier"},
-        {"title": "Molecules", "quartile": "Q2", "apc": "$2,200", "access_type": "OA", "review_time": "3 weeks", "acceptance": "45%", "field": "chemistry", "publisher": "MDPI"},
-        {"title": "RSC Medicinal Chemistry", "quartile": "Q2", "apc": "$0", "access_type": "Subscription", "review_time": "8 weeks", "acceptance": "25%", "field": "medicinal chemistry", "publisher": "RSC"},
-        {"title": "ChemMedChem", "quartile": "Q2", "apc": "$3,200", "access_type": "Hybrid OA", "review_time": "6 weeks", "acceptance": "22%", "field": "medicinal chemistry", "publisher": "Wiley"},
-        {"title": "Frontiers in Pharmacology", "quartile": "Q1", "apc": "$2,950", "access_type": "OA", "review_time": "3 weeks", "acceptance": "60%", "field": "pharmacology", "publisher": "Frontiers"},
-        {"title": "PLOS ONE", "quartile": "Q1", "apc": "$1,749", "access_type": "OA", "review_time": "4 weeks", "acceptance": "50%", "field": "multidisciplinary", "publisher": "PLOS"},
-    ]
-
-    for j in pharma_journals:
-        relevance = _compute_relevance(terms, j)
-        if relevance > 0.3:
-            j["match_score"] = relevance
-            j["source"] = "BioDockify DB"
-            suggestions.append(j)
-
-    suggestions.sort(key=lambda s: -s.get("match_score", 0))
-    return suggestions[:10]
+    """Fallback: suggest from keyword-matched DB query."""
+    if not terms:
+        return []
+    result = _query_db(query=" ".join(terms[:3]), limit=12)
+    return [{
+        "title": j.get("title", ""), "publisher": j.get("publisher", ""),
+        "scopus": bool(j.get("scopus_indexed")), "wos": bool(j.get("wos_indexed")),
+        "oa": j.get("oa_status") == "OA", "source": "Biodockify DB",
+        "match_score": 0.4, "access_type": "OA" if j.get("oa_status") == "OA" else "Subscription",
+    } for j in result.get("journals", [])]
 
 
-# ── Helpers ───────────────────────────────────────────────────
+# ── Scoring helpers ──
 
 def _extract_terms(title: str, abstract: str, keywords: str) -> List[str]:
     text = f"{title} {abstract} {keywords}".lower()
-    terms = set()
-    common_pharma = [
-        "kinase", "inhibitor", "receptor", "drug", "cancer", "cell", "molecule",
-        "synthesis", "assay", "pharmacokinetic", "toxicity", "formulation",
-        "nanoparticle", "peptide", "protein", "enzyme", "metabolism", "gene",
-        "clinical", "trial", "biomarker", "pharmacology", "medicinal", "chemistry",
-        "pharmaceutics", "delivery", "target", "ligand", "binding", "dose",
-        "quinazoline", "egfr", "nsclc", "therapeutic", "antimicrobial", "antibiotic",
-        "vaccine", "immunotherapy", "biologic", "biosimilar", "pharmacodynamics"
-    ]
-    for term in common_pharma:
-        if term in text:
-            terms.add(term)
-    return list(terms)
+    words = re.findall(r'[a-z]{4,}', text)
+    stop = {"this", "that", "with", "from", "have", "been", "were", "their", "which", "about", "into", "also", "than", "other"}
+    terms = [w for w in words if w not in stop]
+    return list(dict.fromkeys(terms))[:20]
 
 
 def _compute_relevance(terms: List[str], journal: Dict) -> float:
-    field = (journal.get("field", "") + " " + journal.get("title", "")).lower()
-    matches = sum(1 for t in terms if t in field)
-    return min(1.0, matches / max(1, len(terms)) * 2)
+    score = 0.0
+    j_text = f"{journal.get('title', '')} {journal.get('publisher', '')}".lower()
+    for term in terms[:10]:
+        if term in j_text:
+            score += 0.1
+    return min(score, 1.0)
 
 
 def _authority_score(journal: Dict) -> float:
-    q_scores = {"Q1": 1.0, "Q2": 0.75, "Q3": 0.5, "Q4": 0.25}
-    return q_scores.get(journal.get("quartile", "Q4"), 0.25)
+    score = 0.2
+    pub = journal.get("publisher", "").lower()
+    for lp in LEGITIMATE_PUBLISHERS:
+        if lp in pub:
+            score += 0.15
+    if journal.get("scopus") or journal.get("wos"):
+        score += 0.2
+    if journal.get("quartile") in ("Q1", "Q2"):
+        score += 0.15
+    return min(score, 1.0)
 
 
 def _speed_score(journal: Dict) -> float:
-    rt = journal.get("review_time", "8 weeks")
-    nums = re.findall(r"(\d+)", rt)
-    weeks = int(nums[0]) if nums else 8
-    return max(0, 1.0 - weeks / 26)
+    rt = journal.get("review_time", "")
+    if "2-4" in rt or "4 weeks" in rt: return 0.9
+    if "6-8" in rt or "6-10" in rt: return 0.7
+    if "8-12" in rt or "10-12" in rt: return 0.4
+    return 0.5
 
 
 def _access_score(journal: Dict) -> float:
-    atype = journal.get("access_type", "")
-    if "OA" in atype: return 1.0
-    if "Hybrid" in atype: return 0.7
-    return 0.3
+    if journal.get("oa") or journal.get("access_type") == "OA":
+        return 1.0
+    return 0.5
 
 
 def _parse_apc(apc_str: str) -> int:
-    nums = re.findall(r"[\d,]+", apc_str)
-    return int(nums[0].replace(",", "")) if nums else 0
+    try:
+        return int(re.sub(r'[^\d]', '', str(apc_str)))
+    except:
+        return 0
