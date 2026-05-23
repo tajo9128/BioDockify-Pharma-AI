@@ -24,12 +24,52 @@ class HealthCheck(ApiHandler):
         except Exception as e:
             error = errors.error_text(e)
 
-        health = {"status": "ok"}
+        health = {"status": "ok", "checks": []}
         try:
-            from api.system_health import SystemHealth
-            health_check = SystemHealth()
-            health = await health_check.process({"action": "all"}, request)
-        except Exception:
-            pass
+            import subprocess, os, shutil
+            import socket
 
-        return {"gitinfo": gitinfo, "health": health, "error": error}
+            # Internet
+            try:
+                socket.create_connection(("8.8.8.8", 53), timeout=3)
+                health["checks"].append({"name": "Internet", "status": "ok"})
+            except:
+                health["checks"].append({"name": "Internet", "status": "fail"})
+
+            # Vina
+            try:
+                r = subprocess.run(["vina", "--help"], capture_output=True, timeout=5)
+                health["checks"].append({"name": "AutoDock Vina", "status": "ok" if r.returncode <= 1 else "fail"})
+            except:
+                health["checks"].append({"name": "AutoDock Vina", "status": "fail", "detail": "Not installed"})
+
+            # GNINA
+            try:
+                r = subprocess.run(["gnina", "--help"], capture_output=True, timeout=5)
+                gnina_ok = r.returncode <= 1
+            except:
+                gnina_ok = False
+            health["checks"].append({"name": "GNINA CNN", "status": "ok" if gnina_ok else "fail", "detail": "Available" if gnina_ok else "Not installed — run: apt install gnina or add to Dockerfile"})
+
+            # RDKit
+            try:
+                from rdkit import Chem
+                ok = Chem.MolFromSmiles("CCO") is not None
+                health["checks"].append({"name": "RDKit", "status": "ok" if ok else "fail"})
+            except:
+                health["checks"].append({"name": "RDKit", "status": "fail"})
+
+            # Disk
+            usage = shutil.disk_usage("/")
+            free_gb = round(usage.free / (1024**3), 1)
+            health["checks"].append({"name": "Disk", "status": "ok", "detail": f"{free_gb}GB free"})
+
+            # Overall
+            fails = [c for c in health["checks"] if c["status"] == "fail"]
+            health["status"] = "healthy" if not fails else "degraded"
+
+        except Exception as e:
+            health["status"] = "error"
+            health["error"] = str(e)
+
+        return {"status": "ok", "gitinfo": gitinfo, "health": health, "error": error}

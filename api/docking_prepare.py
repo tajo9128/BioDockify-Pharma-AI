@@ -311,7 +311,7 @@ def _validate_pdbqt(filepath: str) -> tuple:
                 if len(line) < 79:
                     type_errors += 1
                     continue
-                charge_str = line[70:76].strip()
+                charge_str = line[68:76].strip()
                 if charge_str == '':
                     charge_errors += 1
                 else:
@@ -327,7 +327,7 @@ def _validate_pdbqt(filepath: str) -> tuple:
             return False, "No ATOM/HETATM records found"
 
         if charge_errors > atom_count * 0.5:
-            return False, f"{charge_errors}/{atom_count} atoms have invalid charges (cols 71-76)"
+            return False, f"{charge_errors}/{atom_count} atoms have invalid charges (cols 69-76)"
         if type_errors > atom_count * 0.5:
             return False, f"{type_errors}/{atom_count} atoms have invalid atom types (cols 78-79)"
 
@@ -338,7 +338,6 @@ def _validate_pdbqt(filepath: str) -> tuple:
 
 def _sanitize_pdbqt(filepath: str) -> tuple:
     """Fix common PDBQT issues: empty charges, bad atom types. Returns (ok, detail, path)."""
-    import os, tempfile, shutil
     try:
         with open(filepath, 'r') as f:
             lines = f.readlines()
@@ -358,21 +357,24 @@ def _sanitize_pdbqt(filepath: str) -> tuple:
                     out_lines.append(line.rstrip() + ' ' * (79 - len(line.rstrip())) + '\n')
                     fixed += 1
                     continue
-                charge_str = line[70:76].strip()
+                charge_str = line[68:76].strip()
                 if charge_str == '':
-                    line = line[:70] + '  0.00' + line[76:]
+                    line = line[:68] + '   0.000' + line[76:]
                     fixed += 1
                 else:
                     try:
                         float(charge_str)
                     except ValueError:
-                        line = line[:70] + '  0.00' + line[76:]
+                        line = line[:68] + '   0.000' + line[76:]
                         fixed += 1
                 atype = line[77:79].strip()
                 if atype == '' or atype == 'X':
-                    element = line[76:78].strip()
-                    if not element:
-                        element = line[12:16].strip()[:2].rstrip('0123456789')
+                    element = line[12:16].strip()
+                    if not element or element[0] not in 'CHONPSFClBrI':
+                        element = line[76:78].strip()
+                    element = (element or 'C').rstrip('0123456789')
+                    if len(element) > 2:
+                        element = element[:2].rstrip('0123456789')
                     default = ELEMENT_TO_ATYPE.get(element, 'C')
                     line = line[:77] + default.ljust(2) + line[79:]
                     fixed += 1
