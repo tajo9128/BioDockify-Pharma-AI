@@ -4,8 +4,28 @@
     import { createStore } from "/js/AlpineStore.js";
     import { callJsonApi } from "/js/api.js";
     export const store = createStore("pharmacophore", {
+      activeTab: "generate",
       smiles: "", features: [], featureSummary: {}, loading: false, error: "",
       querySmiles: "", librarySmiles: "", hits: [], screenLoading: false,
+      // Protein modeling
+      proteinPdb: "", proteinCenter: "", proteinCutoff: "8.0", proteinFeatures: [], proteinSummary: {},
+      proteinResidues: [], pmExport: "",
+      // Shared/Merged models
+      modelSmilesList: "", sharedFeatures: [], mergedFeatures: [], modelType: "shared",
+      // Overlay
+      overlayMols: "", overlayResults: [],
+      // Target ID
+      targetSmiles: "", targetConformers: "10", targetResults: null,
+      // Hypothesis
+      activeSmiles: "", hypothesis: [],
+      // NCI info
+      nciTypes: null, nciLoaded: false,
+
+      async init() { await this.loadNciTypes(); },
+      async loadNciTypes() {
+        try { const r = await callJsonApi("pharmacophore", { action: "nci_types" }); this.nciTypes = r; this.nciLoaded = true; } catch (e) {}
+      },
+
       async generate() {
         if (!this.smiles) { this.error = "Enter a SMILES string"; return; }
         this.loading = true; this.error = "";
@@ -18,67 +38,300 @@
         try { const r = await callJsonApi("pharmacophore", { action: "screen", query_smiles: this.querySmiles, library_smiles: this.librarySmiles }); if (!r.success) { this.error = r.error; } else { this.hits = r.hits; } } catch (e) { this.error = e.message; }
         this.screenLoading = false;
       },
-      fColor(t) { const c = {Donor:'#4169E1',Acceptor:'#DC143C',Hydrophobic:'#FFD700',Aromatic:'#9932CC',PosIonizable:'#32CD32',NegIonizable:'#FF8C00'}; return c[t]||'#888' },
+      async proteinModel() {
+        if (!this.proteinPdb) { this.error = "Enter protein PDB"; return; }
+        this.loading = true; this.error = "";
+        const payload = { action: "protein_model", protein_pdb: this.proteinPdb };
+        if (this.proteinCenter) {
+          const parts = this.proteinCenter.split(",").map(s => parseFloat(s.trim()));
+          if (parts.length === 3 && parts.every(n => !isNaN(n))) payload.center = { x: parts[0], y: parts[1], z: parts[2] };
+        }
+        payload.cutoff = parseFloat(this.proteinCutoff) || 8.0;
+        try { const r = await callJsonApi("pharmacophore", payload); if (!r.success) { this.error = r.error; } else { this.proteinFeatures = r.features; this.proteinSummary = r.feature_summary; this.proteinResidues = r.binding_site_residues || []; this.pmExport = r.pm_export || ""; } } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async sharedMergedModel() {
+        if (!this.modelSmilesList) { this.error = "Enter SMILES (one per line)"; return; }
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("pharmacophore", { action: this.modelType === "shared" ? "shared_model" : "merged_model", smiles_list: this.modelSmilesList });
+          if (!r.success) { this.error = r.error; }
+          else { this.sharedFeatures = r.shared_features || []; this.mergedFeatures = r.merged_features || []; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async overlay() {
+        if (!this.overlayMols) { this.error = "Enter SMILES"; return; }
+        this.loading = true; this.error = "";
+        try { const r = await callJsonApi("pharmacophore", { action: "overlay", smiles_list: this.overlayMols }); if (!r.success) { this.error = r.error; } else { this.overlayResults = r; } } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async identifyTargets() {
+        if (!this.targetSmiles) { this.error = "Enter SMILES"; return; }
+        this.loading = true; this.error = "";
+        try { const r = await callJsonApi("pharmacophore", { action: "identify_targets", smiles: this.targetSmiles, num_conformers: parseInt(this.targetConformers) || 10 }); if (!r.success) { this.error = r.error; } else { this.targetResults = r; } } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async runHypothesis() {
+        if (!this.activeSmiles) { this.error = "Enter active SMILES"; return; }
+        this.loading = true; this.error = "";
+        try { const r = await callJsonApi("pharmacophore", { action: "hypothesis", active_smiles: this.activeSmiles }); if (!r.success) { this.error = r.error; } else { this.hypothesis = r.hypothesis || []; } } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+      fColor(t) { const c = {Donor:'#4169E1',Acceptor:'#DC143C',Hydrophobic:'#FFD700',Aromatic:'#9932CC',PosIonizable:'#32CD32',NegIonizable:'#FF8C00',HBond_donor:'#4169E1',HBond_acceptor:'#DC143C',Cation:'#32CD32',Anion:'#FF8C00',Halogen:'#00CED1'}; return c[t]||'#888' },
+      copyPm() { if (this.pmExport) { navigator.clipboard.writeText(this.pmExport); } },
     });
   </script>
 </head>
 <body>
   <div x-data class="nb-panel">
-    <div class="nb-header"><span class="material-symbols-outlined nb-icon">ads_click</span><div><h2>Pharmacophore</h2><p class="nb-sub">Feature detection & library screening</p></div></div>
+    <div class="nb-header"><span class="material-symbols-outlined nb-icon">ads_click</span><div><h2>Pharmacophore</h2><p class="nb-sub">Feature detection · Protein models · Screening · Target ID</p></div></div>
     <div x-show="$store.pharmacophore.error" class="nb-error" x-text="$store.pharmacophore.error"></div>
+    <div x-show="$store.pharmacophore.loading" class="nb-loading" style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:0.7rem"><div class="loading-spinner" style="width:14px;height:14px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin 0.8s linear infinite"></div><span>Computing...</span></div>
+
+    <!-- Tabs -->
+    <div class="nb-tabs">
+      <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='generate'}" @click="$store.pharmacophore.activeTab='generate'">Ligand</button>
+      <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='protein'}" @click="$store.pharmacophore.activeTab='protein'">Protein Model</button>
+      <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='screen'}" @click="$store.pharmacophore.activeTab='screen'">Screening</button>
+      <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='models'}" @click="$store.pharmacophore.activeTab='models'">Shared/Merged</button>
+      <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='overlay'}" @click="$store.pharmacophore.activeTab='overlay'">Overlay</button>
+      <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='target'}" @click="$store.pharmacophore.activeTab='target'">Target ID</button>
+      <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='hypothesis'}" @click="$store.pharmacophore.activeTab='hypothesis'">Hypothesis</button>
+      <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='info'}" @click="$store.pharmacophore.activeTab='info'">NCI</button>
+    </div>
 
     <div class="nb-content">
-      <div class="nb-form"><h4>Generate Pharmacophore</h4>
-        <div class="nb-form-row">
-          <input type="text" x-model="$store.pharmacophore.smiles" placeholder="SMILES (e.g. CC(=O)Oc1ccccc1C(=O)O)" class="nb-input flex-1" style="font-family:monospace" @keyup.enter="$store.pharmacophore.generate()" />
-          <button class="nb-btn-primary" @click="$store.pharmacophore.generate()" style="flex:none;width:auto" :disabled="$store.pharmacophore.loading || !$store.pharmacophore.smiles">Generate</button>
+      <!-- Ligand Generate -->
+      <div x-show="$store.pharmacophore.activeTab === 'generate'">
+        <div class="nb-form"><h4>Generate Ligand Pharmacophore</h4>
+          <div class="nb-form-row">
+            <input type="text" x-model="$store.pharmacophore.smiles" placeholder="SMILES (e.g. CC(=O)Oc1ccccc1C(=O)O)" class="nb-input flex-1" style="font-family:monospace" @keyup.enter="$store.pharmacophore.generate()" />
+            <button class="nb-btn-primary" @click="$store.pharmacophore.generate()" :disabled="$store.pharmacophore.loading || !$store.pharmacophore.smiles">Generate</button>
+          </div>
+          <template x-if="$store.pharmacophore.features.length">
+            <div style="margin-top:6px">
+              <div class="nb-entry-meta" x-text="$store.pharmacophore.features.length + ' features found'"></div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap">
+                <template x-for="(count, type) in $store.pharmacophore.featureSummary">
+                  <span style="padding:2px 8px;border-radius:4px;font-size:0.55rem;font-weight:600;color:white" :style="'background:' + $store.pharmacophore.fColor(type)" x-text="type + ': ' + count"></span>
+                </template>
+              </div>
+            </div>
+          </template>
         </div>
-        <div x-show="$store.pharmacophore.loading" class="nb-loading"><div class="loading-spinner"></div><span>Extracting features...</span></div>
-        <template x-if="$store.pharmacophore.features.length">
-          <div style="margin-top:6px"><div class="nb-entry-meta" style="margin-bottom:4px" x-text="$store.pharmacophore.features.length + ' features found'"></div><div style="display:flex;gap:4px;flex-wrap:wrap"><template x-for="(count, type) in $store.pharmacophore.featureSummary"><span style="padding:2px 8px;border-radius:4px;font-size:0.55rem;font-weight:600;color:white" :style="'background:' + $store.pharmacophore.fColor(type)" x-text="type + ': ' + count"></span></template></div></div>
-        </template>
       </div>
 
-      <div class="nb-form"><h4>Library Screening</h4>
-        <input type="text" x-model="$store.pharmacophore.querySmiles" placeholder="Query SMILES" class="nb-input-sm" style="margin-bottom:4px;font-family:monospace" />
-        <textarea x-model="$store.pharmacophore.librarySmiles" placeholder="Library SMILES (one per line)..." class="nb-textarea" style="font-family:monospace"></textarea>
-        <button class="nb-btn-primary" @click="$store.pharmacophore.screen()" :disabled="$store.pharmacophore.screenLoading || !$store.pharmacophore.querySmiles || !$store.pharmacophore.librarySmiles">Screen Library</button>
-        <template x-if="$store.pharmacophore.hits.length">
-          <div style="margin-top:6px"><div class="nb-entry-meta" x-text="$store.pharmacophore.hits.length + ' hits'"></div>
-            <template x-for="h in $store.pharmacophore.hits">
-              <div class="nb-entry-card" style="display:flex;justify-content:space-between"><span class="nb-entry-title" style="font-family:monospace" x-text="h.smiles.substring(0,50)"></span><span style="color:var(--color-primary);font-weight:600;font-size:0.6rem" x-text="(h.score * 100).toFixed(0) + '%'"></span></div>
-            </template>
+      <!-- Protein Model -->
+      <div x-show="$store.pharmacophore.activeTab === 'protein'">
+        <div class="nb-form"><h4>Protein-Based Pharmacophore Model</h4>
+          <textarea x-model="$store.pharmacophore.proteinPdb" placeholder="Paste protein PDB content..." class="nb-textarea" style="font-family:monospace;min-height:100px"></textarea>
+          <div class="nb-form-row" style="margin-top:4px">
+            <input type="text" x-model="$store.pharmacophore.proteinCenter" placeholder="Center (x,y,z) — optional" class="nb-input-sm" style="flex:1" />
+            <input type="number" x-model="$store.pharmacophore.proteinCutoff" placeholder="Cutoff Å" class="nb-input-sm" style="width:70px" />
+            <button class="nb-btn-primary" @click="$store.pharmacophore.proteinModel()" :disabled="$store.pharmacophore.loading || !$store.pharmacophore.proteinPdb">Model</button>
           </div>
-        </template>
+          <template x-if="$store.pharmacophore.proteinFeatures.length">
+            <div style="margin-top:6px">
+              <div class="nb-entry-meta" x-text="$store.pharmacophore.proteinFeatures.length + ' features from ' + $store.pharmacophore.proteinResidues.length + ' residues'"></div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
+                <template x-for="(count, type) in $store.pharmacophore.proteinSummary">
+                  <span style="padding:2px 8px;border-radius:4px;font-size:0.55rem;font-weight:600;color:white" :style="'background:' + $store.pharmacophore.fColor(type)" x-text="type + ': ' + count"></span>
+                </template>
+              </div>
+              <div class="nb-entry-meta" style="font-size:0.58rem" x-text="$store.pharmacophore.proteinResidues.slice(0,30).join(', ') + ($store.pharmacophore.proteinResidues.length > 30 ? '...' : '')"></div>
+              <button class="nb-btn-secondary" @click="$store.pharmacophore.copyPm()" x-show="$store.pharmacophore.pmExport" style="margin-top:4px;font-size:0.6rem">📋 Copy .pm export</button>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Screening -->
+      <div x-show="$store.pharmacophore.activeTab === 'screen'">
+        <div class="nb-form"><h4>Library Screening</h4>
+          <input type="text" x-model="$store.pharmacophore.querySmiles" placeholder="Query SMILES" class="nb-input-sm" style="margin-bottom:4px;font-family:monospace" />
+          <textarea x-model="$store.pharmacophore.librarySmiles" placeholder="Library SMILES (one per line)..." class="nb-textarea" style="font-family:monospace"></textarea>
+          <button class="nb-btn-primary" @click="$store.pharmacophore.screen()" :disabled="$store.pharmacophore.screenLoading || !$store.pharmacophore.querySmiles || !$store.pharmacophore.librarySmiles">Screen Library</button>
+          <template x-if="$store.pharmacophore.hits.length">
+            <div style="margin-top:6px">
+              <div class="nb-entry-meta" x-text="$store.pharmacophore.hits.length + ' hits (weighted screening)'"></div>
+              <template x-for="h in $store.pharmacophore.hits">
+                <div class="nb-entry-card" style="display:flex;justify-content:space-between;align-items:center">
+                  <div><span class="nb-entry-title" style="font-family:monospace" x-text="h.smiles.substring(0,45)"></span>
+                  <div style="font-size:0.52rem;color:var(--color-text-muted)" x-text="(h.matched_types || []).join(', ')"></div></div>
+                  <span style="color:var(--color-primary);font-weight:600;font-size:0.65rem" x-text="h.weighted_score + '%'"></span>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Shared/Merged Models -->
+      <div x-show="$store.pharmacophore.activeTab === 'models'">
+        <div class="nb-form"><h4>Shared / Merged Pharmacophore Model</h4>
+          <div class="nb-form-row" style="gap:4px">
+            <button class="nb-tab-sm" :class="{active:$store.pharmacophore.modelType=='shared'}" @click="$store.pharmacophore.modelType='shared'">Shared (∩)</button>
+            <button class="nb-tab-sm" :class="{active:$store.pharmacophore.modelType=='merged'}" @click="$store.pharmacophore.modelType='merged'">Merged (∪)</button>
+          </div>
+          <textarea x-model="$store.pharmacophore.modelSmilesList" placeholder="SMILES (one per line)..." class="nb-textarea" style="font-family:monospace;margin-top:4px"></textarea>
+          <button class="nb-btn-primary" @click="$store.pharmacophore.sharedMergedModel()" :disabled="$store.pharmacophore.loading || !$store.pharmacophore.modelSmilesList">Generate</button>
+          <template x-if="$store.pharmacophore.sharedFeatures.length">
+            <div style="margin-top:6px">
+              <div class="nb-entry-meta" x-text="$store.pharmacophore.sharedFeatures.length + ' shared features'"></div>
+              <template x-for="f in $store.pharmacophore.sharedFeatures">
+                <div class="nb-entry-card" style="display:flex;align-items:center;gap:6px">
+                  <span class="nb-dot" :style="'background:' + $store.pharmacophore.fColor(f.type)"></span>
+                  <span style="font-weight:600;font-size:0.6rem" x-text="f.type"></span>
+                  <span style="font-size:0.55rem;color:var(--color-text-muted)" x-text="'pos:('+f.position.x+','+f.position.y+','+f.position.z+')'"></span>
+                  <span style="font-size:0.52rem;color:var(--color-primary);margin-left:auto" x-text="f.coverage + ' coverage'"></span>
+                </div>
+              </template>
+            </div>
+          </template>
+          <template x-if="$store.pharmacophore.mergedFeatures.length">
+            <div style="margin-top:6px">
+              <div class="nb-entry-meta" x-text="$store.pharmacophore.mergedFeatures.length + ' merged features'"></div>
+              <template x-for="f in $store.pharmacophore.mergedFeatures.slice(0,20)">
+                <div class="nb-entry-card" style="display:flex;align-items:center;gap:4px">
+                  <span class="nb-dot" :style="'background:' + $store.pharmacophore.fColor(f.type)"></span>
+                  <span style="font-size:0.55rem;color:var(--color-text-muted)" x-text="f.source?.substring(0,20)"></span>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Overlay -->
+      <div x-show="$store.pharmacophore.activeTab === 'overlay'">
+        <div class="nb-form"><h4>Feature-Based Alignment Overlay</h4>
+          <textarea x-model="$store.pharmacophore.overlayMols" placeholder="SMILES (one per line)..." class="nb-textarea" style="font-family:monospace"></textarea>
+          <button class="nb-btn-primary" @click="$store.pharmacophore.overlay()" :disabled="$store.pharmacophore.loading || !$store.pharmacophore.overlayMols">Compute Overlay</button>
+          <template x-if="$store.pharmacophore.overlayResults.molecules">
+            <div style="margin-top:6px">
+              <div class="nb-entry-meta" x-text="$store.pharmacophore.overlayResults.num_molecules + ' molecules, ' + $store.pharmacophore.overlayResults.pairwise_overlap.length + ' pairs'"></div>
+              <template x-for="p in $store.pharmacophore.overlayResults.pairwise_overlap.slice(0,10)">
+                <div class="nb-entry-card" style="display:flex;justify-content:space-between">
+                  <span style="font-size:0.55rem" x-text="p.mol1 + ' ↔ ' + p.mol2"></span>
+                  <span style="color:var(--color-primary);font-weight:600;font-size:0.55rem" x-text="Math.round(p.jaccard*100) + '% Jaccard'"></span>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Target ID -->
+      <div x-show="$store.pharmacophore.activeTab === 'target'">
+        <div class="nb-form"><h4>Target Identification (Reverse Screening)</h4>
+          <p style="font-size:0.58rem;color:var(--color-text-muted);margin:2px 0">PharmMapper-style multi-conformer pharmacophore profiling</p>
+          <div class="nb-form-row">
+            <input type="text" x-model="$store.pharmacophore.targetSmiles" placeholder="Query SMILES" class="nb-input flex-1" style="font-family:monospace" />
+            <input type="number" x-model="$store.pharmacophore.targetConformers" placeholder="N conf" class="nb-input-sm" style="width:60px" min="1" max="100" />
+            <button class="nb-btn-primary" @click="$store.pharmacophore.identifyTargets()" :disabled="$store.pharmacophore.loading || !$store.pharmacophore.targetSmiles">Profile</button>
+          </div>
+          <template x-if="$store.pharmacophore.targetResults">
+            <div style="margin-top:6px">
+              <div class="nb-entry-meta" x-text="$store.pharmacophore.targetResults.num_conformers_generated + '/' + $store.pharmacophore.targetResults.num_conformers_requested + ' conformers, ' + $store.pharmacophore.targetResults.total_feature_types + ' feature types'"></div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px">
+                <template x-for="t in $store.pharmacophore.targetResults.all_types">
+                  <span style="padding:1px 6px;border-radius:3px;font-size:0.5rem;font-weight:600;color:white" :style="'background:' + $store.pharmacophore.fColor(t)" x-text="t"></span>
+                </template>
+              </div>
+              <div style="font-size:0.55rem;color:var(--color-text-muted)">Best conformer: <span x-text="$store.pharmacophore.targetResults.best_conformer?.num_features"></span> features</div>
+              <template x-for="cs in $store.pharmacophore.targetResults.conformer_scores.slice(0,5)">
+                <div class="nb-entry-card" style="display:flex;justify-content:space-between">
+                  <span style="font-size:0.55rem" x-text="'Conf #' + cs.seed + ' (' + cs.num_features + ' feats)'"></span>
+                  <span style="color:var(--color-primary);font-weight:600;font-size:0.55rem" x-text="'score: ' + cs.score.toFixed(3)"></span>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Hypothesis -->
+      <div x-show="$store.pharmacophore.activeTab === 'hypothesis'">
+        <div class="nb-form"><h4>Common Feature Hypothesis</h4>
+          <textarea x-model="$store.pharmacophore.activeSmiles" placeholder="Active SMILES (one per line, min 2)..." class="nb-textarea" style="font-family:monospace"></textarea>
+          <button class="nb-btn-primary" @click="$store.pharmacophore.runHypothesis()" :disabled="$store.pharmacophore.loading || !$store.pharmacophore.activeSmiles">Generate</button>
+          <template x-if="$store.pharmacophore.hypothesis.length">
+            <div style="margin-top:6px">
+              <div class="nb-entry-meta" x-text="$store.pharmacophore.hypothesis.length + ' common features'"></div>
+              <template x-for="h in $store.pharmacophore.hypothesis">
+                <div class="nb-entry-card" style="display:flex;align-items:center;gap:6px">
+                  <span class="nb-dot" :style="'background:' + h.color"></span>
+                  <span style="font-weight:600;font-size:0.6rem" x-text="h.type"></span>
+                  <span style="font-size:0.55rem;color:var(--color-text-muted)" x-text="'r:' + h.radius"></span>
+                  <span style="font-size:0.52rem;color:var(--color-primary);margin-left:auto" x-text="Math.round(h.coverage*100) + '%'"></span>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- NCI Info -->
+      <div x-show="$store.pharmacophore.activeTab === 'info'">
+        <div class="nb-form"><h4>NCI Interaction Types & Weights</h4>
+          <template x-if="$store.pharmacophore.nciTypes">
+            <div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px">
+                <template x-for="(desc, type) in $store.pharmacophore.nciTypes.nci_types">
+                  <div class="nb-entry-card" style="font-size:0.55rem;padding:4px 6px">
+                    <span style="font-weight:600;color:var(--color-primary)" x-text="type"></span>
+                    <span style="color:var(--color-text-muted);display:block" x-text="desc"></span>
+                  </div>
+                </template>
+              </div>
+              <div class="nb-entry-meta">Default Screening Weights</div>
+              <template x-for="(w, type) in $store.pharmacophore.nciTypes.feature_weights">
+                <div class="nb-entry-card" style="display:flex;justify-content:space-between;font-size:0.55rem">
+                  <span x-text="type"></span>
+                  <span style="font-weight:700;color:var(--color-primary)" x-text="'×' + w"></span>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
       </div>
     </div>
 
     <style>
       .nb-panel { display:flex;flex-direction:column;height:100%;overflow:hidden;padding:10px 14px;background:var(--color-background) }
-      .nb-header { display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-shrink:0 }
+      .nb-header { display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-shrink:0 }
       .nb-icon { font-size:22px;color:var(--color-primary) }
       .nb-header h2 { color:var(--color-primary);font-size:0.9rem;margin:0;font-weight:700 }
-      .nb-sub { color:var(--color-text-muted);font-size:0.58rem;margin:0 }
-      .nb-content { flex:1;overflow-y:auto;min-width:0;min-height:0 }
-      .nb-error { padding:4px 8px;background:rgba(255,107,107,0.1);border-radius:4px;color:var(--color-error-text);font-size:0.6rem;margin-bottom:4px }
-      .nb-loading { display:flex;align-items:center;gap:5px;font-size:0.62rem;color:var(--color-text-muted);margin-bottom:4px }
-      .loading-spinner { width:12px;height:12px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin 0.8s linear infinite }
-      @keyframes spin { to { transform:rotate(360deg) } }
-      .nb-form { padding:8px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:8px }
-      .nb-form h4 { font-size:0.64rem;font-weight:600;color:var(--color-primary);margin:0 0 6px 0 }
+      .nb-sub { color:var(--color-text-muted);font-size:0.62rem;margin:0 }
+      .nb-error { padding:4px 8px;font-size:0.62rem;background:rgba(255,107,107,0.1);color:#ff6b6b;border-radius:4px;margin-bottom:4px }
+      .nb-loading { color:var(--color-text-muted);font-size:0.65rem;margin-bottom:4px }
+      .nb-tabs { display:flex;gap:2px;margin-bottom:6px;flex-shrink:0;flex-wrap:wrap }
+      .nb-tab { padding:3px 8px;background:transparent;border:1px solid var(--color-border);border-radius:4px;color:var(--color-text-muted);cursor:pointer;font-size:0.58rem;font-weight:500;transition:all 0.12s }
+      .nb-tab:hover { border-color:var(--color-primary);color:var(--color-text) }
+      .nb-tab.active { background:var(--color-primary);color:white;border-color:var(--color-primary) }
+      .nb-tab-sm { padding:2px 10px;background:transparent;border:1px solid var(--color-border);border-radius:3px;color:var(--color-text-muted);cursor:pointer;font-size:0.58rem }
+      .nb-tab-sm.active { background:var(--color-primary);color:white;border-color:var(--color-primary) }
+      .nb-content { flex:1;overflow-y:auto }
+      .nb-form { margin-bottom:8px }
+      .nb-form h4 { font-size:0.7rem;font-weight:600;color:var(--color-text);margin:0 0 4px 0 }
       .nb-form-row { display:flex;gap:4px;align-items:center }
-      .nb-input { flex:1;padding:6px 10px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-background);color:var(--color-text);font-size:0.68rem;min-width:0 }
+      .nb-input { padding:6px 8px;border:1px solid var(--color-border);border-radius:5px;background:var(--color-panel);color:var(--color-text);font-size:0.65rem }
       .nb-input:focus { outline:none;border-color:var(--color-primary) }
-      .nb-input::placeholder { color:var(--color-text-muted);font-size:0.62rem }
-      .nb-input-sm { width:100%;padding:5px 8px;border:1px solid var(--color-border);border-radius:5px;background:var(--color-background);color:var(--color-text);font-size:0.62rem;box-sizing:border-box }
+      .nb-input-sm { padding:4px 6px;border:1px solid var(--color-border);border-radius:4px;background:var(--color-panel);color:var(--color-text);font-size:0.6rem }
       .nb-input-sm:focus { outline:none;border-color:var(--color-primary) }
-      .nb-textarea { width:100%;padding:5px 8px;border:1px solid var(--color-border);border-radius:5px;background:var(--color-background);color:var(--color-text);font-size:0.62rem;min-height:50px;resize:vertical;box-sizing:border-box;margin-bottom:4px;font-family:monospace }
-      .nb-btn-primary { display:flex;align-items:center;justify-content:center;gap:3px;width:100%;padding:6px 10px;background:var(--color-primary);color:white;border:none;border-radius:6px;cursor:pointer;font-size:0.66rem;font-weight:600;white-space:nowrap;box-sizing:border-box }
-      .nb-btn-primary:disabled { opacity:0.5;cursor:not-allowed }
-      .nb-entry-card { padding:8px 10px;background:var(--color-background);border:1px solid var(--color-border);border-radius:7px;margin-bottom:3px }
-      .nb-entry-title { flex:1;font-size:0.66rem;font-weight:600;color:var(--color-text) }
-      .nb-entry-meta { display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:2px;font-size:0.55rem;color:var(--color-text-muted) }
+      .nb-textarea { width:100%;max-width:100%;min-height:60px;padding:6px 8px;border:1px solid var(--color-border);border-radius:5px;background:var(--color-panel);color:var(--color-text);font-size:0.62rem;resize:vertical;box-sizing:border-box }
+      .nb-textarea:focus { outline:none;border-color:var(--color-primary) }
       .flex-1 { flex:1;min-width:0 }
+      .nb-btn-primary { padding:5px 12px;background:var(--color-primary);border:none;border-radius:5px;color:white;cursor:pointer;font-size:0.65rem;font-weight:600;white-space:nowrap;transition:opacity 0.12s }
+      .nb-btn-primary:disabled { opacity:0.5;cursor:not-allowed }
+      .nb-btn-secondary { padding:3px 8px;background:transparent;border:1px solid var(--color-border);border-radius:4px;color:var(--color-text);cursor:pointer;font-size:0.58rem }
+      .nb-btn-secondary:hover { border-color:var(--color-primary) }
+      .nb-entry-meta { font-size:0.62rem;color:var(--color-text-muted);margin-bottom:2px }
+      .nb-entry-card { padding:4px 6px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:4px;margin-bottom:2px }
+      .nb-entry-title { color:var(--color-text);font-size:0.6rem }
+      .nb-dot { width:8px;height:8px;border-radius:50%;flex-shrink:0 }
+      @keyframes spin { to { transform:rotate(360deg) } }
     </style>
   </div>
 </body>
