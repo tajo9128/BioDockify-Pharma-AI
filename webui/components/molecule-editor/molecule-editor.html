@@ -12,6 +12,8 @@
       activeTab: "3d",
       mw: null, logP: null, hbd: null, hba: null, tpsa: null,
       rotBonds: null, formula: "", lipinskiPass: null, propsLoaded: false,
+      dlScore: null, hergData: null, amesData: null, pkaData: null,
+      bbbData: null, meltingPoint: null,
       pubchemQuery: "", pubchemLoading: false,
       recent: [], jsmeReady: false, _viewerReady: false, _viewer: null,
 
@@ -86,7 +88,14 @@
           if (r.molecular_weight) {
             this.mw = r.molecular_weight; this.logP = r.logp; this.hbd = r.hbd;
             this.hba = r.hba; this.tpsa = r.tpsa; this.rotBonds = r.rotatable_bonds;
-            this.formula = r.formula; this.lipinskiPass = r.lipinski_pass; this.propsLoaded = true;
+            this.formula = r.formula; this.lipinskiPass = r.lipinski_pass;
+            this.propsLoaded = true;
+            this.dlScore = r.druglikeness_score || null;
+            this.hergData = r.herg || null;
+            this.amesData = r.ames || null;
+            this.pkaData = r.pka || null;
+            this.bbbData = r.bbb_permeability || null;
+            this.meltingPoint = r.melting_point || null;
           }
         } catch(e) {}
       },
@@ -352,19 +361,83 @@
           </div>
         </div>
 
-        <div x-show="$store.moleculeEditor.activeTab === 'props'" style="flex:1">
+        <div x-show="$store.moleculeEditor.activeTab === 'props'" style="flex:1;overflow-y:auto">
           <div x-show="!$store.moleculeEditor.propsLoaded" style="padding:20px;text-align:center;color:var(--color-text-muted);font-size:0.62rem">
             Enter SMILES or draw to see properties
           </div>
-          <div x-show="$store.moleculeEditor.propsLoaded" class="me-props">
-            <div class="me-prop"><span class="me-prop-label">Formula</span><span class="me-prop-value" x-text="$store.moleculeEditor.formula || '—'"></span></div>
-            <div class="me-prop"><span class="me-prop-label">MW</span><span class="me-prop-value" x-text="$store.moleculeEditor.mw ? $store.moleculeEditor.mw.toFixed(2) + ' Da' : '—'"></span></div>
-            <div class="me-prop"><span class="me-prop-label">LogP</span><span class="me-prop-value" x-text="$store.moleculeEditor.logP ? $store.moleculeEditor.logP.toFixed(2) : '—'"></span></div>
-            <div class="me-prop"><span class="me-prop-label">TPSA</span><span class="me-prop-value" x-text="$store.moleculeEditor.tpsa ? $store.moleculeEditor.tpsa.toFixed(1) + ' Å²' : '—'"></span></div>
-            <div class="me-prop"><span class="me-prop-label">H-Bond Donors</span><span class="me-prop-value" x-text="$store.moleculeEditor.hbd ?? '—'"></span></div>
-            <div class="me-prop"><span class="me-prop-label">H-Bond Acceptors</span><span class="me-prop-value" x-text="$store.moleculeEditor.hba ?? '—'"></span></div>
-            <div class="me-prop"><span class="me-prop-label">Rotatable Bonds</span><span class="me-prop-value" x-text="$store.moleculeEditor.rotBonds ?? '—'"></span></div>
-            <div class="me-prop"><span class="me-prop-label">Lipinski Rule of 5</span><span class="me-prop-value" :class="$store.moleculeEditor.lipinskiPass ? 'me-prop-pass' : 'me-prop-fail'" x-text="$store.moleculeEditor.lipinskiPass ? 'PASS' : 'FAIL'"></span></div>
+          <div x-show="$store.moleculeEditor.propsLoaded">
+            <!-- Core Properties -->
+            <div class="nb-form" style="margin-bottom:6px"><h4>Core Properties</h4>
+              <div class="me-props">
+                <div class="me-prop"><span class="me-prop-label">Formula</span><span class="me-prop-value" x-text="$store.moleculeEditor.formula || '—'"></span></div>
+                <div class="me-prop"><span class="me-prop-label">MW</span><span class="me-prop-value" x-text="$store.moleculeEditor.mw?.toFixed(2) + ' Da' || '—'"></span></div>
+                <div class="me-prop"><span class="me-prop-label">LogP</span><span class="me-prop-value" x-text="$store.moleculeEditor.logP?.toFixed(2) || '—'"></span></div>
+                <div class="me-prop"><span class="me-prop-label">TPSA</span><span class="me-prop-value" x-text="$store.moleculeEditor.tpsa?.toFixed(1) + ' Å²' || '—'"></span></div>
+                <div class="me-prop"><span class="me-prop-label">H-Bond Donors</span><span class="me-prop-value" x-text="$store.moleculeEditor.hbd ?? '—'"></span></div>
+                <div class="me-prop"><span class="me-prop-label">H-Bond Acceptors</span><span class="me-prop-value" x-text="$store.moleculeEditor.hba ?? '—'"></span></div>
+                <div class="me-prop"><span class="me-prop-label">Rotatable Bonds</span><span class="me-prop-value" x-text="$store.moleculeEditor.rotBonds ?? '—'"></span></div>
+                <div class="me-prop"><span class="me-prop-label">Melting Point</span><span class="me-prop-value" x-text="$store.moleculeEditor.meltingPoint != null ? $store.moleculeEditor.meltingPoint + ' °C' : '—'"></span></div>
+              </div>
+            </div>
+
+            <!-- Drug-likeness Score -->
+            <template x-if="$store.moleculeEditor.dlScore">
+              <div class="nb-form" style="margin-bottom:6px"><h4>Drug-Likeness Score</h4>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="font-size:1.6rem;font-weight:800" :style="'color:' + ($store.moleculeEditor.dlScore.score >= 0.7 ? '#22c55e' : $store.moleculeEditor.dlScore.score >= 0.5 ? '#ffd93d' : '#ef4444')" x-text="$store.moleculeEditor.dlScore.score"></div>
+                  <div>
+                    <div style="font-size:0.72rem;font-weight:600;color:var(--color-text)" x-text="$store.moleculeEditor.dlScore.label"></div>
+                    <div style="font-size:0.52rem;color:var(--color-text-muted)">
+                      <span x-text="$store.moleculeEditor.lipinskiPass ? 'Lipinski: PASS' : 'Lipinski: FAIL (' + $store.moleculeEditor.lipinski?.violations + ' viol)'"></span>
+                    </div>
+                    <div x-show="$store.moleculeEditor.dlScore.violations.length" style="font-size:0.48rem;color:var(--color-text-muted)" x-text="'Issues: ' + $store.moleculeEditor.dlScore.violations.join(', ')"></div>
+                  </div>
+                </div>
+                <div style="margin-top:4px;height:5px;background:var(--color-border);border-radius:3px;overflow:hidden">
+                  <div style="height:100%;border-radius:3px;transition:width 0.4s" :style="'width:'+($store.moleculeEditor.dlScore.score*100)+'%;background:'+($store.moleculeEditor.dlScore.score>=0.7?'#22c55e':$store.moleculeEditor.dlScore.score>=0.5?'#ffd93d':'#ef4444')"></div>
+                </div>
+              </div>
+            </template>
+
+            <!-- Toxicity & Safety -->
+            <div class="nb-form" style="margin-bottom:6px"><h4>Toxicity & Safety</h4>
+              <div class="me-props" style="grid-template-columns:1fr">
+                <template x-if="$store.moleculeEditor.hergData">
+                  <div class="me-prop" style="justify-content:flex-start;gap:8px">
+                    <span style="font-size:0.8rem" x-text="$store.moleculeEditor.hergData.risk === 'Low risk' ? '✅' : $store.moleculeEditor.hergData.risk === 'Moderate risk' ? '⚠️' : '❌'"></span>
+                    <div>
+                      <span class="me-prop-label">hERG Cardiotoxicity</span>
+                      <span style="font-size:0.52rem;color:var(--color-text-muted);display:block" x-text="$store.moleculeEditor.hergData.risk + ' (' + $store.moleculeEditor.hergData.alerts_triggered + '/' + $store.moleculeEditor.hergData.alerts_total + ' alerts)'"></span>
+                    </div>
+                  </div>
+                </template>
+                <template x-if="$store.moleculeEditor.amesData">
+                  <div class="me-prop" style="justify-content:flex-start;gap:8px">
+                    <span style="font-size:0.8rem" x-text="$store.moleculeEditor.amesData.risk === 'Probably non-mutagenic' ? '✅' : $store.moleculeEditor.amesData.risk === 'Possible mutagen' ? '⚠️' : '❌'"></span>
+                    <div>
+                      <span class="me-prop-label">AMES Mutagenicity</span>
+                      <span style="font-size:0.52rem;color:var(--color-text-muted);display:block" x-text="$store.moleculeEditor.amesData.risk + ' (' + $store.moleculeEditor.amesData.alerts_triggered + '/' + $store.moleculeEditor.amesData.alerts_total + ' alerts)'"></span>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Pharmacokinetics -->
+            <div class="nb-form" style="margin-bottom:6px"><h4>Pharmacokinetics</h4>
+              <div class="me-props">
+                <template x-if="$store.moleculeEditor.bbbData">
+                  <div class="me-prop">
+                    <span class="me-prop-label">BBB Permeability</span>
+                    <span class="me-prop-value" :style="'color:'+(($store.moleculeEditor.bbbData.label==='High')?'#22c55e':($store.moleculeEditor.bbbData.label==='Moderate')?'#ffd93d':'#ef4444')" x-text="$store.moleculeEditor.bbbData.label + ' (' + $store.moleculeEditor.bbbData.score + ')'"></span>
+                  </div>
+                </template>
+                <template x-if="$store.moleculeEditor.pkaData">
+                  <div class="me-prop"><span class="me-prop-label">Acidic pKa</span><span class="me-prop-value" x-text="$store.moleculeEditor.pkaData.acidic_pka != null ? $store.moleculeEditor.pkaData.acidic_pka : '—'"></span></div>
+                  <div class="me-prop"><span class="me-prop-label">Basic pKa</span><span class="me-prop-value" x-text="$store.moleculeEditor.pkaData.basic_pka != null ? $store.moleculeEditor.pkaData.basic_pka : '—'"></span></div>
+                </template>
+              </div>
+            </div>
           </div>
         </div>
 
