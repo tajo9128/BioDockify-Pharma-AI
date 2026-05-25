@@ -19,6 +19,8 @@
       superposedModels: [], showSequence: false,
       // Substructure filters
       filterResult: null, filterLoading: false,
+      // Molecule optimization
+      optStrategy: "", optStrategies: [], optMutants: [], optLoading: false,
       pubchemQuery: "", pubchemLoading: false,
       recent: [], jsmeReady: false, _viewerReady: false, _viewer: null,
 
@@ -117,6 +119,21 @@
           if (!r.error) this.filterResult = r;
         } catch(e) {}
         this.filterLoading = false;
+      },
+
+      async loadOptimize() {
+        if (!this.optStrategies.length) {
+          try { const r = await callJsonApi("mol_optimizer", { action: "strategies" }); this.optStrategies = r.strategies || []; if (this.optStrategies.length) this.optStrategy = this.optStrategies[0].id; } catch(e) {}
+        }
+      },
+      async runOptimize() {
+        if (!this.smiles) { this.error = "Enter a SMILES string"; return; }
+        this.optLoading = true; this.error = ""; this.optMutants = [];
+        try {
+          const r = await callJsonApi("mol_optimizer", { action: "mutate", smiles: this.smiles, strategy: this.optStrategy });
+          if (!r.success) { this.error = r.error; } else { this.optMutants = r.mutants || []; }
+        } catch(e) { this.error = e.message; }
+        this.optLoading = false;
       },
 
       init3DView() {
@@ -473,6 +490,7 @@
           <button class="me-tab" :class="{ active: $store.moleculeEditor.activeTab === '3d' }" @click="$store.moleculeEditor.activeTab = '3d'; $nextTick(() => $store.moleculeEditor.init3DView())">3D View</button>
           <button class="me-tab" :class="{ active: $store.moleculeEditor.activeTab === 'props' }" @click="$store.moleculeEditor.activeTab = 'props'; $store.moleculeEditor.loadProperties()">Properties</button>
           <button class="me-tab" :class="{ active: $store.moleculeEditor.activeTab === 'filters' }" @click="$store.moleculeEditor.activeTab = 'filters'; $store.moleculeEditor.loadFilters()">Filters</button>
+          <button class="me-tab" :class="{ active: $store.moleculeEditor.activeTab === 'optimize' }" @click="$store.moleculeEditor.activeTab = 'optimize'; $store.moleculeEditor.loadOptimize()">Optimize</button>
         </div>
 
         <div x-show="$store.moleculeEditor.activeTab === '3d'" style="flex:1;display:flex;flex-direction:column">
@@ -551,7 +569,30 @@
             </div>
           </template>
         </div>
-          <div x-show="$store.moleculeEditor.propsLoaded">
+
+        <div x-show="$store.moleculeEditor.activeTab === 'optimize'" style="flex:1;overflow-y:auto">
+          <div class="nb-box"><h4><span class="material-symbols-outlined" style="font-size:14px">auto_fix_high</span> Lead Optimization</h4>
+            <select x-model="$store.moleculeEditor.optStrategy" class="nb-input" style="width:100%;margin-bottom:4px"><template x-for="s in $store.moleculeEditor.optStrategies"><option :value="s.id" x-text="s.desc"></option></template></select>
+            <button class="nb-btn-primary" @click="$store.moleculeEditor.runOptimize()" :disabled="$store.moleculeEditor.optLoading || !$store.moleculeEditor.smiles">Generate Mutants</button>
+          </div>
+          <div x-show="$store.moleculeEditor.optLoading" class="nb-loading" style="padding:6px"><div class="loading-spinner"></div><span>Optimizing...</span></div>
+          <template x-if="$store.moleculeEditor.optMutants.length">
+            <div class="nb-box"><h4 x-text="$store.moleculeEditor.optMutants.length + ' Mutants'"></h4>
+              <template x-for="m in $store.moleculeEditor.optMutants">
+                <div class="nb-entry-card" style="margin-bottom:4px">
+                  <div style="font-family:monospace;font-size:0.56rem;color:var(--color-text);word-break:break-all" x-text="m.smiles"></div>
+                  <div style="display:flex;gap:8px;font-size:0.5rem;color:var(--color-text-muted);margin:3px 0" x-text="'MW: '+(m.mw||'?')+'  LogP: '+(m.logp||'?')+'  HBD: '+(m.hbd||'?')+'  HBA: '+(m.hba||'?')"></div>
+                  <div style="display:flex;gap:3px">
+                    <button class="nb-btn-secondary" @click="$store.moleculeEditor.smiles=m.smiles;$store.moleculeEditor._onSmilesChange()">Load in Editor</button>
+                    <button class="nb-btn-secondary" @click="const mt=Alpine.store('molecularToolkit');if(mt){mt.dockingLigand=m.smiles;mt.dockingLigandName=m.smiles.slice(0,15)}">Send to Docking</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <div x-show="$store.moleculeEditor.propsLoaded">
             <!-- Core Properties -->
             <div class="nb-form" style="margin-bottom:6px"><h4>Core Properties</h4>
               <div class="me-props">
