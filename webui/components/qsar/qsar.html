@@ -55,45 +55,45 @@
 
     <div class="qs-body">
       <!-- TRAIN -->
-      <div x-show="$store.qsarModeler.activeTab=='train'" class="qs-grid">
-        <div class="qs-left">
-          <div class="nb-box"><h4><span class="material-symbols-outlined">build</span> Train Model</h4>
-            <div style="display:flex;gap:4px;margin-bottom:6px">
-              <button class="nb-chip-btn" :class="{active:$store.qsarModeler.task=='regression'}" @click="$store.qsarModeler.task='regression';$store.qsarModeler.modelType='RandomForest'">Regression</button>
-              <button class="nb-chip-btn" :class="{active:$store.qsarModeler.task=='classification'}" @click="$store.qsarModeler.task='classification';$store.qsarModeler.modelType='RandomForestClassifier'">Classification</button>
-            </div>
-            <div style="display:flex;gap:3px;margin-bottom:4px">
-              <label class="nb-upload-label" style="flex:1"><span class="material-symbols-outlined" style="font-size:14px">upload_file</span> CSV<input type="file" accept=".csv" hidden @change="$store.qsarModeler.handleFileUpload($event)" /></label>
-              <span class="nb-meta" style="align-self:center;flex:1" x-text="$store.qsarModeler.uploadedFileName || 'No file'"></span>
-            </div>
-            <div style="display:flex;gap:3px;margin-bottom:4px">
-              <input type="text" x-model="$store.qsarModeler.smilesCol" placeholder="SMILES col" class="nb-input-sm" style="flex:1" />
-              <input type="text" x-model="$store.qsarModeler.activityCol" placeholder="Activity col" class="nb-input-sm" style="flex:1" />
-              <input type="text" x-model="$store.qsarModeler.modelName" placeholder="Name" class="nb-input-sm" style="flex:1" />
-            </div>
-            <div style="display:flex;gap:3px;align-items:center;margin-bottom:4px">
-              <select x-model="$store.qsarModeler.modelType" class="nb-input-sm" style="flex:1"><template x-for="mt in $store.qsarModeler.modelTypes"><option :value="mt" x-text="mt"></option></template></select>
-              <span style="font-size:0.52rem;color:var(--color-text-muted);white-space:nowrap">CV:</span>
-              <input type="number" x-model="$store.qsarModeler.cvFolds" min="2" max="10" class="nb-input-sm" style="width:40px;flex:none" />
-              <span style="font-size:0.52rem;color:var(--color-text-muted);white-space:nowrap">Test:</span>
-              <input type="range" x-model="$store.qsarModeler.testSplit" min="0" max="50" step="5" style="width:55px;flex:none" />
-              <span class="nb-meta" style="width:24px" x-text="$store.qsarModeler.testSplit + '%'"></span>
-            </div>
-            <div x-show="$store.qsarModeler.datasetProcessed" class="nb-msg"><span x-text="$store.qsarModeler.datasetProcessed.n_compounds + ' cpds · ' + $store.qsarModeler.datasetProcessed.n_features + ' descriptors'"></span></div>
-            <button class="nb-btn-primary" @click="$store.qsarModeler.processDataset()" :disabled="$store.qsarModeler.loading || !$store.qsarModeler.uploadedContent">1. Process Dataset</button>
-            <div style="display:flex;gap:4px;margin-top:4px">
-              <button class="nb-btn-secondary" @click="$store.qsarModeler.runFeatureSelection()" :disabled="$store.qsarModeler.loading || !$store.qsarModeler.datasetProcessed" style="flex:1">Feature Select</button>
-              <input type="number" x-model="$store.qsarModeler.featureSelectionK" min="5" max="50" class="nb-input-sm" style="width:40px;flex:none" />
-            </div>
-            <button class="nb-btn-primary" @click="$store.qsarModeler.startTraining()" :disabled="$store.qsarModeler.loading || !$store.qsarModeler.datasetProcessed" style="background:#22c55e;margin-top:4px">2. Start Training</button>
-            <div x-show="$store.qsarModeler.trainingJobId" class="nb-msg" style="margin-top:4px"><span style="text-transform:uppercase;font-weight:600" x-text="'Status: ' + $store.qsarModeler.trainingStatus"></span></div>
+      <div x-show="$store.qsarModeler.activeTab=='train'" style="display:flex;flex-direction:column;gap:8px">
+        <div class="nb-box" style="padding:12px 14px"><h4><span class="material-symbols-outlined">build</span> Train Model</h4>
+          <div style="display:flex;gap:4px;margin-bottom:8px">
+            <button class="nb-chip-btn" :class="{active:$store.qsarModeler.task=='regression'}" @click="$store.qsarModeler.task='regression';$store.qsarModeler.modelType='RandomForest'">Regression</button>
+            <button class="nb-chip-btn" :class="{active:$store.qsarModeler.task=='classification'}" @click="$store.qsarModeler.task='classification';$store.qsarModeler.modelType='RandomForestClassifier'">Classification</button>
           </div>
-        </div>
-        <div class="qs-right">
+          <div style="display:flex;gap:6px;margin-bottom:6px">
+            <label class="nb-upload-label" style="flex:1"><span class="material-symbols-outlined" style="font-size:14px">upload_file</span> CSV<input type="file" accept=".csv" hidden @change="$store.qsarModeler.handleFileUpload($event)" /></label>
+            <span class="nb-meta" style="align-self:center;flex:1" x-text="$store.qsarModeler.uploadedFileName || 'No file'"></span>
+          </div>
+          <div style="display:flex;gap:6px;margin-bottom:6px">
+            <input type="text" x-model="$store.qsarModeler.smilesCol" placeholder="SMILES column name" class="nb-input-sm" style="flex:1" />
+            <input type="text" x-model="$store.qsarModeler.activityCol" placeholder="Activity column name" class="nb-input-sm" style="flex:1" />
+            <input type="text" x-model="$store.qsarModeler.modelName" placeholder="Model name" class="nb-input-sm" style="flex:1" />
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+            <select x-model="$store.qsarModeler.modelType" class="nb-input-sm" style="flex:1"><template x-for="mt in $store.qsarModeler.modelTypes"><option :value="mt" x-text="mt"></option></template></select>
+            <span style="font-size:0.55rem;color:var(--color-text-muted);white-space:nowrap">CV:</span>
+            <input type="number" x-model="$store.qsarModeler.cvFolds" min="2" max="10" class="nb-input-sm" style="width:45px;flex:none" />
+            <span style="font-size:0.55rem;color:var(--color-text-muted);white-space:nowrap">Test:</span>
+            <input type="range" x-model="$store.qsarModeler.testSplit" min="0" max="50" step="5" style="width:80px;flex:none" />
+            <span class="nb-meta" style="width:28px" x-text="$store.qsarModeler.testSplit + '%'"></span>
+          </div>
+          <div x-show="$store.qsarModeler.datasetProcessed" class="nb-msg"><span x-text="$store.qsarModeler.datasetProcessed.n_compounds + ' cpds · ' + $store.qsarModeler.datasetProcessed.n_features + ' descriptors'"></span></div>
+          <div class="nb-form-row">
+            <button class="nb-btn-primary" @click="$store.qsarModeler.processDataset()" :disabled="$store.qsarModeler.loading || !$store.qsarModeler.uploadedContent">1. Process Dataset</button>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:4px">
+            <button class="nb-btn-secondary" @click="$store.qsarModeler.runFeatureSelection()" :disabled="$store.qsarModeler.loading || !$store.qsarModeler.datasetProcessed" style="flex:1">Feature Selection</button>
+            <input type="number" x-model="$store.qsarModeler.featureSelectionK" min="5" max="50" class="nb-input-sm" style="width:50px;flex:none" />
+          </div>
+          <button class="nb-btn-primary" @click="$store.qsarModeler.startTraining()" :disabled="$store.qsarModeler.loading || !$store.qsarModeler.datasetProcessed" style="background:#22c55e;margin-top:6px">2. Start Training</button>
+          <div x-show="$store.qsarModeler.trainingJobId" class="nb-msg" style="margin-top:6px"><span style="text-transform:uppercase;font-weight:600" x-text="'Status: ' + $store.qsarModeler.trainingStatus"></span></div>
+
+          <!-- Feature results -->
           <template x-if="$store.qsarModeler.featureSelection">
-            <div class="nb-box"><h4>Top Features</h4>
+            <div class="nb-box" style="margin-top:8px"><h4>Top Features</h4>
               <div style="display:flex;gap:3px;flex-wrap:wrap">
-                <template x-for="f in $store.qsarModeler.featureSelection.slice(0,12)"><span class="qs-chip" x-text="f.feature + ':' + f.score.toFixed(3)"></span></template>
+                <template x-for="f in $store.qsarModeler.featureSelection.slice(0,15)"><span class="qs-chip" x-text="f.feature + ':' + f.score.toFixed(3)"></span></template>
               </div>
             </div>
           </template>
