@@ -61,12 +61,13 @@ class SystemHealth(ApiHandler):
 
         # Docking dependencies
         import subprocess
+        import platform as _platform
         for bin_name, label, critical in [
             ("vina", "AutoDock Vina", True), ("gnina", "GNINA CNN", True),
         ]:
             try:
                 r = subprocess.run([bin_name, "--help"], capture_output=True, text=True, timeout=5)
-                ok = r.returncode <= 1  # --help often returns 1 but is valid
+                ok = r.returncode <= 1
                 if not ok:
                     r = subprocess.run([bin_name, "--version"], capture_output=True, text=True, timeout=5)
                     ok = r.returncode == 0
@@ -76,15 +77,18 @@ class SystemHealth(ApiHandler):
                 detail = "Available" if ok else "Not found"
                 status = "ok" if ok else ("fail" if critical else "warn")
             except FileNotFoundError:
+                if bin_name == "gnina" and _platform.system() == "Windows":
+                    detail = "Docker only — GNINA requires Linux"
+                else:
+                    detail = "Missing — CNN scoring unavailable" if critical and bin_name == "gnina" else \
+                             "Missing — docking unavailable" if critical else \
+                             "Not installed"
                 status = "fail" if critical else "warn"
-                detail = "Missing — CNN scoring unavailable" if critical and bin_name == "gnina" else \
-                         "Missing — docking unavailable" if critical else \
-                         "Not installed"
             except Exception:
-                status = "fail" if critical else "warn"
                 detail = "Missing — CNN scoring unavailable" if critical and bin_name == "gnina" else \
                          "Missing — docking unavailable" if critical else \
                          "Not available"
+                status = "fail" if critical else "warn"
             result["checks"].append({"name": label, "status": status, "detail": detail})
 
         # Backend APIs - check via file existence

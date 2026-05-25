@@ -13,6 +13,7 @@
       health: null,
       vinaOk: false,
       gninaOk: false,
+      gninaDetail: "",
       rdkitOk: false,
 
       async checkHealth() {
@@ -21,7 +22,9 @@
           if (r.health?.checks) {
             this.health = r.health;
             this.vinaOk = r.health.checks.find(c => c.name === 'AutoDock Vina')?.status === 'ok';
-            this.gninaOk = r.health.checks.find(c => c.name === 'GNINA CNN')?.status === 'ok';
+            const gnina = r.health.checks.find(c => c.name === 'GNINA CNN');
+            this.gninaOk = gnina?.status === 'ok';
+            this.gninaDetail = gnina?.detail || '';
             this.rdkitOk = r.health.checks.find(c => c.name === 'RDKit')?.status === 'ok';
           }
         } catch (e) {}
@@ -279,7 +282,7 @@
           <span class="health-badge" :class="$store.molecularToolkit.vinaOk ? 'hlth-ok' : 'hlth-fail'" title="AutoDock Vina">
             <span class="material-symbols-outlined" style="font-size:13px">biotech</span> Vina
           </span>
-          <span class="health-badge" :class="$store.molecularToolkit.gninaOk ? 'hlth-ok' : 'hlth-fail'" title="GNINA CNN Scoring">
+          <span class="health-badge" :class="$store.molecularToolkit.gninaOk ? 'hlth-ok' : 'hlth-fail'" :title="$store.molecularToolkit.gninaDetail || 'GNINA CNN Scoring'">
             <span class="material-symbols-outlined" style="font-size:13px">neurology</span> CNN
           </span>
           <span class="health-badge" :class="$store.molecularToolkit.rdkitOk ? 'hlth-ok' : 'hlth-fail'" title="RDKit">
