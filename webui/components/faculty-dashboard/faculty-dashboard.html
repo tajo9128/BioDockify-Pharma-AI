@@ -37,6 +37,9 @@
       <button class="fd-tab" :class="{active: $store.facultyTools.activeTab === 'plagiarism'}" @click="$store.facultyTools.activeTab = 'plagiarism'">
         <span class="material-symbols-outlined">plagiarism</span> Plagiarism
       </button>
+      <button class="fd-tab" :class="{active: $store.facultyTools.activeTab === 'slides'}" @click="$store.facultyTools.activeTab = 'slides'">
+        <span class="material-symbols-outlined">slideshow</span> Slides
+      </button>
     </div>
 
     <!-- Status messages -->
@@ -273,6 +276,11 @@
         <span class="material-symbols-outlined fd-empty-icon">plagiarism</span>
         <p>Paste text above and click "Check" to scan for plagiarism</p>
       </div>
+    </div>
+
+    <!-- Slides Tab -->
+    <div x-show="$store.facultyTools.activeTab === 'slides'" class="fd-tab-content">
+      <x-component path="slides/slides-modal.html"></x-component>
     </div>
 
     <style>

@@ -7,7 +7,7 @@
     <div class="rd-header">
       <span class="material-symbols-outlined rd-icon">rocket_launch</span>
       <h2>Research Command Center</h2>
-      <p class="rd-sub">Auto-research pipeline · Thesis tracking · Wet lab coordination</p>
+      <p class="rd-sub">Auto-research pipeline · Literature · Wet Lab · Thesis tracking</p>
     </div>
 
     <div class="rd-tabs">
@@ -16,6 +16,12 @@
       </button>
       <button class="rd-tab" :class="{active: $store.researchDashboard.activeTab === 'pipeline'}" @click="$store.researchDashboard.activeTab = 'pipeline'; $store.researchDashboard.loadDashboard()" :disabled="!$store.researchDashboard.activeProjectId">
         <span class="material-symbols-outlined">account_tree</span> Pipeline
+      </button>
+      <button class="rd-tab" :class="{active: $store.researchDashboard.activeTab === 'literature'}" @click="$store.researchDashboard.activeTab = 'literature'">
+        <span class="material-symbols-outlined">menu_book</span> Literature
+      </button>
+      <button class="rd-tab" :class="{active: $store.researchDashboard.activeTab === 'wetlab'}" @click="$store.researchDashboard.activeTab = 'wetlab'">
+        <span class="material-symbols-outlined">science</span> Wet Lab
       </button>
     </div>
 
@@ -125,6 +131,18 @@
         <p>Select a project from the Projects tab to view its pipeline.</p>
         <button class="rd-chip" @click="$store.researchDashboard.activeTab = 'projects'">← Go to Projects</button>
       </div>
+    </div>
+
+    <!-- Literature Tab -->
+    <div x-show="$store.researchDashboard.activeTab === 'literature'" class="rd-tab-content">
+      <div class="rd-card"><h4>Literature Search</h4><p class="rd-hero-desc">PubMed, Semantic Scholar, Scopus, Google Scholar — 10 databases. Full screening, alerts, NER, hypothesis generation.</p></div>
+      <x-component path="literature/literature-modal.html"></x-component>
+    </div>
+
+    <!-- Wet Lab Tab -->
+    <div x-show="$store.researchDashboard.activeTab === 'wetlab'" class="rd-tab-content">
+      <div class="rd-card"><h4>Wet Lab Experiment Tracker</h4><p class="rd-hero-desc">Protocol management, experiment status tracking (planned/running/completed), notes.</p></div>
+      <x-component path="wetlab/wetlab-modal.html"></x-component>
     </div>
 
     <style>

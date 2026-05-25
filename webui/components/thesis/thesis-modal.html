@@ -60,10 +60,13 @@
 
       get tabs() {
         return [
-          { id: "literature", label: "Literature Review", icon: "menu_book" },
-          { id: "research", label: "Research Paper", icon: "description" },
-          { id: "thesis", label: "PhD / PG Thesis", icon: "school" },
-          { id: "lecture", label: "Lecture Builder", icon: "cast" },
+          { id: "literature", label: "Lit Review", icon: "menu_book" },
+          { id: "research", label: "Paper", icon: "description" },
+          { id: "thesis", label: "Thesis", icon: "school" },
+          { id: "grant", label: "Grant", icon: "payments" },
+          { id: "regulatory", label: "Regulatory", icon: "gavel" },
+          { id: "citations", label: "Citations", icon: "format_quote" },
+          { id: "lecture", label: "Lecture", icon: "cast" },
           { id: "slides", label: "Slides", icon: "slideshow" },
         ];
       },
@@ -429,6 +432,21 @@
           <span>Include citations</span>
         </label>
       </div>
+    </div>
+
+    <!-- Grant Writer -->
+    <div x-show="$store.academicWriter.activeTab === 'grant'" class="aw-options">
+      <x-component path="grant-writer/grant-writer.html"></x-component>
+    </div>
+
+    <!-- Regulatory -->
+    <div x-show="$store.academicWriter.activeTab === 'regulatory'" class="aw-options">
+      <x-component path="regulatory/regulatory.html"></x-component>
+    </div>
+
+    <!-- Citation Manager -->
+    <div x-show="$store.academicWriter.activeTab === 'citations'" class="aw-options">
+      <x-component path="citation-manager/citation-manager.html"></x-component>
     </div>
 
     <!-- Status -->
