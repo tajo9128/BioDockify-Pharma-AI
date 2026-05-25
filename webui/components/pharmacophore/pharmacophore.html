@@ -20,6 +20,16 @@
       activeSmiles: "", hypothesis: [],
       // NCI info
       nciTypes: null, nciLoaded: false,
+      // Batch screen
+      batchQuery: "", batchLibrary: "", batchMwMin: "", batchMwMax: "", batchLogpMin: "",
+      batchLogpMax: "", batchRotMax: "", batchHbaMax: "", batchHbdMax: "", batchTpsaMax: "",
+      batchHits: [], batchStats: null, batchLoading: false,
+      // Import .ph4
+      ph4Content: "", ph4Features: [], ph4Meta: {},
+      // PDB Query
+      pdbQuery: "", pdbQueryResname: "", pdbQueryResult: null,
+      // Stats
+      statsHits: "", statsTotal: "", statsResult: null,
 
       async init() { await this.loadNciTypes(); },
       async loadNciTypes() {
@@ -80,6 +90,44 @@
       },
       fColor(t) { const c = {Donor:'#4169E1',Acceptor:'#DC143C',Hydrophobic:'#FFD700',Aromatic:'#9932CC',PosIonizable:'#32CD32',NegIonizable:'#FF8C00',HBond_donor:'#4169E1',HBond_acceptor:'#DC143C',Cation:'#32CD32',Anion:'#FF8C00',Halogen:'#00CED1'}; return c[t]||'#888' },
       copyPm() { if (this.pmExport) { navigator.clipboard.writeText(this.pmExport); } },
+
+      async batchScreen() {
+        if (!this.batchQuery || !this.batchLibrary) { this.error = "Enter query and library SMILES"; return; }
+        this.batchLoading = true; this.error = "";
+        const p = { action: "batch_screen", query_smiles: this.batchQuery, library_smiles: this.batchLibrary };
+        if (this.batchMwMin) p.mw_min = parseFloat(this.batchMwMin);
+        if (this.batchMwMax) p.mw_max = parseFloat(this.batchMwMax);
+        if (this.batchLogpMin) p.logp_min = parseFloat(this.batchLogpMin);
+        if (this.batchLogpMax) p.logp_max = parseFloat(this.batchLogpMax);
+        if (this.batchRotMax) p.rot_max = parseInt(this.batchRotMax);
+        if (this.batchHbaMax) p.hba_max = parseInt(this.batchHbaMax);
+        if (this.batchHbdMax) p.hbd_max = parseInt(this.batchHbdMax);
+        if (this.batchTpsaMax) p.tpsa_max = parseFloat(this.batchTpsaMax);
+        try { const r = await callJsonApi("pharmacophore", p); if (!r.success) { this.error = r.error; } else { this.batchHits = r.hits; this.batchStats = r; } } catch (e) { this.error = e.message; }
+        this.batchLoading = false;
+      },
+      async parsePh4() {
+        if (!this.ph4Content) { this.error = "Paste .ph4 content"; return; }
+        this.loading = true; this.error = "";
+        try { const r = await callJsonApi("pharmacophore", { action: "parse_ph4", ph4_content: this.ph4Content }); if (!r.success) { this.error = r.error; } else { this.ph4Features = r.features; this.ph4Meta = r.metadata; } } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async pdbQueryModel() {
+        if (!this.pdbQuery) { this.error = "Paste PDB content"; return; }
+        this.loading = true; this.error = "";
+        try { const r = await callJsonApi("pharmacophore", { action: "pdb_query", pdb_content: this.pdbQuery, ligand_resname: this.pdbQueryResname || "" }); if (!r.success) { this.error = r.error; } else { this.pdbQueryResult = r; } } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async computeStats() {
+        if (!this.statsHits || !this.statsTotal) { this.error = "Enter hits JSON and total screened"; return; }
+        this.loading = true; this.error = "";
+        try {
+          const hitData = JSON.parse(this.statsHits);
+          const r = await callJsonApi("pharmacophore", { action: "screen_stats", hits: hitData, total_screened: parseInt(this.statsTotal) });
+          if (!r.success) { this.error = r.error; } else { this.statsResult = r.statistics; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
     });
   </script>
 </head>
@@ -94,10 +142,14 @@
       <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='generate'}" @click="$store.pharmacophore.activeTab='generate'">Ligand</button>
       <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='protein'}" @click="$store.pharmacophore.activeTab='protein'">Protein Model</button>
       <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='screen'}" @click="$store.pharmacophore.activeTab='screen'">Screening</button>
+      <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='batch'}" @click="$store.pharmacophore.activeTab='batch'">Batch Screen</button>
+      <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='stats'}" @click="$store.pharmacophore.activeTab='stats'">Stats</button>
       <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='models'}" @click="$store.pharmacophore.activeTab='models'">Shared/Merged</button>
       <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='overlay'}" @click="$store.pharmacophore.activeTab='overlay'">Overlay</button>
       <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='target'}" @click="$store.pharmacophore.activeTab='target'">Target ID</button>
       <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='hypothesis'}" @click="$store.pharmacophore.activeTab='hypothesis'">Hypothesis</button>
+      <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='pdbquery'}" @click="$store.pharmacophore.activeTab='pdbquery'">PDB Query</button>
+      <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='import'}" @click="$store.pharmacophore.activeTab='import'">Import</button>
       <button class="nb-tab" :class="{active:$store.pharmacophore.activeTab=='info'}" @click="$store.pharmacophore.activeTab='info'">NCI</button>
     </div>
 
@@ -267,6 +319,138 @@
                   <span style="font-size:0.52rem;color:var(--color-primary);margin-left:auto" x-text="Math.round(h.coverage*100) + '%'"></span>
                 </div>
               </template>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Batch Screen -->
+      <div x-show="$store.pharmacophore.activeTab === 'batch'">
+        <div class="nb-form"><h4>ZINCPharmer-Style Batch Screening</h4>
+          <p style="font-size:0.55rem;color:var(--color-text-muted);margin:0 0 4px">Pre-filter library by physicochemical properties before pharmacophore matching</p>
+          <input type="text" x-model="$store.pharmacophore.batchQuery" placeholder="Query SMILES" class="nb-input-sm" style="margin-bottom:4px;font-family:monospace;width:100%" />
+          <textarea x-model="$store.pharmacophore.batchLibrary" placeholder="Library SMILES (one per line)..." class="nb-textarea" style="font-family:monospace;min-height:70px"></textarea>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;margin:4px 0">
+            <input type="number" x-model="$store.pharmacophore.batchMwMin" placeholder="MW min" class="nb-input-sm" step="1" />
+            <input type="number" x-model="$store.pharmacophore.batchMwMax" placeholder="MW max" class="nb-input-sm" step="1" />
+            <input type="number" x-model="$store.pharmacophore.batchLogpMin" placeholder="LogP min" class="nb-input-sm" step="0.1" />
+            <input type="number" x-model="$store.pharmacophore.batchLogpMax" placeholder="LogP max" class="nb-input-sm" step="0.1" />
+            <input type="number" x-model="$store.pharmacophore.batchRotMax" placeholder="Rot bonds max" class="nb-input-sm" step="1" />
+            <input type="number" x-model="$store.pharmacophore.batchTpsaMax" placeholder="TPSA max" class="nb-input-sm" step="1" />
+            <input type="number" x-model="$store.pharmacophore.batchHbaMax" placeholder="HBA max" class="nb-input-sm" step="1" />
+            <input type="number" x-model="$store.pharmacophore.batchHbdMax" placeholder="HBD max" class="nb-input-sm" step="1" />
+          </div>
+          <button class="nb-btn-primary" @click="$store.pharmacophore.batchScreen()" :disabled="$store.pharmacophore.batchLoading || !$store.pharmacophore.batchQuery || !$store.pharmacophore.batchLibrary">Screen Batch</button>
+          <template x-if="$store.pharmacophore.batchStats">
+            <div style="margin-top:6px">
+              <div class="nb-entry-meta" x-text="'Total: ' + $store.pharmacophore.batchStats.total_library + ' | Passed filter: ' + $store.pharmacophore.batchStats.prefiltered_passed + ' | Hits: ' + $store.pharmacophore.batchStats.total_hits + ' (' + $store.pharmacophore.batchStats.hit_rate + '%)'"></div>
+              <div class="nb-entry-meta" x-text="'Skipped: ' + $store.pharmacophore.batchStats.prefiltered_skipped"></div>
+              <template x-for="h in $store.pharmacophore.batchHits.slice(0,30)">
+                <div class="nb-entry-card" style="display:flex;justify-content:space-between;align-items:center">
+                  <div><span class="nb-entry-title" style="font-family:monospace" x-text="h.smiles.substring(0,40)"></span>
+                  <div style="font-size:0.52rem;color:var(--color-text-muted)" x-text="(h.matched_types || []).join(', ')"></div></div>
+                  <span style="color:var(--color-primary);font-weight:600;font-size:0.62rem" x-text="h.weighted_score + '%'"></span>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div x-show="$store.pharmacophore.activeTab === 'stats'">
+        <div class="nb-form"><h4>Screen Statistics & Enrichment Analysis</h4>
+          <p style="font-size:0.55rem;color:var(--color-text-muted);margin:0 0 4px">Paste hits JSON array and total screened count for statistical analysis</p>
+          <textarea x-model="$store.pharmacophore.statsHits" placeholder="[ {&quot;score&quot;:0.85,&quot;matched_types&quot;:[...]}, ... ]" class="nb-textarea" style="font-family:monospace;min-height:80px"></textarea>
+          <div class="nb-form-row">
+            <input type="number" x-model="$store.pharmacophore.statsTotal" placeholder="Total screened" class="nb-input-sm" style="flex:1" />
+            <button class="nb-btn-primary" @click="$store.pharmacophore.computeStats()" :disabled="$store.pharmacophore.loading || !$store.pharmacophore.statsHits || !$store.pharmacophore.statsTotal">Compute Stats</button>
+          </div>
+          <template x-if="$store.pharmacophore.statsResult">
+            <div style="margin-top:6px">
+              <div class="nb-entry-meta">Score Distribution</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;margin-bottom:4px">
+                <template x-for="(count, bin) in $store.pharmacophore.statsResult.score_distribution">
+                  <div class="nb-entry-card" style="text-align:center;font-size:0.52rem">
+                    <span x-text="bin" style="display:block;font-size:0.48rem;color:var(--color-text-muted)"></span>
+                    <span x-text="count" style="font-weight:700;color:var(--color-primary)"></span>
+                  </div>
+                </template>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:4px">
+                <div class="nb-entry-card" style="font-size:0.52rem"><span style="color:var(--color-text-muted)">Hit Rate</span><br><span style="font-weight:700" x-text="$store.pharmacophore.statsResult.hit_rate + '%'"></span></div>
+                <div class="nb-entry-card" style="font-size:0.52rem"><span style="color:var(--color-text-muted)">Mean Score</span><br><span style="font-weight:700" x-text="$store.pharmacophore.statsResult.mean_score"></span></div>
+                <div class="nb-entry-card" style="font-size:0.52rem"><span style="color:var(--color-text-muted)">Median Score</span><br><span style="font-weight:700" x-text="$store.pharmacophore.statsResult.median_score"></span></div>
+                <div class="nb-entry-card" style="font-size:0.52rem"><span style="color:var(--color-text-muted)">Max Score</span><br><span style="font-weight:700" x-text="$store.pharmacophore.statsResult.max_score"></span></div>
+                <div class="nb-entry-card" style="font-size:0.52rem"><span style="color:var(--color-text-muted)">Std Dev</span><br><span style="font-weight:700" x-text="$store.pharmacophore.statsResult.std_score"></span></div>
+                <div class="nb-entry-card" style="font-size:0.52rem"><span style="color:var(--color-text-muted)">Top 10%</span><br><span style="font-weight:700" x-text="$store.pharmacophore.statsResult.top_10pct"></span></div>
+              </div>
+              <template x-if="$store.pharmacophore.statsResult.feature_type_frequency">
+                <div style="margin-top:4px">
+                  <div class="nb-entry-meta">Feature Richness</div>
+                  <template x-for="(count, type) in $store.pharmacophore.statsResult.feature_type_frequency">
+                    <div class="nb-entry-card" style="display:flex;justify-content:space-between;font-size:0.52rem">
+                      <span x-text="type"></span>
+                      <span style="color:var(--color-primary);font-weight:600" x-text="count"></span>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- PDB Query -->
+      <div x-show="$store.pharmacophore.activeTab === 'pdbquery'">
+        <div class="nb-form"><h4>PDB Structure Query (ZINCPharmer-style)</h4>
+          <p style="font-size:0.55rem;color:var(--color-text-muted);margin:0 0 4px">Extract ligand + protein pharmacophore features from a PDB complex</p>
+          <textarea x-model="$store.pharmacophore.pdbQuery" placeholder="Paste PDB complex content..." class="nb-textarea" style="font-family:monospace;min-height:100px"></textarea>
+          <div class="nb-form-row" style="margin-top:4px">
+            <input type="text" x-model="$store.pharmacophore.pdbQueryResname" placeholder="Ligand resname (optional)" class="nb-input-sm" style="flex:1" />
+            <button class="nb-btn-primary" @click="$store.pharmacophore.pdbQueryModel()" :disabled="$store.pharmacophore.loading || !$store.pharmacophore.pdbQuery">Extract</button>
+          </div>
+          <template x-if="$store.pharmacophore.pdbQueryResult">
+            <div style="margin-top:6px">
+              <div class="nb-entry-meta" x-text="$store.pharmacophore.pdbQueryResult.total_features + ' total features (' + $store.pharmacophore.pdbQueryResult.ligand_features + ' ligand, ' + $store.pharmacophore.pdbQueryResult.protein_features + ' protein)'"></div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px">
+                <template x-for="(count, type) in $store.pharmacophore.pdbQueryResult.feature_summary">
+                  <span style="padding:2px 8px;border-radius:4px;font-size:0.55rem;font-weight:600;color:white" :style="'background:' + $store.pharmacophore.fColor(type)" x-text="type + ': ' + count"></span>
+                </template>
+              </div>
+              <template x-if="$store.pharmacophore.pdbQueryResult.query_export">
+                <button class="nb-btn-secondary" @click="navigator.clipboard.writeText($store.pharmacophore.pdbQueryResult.query_export)" style="font-size:0.58rem">📋 Copy .pm query export</button>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Import -->
+      <div x-show="$store.pharmacophore.activeTab === 'import'">
+        <div class="nb-form"><h4>Import Pharmacophore (LigandScout .ph4)</h4>
+          <p style="font-size:0.55rem;color:var(--color-text-muted);margin:0 0 4px">Parse pharmacophore feature definitions from LigandScout .ph4 files</p>
+          <textarea x-model="$store.pharmacophore.ph4Content" placeholder="Paste .ph4 file content..." class="nb-textarea" style="font-family:monospace;min-height:100px"></textarea>
+          <button class="nb-btn-primary" @click="$store.pharmacophore.parsePh4()" :disabled="$store.pharmacophore.loading || !$store.pharmacophore.ph4Content">Parse</button>
+          <template x-if="$store.pharmacophore.ph4Features.length">
+            <div style="margin-top:6px">
+              <div class="nb-entry-meta" x-text="$store.pharmacophore.ph4Features.length + ' features parsed'"></div>
+              <template x-if="$store.pharmacophore.ph4Meta && Object.keys($store.pharmacophore.ph4Meta).length">
+                <div class="nb-entry-meta" style="font-size:0.55rem">
+                  <template x-for="(val, key) in $store.pharmacophore.ph4Meta">
+                    <span style="margin-right:8px" x-text="key + ': ' + val"></span>
+                  </template>
+                </div>
+              </template>
+              <template x-for="f in $store.pharmacophore.ph4Features.slice(0,25)">
+                <div class="nb-entry-card" style="display:flex;align-items:center;gap:6px">
+                  <span class="nb-dot" :style="'background:' + $store.pharmacophore.fColor(f.family) || f.color"></span>
+                  <span style="font-weight:600;font-size:0.58rem" x-text="f.type"></span>
+                  <span style="font-size:0.52rem;color:var(--color-text-muted)" x-text="'('+f.position.x.toFixed(1)+','+f.position.y.toFixed(1)+','+f.position.z.toFixed(1)+')'"></span>
+                  <span style="font-size:0.5rem;color:var(--color-text-muted);margin-left:auto" x-text="'w:' + (f.weight || 1)"></span>
+                </div>
+              </template>
+              <div class="nb-entry-meta" x-show="$store.pharmacophore.ph4Features.length > 25" x-text="'... and ' + ($store.pharmacophore.ph4Features.length - 25) + ' more'"></div>
             </div>
           </template>
         </div>

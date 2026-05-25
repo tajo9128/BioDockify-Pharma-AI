@@ -27,7 +27,30 @@ class SwissAdmeHandler(ApiHandler):
 
         try:
             from api.admet_swiss import compute_swiss_adme
-            return compute_swiss_adme(smiles)
+            result = compute_swiss_adme(smiles)
+            # Generate BOILED-Egg + Bioavailability Radar SVG plots
+            try:
+                wlogp = result["lipophilicity"]["wlogp"]
+                tpsa = result["physicochemical"]["tpsa"]
+                from api.admet_plot import boiled_egg_svg, bioavailability_radar_svg
+                result["plots"] = {
+                    "boiled_egg": boiled_egg_svg([
+                        {"wlogp": wlogp, "tpsa": tpsa,
+                         "pgp_substrate": result["pharmacokinetics"]["pgp_substrate"] == "Yes",
+                         "label": smiles[:20]}
+                    ]),
+                    "bioavailability_radar": bioavailability_radar_svg({
+                        "lipophilicity": result["lipophilicity"]["consensus_logp"] / 5,
+                        "size": min(result["physicochemical"]["mw"] / 500, 1),
+                        "polarity": result["physicochemical"]["tpsa"] / 150,
+                        "insolubility": max(-result["solubility"]["esol_logs"] / 10, 0),
+                        "unsaturation": result["physicochemical"]["fraction_csp3"],
+                        "flexibility": result["physicochemical"]["rotatable_bonds"] / 10,
+                    }, result.get("smiles", smiles)[:20]),
+                }
+            except Exception as plot_err:
+                result["plots"] = {"error": str(plot_err)}
+            return result
         except ImportError:
             return {"error": "RDKit not available"}
         except Exception as e:

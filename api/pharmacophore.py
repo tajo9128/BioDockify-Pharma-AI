@@ -978,4 +978,268 @@ class PharmacophoreHandler(ApiHandler):
             except Exception as e:
                 return {"success": False, "error": str(e)}
 
+        # ── ZINCPharmer-style batch screening with pre-filtering ──
+        if action == "batch_screen":
+            query_smiles = input.get("query_smiles", "")
+            query_features_raw = input.get("query_features")
+            library = input.get("library_smiles", [])
+            if isinstance(library, str):
+                library = [s.strip() for s in library.split("\n") if s.strip()]
+
+            # Pre-filters (ZINCPharmer-style)
+            mw_min = input.get("mw_min")
+            mw_max = input.get("mw_max")
+            logp_min = input.get("logp_min")
+            logp_max = input.get("logp_max")
+            rot_max = input.get("rot_max")
+            hba_max = input.get("hba_max")
+            hbd_max = input.get("hbd_max")
+            tpsa_max = input.get("tpsa_max")
+
+            if query_features_raw:
+                query_features = query_features_raw
+            elif query_smiles:
+                mol = _generate_3d_mol(query_smiles)
+                if mol is None:
+                    return {"success": False, "error": "Invalid query SMILES"}
+                query_features = _extract_features(mol)
+            else:
+                return {"success": False, "error": "query_smiles or query_features required"}
+            if not library:
+                return {"success": False, "error": "library_smiles required"}
+
+            try:
+                from rdkit import Chem
+                from rdkit.Chem import Descriptors, Crippen
+
+                # Phase 1: Pre-filter by physicochemical properties
+                filtered = []
+                skipped_physchem = 0
+                for smi in library:
+                    smi = smi.strip()
+                    if not smi:
+                        continue
+                    try:
+                        m = Chem.MolFromSmiles(smi)
+                        if m is None:
+                            skipped_physchem += 1
+                            continue
+                        mw = Descriptors.MolWt(m)
+                        logp = Crippen.MolLogP(m)
+                        rot = Descriptors.NumRotatableBonds(m)
+                        hba = Descriptors.NumHAcceptors(m)
+                        hbd = Descriptors.NumHDonors(m)
+                        tpsa = Descriptors.TPSA(m)
+
+                        if mw_min is not None and mw < float(mw_min):
+                            skipped_physchem += 1
+                            continue
+                        if mw_max is not None and mw > float(mw_max):
+                            skipped_physchem += 1
+                            continue
+                        if logp_min is not None and logp < float(logp_min):
+                            skipped_physchem += 1
+                            continue
+                        if logp_max is not None and logp > float(logp_max):
+                            skipped_physchem += 1
+                            continue
+                        if rot_max is not None and rot > int(rot_max):
+                            skipped_physchem += 1
+                            continue
+                        if hba_max is not None and hba > int(hba_max):
+                            skipped_physchem += 1
+                            continue
+                        if hbd_max is not None and hbd > int(hbd_max):
+                            skipped_physchem += 1
+                            continue
+                        if tpsa_max is not None and tpsa > float(tpsa_max):
+                            skipped_physchem += 1
+                            continue
+
+                        filtered.append(smi)
+                    except Exception:
+                        skipped_physchem += 1
+                        continue
+
+                # Phase 2: Pharmacophore matching on filtered set
+                weights = input.get("weights", PMNET_DEFAULT_WEIGHTS)
+                if isinstance(weights, dict):
+                    weights = {k: v for k, v in weights.items() if k in PMNET_DEFAULT_WEIGHTS}
+                    if not weights:
+                        weights = PMNET_DEFAULT_WEIGHTS
+
+                hits = _weighted_screen(query_features, filtered, weights)
+
+                return {
+                    "success": True,
+                    "total_library": len(library),
+                    "prefiltered_passed": len(filtered),
+                    "prefiltered_skipped": skipped_physchem,
+                    "filters_applied": {
+                        "mw_min": mw_min, "mw_max": mw_max,
+                        "logp_min": logp_min, "logp_max": logp_max,
+                        "rot_max": rot_max, "hba_max": hba_max,
+                        "hbd_max": hbd_max, "tpsa_max": tpsa_max,
+                    },
+                    "hits": hits,
+                    "total_hits": len(hits),
+                    "hit_rate": round(len(hits) / max(1, len(filtered)) * 100, 1),
+                }
+            except Exception as e:
+                return {"success": False, "error": str(e)}
+
+        # ── Screen statistics / enrichment analysis ──
+        if action == "screen_stats":
+            hits = input.get("hits", [])
+            total_screened = input.get("total_screened", 0)
+
+            if not hits or total_screened == 0:
+                return {"success": False, "error": "hits and total_screened required"}
+
+            try:
+                import numpy as np
+                scores = [h.get("score", 0) for h in hits]
+                arr = np.array(scores) if scores else np.array([])
+
+                # Score distribution
+                hist_bins = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+                hist = {}
+                for i in range(len(hist_bins) - 1):
+                    lo, hi = hist_bins[i], hist_bins[i + 1]
+                    count = int(np.sum((arr >= lo) & (arr < hi)))
+                    hist[f"{lo:.1f}-{hi:.1f}"] = count
+
+                stats = {
+                    "hit_rate": round(len(hits) / max(1, total_screened) * 100, 1),
+                    "mean_score": round(float(np.mean(arr)), 4) if len(arr) > 0 else 0,
+                    "max_score": round(float(np.max(arr)), 4) if len(arr) > 0 else 0,
+                    "median_score": round(float(np.median(arr)), 4) if len(arr) > 0 else 0,
+                    "std_score": round(float(np.std(arr)), 4) if len(arr) > 1 else 0,
+                    "top_1pct": int(np.sum(arr >= np.percentile(arr, 99))) if len(arr) > 0 else 0,
+                    "top_5pct": int(np.sum(arr >= np.percentile(arr, 95))) if len(arr) > 0 else 0,
+                    "top_10pct": int(np.sum(arr >= np.percentile(arr, 90))) if len(arr) > 0 else 0,
+                    "score_distribution": hist,
+                }
+
+                # Feature richness analysis
+                type_richness = {}
+                for h in hits:
+                    for t in h.get("matched_types", []):
+                        type_richness[t] = type_richness.get(t, 0) + 1
+                stats["feature_type_frequency"] = type_richness
+
+                return {"success": True, "statistics": stats, "num_hits": len(hits), "total_screened": total_screened}
+            except Exception as e:
+                return {"success": False, "error": str(e)}
+
+        # ── Parse LigandScout .ph4 pharmacophore format ──
+        if action == "parse_ph4":
+            ph4_content = input.get("ph4_content", "")
+            if not ph4_content:
+                return {"success": False, "error": "ph4_content required"}
+
+            features = []
+            metadata = {}
+            current_feature = None
+
+            for line in ph4_content.split("\n"):
+                line = line.strip()
+                if not line:
+                    continue
+
+                # Metadata lines
+                if line.startswith("#"):
+                    kv = line[1:].strip().split("=", 1)
+                    if len(kv) == 2:
+                        metadata[kv[0].strip()] = kv[1].strip()
+                    continue
+
+                # Feature definition
+                if line.startswith("HBondDonor") or line.startswith("HBD"):
+                    current_feature = {"type": "HBond_donor", "family": "HBond_donor"}
+                elif line.startswith("HBondAcceptor") or line.startswith("HBA"):
+                    current_feature = {"type": "HBond_acceptor", "family": "HBond_acceptor"}
+                elif line.startswith("Hydrophobic") or line.startswith("HYD"):
+                    current_feature = {"type": "Hydrophobic", "family": "Hydrophobic"}
+                elif line.startswith("Aromatic") or line.startswith("AR"):
+                    current_feature = {"type": "Aromatic", "family": "Aromatic"}
+                elif line.startswith("PositiveIonizable") or line.startswith("PI"):
+                    current_feature = {"type": "Cation", "family": "Cation"}
+                elif line.startswith("NegativeIonizable") or line.startswith("NI"):
+                    current_feature = {"type": "Anion", "family": "Anion"}
+                elif line.startswith("Halogen") or line.startswith("HAL"):
+                    current_feature = {"type": "Halogen", "family": "Halogen"}
+                elif line.startswith("ExclusionVolume") or line.startswith("EV"):
+                    current_feature = {"type": "Exclusion", "family": "Exclusion"}
+
+                # Position data (x y z radius weight)
+                parts = line.split()
+                if len(parts) >= 3 and current_feature:
+                    try:
+                        x, y, z = float(parts[0]), float(parts[1]), float(parts[2])
+                        r = float(parts[3]) if len(parts) > 3 else 1.5
+                        w = float(parts[4]) if len(parts) > 4 else 1.0
+
+                        ft = current_feature["type"]
+                        fam = current_feature["family"]
+                        color = FEATURE_COLORS.get(fam, FEATURE_COLORS.get(ft, "#888888"))
+                        features.append({
+                            "type": ft, "family": fam,
+                            "position": {"x": x, "y": y, "z": z},
+                            "radius": r, "weight": w,
+                            "color": color,
+                            "nci_type": NCI_TYPE_MAP.get(fam, NCI_TYPE_MAP.get(ft, ft)),
+                            "source": "ligandscout_ph4",
+                        })
+                        current_feature = None
+                    except ValueError:
+                        pass
+
+            return {
+                "success": True,
+                "format": "LigandScout .ph4",
+                "metadata": metadata,
+                "features": features,
+                "num_features": len(features),
+            }
+
+        # ── Generate query file from PDB (ZINCPharmer-style) ──
+        if action == "pdb_query":
+            pdb_content = input.get("pdb_content", "")
+            ligand_resname = input.get("ligand_resname", "")
+            if not pdb_content:
+                return {"success": False, "error": "pdb_content required"}
+
+            try:
+                from rdkit import Chem
+                mol = Chem.MolFromPDBBlock(pdb_content, removeHs=False)
+                if mol is None:
+                    return {"success": False, "error": "Invalid PDB content"}
+
+                feat_features = _extract_features(mol) if mol else []
+                prot_features = _extract_protein_pharmacophore(pdb_content)
+
+                pd_info = {}
+                if ligand_resname:
+                    pd_info["ligand"] = ligand_resname
+
+                query_pm = _export_pm_file(feat_features + prot_features, pd_info)
+
+                families = {}
+                for f in feat_features + prot_features:
+                    families[f["family"]] = families.get(f["family"], 0) + 1
+
+                return {
+                    "success": True,
+                    "source": "PDB structure",
+                    "ligand_features": len(feat_features),
+                    "protein_features": len(prot_features),
+                    "total_features": len(feat_features) + len(prot_features),
+                    "feature_summary": families,
+                    "features": feat_features + prot_features,
+                    "query_export": query_pm,
+                }
+            except Exception as e:
+                return {"success": False, "error": str(e)}
+
         return {"error": f"Unknown action: {action}"}
