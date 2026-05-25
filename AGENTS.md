@@ -1,6 +1,69 @@
 ﻿# BioDockify AI - AGENTS.md
 
-[Generated using reconnaissance on 2026-02-22]
+**Last updated: 2026-05-25 | Version: v6.8.1**
+
+## Today's Additions (2026-05-25)
+
+### Docking Pipeline Upgrade
+- **GNINA fixed via conda-forge** — no more fragile GitHub wget URLs. `conda install -y -c conda-forge gnina`
+- **Meeko PDB→PDBQT fallback** — pure Python, cross-platform. Works when obabel missing on Windows
+- **ProLIF interaction fingerprints** — per-residue bitmask encoding (HBD/HBA/HYD/ARO/ION). New `api/docking_analysis.py` action `plif`
+- **Consensus Z-score scoring** — Vina + GNINA combined into single normalized score. `api/docking_run.py:_compute_consensus_score()`
+- **Inline 3D docking analysis** — receptor + ligand viewer with H-bonds, surface, snapshot, zoom. New "Analysis" tab in molecular-toolkit
+- **Best pose 2D diagram + 3D download** — SVG interaction diagram + PDB download for top pose
+
+### Module Consolidation (29 → 15 toolbar icons)
+- `drug-properties` → molecule editor Properties tab
+- `drug-analysis` → molecule editor Filters tab (PAINS/Brenk/NIH)
+- `mol-optimizer` → molecule editor Optimize tab (bioisostere mutagenesis)
+- `slides` → Faculty CMD
+- `lecture-builder` → Faculty CMD
+- `literature` → Research CMD
+- `wetlab` → Research CMD
+- `citation-manager` → Academic Writer
+- `grant-writer` → Academic Writer
+- `regulatory` → Academic Writer
+- `docking-analysis` → molecular-toolkit Analysis tab
+- `browser` / `editor` → removed (non-functional)
+
+### Drug Properties v2
+- **hERG cardiotoxicity** — 10 SMARTS structural alerts
+- **AMES mutagenicity** — 15 SMARTS alerts (Kazius-Hansen)
+- **pKa prediction** — acidic + basic substructure matching (6 acidic, 10 basic groups)
+- **BBB permeability score** — Clark's model 0-1 continuous score
+- **Melting Point** — Joback group contribution method
+- **Drug-likeness Score** — 0-1 weighted composite (MolSoft-style)
+
+### QSAR v2
+- **Classification models** — RFC, SVC, LogisticRegression
+- **Batch prediction** — library screening with AD status
+- **Train/test split** — external validation metrics
+- **Feature selection** — mutual info + ANOVA F-test
+- **Read-across** — ECFP4 Tanimoto analogues
+- **Williams Plot** — SVG leverage vs standardized residuals
+- **PLS VIP scores** — variable importance
+
+### Journal Finder Upgrade
+- **Deep research** — 5 live source scraping (PubMed, SCImago, DOAJ, Google Scholar, Researcher.life)
+- **Fake website detector** — 6 checks (domain reputation, free TLDs, ISSN registry URL, Crossref, domain age)
+- **Full dossier** — access model, APC, license, time-to-publish, publication frequency, h5-index
+- **Research pipeline trigger** — launches `ResearchOrchestrator` + Agent Zero for comprehensive journal research
+
+### Pharmacophore Complete Overhaul
+- 13 actions: generate, protein_model, screen, batch_screen, screen_stats, shared_model, merged_model, overlay, hypothesis, identify_targets, parse_pm, parse_ph4, pdb_query
+- PharmacoNet 10-class NCI types, weighted screening, ZINCPharmer pre-filtering, LigandScout .ph4 import
+
+### 3Dmol.js Protein Viewer in Molecule Editor
+- PDB upload with cartoon rendering + chain coloring
+- Click-to-measure distances (gold cylinder + Å label)
+- Residue sequence strip with click-to-zoom
+- 7 rendering styles (CPK, Chain, Charge, Surface)
+- Snapshot PNG download
+
+### Frontend Redesigns
+- Journal Finder, Pharmacophore, QSAR all redesigned with molecule-editor style (boxes + buttons + L-R grid)
+- QSAR all tabs full-width (removed 300px grid constraint)
+- All Tools grid updated with merged modules and subtask labels
 
 ## Quick Reference
 Tech Stack: Python 3.12+ | Flask | Alpine.js | LiteLLM | WebSocket (Socket.io)

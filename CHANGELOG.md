@@ -2,6 +2,75 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v6.8.1] - 2026-05-25
+### Docking Pipeline Upgrade
+- GNINA fixed: `conda install -c conda-forge gnina` replaces fragile wget URL loop
+- Meeko pure-Python PDB→PDBQT fallback (works on Windows without obabel)
+- ProLIF interaction fingerprints: per-residue bitmask encoding (HBD/HBA/HYD/ARO/ION)
+- Consensus Z-score scoring: Vina + GNINA combined into single normalized score
+- Inline 3D docking analysis: receptor+ligand viewer with H-bonds, surface, snapshot
+- Best pose 2D SVG diagram + 3D PDB download
+
+### Module Consolidation (29 → 15 toolbar icons)
+- 11 modules merged into parent dashboards as tabs
+- Drug Properties, Drug Analysis, Mol Optimizer → Molecule Editor (4 tabs)
+- Slides, Lecture Builder → Faculty CMD
+- Literature, Wet Lab → Research CMD
+- Grant Writer, Regulatory, Citation Manager → Academic Writer (8 tabs)
+- Docking Analysis inline in Molecular Toolkit
+- Browser, Editor removed (non-functional)
+
+### Drug Properties v2
+- hERG cardiotoxicity (10 SMARTS alerts)
+- AMES mutagenicity (15 alerts, Kazius-Hansen)
+- pKa prediction (acidic + basic, 16 substructure patterns)
+- BBB permeability score (Clark's model, 0-1 continuous)
+- Melting Point (Joback group contributions)
+- Drug-likeness Score (0-1 weighted composite)
+
+### QSAR v2
+- Classification models: RFC, SVC, LogisticRegression
+- Batch prediction with AD status per compound
+- Train/test split with external validation
+- Feature selection (mutual info, ANOVA F-test)
+- Read-across: ECFP4 Tanimoto analogues
+- Williams Plot: SVG leverage vs residuals
+- PLS VIP scores, feature importance extraction
+- Full-width UI redesign
+
+### Journal Finder Upgrade
+- Deep research: 5 live source web scraping (PubMed, SCImago, DOAJ, Google Scholar, Researcher.life)
+- Fake website detector: 6 checks (domain, TLD, ISSN registry, Crossref, domain age)
+- Full dossier: access model, APC, license, time-to-publish, Scholar h5-index
+- Research pipeline trigger via ResearchOrchestrator
+
+### Pharmacophore Overhaul
+- 13 actions; protein-based pharmacophore; PharmacoNet 10-class NCI; ZINCPharmer batch; LigandScout .ph4
+
+### Molecule Editor 3D Viewer
+- PDB protein viewer with cartoon + chain coloring
+- Click-to-measure distances, residue sequence strip
+- 7 rendering styles (CPK, Chain, Charge, Surface), snapshot
+
+### Frontend Redesigns
+- Journal Finder, Pharmacophore, QSAR: boxes+buttons style
+- QSAR all tabs full-width
+- All Tools grid: 16 live cards with subtask labels
+- Welcome screen: force chat mode on first login (no empty split view)
+
+### Bug Fixes
+- 18 bugs fixed across 15 files (systematic debug)
+- PDBQT sanitize-before-validate fix (Vina non-AD4 types)
+- Docking analysis TypeError (sorted dicts + key mismatches)
+- Molecule editor: Properties tab not loading, 3D view stuck, Alpine v3 debounce, sendTo selectors, x-create→x-init, missing catch
+- Health badges: platform-aware (Docker=green, Windows=yellow)
+- GNINA fallback scoring when binary missing
+
+### Cleanup
+- 9 extension registration files removed
+- Redundant drug-properties JS removed
+- All merged modules verified accessible from parent dashboards
+
 ## [v5.7.1] - 2026-05-15
 ### Added
 - System Health dashboard: Internet, ChromaDB, RDKit, Disk, Memory monitoring

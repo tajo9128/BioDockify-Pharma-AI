@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://hub.docker.com/r/tajo9128/biodockify-pharma-ai"><img src="https://img.shields.io/badge/docker-tajo9128%2Fbiodockify--pharma--ai-blue.svg" alt="Docker"/></a>
-  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v6.6.0-green.svg" alt="Version"/></a>
+  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v6.8.1-green.svg" alt="Version"/></a>
   <a href="https://github.com/tajo9128/BioDockify-Pharma-AI"><img src="https://img.shields.io/badge/GitHub-BioDockify--Pharma--AI-181717?style=flat&logo=github" alt="GitHub"/></a>
 </p>
 
@@ -14,7 +14,7 @@
   <img src="assets/screenshot.png" alt="BioDockify Pharma AI Screenshot" width="800">
 </p>
 
-**BioDockify Pharma AI** is a comprehensive pharmaceutical research platform with 29 integrated modules. It combines GNINA CNN molecular docking, SPSS-level biostatistics (20 analysis types + 8 charts), a 25-stage autonomous research pipeline, 10 literature databases, 6-model QSAR, pharmacophore screening, a 36,145-journal recommender with hijacked journal detection, an avant-garde JSME molecule editor with 3Dmol.js viewer, and 4 specialized AI sub-agents for deep research, statistics, writing, and execution.
+**BioDockify Pharma AI** is a comprehensive pharmaceutical research platform with 15 consolidated modules. It combines GNINA CNN molecular docking (conda-forge), Vina docking, Meeko PDB→PDBQT, ProLIF interaction fingerprints, consensus Z-score scoring, SPSS-level biostatistics (20 analysis types + 8 charts), a 25-stage autonomous research pipeline, 10 literature databases, 6-model QSAR (regression + classification), pharmacophore screening (PharmacoNet NCI + ZINCPharmer batch), a 36,145-journal recommender with hijacked journal + fake website detection, an avant-garde JSME molecule editor with 3Dmol.js viewer (4-tab: 3D, Properties, Filters, Optimize), drug properties v2 (hERG/AMES/pKa/BBB/melting point/druglikeness score), and 4 specialized AI sub-agents for deep research, statistics, writing, and execution.
 
 ---
 
@@ -30,41 +30,44 @@
 
 ## Features
 
-### 29 Integrated Research Modules
+### 15 Consolidated Research Modules
 
 | # | Module | Function | Backend |
 |---|--------|----------|---------|
-| 1 | **Research Command Center** | Auto-research pipeline, thesis tracking, wet lab coordination | 23 REST endpoints |
-| 2 | **Molecular Toolkit** | ADMET, Tanimoto similarity, chemical space PCA, AutoDock Vina + GNINA CNN docking | RDKit + Vina + GNINA |
-| 3 | **Statistics** | 20 analysis types: descriptive, correlation, t-test, ANOVA, regression, survival, PCA, clustering, ROC, meta-analysis + 8 chart types + data transform | FastAPI router |
-| 4 | **Drug Properties** | MW, LogP, HBD, HBA, TPSA, Lipinski Rule-of-5, Veber, PAINS, Brenk, NIH | RDKit |
-| 5 | **Literature** | 10 databases: PubMed, Semantic Scholar, Google Scholar, Scopus, WoS, arXiv, Elsevier, Springer Nature, Europe PMC, bioRxiv/medRxiv + PRISMA + BioNER | 10 DB + bio_ner |
-| 6 | **Academic Writer** | 5-tab: Literature Review, Research Paper, Thesis, Lecture, Slides | Thesis + Lecture APIs |
-| 7 | **Faculty CMD** | Syllabus parser, lecture/assignment/rubric generator, plagiarism checker | faculty_tools |
-| 8 | **Grant Writer** | Full grant proposals: abstract, aims, methods, timeline, budget | Agent-driven |
-| 9 | **Journal Finder** | 36,145 Scopus/WoS journals + verify (Scopus/WoS/DOAJ/SCImago/hijacked) + dossier + suggest + DB search | journals.db + 8 live APIs |
-| 10 | **Citation Manager** | Collect, organize, export in APA/Nature/AMA/Vancouver/BibTeX | localStorage |
-| 11 | **Regulatory** | FDA/EMA guideline search + NDA/ANDA/MAA submission checklists | FDA API |
-| 12 | **Slides Generator** | Academic, Clinical, Corporate, Minimal + SVG→PPTX native engine (17 files) | Slides API |
-| 13 | **Lecture Builder** | Learning objectives, sections, homework, lab practical | Lecture API |
-| 14 | **Wet Lab Manager** | Experiment tracking, protocols, notes, status (planned/running/completed) | localStorage + API |
-| 15 | **Research Notebook** | ChromaDB vector search, SurfSense storage, tags, favorites, knowledge graph | Knowledge API |
-| 16 | **System Health** | Internet, ChromaDB, RDKit, GNINA, Disk, Memory monitoring — 22 checks | Connection Doctor |
-| 17 | **Backup & Recovery** | Docker volume + GDrive cloud backup | Backup API |
-| 18 | **Kali Desktop** | Full Linux desktop environment | /desktop/session |
-| 19 | **Docking Studio** | AutoDock Vina → GNINA CNN: PDB + SMILES → binding energy poses + CNN rescoring | docking_prepare/run/gnina |
-| 20 | **All Tools** | Quick-launch grid for all 29 modules | N/A |
-| 21 | **QSAR Modeler** | Train/predict with 6 ML models (RF, GBM, SVR, PLS, Ridge, Lasso) on 42 molecular descriptors | RDKit + sklearn |
-| 22 | **Pharmacophore** | Detect H-bond donors/acceptors, hydrophobic, aromatic, ionizable features; library screening | RDKit ChemicalFeatures |
-| 23 | **Docking Deep Analysis** | 3D viewer (3Dmol.js), 2D interaction SVG, per-residue energy, RMSD clustering, torsion analysis | docking_analysis API |
-| 24 | **Molecular Optimizer** | Bioisosteric replacement, group addition (OH/F/CH₃), ring expansion, flexible receptor detection | RDKit + Dunbrack rotamers |
-| 25 | **Drug Analysis (Advanced)** | PAINS (8), Brenk (10), NIH (8) substructure filters for compound quality assessment | RDKit SMARTS |
-| 26 | **Molecule Editor** | JSME in-browser drawing + 3Dmol.js 3D viewer + property panel + PubChem search + PNG/SVG/MOL/SDF export | JSME + 3Dmol.js + RDKit |
-| 27 | **Benchmark Suite** | Dependency checks, API health, storage, RDKit validation | Python subprocess |
-| 28 | **AutoResearchClaw Pipeline** | 25-stage autonomous research (9 phases): scoping → literature → molecular → QSAR → docking → stats → decision → writing → publication | 10-dimension engine |
-| 29 | **Research Intelligence** | Triple debate (3 types), self-healing (PDBQT sanitizer + PIVOT/REFINE), 5-layer verification, 5 quality gates, 8-mode HITL, cross-run knowledge evolution | debate/self_heal/verification/hitl/evolution APIs |
+| 1 | **Research Command Center** | Auto-research pipeline + Literature Search + Wet Lab tracking | 23 REST endpoints |
+| 2 | **Molecular Toolkit** | ADMET + SwissADME + BOILED-Egg plot + Bioavailability Radar + Docking (Vina+GNINA) + Inline 3D Docking Analysis (interactions, clusters, residue energy, PLIF, consensus Z-score) | RDKit + Vina + GNINA + Meeko |
+| 3 | **Statistics** | 20 analysis types + 8 chart types + data transform | FastAPI router |
+| 4 | **Academic Writer** | 8-tab: Lit Review, Paper, Thesis, Grant Writer, Regulatory, Citation Manager, Lecture, Slides | Thesis + Slides + Grant APIs |
+| 5 | **Faculty CMD** | Syllabus, Lectures, Assignments, Plagiarism, Slides generation | faculty_tools |
+| 6 | **Journal Finder** | 36,145 Scopus/WoS journals + verify + deep research (5 live sources) + fake website detector + full dossier + suggest | journals.db + 6 live APIs |
+| 7 | **QSAR Modeler** | 6 regression + 3 classification models, batch predict, read-across, feature selection, Williams Plot, PLS VIP | RDKit + scikit-learn |
+| 8 | **Pharmacophore** | 13 actions: ligand, protein-based, ZINCPharmer batch screen, PharmacoNet NCI, LigandScout .ph4, weighted screening | RDKit |
+| 9 | **Molecule Editor** | JSME drawing + 3Dmol.js viewer (7 styles) + Properties (hERG/AMES/pKa/BBB/MP/druglikeness) + PAINS/Brenk/NIH Filters + Bioisostere Mutagenesis | RDKit + PubChem |
+| 10 | **Docking Analysis** | 3D receptor+ligand viewer with H-bonds, surface, snapshot, zoom. Interaction SVG + PLIF + RMSD clusters + residue energy | 3Dmol.js + RDKit |
+| 11 | **Knowledge Base** | ChromaDB vector store, semantic search, persistent research memory | ChromaDB |
+| 12 | **System Health** | Platform-aware health badges (Vina + GNINA + RDKit), Docker vs Windows detection | health.py |
+| 13 | **Benchmark** | API health, storage, memory, dependency validation | benchmark.py |
+| 14 | **Backup & Recovery** | Full system backup/restore with preview | backup APIs |
+| 14 | **Backup & Recovery** | Full system backup/restore with preview | backup APIs |
+| 15 | **All Tools** | Quick-launch grid for all 15 consolidated modules | N/A |
 
-### GNINA CNN Docking (v6.3.0)
+### Merged Modules (Accessible via Parent Dashboards)
+
+| Original Module | Now Accessible Via |
+|----------------|-------------------|
+| Drug Properties | Molecule Editor → Properties tab |
+| Drug Analysis (PAINS/Brenk/NIH) | Molecule Editor → Filters tab |
+| Molecular Optimizer | Molecule Editor → Optimize tab |
+| Literature Search (10 DB) | Research CMD → Literature tab |
+| Wet Lab Manager | Research CMD → Wet Lab tab |
+| Grant Writer | Academic Writer → Grant tab |
+| Regulatory (FDA/EMA) | Academic Writer → Regulatory tab |
+| Citation Manager | Academic Writer → Citations tab |
+| Slides Generator | Faculty CMD → Slides tab |
+| Lecture Builder | Faculty CMD → Lectures tab |
+| Docking Deep Analysis | Molecular Toolkit → Analysis tab |
+
+### GNINA CNN Docking (v6.8.1)
 
 GNINA deep-learning docking auto-chains after AutoDock Vina with the same prepared PDBQT files:
 
