@@ -196,7 +196,8 @@
         try {
           const r = await callJsonApi("docking_analysis", { action: "pose_overlay", job_id: this.dockingJobId });
           if (!r.error && r.poses && r.poses.length) {
-            const blob = new Blob([r.poses[0]], { type: "chemical/x-pdb" });
+            const pdb = r.poses[0].pdb || r.poses[0];
+            const blob = new Blob([pdb], { type: "chemical/x-pdb" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url; a.download = "best_pose.pdb"; a.click();
@@ -826,7 +827,7 @@
                 </div>
                 <div class="analysis-card">
                   <span class="card-title">Hydrophobic</span>
-                  <span class="card-desc" style="font-size:0.9rem;font-weight:700" x-text="($store.molecularToolkit.daData.interactions?.hydrophobic || []).length"></span>
+                  <span class="card-desc" style="font-size:0.9rem;font-weight:700" x-text="($store.molecularToolkit.daData.interactions?.hydrophobic_contacts || []).length"></span>
                 </div>
                 <div class="analysis-card">
                   <span class="card-title">Salt Bridges</span>
@@ -847,11 +848,11 @@
               </div>
 
               <!-- Key Residues -->
-              <div class="analysis-section" x-show="$store.molecularToolkit.daData.interactions?.binding_site">
+              <div class="analysis-section" x-show="$store.molecularToolkit.daData.interactions?.binding_site_residues">
                 <h3 class="section-title">Binding Site Residues</h3>
-                <div style="display:flex;gap:3px;flex-wrap:wrap;font-size:0.58rem">
-                  <template x-for="res in $store.molecularToolkit.daData.interactions.binding_site">
-                    <span style="padding:2px 6px;background:var(--color-primary);color:white;border-radius:3px;font-weight:600" x-text="res"></span>
+                <div style="display:flex;gap:3px;flex-wrap:wrap;font-size:0.55rem">
+                  <template x-for="res in $store.molecularToolkit.daData.interactions.binding_site_residues">
+                    <span style="padding:2px 6px;background:var(--color-primary);color:white;border-radius:3px;font-weight:600" x-text="res.resname + res.resseq"></span>
                   </template>
                 </div>
               </div>
@@ -865,16 +866,16 @@
                   <div class="analysis-section" x-show="($store.molecularToolkit.daData.interactions.hydrogen_bonds || []).length">
                     <h3 class="section-title">H-Bond Interactions (<span x-text="($store.molecularToolkit.daData.interactions.hydrogen_bonds || []).length"></span>)</h3>
                     <template x-for="hb in $store.molecularToolkit.daData.interactions.hydrogen_bonds">
-                      <div class="nb-entry-card" style="font-size:0.55rem;display:flex;gap:8px">
-                        <span x-text="hb.ligand_atom + ' ← ' + hb.distance + 'Å → ' + hb.receptor_atom"></span>
+                      <div class="nb-entry-card" style="font-size:0.52rem;display:flex;gap:6px">
+                        <span x-text="hb.ligand_atom + ' ← ' + hb.distance + 'Å → ' + (hb.residue||'') + (hb.resseq||'') + '/' + (hb.atom||'')"></span>
                       </div>
                     </template>
                   </div>
                   <!-- Hydrophobic -->
-                  <div class="analysis-section" x-show="($store.molecularToolkit.daData.interactions.hydrophobic || []).length">
-                    <h3 class="section-title">Hydrophobic Contacts (<span x-text="($store.molecularToolkit.daData.interactions.hydrophobic || []).length"></span>)</h3>
-                    <div style="display:flex;gap:3px;flex-wrap:wrap">
-                      <template x-for="hp in $store.molecularToolkit.daData.interactions.hydrophobic">
+              <div class="analysis-section" x-show="($store.molecularToolkit.daData.interactions.hydrophobic_contacts || []).length">
+                <h3 class="section-title">Hydrophobic Contacts (<span x-text="($store.molecularToolkit.daData.interactions.hydrophobic_contacts || []).length"></span>)</h3>
+                <div style="display:flex;gap:3px;flex-wrap:wrap">
+                  <template x-for="hp in $store.molecularToolkit.daData.interactions.hydrophobic_contacts">
                         <span style="padding:2px 6px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:3px;font-size:0.52rem;color:var(--color-text-muted)" x-text="hp.ligand_atom + '↔' + hp.receptor_residue"></span>
                       </template>
                     </div>
@@ -901,9 +902,9 @@
             <div x-show="$store.molecularToolkit.daActiveTab === 'energy'">
               <div class="analysis-section" x-show="$store.molecularToolkit.daData.residue_energy">
                 <h3 class="section-title">Per-Residue Energy Decomposition (kcal/mol)</h3>
-                <template x-for="r in ($store.molecularToolkit.daData.residue_energy || []).slice(0,20)" :key="r.residue">
+                <template x-for="r in ($store.molecularToolkit.daData.residue_energy || []).slice(0,20)" :key="r.residue_label">
                   <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-                    <span style="font-size:0.55rem;font-weight:600;color:var(--color-text);width:60px;text-align:right" x-text="r.residue"></span>
+                    <span style="font-size:0.52rem;font-weight:600;color:var(--color-text);width:65px;text-align:right" x-text="r.residue_label"></span>
                     <div style="flex:1;height:8px;background:var(--color-border);border-radius:4px;overflow:hidden">
                       <div style="height:100%;border-radius:4px;transition:width 0.4s" :style="'width:' + Math.abs(r.energy) / 3 * 100 + '%;background:' + (r.energy < 0 ? '#22c55e' : '#ff6b6b')"></div>
                     </div>

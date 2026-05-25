@@ -92,7 +92,7 @@
       },
 
       init3DView() {
-        if (this.activeTab !== "3d" || !this.smiles || this._viewerReady) return;
+        if (!this.smiles || this._viewerReady) return;
         if (typeof window.$3Dmol === "undefined") {
           const s = document.createElement("script");
           s.src = "https://3Dmol.org/build/3Dmol-min.js";
@@ -102,24 +102,46 @@
         }
         const el = document.getElementById("me-3d-canvas");
         if (!el || el.clientWidth === 0) { setTimeout(() => this.init3DView(), 200); return; }
+        this.loading = true;
         callJsonApi("structure_3d", { smiles: this.smiles }).then(r => {
-          if (!r.success) return;
-          const v = window.$3Dmol.createViewer(el, { backgroundColor: "#ffffff", antialias: true });
+          if (!r.success) { this.error = r.error || "3D generation failed"; this.loading = false; return; }
+          const v = window.$3Dmol.createViewer(el, { backgroundColor: "#1a1a2e", antialias: true });
           v.addModel(r.sdf, "sdf");
-          v.setStyle({}, { stick: { radius: 0.15 }, sphere: { scale: 0.25 } });
+          v.setStyle({}, { stick: { radius: 0.12, colorscheme: "Jmol" }, sphere: { scale: 0.3, colorscheme: "Jmol" } });
+          v.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.15, colorscheme: "whiteCarbon" });
           v.zoomTo(); v.render();
-          this._viewer = v; this._viewerReady = true; window._meViewer = v;
-        }).catch(() => {});
+          this._viewer = v; this._viewerReady = true; window._meViewer = v; this.loading = false;
+        }).catch(e => { this.error = "3D viewer error: " + e.message; this.loading = false; });
       },
 
       toggleStyle(style) {
         const v = this._viewer; if (!v) return;
         v.removeAllSurfaces();
-        if (style === "stick") v.setStyle({}, { stick: {} });
-        else if (style === "sphere") v.setStyle({}, { sphere: {} });
-        else if (style === "ballstick") v.setStyle({}, { stick: { radius: 0.15 }, sphere: { scale: 0.25 } });
-        else if (style === "cartoon") v.setStyle({}, { cartoon: { color: "spectrum" } });
-        else if (style === "surface") v.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.6, colorscheme: "whiteCarbon" });
+        if (style === "stick") v.setStyle({}, { stick: { radius: 0.15, colorscheme: "Jmol" } });
+        else if (style === "sphere") v.setStyle({}, { sphere: { scale: 0.4, colorscheme: "Jmol" } });
+        else if (style === "ballstick") v.setStyle({}, { stick: { radius: 0.12, colorscheme: "Jmol" }, sphere: { scale: 0.3, colorscheme: "Jmol" } });
+        else if (style === "carbonchain") v.setStyle({}, { cartoon: { color: "spectrum" } });
+        else if (style === "charged") { v.setStyle({}, { stick: { colorscheme: "charge", radius: 0.15 } }); v.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.5, colorscheme: "charge" }); }
+        else if (style === "surface") v.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.7, colorscheme: "whiteCarbon" });
+        else if (style === "cpk") v.setStyle({}, { sphere: { scale: 0.6, colorscheme: "Jmol" } });
+        v.render();
+      },
+
+      takeSnapshot() {
+        const v = this._viewer; if (!v) { this.error = "No 3D view to capture"; return; }
+        try {
+          const uri = v.pngURI();
+          const a = document.createElement("a");
+          a.href = uri; a.download = `molecule_${Date.now()}.png`;
+          a.click(); this.message = "Snapshot saved";
+          setTimeout(() => this.message = "", 1500);
+        } catch(e) { this.error = "Snapshot failed: " + e.message; }
+      },
+
+      toggleBg() {
+        const v = this._viewer; if (!v) return;
+        const c = v.getBackgroundColor();
+        v.setBackgroundColor(c === "#ffffff" || c === 0xffffff ? "#1a1a2e" : "#ffffff");
         v.render();
       },
 
@@ -316,9 +338,17 @@
           <div class="me-style-row">
             <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('stick')">Stick</button>
             <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('ballstick')">Ball+Stick</button>
+            <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('cpk')">CPK</button>
             <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('sphere')">Sphere</button>
-            <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('cartoon')">Cartoon</button>
+            <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('carbonchain')">Chain</button>
             <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('surface')">Surface</button>
+            <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('charged')">Charge</button>
+          </div>
+          <div class="me-export-row" style="margin-top:4px;justify-content:flex-end">
+            <button class="me-export-btn" @click="$store.moleculeEditor.toggleBg()">🌓 Toggle BG</button>
+            <button class="me-export-btn" @click="$store.moleculeEditor.takeSnapshot()" style="background:var(--color-primary);color:white;border-color:var(--color-primary)">
+              <span class="material-symbols-outlined" style="font-size:12px">camera</span> Snapshot
+            </button>
           </div>
         </div>
 
