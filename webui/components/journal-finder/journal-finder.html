@@ -5,7 +5,26 @@
     import { callJsonApi } from "/js/api.js";
     import { store as jfStore } from "/components/journal-finder/journal-store.js";
 
-    const store = createStore("journalFinder", jfStore);
+    const store = createStore("journalFinder", {
+      ...jfStore,
+      async triggerDeepResearch(title, issn) {
+        if (!title) return;
+        // First trigger the backend research pipeline
+        try {
+          const r = await callJsonApi("journal_finder", { action: "deep_research", title, issn });
+          this.message = r.message || "Research pipeline started";
+        } catch(e) { this.error = "Research trigger failed: " + e.message; return; }
+        // Also push to Agent Zero chat
+        const prompt = `Do a comprehensive deep research on the journal "${title}"${issn ? ' (ISSN: '+issn+')' : ''}. Compile history, indexing, impact metrics, peer review data, OA policy, reputation, and recommendation.`;
+        const chatInput = document.querySelector('#chat-input');
+        if (chatInput) {
+          chatInput.value = prompt;
+          chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+          chatInput.focus();
+          try { globalThis.sendMessage?.(); } catch(e) {}
+        }
+      },
+    });
     export { store };
   </script>
 </head>
@@ -70,6 +89,9 @@
                 </div>
               </div>
               <button class="nb-btn-primary" @click="$store.journalFinder.jIssn=$store.journalFinder.verifyResult.issn||'';$store.journalFinder.mode='profile';$store.journalFinder.profile()" style="background:#3b82f6">View Full Dossier</button>
+              <button class="nb-btn-primary" @click="$store.journalFinder.triggerDeepResearch($store.journalFinder.jTitle,$store.journalFinder.jIssn)" style="background:#6366f1;margin-top:4px">
+                <span class="material-symbols-outlined" style="font-size:16px">neurology</span> Deep Research
+              </button>
             </div>
           </template>
         </div>

@@ -12,6 +12,7 @@ class JournalFinder(ApiHandler):
             "search": self._search, "verify": self._verify,
             "profile": self._profile, "history": self._history,
             "suggest": self._suggest, "stats": self._stats,
+            "deep_research": self._deep_research,
         }
         handler = actions.get(action, self._search)
         return handler(input)
@@ -82,3 +83,56 @@ class JournalFinder(ApiHandler):
             "open_access": result.get("oa_count", 0),
             "database": "Scopus (Mar 2025) + WoS (Mar 2024)",
         }
+
+    def _deep_research(self, input: dict) -> dict:
+        """Trigger the full BioDockify research pipeline for a journal."""
+        import threading
+        title = input.get("title", "").strip()
+        issn = input.get("issn", "").strip()
+        if not title:
+            return {"status": "error", "error": "Journal title required"}
+
+        topic = f"Comprehensive Deep Research on Academic Journal: {title}" + (f" (ISSN: {issn})" if issn else "")
+        research_prompt = (
+            f"Conduct exhaustive deep research on the academic journal '{title}'{issn and f' (ISSN: {issn})' or ''}.\n\n"
+            f"Search and compile:\n"
+            f"1. Founding year, original name, any name changes, publisher history\n"
+            f"2. Current indexing: Scopus, Web of Science, DOAJ, PubMed, SCImago quartile\n"
+            f"3. Impact Factor history (last 5 years), SJR trend, h-index, Google Scholar h5-index\n"
+            f"4. Peer review process: acceptance rate, average review time, editorial board members\n"
+            f"5. Total articles published, publication frequency, special issues\n"
+            f"6. Open Access policy: APC costs, embargo periods, Creative Commons license type\n"
+            f"7. Any controversies, retractions, predatory journal flags, Cabell's blacklist status\n"
+            f"8. Comparison with 2-3 competing journals in the same field\n"
+            f"9. Scimago Journal Rank trend over past 5 years\n"
+            f"10. Final recommendation: suitable for submission? (with reasoning)\n\n"
+            f"Sources to consult: SCImago, DOAJ API, PubMed, Google Scholar, Clarivate Master Journal List, "
+            f"Researcher.life, Scilit, Crossref API, Retraction Watch database."
+        )
+
+        try:
+            from orchestration.planner.orchestrator import ResearchOrchestrator, OrchestratorConfig
+            config = OrchestratorConfig(use_cloud_api=False)
+            orchestrator = ResearchOrchestrator(config)
+
+            def _run():
+                try:
+                    orchestrator.run(title=title, topic=research_prompt, source="journal_finder")
+                except Exception as e:
+                    logger.warning(f"Research pipeline for '{title}' failed: {e}")
+
+            t = threading.Thread(target=_run, daemon=True)
+            t.start()
+            return {
+                "status": "ok", "action": "deep_research",
+                "message": f"Deep research pipeline started for: {title}",
+                "research_active": True,
+            }
+        except ImportError as e:
+            logger.warning(f"Research orchestrator not available: {e}")
+            return {
+                "status": "ok", "action": "deep_research",
+                "message": f"Research prompt generated for Agent Zero chat",
+                "research_active": False,
+                "prompt": research_prompt,
+            }

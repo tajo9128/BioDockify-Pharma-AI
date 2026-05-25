@@ -307,14 +307,20 @@ class DecisionEngine:
         return profile
 
     def history(self, title: str = "") -> Dict:
-        """Research a journal's history — metrics timeline, publisher history, editorial details."""
+        """Deep research: full journal history via web scraping — SCImago, PubMed, DOAJ, Scholar."""
         if not title:
             return {"error": "Journal title required"}
         result = {
             "title": title,
             "db_profile": None,
             "verification": None,
-            "research_instructions": [],
+            "timeline": [],
+            "metrics": {},
+            "pubmed_stats": {},
+            "scimago_history": {},
+            "doaj_policy": {},
+            "scholar_metrics": {},
+            "scraping_summary": "",
         }
         db_entry = _db_lookup(title=title)
         if db_entry:
@@ -323,21 +329,188 @@ class DecisionEngine:
                 "scopus": bool(db_entry.get("scopus_indexed")),
                 "wos": bool(db_entry.get("wos_indexed")),
                 "subjects": db_entry.get("scopus_subjects"),
+                "issn": db_entry.get("issn", ""),
+                "eissn": db_entry.get("eissn", ""),
             }
         ver = self.verify(title=title)
         result["verification"] = ver
-
-        # Instructions for agent to do deeper research
         issn = db_entry.get("issn", "") if db_entry else ""
-        result["research_instructions"] = [
-            f"Search SCImago for {title} SJR trend: https://www.scimagojr.com/journalsearch.php?q={urllib.parse.quote(title)}",
-            f"Check JCR Impact Factor: https://jcr.clarivate.com (search {issn or title})",
-            f"Search DOAJ for OA policy: https://doaj.org/search/journals/{urllib.parse.quote(title)}",
-            f"Check Researcher.life for review speed: https://researcher.life/journal/{urllib.parse.quote(title.replace(' ', '-').lower())}",
-            f"PubMed search for recent articles: https://pubmed.ncbi.nlm.nih.gov/?term={urllib.parse.quote(title)}[journal]",
-            f"Google Scholar metrics: https://scholar.google.com/citations?view_op=search_journals&hl=en&mauthors={urllib.parse.quote(title)}",
-        ]
+
+        # ── Deep Web Scraping ──
+        sources_scraped = []
+
+        # 1. PubMed article count + recency
+        pm = _scrape_pubmed(title)
+        if pm:
+            result["pubmed_stats"] = pm
+            sources_scraped.append("PubMed")
+            result["timeline"].append({
+                "event": f"PubMed indexed articles", "detail": str(pm),
+                "source": "pubmed.ncbi.nlm.nih.gov"})
+
+        # 2. SCImago history (SJR trend + quartiles)
+        sm = _scrape_scimago_history(title)
+        if sm:
+            result["scimago_history"] = sm
+            sources_scraped.append("SCImago")
+            result["timeline"].append({
+                "event": "SCImago Journal Rank history",
+                "detail": sm.get("quartile_history", "N/A"),
+                "source": "scimagojr.com"})
+
+        # 3. DOAJ policy
+        dj = _check_doaj(title, issn)
+        if dj:
+            result["doaj_policy"] = dj
+            sources_scraped.append("DOAJ")
+            result["timeline"].append({
+                "event": "DOAJ OA policy", "detail": f"APC: {dj.get('apc','N/A')} {dj.get('apc_currency','')}, License: {dj.get('license','N/A')}",
+                "source": "doaj.org"})
+
+        # 4. Google Scholar metrics
+        gs = _scrape_google_scholar_metrics(title)
+        if gs:
+            result["scholar_metrics"] = gs
+            sources_scraped.append("Google Scholar")
+            result["timeline"].append({
+                "event": "Google Scholar Metrics", "detail": str(gs),
+                "source": "scholar.google.com"})
+
+        # 5. Researcher.life / review speed scraping
+        rl = _scrape_researcher_life(title)
+        if rl:
+            result["review_speed"] = rl
+            sources_scraped.append("Researcher.life")
+            result["timeline"].append({
+                "event": "Peer review speed estimate", "detail": rl.get("review_time", "N/A"),
+                "source": "researcher.life"})
+
+        # ── Compile timeline from DB ──
+        if db_entry:
+            result["timeline"].insert(0, {
+                "event": "First indexed in BioDockify DB",
+                "detail": f"Publisher: {db_entry.get('publisher','N/A')}, Type: {db_entry.get('source_type','N/A')}",
+                "source": "Local database"})
+            if db_entry.get("scopus_indexed"):
+                result["timeline"].insert(0, {"event": "Scopus indexed", "detail": db_entry.get("scopus_subjects", ""), "source": "Scopus (Mar 2025)"})
+            if db_entry.get("wos_indexed"):
+                result["timeline"].insert(0, {"event": "Web of Science indexed", "detail": db_entry.get("wos_categories", ""), "source": "WoS (Mar 2024)"})
+
+        result["scraping_summary"] = f"Deep research complete: {len(sources_scraped)} sources scraped ({', '.join(sources_scraped)})" if sources_scraped else "No live sources available (offline or blocked)"
         return result
+
+
+# ── Deep Web Scrapers ──
+
+def _scrape_pubmed(journal_title: str) -> Optional[Dict]:
+    """Scrape PubMed for article count + most recent year."""
+    try:
+        q = urllib.parse.quote(f'"{journal_title}"[Journal]')
+        url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={q}&retmax=1&retmode=json&sort=date"
+        req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+            total = int(data.get("esearchresult", {}).get("count", 0))
+            ids = data.get("esearchresult", {}).get("idlist", [])
+        if not ids:
+            return {"total_articles": total, "recent_articles": 0}
+
+        # Get most recent article details
+        url2 = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id={ids[0]}&retmode=json"
+        req2 = urllib.request.Request(url2, headers={"User-Agent": "BioDockify/7.0"})
+        with urllib.request.urlopen(req2, timeout=10) as resp2:
+            details = json.loads(resp2.read())
+            rec = details.get("result", {}).get(ids[0], {})
+            pub_date = rec.get("pubdate", "")
+            source = rec.get("source", "")
+            title_recent = rec.get("title", "")
+        return {
+            "total_articles": total,
+            "most_recent_date": pub_date,
+            "source_full_name": source,
+            "recent_article_title": title_recent[:120] if title_recent else "",
+        }
+    except Exception:
+        return None
+
+
+def _scrape_scimago_history(journal_title: str) -> Optional[Dict]:
+    """Scrape SCImago for SJR quartile history."""
+    try:
+        q = urllib.parse.quote(journal_title.lower())
+        url = f"https://www.scimagojr.com/journalsearch.php?q={q}"
+        req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            html = resp.read().decode("utf-8", errors="replace")
+        if "No results" in html or len(html) < 500:
+            return None
+
+        # Extract quartile
+        quartile = "Q4"
+        for qlev in ["Q1", "Q2", "Q3", "Q4"]:
+            if f'"quartile_title":"{qlev}"' in html or f'>{qlev}<' in html:
+                quartile = qlev
+                break
+
+        # Extract SJR value
+        sjr_match = re.search(r'SJR\s*[0-9]+\s*</b>\s*([\d.]+)\s*</div>', html)
+        sjr_val = sjr_match.group(1) if sjr_match else None
+
+        # Extract H-index
+        h_match = re.search(r'H\s*index\s*</div>\s*<div[^>]*>\s*(\d+)', html)
+        h_index = int(h_match.group(1)) if h_match else None
+
+        return {
+            "quartile": quartile,
+            "sjr_value": sjr_val,
+            "h_index": h_index,
+            "quartile_history": f"{quartile} (current)",
+            "source": "scimagojr.com",
+        }
+    except Exception:
+        return None
+
+
+def _scrape_google_scholar_metrics(journal_title: str) -> Optional[Dict]:
+    """Scrape Google Scholar metrics for h5-index."""
+    try:
+        q = urllib.parse.quote(journal_title)
+        url = f"https://scholar.google.com/citations?view_op=search_journals&hl=en&mauthors={q}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 BioDockify/7.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            html = resp.read().decode("utf-8", errors="replace")
+        h5_match = re.search(r'h5-index[:\s]*(\d+)', html)
+        h5m_match = re.search(r'h5-median[:\s]*(\d+)', html)
+        if h5_match:
+            return {
+                "h5_index": int(h5_match.group(1)),
+                "h5_median": int(h5m_match.group(1)) if h5m_match else None,
+                "source": "scholar.google.com",
+            }
+        return None
+    except Exception:
+        return None
+
+
+def _scrape_researcher_life(journal_title: str) -> Optional[Dict]:
+    """Scrape researcher.life for review speed data."""
+    try:
+        slug = re.sub(r'[^a-z0-9]+', '-', journal_title.lower().strip()).strip('-')
+        url = f"https://researcher.life/journal/{slug}"
+        req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            html = resp.read().decode("utf-8", errors="replace")
+        review_match = re.search(r'(\d+[\-\d]*\s*(?:days?|weeks?|months?))', html)
+        accept_match = re.search(r'acceptance[:\s]*(\d+[\-\d]*\s*%)', html)
+        if review_match:
+            return {
+                "review_time": review_match.group(1),
+                "acceptance_rate": accept_match.group(1) if accept_match else None,
+                "source": "researcher.life",
+            }
+        return None
+    except Exception:
+        return None
 
 
 # ── Checkers ──
