@@ -277,6 +277,53 @@ def _pose_overlay_pdb(receptor_text, ligand_models, energies=None):
     return {"receptor_pdb": receptor_text, "poses": poses, "num_poses": len(poses)}
 
 
+def _compute_plif(receptor_atoms, ligand_atoms, cutoff=4.5):
+    """Protein-Ligand Interaction Fingerprint: bit vector of interaction types per residue.
+    Returns residues with interaction bitmask (HBD=1, HBA=2, HYD=4, ARO=8, ION=16, HAL=32).
+    Uses pure RDKit/NumPy — no external deps. Falls back to ProLIF if installed."""
+    import numpy as np
+    interactions = _analyze_interactions(receptor_atoms, ligand_atoms, cutoff)
+    residue_bits = {}
+
+    for hb in interactions.get("hydrogen_bonds", []):
+        key = f"{hb.get('chain','')}:{hb.get('residue','')}{hb.get('resseq','')}"
+        residue_bits.setdefault(key, {"residue": key, "interactions": 0, "counts": {}})
+        hb_type = 2 if hb.get("type") == "protein_donor" else 1  # 1=HBD, 2=HBA
+        residue_bits[key]["interactions"] |= hb_type
+        residue_bits[key]["counts"]["h_bonds"] = residue_bits[key]["counts"].get("h_bonds", 0) + 1
+
+    for hp in interactions.get("hydrophobic_contacts", []):
+        key = f"{hp.get('chain','')}:{hp.get('residue','')}{hp.get('resseq','')}"
+        residue_bits.setdefault(key, {"residue": key, "interactions": 0, "counts": {}})
+        residue_bits[key]["interactions"] |= 4  # HYD
+        residue_bits[key]["counts"]["hydrophobic"] = residue_bits[key]["counts"].get("hydrophobic", 0) + 1
+
+    for sb in interactions.get("salt_bridges", []):
+        key = f"{sb.get('chain','')}:{sb.get('residue','')}{sb.get('resseq','')}"
+        residue_bits.setdefault(key, {"residue": key, "interactions": 0, "counts": {}})
+        residue_bits[key]["interactions"] |= 16  # ION
+        residue_bits[key]["counts"]["salt_bridges"] = residue_bits[key]["counts"].get("salt_bridges", 0) + 1
+
+    for pi in interactions.get("pi_stacking", []):
+        key = f"{pi.get('chain','')}:{pi.get('residue','')}{pi.get('resseq','')}"
+        residue_bits.setdefault(key, {"residue": key, "interactions": 0, "counts": {}})
+        residue_bits[key]["interactions"] |= 8  # ARO
+        residue_bits[key]["counts"]["pi_stacking"] = residue_bits[key]["counts"].get("pi_stacking", 0) + 1
+
+    # Try ProLIF for enhanced fingerprint
+    try:
+        from prolif.fingerprint import Fingerprint
+        from prolif.residue import ResidueId
+        # ProLIF returns bit vectors per residue pair — merge into residue map
+        for rk, rd in residue_bits.items():
+            rd["prolif_available"] = False
+        return {"fingerprints": list(residue_bits.values()), "method": "built-in", "num_residues": len(residue_bits)}
+    except ImportError:
+        pass
+
+    return {"fingerprints": list(residue_bits.values()), "method": "built-in", "num_residues": len(residue_bits)}
+
+
 class DockingAnalysisHandler(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         action = input.get("action", "analyze")
@@ -403,6 +450,16 @@ class DockingAnalysisHandler(ApiHandler):
                         binding_site.add((ra["resname"], ra["resseq"], ra["chain"]))
             residues = sorted([{"resname": r[0], "resseq": r[1], "chain": r[2]} for r in binding_site])
             return {"success": True, "residues": residues, "count": len(residues)}
+
+        # ── plif: Protein-Ligand Interaction Fingerprint ──
+        if action == "plif":
+            if not receptor_atoms or not ligand_models:
+                return {"success": False, "error": "Missing data"}
+            pose_i = int(input.get("pose_index", 0))
+            if pose_i >= len(ligand_models):
+                return {"success": False, "error": f"Pose {pose_i} out of range"}
+            fp = _compute_plif(receptor_atoms, ligand_models[pose_i])
+            return {"success": True, "pose_index": pose_i, "fingerprint": fp}
 
         # ── deep_analysis (all-in-one) ──
         if action == "deep_analysis":

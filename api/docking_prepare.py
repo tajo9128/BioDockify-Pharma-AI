@@ -32,10 +32,48 @@ def _run_obabel(args, timeout=60, label="conversion"):
 
 def _obabel_available():
     try:
-        result = subprocess.run(["obabel", "-V"], capture_output=True, text=True, timeout=5)
-        return result.returncode == 0
+        subprocess.run(["obabel", "-V"], capture_output=True, timeout=5)
+        return True
     except Exception:
         return False
+
+
+def _meeko_to_pdbqt(output_path, mol, is_ligand=True):
+    """Pure Python PDB→PDBQT via Meeko — no obabel binary needed. Cross-platform."""
+    try:
+        from meeko import MoleculePreparation, PDBQTWriterLegacy
+        from rdkit import Chem
+        prep = MoleculePreparation()
+        if hasattr(mol, "GetAtoms"):
+            mol_setup = prep.prepare(mol)[0]
+        else:
+            mol_rd = Chem.MolFromPDBFile(mol) if isinstance(mol, str) else mol
+            if mol_rd is None:
+                return False, "Meeko: invalid molecule"
+            mol_setup = prep.prepare(mol_rd)[0]
+        pdbqt_str, is_ok = PDBQTWriterLegacy.write_string(mol_setup)
+        if not is_ok:
+            return False, "Meeko: failed to write PDBQT"
+        if is_ligand:
+            pdbqt_str = _sanitize_pdbqt_str(pdbqt_str, is_ligand=True)
+        with open(output_path, "w") as f:
+            f.write(pdbqt_str)
+        return True, ""
+    except ImportError:
+        return False, "Meeko not installed (pip install meeko)"
+    except Exception as e:
+        return False, str(e)
+
+
+def _sanitize_pdbqt_str(pdbqt_str, is_ligand=True):
+    """Add ROOT/ENDROOT/TORSDOF markers for ligand PDBQT strings."""
+    lines = pdbqt_str.split("\n")
+    if is_ligand and "ROOT" not in pdbqt_str:
+        lines.insert(0, "ROOT")
+        lines.append("ENDROOT")
+        torsions = sum(1 for l in lines if "ACTIVE_BOND" in l or "rotatable" in l.lower())
+        lines.append(f"TORSDOF {max(0, torsions)}")
+    return "\n".join(lines)
 
 
 def _detect_format(content, filename_hint=""):
@@ -238,10 +276,26 @@ class DockingPrepare(ApiHandler):
             else:
                 ligand_errors.append(f"SMILES→PDBQT: {stderr}")
 
+        # Strategy 4: Meeko — pure Python PDB→PDBQT (cross-platform fallback)
+        if not ligand_prep_ok and smiles:
+            try:
+                from rdkit import Chem
+                mol = Chem.MolFromSmiles(smiles)
+                if mol:
+                    mol = Chem.AddHs(mol)
+                    from rdkit.Chem import AllChem
+                    AllChem.EmbedMolecule(mol, AllChem.ETKDG())
+                    AllChem.MMFFOptimizeMolecule(mol)
+                    meeko_ok, meeko_err = _meeko_to_pdbqt(ligand_pdbqt, mol, is_ligand=True)
+                    if meeko_ok: ligand_prep_ok = True
+                    else: ligand_errors.append(f"Meeko: {meeko_err}")
+            except Exception as e:
+                ligand_errors.append(f"Meeko: {str(e)}")
+
         if not ligand_prep_ok:
             return {
-                "error": f"Ligand preparation failed ({ligand_format.upper()}): {'; '.join(ligand_errors)}",
-                "hint": "Install RDKit and OpenBabel, or provide SMILES string"
+                "error": f"Ligand preparation failed: {'; '.join(ligand_errors)}",
+                "hint": "Install RDKit + OpenBabel (Docker), or pip install meeko for pure Python PDBQT conversion"
             }
 
         # === Receptor PDB → PDBQT conversion ===

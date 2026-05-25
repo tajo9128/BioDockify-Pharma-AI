@@ -11,6 +11,29 @@ log = logging.getLogger("docking_run")
 JOBS_DIR = files.get_abs_path("tmp/docking_jobs")
 
 
+def _compute_consensus_score(poses, gnina_result=None):
+    """Combine Vina + GNINA CNN scores into Z-score normalized consensus."""
+    import numpy as np
+    vina_scores = np.array([p.get("energy", 0) for p in poses], dtype=np.float64)
+    gnina_scores = None
+    if gnina_result and gnina_result.get("success") and gnina_result.get("poses"):
+        gnina_scores = np.array([p.get("cnn_score", 0) for p in gnina_result.get("poses", [])], dtype=np.float64)
+    n_poses = len(vina_scores)
+    consensus = []
+    for i in range(n_poses):
+        ze = (vina_scores[i] - vina_scores.mean()) / (vina_scores.std() + 1e-10) if n_poses > 1 else 0
+        zgn = 0
+        if gnina_scores is not None and i < len(gnina_scores):
+            zgn = (gnina_scores[i] - gnina_scores.mean()) / (gnina_scores.std() + 1e-10) if len(gnina_scores) > 1 else 0
+        consensus_z = float(0.6 * ze + 0.4 * zgn) if gnina_scores is not None else float(ze)
+        consensus.append({"pose_index": i, "vina_energy": float(vina_scores[i]),
+            "gnina_cnn": float(gnina_scores[i]) if gnina_scores is not None and i < len(gnina_scores) else None,
+            "consensus_z": round(consensus_z, 4), "vina_z": round(float(ze), 4),
+            "gnina_z": round(float(zgn), 4) if gnina_scores is not None else None})
+    consensus.sort(key=lambda c: c["consensus_z"])
+    return {"num_poses": n_poses, "per_pose": consensus, "best_consensus_z": consensus[0]["consensus_z"] if consensus else None}
+
+
 def _parse_energy_table(stdout: str):
     """Parse Vina's detailed energy table (mode | affinity | rmsd l.b. | rmsd u.b.) from stdout."""
     lines = stdout.split("\n")
@@ -289,6 +312,9 @@ class DockingRun(ApiHandler):
             except Exception as gnina_err:
                 log.warning(f"GNINA chaining error: {gnina_err}")
 
+            # ── Consensus Z-Score Scoring ──
+            consensus = _compute_consensus_score(poses, gnina_result)
+
             return {
                 "status": "complete",
                 "job_id": job_id,
@@ -299,6 +325,7 @@ class DockingRun(ApiHandler):
                 "log_file": log_path if os.path.exists(log_path) else None,
                 "stdout": result.stdout[:3000],
                 "stderr": result.stderr[:1000] if result.stderr else "",
+                "consensus": consensus,
                 "download_links": {
                     "pdbqt": f"/api/docking_download?job_id={job_id}&filename=docked_output.pdbqt",
                     "sdf": f"/api/docking_download?job_id={job_id}&filename=docked_poses.sdf" if sdf_available else None,
