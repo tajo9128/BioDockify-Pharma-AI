@@ -28,8 +28,7 @@ const defaultModules = [
   { id: "pharmacophore", title: "Pharmacophore", icon: "ads_click", component: "/components/pharmacophore/pharmacophore.html", order: 20, defaultWidth: 650, defaultHeight: 500 },
   { id: "docking-analysis", title: "Docking Analysis", icon: "biotech", component: "/components/docking-analysis/docking-analysis.html", order: 21, defaultWidth: 750, defaultHeight: 600 },
   { id: "mol-optimizer", title: "Mol Optimizer", icon: "auto_fix_high", component: "/components/mol-optimizer/mol-optimizer.html", order: 22, defaultWidth: 650, defaultHeight: 500 },
-  { id: "drug-analysis", title: "Drug Analysis", icon: "medication", component: "/components/drug-analysis/drug-analysis.html", order: 23, defaultWidth: 600, defaultHeight: 450 },
-  { id: "molecule-editor", title: "Molecule Editor", icon: "draw", component: "/components/molecule-editor/molecule-editor.html", order: 24, defaultWidth: 800, defaultHeight: 600 },
+  { id: "molecule-editor", title: "Molecule Editor", icon: "draw", component: "/components/molecule-editor/molecule-editor.html", order: 23, defaultWidth: 850, defaultHeight: 650 },
   { id: "benchmark", title: "Benchmark", icon: "monitoring", component: "/components/benchmark/benchmark.html", order: 25, defaultWidth: 500, defaultHeight: 400 },
 ];
 
