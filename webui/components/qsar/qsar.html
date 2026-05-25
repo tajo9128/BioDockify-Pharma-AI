@@ -101,19 +101,15 @@
       </div>
 
       <!-- PREDICT -->
-      <div x-show="$store.qsarModeler.activeTab=='predict'" class="qs-grid">
-        <div class="qs-left">
-          <div class="nb-box"><h4><span class="material-symbols-outlined">psychology</span> Single Prediction</h4>
-            <select x-model="$store.qsarModeler.selectedModelId" class="nb-input" style="margin-bottom:4px"><option value="">-- Select Model --</option><template x-for="m in $store.qsarModeler.savedModels"><option :value="m.model_id" x-text="m.name + ' (' + m.model_type + ')'"></option></template></select>
-            <input type="text" x-model="$store.qsarModeler.predictSmiles" placeholder="SMILES string" class="nb-input" style="font-family:monospace;margin-bottom:4px" @keyup.enter="$store.qsarModeler.runPrediction()" />
-            <button class="nb-btn-primary" @click="$store.qsarModeler.runPrediction()" :disabled="$store.qsarModeler.loading || !$store.qsarModeler.predictSmiles">Predict</button>
-          </div>
-        </div>
-        <div class="qs-right">
+      <div x-show="$store.qsarModeler.activeTab=='predict'" style="display:flex;flex-direction:column;gap:6px">
+        <div class="nb-box" style="padding:12px 14px"><h4><span class="material-symbols-outlined">psychology</span> Single Prediction</h4>
+          <select x-model="$store.qsarModeler.selectedModelId" class="nb-input" style="margin-bottom:6px"><option value="">-- Select Model --</option><template x-for="m in $store.qsarModeler.savedModels"><option :value="m.model_id" x-text="m.name + ' (' + m.model_type + ')'"></option></template></select>
+          <input type="text" x-model="$store.qsarModeler.predictSmiles" placeholder="SMILES string" class="nb-input" style="font-family:monospace;margin-bottom:6px" @keyup.enter="$store.qsarModeler.runPrediction()" />
+          <button class="nb-btn-primary" @click="$store.qsarModeler.runPrediction()" :disabled="$store.qsarModeler.loading || !$store.qsarModeler.predictSmiles">Predict</button>
           <template x-if="$store.qsarModeler.predictResult">
-            <div class="nb-box"><h4>Prediction</h4>
+            <div class="nb-box" style="margin-top:8px;padding:10px"><h4>Prediction Result</h4>
               <div class="nb-meta" x-text="$store.qsarModeler.predictResult.smiles" style="font-family:monospace"></div>
-              <div style="font-size:0.9rem;font-weight:700;color:var(--color-primary);margin:4px 0" x-text="'Predicted: ' + ($store.qsarModeler.predictResult.predicted_activity?.toFixed(4)||'N/A')"></div>
+              <div style="font-size:1rem;font-weight:700;color:var(--color-primary);margin:6px 0" x-text="'Predicted: ' + ($store.qsarModeler.predictResult.predicted_activity?.toFixed(4)||'N/A')"></div>
               <span class="qs-chip" :class="$store.qsarModeler.predictResult.ad_status=='in_domain'?'qs-chip-green':'qs-chip-red'" x-text="'AD: ' + $store.qsarModeler.predictResult.ad_status"></span>
             </div>
           </template>
@@ -121,17 +117,13 @@
       </div>
 
       <!-- BATCH -->
-      <div x-show="$store.qsarModeler.activeTab=='batch'" class="qs-grid">
-        <div class="qs-left">
-          <div class="nb-box"><h4><span class="material-symbols-outlined">view_list</span> Batch Prediction</h4>
-            <select x-model="$store.qsarModeler.batchModelId" class="nb-input" style="margin-bottom:4px"><option value="">-- Select Model --</option><template x-for="m in $store.qsarModeler.savedModels"><option :value="m.model_id" x-text="m.name + ' (' + m.model_type + ')'"></option></template></select>
-            <textarea x-model="$store.qsarModeler.batchSmiles" placeholder="SMILES (one per line)..." class="nb-textarea" style="min-height:80px;font-family:monospace"></textarea>
-            <button class="nb-btn-primary" @click="$store.qsarModeler.runBatchPredict()" :disabled="$store.qsarModeler.batchLoading || !$store.qsarModeler.batchSmiles" style="margin-top:4px">Batch Predict</button>
-          </div>
-        </div>
-        <div class="qs-right">
+      <div x-show="$store.qsarModeler.activeTab=='batch'" style="display:flex;flex-direction:column;gap:6px">
+        <div class="nb-box" style="padding:12px 14px"><h4><span class="material-symbols-outlined">view_list</span> Batch Prediction</h4>
+          <select x-model="$store.qsarModeler.batchModelId" class="nb-input" style="margin-bottom:6px"><option value="">-- Select Model --</option><template x-for="m in $store.qsarModeler.savedModels"><option :value="m.model_id" x-text="m.name + ' (' + m.model_type + ')'"></option></template></select>
+          <textarea x-model="$store.qsarModeler.batchSmiles" placeholder="SMILES (one per line)..." class="nb-textarea" style="min-height:100px;font-family:monospace"></textarea>
+          <button class="nb-btn-primary" @click="$store.qsarModeler.runBatchPredict()" :disabled="$store.qsarModeler.batchLoading || !$store.qsarModeler.batchSmiles" style="margin-top:6px">Batch Predict</button>
           <template x-if="$store.qsarModeler.batchResults.length">
-            <div class="nb-box"><h4 x-text="$store.qsarModeler.batchResults.length + ' Predictions'"></h4>
+            <div class="nb-box" style="margin-top:8px;padding:8px"><h4 x-text="$store.qsarModeler.batchResults.length + ' Predictions'"></h4>
               <template x-for="p in $store.qsarModeler.batchResults">
                 <div class="qs-row"><span class="qs-row-smi" x-text="p.smiles"></span><span class="qs-row-val" x-text="p.predicted.toFixed(4)"></span><span class="qs-chip" :class="p.ad_status=='in_domain'?'qs-chip-green':'qs-chip-yellow'" x-text="p.ad_status||''" x-show="p.ad_status"></span></div>
               </template>
@@ -141,17 +133,13 @@
       </div>
 
       <!-- READ-ACROSS -->
-      <div x-show="$store.qsarModeler.activeTab=='readacross'" class="qs-grid">
-        <div class="qs-left">
-          <div class="nb-box"><h4><span class="material-symbols-outlined">hub</span> Read-Across</h4>
-            <select x-model="$store.qsarModeler.raModelId" class="nb-input" style="margin-bottom:4px"><option value="">-- Select Model --</option><template x-for="m in $store.qsarModeler.savedModels"><option :value="m.model_id" x-text="m.name + ' (' + m.model_type + ')'"></option></template></select>
-            <input type="text" x-model="$store.qsarModeler.raSmiles" placeholder="Query SMILES" class="nb-input" style="font-family:monospace;margin-bottom:4px" @keyup.enter="$store.qsarModeler.runReadAcross()" />
-            <button class="nb-btn-primary" @click="$store.qsarModeler.runReadAcross()" :disabled="$store.qsarModeler.raLoading || !$store.qsarModeler.raSmiles">Find Analogues</button>
-          </div>
-        </div>
-        <div class="qs-right">
+      <div x-show="$store.qsarModeler.activeTab=='readacross'" style="display:flex;flex-direction:column;gap:6px">
+        <div class="nb-box" style="padding:12px 14px"><h4><span class="material-symbols-outlined">hub</span> Read-Across</h4>
+          <select x-model="$store.qsarModeler.raModelId" class="nb-input" style="margin-bottom:6px"><option value="">-- Select Model --</option><template x-for="m in $store.qsarModeler.savedModels"><option :value="m.model_id" x-text="m.name + ' (' + m.model_type + ')'"></option></template></select>
+          <input type="text" x-model="$store.qsarModeler.raSmiles" placeholder="Query SMILES" class="nb-input" style="font-family:monospace;margin-bottom:6px" @keyup.enter="$store.qsarModeler.runReadAcross()" />
+          <button class="nb-btn-primary" @click="$store.qsarModeler.runReadAcross()" :disabled="$store.qsarModeler.raLoading || !$store.qsarModeler.raSmiles">Find Analogues</button>
           <template x-if="$store.qsarModeler.raAnalogues.length">
-            <div class="nb-box"><h4 x-text="$store.qsarModeler.raAnalogues.length + ' Analogues (ECFP4)'"></h4>
+            <div class="nb-box" style="margin-top:8px;padding:8px"><h4 x-text="$store.qsarModeler.raAnalogues.length + ' Analogues (ECFP4 Tanimoto ≥0.3)'"></h4>
               <template x-for="a in $store.qsarModeler.raAnalogues">
                 <div class="qs-row"><span class="qs-row-smi" x-text="a.smiles"></span><span class="qs-row-val" x-text="(a.activity||0).toFixed(3)"></span><span class="nb-meta" x-text="Math.round(a.similarity*100)+'%'"></span></div>
               </template>
@@ -204,9 +192,6 @@
       .qs-tab.active { color:var(--color-primary);border-bottom-color:var(--color-primary) }
       .qs-tab .material-symbols-outlined { font-size:14px }
       .qs-body { flex:1;overflow-y:auto }
-      .qs-grid { display:grid;grid-template-columns:300px 1fr;gap:10px;min-height:0 }
-      .qs-left { display:flex;flex-direction:column;gap:6px }
-      .qs-right { display:flex;flex-direction:column;gap:6px }
       .qs-chip { display:inline-flex;align-items:center;padding:1px 6px;border-radius:3px;font-size:0.48rem;font-weight:600;background:var(--color-panel);border:1px solid var(--color-border);color:var(--color-text-muted) }
       .qs-chip-green { background:rgba(34,197,94,0.12);color:#22c55e;border-color:rgba(34,197,94,0.25) }
       .qs-chip-red { background:rgba(239,68,68,0.1);color:#ef4444;border-color:rgba(239,68,68,0.2) }
@@ -217,7 +202,6 @@
       .qs-row-val { font-weight:700;color:var(--color-primary);font-size:0.56rem;min-width:50px;text-align:center }
       .qs-del { padding:2px;background:transparent;border:none;color:var(--color-text-muted);cursor:pointer }
       .qs-del:hover { color:#ef4444 }
-      @media (max-width:650px) { .qs-grid { grid-template-columns:1fr } }
 
       .nb-box { padding:8px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:6px }
       .nb-box h4 { font-size:0.64rem;font-weight:600;color:var(--color-primary);margin:0 0 6px;display:flex;align-items:center;gap:4px }
