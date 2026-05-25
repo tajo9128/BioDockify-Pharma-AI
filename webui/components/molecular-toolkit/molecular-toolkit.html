@@ -60,6 +60,15 @@
       dockingLog: "",
       dockingDownloadLinks: null,
       dockingGninaResult: null,
+      dockingBestPoseSvg: null,
+      dockingBestPose3d: null,
+
+      // Docking Analysis
+      daActiveTab: "overview",
+      daJobId: null,
+      daData: null,
+      daLoading: false,
+      daError: "",
 
       handleProteinUpload(event) {
         const f = event.target.files[0];
@@ -147,6 +156,7 @@
             this.dockingGninaResult = r.gnina || null;
             this.dockingStatus = r.poses?.length ? "complete" : "error";
             if (!this.dockingPoses.length) this.error = "No binding poses found. Check PDB and ligand SMILES.";
+            if (this.dockingStatus === "complete") { this.fetchBestPose2d(); }
           }
         } catch (e) { this.error = e.message; this.dockingStatus = "error"; }
         this.loading = false;
@@ -157,6 +167,42 @@
         const jobId = this.dockingJobId;
         window._pendingDeepAnalysisJob = jobId;
         window.openModal?.("components/docking-analysis/docking-analysis.html");
+      },
+
+      async openDockingAnalysisInline() {
+        if (!this.dockingJobId) return;
+        this.daJobId = this.dockingJobId;
+        this.activeTab = "docking-analysis";
+        this.daLoading = true;
+        this.daError = "";
+        this.daData = null;
+        try {
+          const r = await callJsonApi("docking_analysis", { action: "deep_analysis", job_id: this.daJobId });
+          if (r.error) { this.daError = r.error; } else { this.daData = r; }
+        } catch (e) { this.daError = e.message; }
+        this.daLoading = false;
+      },
+
+      async fetchBestPose2d() {
+        if (!this.dockingJobId) return;
+        try {
+          const r = await callJsonApi("docking_analysis", { action: "interaction_svg", job_id: this.dockingJobId, pose_index: 0 });
+          if (!r.error && r.svg) { this.dockingBestPoseSvg = r.svg; }
+        } catch (e) { /* silently */ }
+      },
+
+      async downloadBestPose3d() {
+        if (!this.dockingJobId) return;
+        try {
+          const r = await callJsonApi("docking_analysis", { action: "pose_overlay", job_id: this.dockingJobId });
+          if (!r.error && r.poses && r.poses.length) {
+            const blob = new Blob([r.poses[0]], { type: "chemical/x-pdb" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url; a.download = "best_pose.pdb"; a.click();
+            URL.revokeObjectURL(url);
+          }
+        } catch (e) { /* silently */ }
       },
 
       passClass(val) { return val ? "pass" : "fail"; },
@@ -258,6 +304,9 @@
       </button>
       <button class="dock-tab" :class="{active: $store.molecularToolkit.activeTab === 'docking'}" @click="$store.molecularToolkit.activeTab = 'docking'">
         <span class="material-symbols-outlined">precision_manufacturing</span> Docking
+      </button>
+      <button class="dock-tab" :class="{active: $store.molecularToolkit.activeTab === 'docking-analysis'}" @click="$store.molecularToolkit.openDockingAnalysisInline()">
+        <span class="material-symbols-outlined">biotech</span> Analysis
       </button>
     </div>
 
@@ -644,10 +693,35 @@
               <a class="download-btn" :href="$store.molecularToolkit.dockingDownloadLinks.sdf" download x-show="$store.molecularToolkit.dockingDownloadLinks.sdf" title="Download SDF format">
                 <span class="material-symbols-outlined">download</span> SDF
               </a>
+              <button class="download-btn" @click="$store.molecularToolkit.downloadBestPose3d()" title="Download best pose as PDB">
+                <span class="material-symbols-outlined">view_in_ar</span> Best Pose (3D)
+              </button>
               <a class="download-btn" :href="$store.molecularToolkit.dockingDownloadLinks.log" download title="Download Vina log">
                 <span class="material-symbols-outlined">description</span> Log
               </a>
             </div>
+
+            <!-- Best Pose 2D Diagram -->
+            <template x-if="$store.molecularToolkit.dockingBestPoseSvg">
+              <div style="margin-top:8px;padding:10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px">
+                <div style="font-size:0.64rem;font-weight:600;color:var(--color-text);margin-bottom:4px">
+                  <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;color:var(--color-primary)">molecule</span>
+                  Best Pose 2D Interaction Diagram — <span style="color:var(--color-primary);font-family:var(--font-mono)" x-text="$store.molecularToolkit.dockingPoses[0].energy.toFixed(2) + ' kcal/mol'"></span>
+                </div>
+                <div style="display:flex;justify-content:center;background:white;border-radius:4px;padding:4px" x-html="$store.molecularToolkit.dockingBestPoseSvg"></div>
+              </div>
+            </template>
+
+            <!-- Continue to Inline Analysis -->
+            <div x-show="$store.molecularToolkit.dockingJobId && $store.molecularToolkit.dockingStatus === 'complete'" style="margin-top:10px">
+              <button class="btn-run" style="background:linear-gradient(135deg, var(--color-primary), var(--color-accent, #4fc3f7));font-size:0.75rem" @click="$store.molecularToolkit.openDockingAnalysisInline()">
+                <span class="material-symbols-outlined">biotech</span>
+                Continue with Docking Analysis — Interactions, Clusters, 3D View, Residue Energy
+              </button>
+            </div>
+
+            <!-- Old Deep Analysis Modal Button -->
+            <div class="agent-help" x-show="$store.molecularToolkit.dockingJobId && $store.molecularToolkit.dockingStatus === 'complete'" style="display:none"></div>
 
             <!-- GNINA CNN Docking Results -->
             <div x-show="$store.molecularToolkit.dockingGninaResult" style="margin-top:8px;padding:10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px">
@@ -705,6 +779,174 @@
           <p>Enter a protein PDB and ligand SMILES to run molecular docking</p>
           <p style="font-size:0.68rem;opacity:0.6">Simulates AutoDock Vina — RDKit + OpenBabel recommended</p>
         </div>
+      </div>
+
+      <!-- Docking Analysis Tab -->
+      <div x-show="$store.molecularToolkit.activeTab === 'docking-analysis'" class="tab-content">
+        <div x-show="$store.molecularToolkit.daLoading" class="dock-loading"><div class="loading-spinner"></div><span>Running Deep Analysis...</span></div>
+        <div x-show="$store.molecularToolkit.daError" class="dock-error" x-text="$store.molecularToolkit.daError"></div>
+
+        <div x-show="!$store.molecularToolkit.dockingJobId" class="no-results">
+          <span class="material-symbols-outlined">biotech</span>
+          <p>Run a docking job first from the Docking tab</p>
+        </div>
+
+        <template x-if="$store.molecularToolkit.daData">
+          <div class="mt-results">
+            <!-- Analysis Sub-Tabs -->
+            <div style="display:flex;gap:2px;margin-bottom:10px;flex-wrap:wrap">
+              <button class="nb-tab-sm" :class="{active:$store.molecularToolkit.daActiveTab=='overview'}" @click="$store.molecularToolkit.daActiveTab='overview'">Overview</button>
+              <button class="nb-tab-sm" :class="{active:$store.molecularToolkit.daActiveTab=='interactions'}" @click="$store.molecularToolkit.daActiveTab='interactions'">Interactions</button>
+              <button class="nb-tab-sm" :class="{active:$store.molecularToolkit.daActiveTab=='energy'}" @click="$store.molecularToolkit.daActiveTab='energy'">Residue Energy</button>
+              <button class="nb-tab-sm" :class="{active:$store.molecularToolkit.daActiveTab=='clusters'}" @click="$store.molecularToolkit.daActiveTab='clusters'">Clusters</button>
+              <button class="nb-tab-sm" :class="{active:$store.molecularToolkit.daActiveTab=='torsion'}" @click="$store.molecularToolkit.daActiveTab='torsion'">Torsion</button>
+              <button class="nb-tab-sm" :class="{active:$store.molecularToolkit.daActiveTab=='2d'}" @click="$store.molecularToolkit.daActiveTab='2d'">2D Diagram</button>
+            </div>
+
+            <!-- Overview -->
+            <div x-show="$store.molecularToolkit.daActiveTab === 'overview'">
+              <div class="data-info-bar">
+                <span class="material-symbols-outlined success-icon">check_circle</span>
+                <span class="analysis-name" x-text="'Docking Analysis: ' + ($store.molecularToolkit.dockingLigandName || 'ligand') + ' → ' + ($store.molecularToolkit.dockingProteinName || 'protein')"></span>
+                <span class="row-count" x-text="'(' + ($store.molecularToolkit.daData.num_poses || 0) + ' poses)'"></span>
+              </div>
+
+              <div class="analysis-grid" style="margin-bottom:10px">
+                <div class="analysis-card selected">
+                  <span class="card-title">Best Affinity</span>
+                  <span class="card-desc" style="font-size:0.9rem;font-weight:700;color:var(--color-primary)" x-text="($store.molecularToolkit.daData.energies?.[0] || 0).toFixed(2) + ' kcal/mol'"></span>
+                </div>
+                <div class="analysis-card selected">
+                  <span class="card-title">Poses</span>
+                  <span class="card-desc" style="font-size:0.9rem;font-weight:700;color:var(--color-primary)" x-text="$store.molecularToolkit.daData.num_poses || 0"></span>
+                </div>
+                <div class="analysis-card selected">
+                  <span class="card-title">H-Bonds</span>
+                  <span class="card-desc" style="font-size:0.9rem;font-weight:700;color:var(--color-primary)" x-text="($store.molecularToolkit.daData.interactions?.hydrogen_bonds || []).length"></span>
+                </div>
+                <div class="analysis-card">
+                  <span class="card-title">Hydrophobic</span>
+                  <span class="card-desc" style="font-size:0.9rem;font-weight:700" x-text="($store.molecularToolkit.daData.interactions?.hydrophobic || []).length"></span>
+                </div>
+                <div class="analysis-card">
+                  <span class="card-title">Salt Bridges</span>
+                  <span class="card-desc" style="font-size:0.9rem;font-weight:700" x-text="($store.molecularToolkit.daData.interactions?.salt_bridges || []).length"></span>
+                </div>
+                <div class="analysis-card">
+                  <span class="card-title">Pi-Stacking</span>
+                  <span class="card-desc" style="font-size:0.9rem;font-weight:700" x-text="($store.molecularToolkit.daData.interactions?.pi_stacking || []).length"></span>
+                </div>
+                <div class="analysis-card">
+                  <span class="card-title">Clusters</span>
+                  <span class="card-desc" style="font-size:0.9rem;font-weight:700" x-text="($store.molecularToolkit.daData.clusters || []).length"></span>
+                </div>
+                <div class="analysis-card">
+                  <span class="card-title">Torsions</span>
+                  <span class="card-desc" style="font-size:0.9rem;font-weight:700" x-text="($store.molecularToolkit.daData.torsions || []).length"></span>
+                </div>
+              </div>
+
+              <!-- Key Residues -->
+              <div class="analysis-section" x-show="$store.molecularToolkit.daData.interactions?.binding_site">
+                <h3 class="section-title">Binding Site Residues</h3>
+                <div style="display:flex;gap:3px;flex-wrap:wrap;font-size:0.58rem">
+                  <template x-for="res in $store.molecularToolkit.daData.interactions.binding_site">
+                    <span style="padding:2px 6px;background:var(--color-primary);color:white;border-radius:3px;font-weight:600" x-text="res"></span>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+            <!-- Interactions -->
+            <div x-show="$store.molecularToolkit.daActiveTab === 'interactions'" x-data="{}">
+              <template x-if="$store.molecularToolkit.daData.interactions">
+                <div>
+                  <!-- H-bonds -->
+                  <div class="analysis-section" x-show="($store.molecularToolkit.daData.interactions.hydrogen_bonds || []).length">
+                    <h3 class="section-title">H-Bond Interactions (<span x-text="($store.molecularToolkit.daData.interactions.hydrogen_bonds || []).length"></span>)</h3>
+                    <template x-for="hb in $store.molecularToolkit.daData.interactions.hydrogen_bonds">
+                      <div class="nb-entry-card" style="font-size:0.55rem;display:flex;gap:8px">
+                        <span x-text="hb.ligand_atom + ' ← ' + hb.distance + 'Å → ' + hb.receptor_atom"></span>
+                      </div>
+                    </template>
+                  </div>
+                  <!-- Hydrophobic -->
+                  <div class="analysis-section" x-show="($store.molecularToolkit.daData.interactions.hydrophobic || []).length">
+                    <h3 class="section-title">Hydrophobic Contacts (<span x-text="($store.molecularToolkit.daData.interactions.hydrophobic || []).length"></span>)</h3>
+                    <div style="display:flex;gap:3px;flex-wrap:wrap">
+                      <template x-for="hp in $store.molecularToolkit.daData.interactions.hydrophobic">
+                        <span style="padding:2px 6px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:3px;font-size:0.52rem;color:var(--color-text-muted)" x-text="hp.ligand_atom + '↔' + hp.receptor_residue"></span>
+                      </template>
+                    </div>
+                  </div>
+                  <!-- Salt bridges -->
+                  <div class="analysis-section" x-show="($store.molecularToolkit.daData.interactions.salt_bridges || []).length">
+                    <h3 class="section-title">Salt Bridges (<span x-text="($store.molecularToolkit.daData.interactions.salt_bridges || []).length"></span>)</h3>
+                    <template x-for="sb in $store.molecularToolkit.daData.interactions.salt_bridges">
+                      <div class="nb-entry-card" style="font-size:0.55rem" x-text="sb.type + ': ' + sb.ligand_atom + ' ↔ ' + sb.receptor_residue + ' (' + sb.distance + 'Å)'"></div>
+                    </template>
+                  </div>
+                  <!-- Pi-stacking -->
+                  <div class="analysis-section" x-show="($store.molecularToolkit.daData.interactions.pi_stacking || []).length">
+                    <h3 class="section-title">Pi-Stacking (<span x-text="($store.molecularToolkit.daData.interactions.pi_stacking || []).length"></span>)</h3>
+                    <template x-for="ps in $store.molecularToolkit.daData.interactions.pi_stacking">
+                      <div class="nb-entry-card" style="font-size:0.55rem" x-text="ps.receptor_residue + ' ↔ ligand (✓' + ps.distance + 'Å)'"></div>
+                    </template>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- Residue Energy -->
+            <div x-show="$store.molecularToolkit.daActiveTab === 'energy'">
+              <div class="analysis-section" x-show="$store.molecularToolkit.daData.residue_energy">
+                <h3 class="section-title">Per-Residue Energy Decomposition (kcal/mol)</h3>
+                <template x-for="r in ($store.molecularToolkit.daData.residue_energy || []).slice(0,20)" :key="r.residue">
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+                    <span style="font-size:0.55rem;font-weight:600;color:var(--color-text);width:60px;text-align:right" x-text="r.residue"></span>
+                    <div style="flex:1;height:8px;background:var(--color-border);border-radius:4px;overflow:hidden">
+                      <div style="height:100%;border-radius:4px;transition:width 0.4s" :style="'width:' + Math.abs(r.energy) / 3 * 100 + '%;background:' + (r.energy < 0 ? '#22c55e' : '#ff6b6b')"></div>
+                    </div>
+                    <span style="font-size:0.55rem;font-weight:700;font-family:var(--font-mono);width:55px" :style="'color:' + (r.energy < 0 ? '#22c55e' : '#ff6b6b')" x-text="r.energy.toFixed(2)"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Clusters -->
+            <div x-show="$store.molecularToolkit.daActiveTab === 'clusters'">
+              <div class="analysis-section" x-show="$store.molecularToolkit.daData.clusters">
+                <h3 class="section-title">RMSD Pose Clusters (<span x-text="($store.molecularToolkit.daData.clusters || []).length"></span>)</h3>
+                <template x-for="c in $store.molecularToolkit.daData.clusters">
+                  <div class="nb-entry-card" style="font-size:0.55rem;display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-weight:600" x-text="'Cluster ' + c.id"></span>
+                    <span style="color:var(--color-text-muted)" x-text="c.size + ' poses'"></span>
+                    <span style="font-family:var(--font-mono);color:var(--color-primary);font-weight:600" x-text="(c.avg_energy || 0).toFixed(2) + ' kcal/mol'"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Torsion -->
+            <div x-show="$store.molecularToolkit.daActiveTab === 'torsion'">
+              <div class="analysis-section" x-show="$store.molecularToolkit.daData.torsions">
+                <h3 class="section-title">Dihedral Angles (Best Pose)</h3>
+                <template x-for="t in $store.molecularToolkit.daData.torsions">
+                  <div class="nb-entry-card" style="font-size:0.52rem;font-family:var(--font-mono);color:var(--color-text-muted)" x-text="t.atoms.join('–') + ': ' + t.angle + '°'"></div>
+                </template>
+              </div>
+            </div>
+
+            <!-- 2D Diagram -->
+            <div x-show="$store.molecularToolkit.daActiveTab === '2d'">
+              <div class="analysis-section" x-show="$store.molecularToolkit.daData.svg">
+                <h3 class="section-title">Best Pose Interaction Diagram</h3>
+                <div style="display:flex;justify-content:center;background:white;border-radius:6px;padding:6px;border:1px solid var(--color-border)" x-html="$store.molecularToolkit.daData.svg"></div>
+              </div>
+            </div>
+
+          </div>
+        </template>
       </div>
     </div>
 
@@ -858,6 +1100,12 @@
       .lipo-table tr:nth-child(even) { background: rgba(255,255,255,0.02); }
       .sa-bar { height: 6px; background: var(--color-border); border-radius: 3px; overflow: hidden; }
       .sa-bar-fill { height: 100%; background: linear-gradient(90deg, #22c55e, #ffd93d, #ff6b6b); border-radius: 3px; transition: width 0.4s; }
+
+      .nb-tab-sm { padding:3px 10px;background:transparent;border:1px solid var(--color-border);border-radius:4px;color:var(--color-text-muted);cursor:pointer;font-size:0.58rem;white-space:nowrap }
+      .nb-tab-sm:hover { border-color:var(--color-primary);color:var(--color-text) }
+      .nb-tab-sm.active { background:var(--color-primary);color:white;border-color:var(--color-primary) }
+      .nb-entry-card { padding:4px 6px;background:var(--color-background);border:1px solid var(--color-border);border-radius:4px;margin-bottom:2px }
+      .nb-entry-meta { font-size:0.6rem;color:var(--color-text-muted);margin-bottom:2px }
     </style>
 
     <script>
