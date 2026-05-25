@@ -26,6 +26,15 @@ const model = {
     if (this._initialized) return;
     this._initialized = true;
 
+    // Force chat mode on first visit so welcome screen fills the center
+    setTimeout(() => {
+      const dw = Alpine.store("desktopWorkspace");
+      if (dw && !dw.isChatMode) {
+        dw.desktopLayout = "chat";
+        dw.persist?.();
+      }
+    }, 50);
+
     // Reload banners when a modal closes while the welcome screen is visible.
     document.addEventListener("modal-closed", () => {
       if (this.isVisible) {
