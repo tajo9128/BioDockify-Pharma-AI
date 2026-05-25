@@ -59,15 +59,17 @@
 
       _onSmilesChange() {
         clearTimeout(this._debounceTimer);
+        this._viewerReady = false;
         this._debounceTimer = setTimeout(() => { this.loadProperties(); this.init3DView(); }, DEBOUNCE_MS);
       },
 
       validateSmiles() {
         if (!this.smiles) { this.error = "Enter a SMILES string"; return; }
+        this.loading = true;
         callJsonApi("structure_3d", { smiles: this.smiles }).then(r => {
           if (r.success) { this.message = `Valid: ${r.num_atoms} atoms`; this.error = ""; this._addRecent(); }
           else { this.error = r.error || "Invalid SMILES"; }
-        });
+        }).catch(e => { this.error = "Validation failed: " + e.message; }).finally(() => { this.loading = false; });
       },
 
       copySmiles() {
@@ -143,19 +145,15 @@
 
       sendToDocking() {
         if (!this.smiles) { this.error = "Enter or load a SMILES string first"; return; }
-        const inputs = document.querySelectorAll('#smiles-input-dock, input[placeholder*="SMILES"]');
-        for (const el of inputs) {
-          if (!el.value) { el.value = this.smiles; el.dispatchEvent(new Event("input", { bubbles: true })); break; }
-        }
-        this.message = "SMILES sent to docking tab"; setTimeout(() => this.message = "", 2000);
+        const mt = Alpine.store("molecularToolkit");
+        if (mt) { mt.dockingLigand = this.smiles; mt.dockingLigandName = this.smiles.length > 20 ? this.smiles.slice(0,20) : this.smiles; }
+        this.message = "SMILES sent to Docking tab"; setTimeout(() => this.message = "", 2000);
       },
 
       sendToADMET() {
         if (!this.smiles) { this.error = "Enter or load a SMILES string first"; return; }
-        const inputs = document.querySelectorAll('#admet-input, input[placeholder*="ADMET"]');
-        for (const el of inputs) {
-          if (!el.value) { el.value = this.smiles; el.dispatchEvent(new Event("input", { bubbles: true })); break; }
-        }
+        const mt = Alpine.store("molecularToolkit");
+        if (mt) { mt.smiles = this.smiles; }
         this.message = "SMILES sent to ADMET"; setTimeout(() => this.message = "", 2000);
       },
 
@@ -226,7 +224,7 @@
   </style>
 </head>
 <body style="margin:0">
-  <div x-data class="nb-panel" x-create="$store.moleculeEditor.init()">
+  <div x-data class="nb-panel" x-init="$store.moleculeEditor.init()">
     <div class="nb-header">
       <span class="material-symbols-outlined nb-icon">draw</span>
       <div><h2>Molecule Editor</h2><p class="nb-sub" x-text="$store.moleculeEditor.smiles ? $store.moleculeEditor.smiles.slice(0, 50) + ($store.moleculeEditor.smiles.length > 50 ? '...' : '') : 'Draw, edit & load molecules'"></p></div>
@@ -253,7 +251,7 @@
         <div class="nb-form">
           <h4>SMILES</h4>
           <div style="display:flex;gap:4px">
-            <input type="text" x-model="$store.moleculeEditor.smiles" @input.debounce.600ms="$store.moleculeEditor._onSmilesChange()" placeholder="SMILES string..." class="nb-input" style="font-family:monospace" id="smiles-input-dock" />
+             <input type="text" x-model="$store.moleculeEditor.smiles" @input="$store.moleculeEditor._onSmilesChange()" placeholder="SMILES string..." class="nb-input" style="font-family:monospace" id="smiles-input-dock" />
             <button class="nb-btn-primary" @click="$store.moleculeEditor.copySmiles()" style="padding:4px 8px;font-size:0.58rem" title="Copy SMILES"><span class="material-symbols-outlined" style="font-size:14px">content_copy</span></button>
           </div>
           <div style="display:flex;gap:3px;margin-top:4px">

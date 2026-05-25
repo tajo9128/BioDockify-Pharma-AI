@@ -57,7 +57,7 @@ def _calc_lipinski(mw, logp, hbd, hba):
     violations = sum(1 for v in rules.values() if not v)
     return {"passed": violations <= 1, "violations": violations, "rules": rules}
 
-def _format_properties(smiles, mw, logp, hbd, hba, tpsa, formula="", atoms_raw=None):
+def _format_properties(smiles, mw, logp, hbd, hba, tpsa, rot=0, formula="", atoms_raw=None):
     lipinski = _calc_lipinski(mw, logp, hbd, hba)
     atoms = atoms_raw or _parse_atoms(smiles)
     return {
@@ -105,9 +105,20 @@ class DrugProperties(ApiHandler):
             hbd = Descriptors.NumHDonors(mol)
             hba = Descriptors.NumHAcceptors(mol)
             tpsa = round(Descriptors.TPSA(mol), 2)
+            rot = Descriptors.NumRotatableBonds(mol)
             formula = rdMolDescriptors.CalcMolFormula(mol) if hasattr(rdMolDescriptors, "CalcMolFormula") else ""
 
-            return _format_properties(smiles, mw, logp, hbd, hba, tpsa, formula)
+            result = _format_properties(smiles, mw, logp, hbd, hba, tpsa, rot, formula)
+            # Add flat keys for frontend compatibility
+            result["molecular_weight"] = mw
+            result["logp"] = logp
+            result["hbd"] = hbd
+            result["hba"] = hba
+            result["tpsa"] = tpsa
+            result["rotatable_bonds"] = rot
+            result["formula"] = formula
+            result["lipinski_pass"] = result["lipinski"]["passed"]
+            return result
         except ImportError:
             pass
         except Exception as e:
@@ -123,5 +134,15 @@ class DrugProperties(ApiHandler):
         hbd = atoms.get("O", 0) + atoms.get("N", 0)
         hba = atoms.get("O", 0) + atoms.get("N", 0)
         tpsa = round(atoms.get("O", 0) * 20.0 + atoms.get("N", 0) * 15.0, 1)
+        rot = 0
 
-        return _format_properties(smiles, mw, logp, hbd, hba, tpsa, atoms_raw=atoms)
+        result = _format_properties(smiles, mw, logp, hbd, hba, tpsa, rot, atoms_raw=atoms)
+        result["molecular_weight"] = mw
+        result["logp"] = logp
+        result["hbd"] = hbd
+        result["hba"] = hba
+        result["tpsa"] = tpsa
+        result["rotatable_bonds"] = rot
+        result["formula"] = ""
+        result["lipinski_pass"] = result["lipinski"]["passed"]
+        return result
