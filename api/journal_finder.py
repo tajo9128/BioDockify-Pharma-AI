@@ -13,6 +13,7 @@ class JournalFinder(ApiHandler):
             "profile": self._profile, "history": self._history,
             "suggest": self._suggest, "stats": self._stats,
             "deep_research": self._deep_research,
+            "check_fake": self._check_fake,
         }
         handler = actions.get(action, self._search)
         return handler(input)
@@ -83,6 +84,17 @@ class JournalFinder(ApiHandler):
             "open_access": result.get("oa_count", 0),
             "database": "Scopus (Mar 2025) + WoS (Mar 2024)",
         }
+
+    def _check_fake(self, input: dict) -> dict:
+        """Check if a journal website is a cloned fake."""
+        from modules.journal_intel import check_fake_website
+        title = input.get("title", "").strip()
+        website = input.get("website", "").strip()
+        issn = input.get("issn", "").strip()
+        if not title and not website:
+            return {"status": "error", "error": "Provide journal title or website URL"}
+        result = check_fake_website(title, website, issn)
+        return {"status": "ok", "action": "check_fake", **result}
 
     def _deep_research(self, input: dict) -> dict:
         """Trigger the full BioDockify research pipeline for a journal."""

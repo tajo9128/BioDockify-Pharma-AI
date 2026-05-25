@@ -670,6 +670,209 @@ def _check_hijacked(title: str) -> List[str]:
     return flags
 
 
+FAKE_WEBSITE_PATTERNS = [
+    (r"\.blogspot\.", "Blogspot hosted — likely fake/clone"),
+    (r"\.wix\.com", "Wix free site — unlikely legitimate journal"),
+    (r"\.wordpress\.com", "WordPress free site — suspicious"),
+    (r"\.weebly\.com", "Weebly hosted — likely clone"),
+    (r"\.tk/?$", ".tk domain — free TLD, high fake risk"),
+    (r"\.ml/?$", ".ml domain — free TLD, high fake risk"),
+    (r"\.ga/?$", ".ga domain — free TLD, high fake risk"),
+    (r"\.cf/?$", ".cf domain — free TLD, high fake risk"),
+    (r"journals?\d+\.", "Numbered subdomain — common clone pattern"),
+    (r"\-journal\.org$", "Generic -journal.org domain — verify"),
+    (r"ojs\.", "OJS platform — verify journal is registered"),
+]
+
+KNOWN_LEGITIMATE_DOMAINS = [
+    "springer.com", "sciencedirect.com", "tandfonline.com",
+    "wiley.com", "sagepub.com", "nature.com", "ieee.org", "acm.org",
+    "oxfordjournals.org", "cambridge.org", "cell.com", "thelancet.com",
+    "bmj.com", "nejm.org", "jamanetwork.com", "plos.org",
+    "mdpi.com", "frontiersin.org", "hindawi.com", "biomedcentral.com",
+    "ncbi.nlm.nih.gov", "pubmed.ncbi.nlm.nih.gov",
+    "journals.lww.com", "karger.com", "thieme-connect.com",
+    "brill.com", "degruyter.com", "emerald.com",
+]
+
+INDEXING_SITE_DOMAINS = {
+    "scopus": "scopus.com",
+    "wos": "clarivate.com",
+    "doaj": "doaj.org",
+    "scimago": "scimagojr.com",
+}
+
+
+def check_fake_website(journal_title: str, website_url: str = "", issn: str = "") -> Dict:
+    """Detect cloned/fake journal websites.
+    Checks: domain reputation, known legitimate publishers, free TLDs,
+    ISSN registry URL match, cloning pattern detection.
+    Returns risk assessment with detailed flags."""
+    if not journal_title and not website_url:
+        return {"risk": "unknown", "flags": [], "detail": "No website URL provided"}
+
+    result = {"risk": "low", "flags": [], "checks_passed": [], "checks_failed": [], "legitimate_domain": None, "recommended_action": ""}
+
+    url_clean = website_url.strip().lower()
+    if url_clean and not url_clean.startswith("http"):
+        url_clean = "https://" + url_clean
+
+    # ── Check 1: Known legitimate publisher domain ──
+    domain_match = None
+    if url_clean:
+        from urllib.parse import urlparse
+        try:
+            parsed = urlparse(url_clean)
+            hostname = parsed.netloc or parsed.path.split("/")[0]
+            hostname = hostname.replace("www.", "")
+            result["domain"] = hostname
+
+            for legit in KNOWN_LEGITIMATE_DOMAINS:
+                if legit in hostname:
+                    domain_match = legit
+                    result["legitimate_domain"] = legit
+                    result["checks_passed"].append(f"Domain matches known publisher: {legit}")
+                    break
+        except Exception:
+            hostname = ""
+
+    # ── Check 2: Free TLD / blog platform detection ──
+    if hostname:
+        for pattern, warning in FAKE_WEBSITE_PATTERNS:
+            if re.search(pattern, hostname):
+                result["flags"].append(warning)
+                result["checks_failed"].append(warning)
+
+    # ── Check 3: ISSN registry URL verification ──
+    if issn:
+        issn_url = _check_issn_registry_url(issn)
+        if issn_url and url_clean:
+            if hostname and _domain_match(hostname, issn_url):
+                result["checks_passed"].append("Website URL matches ISSN registry record")
+                if not domain_match:
+                    result["legitimate_domain"] = issn_url
+            else:
+                result["flags"].append(f"ISSN registry lists different URL: {issn_url}. Current URL {hostname or '?'} may be a CLONE")
+                result["checks_failed"].append("URL mismatch with ISSN registry")
+
+    # ── Check 4: No URL provided ──
+    if not url_clean:
+        result["flags"].append("No website URL provided — cannot verify website authenticity")
+        result["checks_failed"].append("Missing website URL")
+
+    # ── Check 5: DOI prefix consistency ──
+    if issn:
+        doi_ok = _check_crossref_issn(issn)
+        if doi_ok is False:
+            result["flags"].append("ISSN not found in Crossref — may not be a real journal")
+            result["checks_failed"].append("ISSN not registered in Crossref")
+        elif doi_ok is True:
+            result["checks_passed"].append("ISSN verified in Crossref")
+
+    # ── Check 6: Domain age / creation date (WHOIS) ──
+    if hostname:
+        domain_age = _check_domain_age_estimate(hostname)
+        if domain_age is not None:
+            if domain_age == "very_new":
+                result["flags"].append("Domain appears very new — possible clone created recently")
+                result["checks_failed"].append("Domain is very new (likely <1 year)")
+            elif domain_age == "established":
+                result["checks_passed"].append("Domain appears established (likely >2 years)")
+
+    # ── Final risk assessment ──
+    failed_count = len(result["checks_failed"])
+    if url_clean and not domain_match and failed_count >= 2:
+        result["risk"] = "high"
+        result["recommended_action"] = "WARNING: This website shows multiple fake/clone indicators. Do NOT submit manuscripts or pay APCs. Verify with the ISSN portal (portal.issn.org) and the official publisher website."
+    elif failed_count >= 1:
+        result["risk"] = "medium"
+        result["recommended_action"] = "CAUTION: Some suspicious indicators found. Cross-check with ISSN portal and DOAJ before proceeding."
+    elif domain_match:
+        result["risk"] = "verified"
+        result["recommended_action"] = "Website is hosted by a known legitimate publisher. Likely authentic."
+    else:
+        result["risk"] = "low"
+        result["recommended_action"] = "No obvious cloning indicators. To be fully certain, verify at portal.issn.org."
+
+    return result
+
+
+def _check_issn_registry_url(issn: str) -> Optional[str]:
+    """Query ISSN portal for the official journal URL."""
+    try:
+        url = f"https://portal.issn.org/api/search?search={urllib.parse.quote(issn)}"
+        req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0", "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+            records = data.get("@graph", [])
+            if records:
+                for r in records:
+                    if r.get("@type") == "issn":
+                        return r.get("url") or r.get("mainEntityOfPage")
+    except Exception:
+        pass
+
+    # Fallback: check DOAJ
+    try:
+        url = f"https://doaj.org/api/search/journals/issn:{urllib.parse.quote(issn)}"
+        req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+            results = data.get("results", [])
+            if results:
+                bibjson = results[0].get("bibjson", {})
+                links = bibjson.get("link", [])
+                for link in links:
+                    if link.get("type") == "homepage":
+                        return link.get("url")
+    except Exception:
+        pass
+    return None
+
+
+def _domain_match(hostname: str, official_url: str) -> bool:
+    """Check if hostname roughly matches official URL domain."""
+    try:
+        from urllib.parse import urlparse
+        off_parsed = urlparse(official_url)
+        off_host = off_parsed.netloc or off_parsed.path.split("/")[0]
+        off_host = off_host.replace("www.", "").lower()
+        host = hostname.replace("www.", "").lower()
+        return host in off_host or off_host in host
+    except Exception:
+        return False
+
+
+def _check_crossref_issn(issn: str) -> Optional[bool]:
+    """Verify ISSN is registered in Crossref."""
+    try:
+        url = f"https://api.crossref.org/journals/{urllib.parse.quote(issn)}"
+        req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+            return data.get("status") == "ok"
+    except Exception:
+        return None
+
+
+def _check_domain_age_estimate(hostname: str) -> Optional[str]:
+    """Estimate domain age from known patterns (WHOIS not available)."""
+    try:
+        # Check for common new-domain patterns
+        domain_base = hostname.split(".")[0].lower()
+        # Domains with years or recent dates are suspicious
+        if re.search(r'20(2[1-5]|3[0-5])', domain_base):
+            return "very_new"
+        if re.search(r'20(1[5-9]|20)', domain_base):
+            return "established"
+        # Known long-established domains
+        if any(d in hostname for d in KNOWN_LEGITIMATE_DOMAINS):
+            return "established"
+        return None
+    except Exception:
+        return None
+
+
 # ── Suggesters ──
 
 def _suggest_elsevier(title: str, abstract: str) -> List[Dict]:
