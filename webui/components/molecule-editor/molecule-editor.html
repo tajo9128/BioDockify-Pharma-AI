@@ -14,6 +14,9 @@
       rotBonds: null, formula: "", lipinskiPass: null, propsLoaded: false,
       dlScore: null, hergData: null, amesData: null, pkaData: null,
       bbbData: null, meltingPoint: null,
+      // Protein viewer
+      pdbContent: null, pdbName: "", measureMode: false, residues: [],
+      superposedModels: [], showSequence: false,
       pubchemQuery: "", pubchemLoading: false,
       recent: [], jsmeReady: false, _viewerReady: false, _viewer: null,
 
@@ -57,6 +60,11 @@
       clearJSME() {
         try { if (this._jsme) this._jsme.reset(); } catch(e) {}
         this.smiles = ""; this.mw = null; this.propsLoaded = false;
+        this.pdbContent = null; this.pdbName = ""; this.residues = [];
+        this.superposedModels = [];
+        this.measureMode = false;
+        this._viewerReady = false;
+        if (this._viewer) { this._viewer.removeAllSurfaces(); this._viewer.clear(); this._viewer = null; }
       },
 
       _onSmilesChange() {
@@ -101,7 +109,10 @@
       },
 
       init3DView() {
-        if (!this.smiles || this._viewerReady) return;
+        if (this._viewerReady) return;
+        const hasPdb = this.pdbContent && this.pdbContent.length > 100;
+        const hasSmiles = !!this.smiles;
+        if (!hasPdb && !hasSmiles) return;
         if (typeof window.$3Dmol === "undefined") {
           const s = document.createElement("script");
           s.src = "https://3Dmol.org/build/3Dmol-min.js";
@@ -112,6 +123,11 @@
         const el = document.getElementById("me-3d-canvas");
         if (!el || el.clientWidth === 0) { setTimeout(() => this.init3DView(), 200); return; }
         this.loading = true;
+
+        if (hasPdb) {
+          this._renderProtein(el);
+          return;
+        }
         callJsonApi("structure_3d", { smiles: this.smiles }).then(r => {
           if (!r.success) { this.error = r.error || "3D generation failed"; this.loading = false; return; }
           const v = window.$3Dmol.createViewer(el, { backgroundColor: "#1a1a2e", antialias: true });
@@ -120,7 +136,103 @@
           v.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.15, colorscheme: "whiteCarbon" });
           v.zoomTo(); v.render();
           this._viewer = v; this._viewerReady = true; window._meViewer = v; this.loading = false;
+          this._setupClickMeasure(v);
         }).catch(e => { this.error = "3D viewer error: " + e.message; this.loading = false; });
+      },
+
+      _renderProtein(el) {
+        try {
+          const v = window.$3Dmol.createViewer(el, { backgroundColor: "#1a1a2e", antialias: true });
+          v.addModel(this.pdbContent, "pdb");
+          v.setStyle({ chain: "" }, { cartoon: { colorscheme: { prop: "chain", map: window.$3Dmol.elementColors.defaultColors || window.$3Dmol.ChainColors }}} );
+          v.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.08, colorscheme: "whiteCarbon" });
+          v.zoomTo(); v.render();
+          this._viewer = v; this._viewerReady = true; window._meViewer = v; this.loading = false;
+          this._parsePdbResidues(this.pdbContent);
+          this._setupClickMeasure(v);
+          if (this.superposedModels.length > 0) this._addSuperposedModels(v);
+        } catch(e) { this.error = "Protein render error: " + e.message; this.loading = false; }
+      },
+
+      _parsePdbResidues(pdb) {
+        const seen = new Set();
+        this.residues = [];
+        for (const line of pdb.split("\n")) {
+          if (!(line.startsWith("ATOM") || line.startsWith("HETATM"))) continue;
+          const chain = line.substring(21, 22).trim();
+          const resseq = parseInt(line.substring(22, 26).trim()) || 0;
+          const resname = line.substring(17, 20).trim();
+          const key = `${chain}:${resseq}:${resname}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          this.residues.push({ chain, resseq, resname, key });
+        }
+      },
+
+      _setupClickMeasure(v) {
+        if (!v || !v.renderer) return;
+        const canvas = v.renderer.domElement;
+        if (!canvas) return;
+        let clicks = [];
+        canvas.addEventListener("click", (e) => {
+          if (!this.measureMode) return;
+          const rect = canvas.getBoundingClientRect();
+          const x = e.clientX - rect.left, y = e.clientY - rect.top;
+          const atom = v.getAtomNearPoint(x, y);
+          if (!atom) return;
+          clicks.push(atom);
+          if (clicks.length === 2) {
+            const d = Math.sqrt((clicks[0].x - clicks[1].x)**2 + (clicks[0].y - clicks[1].y)**2 + (clicks[0].z - clicks[1].z)**2);
+            v.addLabel(`${d.toFixed(2)}\u00c5`, { position: { x: (clicks[0].x+clicks[1].x)/2, y: (clicks[0].y+clicks[1].y)/2 + 0.5, z: (clicks[0].z+clicks[1].z)/2 }, backgroundColor: "rgba(0,0,0,0.7)", fontColor: "white", fontSize: 12 });
+            v.addCylinder({ start: clicks[0], end: clicks[1], radius: 0.1, color: "#ffd93d", fromCap: 1, toCap: 1 });
+            v.render();
+            this.message = `Distance: ${d.toFixed(2)}\u00c5`; setTimeout(() => this.message = "", 2000);
+            clicks = [];
+          }
+        });
+      },
+
+      toggleMeasureMode() {
+        this.measureMode = !this.measureMode;
+        if (this.measureMode) {
+          this.message = "Click 2 atoms to measure distance";
+        } else {
+          this.message = "";
+          if (this._viewer) { this._viewer.removeAllLabels(); this._viewer.removeAllShapes(); this._viewer.render(); }
+        }
+      },
+
+      highlightResidue(key) {
+        const v = this._viewer; if (!v) return;
+        const [chain, resseq] = key.split(":");
+        v.removeAllSurfaces();
+        v.setStyle({}, { cartoon: { opacity: 0.3, colorscheme: { prop: "chain", map: window.$3Dmol.elementColors?.defaultColors }}} );
+        v.setStyle({ chain, resi: parseInt(resseq) }, { cartoon: { color: "#ffd93d" }, stick: { radius: 0.2, color: "#ffd93d" } });
+        v.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.15, colorscheme: "whiteCarbon" });
+        v.zoomTo({ chain, resi: parseInt(resseq) }); v.render();
+      },
+
+      resetProteinView() {
+        const v = this._viewer; if (!v) return;
+        v.removeAllSurfaces();
+        v.setStyle({}, { cartoon: { colorscheme: { prop: "chain", map: window.$3Dmol.elementColors?.defaultColors }}} );
+        v.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.08, colorscheme: "whiteCarbon" });
+        v.zoomTo(); v.render();
+      },
+
+      handlePdbUpload(e) {
+        const f = e.target.files[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = () => {
+          this.pdbContent = r.result; this.pdbName = f.name.replace(/\.[^/.]+$/, "");
+          this._viewerReady = false; this.residues = []; this.superposedModels = [];
+          this.smiles = "";
+          this.propsLoaded = false;
+          this.activeTab = "3d";
+          setTimeout(() => this.init3DView(), 100);
+          this.message = `${f.name} loaded (PDB structure)`; setTimeout(() => this.message = "", 2000);
+        };
+        r.readAsText(f);
       },
 
       toggleStyle(style) {
@@ -247,7 +359,8 @@
     .me-style-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
     .me-export-row { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 6px; }
     .me-export-btn { padding: 3px 10px; font-size: 0.58rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-background); color: var(--color-text); cursor: pointer; font-weight: 500; }
-    .me-export-btn:hover { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+     .me-export-btn:hover { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+     .me-export-btn.me-active { background: #ffd93d; color: #333; border-color: #ffd93d; font-weight: 700 }
     .me-export-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .me-recent-item { cursor: pointer; padding: 3px 8px; font-size: 0.56rem; border-radius: 4px; background: color-mix(in srgb, var(--color-primary) 6%, transparent); color: var(--color-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
     .me-recent-item:hover { background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
@@ -322,12 +435,17 @@
 
         <div class="nb-form">
           <h4>Load from File</h4>
-          <label class="nb-upload-label" style="justify-content:center">
-            <span class="material-symbols-outlined">upload_file</span>
-            <span>.sdf .mol .pdb .smi .smiles</span>
-            <input type="file" accept=".sdf,.mol,.pdb,.pdbqt,.smi,.smiles,.txt" hidden @change="$store.moleculeEditor.handleFileUpload($event)" />
-          </label>
-          <div x-show="$store.moleculeEditor.molFile" class="nb-msg" style="margin-top:4px" x-text="$store.moleculeEditor.molFile.name + ' loaded'"></div>
+          <div style="display:flex;gap:4px">
+            <label class="nb-upload-label" style="flex:1;justify-content:center">
+              <span class="material-symbols-outlined">upload_file</span> SDF/MOL/SMI
+              <input type="file" accept=".sdf,.mol,.pdb,.smi,.smiles,.txt" hidden @change="$store.moleculeEditor.handleFileUpload($event)" />
+            </label>
+            <label class="nb-upload-label" style="flex:1;justify-content:center;border-color:var(--color-primary)">
+              <span class="material-symbols-outlined">biotech</span> PDB/Protein
+              <input type="file" accept=".pdb,.pdbqt,.ent,.cif,.mmcif" hidden @change="$store.moleculeEditor.handlePdbUpload($event)" />
+            </label>
+          </div>
+          <div x-show="$store.moleculeEditor.pdbName" class="nb-msg" style="margin-top:4px" x-text="$store.moleculeEditor.pdbName + ' loaded'"></div>
         </div>
       </div>
 
@@ -354,11 +472,29 @@
             <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('charged')">Charge</button>
           </div>
           <div class="me-export-row" style="margin-top:4px;justify-content:flex-end">
-            <button class="me-export-btn" @click="$store.moleculeEditor.toggleBg()">🌓 Toggle BG</button>
+            <button class="me-export-btn" @click="$store.moleculeEditor.toggleMeasureMode()" :class="$store.moleculeEditor.measureMode ? 'me-active' : ''" style="border-color:#ffd93d">
+              <span class="material-symbols-outlined" style="font-size:12px">straighten</span> Measure
+            </button>
+            <button class="me-export-btn" @click="$store.moleculeEditor.toggleBg()">🌓 BG</button>
             <button class="me-export-btn" @click="$store.moleculeEditor.takeSnapshot()" style="background:var(--color-primary);color:white;border-color:var(--color-primary)">
-              <span class="material-symbols-outlined" style="font-size:12px">camera</span> Snapshot
+              <span class="material-symbols-outlined" style="font-size:12px">camera</span> Snap
             </button>
           </div>
+
+          <!-- Protein Sequence Strip -->
+          <template x-if="$store.moleculeEditor.residues.length > 10">
+            <div style="margin-top:6px;padding:6px 8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
+                <span style="font-size:0.58rem;font-weight:600;color:var(--color-primary)" x-text="$store.moleculeEditor.residues.length + ' residues · click to zoom'"></span>
+                <button class="me-export-btn" @click="$store.moleculeEditor.resetProteinView()" style="font-size:0.52rem">Reset View</button>
+              </div>
+              <div style="display:flex;gap:2px;flex-wrap:wrap;max-height:80px;overflow-y:auto">
+                <template x-for="r in $store.moleculeEditor.residues">
+                  <span @click="$store.moleculeEditor.highlightResidue(r.key)" style="padding:1px 4px;background:rgba(255,107,107,0.08);border:1px solid rgba(255,107,107,0.15);border-radius:3px;font-size:0.46rem;cursor:pointer;color:var(--color-text);font-family:monospace" :title="r.chain+':'+r.resseq" x-text="r.resname"></span>
+                </template>
+              </div>
+            </div>
+          </template>
         </div>
 
         <div x-show="$store.moleculeEditor.activeTab === 'props'" style="flex:1;overflow-y:auto">
