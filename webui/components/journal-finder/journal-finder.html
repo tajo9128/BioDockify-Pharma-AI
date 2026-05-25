@@ -166,34 +166,67 @@
           </div>
         </div>
         <div class="jf-right">
-          <template x-if="$store.journalFinder.profileResult">
+            <template x-if="$store.journalFinder.profileResult">
             <div>
               <div class="nb-box"><h4 x-text="$store.journalFinder.profileResult.title" style="font-size:0.74rem"></h4>
-                <div class="nb-meta" x-text="$store.journalFinder.profileResult.publisher + ' · ISSN: ' + ($store.journalFinder.profileResult.issn||'N/A')"></div>
-                <div style="display:flex;gap:4px;margin-top:4px">
-                  <span x-show="$store.journalFinder.profileResult.scopus_indexed" class="jf-chip jf-chip-green">Scopus</span>
-                  <span x-show="$store.journalFinder.profileResult.wos_indexed" class="jf-chip jf-chip-green">WoS</span>
-                  <span class="jf-chip" :class="$store.journalFinder.profileResult.oa_status=='OA'?'jf-chip-yellow':'jf-chip-blue'" x-text="$store.journalFinder.profileResult.oa_status||'Sub'"></span>
+                <div class="nb-meta" x-text="$store.journalFinder.profileResult.publisher + ' · ISSN: ' + ($store.journalFinder.profileResult.issn||'N/A') + ($store.journalFinder.profileResult.eissn ? ' · eISSN: '+$store.journalFinder.profileResult.eissn : '')"></div>
+                <div class="nb-meta">Type: <span x-text="$store.journalFinder.profileResult.source_type || 'N/A'"></span></div>
+
+                <!-- Cost & Access -->
+                <div style="display:flex;gap:4px;margin:6px 0;flex-wrap:wrap">
+                  <span class="jf-chip" :class="$store.journalFinder.profileResult.free_to_read ? 'jf-chip-green' : 'jf-chip-red'">
+                    <span class="material-symbols-outlined" style="font-size:10px" x-text="$store.journalFinder.profileResult.free_to_read ? 'lock_open' : 'lock'"></span>
+                    <span x-text="$store.journalFinder.profileResult.access_model || 'Subscription'"></span>
+                  </span>
+                  <span class="jf-chip jf-chip-blue" x-show="$store.journalFinder.profileResult.costs?.apc_amount" x-text="'APC: ' + $store.journalFinder.profileResult.costs.apc_amount + ' ' + ($store.journalFinder.profileResult.costs.apc_currency||'USD')"></span>
+                  <span class="jf-chip jf-chip-green" x-show="$store.journalFinder.profileResult.costs?.waiver_available">Waiver Available</span>
+                </div>
+
+                <!-- Indexing Full -->
+                <div style="display:flex;gap:4px;flex-wrap:wrap">
+                  <span class="jf-chip jf-chip-green" x-show="$store.journalFinder.profileResult.indexing?.scopus" x-text="'Scopus: ' + $store.journalFinder.profileResult.indexing.scopus.status"></span>
+                  <span class="jf-chip jf-chip-green" x-show="$store.journalFinder.profileResult.indexing?.wos" x-text="'WoS: ' + $store.journalFinder.profileResult.indexing.wos.status"></span>
+                  <span class="jf-chip jf-chip-blue" x-show="$store.journalFinder.profileResult.scimago" x-text="$store.journalFinder.profileResult.scimago.quartile + ' · SJR: ' + ($store.journalFinder.profileResult.scimago.sjr_value || 'N/A') + ' · h=' + ($store.journalFinder.profileResult.scimago.h_index || 'N/A')"></span>
+                  <span class="jf-chip jf-chip-blue" x-show="$store.journalFinder.profileResult.scholar_metrics" x-text="'h5: ' + $store.journalFinder.profileResult.scholar_metrics.h5_index + ' · med: ' + ($store.journalFinder.profileResult.scholar_metrics.h5_median || 'N/A')"></span>
                 </div>
               </div>
-              <template x-if="$store.journalFinder.profileResult.verification">
-                <div class="nb-box">
-                  <h4>Verification</h4>
-                  <span class="jf-chip" :class="$store.journalFinder.profileResult.verification.verdict=='GENUINE'?'jf-chip-green':$store.journalFinder.profileResult.verification.verdict=='PREDATORY'?'jf-chip-red':'jf-chip-yellow'" x-text="$store.journalFinder.profileResult.verification.verdict"></span>
-                  <span style="font-size:0.52rem;color:var(--color-text-muted);margin-left:6px" x-text="Math.round($store.journalFinder.profileResult.verification.confidence*100)+'%'"></span>
+
+              <!-- Time to Publish -->
+              <template x-if="$store.journalFinder.profileResult.time_to_publish">
+                <div class="nb-box"><h4>Time to Publish</h4>
+                  <div class="nb-meta" x-text="'Review: ' + $store.journalFinder.profileResult.time_to_publish.review_time + ' · Acceptance: ' + ($store.journalFinder.profileResult.time_to_publish.acceptance_rate || 'N/A')"></div>
+                  <div class="nb-meta" x-show="$store.journalFinder.profileResult.time_to_publish.last_article" x-text="'Last article: ' + $store.journalFinder.profileResult.time_to_publish.last_article"></div>
+                  <div class="nb-meta" style="font-size:0.46rem" x-text="'Source: ' + $store.journalFinder.profileResult.time_to_publish.source"></div>
                 </div>
               </template>
-              <template x-if="$store.journalFinder.profileResult.hijacked?.flagged">
-                <div class="nb-box" style="border-color:#ef4444;background:rgba(239,68,68,0.03)">
-                  <h4 style="color:#ef4444">Hijacked Journal Alert</h4>
-                  <template x-for="d in $store.journalFinder.profileResult.hijacked.details"><div class="nb-meta" x-text="d"></div></template>
+
+              <!-- OA Policy -->
+              <template x-if="$store.journalFinder.profileResult.oa_policy">
+                <div class="nb-box"><h4>Open Access Policy</h4>
+                  <div class="nb-meta" x-text="$store.journalFinder.profileResult.oa_policy.type || 'N/A'"></div>
+                  <div class="nb-meta" x-show="$store.journalFinder.profileResult.oa_policy.license" x-text="'License: ' + $store.journalFinder.profileResult.oa_policy.license"></div>
+                  <div class="nb-meta" x-show="$store.journalFinder.profileResult.oa_policy.apc" x-text="'APC: ' + $store.journalFinder.profileResult.oa_policy.apc + ' ' + ($store.journalFinder.profileResult.oa_policy.apc_currency||'USD')"></div>
                 </div>
               </template>
+
+              <!-- Publication Frequency -->
+              <template x-if="$store.journalFinder.profileResult.publication_frequency">
+                <div class="nb-box"><h4>Publication Activity</h4>
+                  <div class="nb-meta" x-text="'Total DOIs: ' + ($store.journalFinder.profileResult.publication_frequency.total_articles || 'N/A') + ' · Current: ' + ($store.journalFinder.profileResult.publication_frequency.current_articles || 'N/A')"></div>
+                </div>
+              </template>
+
+              <!-- Subjects -->
               <template x-if="$store.journalFinder.profileResult.scopus_subjects">
                 <div class="nb-box"><h4>Subjects</h4><div class="nb-meta" x-text="$store.journalFinder.profileResult.scopus_subjects"></div></div>
               </template>
+
+              <!-- Verification + Hijacked -->
+              <div style="display:flex;gap:6px;margin-top:4px">
+                <button class="nb-btn-primary" @click="$store.journalFinder.triggerDeepResearch($store.journalFinder.profileResult.title,$store.journalFinder.profileResult.issn)" style="background:#6366f1">Deep Research</button>
+              </div>
             </div>
-          </template>
+            </template>
         </div>
       </div>
     </div>

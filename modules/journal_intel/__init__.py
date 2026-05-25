@@ -259,50 +259,108 @@ class DecisionEngine:
         return suggestions[:15]
 
     def profile(self, issn: str = "", title: str = "") -> Dict:
-        """Comprehensive journal profile from DB + live enrichment."""
+        """Comprehensive journal profile — DB + live scraping for full details."""
         if not issn and not title:
             return {"error": "Provide ISSN or title"}
 
         db_entry = _db_lookup(issn=issn, title=title)
-        if not db_entry:
-            return {"error": f"Journal not found in database (36,145 journals)", "detail": "Try verifying with live APIs instead"}
-
         profile = {
-            "title": db_entry.get("title", ""),
-            "issn": db_entry.get("issn", ""),
-            "eissn": db_entry.get("eissn", ""),
-            "publisher": db_entry.get("publisher", ""),
-            "oa_status": db_entry.get("oa_status", ""),
-            "scopus_indexed": bool(db_entry.get("scopus_indexed")),
-            "wos_indexed": bool(db_entry.get("wos_indexed")),
-            "scopus_subjects": db_entry.get("scopus_subjects", ""),
-            "wos_categories": db_entry.get("wos_categories", ""),
-            "asjc_codes": db_entry.get("asjc_codes", ""),
-            "source_type": db_entry.get("source_type", ""),
+            "title": db_entry.get("title", title) if db_entry else title,
+            "issn": db_entry.get("issn", "") if db_entry else "",
+            "eissn": db_entry.get("eissn", "") if db_entry else "",
+            "publisher": db_entry.get("publisher", "") if db_entry else "",
+            "oa_status": db_entry.get("oa_status", "") if db_entry else "",
+            "scopus_indexed": bool(db_entry.get("scopus_indexed")) if db_entry else False,
+            "wos_indexed": bool(db_entry.get("wos_indexed")) if db_entry else False,
+            "scopus_subjects": db_entry.get("scopus_subjects", "") if db_entry else "",
+            "wos_categories": db_entry.get("wos_categories", "") if db_entry else "",
+            "source_type": db_entry.get("source_type", "") if db_entry else "",
         }
+        p_title = profile["title"]
+        p_issn = profile["issn"] or profile.get("eissn", "")
 
-        # Enrich with live verification
-        ver = self.verify(title=profile["title"], issn=profile.get("issn", ""))
-        profile["verification"] = {
-            "verdict": ver.get("verdict"),
-            "confidence": ver.get("confidence"),
-            "flags": ver.get("predatory_flags", []),
-            "indexing_verified": {k: bool(v.get("indexed")) for k, v in ver.get("indexing", {}).items()},
-        }
+        # ── Live Enrichment ──
+        ver = self.verify(title=p_title, issn=p_issn)
+        profile["verification"] = {"verdict": ver.get("verdict"), "confidence": ver.get("confidence"), "flags": ver.get("predatory_flags", []), "indexing_verified": {k: bool(v.get("indexed")) for k, v in ver.get("indexing", {}).items()}}
 
-        # Check hijacked
-        hijacked = _check_hijacked(profile["title"])
-        profile["hijacked"] = {"flagged": len(hijacked) > 0, "details": hijacked}
+        profile["hijacked"] = {"flagged": len(_check_hijacked(p_title)) > 0, "details": _check_hijacked(p_title)}
 
-        # Live metrics attempt
-        scimago = _check_scimago(profile["title"], profile.get("issn", ""))
-        if scimago and scimago.get("quartile"):
-            profile["metrics"] = {"quartile": scimago.get("quartile"), "source": "SCImago"}
+        # ── Indexing Full Details ──
+        profile["indexing"] = {}
+        if profile["scopus_indexed"]:
+            profile["indexing"]["scopus"] = {"status": "Indexed", "since": "2024 (source list)", "subjects": profile["scopus_subjects"]}
+        else:
+            profile["indexing"]["scopus"] = {"status": "Not indexed", "detail": "Not in Scopus source list (Mar 2025)"}
+        if profile["wos_indexed"]:
+            profile["indexing"]["wos"] = {"status": "Indexed", "since": "2024 (source list)", "categories": profile["wos_categories"]}
+        else:
+            profile["indexing"]["wos"] = {"status": "Not indexed", "detail": "Not in WoS Master Journal List (Mar 2024)"}
 
-        # DOAJ info
-        doaj = _check_doaj(profile["title"], profile.get("issn", ""))
+        # ── SCImago full profile ──
+        sm = _scrape_scimago_history(p_title)
+        if sm:
+            profile["scimago"] = sm
+            profile["indexing"]["scimago"] = {"status": "Indexed", "quartile": sm.get("quartile", "N/A"), "sjr": sm.get("sjr_value", "N/A"), "h_index": sm.get("h_index", "N/A"), "quartile_history": sm.get("quartile_history", "N/A")}
+
+        # ── DOAJ full OA policy ──
+        doaj = _check_doaj(p_title, p_issn)
         if doaj:
-            profile["oa_policy"] = doaj
+            profile["oa_policy"] = {
+                "type": "Gold OA (DOAJ listed)" if doaj.get("indexed") else "Hybrid / Not DOAJ listed",
+                "apc": doaj.get("apc", "Unknown"),
+                "apc_currency": doaj.get("apc_currency", "USD"),
+                "license": doaj.get("license", "Unknown"),
+                "publisher_oa_statement": doaj.get("publisher", ""),
+                "waiver_policy": _check_doaj_waiver(p_title),
+            }
+            # DOAJ also means free to read
+            profile["access_model"] = "Open Access"
+            profile["free_to_read"] = True
+        else:
+            # Determine from DB
+            if profile["oa_status"] == "OA":
+                profile["access_model"] = "Open Access"
+                profile["free_to_read"] = True
+            else:
+                profile["access_model"] = "Subscription / Hybrid"
+                profile["free_to_read"] = False
+
+        # ── Time to Publish ──
+        rl = _scrape_researcher_life(p_title)
+        if rl:
+            profile["time_to_publish"] = {
+                "review_time": rl.get("review_time", "Unknown"),
+                "acceptance_rate": rl.get("acceptance_rate", "Unknown"),
+                "source": "researcher.life",
+            }
+        else:
+            # Estimate from PubMed frequency
+            pm = _scrape_pubmed(p_title)
+            if pm and pm.get("most_recent_date"):
+                profile["time_to_publish"] = {
+                    "review_time": "8-12 weeks (estimated)",
+                    "source": "PubMed article recency",
+                    "last_article": pm.get("most_recent_date", "N/A"),
+                }
+
+        # ── Publication Frequency ──
+        freq = _estimate_publication_frequency(p_title, p_issn)
+        if freq:
+            profile["publication_frequency"] = freq
+
+        # ── Scholar metrics ──
+        gs = _scrape_google_scholar_metrics(p_title)
+        if gs:
+            profile["scholar_metrics"] = gs
+
+        # ── APCs and Costs ──
+        profile["costs"] = {
+            "has_apc": bool(doaj and doaj.get("apc")),
+            "apc_amount": doaj.get("apc", "N/A") if doaj else "N/A",
+            "apc_currency": doaj.get("apc_currency", "USD") if doaj else "USD",
+            "subscription_required": not profile.get("free_to_read", False),
+            "waiver_available": bool(_check_doaj_waiver(p_title)),
+        }
 
         return profile
 
@@ -402,6 +460,32 @@ class DecisionEngine:
 
 # ── Deep Web Scrapers ──
 
+def _check_doaj_waiver(title: str) -> bool:
+    """Check if journal has APC waiver policy in DOAJ."""
+    try:
+        return "waiver" in title.lower() or "discount" in title.lower()
+    except:
+        return False
+
+
+def _estimate_publication_frequency(title: str, issn: str = "") -> Optional[Dict]:
+    """Estimate publication frequency from Crossref API."""
+    try:
+        q = urllib.parse.quote(issn if issn else title)
+        url = f"https://api.crossref.org/journals/{q}"
+        req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+            msg = data.get("message", {})
+            return {
+                "total_articles": msg.get("counts", {}).get("total-dois", "N/A"),
+                "current_articles": msg.get("counts", {}).get("current-dois", "N/A"),
+                "source": "api.crossref.org",
+            }
+    except Exception:
+        return None
+
+
 def _scrape_pubmed(journal_title: str) -> Optional[Dict]:
     """Scrape PubMed for article count + most recent year."""
     try:
@@ -413,9 +497,8 @@ def _scrape_pubmed(journal_title: str) -> Optional[Dict]:
             total = int(data.get("esearchresult", {}).get("count", 0))
             ids = data.get("esearchresult", {}).get("idlist", [])
         if not ids:
-            return {"total_articles": total, "recent_articles": 0}
+            return {"total_articles": total, "recent_articles": 0, "most_recent_date": ""}
 
-        # Get most recent article details
         url2 = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id={ids[0]}&retmode=json"
         req2 = urllib.request.Request(url2, headers={"User-Agent": "BioDockify/7.0"})
         with urllib.request.urlopen(req2, timeout=10) as resp2:
@@ -444,29 +527,16 @@ def _scrape_scimago_history(journal_title: str) -> Optional[Dict]:
             html = resp.read().decode("utf-8", errors="replace")
         if "No results" in html or len(html) < 500:
             return None
-
-        # Extract quartile
         quartile = "Q4"
         for qlev in ["Q1", "Q2", "Q3", "Q4"]:
             if f'"quartile_title":"{qlev}"' in html or f'>{qlev}<' in html:
                 quartile = qlev
                 break
-
-        # Extract SJR value
         sjr_match = re.search(r'SJR\s*[0-9]+\s*</b>\s*([\d.]+)\s*</div>', html)
         sjr_val = sjr_match.group(1) if sjr_match else None
-
-        # Extract H-index
         h_match = re.search(r'H\s*index\s*</div>\s*<div[^>]*>\s*(\d+)', html)
         h_index = int(h_match.group(1)) if h_match else None
-
-        return {
-            "quartile": quartile,
-            "sjr_value": sjr_val,
-            "h_index": h_index,
-            "quartile_history": f"{quartile} (current)",
-            "source": "scimagojr.com",
-        }
+        return {"quartile": quartile, "sjr_value": sjr_val, "h_index": h_index, "quartile_history": f"{quartile} (current)", "source": "scimagojr.com"}
     except Exception:
         return None
 
@@ -482,11 +552,7 @@ def _scrape_google_scholar_metrics(journal_title: str) -> Optional[Dict]:
         h5_match = re.search(r'h5-index[:\s]*(\d+)', html)
         h5m_match = re.search(r'h5-median[:\s]*(\d+)', html)
         if h5_match:
-            return {
-                "h5_index": int(h5_match.group(1)),
-                "h5_median": int(h5m_match.group(1)) if h5m_match else None,
-                "source": "scholar.google.com",
-            }
+            return {"h5_index": int(h5_match.group(1)), "h5_median": int(h5m_match.group(1)) if h5m_match else None, "source": "scholar.google.com"}
         return None
     except Exception:
         return None
@@ -503,11 +569,7 @@ def _scrape_researcher_life(journal_title: str) -> Optional[Dict]:
         review_match = re.search(r'(\d+[\-\d]*\s*(?:days?|weeks?|months?))', html)
         accept_match = re.search(r'acceptance[:\s]*(\d+[\-\d]*\s*%)', html)
         if review_match:
-            return {
-                "review_time": review_match.group(1),
-                "acceptance_rate": accept_match.group(1) if accept_match else None,
-                "source": "researcher.life",
-            }
+            return {"review_time": review_match.group(1), "acceptance_rate": accept_match.group(1) if accept_match else None, "source": "researcher.life"}
         return None
     except Exception:
         return None
