@@ -19,11 +19,17 @@ from modules.project_planner.project_planner import (
     get_project_planner,
     ProjectType,
 )
-from modules.device_manager.device_state_manager import (
-    DeviceStateManager,
-    get_device_state_manager,
-    DeviceState,
-)
+try:
+    from modules.device_manager.device_state_manager import (
+        DeviceStateManager,
+        get_device_state_manager,
+        DeviceState,
+    )
+except ImportError:
+    DeviceStateManager = None
+    DeviceState = type('DeviceState', (), {})
+    def get_device_state_manager(memory_system=None):
+        raise NotImplementedError("Device State Manager not available")
 from modules.multi_task.multi_task_scheduler import (
     MultiTaskScheduler,
     get_multi_task_scheduler,

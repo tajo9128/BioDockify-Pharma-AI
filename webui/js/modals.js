@@ -647,6 +647,14 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+export function getModalStack() {
+  return modalStack;
+}
+
+export function refreshModalStack() {
+  updateModalZIndexes();
+}
+
 // also export as global function
 globalThis.openModal = openModal;
 globalThis.closeModal = closeModal;

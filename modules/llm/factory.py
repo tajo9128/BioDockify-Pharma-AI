@@ -100,11 +100,6 @@ class LLMFactory:
             )
             model = getattr(config, "deepseek_model", None) or "deepseek-chat"
             return CustomAdapter(config.deepseek_key, base_url, model)
-            base_url = (
-                getattr(config, "deepseek_base_url", None) or "https://api.deepseek.com"
-            )
-            model = getattr(config, "deepseek_model", None) or "deepseek-chat"
-            return CustomAdapter(config.deepseek_key, base_url, model)
 
         elif provider == "ollama":
             # Auto-detect model if not specified
@@ -178,27 +173,6 @@ class LLMFactory:
             return CustomAdapter(
                 key, "https://api.moonshot.cn/v1", config.kimi_model or "moonshot-v1-8k"
             )
-
-        elif provider == "ollama":
-            # Use Ollama adapter - use host.docker.internal for Docker, localhost for local dev
-            import os
-            default_url = "http://host.docker.internal:11434" if os.path.exists("/.dockerenv") else "http://localhost:11434"
-            ollama_url = getattr(config, "ollama_url", default_url)
-            model = getattr(config, "ollama_model", "")
-            
-            # Auto-detect model if not specified
-            if not model:
-                try:
-                    from modules.llm.adapters import OllamaAdapter
-                    temp_adapter = OllamaAdapter(base_url=ollama_url, model="")
-                    available = temp_adapter.list_models()
-                    if available:
-                        model = available[0]
-                        print(f"[Auto-detect] Using Ollama model: {model}")
-                except Exception as e:
-                    print(f"[Auto-detect] Failed to list models: {e}")
-            
-            return OllamaAdapter(base_url=ollama_url, model=model)
 
         print(f"Warning: Unknown provider '{provider}'. Falling back to Ollama.")
         return LLMFactory._get_fallback_adapter()

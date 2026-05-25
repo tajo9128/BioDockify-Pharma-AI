@@ -7,7 +7,10 @@ import logging
 from typing import Optional, Dict, Any
 from datetime import datetime
 
-from agent_zero.hybrid.agent import HybridAgent
+try:
+    from agent_zero.hybrid.agent import HybridAgent
+except ImportError:
+    HybridAgent = None
 
 from modules.task_manager.manager import TaskManager
 from modules.task_manager.models import Task, TaskType, TaskPriority, TaskStatus
@@ -15,7 +18,12 @@ from modules.memory.advanced_memory import (
     AdvancedMemorySystem, MemoryType, MemoryImportance, get_memory_system
 )
 
-from prometheus_client import Counter, Gauge, start_http_server
+try:
+    from prometheus_client import Counter, Gauge, start_http_server
+except ImportError:
+    Counter = None
+    Gauge = None
+    start_http_server = None
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +36,7 @@ class IntegratedSystem:
     def __init__(
         self,
         db_url: str,
-        hybrid_agent: HybridAgent,
+        hybrid_agent=None,
         memory_persist_dir: str = "./data/chroma_memory"
     ):
         self.task_manager = TaskManager(db_url, hybrid_agent=hybrid_agent)
@@ -42,6 +50,9 @@ class IntegratedSystem:
 
     def _setup_metrics(self):
         """Setup integrated system metrics"""
+        if Counter is None or Gauge is None:
+            logger.info("Prometheus not available — skipping metrics setup")
+            return
         try:
             # We use a standard port 8000 for metrics if not already started
             # start_http_server(8000)
@@ -350,7 +361,7 @@ def get_integrated_system() -> Optional[IntegratedSystem]:
 
 async def initialize_integrated_system(
     db_url: str,
-    hybrid_agent: HybridAgent,
+    hybrid_agent=None,
     memory_persist_dir: str = "./data/chroma_memory"
 ) -> IntegratedSystem:
     """Initialize integrated system"""

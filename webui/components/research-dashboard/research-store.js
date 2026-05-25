@@ -28,7 +28,7 @@ export const store = createStore("researchDashboard", {
   async listProjects() {
     this.loading = true; this.error = "";
     try {
-      const data = await safeGet("research/management/list");
+      const data = await callJsonApi("research/management/list");
       this.projects = Array.isArray(data) ? data : [];
       if (!this.projects.length) this.loading = false;
     } catch (e) { this.projects = []; }

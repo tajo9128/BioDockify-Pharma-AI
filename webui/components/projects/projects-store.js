@@ -5,7 +5,10 @@ import * as notifications from "/components/notifications/notification-store.js"
 import { store as chatsStore } from "/components/sidebar/chats/chats-store.js";
 import { store as browserStore } from "/components/modals/file-browser/file-browser-store.js";
 import { store as skillsImportStore } from "/components/settings/skills/skills-import-store.js";
-import { store as modelConfigStore } from "/plugins/_model_config/webui/model-config-store.js";
+let modelConfigStore = null;
+try {
+  ({ store: modelConfigStore } = await import("/plugins/_model_config/webui/model-config-store.js"));
+} catch { modelConfigStore = null; }
 import * as shortcuts from "/js/shortcuts.js";
 import { showConfirmDialog } from "/js/confirmDialog.js";
 
@@ -431,7 +434,7 @@ const model = {
   },
 
   async _createProjectLlmData(projectName) {
-    await modelConfigStore.ensureLoaded();
+    await modelConfigStore?.ensureLoaded?.();
     const configResult = await api.callJsonApi("/plugins/_model_config/model_config_get", {
       project_name: projectName || "",
     });
@@ -459,7 +462,7 @@ const model = {
     config.chat_model = config.chat_model || {};
     config.utility_model = config.utility_model || {};
     config.embedding_model = config.embedding_model || {};
-    modelConfigStore.initConfigFields(config);
+    modelConfigStore?.initConfigFields?.(config);
 
     const globalPresets = this._normalizePresetsWithScope(
       data.global_presets || [],
@@ -492,7 +495,7 @@ const model = {
   },
 
   _normalizePresetsWithScope(presets, defaultScope, projectName) {
-    return modelConfigStore._normalizePresets(presets || []).map((preset, index) => {
+    return (modelConfigStore?._normalizePresets?.(presets || []) || []).map((preset, index) => {
       const raw = presets[index] || {};
       return {
         ...preset,
@@ -532,8 +535,7 @@ const model = {
       name: preset.name || "",
     };
     llm.config = this._configFromPreset(preset, llm.config || {});
-    modelConfigStore.initConfigFields(llm.config);
-  },
+    modelConfigStore?.initConfigFields?.(llm.config);  },
 
   markLlmCurrent() {
     const llm = this.selectedProject?.llm;

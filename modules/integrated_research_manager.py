@@ -52,19 +52,22 @@ class IntegratedResearchManager:
         Start comprehensive research with full integration.
         Returns research ID and initial state.
         """
-        # Detect research type
-        detection_result = self.detector.detect_research_topic(user_message)
-        research_type = detection_result.get("research_type", "general")
+        # Detect research type and create plan
+        from modules.research_detector import ResearchTopic
+        detected = self.orchestrator.detect_research_topic(user_message)
+        if detected is None:
+            detected = ResearchTopic(
+                topic=topic,
+                research_type="general",
+                confidence=0.5
+            )
+        research_type = detected.research_type or "general"
 
         # Generate research ID
         research_id = f"{research_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
         # Create research plan
-        plan = self.orchestrator.planner.create_research_plan(
-            topic=topic,
-            research_type=research_type,
-            context_id=context_id
-        )
+        plan = self.orchestrator.create_research_plan(detected)
 
         # Initialize todo list from plan
         self.todo_manager.create_todo_list(
@@ -117,7 +120,7 @@ class IntegratedResearchManager:
             "research_id": research_id,
             "topic": topic,
             "research_type": research_type,
-            "detection_confidence": detection_result.get("confidence", 0.0),
+            "detection_confidence": getattr(detected, "confidence", 0.0),
             "total_tasks": len(plan.tasks),
             "thesis_initialized": thesis_initialized,
             "wetlab_tasks_generated": wetlab_tasks_generated,

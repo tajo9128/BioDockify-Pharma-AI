@@ -3,7 +3,7 @@ import base64
 import io
 
 
-class ChemicalSpace(ApiHandler):
+class ChemicalSpaceMap(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
         smiles_list = input.get("smiles_list", [])
         if not smiles_list or len(smiles_list) < 2:

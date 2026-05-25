@@ -152,7 +152,7 @@ Alpine.data("statisticsModal", () => ({
           this.hasData = true;
           this.step = 2;
           // Parse file locally for factor/reliability/cluster APIs
-          this._parseRawData(file);
+          this._parseLocalFile(file);
           this.results = "";
           this.errorMessage = "";
           this.persist();
@@ -392,7 +392,7 @@ Alpine.data("statisticsModal", () => ({
     this.loading = false;
   },
 
-  closeModal() { this.resetData(); closeTopModal(); },
+  closeModal() { this.resetData(); globalThis.closeModal(); },
 
   useSampleData() {
     this.fileName = "sample-data.csv";

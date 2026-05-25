@@ -425,6 +425,7 @@ const model = {
   async speakWithKokoro(text, waitForPrevious = false, terminator = null) {
     try {
       // synthesize on the backend
+      if (typeof sendJsonData !== "function") { console.warn("sendJsonData not available — TTS disabled"); return; }
       const response = await sendJsonData("/synthesize", { text });
 
       // wait for previous to finish if requested
@@ -881,6 +882,7 @@ class MicrophoneInput {
     const base64 = await this.convertBlobToBase64Wav(audioBlob);
 
     try {
+      if (typeof sendJsonData !== "function") throw new Error("sendJsonData not available");
       const result = await sendJsonData("/transcribe", { audio: base64 });
       const text = this.filterResult(result.text || "");
 

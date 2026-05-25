@@ -20,22 +20,10 @@ try:
 except ImportError:
     pass
 
+import logging
 from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
 import uuid
-
-
-async def startup_event():
-    """Initialize BioDockify subsystems on startup."""
-    logging.basicConfig(level=logging.INFO)
-    log = logging.getLogger("biodockify_api")
-    log.info("BioDockify API starting...")
-    try:
-        from rdkit import Chem
-        Chem.MolFromSmiles("CCO")
-        log.info("RDKit available")
-    except Exception:
-        log.warning("RDKit not available — docking disabled")
 
 
 @asynccontextmanager
@@ -44,7 +32,7 @@ async def lifespan(app: FastAPI):
     BioDockify Backend Lifespan Controller.
     Handles startup/shutdown logic for all modules.
     """
-    await startup_event()
+    logger.info("BioDockify API starting (startup_event deferred to app-level handler)...")
     yield
     logger.info("BioDockify Backend Shutdown.")
 
@@ -2433,58 +2421,6 @@ async def agent_execute(request: AgentExecuteRequest):
     except Exception as e:
         logger.error(f"Agent Execute Error: {e}")
         return {"status": "error", "action": action, "error": str(e)}
-
-    # -----------------------------------------------------------------------------
-    """Upload and ingest a document (PDF, Notebook, MD) into the knowledge base."""
-    import re
-
-    # 1. Sanitize Filename
-    # Simple rigorous sanitization: allow only alphanumeric, dot, dash, underscore
-    clean_name = re.sub(r"[^a-zA-Z0-9_.-]", "_", file.filename)
-    if not clean_name:
-        clean_name = f"upload_{uuid.uuid4().hex}"
-
-    # 2. Validate Extension
-    ALLOWED_EXTS = {".pdf", ".md", ".txt", ".ipynb", ".json"}
-    suffix = os.path.splitext(clean_name.lower())[1]
-
-    if suffix not in ALLOWED_EXTS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file type: {suffix}. Allowed: {ALLOWED_EXTS}",
-        )
-
-    # 3. Validate Context/Magic Bytes (Optional but recommended for PDF)
-    # For now, we rely on ingestion pipeline to fail if invalid, but we ensure safe temp write.
-
-    # Save to temp file
-    tmp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            shutil.copyfileobj(file.file, tmp)
-            tmp_path = tmp.name
-
-        # Ingest
-        chunks = ingestor.ingest_file(tmp_path)
-
-        # Add metadata override for original filename
-        for chunk in chunks:
-            chunk["metadata"]["source"] = clean_name
-
-        get_vector_store().add_documents(chunks)
-        return {
-            "status": "success",
-            "message": f"Indexed {len(chunks)} chunks from {clean_name}",
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Upload failed: {e}")
-        raise HTTPException(status_code=500, detail="Failed to process file upload")
-    finally:
-        if "tmp_path" in locals() and os.path.exists(tmp_path):
-            os.remove(tmp_path)
 
 
 class Neo4jCheckRequest(BaseModel):

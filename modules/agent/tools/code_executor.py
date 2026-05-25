@@ -41,6 +41,7 @@ def _execute_code_worker(code: str, result_queue: multiprocessing.Queue):
         "return_value": None
     }
     
+    old_stdout = old_stderr = None
     try:
         # Redirect stdout/stderr
         old_stdout, old_stderr = sys.stdout, sys.stderr
@@ -90,7 +91,8 @@ def _execute_code_worker(code: str, result_queue: multiprocessing.Queue):
         result["output"] = stdout_capture.getvalue()
         
     finally:
-        sys.stdout, sys.stderr = old_stdout, old_stderr
+        if old_stdout is not None:
+            sys.stdout, sys.stderr = old_stdout, old_stderr
     
     result_queue.put(result)
 

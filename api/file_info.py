@@ -1,13 +1,12 @@
 import os
 from helpers.api import ApiHandler, Input, Output, Request, Response
-from helpers import files, runtime
+from helpers import files
 from typing import TypedDict
 
 class FileInfoApi(ApiHandler):
     async def process(self, input: Input, request: Request) -> Output:
         path = input.get("path", "")
-        info = await runtime.call_development_function(get_file_info, path)
-        return info
+        return await get_file_info(path)
 
 class FileInfo(TypedDict):
     input_path: str

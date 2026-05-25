@@ -1,5 +1,5 @@
 ﻿import { createStore } from "/js/AlpineStore.js";
-import { callJsonApi } from "/js/api.js";
+import { callJsonApi, getCsrfToken } from "/js/api.js";
 
 const LS_KEY = "biodockify.notebook";
 
@@ -255,10 +255,4 @@ export const store = createStore("knowledgeModal", {
   }
 });
 
-async function getCsrfToken() {
-  try {
-    const resp = await fetch("/api/csrf_token");
-    const json = await resp.json();
-    return json.token;
-  } catch { return ""; }
-}
+
