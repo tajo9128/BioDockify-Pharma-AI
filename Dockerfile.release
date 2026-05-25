@@ -76,15 +76,24 @@ RUN apt-get update -qq && apt-get install -y -qq \
     echo "OpenBabel: $(obabel -V 2>&1 || echo 'not found')"; \
     echo "Vina: $(vina --version 2>&1 || echo 'not found')"
 
-# Install GNINA CNN Docking (pre-built binary from GitHub)
-RUN wget -q -O /tmp/gnina.tar.gz "https://github.com/gnina/gnina/releases/download/v1.3/gnina_1.3_linux_x64.tar.gz" 2>/dev/null || \
-    wget -q -O /tmp/gnina.tar.gz "https://github.com/gnina/gnina/releases/download/v1.2/gnina_1.2_linux_x64.tar.gz" 2>/dev/null || true; \
-    if [ -f /tmp/gnina.tar.gz ]; then \
-      tar -xzf /tmp/gnina.tar.gz -C /usr/local/bin/ 2>/dev/null || true; \
-      rm -f /tmp/gnina.tar.gz; \
-    fi; \
+# Install GNINA CNN Docking (pre-built binary from GitHub, multiple fallback versions)
+RUN GNINA_OK=0; \
+    for VER in v1.3 v1.2 v1.1 v1.0.3 v1.0 v1.4; do \
+      URL="https://github.com/gnina/gnina/releases/download/$VER/gnina_${VER#v}_linux_x64.tar.gz"; \
+      echo "Trying $URL"; \
+      wget -q -O /tmp/gnina.tar.gz "$URL" 2>/dev/null && \
+      tar -xzf /tmp/gnina.tar.gz -C /tmp/gnina_extract/ 2>/dev/null && \
+      (find /tmp/gnina_extract -name gnina -type f -exec cp {} /usr/local/bin/gnina \; 2>/dev/null && GNINA_OK=1 && break) || true; \
+      rm -rf /tmp/gnina.tar.gz /tmp/gnina_extract 2>/dev/null; \
+      mkdir -p /tmp/gnina_extract; \
+    done; \
     chmod +x /usr/local/bin/gnina 2>/dev/null || true; \
-    echo "GNINA: $(gnina --help 2>&1 | head -1 || echo 'not found (will skip CNN scoring)')"
+    rm -rf /tmp/gnina_extract /tmp/gnina.tar.gz 2>/dev/null; \
+    if [ "$GNINA_OK" = "1" ]; then \
+      echo "GNINA: $(gnina --help 2>&1 | head -1)"; \
+    else \
+      echo "GNINA: not installed (CNN scoring will use Vina fallback)"; \
+    fi
 
 EXPOSE 50001
 
