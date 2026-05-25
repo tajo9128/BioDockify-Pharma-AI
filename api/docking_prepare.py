@@ -266,7 +266,11 @@ class DockingPrepare(ApiHandler):
                 "hint": "Install OpenBabel (apt install openbabel) for PDB→PDBQT conversion."
             }
 
-        # === Validate PDBQT files before returning ===
+        # === Sanitize PDBQT files (obabel can produce non-AD4 atom types) ===
+        _sanitize_pdbqt(receptor_pdbqt, is_ligand=False)
+        _sanitize_pdbqt(ligand_pdbqt, is_ligand=True)
+
+        # === Validate PDBQT files after sanitization ===
         ok, msg = _validate_pdbqt(receptor_pdbqt)
         if not ok:
             return {"error": f"Receptor PDBQT validation failed: {msg}", "hint": "The protein preparation produced an invalid PDBQT file."}
