@@ -8,10 +8,9 @@ function generateId() {
 
 const defaultModules = [
   { id: "research-dashboard", title: "Research CMD", icon: "rocket_launch", component: "/components/research-dashboard/research-dashboard.html", order: 1, defaultWidth: 800, defaultHeight: 600 },
-  { id: "molecular-toolkit", title: "Molecular Toolkit", icon: "biotech", component: "/components/molecular-toolkit/molecular-toolkit.html", order: 2, defaultWidth: 700, defaultHeight: 550 },
+  { id: "molecular-toolkit", title: "Molecular Toolkit", icon: "biotech", component: "/components/molecular-toolkit/molecular-toolkit.html", order: 2, defaultWidth: 750, defaultHeight: 600 },
   { id: "research", title: "All Tools", icon: "apps", component: "/components/research/research-tools.html", order: 3, defaultWidth: 700, defaultHeight: 500 },
   { id: "statistics", title: "Statistics", icon: "analytics", component: "/components/statistics/statistics-modal.html", order: 4, defaultWidth: 750, defaultHeight: 550 },
-  { id: "drug-properties", title: "Drug Properties", icon: "medication", component: "/components/drug-properties/drug-properties-panel.html", order: 5, defaultWidth: 650, defaultHeight: 450 },
   { id: "literature", title: "Literature", icon: "menu_book", component: "/components/literature/literature-modal.html", order: 6, defaultWidth: 700, defaultHeight: 500 },
   { id: "knowledge", title: "Knowledge Base", icon: "psychology", component: "/components/knowledge/knowledge-modal.html", order: 7, defaultWidth: 700, defaultHeight: 500 },
   { id: "thesis", title: "Academic Writer", icon: "description", component: "/components/thesis/thesis-modal.html", order: 8, defaultWidth: 700, defaultHeight: 500 },
