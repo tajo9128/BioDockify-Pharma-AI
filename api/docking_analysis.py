@@ -183,8 +183,9 @@ def _residue_energy_decomposition(receptor_atoms, ligand_atoms, interactions):
     return result
 
 
-def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, interactions):
-    """Generate 2D interaction diagram SVG via RDKit."""
+def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, interactions, known_smiles=""):
+    """Generate 2D interaction diagram SVG via RDKit.
+    Uses known_smiles if provided, otherwise tries to reconstruct from PDBQT atoms."""
     try:
         from rdkit import Chem
         from rdkit.Chem import Draw, AllChem
@@ -194,8 +195,8 @@ def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, 
         if pose_index >= len(ligand_models):
             return None
         latoms = ligand_models[pose_index]
-        smiles = None
-        try:
+        smiles = known_smiles.strip() if known_smiles else None
+        if not smiles:
             from rdkit.Chem import rdFMCS
             lig_coords = np.array([[a["x"], a["y"], a["z"]] for a in latoms])
             lig_symbols = [a["element"] for a in latoms]
@@ -382,10 +383,8 @@ class DockingAnalysisHandler(ApiHandler):
             if pose_i >= len(ligand_models):
                 return {"success": False, "error": f"Pose {pose_i} out of range"}
             interactions = _analyze_interactions(receptor_atoms, ligand_models[pose_i])
-            svg = _generate_interaction_svg(job_id, pose_i, receptor_text, ligand_models, interactions)
-            return {"success": True, "svg": svg, "pose_index": pose_i}
-
-        # ── pose_overlay_data ──
+            svg = _generate_interaction_svg(job_id, pose_i, receptor_text, ligand_models, interactions, input.get("smiles", ""))
+            return {"success": True, "svg": svg, "pose_index": pose_i}        # ── pose_overlay_data ──
         if action == "pose_overlay":
             if not receptor_text or not ligand_models:
                 return {"success": False, "error": "Missing data. Run docking first."}
@@ -417,7 +416,7 @@ class DockingAnalysisHandler(ApiHandler):
             torsions = _torsion_analysis(ligand_models[pose_i])
             clusters = _rmsd_cluster(ligand_models, 2.0)
             surface = _pocket_surface_data(receptor_atoms, ligand_models)
-            svg = _generate_interaction_svg(job_id, pose_i, receptor_text, ligand_models, interactions)
+            svg = _generate_interaction_svg(job_id, pose_i, receptor_text, ligand_models, interactions, input.get("smiles", ""))
             overlay = _pose_overlay_pdb(receptor_text, ligand_models, energies)
             return {"success": True, "interactions": interactions, "residue_energy": residue_energy, "torsions": torsions, "clusters": clusters, "surface": surface, "svg": svg, "overlay": overlay, "energies": energies, "num_poses": len(ligand_models)}
 

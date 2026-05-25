@@ -72,6 +72,11 @@
       daData: null,
       daLoading: false,
       daError: "",
+      // DA 3D viewer
+      _daViewer: null, _daViewerReady: false,
+      da3dProteinStyle: "cartoon", da3dLigandStyle: "stick",
+      da3dShowSurface: false, da3dShowHBonds: true,
+      da3dBg: "#1a1a2e",
 
       handleProteinUpload(event) {
         const f = event.target.files[0];
@@ -179,9 +184,16 @@
         this.daLoading = true;
         this.daError = "";
         this.daData = null;
+        this._daViewerReady = false; this._daViewer = null;
+        // Eagerly load 3Dmol.js for analysis
+        if (typeof window.$3Dmol === "undefined") {
+          const s = document.createElement("script");
+          s.src = "https://3Dmol.org/build/3Dmol-min.js";
+          document.head.appendChild(s);
+        }
         try {
-          const r = await callJsonApi("docking_analysis", { action: "deep_analysis", job_id: this.daJobId });
-          if (r.error) { this.daError = r.error; } else { this.daData = r; }
+          const r = await callJsonApi("docking_analysis", { action: "deep_analysis", job_id: this.daJobId, smiles: this.dockingLigand || "" });
+          if (r.error) { this.daError = r.error; } else { this.daData = r; this.daActiveTab = "overview"; }
         } catch (e) { this.daError = e.message; }
         this.daLoading = false;
       },
@@ -193,6 +205,61 @@
           if (!r.error && r.svg) { this.dockingBestPoseSvg = r.svg; }
         } catch (e) { /* silently */ }
       },
+
+      initDA3DView() {
+        if (!this.daData?.overlay || this._daViewerReady) return;
+        if (typeof window.$3Dmol === "undefined") {
+          const s = document.createElement("script");
+          s.src = "https://3Dmol.org/build/3Dmol-min.js";
+          s.onload = () => setTimeout(() => this.initDA3DView(), 300);
+          document.head.appendChild(s);
+          return;
+        }
+        const el = document.getElementById("da-inline-3d");
+        if (!el || el.clientWidth === 0) { setTimeout(() => this.initDA3DView(), 200); return; }
+        const v = window.$3Dmol.createViewer(el, { backgroundColor: this.da3dBg, antialias: true, cartoonQuality: 10 });
+        this._daViewer = v; this._daViewerReady = true;
+        this.renderDAScene();
+      },
+
+      renderDAScene() {
+        const v = this._daViewer; if (!v || !this.daData?.overlay) return;
+        v.removeAllModels(); v.removeAllLabels(); v.removeAllSurfaces();
+        const pdb = (s) => s && (s.includes("ATOM") || s.includes("HETATM"));
+        const ov = this.daData.overlay;
+        if (ov?.receptor_pdb && pdb(ov.receptor_pdb)) {
+          v.addModel(ov.receptor_pdb, "pdb");
+          const so = { cartoon: {}, stick: {}, sphere: {} };
+          so[this.da3dProteinStyle] = { colorscheme: "spectrum", opacity: 0.8 };
+          v.setStyle({ hetflag: false }, so);
+        }
+        if (ov?.poses?.length) {
+          const pp = ov.poses[0].pdb || ov.poses[0];
+          if (pdb(pp)) {
+            v.addModel(pp, "pdb");
+            const ls = this.da3dLigandStyle === "ballstick" ? { stick: { colorscheme: "greenCarbon", radius: 0.15 }, sphere: { colorscheme: "greenCarbon", scale: 0.35 } } : { stick: { colorscheme: "greenCarbon", radius: 0.22 } };
+            v.setStyle({ hetflag: true }, ls);
+          }
+        }
+        if (this.da3dShowSurface) try { v.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.4, colorscheme: "whiteCarbon" }, { hetflag: false }); } catch(e) {}
+        if (this.da3dShowHBonds && this.daData?.interactions?.hydrogen_bonds) {
+          this.daData.interactions.hydrogen_bonds.forEach(hb => {
+            try {
+              const pA = v.selectedAtoms({ resi: hb.resseq, chain: hb.chain, hetflag: false });
+              const lA = v.selectedAtoms({ hetflag: true });
+              if (pA.length && lA.length) {
+                v.addCylinder({ start: pA[0], end: lA[0], radius: 0.08, color: "#facc15", dashed: true });
+                v.addLabel(hb.distance+"\u00c5", { position: { x:(pA[0].x+lA[0].x)/2, y:(pA[0].y+lA[0].y)/2, z:(pA[0].z+lA[0].z)/2 }, backgroundColor: "rgba(0,0,0,0.7)", fontColor: "white", fontSize: 10 });
+              }
+            } catch(e) {}
+          });
+        }
+        v.setBackgroundColor(this.da3dBg);
+        v.zoomTo({ hetflag: true }); v.render();
+      },
+
+      da3dZoom(f) { const v = this._daViewer; if (v) { v.zoom(f, 300); v.render(); } },
+      da3dTakeSnapshot() { const v = this._daViewer; if (!v) return; try { const u = v.pngURI(); const a = document.createElement("a"); a.href = u; a.download = "docking_pose.png"; a.click(); } catch(e) {} },
 
       async downloadBestPose3d() {
         if (!this.dockingJobId) return;
@@ -800,12 +867,32 @@
           <div class="mt-results">
             <!-- Analysis Sub-Tabs -->
             <div style="display:flex;gap:2px;margin-bottom:10px;flex-wrap:wrap">
+              <button class="nb-tab-sm" :class="{active:$store.molecularToolkit.daActiveTab=='3d'}" @click="$store.molecularToolkit.daActiveTab='3d';$nextTick(()=>$store.molecularToolkit.initDA3DView())">3D View</button>
               <button class="nb-tab-sm" :class="{active:$store.molecularToolkit.daActiveTab=='overview'}" @click="$store.molecularToolkit.daActiveTab='overview'">Overview</button>
               <button class="nb-tab-sm" :class="{active:$store.molecularToolkit.daActiveTab=='interactions'}" @click="$store.molecularToolkit.daActiveTab='interactions'">Interactions</button>
               <button class="nb-tab-sm" :class="{active:$store.molecularToolkit.daActiveTab=='energy'}" @click="$store.molecularToolkit.daActiveTab='energy'">Residue Energy</button>
               <button class="nb-tab-sm" :class="{active:$store.molecularToolkit.daActiveTab=='clusters'}" @click="$store.molecularToolkit.daActiveTab='clusters'">Clusters</button>
               <button class="nb-tab-sm" :class="{active:$store.molecularToolkit.daActiveTab=='torsion'}" @click="$store.molecularToolkit.daActiveTab='torsion'">Torsion</button>
               <button class="nb-tab-sm" :class="{active:$store.molecularToolkit.daActiveTab=='2d'}" @click="$store.molecularToolkit.daActiveTab='2d'">2D Diagram</button>
+            </div>
+
+            <!-- 3D View -->
+            <div x-show="$store.molecularToolkit.daActiveTab === '3d'">
+              <div id="da-inline-3d" style="width:100%;height:340px;border-radius:8px;border:1px solid var(--color-border);overflow:hidden;position:relative;background:#1a1a2e">
+                <div x-show="!$store.molecularToolkit._daViewerReady" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--color-text-muted);font-size:0.62rem">Loading 3D view...</div>
+              </div>
+              <div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:6px">
+                <button class="nb-btn-sm" @click="$store.molecularToolkit.da3dProteinStyle='cartoon';$store.molecularToolkit.renderDAScene()">Cartoon</button>
+                <button class="nb-btn-sm" @click="$store.molecularToolkit.da3dProteinStyle='stick';$store.molecularToolkit.renderDAScene()">Stick</button>
+                <button class="nb-btn-sm" @click="$store.molecularToolkit.da3dProteinStyle='sphere';$store.molecularToolkit.renderDAScene()">Sphere</button>
+                <button class="nb-btn-sm" @click="$store.molecularToolkit.da3dLigandStyle=$store.molecularToolkit.da3dLigandStyle==='stick'?'ballstick':'stick';$store.molecularToolkit.renderDAScene()" x-text="$store.molecularToolkit.da3dLigandStyle==='stick'?'Ball+Stick':'Stick'"></button>
+                <button class="nb-btn-sm" @click="$store.molecularToolkit.da3dShowSurface=!$store.molecularToolkit.da3dShowSurface;$store.molecularToolkit.renderDAScene()" :class="$store.molecularToolkit.da3dShowSurface?'active':''">Surface</button>
+                <button class="nb-btn-sm" @click="$store.molecularToolkit.da3dShowHBonds=!$store.molecularToolkit.da3dShowHBonds;$store.molecularToolkit.renderDAScene()" :class="$store.molecularToolkit.da3dShowHBonds?'active':''">H-Bonds</button>
+                <button class="nb-btn-sm" @click="$store.molecularToolkit.da3dBg=$store.molecularToolkit.da3dBg==='#1a1a2e'?'#ffffff':'#1a1a2e';$store.molecularToolkit.renderDAScene()">🌓 BG</button>
+                <button class="nb-btn-sm" @click="$store.molecularToolkit.da3dTakeSnapshot()">📷 Snap</button>
+                <button class="nb-btn-sm" @click="$store.molecularToolkit.da3dZoom(0.8)">+</button>
+                <button class="nb-btn-sm" @click="$store.molecularToolkit.da3dZoom(1.25)">-</button>
+              </div>
             </div>
 
             <!-- Overview -->
@@ -947,6 +1034,15 @@
               <div class="analysis-section" x-show="$store.molecularToolkit.daData.svg">
                 <h3 class="section-title">Best Pose Interaction Diagram</h3>
                 <div style="display:flex;justify-content:center;background:white;border-radius:6px;padding:6px;border:1px solid var(--color-border)" x-html="$store.molecularToolkit.daData.svg"></div>
+              </div>
+              <div class="analysis-section" x-show="!$store.molecularToolkit.daData.svg">
+                <h3 class="section-title">Interaction Legend</h3>
+                <div class="nb-entry-card" style="font-size:0.52rem">SVG diagram unavailable — use 3D View or Interactions tab</div>
+                <template x-if="$store.molecularToolkit.daData?.interactions?.hydrogen_bonds">
+                  <div style="margin-top:4px"><span style="font-weight:600;font-size:0.55rem">H-Bonds:</span>
+                    <template x-for="hb in $store.molecularToolkit.daData.interactions.hydrogen_bonds"><span class="nb-meta" style="margin-right:4px" x-text="hb.residue+hb.resseq+'('+hb.distance+'Å)'"></span></template>
+                  </div>
+                </template>
               </div>
             </div>
 
