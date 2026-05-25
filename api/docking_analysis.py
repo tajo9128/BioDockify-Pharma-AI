@@ -92,7 +92,7 @@ def _analyze_interactions(receptor_atoms, ligand_atoms, pocket_cutoff=5.0):
                 pi_stacking.append({"residue": res_key[0], "resseq": res_key[1], "chain": res_key[2], "distance": round(float(ld), 2)})
                 break
 
-    binding_site_list = sorted([{"resname": r[0], "resseq": r[1], "chain": r[2]} for r in binding_site])
+    binding_site_list = sorted([{"resname": r[0], "resseq": r[1], "chain": r[2]} for r in binding_site], key=lambda x: (x["chain"], x["resseq"]))
     return {"hydrogen_bonds": hbonds, "hydrophobic_contacts": hydrophobic, "pi_stacking": pi_stacking, "salt_bridges": salt_bridges, "binding_site_residues": binding_site_list, "summary": {"total_hbonds": len(hbonds), "total_hydrophobic": len(hydrophobic), "total_pi_stacking": len(pi_stacking), "total_salt_bridges": len(salt_bridges), "binding_site_size": len(binding_site_list)}}
 
 
