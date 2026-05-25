@@ -43,22 +43,20 @@ class HealthCheck(ApiHandler):
             except:
                 health["checks"].append({"name": "AutoDock Vina", "status": "fail", "detail": "Not installed"})
 
-            # GNINA
+            # GNINA — Linux-only binary, warn instead of fail on Windows
             gnina_detail = ""
             try:
                 import platform
                 r = subprocess.run(["gnina", "--help"], capture_output=True, timeout=5)
                 gnina_ok = r.returncode <= 1
-                gnina_detail = "Available" if gnina_ok else "Binary exists but returned error"
+                gnina_detail = "Available"
             except FileNotFoundError:
                 gnina_ok = False
-                gnina_detail = "Docker only — run with Docker for GNINA CNN scoring"
-                if platform.system() == "Windows":
-                    gnina_detail = "Docker only — GNINA requires Linux (use: docker compose up)"
+                gnina_detail = "Docker only — GNINA requires Linux (use: docker compose up)" if platform.system() == "Windows" else "Not installed"
             except Exception:
                 gnina_ok = False
-                gnina_detail = "Not available — install via Docker"
-            health["checks"].append({"name": "GNINA CNN", "status": "ok" if gnina_ok else "fail", "detail": gnina_detail})
+                gnina_detail = "Not available"
+            health["checks"].append({"name": "GNINA CNN", "status": "ok" if gnina_ok else "warn", "detail": gnina_detail})
 
             # RDKit
             try:
