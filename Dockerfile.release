@@ -76,10 +76,14 @@ RUN apt-get update -qq && apt-get install -y -qq \
     echo "OpenBabel: $(obabel -V 2>&1 || echo 'not found')"; \
     echo "Vina: $(vina --version 2>&1 || echo 'not found')"
 
-# Install GNINA CNN Docking — conda-forge (reliable, no URL guessing)
-RUN conda install -y -c conda-forge gnina 2>/dev/null && \
-    echo "GNINA: $(gnina --help 2>&1 | head -1)" || \
-    echo "GNINA: not installed (Linux binary via conda-forge)"
+# GNINA — remove broken binary from base image, install correctly
+RUN rm -f /usr/local/bin/gnina && \
+    wget -q -O /tmp/gnina.tar.gz "https://github.com/gnina/gnina/releases/download/v1.3/gnina_1.3_linux_x64.tar.gz" && \
+    tar -xzf /tmp/gnina.tar.gz -C /tmp/ && \
+    cp /tmp/gnina /usr/local/bin/gnina && \
+    chmod +x /usr/local/bin/gnina && \
+    rm -f /tmp/gnina.tar.gz && \
+    gnina --help 2>&1 | head -1 || echo "GNINA install failed"
 
 EXPOSE 50001
 
