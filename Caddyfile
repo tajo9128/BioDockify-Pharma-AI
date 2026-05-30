@@ -1,23 +1,53 @@
+# ═══════════════════════════════════════════════════════════════
+# BioDockify Caddyfile — Auto-HTTPS reverse proxy
+# ═══════════════════════════════════════════════════════════════
+
+# ── Main site: biodockify.com ──
+biodockify.com, www.biodockify.com {
+    # Redirect www to bare domain
+    redir https://biodockify.com{uri} permanent
+
+    handle {
+        reverse_proxy localhost:3000 {
+            header_up Host {host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+}
+
+# ── AI Platform: ai.biodockify.com ──
+ai.biodockify.com {
+    reverse_proxy localhost:50001 {
+        header_up Host {host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Real-IP {remote_host}
+    }
+}
+
+# ── Fallback: port 81 for internal/transform queries ──
 :81 {
-	@transform_port_query {
-		query XTransformPort=*
-	}
+    @transform_port_query {
+        query XTransformPort=*
+    }
 
-	handle @transform_port_query {
-		reverse_proxy localhost:{query.XTransformPort} {
-			header_up Host {host}
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Forwarded-Proto {scheme}
-			header_up X-Real-IP {remote_host}
-		}
-	}
+    handle @transform_port_query {
+        reverse_proxy localhost:{query.XTransformPort} {
+            header_up Host {host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Real-IP {remote_host}
+        }
+    }
 
-	handle {
-		reverse_proxy localhost:3000 {
-			header_up Host {host}
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Forwarded-Proto {scheme}
-			header_up X-Real-IP {remote_host}
-		}
-	}
+    handle {
+        reverse_proxy localhost:3000 {
+            header_up Host {host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Real-IP {remote_host}
+        }
+    }
 }
