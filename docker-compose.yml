@@ -20,23 +20,14 @@ services:
       - "50001:50001"
     volumes:
       # === REQUIRED VOLUME ===
-      # ALL user data (memory, chats, settings, knowledge, projects, backups)
-      # This MUST be a persistent volume — without it, all data is lost on container delete
       - biodockify_pharma_usr:/a0/usr
 
-      # === OPTIONAL VOLUMES ===
-      # Mount a local folder as the agent's working directory (for easy file exchange between host and container)
-      # - D:\MyResearch:/a0/usr/workdir
-
-      # Mount a local folder for backups (easier to find than Docker named volumes)
-      # - D:\BioDockifyBackups:/a0/usr/backups
-
-      # Mount a local folder for custom knowledge base files
-      # - D:\MyPapers:/a0/usr/knowledge
+      # === RECOMMENDED: Mount host folders for easy backup ===
+      - ./backups:/a0/usr/backups
 
     environment:
-      # === REQUIRED ===
       - PORT=50001
+      - TZ=Asia/Kolkata
 
       # === OPTIONAL: LLM PROVIDERS ===
       # Set API keys for your preferred LLM providers (these override manual entry in Settings UI)
