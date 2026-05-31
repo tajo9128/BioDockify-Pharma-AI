@@ -17,13 +17,31 @@ class LectureGenerate(ApiHandler):
             homework = gen.generate_homework(topic, 3, level)
             practical = gen.generate_lab_practical(topic, duration)
 
+            # Ensure lecture is a dict (some generators return strings)
+            if isinstance(lecture, str):
+                lecture = {"title": topic, "sections": [{"title": "Content", "content": lecture}]}
+            elif not isinstance(lecture, dict):
+                lecture = {"title": topic, "sections": []}
+
+            # Ensure homework is a list
+            if isinstance(homework, str):
+                homework = [homework]
+            elif not isinstance(homework, list):
+                homework = []
+
+            # Ensure practical is a dict
+            if isinstance(practical, str):
+                practical = {"title": topic, "content": practical}
+            elif not isinstance(practical, dict):
+                practical = {}
+
             return {
                 "topic": topic,
                 "duration": duration,
                 "level": level,
-                "lecture": lecture if lecture else {"title": topic, "sections": []},
-                "homework": homework if homework else [],
-                "practical": practical if practical else {},
+                "lecture": lecture,
+                "homework": homework,
+                "practical": practical,
             }
         except ImportError:
             # Fallback: return structured placeholder

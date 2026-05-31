@@ -20,7 +20,16 @@ class KnowledgeHandler(ApiHandler):
             try:
                 from modules.rag.vector_store import get_vector_store
                 store = get_vector_store()
-                results = store.search(query, k=top_k)
+                search_fn = store.search
+                if callable(search_fn):
+                    import asyncio
+                    result = search_fn(query, k=top_k)
+                    if asyncio.iscoroutine(result):
+                        results = await result
+                    else:
+                        results = result
+                else:
+                    results = []
                 return {
                     "status": "success",
                     "query": query,

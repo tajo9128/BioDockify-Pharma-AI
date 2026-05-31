@@ -7,9 +7,9 @@ log = logging.getLogger("self_heal")
 PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..")
 
 
-def _run(cmd, timeout=30):
+def _run(cmd, timeout=30, workdir=None):
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, shell=True)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, shell=True, cwd=workdir)
         return r.stdout.strip(), r.stderr.strip(), r.returncode
     except Exception as e:
         return "", str(e), -1

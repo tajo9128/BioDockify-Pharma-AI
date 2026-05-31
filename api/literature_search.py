@@ -59,7 +59,7 @@ class LiteratureSearch(ApiHandler):
                 f"term={urllib.parse.quote(query)}"
             )
             req = urllib.request.Request(esearch_url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=(15, 30)) as resp:
+            with urllib.request.urlopen(req, timeout=30) as resp:
                 data = json.loads(resp.read())
             id_list = data.get("esearchresult", {}).get("idlist", [])
             count = int(data.get("esearchresult", {}).get("count", 0))
@@ -74,7 +74,7 @@ class LiteratureSearch(ApiHandler):
                 f"db=pubmed&id={ids}&retmode=xml&rettype=abstract"
             )
             req = urllib.request.Request(efetch_url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=20) as resp:
+            with urllib.request.urlopen(req, timeout=30) as resp:
                 xml_data = resp.read()
 
             root = ET.fromstring(xml_data)
@@ -130,7 +130,7 @@ class LiteratureSearch(ApiHandler):
                 "&fields=title,abstract,authors,journal,year,externalIds,url"
             )
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=(15, 30)) as resp:
+            with urllib.request.urlopen(req, timeout=30) as resp:
                 data = json.loads(resp.read())
 
             papers = []
@@ -158,7 +158,7 @@ class LiteratureSearch(ApiHandler):
                 f"start=0&max_results={max_results}&sortBy=relevance"
             )
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=(15, 30)) as resp:
+            with urllib.request.urlopen(req, timeout=30) as resp:
                 xml_data = resp.read()
 
             root = ET.fromstring(xml_data)
@@ -439,4 +439,9 @@ class LiteratureSearch(ApiHandler):
     def _get_text(self, element):
         if element is None:
             return ""
-        return element.text or "".join(element.itertext()) if hasattr(element, 'itertext') else str(element) or ""
+        text = element.text
+        if text:
+            return text.strip()
+        if hasattr(element, 'itertext'):
+            return "".join(element.itertext()).strip()
+        return ""

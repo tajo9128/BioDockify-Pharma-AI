@@ -18,13 +18,13 @@
       async checkHealth() {
         try {
           const r = await callJsonApi("health", {});
-          if (r.health?.checks) {
+          if (r && r.health?.checks) {
             this.health = r.health;
             this.vinaOk = r.health.checks.find(c => c.name === 'AutoDock Vina')?.status === 'ok';
             this.rdkitOk = r.health.checks.find(c => c.name === 'RDKit')?.status === 'ok';
             this.mmgbsaOk = r.health.checks.find(c => c.name === 'MM-GBSA Scoring')?.status === 'ok';
           }
-        } catch (e) {}
+        } catch (e) { /* silently ignore health check failures */ }
       },
 
       // ADMET
@@ -319,7 +319,7 @@
   </script>
 </head>
 <body>
-  <div x-data class="dock-panel" x-init="$store.molecularToolkit.checkHealth()">
+  <div x-data class="dock-panel">
     <!-- Header -->
     <div class="panel-header">
       <div class="header-left">
