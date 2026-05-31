@@ -16,7 +16,8 @@ services:
     image: tajo9128/biodockify-pharma-ai:latest
     container_name: biodockify-pharma-ai
     ports:
-      # Web UI port (default: 50001)
+      # VPS: map to host port 50001 (Caddy proxies to this)
+      # Direct access: change to "80:50001" to skip Caddy
       - "50001:50001"
     volumes:
       # === REQUIRED VOLUME ===
