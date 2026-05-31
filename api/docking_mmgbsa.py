@@ -60,22 +60,43 @@ def _distance(a1, a2):
 
 def _compute_sasa_approx(atoms: list, probe: float = 1.4) -> float:
     """Approximate solvent-accessible surface area using atom counting.
-    Each atom contributes 4*pi*(r+probe)^2 minus overlap with neighbors."""
+    Each atom contributes 4*pi*(r+probe)^2 minus overlap with neighbors.
+    Uses distance cutoff for O(n) performance on large proteins."""
     VDW = {"C": 1.7, "N": 1.55, "O": 1.52, "S": 1.8, "H": 1.2, "P": 1.8, "F": 1.47, "Cl": 1.75, "Br": 1.85, "I": 1.98}
+    max_probe = 1.8 + probe  # largest VDW radius + probe
+    cutoff = max_probe * 2 + 1.0  # distance beyond which overlap is negligible
+
+    # Build spatial grid for fast neighbor lookup
+    from collections import defaultdict
+    grid_size = cutoff
+    grid = defaultdict(list)
+    for idx, a in enumerate(atoms):
+        gx = int(a["x"] / grid_size)
+        gy = int(a["y"] / grid_size)
+        gz = int(a["z"] / grid_size)
+        grid[(gx, gy, gz)].append(idx)
+
     sasa = 0.0
     for i, a in enumerate(atoms):
         r = VDW.get(a.get("element", "C"), 1.7) + probe
         area = 4 * math.pi * r * r
-        # Subtract overlap with nearby atoms
         overlap = 0
-        for j, b in enumerate(atoms):
-            if i == j:
-                continue
-            d = _distance(a, b)
-            rj = VDW.get(b.get("element", "C"), 1.7) + probe
-            if d < r + rj:
-                # Approximate buried area
-                overlap += area * min(1.0, (r + rj - d) / (2 * r))
+        gx = int(a["x"] / grid_size)
+        gy = int(a["y"] / grid_size)
+        gz = int(a["z"] / grid_size)
+        # Check neighboring cells
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for dz in (-1, 0, 1):
+                    for j in grid.get((gx+dx, gy+dy, gz+dz), []):
+                        if i == j:
+                            continue
+                        b = atoms[j]
+                        d = _distance(a, b)
+                        if d < cutoff:
+                            rj = VDW.get(b.get("element", "C"), 1.7) + probe
+                            if d < r + rj:
+                                overlap += area * min(1.0, (r + rj - d) / (2 * r))
         sasa += max(0, area - overlap)
     return sasa
 
@@ -157,6 +178,16 @@ def mmgbsa_score(job_id: str, jobs_dir: str = None) -> dict:
                 except (ValueError, IndexError):
                     pass
 
+        # Build spatial grid for receptor atoms (fast neighbor lookup)
+        from collections import defaultdict
+        grid_size = 5.0  # Angstroms
+        receptor_grid = defaultdict(list)
+        for idx, ra in enumerate(receptor_atoms):
+            gx = int(ra["x"] / grid_size)
+            gy = int(ra["y"] / grid_size)
+            gz = int(ra["z"] / grid_size)
+            receptor_grid[(gx, gy, gz)].append(idx)
+
         # Compute per-pose MM-GBSA
         mmgbsa_results = []
         for i, vina_e in enumerate(energies):
@@ -176,12 +207,20 @@ def mmgbsa_score(job_id: str, jobs_dir: str = None) -> dict:
             interaction_bonus = 0.0
             if latoms and receptor_atoms:
                 for la in latoms:
-                    for ra in receptor_atoms:
-                        d = _distance(la, ra)
-                        if d < 3.5:
-                            interaction_bonus -= 0.3  # Favorable contact
-                        elif d < 5.0:
-                            interaction_bonus -= 0.05
+                    gx = int(la["x"] / grid_size)
+                    gy = int(la["y"] / grid_size)
+                    gz = int(la["z"] / grid_size)
+                    # Check neighboring cells
+                    for dx in (-1, 0, 1):
+                        for dy in (-1, 0, 1):
+                            for dz in (-1, 0, 1):
+                                for ri in receptor_grid.get((gx+dx, gy+dy, gz+dz), []):
+                                    ra = receptor_atoms[ri]
+                                    d = _distance(la, ra)
+                                    if d < 3.5:
+                                        interaction_bonus -= 0.3  # Favorable contact
+                                    elif d < 5.0:
+                                        interaction_bonus -= 0.05
 
             # MM-GBSA = MM + GB + SA + interaction
             # More negative = better binding
