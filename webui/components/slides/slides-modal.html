@@ -46,6 +46,40 @@
       },
 
       clear() { this.topic = ""; this.result = null; this.error = ""; },
+
+      async downloadPptx() {
+        if (!this.result?.slides) { this.error = "Generate slides first"; return; }
+        this.loading = true;
+        this.error = "";
+        try {
+          const slides = this.result.slides.map(s => ({
+            type: "content",
+            title: s.title || s.heading || "Untitled",
+            bullets: (s.content || s.body || "").split("\n").filter(l => l.trim()),
+            notes: s.notes || s.speaker_notes || "",
+          }));
+          const resp = await fetch("/api/ppt_generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "generate", slides, theme: this.style, title: this.topic.substring(0, 50), include_notes: true }),
+          });
+          if (resp.ok) {
+            const blob = await resp.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${this.topic.substring(0, 30).replace(/\s+/g, "_")}.pptx`;
+            a.click();
+            URL.revokeObjectURL(url);
+            this.message = "PPTX downloaded";
+            setTimeout(() => { this.message = ""; }, 3000);
+          } else {
+            const err = await resp.json().catch(() => ({}));
+            this.error = err.error || "PPTX generation failed";
+          }
+        } catch (e) { this.error = "PPTX download failed: " + e.message; }
+        this.loading = false;
+      },
     });
   </script>
 </head>
@@ -96,6 +130,7 @@
             <h3 x-text="$store.slidesModal.result.topic || $store.slidesModal.topic"></h3>
             <div class="results-actions">
               <button class="act-btn" @click="$store.slidesModal.sendToAgent()"><span class="material-symbols-outlined">psychology</span> Send to Agent</button>
+              <button class="act-btn" @click="$store.slidesModal.downloadPptx()" style="background:var(--color-primary);color:white;border-color:var(--color-primary)"><span class="material-symbols-outlined">download</span> Download PPTX</button>
               <button class="act-btn" @click="$store.slidesModal.clear()"><span class="material-symbols-outlined">refresh</span> New</button>
             </div>
           </div>

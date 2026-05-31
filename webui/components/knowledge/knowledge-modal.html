@@ -9,10 +9,7 @@
     <!-- Header -->
     <div class="nb-header">
       <span class="material-symbols-outlined nb-icon">psychology</span>
-      <div>
-        <h2>Research Notebook</h2>
-        <p class="nb-sub" x-text="$store.knowledgeModal.entryCount + ' entries'"></p>
-      </div>
+      <div><h2>Research Notebook</h2><p class="nb-sub" x-text="$store.knowledgeModal.entryCount + ' entries · ' + ($store.knowledgeModal.tags?.length || 0) + ' categories'"></p></div>
       <div class="nb-header-actions">
         <button class="nb-btn-sm" @click="$store.knowledgeModal.triggerFileUpload()" :disabled="$store.knowledgeModal.uploading" title="Upload files">
           <span class="material-symbols-outlined">upload_file</span>
@@ -23,10 +20,14 @@
         <button class="nb-btn-sm" @click="$store.knowledgeModal.exportJson()" title="Export JSON">
           <span class="material-symbols-outlined">download</span>
         </button>
-        <button class="nb-btn-sm" @click="$store.knowledgeModal.chatWithKB()" title="Chat with KB">
-          <span class="material-symbols-outlined">chat</span>
-        </button>
       </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="nb-tabs">
+      <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='notebook'}" @click="$store.knowledgeModal.activeTab='notebook'"><span class="material-symbols-outlined" style="font-size:14px">edit_note</span> Notebook</button>
+      <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='chat'}" @click="$store.knowledgeModal.activeTab='chat'"><span class="material-symbols-outlined" style="font-size:14px">chat</span> Chat with KB</button>
+      <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='library'}" @click="$store.knowledgeModal.activeTab='library'"><span class="material-symbols-outlined" style="font-size:14px">local_library</span> Library</button>
     </div>
 
     <!-- Search -->
@@ -43,8 +44,51 @@
     <div x-show="$store.knowledgeModal.message" class="nb-msg" x-text="$store.knowledgeModal.message"></div>
     <div x-show="$store.knowledgeModal.loading || $store.knowledgeModal.uploading" class="nb-loading"><div class="loading-spinner"></div><span x-text="$store.knowledgeModal.uploading ? 'Uploading...' : 'Searching...'"></span></div>
 
-    <!-- Main content area -->
-    <div class="nb-main">
+    <!-- Chat with KB Tab -->
+    <div x-show="$store.knowledgeModal.activeTab === 'chat'" style="display:flex;flex-direction:column;gap:6px;flex:1;overflow:hidden">
+      <div style="flex:1;overflow-y:auto;padding:6px 0">
+        <template x-for="(msg, idx) in $store.knowledgeModal.chatMessages" :key="idx">
+          <div style="padding:6px 10px;margin-bottom:4px;border-radius:6px" :style="msg.role === 'user' ? 'background:rgba(0,212,170,0.08);margin-left:20px' : 'background:var(--color-panel);border:1px solid var(--color-border)'">
+            <div style="font-size:0.56rem;font-weight:600;margin-bottom:2px;color:var(--color-primary)" x-text="msg.role === 'user' ? 'You' : msg.role === 'system' ? 'Context' : 'Agent'"></div>
+            <div style="font-size:0.6rem;color:var(--color-text);line-height:1.5;white-space:pre-wrap" x-text="msg.content"></div>
+          </div>
+        </template>
+        <div x-show="!$store.knowledgeModal.chatMessages.length" style="text-align:center;padding:30px;color:var(--color-text-muted);font-size:0.64rem">
+          Ask questions about your uploaded documents and research notes
+        </div>
+      </div>
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <textarea x-model="$store.knowledgeModal.chatInput" placeholder="Ask a question about your knowledge base..." rows="3" class="nb-textarea" @keydown.ctrl.enter="$store.knowledgeModal.sendMessage()" style="min-height:50px;font-family:inherit"></textarea>
+        <button class="nb-btn-primary" @click="$store.knowledgeModal.sendMessage()" :disabled="$store.knowledgeModal.chatLoading" style="width:auto;flex:none;padding:6px 16px">Send</button>
+      </div>
+    </div>
+
+    <!-- Library Tab -->
+    <div x-show="$store.knowledgeModal.activeTab === 'library'" style="flex:1;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:0.7rem;font-weight:600;color:var(--color-text)">Library Categories</span>
+        <button class="nb-btn-sm" @click="$store.knowledgeModal.buildLibrary()"><span class="material-symbols-outlined" style="font-size:14px">refresh</span> Refresh</button>
+      </div>
+      <template x-for="cat in $store.knowledgeModal.libraryCategories" :key="cat.name">
+        <div class="nb-entry-card" style="cursor:pointer" @click="$store.knowledgeModal.filterByTag(cat.name); $store.knowledgeModal.activeTab='notebook'">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <span style="font-size:0.66rem;font-weight:600;color:var(--color-text)" x-text="'# ' + cat.name"></span>
+              <span style="font-size:0.52rem;color:var(--color-text-muted);margin-left:6px" x-text="cat.count + ' items'"></span>
+            </div>
+            <span style="font-size:0.7rem;font-weight:700;color:var(--color-primary)" x-text="cat.count"></span>
+          </div>
+          <div style="margin-top:3px;font-size:0.5rem;color:var(--color-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" x-text="cat.items.slice(0,3).join(' · ')"></div>
+        </div>
+      </template>
+      <div x-show="!$store.knowledgeModal.libraryCategories.length" style="text-align:center;padding:30px;color:var(--color-text-muted);font-size:0.64rem">
+        <span class="material-symbols-outlined" style="font-size:28px;opacity:0.2;display:block;margin-bottom:4px">local_library</span>
+        No categories yet. Add entries with tags to organize your library.
+      </div>
+    </div>
+
+    <!-- Main content area (Notebook tab) -->
+    <div class="nb-main" x-show="$store.knowledgeModal.activeTab === 'notebook'">
       <!-- Tags sidebar -->
       <div class="nb-sidebar">
         <h4 class="nb-sidebar-title">Tags</h4>
@@ -146,6 +190,10 @@
       .nb-header h2 { color: var(--color-primary); font-size: 0.9rem; margin: 0; font-weight: 700; }
       .nb-sub { color: var(--color-text-muted); font-size: 0.58rem; margin: 0; }
       .nb-header-actions { display: flex; gap: 3px; margin-left: auto; }
+      .nb-tabs { display:flex;gap:1px;margin-bottom:8px;flex-shrink:0;border-bottom:1px solid var(--color-border);padding-bottom:4px }
+      .nb-tab { display:flex;align-items:center;gap:3px;padding:5px 10px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--color-text-muted);cursor:pointer;font-size:0.62rem;font-weight:500 }
+      .nb-tab:hover { color:var(--color-text) }
+      .nb-tab.active { color:var(--color-primary);border-bottom-color:var(--color-primary) }
       .nb-btn-sm { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 5px; color: var(--color-text-muted); cursor: pointer; font-size: 0; }
       .nb-btn-sm:hover { border-color: var(--color-primary); color: var(--color-primary); }
       .nb-btn-sm:disabled { opacity: 0.4; }
