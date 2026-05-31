@@ -206,19 +206,23 @@ class DecisionEngine:
         terms = _extract_terms(title, abstract, keywords)
         suggestions = []
 
-        # Source 1: DB keyword search
-        db_result = _query_db(query=" ".join(terms[:3]), limit=20)
-        for j in db_result.get("journals", []):
-            suggestions.append({
-                "title": j.get("title", ""),
-                "issn": j.get("issn", ""),
-                "publisher": j.get("publisher", ""),
-                "scopus": bool(j.get("scopus_indexed")),
-                "wos": bool(j.get("wos_indexed")),
-                "oa": j.get("oa_status") == "OA",
-                "source": "Biodockify DB",
-                "match_score": 0.5,
-            })
+        # Source 1: DB keyword search (search title + subjects)
+        db_results = []
+        for query_term in terms[:5]:
+            if len(db_results) >= 20:
+                break
+            db_result = _query_db(query=query_term, subject=query_term, limit=10)
+            for j in db_result.get("journals", []):
+                if not any(r.get("title") == j.get("title") for r in db_results):
+                    db_results.append({
+                        "title": j.get("title", ""), "issn": j.get("issn", ""),
+                        "publisher": j.get("publisher", ""),
+                        "scopus": bool(j.get("scopus_indexed")),
+                        "wos": bool(j.get("wos_indexed")),
+                        "oa": j.get("oa_status") == "OA",
+                        "source": "BioDockify DB", "match_score": 0.5,
+                    })
+        suggestions.extend(db_results)
 
         # Source 2: Elsevier Journal Finder
         elsevier = _suggest_elsevier(title, abstract)
@@ -227,6 +231,10 @@ class DecisionEngine:
         # Source 3: JANE biosemantics
         jane = _suggest_jane(title, abstract)
         suggestions.extend(jane)
+
+        # Source 4: Crossref / OpenAlex journal search
+        crossref_suggestions = _suggest_crossref(title)
+        suggestions.extend(crossref_suggestions)
 
         # Deduplicate by title
         seen = set()
@@ -248,7 +256,7 @@ class DecisionEngine:
             s["match_pct"] = round(s["match_score"] * 100)
 
         if oa_only:
-            suggestions = [s for s in suggestions if s.get("access_type") == "OA"]
+            suggestions = [s for s in suggestions if s.get("access_type") == "OA" or s.get("oa")]
         if max_apc > 0:
             suggestions = [s for s in suggestions if _parse_apc(s.get("apc", "")) <= max_apc]
         if q_min:
@@ -905,6 +913,27 @@ def _suggest_jane(title: str, abstract: str) -> List[Dict]:
                 "match_score": j.get("score", 0.5), "source": "JANE (biosemantics)",
                 "quartile": "Q2", "review_time": "4-8 weeks",
             } for j in result[:10]]
+    except: return []
+
+
+def _suggest_crossref(title: str) -> List[Dict]:
+    """Search Crossref API for journals matching the paper title."""
+    try:
+        terms = title.lower().split()[:6]
+        query = " ".join(terms)
+        url = f"https://api.crossref.org/journals?query={urllib.parse.quote(query)}&rows=15"
+        req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read())
+            journals = data.get("message", {}).get("items", [])
+            return [{
+                "title": j.get("title", ""),
+                "issn": (j.get("issn") or [""])[0],
+                "publisher": j.get("publisher", ""),
+                "scopus": True,  # Crossref journals are generally indexed
+                "source": "Crossref",
+                "match_score": 0.6,
+            } for j in journals[:15]]
     except: return []
 
 
