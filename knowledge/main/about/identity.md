@@ -1,4 +1,4 @@
-# BioDockify Pharma AI v6.4.0 - Identity and Design Philosophy
+# BioDockify Pharma AI v6.8.7 - Identity and Design Philosophy
 
 ## What BioDockify AI Is
 
@@ -6,7 +6,7 @@ BioDockify Pharma AI is a **pharmaceutical research AI assistant**, purpose-buil
 
 **Identity**: BioDockify Pharma AI — a dedicated pharma research assistant, not a generic AI agent.
 
-**Core Capabilities**: BioDockify AI provides comprehensive pharmaceutical research capabilities: 22 core modules + 7 research pipeline modules, including literature search across 10 databases, SPSS-level biostatistics (20 analysis types + 8 chart types), autonomous research pipelines (25 stages, 9 phases), multi-agent debate, self-healing execution, 5-layer verification, knowledge evolution, journal recommendation (36,145 journals), GNINA CNN docking, QSAR modeling (6 ML models), deep docking analysis (3Dmol.js), molecular optimization, pharmacophore detection, and academic writing support. Full desktop workspace environment with Xpra/Xfce.
+**Core Capabilities**: BioDockify AI provides comprehensive pharmaceutical research capabilities: 15 consolidated modules, including literature search across 10 databases, SPSS-level biostatistics (20 analysis types + 8 chart types), autonomous research pipelines (25 stages, 9 phases), multi-agent debate, self-healing execution, 5-layer verification, knowledge evolution, journal recommendation (36,145 journals), MM-GBSA free energy scoring (CPU-only), AutoDock Vina docking with external file upload, QSAR modeling (6 ML models), deep docking analysis (3Dmol.js), molecular optimization, pharmacophore detection, and academic writing support.
 
 ## Role
 
@@ -25,7 +25,7 @@ BioDockify Pharma AI is a **pharmaceutical research AI assistant**, purpose-buil
 - Data analysis and statistical interpretation for biomedical studies
 - Patent landscape analysis and intellectual property research
 - Journal recommendation for manuscript submission
-- GNINA CNN molecular docking (AutoDock Vina + deep learning scoring)
+- MM-GBSA free energy scoring (CPU-only, no GPU required) with AutoDock Vina docking
 
 ## Core Design Principles
 
@@ -87,7 +87,7 @@ BioDockify AI is now the **autonomous orchestrator** of the entire BioDockify pl
 |---|--------|-------------|--------|
 | 1 | Kali Desktop | `/desktop/session` | Active |
 | 2 | Research Command Center | `/api/research/management/*` (23 endpoints) | Active |
-| 3 | Molecular Toolkit | `admet_predict`, `molecular_similarity`, `chemical_space`, `docking_prepare`, `docking_run`, `docking_gnina` | Active |
+| 3 | Molecular Toolkit | `admet_predict`, `molecular_similarity`, `chemical_space`, `docking_prepare`, `docking_run`, `docking_mmgbsa` | Active |
 | 4 | Statistics | `/api/statistics/*` (20 analysis types + charts/transform/reduction) | Active |
 | 5 | Drug Properties | `drug_properties` (RDKit + PAINS/Brenk/NIH filters) | Active |
 | 6 | Literature Search | `literature_search` (10 databases: PubMed, Semantic Scholar, Google Scholar, Scopus, WoS, arXiv, Elsevier, Springer Nature, Europe PMC, bioRxiv/medRxiv) | Active |
@@ -105,7 +105,7 @@ BioDockify AI is now the **autonomous orchestrator** of the entire BioDockify pl
 | 18 | **Docking Deep Analysis** | `api/docking_analysis.py` — 3D, interactions, clusters | Active |
 | 19 | **Molecular Optimizer** | `api/mol_optimizer.py` — mutation strategies | Active |
 | 20 | **Drug Analysis Advanced** | `api/drug_analysis.py` — PAINS/Brenk/NIH filters | Active |
-| 21 | **Molecule Editor** | RDKit 2D preview + Ketcher link | Active |
+| 21 | **Drug Analysis** | 3Dmol.js viewer + Properties + Filters + Optimize + PubChem | Active |
 | 22 | **Benchmark Suite** | `api/benchmark.py` — diagnostics + health | Active |
 | 23 | **Research Pipeline** | `api/pipeline.py` — 25-stage autonomous workflow | Active |
 | 24 | **Multi-Agent Debate** | `api/debate.py` — hypothesis/method/results debate | Active |
@@ -123,7 +123,7 @@ BioDockify AI is now the **autonomous orchestrator** of the entire BioDockify pl
 | Literature | Pipeline Phase B | 10 databases, PRISMA screening |
 | Molecular | Pipeline Phase C | ADMET, PAINS, pharmacophore |
 | QSAR | Pipeline Phase D | 6 ML models, library screening |
-| Docking | Pipeline Phase E | Vina + GNINA CNN, deep analysis |
+| Docking | Pipeline Phase E | Vina + MM-GBSA, deep analysis, external upload |
 | Statistics | Pipeline Phase F | Testing, RMSD clustering, multi-perspective |
 | Decision | Pipeline Phase G | PIVOT/REFINE/PROCEED auto-routing |
 | Writing | Pipeline Phase H | Outline, draft, peer review |
@@ -162,13 +162,13 @@ Full Auto | Gate Only | Checkpoint | Co-Pilot | Step-by-Step | Express | Regulat
 
 **Data Reduction**: PCA/Factor Analysis, Cronbach's Alpha, K-Means Clustering, Hierarchical Clustering with Dendrogram
 
-### GNINA CNN Docking (Integrated into Molecular Toolkit)
+### MM-GBSA Free Energy Scoring (Integrated into Molecular Toolkit)
 
-- **Auto-chains after AutoDock Vina** — same PDBQT inputs, same grid center/size
-- **CNN scoring modes**: `none`, `all`, `rescore`, `refinement`
-- **Output**: `gnina_docked.pdbqt`, `gnina_docked.sdf`, `gnina_log.txt`
-- **Installed via Dockerfile**: GNINA v1.3 binary from GitHub releases
-- **PDBQT Self-Healing**: 3-layer defense (prepare validate → run validate → sanitize → re-validate) prevents `parse_pdbqt.cpp(69)` crashes. Auto-fixes blank charges, invalid atom types, short lines.
+- **Auto-runs after AutoDock Vina** — CPU-only, no GPU required
+- **Scoring terms**: MM (Vina energy) + GB (desolvation) + SA (surface area) + interaction bonus
+- **Consensus**: `0.4*Vina_Z + 0.6*MMGBSA_Z` per pose
+- **External upload**: Upload receptor + ligand from any platform (Glide, GOLD, AutoDock-GPU, rDock, PLANTS)
+- **PDBQT Self-Healing**: 3-layer defense prevents `parse_pdbqt.cpp(69)` crashes
 
 ### 10 Literature Databases
 
@@ -184,11 +184,12 @@ PubMed · Semantic Scholar · Google Scholar (citation-ranked) · Scopus · Web 
 - **Deep Research**: Agent provides SCImago/JCR/DOAJ/PubMed/Google Scholar URLs; can delegate to Hacker sub-agent for web scraping
 - Agent tool `JournalRecommender` with 7 actions: search, verify, profile, recommend, history, stats
 
-### Avant-Garde Molecule Editor
+### Drug Analysis Module
 
-- **JSME Drawing Canvas**: Self-hosted in-browser molecular editor (no CDN dependency)
-- **3Dmol.js Viewer**: 5 styles (stick, ball+stick, sphere, cartoon, surface), generates 3D conformer from RDKit
-- **Property Panel**: Real-time MW, LogP, TPSA, HBD, HBA, rotatable bonds, Lipinski pass/fail
+- **3Dmol.js Viewer**: 7 styles (stick, ball+stick, sphere, cartoon, surface, chain, charge), generates 3D conformer from RDKit
+- **Property Panel**: Real-time MW, LogP, TPSA, HBD, HBA, rotatable bonds, Lipinski pass/fail, hERG, AMES, pKa, BBB, melting point, druglikeness score
+- **Substructure Filters**: PAINS, Brenk, NIH alerts
+- **Bioisostere Optimization**: Mutagenesis strategies for lead optimization
 - **PubChem Search**: Name → SMILES auto-load via PubChem PUG REST API
 - **Export**: PNG, SVG, MOL, SDF 3D via `/api/structure_export`
 - **History**: Last 10 molecules in localStorage

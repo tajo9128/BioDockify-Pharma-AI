@@ -90,11 +90,12 @@ The Docking Studio module (Molecular Toolkit → Docking tab) runs full AutoDock
 - Returns docked poses sorted by binding energy (most negative = strongest binding = 1st)
 - Downloadable: docked_output.pdbqt, docked_poses.sdf, vina_log.txt
 
-### GNINA CNN Docking (Auto-Chained)
-After Vina completes, GNINA runs automatically with the same prepared PDBQT files:
-- CNN deep-learning scoring (rescore mode by default)
-- Outputs gnina_docked.pdbqt, gnina_docked.sdf, gnina_log.txt alongside Vina results
-- Use when: CNN-validated poses are needed for publication or high-confidence binding prediction
+### MM-GBSA Free Energy Scoring (Auto-Chained)
+After Vina completes, MM-GBSA scoring runs automatically (CPU-only, no GPU):
+- Combines Vina MM term + GB desolvation + SA surface area + protein interaction bonus
+- Per-pose MM-GBSA energies, Z-scores, and consensus with Vina (`0.4*Vina_Z + 0.6*MMGBSA_Z`)
+- External upload: Upload receptor + ligand from any platform (Glide, GOLD, AutoDock-GPU, rDock, PLANTS)
+- Use when: Free energy estimation needed for publication or high-confidence binding prediction
 
 ### Deep Docking Analysis (3Dmol.js + Interaction Analysis)
 After docking, use the Deep Analysis panel (6-tab UI) for:
@@ -139,7 +140,7 @@ Beyond Lipinski Rule of 5:
 
 ## Benchmarking & Diagnostics
 System integrity checks available via Benchmark plugin:
-- Dependency checks: RDKit, NumPy, sklearn, Vina, GNINA, OpenBabel
+- Dependency checks: RDKit, NumPy, sklearn, Vina, MM-GBSA, OpenBabel
 - API health: Response time and status code validation
 - Storage: Disk free space check
 - RDKit test: SMILES parsing and descriptor calculation validation
@@ -173,7 +174,7 @@ A complete autonomous drug discovery workflow comparable to AutoResearchClaw:
 - **Phase B — Literature Discovery**: Multi-source search across 10 databases with PRISMA screening
 - **Phase C — Molecular Analysis**: Drug properties, ADMET, PAINS/Brenk/NIH filters, pharmacophore detection
 - **Phase D — QSAR**: Train/predict with 6 ML models, screen compound libraries
-- **Phase E — Docking**: Vina → GNINA CNN docking with deep analysis (3D, interactions, clusters)
+- **Phase E — Docking**: Vina → MM-GBSA scoring with deep analysis (3D, interactions, clusters)
 - **Phase F — Statistics & Analysis**: Statistical testing, RMSD clustering, multi-perspective result analysis
 - **Phase G — Decision**: PIVOT/REFINE/PROCEED auto-decision with rationale
 - **Phase H — Writing**: Paper outline, section-by-section drafting, multi-agent peer review
@@ -193,7 +194,7 @@ Structured scientific debate for rigorous hypothesis testing:
 
 ## Self-Healing Execution (PIVOT/REFINE)
 Autonomous error recovery for computational workflows:
-- **Docking failures**: Grid expansion, exhaustiveness increase, GNINA switch, PDBQT sanitizer
+- **Docking failures**: Grid expansion, exhaustiveness increase, MM-GBSA rescoring, PDBQT sanitizer
 - **QSAR failures**: Model switch (RF→GBM→SVR→PLS→Ridge→Lasso), descriptor group expansion
 - **Statistics failures**: Normality violation → non-parametric, variance → Welch correction
 - **Literature failures**: Query expansion, database switch
@@ -244,20 +245,20 @@ Full journal intelligence suite:
 - Agent tool `JournalRecommender`: 7 actions (search, verify, profile, recommend, history, stats) — all execute real DB queries and live API calls
 - Use when: User asks "verify this journal", "find me a journal", "give me the history of Journal X", "is this predatory?"
 
-## Molecule Editor (Avant-Garde)
-Full-featured molecular editor with in-browser drawing:
-- **JSME Drawing Canvas**: Self-hosted drawing editor (no CDN). Draw atoms/bonds, edit, clear. SMILES auto-extracted on every change via bidirectional sync.
-- **SMILES Editor**: Text input synced with canvas. Validate (RDKit), Copy, debounced property/3D updates.
-- **3Dmol.js Viewer**: 5 render styles (Stick, Ball+Stick, Sphere, Cartoon, Surface). Rotate/zoom/pan. 3D conformer from RDKit ETKDG+MMFF.
-- **Property Panel**: Realtime MW, LogP, TPSA, HBD, HBA, Rotatable Bonds, Lipinski Rule-of-5 pass/fail from existing drug_properties API.
-- **PubChem Search**: Type compound name → resolves to SMILES via PubChem PUG REST → auto-loads into editor.
+## Drug Analysis Module
+Full-featured molecular analysis with 3D visualization:
+- **SMILES Input**: Text input with validation (RDKit), Copy, debounced property/3D updates.
+- **3Dmol.js Viewer**: 7 render styles (Stick, Ball+Stick, Sphere, Cartoon, Surface, Chain, Charge). Rotate/zoom/pan. 3D conformer from RDKit ETKDG+MMFF.
+- **Property Panel**: Realtime MW, LogP, TPSA, HBD, HBA, Rotatable Bonds, Lipinski Rule-of-5, hERG, AMES, pKa, BBB, melting point, druglikeness score.
+- **Substructure Filters**: PAINS, Brenk, NIH alerts.
+- **Bioisostere Optimization**: Mutagenesis strategies for lead optimization.
+- **PubChem Search**: Type compound name → resolves to SMILES via PubChem PUG REST → auto-loads.
 - **Export**: PNG (RDKit 2D), SVG (RDKit 2D), MOL file, SDF 3D via `/api/structure_export`.
 - **Send To**: Cross-module SMILES injection to Docking and ADMET tabs.
 - **History**: Last 10 molecules in localStorage with quick-reload.
 - **Quick Load**: 6 drug examples (Aspirin, Caffeine, Ibuprofen, Glucose, Sildenafil, Paracetamol).
 - **File Upload**: Parses .sdf, .mol, .pdb, .smi, .smiles.
-- Backend APIs: `structure_3d` (conformer), `structure_export` (multi-format), `pubchem_lookup` (name→SMILES).
-- Agent tool: Not directly agent-accessible — this is a frontend user tool.
+- Backend APIs: `structure_3d` (conformer), `structure_export` (multi-format), `pubchem_lookup` (name→SMILES), `drug_properties` (extended properties).
 
 ## Vina/PDBQT Failure Prevention
 Self-healing PDBQT pipeline:
