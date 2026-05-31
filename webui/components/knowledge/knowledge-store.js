@@ -287,7 +287,33 @@ export const store = createStore("knowledgeModal", {
       this.uploading = false;
     };
     input.click();
-  }
+  },
+
+  async reindexKB() {
+    this.loading = true;
+    this.error = "";
+    try {
+      const r = await callJsonApi("knowledge", { action: "reindex" });
+      if (r.status === "ok") {
+        this.message = r.message || "Re-indexed successfully";
+      } else {
+        this.error = r.error || "Re-index failed";
+      }
+    } catch (e) {
+      this.error = "Re-index error: " + e.message;
+    }
+    this.loading = false;
+    setTimeout(() => { this.message = ""; }, 5000);
+  },
+
+  async loadKBStatus() {
+    try {
+      const r = await callJsonApi("knowledge", { action: "status" });
+      if (r.status === "ok") {
+        this.kbStatus = r;
+      }
+    } catch (e) {}
+  },
 });
 
 

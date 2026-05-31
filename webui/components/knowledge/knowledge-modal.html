@@ -11,6 +11,9 @@
       <span class="material-symbols-outlined nb-icon">psychology</span>
       <div><h2>Research Notebook</h2><p class="nb-sub" x-text="$store.knowledgeModal.entryCount + ' entries · ' + ($store.knowledgeModal.tags?.length || 0) + ' categories'"></p></div>
       <div class="nb-header-actions">
+        <button class="nb-btn-sm" @click="$store.knowledgeModal.reindexKB()" :disabled="$store.knowledgeModal.loading" title="Re-index Knowledge Base">
+          <span class="material-symbols-outlined">sync</span>
+        </button>
         <button class="nb-btn-sm" @click="$store.knowledgeModal.triggerFileUpload()" :disabled="$store.knowledgeModal.uploading" title="Upload files">
           <span class="material-symbols-outlined">upload_file</span>
         </button>

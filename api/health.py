@@ -107,6 +107,22 @@ class HealthCheck(ApiHandler):
                 meeko_detail = "Not installed"
             health["checks"].append({"name": "Meeko", "status": "ok" if meeko_ok else "warn", "detail": meeko_detail})
 
+            # Vector Store (Knowledge Base)
+            vs_ok = False
+            vs_detail = ""
+            try:
+                import chromadb
+                vs_ok = True
+                vs_detail = "ChromaDB available"
+            except ImportError:
+                try:
+                    import faiss
+                    vs_ok = True
+                    vs_detail = "FAISS available"
+                except ImportError:
+                    vs_detail = "No vector store (pip install chromadb)"
+            health["checks"].append({"name": "Vector Store", "status": "ok" if vs_ok else "warn", "detail": vs_detail})
+
             # RDKit
             try:
                 from rdkit import Chem

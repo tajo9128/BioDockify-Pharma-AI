@@ -90,6 +90,15 @@ RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
     && echo "Scientific packages installed" || \
     echo "Scientific packages install failed"
 
+# Install Knowledge Base vector store dependencies
+ENV PIP_DEFAULT_TIMEOUT=120
+RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
+    chromadb>=0.4.0 \
+    faiss-cpu>=1.7.4 \
+    sentence-transformers>=2.2.0 \
+    && echo "Vector store packages installed" || \
+    echo "Vector store packages install failed"
+
 EXPOSE 50001
 
 HEALTHCHECK --interval=30s --timeout=15s --retries=3 CMD \
