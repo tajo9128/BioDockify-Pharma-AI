@@ -195,7 +195,10 @@ def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, 
         import numpy as np
         from rdkit import Chem
         from rdkit.Chem import Draw, AllChem
-        from rdkit.Chem.Draw import IPythonConsole
+        try:
+            from rdkit.Chem.Draw import IPythonConsole
+        except ImportError:
+            pass  # IPython not needed for SVG generation
         import io
 
         if pose_index >= len(ligand_models):
