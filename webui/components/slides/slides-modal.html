@@ -19,16 +19,10 @@
         this.error = "";
         this.result = null;
         try {
-          const resp = await callJsonApi("slides/generate", {
-            topic: this.topic,
-            style: this.style,
-            num_slides: this.numSlides,
-            include_citations: this.includeCitations,
-          });
-          if (resp.error) { this.error = resp.error; return; }
-          this.result = resp;
-        } catch (e) {
+          // Send to agent chat for slide generation
           this.sendToAgent();
+        } catch (e) {
+          this.error = e.message;
         }
         this.loading = false;
       },
