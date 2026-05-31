@@ -10,6 +10,8 @@ export const store = createStore("backupRecovery", {
   error: "",
   gdriveConnected: false,
   gdriveAutoSync: false,
+  autoBackupStatus: null,
+  autoBackupList: [],
 
   get hasBackups() { return this.backups.length > 0; },
 
@@ -86,7 +88,55 @@ export const store = createStore("backupRecovery", {
 
   disconnectGDrive() {
     this.gdriveConnected = false;
-    this.message = "Google Drive disconnected.";
+    this.message = "GDrive disconnected.";
     setTimeout(() => this.message = "", 3000);
+  },
+
+  async createAutoBackup() {
+    this.creating = true; this.message = "Creating auto-backup...";
+    try {
+      const r = await callJsonApi("backup_create", { action: "create" });
+      if (r.status === "ok") { this.message = r.message || "Auto-backup created"; }
+      else { this.error = r.error || "Backup failed"; }
+    } catch (e) { this.error = "Backup failed: " + e.message; }
+    this.creating = false;
+  },
+
+  async restoreLatest() {
+    if (!confirm("Restore from most recent auto-backup? This will overwrite current data.")) return;
+    this.restoring = true; this.message = "Restoring from latest backup...";
+    try {
+      const r = await callJsonApi("backup_create", { action: "restore" });
+      if (r.status === "ok") { this.message = r.message || "Restored from backup"; }
+      else { this.error = r.error || "Restore failed"; }
+    } catch (e) { this.error = "Restore failed: " + e.message; }
+    this.restoring = false;
+  },
+
+  async restoreSpecific(name) {
+    if (!confirm("Restore from " + name + "? This will overwrite current data.")) return;
+    this.restoring = true; this.message = "Restoring from " + name + "...";
+    try {
+      const r = await callJsonApi("backup_create", { action: "restore_specific", backup_name: name });
+      if (r.status === "ok") { this.message = r.message || "Restored"; }
+      else { this.error = r.error || "Restore failed"; }
+    } catch (e) { this.error = "Restore failed: " + e.message; }
+    this.restoring = false;
+  },
+
+  async listAutoBackups() {
+    this.loading = true;
+    try {
+      const r = await callJsonApi("backup_create", { action: "list" });
+      if (r.status === "ok") { this.autoBackupList = r.backups || []; }
+    } catch (e) {}
+    this.loading = false;
+  },
+
+  async loadAutoBackupStatus() {
+    try {
+      const r = await callJsonApi("backup_create", { action: "status" });
+      if (r.status === "ok") { this.autoBackupStatus = r; }
+    } catch (e) {}
   },
 });

@@ -1,5 +1,6 @@
 from helpers.api import ApiHandler, Request, Response
 from helpers import errors, git
+import os
 
 
 class HealthCheck(ApiHandler):
@@ -24,9 +25,12 @@ class HealthCheck(ApiHandler):
         except Exception as e:
             error = errors.error_text(e)
 
+        # Auto-backup on first health check (once per day)
+        _auto_backup_if_needed()
+
         health = {"status": "ok", "checks": []}
         try:
-            import subprocess, os, shutil
+            import subprocess, shutil
             import socket
 
             # Internet

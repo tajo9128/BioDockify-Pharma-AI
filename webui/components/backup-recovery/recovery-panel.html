@@ -1,4 +1,4 @@
-<html><body><div x-data class="recovery-panel" x-init="$store.backupRecovery.loadBackups()">
+<html><body><div x-data class="recovery-panel" x-init="$store.backupRecovery.loadBackups(); $store.backupRecovery.loadAutoBackupStatus()">
   <div class="panel-header"><span class="material-symbols-outlined panel-icon">backup</span><h2>Backup & Recovery</h2></div>
   <p class="desc">Backups stored at <code>usr/backups/</code> (Docker volume) — survive container deletion.</p>
 
@@ -54,6 +54,36 @@
     <div class="gd-locations">
       <label class="gd-check"><input type="checkbox" checked disabled> Docker Volume: /usr/backups/</label>
       <label class="gd-check"><input type="checkbox" x-model="$store.backupRecovery.gdriveAutoSync"> Auto-sync to GDrive</label>
+    </div>
+  </div>
+
+  <!-- Auto-Backup Section -->
+  <div class="gd-card" style="border-color: #4fc3f7; margin-top: 8px">
+    <div class="gd-header">
+      <span style="font-weight:600;font-size:0.7rem">🛡️ Auto-Backup System</span>
+      <span style="font-size:0.55rem;color:var(--color-text-muted)" x-text="($store.backupRecovery.autoBackupStatus?.total_backups || 0) + ' backups (' + ($store.backupRecovery.autoBackupStatus?.max_backups || 7) + ' max)'"></span>
+    </div>
+    <div style="font-size:0.55rem;color:var(--color-text-muted);margin:4px 0">
+      Runs on container restart + periodically. Keeps last 7 backups. Survives container deletion.
+    </div>
+    <div style="display:flex;gap:4px;margin-top:6px">
+      <button class="btn-sm" @click="$store.backupRecovery.createAutoBackup()" :disabled="$store.backupRecovery.creating">
+        <span class="material-symbols-outlined">save</span> Create Now
+      </button>
+      <button class="btn-sm" @click="$store.backupRecovery.listAutoBackups()" :disabled="$store.backupRecovery.loading">
+        <span class="material-symbols-outlined">list</span> List
+      </button>
+      <button class="btn-sm" style="background:#4fc3f7;color:white;border-color:#4fc3f7" @click="$store.backupRecovery.restoreLatest()" :disabled="$store.backupRecovery.creating">
+        <span class="material-symbols-outlined">restore</span> Restore Latest
+      </button>
+    </div>
+    <div x-show="$store.backupRecovery.autoBackupList.length" style="margin-top:6px;max-height:80px;overflow-y:auto">
+      <template x-for="b in $store.backupRecovery.autoBackupList" :key="b">
+        <div style="display:flex;justify-content:space-between;font-size:0.5rem;padding:2px 0">
+          <span x-text="b"></span>
+          <button class="btn-sm" style="font-size:0.48rem;padding:1px 6px" @click="$store.backupRecovery.restoreSpecific(b)">Restore</button>
+        </div>
+      </template>
     </div>
   </div>
 
