@@ -4,15 +4,13 @@ class Nudge(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         ctxid = input.get("ctxid", "")
         if not ctxid:
-            raise Exception("No context id provided")
+            return {"error": "No context id provided"}
 
-        context = self.use_context(ctxid)
-        context.nudge()
-
-        msg = "Process reset, agent nudged."
-        context.log.log(type="info", content=msg)
-        
-        return {
-            "message": msg,
-            "ctxid": context.id,
-        }
+        try:
+            context = self.use_context(ctxid)
+            context.nudge()
+            msg = "Process reset, agent nudged."
+            context.log.log(type="info", content=msg)
+            return {"message": msg, "ctxid": context.id}
+        except Exception as e:
+            return {"error": str(e)}

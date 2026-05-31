@@ -11,47 +11,46 @@ import posixpath
 class UploadWorkDirFiles(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         if "files[]" not in request.files:
-            raise Exception("No files uploaded")
+            return {"error": "No files uploaded"}
 
         current_path = request.form.get("path", "")
         uploaded_files = request.files.getlist("files[]")
 
-        # browser = FileBrowser()
-        # successful, failed = browser.save_files(uploaded_files, current_path)
+        try:
+            successful, failed = await upload_files(uploaded_files, current_path)
 
-        successful, failed = await upload_files(uploaded_files, current_path)
+            if not successful and failed:
+                return {"error": "All uploads failed", "successful": [], "failed": failed}
 
-        if not successful and failed:
-            raise Exception("All uploads failed")
+            if successful:
+                await extension.call_extensions_async(
+                    "workdir_file_mutation_after",
+                    agent=None,
+                    data={
+                        "action": "upload",
+                        "path": current_path,
+                        "paths": [
+                            posixpath.join(str(current_path).rstrip("/"), name)
+                            for name in successful
+                        ],
+                        "current_path": current_path,
+                    },
+                )
 
-        if successful:
-            await extension.call_extensions_async(
-                "workdir_file_mutation_after",
-                agent=None,
-                data={
-                    "action": "upload",
-                    "path": current_path,
-                    "paths": [
-                        posixpath.join(str(current_path).rstrip("/"), name)
-                        for name in successful
-                    ],
-                    "current_path": current_path,
-                },
-            )
+            result = await runtime.call_development_function(get_work_dir_files.get_files, current_path)
 
-        # result = browser.get_files(current_path)
-        result = await runtime.call_development_function(get_work_dir_files.get_files, current_path)
-
-        return {
-            "message": (
-                "Files uploaded successfully"
-                if not failed
-                else "Some files failed to upload"
-            ),
-            "data": result,
-            "successful": successful,
-            "failed": failed,
-        }
+            return {
+                "message": (
+                    "Files uploaded successfully"
+                    if not failed
+                    else "Some files failed to upload"
+                ),
+                "data": result,
+                "successful": successful,
+                "failed": failed,
+            }
+        except Exception as e:
+            return {"error": str(e)}
 
 
 async def upload_files(uploaded_files: list[FileStorage], current_path: str):

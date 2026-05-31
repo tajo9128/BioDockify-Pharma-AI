@@ -6,12 +6,15 @@ class ExportChat(ApiHandler):
     async def process(self, input: Input, request: Request) -> Output:
         ctxid = input.get("ctxid", "")
         if not ctxid:
-            raise Exception("No context id provided")
+            return {"error": "No context id provided"}
 
-        context = self.use_context(ctxid)
-        content = persist_chat.export_json_chat(context)
-        return {
-            "message": "Chats exported.",
-            "ctxid": context.id,
-            "content": content,
-        }
+        try:
+            context = self.use_context(ctxid)
+            content = persist_chat.export_json_chat(context)
+            return {
+                "message": "Chats exported.",
+                "ctxid": context.id,
+                "content": content,
+            }
+        except Exception as e:
+            return {"error": str(e)}

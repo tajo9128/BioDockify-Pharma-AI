@@ -3,9 +3,34 @@ from helpers.api import ApiHandler, Input, Output, Request, Response
 from helpers import files
 from typing import TypedDict
 
+ALLOWED_ROOTS = [
+    os.path.normpath(files.get_abs_path("usr/workdir")),
+    os.path.normpath(files.get_abs_path("usr")),
+    os.path.normpath(files.get_abs_path("data")),
+    os.path.normpath(files.get_abs_path("knowledge")),
+    os.path.normpath(files.get_abs_path("tmp")),
+]
+
+BLOCKED_PATHS = ["/etc/shadow", "/etc/passwd", "/root", "/.ssh", "/proc", "/sys"]
+
+
+def _is_path_allowed(abs_path: str) -> bool:
+    norm = os.path.normpath(abs_path)
+    for blocked in BLOCKED_PATHS:
+        if norm.startswith(blocked):
+            return False
+    for root in ALLOWED_ROOTS:
+        if norm.startswith(root):
+            return True
+    return False
+
+
 class FileInfoApi(ApiHandler):
     async def process(self, input: Input, request: Request) -> Output:
         path = input.get("path", "")
+        abs_path = files.get_abs_path(path)
+        if not _is_path_allowed(abs_path):
+            return {"error": "Access denied", "input_path": path, "exists": False}
         return await get_file_info(path)
 
 class FileInfo(TypedDict):

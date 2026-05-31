@@ -81,6 +81,15 @@ RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir meeko>=0.5.0 && \
     echo "Meeko installed" || \
     echo "Meeko install failed"
 
+# Install scientific packages for Statistics module
+RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
+    scipy>=1.11.0 \
+    scikit-learn>=1.3.0 \
+    pandas>=2.0.0 \
+    matplotlib>=3.7.0 \
+    && echo "Scientific packages installed" || \
+    echo "Scientific packages install failed"
+
 EXPOSE 50001
 
 HEALTHCHECK --interval=30s --timeout=15s --retries=3 CMD \
