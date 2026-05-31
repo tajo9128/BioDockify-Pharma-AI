@@ -60,24 +60,24 @@ export const store = createStore("researchDashboard", {
     }
 
     // 2. Send research prompt to agent
-    let prompt = `CREATE RESEARCH PROJECT & START PIPELINE\n\nProject Title: ${this.newTopic}\nType: ${this.newType}\n`;
-    if (this.newNotes.trim()) prompt += `Topics:\n${this.newNotes}\n`;
-    if (this.newComments.trim()) prompt += `Instructions:\n${this.newComments}\n`;
-    prompt += `\nExecute complete research workflow:\n`;
-    prompt += `1. Create a new project named "${this.newTopic}" via projects system\n`;
-    prompt += `2. Deep Research: search PubMed, Semantic Scholar, arXiv\n`;
-    prompt += `3. Literature Review: synthesize findings, identify gaps\n`;
-    prompt += `4. Save all papers to Knowledge Base with #${this.newType} tag\n`;
-    prompt += `5. Track progress and provide regular updates\n`;
+    let prompt = `Research task: ${this.newTopic}\n`;
+    prompt += `Type: ${this.newType}\n`;
+    if (this.newNotes.trim()) prompt += `Topics: ${this.newNotes}\n`;
+    if (this.newComments.trim()) prompt += `Instructions: ${this.newComments}\n`;
+    prompt += `\nPlease:\n`;
+    prompt += `1. Search all 10 databases (PubMed, Semantic Scholar, Google Scholar, Scopus, WoS, arXiv, Elsevier, Springer, Europe PMC, bioRxiv)\n`;
+    prompt += `2. Synthesize findings into a literature review\n`;
+    prompt += `3. Save papers to Knowledge Base with #${this.newType} tag\n`;
+    prompt += `4. Track progress and provide updates\n`;
 
     const input = document.querySelector("#chat-input, #chat-bar-input textarea, .chat-bar-input textarea");
     if (input) {
       input.value = prompt;
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.focus();
-      this.message = "Project creation + research pipeline sent to agent!";
+      this.message = "Research task sent to agent!";
     } else {
-      this.message = "Project modal opened. Type your research title in chat to start.";
+      this.message = "Type your research title in chat to start.";
     }
 
     this.newTopic = ""; this.newNotes = ""; this.newComments = "";
