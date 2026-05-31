@@ -137,17 +137,30 @@ def run_gnina(job_id: str, receptor_pdbqt: str = "", ligand_pdbqt: str = "", cen
         with open(log_path, "w") as f:
             f.write(log_content)
 
-        if result.returncode != 0:
-            err_msg = result.stderr or "GNINA exited with non-zero code"
-            return {"success": False, "error": f"GNINA failed: {err_msg[:500]}", "log_file": log_path, "gnina_available": True}
+        # Parse CNN scores from output
+        cnn_scores = []
+        for line in result.stdout.split("\n"):
+            if "CNNscore" in line or "CNN_affinity" in line:
+                parts = line.split()
+                if len(parts) >= 2:
+                    try:
+                        cnn_scores.append(float(parts[-1]))
+                    except ValueError:
+                        pass
 
-        sdf_available = False
-        if os.path.exists(output_path):
-            try:
-                conv = subprocess.run(["obabel", output_path, "-O", sdf_out_path], capture_output=True, text=True, timeout=30)
-                sdf_available = conv.returncode == 0 and os.path.exists(sdf_out_path)
-            except Exception:
-                pass
+        # Extract poses from output
+        gnina_poses = []
+        output_lines = result.stdout.split("\n")
+        current_pose = None
+        for line in output_lines:
+            if "REMARK" in line and "CNN" in line:
+                parts = line.split()
+                if len(parts) >= 4:
+                    try:
+                        score = float(parts[3])
+                        gnina_poses.append({"cnn_score": score})
+                    except ValueError:
+                        pass
 
         return {
             "success": True,
@@ -157,6 +170,7 @@ def run_gnina(job_id: str, receptor_pdbqt: str = "", ligand_pdbqt: str = "", cen
             "log_file": log_path,
             "stdout": result.stdout[:5000],
             "stderr": result.stderr[:2000] if result.stderr else "",
+            "poses": gnina_poses,
             "download_links": {
                 "gnina_pdbqt": f"/api/docking_download?job_id={job_id}&filename=gnina_docked.pdbqt",
                 "gnina_sdf": f"/api/docking_download?job_id={job_id}&filename=gnina_docked.sdf" if sdf_available else None,

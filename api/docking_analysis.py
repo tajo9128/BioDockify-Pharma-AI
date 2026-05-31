@@ -468,13 +468,28 @@ class DockingAnalysisHandler(ApiHandler):
             pose_i = int(input.get("pose_index", 0))
             if pose_i >= len(ligand_models):
                 return {"success": False, "error": f"Pose {pose_i} out of range"}
-            interactions = _analyze_interactions(receptor_atoms, ligand_models[pose_i])
-            residue_energy = _residue_energy_decomposition(receptor_atoms, ligand_models[pose_i], interactions)
-            torsions = _torsion_analysis(ligand_models[pose_i])
-            clusters = _rmsd_cluster(ligand_models, 2.0)
-            surface = _pocket_surface_data(receptor_atoms, ligand_models)
-            svg = _generate_interaction_svg(job_id, pose_i, receptor_text, ligand_models, interactions, input.get("smiles", ""))
-            overlay = _pose_overlay_pdb(receptor_text, ligand_models, energies)
+            try:
+                interactions = _analyze_interactions(receptor_atoms, ligand_models[pose_i])
+                residue_energy = _residue_energy_decomposition(receptor_atoms, ligand_models[pose_i], interactions)
+                torsions = _torsion_analysis(ligand_models[pose_i])
+            except Exception as e:
+                return {"success": False, "error": f"Interaction analysis failed: {str(e)[:200]}"}
+            try:
+                clusters = _rmsd_cluster(ligand_models, 2.0)
+            except Exception:
+                clusters = []
+            try:
+                surface = _pocket_surface_data(receptor_atoms, ligand_models)
+            except Exception:
+                surface = []
+            try:
+                svg = _generate_interaction_svg(job_id, pose_i, receptor_text, ligand_models, interactions, input.get("smiles", ""))
+            except Exception:
+                svg = None
+            try:
+                overlay = _pose_overlay_pdb(receptor_text, ligand_models, energies)
+            except Exception:
+                overlay = {"receptor_pdb": receptor_text, "poses": [], "num_poses": 0}
             return {"success": True, "interactions": interactions, "residue_energy": residue_energy, "torsions": torsions, "clusters": clusters, "surface": surface, "svg": svg, "overlay": overlay, "energies": energies, "num_poses": len(ligand_models)}
 
         return {"error": f"Unknown action: {action}"}
