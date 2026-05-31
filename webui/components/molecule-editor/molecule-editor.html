@@ -30,12 +30,18 @@
       },
 
       _loadJSME() {
-        if (typeof window.JSME !== "undefined") { this._initJSME(); return; }
+        if (typeof window.JSME === "function") { this._initJSME(); return; }
         const s = document.createElement("script");
         s.src = "/vendor/jsme/jsme.nocache.js";
-        s.onload = () => setTimeout(() => this._initJSME(), 300);
+        s.onload = () => this._waitForJSME(0);
         s.onerror = () => { this.error = "JSME editor failed to load"; };
         document.head.appendChild(s);
+      },
+
+      _waitForJSME(attempt) {
+        if (typeof window.JSME === "function") { this._initJSME(); return; }
+        if (attempt > 30) { this.error = "JSME editor failed to initialize (timeout)"; return; }
+        setTimeout(() => this._waitForJSME(attempt + 1), 500);
       },
 
       _initJSME() {
