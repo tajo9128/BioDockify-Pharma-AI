@@ -1,69 +1,65 @@
 ﻿# BioDockify AI - AGENTS.md
 
-**Last updated: 2026-05-25 | Version: v6.8.1**
+**Last updated: 2026-05-31 | Version: v6.8.7**
 
-## Today's Additions (2026-05-25)
+## Today's Additions (2026-05-31) — v6.8.7 Release
 
-### Docking Pipeline Upgrade
-- **GNINA fixed via conda-forge** — no more fragile GitHub wget URLs. `conda install -y -c conda-forge gnina`
-- **Meeko PDB→PDBQT fallback** — pure Python, cross-platform. Works when obabel missing on Windows
-- **ProLIF interaction fingerprints** — per-residue bitmask encoding (HBD/HBA/HYD/ARO/ION). New `api/docking_analysis.py` action `plif`
-- **Consensus Z-score scoring** — Vina + GNINA combined into single normalized score. `api/docking_run.py:_compute_consensus_score()`
-- **Inline 3D docking analysis** — receptor + ligand viewer with H-bonds, surface, snapshot, zoom. New "Analysis" tab in molecular-toolkit
-- **Best pose 2D diagram + 3D download** — SVG interaction diagram + PDB download for top pose
+### External Docking File Upload
+- **Upload from any platform** — receptor (PDB/PDBQT/CIF/MOL2) + docked ligand (PDBQT/SDF) from AutoDock Vina, Glide, GOLD, AutoDock-GPU, rDock, PLANTS
+- **`api/docking_upload.py`** — creates temp job directory, parses Vina REMARK energies and MODEL counts
+- **Frontend toggle** — switch between Job ID input and file upload mode in Deep Analysis
 
-### Module Consolidation (29 → 15 toolbar icons)
-- `drug-properties` → molecule editor Properties tab
-- `drug-analysis` → molecule editor Filters tab (PAINS/Brenk/NIH)
-- `mol-optimizer` → molecule editor Optimize tab (bioisostere mutagenesis)
-- `slides` → Faculty CMD
-- `lecture-builder` → Faculty CMD
-- `literature` → Research CMD
-- `wetlab` → Research CMD
-- `citation-manager` → Academic Writer
-- `grant-writer` → Academic Writer
-- `regulatory` → Academic Writer
-- `docking-analysis` → molecular-toolkit Analysis tab
-- `browser` / `editor` → removed (non-functional)
+### Drug Analysis (renamed from Molecule Editor)
+- **Removed JSME drawing** — Java applet removed, simplified to SMILES input + analysis
+- **Renamed module** — "Molecule Editor" → "Drug Analysis" (icon: `science`)
+- **Fixed `$nextTick` error** — 3D View tab button now uses `setTimeout`
 
-### Drug Properties v2
-- **hERG cardiotoxicity** — 10 SMARTS structural alerts
-- **AMES mutagenicity** — 15 SMARTS alerts (Kazius-Hansen)
-- **pKa prediction** — acidic + basic substructure matching (6 acidic, 10 basic groups)
-- **BBB permeability score** — Clark's model 0-1 continuous score
-- **Melting Point** — Joback group contribution method
-- **Drug-likeness Score** — 0-1 weighted composite (MolSoft-style)
+### Security Fixes
+- **`file_info.py` sandboxed** — only allows access to `/a0/usr/workdir`, `/a0/usr`, `/a0/data`, `/a0/knowledge`, `/a0/tmp`. Blocks `/etc/shadow`, `/root`, `/proc`, `/sys`
+- **`restart.py` auth** — added `requires_auth` + `requires_csrf`
 
-### QSAR v2
-- **Classification models** — RFC, SVC, LogisticRegression
-- **Batch prediction** — library screening with AD status
-- **Train/test split** — external validation metrics
-- **Feature selection** — mutual info + ANOVA F-test
-- **Read-across** — ECFP4 Tanimoto analogues
-- **Williams Plot** — SVG leverage vs standardized residuals
-- **PLS VIP scores** — variable importance
+### Crash Fixes (5 endpoints)
+- `chat_export.py`, `chat_files_path_get.py`, `nudge.py`, `chat_load.py`, `upload_work_dir_files.py` — all `raise Exception` replaced with `return {error}`
 
-### Journal Finder Upgrade
-- **Deep research** — 5 live source scraping (PubMed, SCImago, DOAJ, Google Scholar, Researcher.life)
-- **Fake website detector** — 6 checks (domain reputation, free TLDs, ISSN registry URL, Crossref, domain age)
-- **Full dossier** — access model, APC, license, time-to-publish, publication frequency, h5-index
-- **Research pipeline trigger** — launches `ResearchOrchestrator` + Agent Zero for comprehensive journal research
+### MM-GBSA Free Energy Scoring (replaces ODDT/GNINA)
+- **`api/docking_mmgbsa.py`** — CPU-only, no MD simulation. Combines Vina MM term + GB desolvation + SA surface area + interaction bonus
+- **Spatial grid optimization** — O(n²) → O(n) for SASA and interaction energy calculations
+- **Frontend table** — shows top 5 poses with MM-GBSA energies and Z-scores
+- **Consensus scoring** — `0.4*Vina_Z + 0.6*MMGBSA_Z`
 
-### Pharmacophore Complete Overhaul
-- 13 actions: generate, protein_model, screen, batch_screen, screen_stats, shared_model, merged_model, overlay, hypothesis, identify_targets, parse_pm, parse_ph4, pdb_query
-- PharmacoNet 10-class NCI types, weighted screening, ZINCPharmer pre-filtering, LigandScout .ph4 import
+### ODDT + GNINA Removed
+- **Dockerfile cleaned** — GNINA 3-strategy install block removed, ODDT/ProLIF removed
+- **Meeko only** — `pip install meeko>=0.5.0` with full path `/opt/venv-a0/bin/python`
+- **Health checks** — MM-GBSA + Meeko replace ODDT/GNINA checks
+- **Files stubbed** — `docking_oddt.py` and `docking_gnina.py` kept as stubs for backward compat
 
-### 3Dmol.js Protein Viewer in Molecule Editor
-- PDB upload with cartoon rendering + chain coloring
-- Click-to-measure distances (gold cylinder + Å label)
-- Residue sequence strip with click-to-zoom
-- 7 rendering styles (CPK, Chain, Charge, Surface)
-- Snapshot PNG download
+### Dockerfile Updates
+- **Fixed `$VENV_PY`** — was undefined across `RUN` instructions, now uses full path `/opt/venv-a0/bin/python`
+- **Added scientific packages** — scipy, scikit-learn, pandas, matplotlib for Statistics module
+- **Healthcheck on port 80** — where server actually runs in Docker
 
-### Frontend Redesigns
-- Journal Finder, Pharmacophore, QSAR all redesigned with molecule-editor style (boxes + buttons + L-R grid)
-- QSAR all tabs full-width (removed 300px grid constraint)
-- All Tools grid updated with merged modules and subtask labels
+### Bug Fixes (from test reports)
+- **Literature Search** — urllib timeout tuple error (was `timeout=(15,30)`, now `timeout=30`)
+- **Knowledge Base** — async `store.search()` with coroutine detection
+- **Self Heal** — `_run()` missing `workdir` param added
+- **Lecture Generator** — str/dict return type normalization
+- **Clinical Trials** — v1 API deprecated, migrated to v2 (`/api/v2/studies`)
+- **Upload** — return error dict instead of raising exception, ensure upload dir exists
+- **Chat errors** — raw tracebacks replaced with friendly messages via `_friendly_error()`
+- **JS exceptions** — removed `x-init` health check on page load (lazy load instead)
+- **Ligand Pharmacophore tab removed** — default tab changed to "protein", 5 remaining tabs
+
+### Previous Additions (2026-05-25) — v6.8.0–v6.8.1
+- **GNINA fixed via conda-forge** — no more fragile GitHub wget URLs
+- **Meeko PDB→PDBQT fallback** — pure Python, cross-platform
+- **ProLIF interaction fingerprints** — per-residue bitmask encoding
+- **Module Consolidation (29 → 15 toolbar icons)** — drug-properties, drug-analysis, mol-optimizer, slides, lecture-builder, literature, wetlab, citation-manager, grant-writer, regulatory, docking-analysis merged into parent dashboards
+- **Drug Properties v2** — hERG, AMES, pKa, BBB, melting point, drug-likeness score
+- **QSAR v2** — classification models, batch prediction, feature selection, read-across, Williams Plot
+- **Journal Finder Upgrade** — 5 live sources, fake website detector, full dossier
+- **Pharmacophore Complete Overhaul** — 13 actions
+- **3Dmol.js Protein Viewer** — PDB upload, click-to-measure, residue sequence strip
+- **Frontend Redesigns** — Journal Finder, Pharmacophore, QSAR full-width layouts
 
 ## Quick Reference
 Tech Stack: Python 3.12+ | Flask | Alpine.js | LiteLLM | WebSocket (Socket.io)
