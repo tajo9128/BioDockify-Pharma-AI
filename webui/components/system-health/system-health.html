@@ -5,12 +5,15 @@
     import { callJsonApi } from "/js/api.js";
 
     export const store = createStore("systemHealth", {
-      checks: [],
-      status: "checking",
-      security: null,
-      diagnosis: null,
-      loading: false,
-      error: "",
+      activeTab: "health",
+      checks: [], status: "checking", security: null, diagnosis: null,
+      loading: false, error: "", message: "",
+      // Self-heal
+      issues: [], autoFixable: [], fixResults: [],
+      // Update
+      updateOutput: "", updateLoading: false,
+      // Logs
+      serviceLogs: "",
 
       async refresh() {
         this.loading = true; this.error = "";
@@ -31,6 +34,58 @@
         this.loading = false;
       },
 
+      async runDiagnose() {
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("self_heal", { action: "diagnose" });
+          if (r.status === "ok") {
+            this.checks = r.checks || []; this.issues = r.issues || []; this.autoFixable = r.auto_fixable || [];
+            this.message = r.summary; this.activeTab = "diagnosis";
+          } else { this.error = r.error || "Diagnosis failed"; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async autoFix(fixAction) {
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("self_heal", { action: "fix", fix_action: fixAction });
+          if (r.status === "ok") {
+            this.fixResults = r.results || [];
+            this.message = "Auto-fix: " + (this.fixResults.map(r => r.action + "=" + r.status).join(", ") || "completed");
+          } else { this.error = r.error || "Auto-fix failed"; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async updateFromGitHub(rebuild) {
+        this.updateLoading = true; this.error = "";
+        try {
+          const r = await callJsonApi("self_heal", { action: "update", rebuild });
+          this.updateOutput = r.output || "";
+          this.message = r.pulled ? "Updated from GitHub" : "Already up to date";
+        } catch (e) { this.error = e.message; }
+        this.updateLoading = false;
+      },
+
+      async loadLogs(service) {
+        this.loading = true;
+        try {
+          const r = await callJsonApi("self_heal", { action: "logs", service: service || "biodockify" });
+          this.serviceLogs = r.logs || "No logs";
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async restartService(service) {
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("self_heal", { action: "restart", service });
+          this.message = r.output || "Service restarted";
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
       statusIcon(s) { return s==="ok" ? "🟢" : s==="warn" ? "🟡" : s==="fail" ? "🔴" : "⚪"; },
       statusColor(s) { return s==="ok" ? "#22c55e" : s==="warn" ? "#ffd93d" : s==="fail" ? "#ff6b6b" : "#888"; },
       overallIcon() { return this.status==="healthy" ? "🟢" : this.status==="degraded" ? "🟡" : "🔴"; },
@@ -41,128 +96,131 @@
   <div x-data class="sh-panel" x-init="$store.systemHealth?.refresh()">
     <div class="sh-header">
       <span class="material-symbols-outlined sh-icon">monitoring</span>
-      <div>
-        <h2>System Health</h2>
-        <p class="sh-sub" x-text="$store.systemHealth?.overallIcon() + ' ' + ($store.systemHealth?.status || 'checking')"></p>
-      </div>
+      <div><h2>System Health & Diagnostics</h2><p class="sh-sub" x-text="$store.systemHealth?.overallIcon() + ' ' + ($store.systemHealth?.status || 'checking')"></p></div>
       <div class="sh-actions">
-        <button class="sh-btn" @click="$store.systemHealth?.refresh()" :disabled="$store.systemHealth?.loading">
-          <span class="material-symbols-outlined">refresh</span>
-        </button>
-        <button class="sh-btn-primary" @click="$store.systemHealth?.fullDiagnose()" :disabled="$store.systemHealth?.loading">
-          <span class="material-symbols-outlined">biotech</span> Full Diagnose
-        </button>
+        <button class="sh-btn" @click="$store.systemHealth?.refresh()" :disabled="$store.systemHealth?.loading"><span class="material-symbols-outlined">refresh</span></button>
+        <button class="sh-btn-primary" @click="$store.systemHealth?.runDiagnose()" :disabled="$store.systemHealth?.loading"><span class="material-symbols-outlined" style="font-size:14px">biotech</span> Diagnose</button>
       </div>
     </div>
 
-    <div x-show="$store.systemHealth?.error" class="sh-error" x-text="$store.systemHealth?.error"></div>
-    <div x-show="$store.systemHealth?.loading" class="sh-loading"><div class="loading-spinner"></div> Checking system...</div>
+    <div x-show="$store.systemHealth?.error" class="sh-error" x-text="$store.systemHealth?.error" @click="$store.systemHealth?.error=''"></div>
+    <div x-show="$store.systemHealth?.message" class="sh-msg" x-text="$store.systemHealth?.message" @click="$store.systemHealth?.message=''"></div>
+    <div x-show="$store.systemHealth?.loading" class="sh-loading"><div class="loading-spinner"></div><span>Working...</span></div>
 
-    <!-- Connectivity & Core -->
-    <div class="sh-card">
-      <h4>Connectivity &amp; Core</h4>
-      <div class="sh-grid">
-        <template x-for="c in ($store.systemHealth?.checks || []).filter(c => ['Internet','ChromaDB','Backup','Research Mgmt','Statistics','Thesis','Disk','Memory','RDKit'].includes(c.name))" :key="c.name">
+    <!-- Tabs -->
+    <div class="sh-tabs">
+      <button class="sh-tab" :class="{active:$store.systemHealth.activeTab=='health'}" @click="$store.systemHealth.activeTab='health'"><span class="material-symbols-outlined" style="font-size:14px">monitoring</span> Health</button>
+      <button class="sh-tab" :class="{active:$store.systemHealth.activeTab=='diagnosis'}" @click="$store.systemHealth.activeTab='diagnosis'"><span class="material-symbols-outlined" style="font-size:14px">biotech</span> Diagnosis</button>
+      <button class="sh-tab" :class="{active:$store.systemHealth.activeTab=='heal'}" @click="$store.systemHealth.activeTab='heal'"><span class="material-symbols-outlined" style="font-size:14px">healing</span> Self-Heal</button>
+      <button class="sh-tab" :class="{active:$store.systemHealth.activeTab=='update'}" @click="$store.systemHealth.activeTab='update'"><span class="material-symbols-outlined" style="font-size:14px">update</span> Update</button>
+    </div>
+
+    <!-- HEALTH TAB -->
+    <div x-show="$store.systemHealth.activeTab=='health'" class="sh-body">
+      <template x-for="c in ($store.systemHealth.checks || [])" :key="c.name">
+        <div class="sh-card"><div class="sh-item">
+          <span class="sh-dot" :style="'background:'+$store.systemHealth.statusColor(c.status)"></span>
+          <div class="sh-item-info"><span class="sh-item-name" x-text="c.name"></span><span class="sh-item-detail" x-text="c.detail"></span></div>
+          <span class="sh-item-status" :style="'color:'+$store.systemHealth.statusColor(c.status)" x-text="c.status"></span>
+        </div></div>
+      </template>
+    </div>
+
+    <!-- DIAGNOSIS TAB -->
+    <div x-show="$store.systemHealth.activeTab=='diagnosis'" class="sh-body">
+      <div class="sh-card" x-show="$store.systemHealth.issues.length"><h4>Issues Found</h4>
+        <template x-for="(issue, i) in $store.systemHealth.issues" :key="i">
+          <div style="font-size:0.6rem;color:#ff6b6b;padding:3px 0" x-text="'⚠ ' + issue"></div>
+        </template>
+      </div>
+      <div class="sh-card" x-show="$store.systemHealth.autoFixable.length"><h4>Auto-Fixable</h4>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <template x-for="f in $store.systemHealth.autoFixable" :key="f">
+            <button class="sh-btn-primary" @click="$store.systemHealth.autoFix(f)" x-text="'Fix: ' + f.replace(/_/g,' ')" style="font-size:0.56rem"></button>
+          </template>
+        </div>
+      </div>
+      <div class="sh-card"><h4>System Checks</h4>
+        <template x-for="c in ($store.systemHealth.checks || [])" :key="c.name">
           <div class="sh-item">
-            <span class="sh-dot" :style="'background:' + $store.systemHealth?.statusColor(c.status)"></span>
-            <div class="sh-item-info">
-              <span class="sh-item-name" x-text="c.name"></span>
-              <span class="sh-item-detail" x-text="c.detail"></span>
-            </div>
-            <span class="sh-item-status" :style="'color:' + $store.systemHealth?.statusColor(c.status)" x-text="c.status"></span>
+            <span class="sh-dot" :style="'background:'+$store.systemHealth.statusColor(c.status)"></span>
+            <div class="sh-item-info"><span class="sh-item-name" x-text="c.name"></span><span class="sh-item-detail" x-text="c.detail"></span></div>
+            <span class="sh-item-status" :style="'color:'+$store.systemHealth.statusColor(c.status)" x-text="c.status"></span>
           </div>
+        </template>
+      </div>
+      <div class="sh-card" x-show="$store.systemHealth.fixResults.length"><h4>Fix Results</h4>
+        <template x-for="f in $store.systemHealth.fixResults" :key="f.action">
+          <div style="font-size:0.58rem;padding:3px 0"><span :style="'color:'+(f.status==='ok'?'#22c55e':'#ff6b6b')" x-text="f.action + ': ' + f.status"></span> <span style="color:var(--color-text-muted)" x-text="f.detail"></span></div>
         </template>
       </div>
     </div>
 
-    <!-- Docking & Computational Chemistry -->
-    <div class="sh-card">
-      <h4>Docking &amp; Computational Chemistry</h4>
-      <div class="sh-grid">
-        <template x-for="c in ($store.systemHealth?.checks || []).filter(c => ['AutoDock Vina','Docking (Vina)','Docking (GNINA)','GNINA CNN','RDKit','RDKit Pharm Features','NumPy','SciPy (Clusters)','sklearn (QSAR)'].includes(c.name))" :key="c.name">
-          <div class="sh-item">
-            <span class="sh-dot" :style="'background:' + $store.systemHealth?.statusColor(c.status)"></span>
-            <div class="sh-item-info">
-              <span class="sh-item-name" x-text="c.name"></span>
-              <span class="sh-item-detail" x-text="c.detail"></span>
-            </div>
-            <span class="sh-item-status" :style="'color:' + $store.systemHealth?.statusColor(c.status)" x-text="c.status"></span>
-          </div>
-        </template>
+    <!-- SELF-HEAL TAB -->
+    <div x-show="$store.systemHealth.activeTab=='heal'" class="sh-body">
+      <div class="sh-card"><h4><span class="material-symbols-outlined" style="font-size:14px">healing</span> Auto-Repair Actions</h4>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button class="sh-btn-action" @click="$store.systemHealth.autoFix('install_missing_deps')"><span class="material-symbols-outlined" style="font-size:16px">download</span> Reinstall Missing Dependencies</button>
+          <button class="sh-btn-action" @click="$store.systemHealth.autoFix('clear_cache')"><span class="material-symbols-outlined" style="font-size:16px">delete_sweep</span> Clear Temp Cache (Free Disk)</button>
+          <button class="sh-btn-action" @click="$store.systemHealth.restartService('biodockify')"><span class="material-symbols-outlined" style="font-size:16px">restart_alt</span> Restart BioDockify Service</button>
+          <button class="sh-btn-action" @click="$store.systemHealth.updateFromGitHub(false)"><span class="material-symbols-outlined" style="font-size:16px">cloud_download</span> Pull Latest from GitHub</button>
+          <button class="sh-btn-action" @click="$store.systemHealth.updateFromGitHub(true)"><span class="material-symbols-outlined" style="font-size:16px">build</span> Pull + Rebuild Docker Image</button>
+        </div>
+      </div>
+      <div class="sh-card"><h4><span class="material-symbols-outlined" style="font-size:14px">description</span> Service Logs</h4>
+        <div style="display:flex;gap:4px;margin-bottom:6px">
+          <button class="sh-btn" @click="$store.systemHealth.loadLogs('biodockify')">BioDockify</button>
+          <button class="sh-btn" @click="$store.systemHealth.loadLogs('nginx')">Nginx</button>
+          <button class="sh-btn" @click="$store.systemHealth.loadLogs('redis')">Redis</button>
+        </div>
+        <pre style="font-size:0.5rem;background:var(--color-background);padding:6px;border-radius:4px;max-height:200px;overflow:auto;color:var(--color-text-muted);white-space:pre-wrap" x-text="$store.systemHealth.serviceLogs"></pre>
       </div>
     </div>
 
-    <!-- Features & Modules -->
-    <div class="sh-card">
-      <h4>Features &amp; Modules</h4>
-      <div class="sh-grid">
-        <template x-for="c in ($store.systemHealth?.checks || []).filter(c => ['TTS','Drug Properties','Literature Search','QSAR Modeler','Pharmacophore','Docking Analysis','Mol Optimizer','Drug Analysis','Faculty Tools','Journal Finder','Bio NER','Regulatory','Benchmark','Knowledge Import'].includes(c.name))" :key="c.name">
-          <div class="sh-item">
-            <span class="sh-dot" :style="'background:' + $store.systemHealth?.statusColor(c.status)"></span>
-            <div class="sh-item-info">
-              <span class="sh-item-name" x-text="c.name"></span>
-              <span class="sh-item-detail" x-text="c.detail"></span>
-            </div>
-            <span class="sh-item-status" :style="'color:' + $store.systemHealth?.statusColor(c.status)" x-text="c.status"></span>
-          </div>
-        </template>
-      </div>
-    </div>
-
-    <!-- Plugins & System -->
-    <div class="sh-card">
-      <h4>Plugins &amp; System Tools</h4>
-      <div class="sh-grid">
-        <template x-for="c in ($store.systemHealth?.checks || []).filter(c => ['Browser Plugin','Desktop Plugin','Editor Plugin','Office Plugin','Playwright (Browser)','psutil'].includes(c.name))" :key="c.name">
-          <div class="sh-item">
-            <span class="sh-dot" :style="'background:' + $store.systemHealth?.statusColor(c.status)"></span>
-            <div class="sh-item-info">
-              <span class="sh-item-name" x-text="c.name"></span>
-              <span class="sh-item-detail" x-text="c.detail"></span>
-            </div>
-            <span class="sh-item-status" :style="'color:' + $store.systemHealth?.statusColor(c.status)" x-text="c.status"></span>
-          </div>
-        </template>
-      </div>
-    </div>
-
-    <!-- Security -->
-    <div x-show="$store.systemHealth?.security" class="sh-card">
-      <h4>Security</h4>
-      <div class="sh-sec">
-        <span x-text="'Secrets found: ' + ($store.systemHealth?.security?.secrets_found || 0)"></span>
-        <span :style="'color:' + (($store.systemHealth?.security?.secrets_found || 0) > 0 ? '#ff6b6b' : '#22c55e')"
-          x-text="($store.systemHealth?.security?.secrets_found || 0) > 0 ? '⚠ Review needed' : '✅ Clean'"></span>
+    <!-- UPDATE TAB -->
+    <div x-show="$store.systemHealth.activeTab=='update'" class="sh-body">
+      <div class="sh-card"><h4><span class="material-symbols-outlined" style="font-size:14px">update</span> Update from GitHub</h4>
+        <p style="font-size:0.58rem;color:var(--color-text-muted);margin:0 0 8px">Pull latest changes from GitHub. Optionally rebuild Docker image for full update.</p>
+        <div style="display:flex;gap:4px">
+          <button class="sh-btn-action" @click="$store.systemHealth.updateFromGitHub(false)" :disabled="$store.systemHealth.updateLoading"><span class="material-symbols-outlined" style="font-size:16px">cloud_download</span> Pull Only</button>
+          <button class="sh-btn-action" @click="$store.systemHealth.updateFromGitHub(true)" :disabled="$store.systemHealth.updateLoading"><span class="material-symbols-outlined" style="font-size:16px">build</span> Pull + Rebuild Docker</button>
+        </div>
+        <pre x-show="$store.systemHealth.updateOutput" style="font-size:0.5rem;background:var(--color-background);padding:6px;border-radius:4px;max-height:200px;overflow:auto;color:var(--color-text-muted);white-space:pre-wrap;margin-top:6px" x-text="$store.systemHealth.updateOutput"></pre>
       </div>
     </div>
 
     <style>
-      .sh-panel { display: flex; flex-direction: column; height: 100%; overflow-y: auto; padding: 12px 14px; background: var(--color-background); }
-      .sh-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-      .sh-icon { font-size: 22px; color: var(--color-primary); }
-      .sh-header h2 { font-size: 0.9rem; margin: 0; font-weight: 700; color: var(--color-primary); }
-      .sh-sub { font-size: 0.58rem; color: var(--color-text-muted); margin: 0; text-transform: capitalize; }
-      .sh-actions { display: flex; gap: 4px; margin-left: auto; }
-      .sh-btn, .sh-btn-primary { display: flex; align-items: center; gap: 3px; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.62rem; font-weight: 600; }
-      .sh-btn { background: var(--color-panel); border: 1px solid var(--color-border); color: var(--color-text); }
-      .sh-btn-primary { background: var(--color-primary); border: none; color: white; }
-      .sh-btn:disabled, .sh-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-      .sh-error { padding: 4px 8px; background: rgba(255,107,107,0.1); border-radius: 4px; color: var(--color-error-text); font-size: 0.6rem; margin-bottom: 6px; }
-      .sh-loading { display: flex; align-items: center; gap: 5px; font-size: 0.6rem; color: var(--color-text-muted); margin-bottom: 8px; }
-      .loading-spinner { width: 12px; height: 12px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
-      @keyframes spin { to { transform: rotate(360deg); } }
-      .sh-card { padding: 10px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 8px; }
-      .sh-card h4 { font-size: 0.62rem; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.3px; margin: 0 0 6px 0; }
-      .sh-grid { display: flex; flex-direction: column; gap: 4px; }
-      .sh-item { display: flex; align-items: center; gap: 8px; font-size: 0.62rem; }
-      .sh-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-      .sh-item-info { flex: 1; min-width: 0; }
-      .sh-item-name { color: var(--color-text); font-weight: 500; display: block; }
-      .sh-item-detail { color: var(--color-text-muted); font-size: 0.55rem; }
-      .sh-item-status { font-size: 0.55rem; text-transform: capitalize; white-space: nowrap; }
-      .sh-bar { flex: 1; height: 6px; background: var(--color-border); border-radius: 3px; overflow: hidden; max-width: 100px; }
-      .sh-bar-fill { height: 100%; background: var(--color-primary); border-radius: 3px; transition: width 0.5s; }
-      .sh-sec { display: flex; justify-content: space-between; font-size: 0.6rem; }
+      .sh-panel { display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:12px 14px;background:var(--color-background) }
+      .sh-header { display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-shrink:0 }
+      .sh-icon { font-size:22px;color:var(--color-primary) }
+      .sh-header h2 { font-size:0.9rem;margin:0;font-weight:700;color:var(--color-primary) }
+      .sh-sub { font-size:0.58rem;color:var(--color-text-muted);margin:0 }
+      .sh-actions { display:flex;gap:4px;margin-left:auto }
+      .sh-tabs { display:flex;gap:1px;margin-bottom:8px;flex-shrink:0;border-bottom:1px solid var(--color-border);padding-bottom:4px }
+      .sh-tab { display:flex;align-items:center;gap:3px;padding:5px 10px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--color-text-muted);cursor:pointer;font-size:0.62rem;font-weight:500 }
+      .sh-tab:hover { color:var(--color-text) }
+      .sh-tab.active { color:var(--color-primary);border-bottom-color:var(--color-primary) }
+      .sh-body { flex:1;overflow-y:auto }
+      .sh-btn, .sh-btn-primary { display:flex;align-items:center;gap:3px;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:0.62rem;font-weight:600 }
+      .sh-btn { background:var(--color-panel);border:1px solid var(--color-border);color:var(--color-text) }
+      .sh-btn-primary { background:var(--color-primary);border:none;color:white }
+      .sh-btn:disabled,.sh-btn-primary:disabled { opacity:0.5;cursor:not-allowed }
+      .sh-btn-action { display:flex;align-items:center;gap:5px;padding:8px 12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;cursor:pointer;font-size:0.64rem;font-weight:600;color:var(--color-text);transition:all 0.15s }
+      .sh-btn-action:hover { border-color:var(--color-primary);color:var(--color-primary) }
+      .sh-btn-action .material-symbols-outlined { color:var(--color-primary) }
+      .sh-error { padding:4px 8px;background:rgba(255,107,107,0.1);border-radius:4px;color:#ff6b6b;font-size:0.6rem;margin-bottom:6px;cursor:pointer }
+      .sh-msg { padding:4px 8px;background:rgba(0,212,170,0.08);border-radius:4px;color:var(--color-primary);font-size:0.6rem;margin-bottom:6px;cursor:pointer }
+      .sh-loading { display:flex;align-items:center;gap:5px;font-size:0.6rem;color:var(--color-text-muted);margin-bottom:6px }
+      .loading-spinner { width:12px;height:12px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin 0.8s linear infinite }
+      @keyframes spin { to { transform:rotate(360deg) } }
+      .sh-card { padding:10px 12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:6px }
+      .sh-card h4 { font-size:0.62rem;font-weight:600;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.3px;margin:0 0 6px;display:flex;align-items:center;gap:4px }
+      .sh-item { display:flex;align-items:center;gap:8px;font-size:0.62rem }
+      .sh-dot { width:8px;height:8px;border-radius:50%;flex-shrink:0 }
+      .sh-item-info { flex:1;min-width:0 }
+      .sh-item-name { color:var(--color-text);font-weight:500;display:block }
+      .sh-item-detail { color:var(--color-text-muted);font-size:0.55rem }
+      .sh-item-status { font-size:0.55rem;text-transform:capitalize;white-space:nowrap }
     </style>
   </div>
 </body>

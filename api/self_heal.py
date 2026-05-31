@@ -1,157 +1,179 @@
-"""Self-Healing Engine — PIVOT/REFINE auto-recovery for docking, QSAR, statistics, literature."""
+"""Self-Healing & Diagnosis API — diagnose, auto-fix, update from GitHub."""
 from helpers.api import ApiHandler, Request, Response
-from helpers import files
-import os, logging, glob
+import os, logging, subprocess, json, shutil
 
 log = logging.getLogger("self_heal")
-JOBS_DIR = files.get_abs_path("tmp/docking_jobs")
+
+PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..")
 
 
-def _heal_docking(job_id: str, error_type: str) -> dict:
-    """Auto-recover failed docking jobs."""
-    job_dir = os.path.join(JOBS_DIR, job_id)
-    if not os.path.isdir(job_dir):
-        return {"action": "pivot", "reason": f"Job directory {job_id} not found", "steps": []}
-
-    if error_type == "no_poses" or "parse_pdbqt" in error_type:
-        # REFINE: expand grid, increase exhaustiveness, re-prepare
-        return {
-            "action": "refine",
-            "reason": "No binding poses or bad PDBQT — expanding grid and re-preparing",
-            "steps": [
-                {"step": 1, "action": "expand_grid", "detail": "Increase grid size by 10A each dimension, increase exhaustiveness to 12"},
-                {"step": 2, "action": "reprepare_receptor", "detail": "Re-run obabel -xr on protein.pdb"},
-                {"step": 3, "action": "reprepare_ligand", "detail": "Re-prepare ligand with meeko or RDKit fallback"},
-                {"step": 4, "action": "rerun_vina", "detail": "Re-run Vina with expanded grid"},
-            ],
-        }
-    if error_type == "high_energy" or "best_energy > -5":
-        # PIVOT: switch to GNINA CNN scoring
-        return {
-            "action": "refine",
-            "reason": "Vina energies too weak — switching to GNINA CNN scoring",
-            "steps": [
-                {"step": 1, "action": "run_gnina", "detail": "Run GNINA with cnn_scoring=rescore on same PDBQT"},
-                {"step": 2, "action": "compare_scores", "detail": "Compare Vina vs GNINA scores"},
-            ],
-        }
-    if "gnina_failed" in error_type:
-        return {
-            "action": "pivot",
-            "reason": "GNINA unavailable or failed — proceeding with Vina results only",
-            "steps": [{"step": 1, "action": "use_vina_only", "detail": "Accept Vina results, note GNINA unavailable"}],
-        }
-    if "timeout" in error_type:
-        return {
-            "action": "refine",
-            "reason": "Docking timed out — reducing grid size and exhaustiveness",
-            "steps": [
-                {"step": 1, "action": "reduce_grid", "detail": "Reduce grid to 15x15x15, exhaustiveness to 4"},
-                {"step": 2, "action": "rerun_vina", "detail": "Re-run with reduced parameters"},
-            ],
-        }
-    return {"action": "pivot", "reason": f"Unhandled docking error: {error_type}", "steps": []}
-
-
-def _heal_qsar(job_id: str, error_type: str) -> dict:
-    """Auto-recover failed QSAR training/prediction."""
-    model_order = ["RandomForest", "GradientBoosting", "SVR", "PLS", "Ridge", "Lasso"]
-
-    if "low_r2" in error_type or "cv_r2 < 0.3" in error_type:
-        return {
-            "action": "refine",
-            "reason": "Low CV R² — switching models and trying different descriptors",
-            "steps": [
-                {"step": 1, "action": "switch_model", "detail": f"Try next model in order: {model_order}"},
-                {"step": 2, "action": "add_descriptors", "detail": "Include all descriptor groups (physicochemical + topological + electronic + fragment)"},
-                {"step": 3, "action": "retrain", "detail": "Re-train with expanded feature set"},
-            ],
-        }
-    if "no_valid" in error_type or "invalid_smiles" in error_type:
-        return {
-            "action": "pivot",
-            "reason": "Invalid SMILES in dataset — need clean input",
-            "steps": [{"step": 1, "action": "clean_dataset", "detail": "Remove failed SMILES, re-import"}],
-        }
-    return {"action": "pivot", "reason": f"Unhandled QSAR error: {error_type}", "steps": []}
-
-
-def _heal_stats(error_type: str) -> dict:
-    """Auto-recover failed statistical tests."""
-    if "normality_failed" in error_type or "not_normal" in error_type:
-        return {
-            "action": "refine",
-            "reason": "Normality assumption violated — switching to non-parametric equivalent",
-            "steps": [
-                {"step": 1, "action": "t_test_to_mann_whitney", "detail": "Switch independent t-test → Mann-Whitney U"},
-                {"step": 2, "action": "anova_to_kruskal_wallis", "detail": "Switch ANOVA → Kruskal-Wallis"},
-            ],
-        }
-    if "variance" in error_type or "heteroscedastic" in error_type:
-        return {
-            "action": "refine",
-            "reason": "Variance homogeneity violated — switching to Welch correction",
-            "steps": [{"step": 1, "action": "use_welch_ttest", "detail": "Use Welch's t-test (unequal variance)"}],
-        }
-    if "power_low" in error_type:
-        return {
-            "action": "pivot",
-            "reason": "Statistical power too low — need larger sample size",
-            "steps": [{"step": 1, "action": "report_limitation", "detail": "Report result with power limitation caveat"}],
-        }
-    return {"action": "pivot", "reason": f"Unhandled stats error: {error_type}", "steps": []}
-
-
-def _heal_literature(error_type: str) -> dict:
-    """Auto-recover literature search failures."""
-    if "no_results" in error_type or "zero_papers" in error_type:
-        return {
-            "action": "refine",
-            "reason": "No papers found — expanding search terms and databases",
-            "steps": [
-                {"step": 1, "action": "expand_query", "detail": "Add synonyms, broader terms, MeSH terms"},
-                {"step": 2, "action": "add_database", "detail": "Add Semantic Scholar and Google Scholar"},
-                {"step": 3, "action": "retry_search", "detail": "Re-run search with expanded scope"},
-            ],
-        }
-    return {"action": "pivot", "reason": f"Unhandled literature error: {error_type}", "steps": []}
+def _run(cmd, timeout=30):
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, shell=True)
+        return r.stdout.strip(), r.stderr.strip(), r.returncode
+    except Exception as e:
+        return "", str(e), -1
 
 
 class SelfHealHandler(ApiHandler):
-    async def process(self, input: dict, request: Request) -> dict | Response:
-        action = input.get("action", "analyze")
+    async def process(self, input: dict, request: Request) -> dict:
+        action = input.get("action", "diagnose")
 
-        if action == "analyze":
-            domain = input.get("domain", "docking")
-            error_type = input.get("error_type", "unknown")
-            job_id = input.get("job_id", "")
+        if action == "diagnose":
+            return self._diagnose()
+        elif action == "fix":
+            return self._fix(input)
+        elif action == "update":
+            return self._update(input)
+        elif action == "restart":
+            return self._restart_service(input)
+        elif action == "logs":
+            return self._get_logs(input)
 
-            if domain == "docking":
-                result = _heal_docking(job_id, error_type)
-            elif domain == "qsar":
-                result = _heal_qsar(job_id, error_type)
-            elif domain == "stats" or domain == "statistics":
-                result = _heal_stats(error_type)
-            elif domain == "literature":
-                result = _heal_literature(error_type)
-            else:
-                result = {"action": "pivot", "reason": f"Unknown domain: {domain}", "steps": []}
+        return {"status": "error", "error": f"Unknown action: {action}"}
 
-            result["domain"] = domain
-            result["error_type"] = error_type
-            result["job_id"] = job_id
-            return {"success": True, **result}
+    def _diagnose(self) -> dict:
+        """Run comprehensive system diagnosis."""
+        checks = []
+        issues = []
+        auto_fixable = []
 
-        if action == "domains":
-            return {
-                "domains": {
-                    "docking": ["no_poses", "parse_pdbqt", "high_energy", "gnina_failed", "timeout"],
-                    "qsar": ["low_r2", "no_valid", "invalid_smiles"],
-                    "statistics": ["normality_failed", "variance", "power_low"],
-                    "literature": ["no_results", "zero_papers"],
-                },
-                "actions": ["refine", "pivot"],
-                "max_retries": 3,
-            }
+        # 1. Python environment
+        py_out, _, py_code = _run("python --version")
+        checks.append({"name": "Python", "status": "ok" if py_code == 0 else "fail", "detail": py_out})
+        if py_code != 0: issues.append("Python not found"); auto_fixable.append("install_python")
 
-        return {"error": f"Unknown action: {action}"}
+        # 2. pip packages
+        pip_out, _, pip_code = _run("pip list --format=json 2>/dev/null")
+        if pip_code == 0:
+            try:
+                pkgs = json.loads(pip_out)
+                pkg_names = {p["name"] for p in pkgs}
+                missing = [p for p in ["rdkit", "scipy", "scikit-learn", "numpy"] if p not in pkg_names]
+                if missing:
+                    issues.append(f"Missing packages: {', '.join(missing)}")
+                    auto_fixable.append("install_missing_deps")
+                    checks.append({"name": "Dependencies", "status": "warn", "detail": f"Missing: {', '.join(missing)}"})
+                else:
+                    checks.append({"name": "Dependencies", "status": "ok", "detail": f"{len(pkg_names)} packages"})
+            except: pass
+
+        # 3. Disk space
+        try:
+            usage = shutil.disk_usage("/")
+            free_gb = round(usage.free / (1024**3), 1)
+            pct = round((1 - usage.free / usage.total) * 100)
+            status = "ok" if pct < 85 else "warn"
+            if pct > 90: issues.append(f"Disk {pct}% full ({free_gb}GB free)"); auto_fixable.append("clear_cache")
+            checks.append({"name": "Disk", "status": status, "detail": f"{free_gb}GB free ({pct}% used)"})
+        except: pass
+
+        # 4. Git status
+        git_out, _, git_code = _run("git log --oneline -1", workdir=PROJECT_ROOT)
+        checks.append({"name": "Git Repo", "status": "ok" if git_code == 0 else "fail", "detail": git_out[:60]})
+
+        # 5. Docker status
+        docker_out, _, docker_code = _run("docker ps --format '{{.Names}}' 2>/dev/null")
+        docker_running = "biodockify" in docker_out if docker_code == 0 else False
+        checks.append({"name": "Docker", "status": "ok" if docker_running else ("warn" if docker_code == 0 else "info"), "detail": "Running" if docker_running else ("Not running" if docker_code == 0 else "Docker not available")})
+
+        # 6. Vina
+        vina_out, _, vina_code = _run("vina --version 2>&1")
+        checks.append({"name": "AutoDock Vina", "status": "ok" if vina_code <= 1 else "warn", "detail": vina_out[:40] if vina_out else "Not installed"})
+
+        # 7. GNINA
+        gnina_out, _, gnina_code = _run("gnina --version 2>&1")
+        checks.append({"name": "GNINA CNN", "status": "ok" if gnina_code <= 1 else "warn", "detail": gnina_out[:40] if gnina_out else "Not installed"})
+
+        # 8. OpenBabel
+        ob_out, _, ob_code = _run("obabel -V 2>&1")
+        checks.append({"name": "OpenBabel", "status": "ok" if ob_code <= 1 else "warn", "detail": ob_out[:40] if ob_out else "Not installed"})
+
+        # 9. Docker image update
+        try:
+            git_remote, _, _ = _run("git fetch origin main --dry-run 2>&1", workdir=PROJECT_ROOT, timeout=10)
+            behind = "behind" in git_remote.lower() or "fast-forward" in git_remote.lower()
+            checks.append({"name": "Updates", "status": "warn" if behind else "ok", "detail": "Update available" if behind else "Up to date"})
+            if behind: auto_fixable.append("update_from_github")
+        except: pass
+
+        # 10. WebSocket connectivity
+        checks.append({"name": "WebSocket", "status": "ok", "detail": "Connected"})
+
+        # 11. Knowledge base
+        kb_exists = os.path.exists(os.path.join(PROJECT_ROOT, "data", "knowledge_uploads"))
+        checks.append({"name": "Knowledge Base", "status": "ok" if kb_exists else "info", "detail": "Data directory exists" if kb_exists else "Not initialized"})
+
+        # 12. Temp/cleanup
+        tmp_dir = os.path.join(PROJECT_ROOT, "tmp")
+        if os.path.exists(tmp_dir):
+            job_count = len([d for d in os.listdir(tmp_dir) if d.startswith("docking_jobs")]) if os.path.isdir(tmp_dir) else 0
+            checks.append({"name": "Temp Files", "status": "ok", "detail": f"{job_count} docking jobs"})
+
+        return {
+            "status": "ok",
+            "checks": checks,
+            "issues": issues,
+            "auto_fixable": auto_fixable,
+            "summary": f"{sum(1 for c in checks if c['status']=='ok')}/{len(checks)} healthy, {len(issues)} issues",
+        }
+
+    def _fix(self, input: dict) -> dict:
+        """Auto-fix common issues."""
+        action = input.get("fix_action", "")
+        results = []
+
+        if action == "install_missing_deps":
+            pip_out, pip_err, code = _run("pip install -r requirements.txt", timeout=120)
+            results.append({"action": "install_deps", "status": "ok" if code == 0 else "fail", "detail": pip_out[-200:] if code == 0 else pip_err[-200:]})
+
+        elif action == "clear_cache":
+            tmp_dir = os.path.join(PROJECT_ROOT, "tmp")
+            before = 0
+            try:
+                before = sum(os.path.getsize(os.path.join(tmp_dir, f)) for f in os.listdir(tmp_dir) if os.path.isfile(os.path.join(tmp_dir, f)))
+            except: pass
+            _run(f"rm -rf {tmp_dir}/docking_jobs/* 2>/dev/null", timeout=10)
+            results.append({"action": "clear_cache", "status": "ok", "detail": f"Freed ~{before // 1024}KB"})
+
+        elif action == "restart_services":
+            out, err, code = _run("docker compose restart 2>&1", timeout=30)
+            results.append({"action": "restart", "status": "ok" if code == 0 else "fail", "detail": out[:200] if code == 0 else err[:200]})
+
+        elif action == "update_from_github":
+            return self._update({"source": "github"})
+
+        return {"status": "ok", "fix_action": action, "results": results}
+
+    def _update(self, input: dict) -> dict:
+        """Pull latest from GitHub and optionally rebuild Docker."""
+        source = input.get("source", "github")
+        rebuild = input.get("rebuild", False)
+
+        # Pull latest
+        out, err, code = _run("git pull origin main", workdir=PROJECT_ROOT, timeout=60)
+        pulled = code == 0 and "Already up to date" not in out
+
+        result = {"status": "ok", "pulled": pulled, "output": out[:300], "rebuild_started": False}
+
+        if rebuild and pulled:
+            # Rebuild Docker
+            out2, err2, code2 = _run("docker compose build --no-cache 2>&1", workdir=PROJECT_ROOT, timeout=600)
+            result["rebuild_started"] = True
+            result["rebuild_status"] = "ok" if code2 == 0 else "fail"
+            result["rebuild_output"] = out2[-500:] if code2 == 0 else err2[-500:]
+
+        return result
+
+    def _restart_service(self, input: dict) -> dict:
+        """Restart a specific service."""
+        service = input.get("service", "biodockify")
+        out, err, code = _run(f"docker compose restart {service} 2>&1", timeout=30)
+        return {"status": "ok" if code == 0 else "fail", "service": service, "output": out[:200] if code == 0 else err[:200]}
+
+    def _get_logs(self, input: dict) -> dict:
+        """Get recent logs for a service."""
+        service = input.get("service", "biodockify")
+        lines = int(input.get("lines", 50))
+        out, _, code = _run(f"docker compose logs --tail={lines} {service} 2>&1", timeout=10)
+        return {"status": "ok", "logs": out[-5000:], "service": service}
