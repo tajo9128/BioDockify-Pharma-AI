@@ -1,0 +1,286 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+
+    export const store = createStore("deepResearch", {
+      topic: "",
+      maxSources: 200,
+      yearFrom: "",
+      yearTo: "",
+      databases: ["pubmed", "semantic_scholar", "crossref"],
+      activeTab: "collect",
+      loading: false,
+      error: "",
+      message: "",
+      sessionId: "",
+      sources: [],
+      stats: null,
+      scanKeywords: "",
+      scannedSources: [],
+      sessions: [],
+
+      async collect() {
+        if (!this.topic.trim()) { this.error = "Enter a research topic"; return; }
+        this.loading = true;
+        this.error = "";
+        this.message = "";
+        this.sources = [];
+        this.stats = null;
+        try {
+          const r = await callJsonApi("deep_research", {
+            action: "collect",
+            topic: this.topic,
+            max_sources: this.maxSources,
+            databases: this.databases,
+            year_from: this.yearFrom,
+            year_to: this.yearTo,
+          });
+          if (r.status === "ok") {
+            this.sessionId = r.session_id;
+            this.sources = r.sources || [];
+            this.stats = r.stats || {};
+            this.message = `${this.stats.total} sources collected from ${Object.keys(this.stats.by_database || {}).length} databases (${this.stats.duplicates_removed} duplicates removed)`;
+          } else {
+            this.error = r.error || "Collection failed";
+          }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async scan() {
+        if (!this.sessionId) { this.error = "Collect sources first"; return; }
+        this.loading = true;
+        this.error = "";
+        const keywords = this.scanKeywords.split(",").map(k => k.trim()).filter(Boolean);
+        try {
+          const r = await callJsonApi("deep_research", {
+            action: "scan",
+            session_id: this.sessionId,
+            keywords: keywords,
+          });
+          if (r.status === "ok") {
+            this.scannedSources = r.top_sources || [];
+            this.message = `${r.scanned} sources scanned, top ${this.scannedSources.length} by relevance`;
+            this.activeTab = "results";
+          } else {
+            this.error = r.error || "Scan failed";
+          }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async storeToKB() {
+        if (!this.sessionId) { this.error = "Collect sources first"; return; }
+        this.loading = true;
+        this.error = "";
+        try {
+          const r = await callJsonApi("deep_research", {
+            action: "store",
+            session_id: this.sessionId,
+            max_store: 50,
+          });
+          if (r.status === "ok") {
+            this.message = `${r.stored} papers stored to knowledge base`;
+          } else {
+            this.error = r.error || "Store failed";
+          }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async loadSessions() {
+        try {
+          const r = await callJsonApi("deep_research", { action: "list" });
+          if (r.status === "ok") this.sessions = r.sessions || [];
+        } catch (e) {}
+      },
+
+      toggleDb(db) {
+        const idx = this.databases.indexOf(db);
+        if (idx >= 0) this.databases.splice(idx, 1);
+        else this.databases.push(db);
+      },
+
+      formatYear(y) { return y ? String(y) : "N/A"; },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="dr-panel" x-init="$store.deepResearch.loadSessions()">
+    <div class="dr-header">
+      <span class="material-symbols-outlined dr-icon">travel_explore</span>
+      <div>
+        <h2>Deep Research</h2>
+        <p class="dr-sub">Collect thousands of sources · Scan · Filter · Store to Knowledge Base</p>
+      </div>
+    </div>
+
+    <div x-show="$store.deepResearch.error" class="nb-error" x-text="$store.deepResearch.error" @click="$store.deepResearch.error=''"></div>
+    <div x-show="$store.deepResearch.message" class="nb-msg" x-text="$store.deepResearch.message" @click="$store.deepResearch.message=''"></div>
+    <div x-show="$store.deepResearch.loading" class="nb-loading"><div class="loading-spinner"></div><span>Collecting sources...</span></div>
+
+    <!-- Tabs -->
+    <div class="dr-tabs">
+      <button class="dr-tab" :class="{active:$store.deepResearch.activeTab=='collect'}" @click="$store.deepResearch.activeTab='collect'"><span class="material-symbols-outlined">search</span> Collect</button>
+      <button class="dr-tab" :class="{active:$store.deepResearch.activeTab=='results'}" @click="$store.deepResearch.activeTab='results'"><span class="material-symbols-outlined">list</span> Results</button>
+      <button class="dr-tab" :class="{active:$store.deepResearch.activeTab=='sessions'}" @click="$store.deepResearch.activeTab='sessions'"><span class="material-symbols-outlined">history</span> Sessions</button>
+    </div>
+
+    <div class="dr-body">
+      <!-- Collect Tab -->
+      <div x-show="$store.deepResearch.activeTab=='collect'" class="dr-grid">
+        <div class="dr-left">
+          <div class="nb-box"><h4><span class="material-symbols-outlined" style="font-size:16px">search</span> Research Topic</h4>
+            <textarea x-model="$store.deepResearch.topic" placeholder="Enter your research topic, keywords, or research question..." class="nb-textarea" rows="4"></textarea>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
+              <span style="font-size:0.58rem;color:var(--color-text-muted)">Max sources:</span>
+              <input type="range" x-model="$store.deepResearch.maxSources" min="50" max="5000" step="50" style="flex:1" />
+              <span style="font-size:0.6rem;font-weight:600;width:50px;text-align:right" x-text="$store.deepResearch.maxSources"></span>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:6px">
+              <input type="number" x-model="$store.deepResearch.yearFrom" placeholder="Year from" class="nb-input-sm" style="flex:1" />
+              <input type="number" x-model="$store.deepResearch.yearTo" placeholder="Year to" class="nb-input-sm" style="flex:1" />
+            </div>
+            <button class="nb-btn-primary" @click="$store.deepResearch.collect()" :disabled="$store.deepResearch.loading || !$store.deepResearch.topic" style="margin-top:8px">
+              <span class="material-symbols-outlined" style="font-size:16px">travel_explore</span> Collect Sources
+            </button>
+          </div>
+
+          <div class="nb-box"><h4><span class="material-symbols-outlined" style="font-size:16px">database</span> Databases</h4>
+            <div style="display:flex;flex-wrap:wrap;gap:4px">
+              <button class="nb-chip-btn" :class="{active:$store.deepResearch.databases.includes('pubmed')}" @click="$store.deepResearch.toggleDb('pubmed')">PubMed</button>
+              <button class="nb-chip-btn" :class="{active:$store.deepResearch.databases.includes('semantic_scholar')}" @click="$store.deepResearch.toggleDb('semantic_scholar')">Semantic Scholar</button>
+              <button class="nb-chip-btn" :class="{active:$store.deepResearch.databases.includes('crossref')}" @click="$store.deepResearch.toggleDb('crossref')">Crossref</button>
+              <button class="nb-chip-btn" :class="{active:$store.deepResearch.databases.includes('openalex')}" @click="$store.deepResearch.toggleDb('openalex')">OpenAlex</button>
+              <button class="nb-chip-btn" :class="{active:$store.deepResearch.databases.includes('arxiv')}" @click="$store.deepResearch.toggleDb('arxiv')">arXiv</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="dr-right">
+          <template x-if="$store.deepResearch.stats">
+            <div class="nb-box"><h4><span class="material-symbols-outlined" style="font-size:16px">bar_chart</span> Collection Stats</h4>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                <div class="dr-stat"><span class="dr-stat-num" x-text="$store.deepResearch.stats.total || 0"></span><small>Total Sources</small></div>
+                <div class="dr-stat"><span class="dr-stat-num" x-text="$store.deepResearch.stats.duplicates_removed || 0"></span><small>Duplicates Removed</small></div>
+              </div>
+              <div style="margin-top:6px">
+                <template x-for="(count, db) in $store.deepResearch.stats.by_database || {}" :key="db">
+                  <div style="display:flex;justify-content:space-between;font-size:0.55rem;padding:2px 0">
+                    <span x-text="db" style="color:var(--color-text-muted)"></span>
+                    <span x-text="count" style="font-weight:600;color:var(--color-primary)"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+
+          <div class="nb-box" x-show="$store.deepResearch.sources.length"><h4><span class="material-symbols-outlined" style="font-size:16px">filter_list</span> Scan & Filter</h4>
+            <input type="text" x-model="$store.deepResearch.scanKeywords" placeholder="Keywords for relevance (comma-separated)" class="nb-input-sm" style="width:100%;margin-bottom:6px" />
+            <button class="nb-btn-secondary" @click="$store.deepResearch.scan()" :disabled="$store.deepResearch.loading || !$store.deepResearch.sessionId" style="width:100%">
+              <span class="material-symbols-outlined" style="font-size:14px">filter_list</span> Scan for Relevance
+            </button>
+            <button class="nb-btn-primary" @click="$store.deepResearch.storeToKB()" :disabled="$store.deepResearch.loading || !$store.deepResearch.sessionId" style="margin-top:4px;background:#6366f1;width:100%">
+              <span class="material-symbols-outlined" style="font-size:14px">bookmark</span> Store to Knowledge Base
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results Tab -->
+      <div x-show="$store.deepResearch.activeTab=='results'">
+        <template x-if="$store.deepResearch.scannedSources.length">
+          <div>
+            <div class="nb-box" style="margin-bottom:8px">
+              <h4 x-text="$store.deepResearch.scannedSources.length + ' Top Sources (by relevance)'"></h4>
+            </div>
+            <template x-for="(src, idx) in $store.deepResearch.scannedSources" :key="idx">
+              <div class="nb-box" style="margin-bottom:4px">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                  <div style="flex:1">
+                    <div style="font-size:0.64rem;font-weight:600;color:var(--color-text)" x-text="src.title"></div>
+                    <div style="font-size:0.52rem;color:var(--color-text-muted);margin-top:2px" x-text="(src.authors || []).slice(0,3).join(', ') + (src.authors?.length > 3 ? ' et al.' : '')"></div>
+                    <div style="display:flex;gap:6px;margin-top:3px;align-items:center">
+                      <span style="font-size:0.5rem;color:var(--color-text-muted)" x-text="src.journal || src.database"></span>
+                      <span style="font-size:0.5rem;color:var(--color-text-muted)" x-text="src.year || ''"></span>
+                      <span x-show="src.citations" style="font-size:0.5rem;color:var(--color-primary);font-weight:600" x-text="src.citations + ' cit'"></span>
+                      <span style="font-size:0.48rem;font-weight:700;padding:1px 5px;border-radius:3px" :style="'background:'+(src.relevance_score >= 3 ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.05)')+';color:'+(src.relevance_score >= 3 ? '#22c55e' : 'var(--color-text-muted)')" x-text="'Score: ' + (src.relevance_score || 0)"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+        <div x-show="!$store.deepResearch.scannedSources.length" class="nb-empty">
+          <span class="material-symbols-outlined" style="font-size:32px;opacity:0.2">filter_list</span>
+          <p style="font-size:0.64rem;color:var(--color-text-muted)">Collect sources first, then scan with keywords to filter by relevance</p>
+        </div>
+      </div>
+
+      <!-- Sessions Tab -->
+      <div x-show="$store.deepResearch.activeTab=='sessions'">
+        <template x-if="$store.deepResearch.sessions.length">
+          <div>
+            <template x-for="s in $store.deepResearch.sessions" :key="s.session_id">
+              <div class="nb-box" style="margin-bottom:4px;cursor:pointer" @click="$store.deepResearch.sessionId=s.session_id;$store.deepResearch.topic=s.topic;$store.deepResearch.activeTab='collect'">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <div>
+                    <div style="font-size:0.64rem;font-weight:600;color:var(--color-text)" x-text="s.topic"></div>
+                    <div style="font-size:0.5rem;color:var(--color-text-muted)" x-text="s.total + ' sources · ' + (s.created_at || '').split('T')[0]"></div>
+                  </div>
+                  <span style="font-size:0.5rem;color:var(--color-primary)" x-text="s.session_id"></span>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+        <div x-show="!$store.deepResearch.sessions.length" class="nb-empty">
+          <span class="material-symbols-outlined" style="font-size:32px;opacity:0.2">history</span>
+          <p style="font-size:0.64rem;color:var(--color-text-muted)">No research sessions yet</p>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      .dr-panel { display:flex;flex-direction:column;height:100%;overflow:hidden;padding:10px 14px;background:var(--color-background) }
+      .dr-header { display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-shrink:0 }
+      .dr-icon { font-size:24px;color:var(--color-primary) }
+      .dr-header h2 { color:var(--color-primary);font-size:0.95rem;margin:0;font-weight:700 }
+      .dr-sub { color:var(--color-text-muted);font-size:0.52rem;margin:0 }
+      .dr-tabs { display:flex;gap:1px;margin-bottom:8px;flex-shrink:0;border-bottom:1px solid var(--color-border);padding-bottom:4px }
+      .dr-tab { display:flex;align-items:center;gap:3px;padding:5px 10px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--color-text-muted);cursor:pointer;font-size:0.62rem;font-weight:500 }
+      .dr-tab:hover { color:var(--color-text) }
+      .dr-tab.active { color:var(--color-primary);border-bottom-color:var(--color-primary) }
+      .dr-tab .material-symbols-outlined { font-size:14px }
+      .dr-body { flex:1;overflow-y:auto }
+      .dr-grid { display:grid;grid-template-columns:300px 1fr;gap:10px;min-height:0 }
+      .dr-left { display:flex;flex-direction:column;gap:6px }
+      .dr-right { display:flex;flex-direction:column;gap:6px }
+      .dr-stat { text-align:center;padding:8px;background:var(--color-background);border:1px solid var(--color-border);border-radius:6px }
+      .dr-stat-num { display:block;font-size:1.1rem;font-weight:700;color:var(--color-primary) }
+      @media (max-width:650px) { .dr-grid { grid-template-columns:1fr } }
+      .nb-box { padding:8px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:6px }
+      .nb-box h4 { font-size:0.64rem;font-weight:600;color:var(--color-primary);margin:0 0 6px;display:flex;align-items:center;gap:4px }
+      .nb-input-sm { padding:5px 8px;border:1px solid var(--color-border);border-radius:5px;background:var(--color-background);color:var(--color-text);font-size:0.62rem;box-sizing:border-box }
+      .nb-input-sm:focus { outline:none;border-color:var(--color-primary) }
+      .nb-textarea { width:100%;padding:8px 10px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-background);color:var(--color-text);font-size:0.68rem;resize:vertical;box-sizing:border-box;font-family:inherit }
+      .nb-textarea:focus { outline:none;border-color:var(--color-primary) }
+      .nb-btn-primary { display:flex;align-items:center;justify-content:center;gap:4px;width:100%;padding:7px 12px;background:var(--color-primary);color:white;border:none;border-radius:6px;cursor:pointer;font-size:0.68rem;font-weight:600 }
+      .nb-btn-primary:disabled { opacity:0.5;cursor:not-allowed }
+      .nb-btn-secondary { display:flex;align-items:center;justify-content:center;gap:4px;width:100%;padding:6px 10px;background:transparent;border:1px solid var(--color-border);border-radius:5px;color:var(--color-text);cursor:pointer;font-size:0.6rem }
+      .nb-btn-secondary:hover { border-color:var(--color-primary);color:var(--color-primary) }
+      .nb-chip-btn { padding:3px 10px;background:transparent;border:1px solid var(--color-border);border-radius:4px;color:var(--color-text-muted);cursor:pointer;font-size:0.56rem;font-weight:500 }
+      .nb-chip-btn.active { background:var(--color-primary);color:white;border-color:var(--color-primary) }
+      .nb-error { padding:4px 8px;background:rgba(255,107,107,0.1);border-radius:4px;color:#ff6b6b;font-size:0.6rem;margin-bottom:4px;cursor:pointer }
+      .nb-msg { padding:4px 8px;background:rgba(0,212,170,0.08);border-radius:4px;color:var(--color-primary);font-size:0.6rem;margin-bottom:4px;cursor:pointer }
+      .nb-loading { display:flex;align-items:center;gap:5px;font-size:0.6rem;color:var(--color-text-muted);margin-bottom:4px }
+      .loading-spinner { width:12px;height:12px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin 0.8s linear infinite }
+      @keyframes spin { to { transform:rotate(360deg) } }
+      .nb-empty { text-align:center;padding:24px }
+    </style>
+  </div>
+</body>
+</html>

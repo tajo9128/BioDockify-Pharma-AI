@@ -1,0 +1,349 @@
+"""Deep Research API — collect thousands of sources from multiple databases, scan, filter, store."""
+from helpers.api import ApiHandler, Request, Response
+import logging, json, re, os, urllib.request, urllib.parse
+from typing import Dict, List, Any
+from datetime import datetime
+
+log = logging.getLogger("deep_research")
+
+STORAGE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "deep_research")
+os.makedirs(STORAGE_DIR, exist_ok=True)
+
+
+class DeepResearchHandler(ApiHandler):
+    async def process(self, input: dict, request: Request) -> dict | Response:
+        action = input.get("action", "collect")
+
+        if action == "collect":
+            return await self._collect_sources(input)
+        elif action == "scan":
+            return self._scan_results(input)
+        elif action == "store":
+            return self._store_to_kb(input)
+        elif action == "status":
+            return self._get_status(input)
+        elif action == "list":
+            return self._list_sessions()
+
+        return {"status": "error", "error": f"Unknown action: {action}"}
+
+    async def _collect_sources(self, input: dict) -> dict:
+        """Collect sources from multiple databases."""
+        topic = input.get("topic", "").strip()
+        if not topic:
+            return {"status": "error", "error": "Topic required"}
+
+        max_sources = int(input.get("max_sources", 100))
+        databases = input.get("databases", ["pubmed", "semantic_scholar", "crossref"])
+        year_from = input.get("year_from", "")
+        year_to = input.get("year_to", "")
+
+        session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        all_sources = []
+        stats = {"total": 0, "by_database": {}, "duplicates_removed": 0, "session_id": session_id}
+
+        # Collect from each database
+        for db in databases:
+            try:
+                if db == "pubmed":
+                    sources = await self._search_pubmed(topic, max_sources // len(databases), year_from, year_to)
+                elif db == "semantic_scholar":
+                    sources = await self._search_semantic_scholar(topic, max_sources // len(databases))
+                elif db == "crossref":
+                    sources = await self._search_crossref(topic, max_sources // len(databases))
+                elif db == "openalex":
+                    sources = await self._search_openalex(topic, max_sources // len(databases))
+                elif db == "arxiv":
+                    sources = await self._search_arxiv(topic, max_sources // len(databases))
+                else:
+                    sources = []
+
+                stats["by_database"][db] = len(sources)
+                all_sources.extend(sources)
+            except Exception as e:
+                log.warning(f"Search {db} failed: {e}")
+                stats["by_database"][db] = 0
+
+        # Deduplicate by title similarity
+        seen_titles = set()
+        unique_sources = []
+        for src in all_sources:
+            title_key = re.sub(r'[^a-z0-9]', '', src.get("title", "").lower())[:50]
+            if title_key and title_key not in seen_titles:
+                seen_titles.add(title_key)
+                unique_sources.append(src)
+            else:
+                stats["duplicates_removed"] += 1
+
+        stats["total"] = len(unique_sources)
+
+        # Save session
+        session_path = os.path.join(STORAGE_DIR, f"session_{session_id}.json")
+        with open(session_path, "w", encoding="utf-8") as f:
+            json.dump({"topic": topic, "sources": unique_sources, "stats": stats, "created_at": datetime.now().isoformat()}, f, ensure_ascii=False, indent=2)
+
+        return {
+            "status": "ok",
+            "session_id": session_id,
+            "topic": topic,
+            "sources": unique_sources[:50],  # Return first 50 for display
+            "stats": stats,
+        }
+
+    def _scan_results(self, input: dict) -> dict:
+        """Scan collected sources for relevance."""
+        session_id = input.get("session_id", "")
+        keywords = input.get("keywords", [])
+        min_citations = int(input.get("min_citations", 0))
+
+        session_path = os.path.join(STORAGE_DIR, f"session_{session_id}.json")
+        if not os.path.exists(session_path):
+            return {"status": "error", "error": "Session not found"}
+
+        with open(session_path, "r", encoding="utf-8") as f:
+            session = json.load(f)
+
+        sources = session.get("sources", [])
+        scanned = []
+        for src in sources:
+            score = 0
+            title_lower = src.get("title", "").lower()
+            abstract_lower = src.get("abstract", "").lower()
+            combined = title_lower + " " + abstract_lower
+
+            # Keyword relevance
+            for kw in keywords:
+                if kw.lower() in combined:
+                    score += 1
+
+            # Citation count bonus
+            citations = src.get("citations", 0) or 0
+            if citations >= min_citations:
+                score += min(citations // 10, 5)
+
+            # Year recency bonus
+            year = src.get("year", 0) or 0
+            if year >= 2020:
+                score += 2
+            elif year >= 2015:
+                score += 1
+
+            src["relevance_score"] = score
+            scanned.append(src)
+
+        scanned.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
+        session["scanned_sources"] = scanned
+        session["scan_keywords"] = keywords
+
+        session_path = os.path.join(STORAGE_DIR, f"session_{session_id}.json")
+        with open(session_path, "w", encoding="utf-8") as f:
+            json.dump(session, f, ensure_ascii=False, indent=2)
+
+        return {
+            "status": "ok",
+            "session_id": session_id,
+            "scanned": len(scanned),
+            "top_sources": scanned[:20],
+        }
+
+    def _store_to_kb(self, input: dict) -> dict:
+        """Store selected sources to knowledge base."""
+        session_id = input.get("session_id", "")
+        max_store = int(input.get("max_store", 50))
+
+        session_path = os.path.join(STORAGE_DIR, f"session_{session_id}.json")
+        if not os.path.exists(session_path):
+            return {"status": "error", "error": "Session not found"}
+
+        with open(session_path, "r", encoding="utf-8") as f:
+            session = json.load(f)
+
+        sources = session.get("scanned_sources", session.get("sources", []))[:max_store]
+        stored = 0
+        for src in sources:
+            try:
+                content = f"Title: {src.get('title', '')}\nAuthors: {', '.join(src.get('authors', []))}\nYear: {src.get('year', '')}\nAbstract: {src.get('abstract', '')}\nDOI: {src.get('doi', '')}"
+                filepath = os.path.join(STORAGE_DIR, f"paper_{stored:04d}.txt")
+                with open(filepath, "w", encoding="utf-8") as f:
+                    f.write(content)
+                stored += 1
+            except Exception as e:
+                log.warning(f"Store paper failed: {e}")
+
+        return {"status": "ok", "stored": stored, "session_id": session_id}
+
+    def _get_status(self, input: dict) -> dict:
+        session_id = input.get("session_id", "")
+        session_path = os.path.join(STORAGE_DIR, f"session_{session_id}.json")
+        if not os.path.exists(session_path):
+            return {"status": "error", "error": "Session not found"}
+        with open(session_path, "r", encoding="utf-8") as f:
+            session = json.load(f)
+        return {"status": "ok", "session_id": session_id, "stats": session.get("stats", {}), "total": len(session.get("sources", []))}
+
+    def _list_sessions(self) -> dict:
+        sessions = []
+        for f in os.listdir(STORAGE_DIR):
+            if f.startswith("session_") and f.endswith(".json"):
+                try:
+                    with open(os.path.join(STORAGE_DIR, f)) as fh:
+                        s = json.load(fh)
+                    sessions.append({"session_id": s.get("stats", {}).get("session_id", ""), "topic": s.get("topic", ""), "total": s.get("stats", {}).get("total", 0), "created_at": s.get("created_at", "")})
+                except:
+                    pass
+        return {"status": "ok", "sessions": sorted(sessions, key=lambda x: x.get("created_at", ""), reverse=True)}
+
+    # ── Database Scrapers ──
+
+    async def _search_pubmed(self, topic: str, limit: int, year_from: str = "", year_to: str = "") -> List[Dict]:
+        """Search PubMed via E-utilities API."""
+        results = []
+        try:
+            query = urllib.parse.quote(topic)
+            url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={query}&retmax={min(limit, 500)}&retmode=json&sort=relevance"
+            if year_from:
+                url += f"&mindate={year_from}&maxdate={year_to or '2026'}"
+            req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0"})
+            resp = urllib.request.urlopen(req, timeout=30)
+            data = json.loads(resp.read())
+            ids = data.get("esearchresult", {}).get("idlist", [])
+
+            if ids:
+                id_str = ",".join(ids[:100])
+                url2 = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id={id_str}&retmode=json"
+                req2 = urllib.request.Request(url2, headers={"User-Agent": "BioDockify/7.0"})
+                resp2 = urllib.request.urlopen(req2, timeout=30)
+                details = json.loads(resp2.read())
+                for pid in ids[:100]:
+                    rec = details.get("result", {}).get(pid, {})
+                    if rec:
+                        results.append({
+                            "title": rec.get("title", ""),
+                            "authors": [a.get("name", "") for a in rec.get("authors", [])],
+                            "year": rec.get("pubdate", "")[:4],
+                            "journal": rec.get("source", ""),
+                            "pmid": pid,
+                            "doi": rec.get("elocationid", ""),
+                            "abstract": "",
+                            "database": "PubMed",
+                            "citations": 0,
+                        })
+        except Exception as e:
+            log.warning(f"PubMed search failed: {e}")
+        return results
+
+    async def _search_semantic_scholar(self, topic: str, limit: int) -> List[Dict]:
+        """Search Semantic Scholar API."""
+        results = []
+        try:
+            query = urllib.parse.quote(topic)
+            url = f"https://api.semanticscholar.org/graph/v1/paper/search?query={query}&limit={min(limit, 100)}&fields=title,authors,year,abstract,citationCount,journal,externalIds"
+            req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0"})
+            resp = urllib.request.urlopen(req, timeout=30)
+            data = json.loads(resp.read())
+            for paper in data.get("data", []):
+                results.append({
+                    "title": paper.get("title", ""),
+                    "authors": [a.get("name", "") for a in paper.get("authors", [])],
+                    "year": paper.get("year", 0),
+                    "journal": paper.get("journal", {}).get("name", "") if paper.get("journal") else "",
+                    "abstract": paper.get("abstract", ""),
+                    "doi": paper.get("externalIds", {}).get("DOI", ""),
+                    "pmid": paper.get("externalIds", {}).get("PubMed", ""),
+                    "citations": paper.get("citationCount", 0),
+                    "database": "Semantic Scholar",
+                })
+        except Exception as e:
+            log.warning(f"Semantic Scholar search failed: {e}")
+        return results
+
+    async def _search_crossref(self, topic: str, limit: int) -> List[Dict]:
+        """Search Crossref API."""
+        results = []
+        try:
+            query = urllib.parse.quote(topic)
+            url = f"https://api.crossref.org/works?query={query}&rows={min(limit, 100)}&select=DOI,title,author,published-print,container-title,abstract,is-referenced-by-count"
+            req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0"})
+            resp = urllib.request.urlopen(req, timeout=30)
+            data = json.loads(resp.read())
+            for item in data.get("message", {}).get("items", []):
+                title_list = item.get("title", [])
+                title = title_list[0] if title_list else ""
+                authors = [f"{a.get('given', '')} {a.get('family', '')}".strip() for a in item.get("author", [])]
+                year_parts = item.get("published-print", {}).get("date-parts", [[]])
+                year = year_parts[0][0] if year_parts and year_parts[0] else 0
+                journal_list = item.get("container-title", [])
+                journal = journal_list[0] if journal_list else ""
+                results.append({
+                    "title": title,
+                    "authors": authors,
+                    "year": year,
+                    "journal": journal,
+                    "abstract": item.get("abstract", "")[:500],
+                    "doi": item.get("DOI", ""),
+                    "citations": item.get("is-referenced-by-count", 0),
+                    "database": "Crossref",
+                })
+        except Exception as e:
+            log.warning(f"Crossref search failed: {e}")
+        return results
+
+    async def _search_openalex(self, topic: str, limit: int) -> List[Dict]:
+        """Search OpenAlex API."""
+        results = []
+        try:
+            query = urllib.parse.quote(topic)
+            url = f"https://api.openalex.org/works?search={query}&per_page={min(limit, 100)}&select=id,title,authorships,publication_year,doi,cited_by_count,primary_location"
+            req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0"})
+            resp = urllib.request.urlopen(req, timeout=30)
+            data = json.loads(resp.read())
+            for work in data.get("results", []):
+                authors = [a.get("author", {}).get("display_name", "") for a in work.get("authorships", [])]
+                loc = work.get("primary_location", {}) or {}
+                source = loc.get("source", {}) or {}
+                results.append({
+                    "title": work.get("title", ""),
+                    "authors": authors[:10],
+                    "year": work.get("publication_year", 0),
+                    "journal": source.get("display_name", ""),
+                    "doi": work.get("doi", ""),
+                    "citations": work.get("cited_by_count", 0),
+                    "abstract": "",
+                    "database": "OpenAlex",
+                })
+        except Exception as e:
+            log.warning(f"OpenAlex search failed: {e}")
+        return results
+
+    async def _search_arxiv(self, topic: str, limit: int) -> List[Dict]:
+        """Search arXiv API."""
+        results = []
+        try:
+            query = urllib.parse.quote(topic)
+            url = f"http://export.arxiv.org/api/query?search_query=all:{query}&start=0&max_results={min(limit, 100)}&sortBy=relevance"
+            req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0"})
+            resp = urllib.request.urlopen(req, timeout=30)
+            xml = resp.read().decode("utf-8")
+            # Simple XML parsing
+            entries = xml.split("<entry>")[1:]
+            for entry in entries:
+                title_match = re.search(r"<title>(.*?)</title>", entry, re.DOTALL)
+                abstract_match = re.search(r"<summary>(.*?)</summary>", entry, re.DOTALL)
+                authors = re.findall(r"<name>(.*?)</name>", entry)
+                year_match = re.search(r"<published>(\d{4})", entry)
+                doi_match = re.search(r"<arxiv:doi>(.*?)</arxiv:doi>", entry)
+                arxiv_match = re.search(r"<id>(.*?)</id>", entry)
+                results.append({
+                    "title": title_match.group(1).strip() if title_match else "",
+                    "authors": authors[:10],
+                    "year": int(year_match.group(1)) if year_match else 0,
+                    "journal": "arXiv",
+                    "abstract": abstract_match.group(1).strip()[:500] if abstract_match else "",
+                    "doi": doi_match.group(1) if doi_match else "",
+                    "arxiv_id": arxiv_match.group(1) if arxiv_match else "",
+                    "citations": 0,
+                    "database": "arXiv",
+                })
+        except Exception as e:
+            log.warning(f"arXiv search failed: {e}")
+        return results
