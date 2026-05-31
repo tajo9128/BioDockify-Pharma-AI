@@ -808,21 +808,27 @@
               <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
                 <span class="material-symbols-outlined" style="font-size:16px;color:#ffd93d">memory</span>
                 <span style="font-size:0.68rem;font-weight:600;color:var(--color-text)">
-                  GNINA CNN Scoring — <span x-show="$store.molecularToolkit.dockingGninaResult.success" style="color:#22c55e">Complete</span>
-                  <span x-show="!$store.molecularToolkit.dockingGninaResult.success && $store.molecularToolkit.dockingGninaResult.fallback_scoring" style="color:#3b82f6">Vina Fallback (CNN unavailable)</span>
-                  <span x-show="!$store.molecularToolkit.dockingGninaResult.success && !$store.molecularToolkit.dockingGninaResult.fallback_scoring" style="color:#ffd93d" x-text="$store.molecularToolkit.dockingGninaResult.error?.substring(0,60) || 'Skipped'"></span>
+                  GNINA CNN Scoring — <span x-show="$store.molecularToolkit.dockingGninaResult.success && $store.molecularToolkit.dockingGninaResult.gnina_available" style="color:#22c55e">Complete</span>
+                  <span x-show="$store.molecularToolkit.dockingGninaResult.success && !$store.molecularToolkit.dockingGninaResult.gnina_available" style="color:#3b82f6">Vina Fallback (GNINA unavailable on Windows)</span>
+                  <span x-show="!$store.molecularToolkit.dockingGninaResult.success" style="color:#ffd93d" x-text="$store.molecularToolkit.dockingGninaResult.error || 'Skipped'"></span>
                 </span>
+              </div>
+              <!-- Fallback summary -->
+              <div x-show="$store.molecularToolkit.dockingGninaResult.fallback_scoring" style="font-size:0.55rem;color:var(--color-text-muted);margin-bottom:6px">
+                <span x-text="($store.molecularToolkit.dockingGninaResult.fallback_scoring?.num_poses || 0) + ' poses'"></span> ·
+                <span x-text="'Best: ' + ($store.molecularToolkit.dockingGninaResult.fallback_scoring?.best_energy || 0).toFixed(2) + ' kcal/mol'"></span> ·
+                <span x-text="($store.molecularToolkit.dockingGninaResult.fallback_scoring?.method || 'Vina force field')"></span>
               </div>
               <div class="dock-downloads" style="margin-top:0;padding-top:0;border-top:none" x-show="$store.molecularToolkit.dockingDownloadLinks?.gnina_log">
                 <span class="download-label" style="font-size:0.6rem">GNINA:</span>
-                <a class="download-btn" :href="$store.molecularToolkit.dockingDownloadLinks.gnina_pdbqt" download x-show="$store.molecularToolkit.dockingDownloadLinks.gnina_pdbqt" title="Download GNINA PDBQT (CNN docked poses)">
+                <a class="download-btn" :href="$store.molecularToolkit.dockingDownloadLinks.gnina_pdbqt" download x-show="$store.molecularToolkit.dockingDownloadLinks.gnina_pdbqt" title="Download GNINA PDBQT">
                   <span class="material-symbols-outlined">download</span> PDBQT
                 </a>
                 <a class="download-btn" :href="$store.molecularToolkit.dockingDownloadLinks.gnina_sdf" download x-show="$store.molecularToolkit.dockingDownloadLinks.gnina_sdf" title="Download GNINA SDF">
                   <span class="material-symbols-outlined">download</span> SDF
                 </a>
                 <a class="download-btn" :href="$store.molecularToolkit.dockingDownloadLinks.gnina_log" download title="Download GNINA log">
-                  <span class="material-symbols-outlined">description</span> GNINA Log
+                  <span class="material-symbols-outlined">description</span> Log
                 </a>
               </div>
             </div>

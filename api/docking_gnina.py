@@ -74,12 +74,45 @@ def run_gnina(job_id: str, receptor_pdbqt: str = "", ligand_pdbqt: str = "", cen
     """Run GNINA CNN docking — uses same prepared PDBQT files as Vina.
     Falls back to RDKit-based interaction scoring when GNINA binary is not available."""
 
+    results_dir = os.path.join(JOBS_DIR, job_id)
+    os.makedirs(results_dir, exist_ok=True)
+    log_path = os.path.join(results_dir, "gnina_log.txt")
+
     if not _gnina_available():
         # Fallback: RDKit-based scoring estimate from Vina results
         fallback = _rdkit_fallback_score(job_id)
-        return {"success": bool(fallback), "gnina_available": False,
-                "error": None if fallback else "GNINA not available — install via Docker for CNN scoring",
-                "fallback_scoring": fallback}
+        # Always generate a log file so the download button works
+        log_lines = [
+            "=" * 68, "  GNINA CNN Docking Report", "=" * 68,
+            f"Job ID:      {job_id}",
+            f"Status:       GNINA not available",
+            f"Platform:     {'Windows' if os.name == 'nt' else 'Linux'}",
+            f"Alternative:  Vina force field scoring used as fallback",
+            "=" * 68,
+        ]
+        if fallback:
+            log_lines.extend([
+                "", "Vina Fallback Results:",
+                f"  Poses:     {fallback.get('num_poses', 0)}",
+                f"  Best:      {fallback.get('best_energy', 0):.2f} kcal/mol",
+                f"  Mean:      {fallback.get('mean_energy', 0):.2f} kcal/mol",
+                f"  Method:    {fallback.get('method', '')}",
+            ])
+        else:
+            log_lines.append("", "No docked poses found in job directory.")
+        with open(log_path, "w") as f:
+            f.write("\n".join(log_lines))
+        return {
+            "success": bool(fallback), "gnina_available": False,
+            "error": None if fallback else "GNINA not available",
+            "fallback_scoring": fallback,
+            "log_file": log_path,
+            "download_links": {
+                "gnina_pdbqt": None,
+                "gnina_sdf": None,
+                "gnina_log": f"/api/docking_download?job_id={job_id}&filename=gnina_log.txt",
+            },
+        }
 
     center = center or {"x": 0, "y": 0, "z": 0}
     size = size or {"x": 20, "y": 20, "z": 20}
