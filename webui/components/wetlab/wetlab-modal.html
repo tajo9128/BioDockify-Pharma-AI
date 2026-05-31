@@ -5,13 +5,17 @@
 
     export const store = createStore("wetlabStore", {
       experiments: [],
+      reports: [],
       activeTab: "protocols",
       newExpName: "",
       newExpProtocol: "",
+      message: "",
 
       init() {
         const saved = localStorage.getItem("wetlab_experiments");
         if (saved) { try { this.experiments = JSON.parse(saved); } catch {} }
+        const savedReports = localStorage.getItem("wetlab_reports");
+        if (savedReports) { try { this.reports = JSON.parse(savedReports); } catch {} }
       },
 
       addExperiment() {
@@ -51,6 +55,72 @@
 
       save() {
         localStorage.setItem("wetlab_experiments", JSON.stringify(this.experiments));
+        localStorage.setItem("wetlab_reports", JSON.stringify(this.reports));
+      },
+
+      uploadReport() {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = ".pdf,.csv,.txt,.md,.xlsx,.xls,.docx,.png,.jpg,.jpeg,.gif";
+        input.multiple = true;
+        input.onchange = async (e) => {
+          const files = e.target.files;
+          if (!files || !files.length) return;
+          for (const file of files) {
+            try {
+              const text = await file.text();
+              this.reports.unshift({
+                id: Date.now() + Math.random(),
+                name: file.name,
+                type: file.type || "unknown",
+                size: file.size,
+                content: text.substring(0, 50000),
+                uploadedAt: new Date().toISOString(),
+                linkedExperiment: "",
+              });
+            } catch (err) {
+              this.reports.unshift({
+                id: Date.now() + Math.random(),
+                name: file.name,
+                type: file.type || "binary",
+                size: file.size,
+                content: "[Binary file — cannot preview]",
+                uploadedAt: new Date().toISOString(),
+                linkedExperiment: "",
+              });
+            }
+          }
+          this.save();
+          this.message = files.length + " report(s) uploaded";
+          setTimeout(() => { this.message = ""; }, 3000);
+        };
+        input.click();
+      },
+
+      deleteReport(id) {
+        this.reports = this.reports.filter(r => r.id !== id);
+        this.save();
+      },
+
+      linkReportToExperiment(reportId, experimentId) {
+        const report = this.reports.find(r => r.id === reportId);
+        if (report) {
+          report.linkedExperiment = experimentId || "";
+          this.save();
+        }
+      },
+
+      formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+        return (bytes / 1048576).toFixed(1) + " MB";
+      },
+
+      analyzeReport(report) {
+        const ctx = report.content ? report.content.substring(0, 4000) : "No content";
+        const exp = report.linkedExperiment ? this.experiments.find(e => e.id == report.linkedExperiment) : null;
+        const p = `Analyze this wet lab report${exp ? ' for experiment "' + exp.name + '"' : ''}:\n\nFile: ${report.name}\nContent:\n${ctx}\n\nProvide: 1) Summary of findings, 2) Key data points, 3) Observations and anomalies, 4) Recommendations for next steps.`;
+        this.sendToAgent(p);
       },
 
       sendToAgent(msg) {
@@ -78,6 +148,7 @@
     </div>
 
     <div class="panel-content">
+      <div x-show="$store.wetlabStore.message" style="padding:4px 8px;background:rgba(0,212,170,0.08);border-radius:4px;color:var(--color-primary);font-size:0.6rem;margin-bottom:6px" x-text="$store.wetlabStore.message"></div>
       <!-- Tab bar -->
       <div class="tab-bar">
         <button class="tab" :class="{'active': $store.wetlabStore.activeTab === 'protocols'}" @click="$store.wetlabStore.activeTab = 'protocols'">
@@ -88,6 +159,10 @@
         </button>
         <button class="tab" :class="{'active': $store.wetlabStore.activeTab === 'agent'}" @click="$store.wetlabStore.activeTab = 'agent'">
           <span class="material-symbols-outlined">psychology</span> Agent
+        </button>
+        <button class="tab" :class="{'active': $store.wetlabStore.activeTab === 'reports'}" @click="$store.wetlabStore.activeTab = 'reports'">
+          <span class="material-symbols-outlined">upload_file</span> Reports
+          <span class="lit-badge" x-show="$store.wetlabStore.reports.length" x-text="$store.wetlabStore.reports.length"></span>
         </button>
       </div>
 
@@ -153,6 +228,52 @@
           </div>
         </div>
       </div>
+
+      <!-- Reports tab -->
+      <div x-show="$store.wetlabStore.activeTab === 'reports'" class="tab-content">
+        <div class="section-card">
+          <h4><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-2px">upload_file</span> Upload Wet Lab Reports</h4>
+          <p style="font-size:0.58rem;color:var(--color-text-muted);margin:0 0 8px">Upload experimental data, images, CSV exports, PDF reports for research monitoring and agent analysis.</p>
+          <button class="btn-add" @click="$store.wetlabStore.uploadReport()">
+            <span class="material-symbols-outlined" style="font-size:14px">upload_file</span> Upload Reports
+          </button>
+        </div>
+
+        <template x-if="$store.wetlabStore.reports.length">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <template x-for="r in $store.wetlabStore.reports" :key="r.id">
+              <div class="exp-card" style="border-left-color:#6366f1">
+                <div class="exp-header">
+                  <span class="material-symbols-outlined" style="font-size:16px;color:#6366f1">description</span>
+                  <span class="exp-name" x-text="r.name" style="flex:1"></span>
+                  <span style="font-size:0.52rem;color:var(--color-text-muted)" x-text="$store.wetlabStore.formatFileSize(r.size)"></span>
+                  <span style="font-size:0.52rem;color:var(--color-text-muted)" x-text="r.uploadedAt?.split('T')[0]"></span>
+                  <button class="btn-del" @click="$store.wetlabStore.deleteReport(r.id)">&#x00D7;</button>
+                </div>
+                <!-- Link to experiment -->
+                <div style="display:flex;gap:4px;align-items:center;margin-top:4px">
+                  <select class="note-input" style="flex:1" @change="$store.wetlabStore.linkReportToExperiment(r.id, $event.target.value)">
+                    <option value="">Link to experiment...</option>
+                    <template x-for="exp in $store.wetlabStore.experiments" :key="exp.id">
+                      <option :value="exp.id" :selected="r.linkedExperiment == exp.id" x-text="exp.name"></option>
+                    </template>
+                  </select>
+                  <button class="btn-add" style="padding:3px 8px;font-size:0.58rem" @click="$store.wetlabStore.analyzeReport(r)">
+                    <span class="material-symbols-outlined" style="font-size:12px">psychology</span> Analyze
+                  </button>
+                </div>
+                <!-- Preview -->
+                <div class="exp-protocol" x-show="r.content && r.content !== '[Binary file — cannot preview]'" style="max-height:80px;overflow-y:auto;margin-top:4px" x-text="r.content?.substring(0, 500) + (r.content?.length > 500 ? '...' : '')"></div>
+                <div x-show="r.content === '[Binary file — cannot preview]'" style="font-size:0.52rem;color:var(--color-text-muted);margin-top:4px;font-style:italic">Binary file — use "Analyze" to send to agent</div>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <div x-show="!$store.wetlabStore.reports.length" class="empty-state">
+          <p>No reports uploaded. Upload wet lab data files for research monitoring.</p>
+        </div>
+      </div>
     </div>
 
     <style>
@@ -166,6 +287,7 @@
       .tab:hover { color: var(--color-text); }
       .tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
       .tab .material-symbols-outlined { font-size: 16px; }
+      .lit-badge { position: absolute; top: 0; right: 0; background: var(--color-primary); color: white; font-size: 0.45rem; padding: 0 3px; border-radius: 6px; min-width: 12px; text-align: center; }
       .tab-content { padding-top: 4px; }
       .section-card { padding: 12px 14px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 10px; margin-bottom: 12px; }
       .section-card h4 { font-size: 0.74rem; font-weight: 600; color: var(--color-primary); margin: 0 0 8px 0; }
