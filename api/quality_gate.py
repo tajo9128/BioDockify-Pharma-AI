@@ -63,7 +63,7 @@ def _check_molecular_gate(pipeline: dict) -> dict:
 
 
 def _check_docking_gate(pipeline: dict) -> dict:
-    """Gate 3: Docking quality — pose count, best energy, GNINA validation."""
+    """Gate 3: Docking quality — pose count, best energy, MM-GBSA validation."""
     stage12 = pipeline.get("stages", {}).get("12", {})
     result = stage12.get("result", {}) or {}
     checks = []
@@ -81,10 +81,10 @@ def _check_docking_gate(pipeline: dict) -> dict:
     checks.append({"check": "binding_energy", "passed": float(best_energy) < 0,
                    "detail": f"Best: {best_energy:.1f} kcal/mol" if isinstance(best_energy, (int, float)) and best_energy != 999 else "Energy N/A"})
 
-    gnina = result.get("gnina", {})
-    gnina_ok = gnina.get("success", False) if isinstance(gnina, dict) else True
-    checks.append({"check": "gnina_scoring", "passed": True,
-                   "detail": "GNINA CNN validated" if gnina_ok else "GNINA skipped — Vina only"})
+    mmgbsa = result.get("mmgbsa", {})
+    mmgbsa_ok = mmgbsa.get("success", False) if isinstance(mmgbsa, dict) else True
+    checks.append({"check": "mmgbsa_scoring", "passed": True,
+                   "detail": "MM-GBSA validated" if mmgbsa_ok else "MM-GBSA skipped — Vina only"})
 
     all_pass = all(c["passed"] for c in checks)
     return {
@@ -183,7 +183,7 @@ class QualityGateHandler(ApiHandler):
                 "gates": {
                     1: {"name": "Literature Gate", "stage": 5, "checks": ["paper_count", "no_hallucinated"]},
                     2: {"name": "Molecular Gate", "stage": 7, "checks": ["lipinski", "pains", "molecular_weight"]},
-                    3: {"name": "Docking Gate", "stage": 12, "checks": ["pose_count", "binding_energy", "gnina_scoring"]},
+                    3: {"name": "Docking Gate", "stage": 12, "checks": ["pose_count", "binding_energy", "mmgbsa_scoring"]},
                     4: {"name": "Statistical Gate", "stage": 14, "checks": ["significance", "normality_tested", "effect_size"]},
                     5: {"name": "Publication Gate", "stage": 23, "checks": ["citations_verified", "no_fabrication", "imrad_structure"]},
                 },

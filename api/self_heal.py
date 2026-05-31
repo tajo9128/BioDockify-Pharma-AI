@@ -81,9 +81,12 @@ class SelfHealHandler(ApiHandler):
         vina_out, _, vina_code = _run("vina --version 2>&1")
         checks.append({"name": "AutoDock Vina", "status": "ok" if vina_code <= 1 else "warn", "detail": vina_out[:40] if vina_out else "Not installed"})
 
-        # 7. GNINA
-        gnina_out, _, gnina_code = _run("gnina --version 2>&1")
-        checks.append({"name": "GNINA CNN", "status": "ok" if gnina_code <= 1 else "warn", "detail": gnina_out[:40] if gnina_out else "Not installed"})
+        # 7. Meeko
+        try:
+            import meeko
+            checks.append({"name": "Meeko", "status": "ok", "detail": "Available"})
+        except ImportError:
+            checks.append({"name": "Meeko", "status": "warn", "detail": "Not installed"})
 
         # 8. OpenBabel
         ob_out, _, ob_code = _run("obabel -V 2>&1")

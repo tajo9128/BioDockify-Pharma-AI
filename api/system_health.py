@@ -61,9 +61,8 @@ class SystemHealth(ApiHandler):
 
         # Docking dependencies
         import subprocess
-        import platform as _platform
         for bin_name, label, critical in [
-            ("vina", "AutoDock Vina", True), ("gnina", "GNINA CNN", True),
+            ("vina", "AutoDock Vina", True),
         ]:
             try:
                 r = subprocess.run([bin_name, "--help"], capture_output=True, text=True, timeout=5)
@@ -77,19 +76,19 @@ class SystemHealth(ApiHandler):
                 detail = "Available" if ok else "Not found"
                 status = "ok" if ok else ("fail" if critical else "warn")
             except FileNotFoundError:
-                if bin_name == "gnina" and _platform.system() == "Windows":
-                    detail = "Docker only — GNINA requires Linux"
-                else:
-                    detail = "Missing — CNN scoring unavailable" if critical and bin_name == "gnina" else \
-                             "Missing — docking unavailable" if critical else \
-                             "Not installed"
+                detail = "Missing — docking unavailable" if critical else "Not installed"
                 status = "fail" if critical else "warn"
             except Exception:
-                detail = "Missing — CNN scoring unavailable" if critical and bin_name == "gnina" else \
-                         "Missing — docking unavailable" if critical else \
-                         "Not available"
+                detail = "Missing — docking unavailable" if critical else "Not available"
                 status = "fail" if critical else "warn"
             result["checks"].append({"name": label, "status": status, "detail": detail})
+
+        # MM-GBSA scoring
+        try:
+            from api.docking_mmgbsa import mmgbsa_score
+            result["checks"].append({"name": "MM-GBSA Scoring", "status": "ok", "detail": "Available (CPU-only)"})
+        except ImportError:
+            result["checks"].append({"name": "MM-GBSA Scoring", "status": "warn", "detail": "Module not loaded"})
 
         # Backend APIs - check via file existence
         api_checks = [
@@ -102,7 +101,7 @@ class SystemHealth(ApiHandler):
             ("Bio NER", "api/bio_ner.py"),
             ("Regulatory", "api/regulatory.py"),
             ("Docking", "api/docking_run.py"),
-            ("Docking (GNINA)", "api/docking_gnina.py"),
+            ("MM-GBSA", "api/docking_mmgbsa.py"),
         ]
         for name, file_path in api_checks:
             full_docker = os.path.join("/a0", file_path)

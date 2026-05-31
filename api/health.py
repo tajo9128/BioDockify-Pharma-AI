@@ -87,16 +87,25 @@ class HealthCheck(ApiHandler):
             except:
                 health["checks"].append({"name": "AutoDock Vina", "status": "fail", "detail": "Not installed"})
 
-            # ODDT ML Scoring (RF-Score + NNScore) — CPU-only, cross-platform
-            oddt_detail = ""
+            # MM-GBSA Free Energy Scoring (CPU-only, no MD)
+            mmgbsa_ok = True
             try:
-                import oddt
-                oddt_detail = "Available (RF-Score + NNScore)"
-                oddt_ok = True
+                from api.docking_mmgbsa import mmgbsa_score
+                mmgbsa_detail = "Available (simplified MM-GBSA)"
             except ImportError:
-                oddt_ok = False
-                oddt_detail = "Not installed (pip install oddt)"
-            health["checks"].append({"name": "ML Scoring (ODDT)", "status": "ok" if oddt_ok else "warn", "detail": oddt_detail})
+                mmgbsa_ok = False
+                mmgbsa_detail = "Module not loaded"
+            health["checks"].append({"name": "MM-GBSA Scoring", "status": "ok" if mmgbsa_ok else "warn", "detail": mmgbsa_detail})
+
+            # Meeko (PDBQT conversion)
+            meeko_ok = False
+            try:
+                import meeko
+                meeko_ok = True
+                meeko_detail = "Available"
+            except ImportError:
+                meeko_detail = "Not installed"
+            health["checks"].append({"name": "Meeko", "status": "ok" if meeko_ok else "warn", "detail": meeko_detail})
 
             # RDKit
             try:

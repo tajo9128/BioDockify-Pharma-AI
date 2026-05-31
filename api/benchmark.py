@@ -71,15 +71,20 @@ class BenchmarkHandler(ApiHandler):
 
         # System binaries
         for bin_name, label, critical in [
-            ("vina", "AutoDock Vina", True), ("gnina", "GNINA CNN", True),
+            ("vina", "AutoDock Vina", True),
         ]:
             if _check_binary(bin_name):
                 results[bin_name] = {"status": "available", "label": label, "critical": critical}
             else:
                 results[bin_name] = {"status": "missing", "label": label, "critical": critical,
-                    "note": "CNN scoring unavailable" if critical and bin_name == "gnina" else
-                           "Docking unavailable" if critical else
-                           "Optional — RDKit handles conversion"}
+                    "note": "Docking unavailable" if critical else "Optional"}
+
+        # MM-GBSA (Python module, not binary)
+        try:
+            from api.docking_mmgbsa import mmgbsa_score
+            results["mmgbsa"] = {"status": "available", "label": "MM-GBSA Scoring", "critical": False}
+        except ImportError:
+            results["mmgbsa"] = {"status": "missing", "label": "MM-GBSA Scoring", "critical": False, "note": "Module not loaded"}
 
         return results
 

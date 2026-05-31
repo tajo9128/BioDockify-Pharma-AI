@@ -20,7 +20,7 @@ STAGES = {
     9:  {"name": "QSAR_TRAIN",        "phase": "QSAR",         "desc": "Train QSAR models"},
     10: {"name": "QSAR_SCREEN",       "phase": "QSAR",         "desc": "Screen compound library"},
     11: {"name": "DOCKING_PREPARE",   "phase": "Docking",      "desc": "Prepare receptor + ligands"},
-    12: {"name": "DOCKING_RUN",       "phase": "Docking",      "desc": "Vina → GNINA CNN docking"},
+    12: {"name": "DOCKING_RUN",       "phase": "Docking",      "desc": "Vina + MM-GBSA docking"},
     13: {"name": "DOCKING_ANALYZE",   "phase": "Docking",      "desc": "Deep analysis: 3D, clusters"},
     14: {"name": "STAT_ANALYZE",      "phase": "Statistics",   "desc": "Statistical analysis"},
     15: {"name": "STAT_TEST",         "phase": "Statistics",   "desc": "Appropriate test selection"},

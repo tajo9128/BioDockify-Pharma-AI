@@ -76,31 +76,10 @@ RUN apt-get update -qq && apt-get install -y -qq \
     echo "OpenBabel: $(obabel -V 2>&1 || echo 'not found')"; \
     echo "Vina: $(vina --version 2>&1 || echo 'not found')"
 
-# GNINA — install with multiple fallback strategies
-RUN rm -f /usr/local/bin/gnina && \
-    GNINA_OK=0 && \
-    # Strategy 1: conda-forge (if conda available)
-    (conda install -y -c conda-forge gnina 2>/dev/null && GNINA_OK=1) || true && \
-    # Strategy 2: direct binary download
-    if [ "$GNINA_OK" = "0" ]; then \
-      wget -q -O /usr/local/bin/gnina "https://github.com/gnina/gnina/releases/download/v1.3/gnina_1.3_linux_x64" 2>/dev/null && \
-      chmod +x /usr/local/bin/gnina && GNINA_OK=1 || true; \
-    fi && \
-    # Strategy 3: tarball extraction
-    if [ "$GNINA_OK" = "0" ]; then \
-      wget -q -O /tmp/gnina.tar.gz "https://github.com/gnina/gnina/releases/download/v1.3/gnina_1.3_linux_x64.tar.gz" 2>/dev/null && \
-      cd /tmp && tar -xzf gnina.tar.gz 2>/dev/null && \
-      find /tmp -name "gnina" -type f -exec cp {} /usr/local/bin/gnina \; 2>/dev/null && \
-      chmod +x /usr/local/bin/gnina && GNINA_OK=1 || true; \
-    fi && \
-    rm -rf /tmp/gnina* && \
-    if [ "$GNINA_OK" = "1" ]; then echo "GNINA: installed"; gnina --help 2>&1 | head -1; \
-    else echo "GNINA: not installed — CNN scoring unavailable"; fi
-
 # Install ML scoring packages (CPU-only, no GPU required)
-RUN $VENV_PY -m pip install --no-cache-dir oddt>=0.7.0 prolif>=2.0.0 meeko>=0.5.0 && \
-    echo "ML scoring packages installed" || \
-    echo "ML scoring packages install failed"
+RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir meeko>=0.5.0 && \
+    echo "Meeko installed" || \
+    echo "Meeko install failed"
 
 EXPOSE 50001
 

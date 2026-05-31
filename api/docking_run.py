@@ -11,31 +11,21 @@ log = logging.getLogger("docking_run")
 JOBS_DIR = files.get_abs_path("tmp/docking_jobs")
 
 
-def _compute_consensus_score(poses, oddt_result=None):
-    """Combine Vina + ODDT RF-Score into Z-score normalized consensus. CPU-only."""
+def _compute_consensus_score(poses):
+    """Simple Vina-only scoring (MM-GBSA handles multi-score consensus)."""
     import numpy as np
     vina_scores = np.array([p.get("energy", 0) for p in poses], dtype=np.float64)
-    rf_scores = None
-    if oddt_result and oddt_result.get("success") and oddt_result.get("poses"):
-        rf_scores = np.array([p.get("rf_score", 0) for p in oddt_result.get("poses", [])], dtype=np.float64)
     n_poses = len(vina_scores)
     consensus = []
     for i in range(n_poses):
         ze = (vina_scores[i] - vina_scores.mean()) / (vina_scores.std() + 1e-10) if n_poses > 1 else 0
-        zrf = 0
-        if rf_scores is not None and i < len(rf_scores):
-            zrf = (rf_scores[i] - rf_scores.mean()) / (rf_scores.std() + 1e-10) if len(rf_scores) > 1 else 0
-        consensus_z = float(0.5 * ze + 0.5 * zrf) if rf_scores is not None else float(ze)
         consensus.append({
             "pose_index": i,
             "vina_energy": float(vina_scores[i]),
-            "rf_score": float(rf_scores[i]) if rf_scores is not None and i < len(rf_scores) else None,
-            "consensus_z": round(consensus_z, 4),
             "vina_z": round(float(ze), 4),
-            "rf_z": round(float(zrf), 4) if rf_scores is not None else None,
         })
-    consensus.sort(key=lambda c: c["consensus_z"])
-    return {"num_poses": n_poses, "per_pose": consensus, "best_consensus_z": consensus[0]["consensus_z"] if consensus else None}
+    consensus.sort(key=lambda c: c["vina_z"])
+    return {"num_poses": n_poses, "per_pose": consensus}
 
 
 def _parse_energy_table(stdout: str):
@@ -296,20 +286,17 @@ class DockingRun(ApiHandler):
             except Exception:
                 pass
 
-            # ── CPU-Only ML Scoring (ODDT RF-Score + NNScore) ──
-            oddt_result = None
+            # ── MM-GBSA Free Energy Scoring (CPU-only, no MD) ──
+            mmgbsa_result = None
             try:
-                from api.docking_oddt import oddt_rescore
-                oddt_result = oddt_rescore(job_id=job_id)
-                if oddt_result.get("success"):
-                    log.info(f"ODDT rescoring completed for job {job_id}")
+                from api.docking_mmgbsa import mmgbsa_score
+                mmgbsa_result = mmgbsa_score(job_id=job_id)
+                if mmgbsa_result.get("success"):
+                    log.info(f"MM-GBSA scoring completed for job {job_id}")
                 else:
-                    log.warning(f"ODDT rescoring failed: {oddt_result.get('error', 'unknown')}")
-            except Exception as oddt_err:
-                log.warning(f"ODDT rescoring error: {oddt_err}")
-
-            # ── Consensus Z-Score Scoring (Vina + ODDT) ──
-            consensus = _compute_consensus_score(poses, oddt_result)
+                    log.warning(f"MM-GBSA scoring failed: {mmgbsa_result.get('error', 'unknown')}")
+            except Exception as mmgbsa_err:
+                log.warning(f"MM-GBSA scoring error: {mmgbsa_err}")
 
             return {
                 "status": "complete",
@@ -321,14 +308,12 @@ class DockingRun(ApiHandler):
                 "log_file": log_path if os.path.exists(log_path) else None,
                 "stdout": result.stdout[:3000],
                 "stderr": result.stderr[:1000] if result.stderr else "",
-                "consensus": consensus,
-                "oddt": oddt_result,
+                "mmgbsa": mmgbsa_result,
                 "download_links": {
                     "pdbqt": f"/api/docking_download?job_id={job_id}&filename=docked_output.pdbqt",
                     "sdf": f"/api/docking_download?job_id={job_id}&filename=docked_poses.sdf" if sdf_available else None,
                     "log": f"/api/docking_download?job_id={job_id}&filename=vina_log.txt",
                 },
-                "consensus": consensus,
             }
 
         except subprocess.TimeoutExpired:

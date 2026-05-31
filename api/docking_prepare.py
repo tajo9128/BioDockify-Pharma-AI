@@ -421,7 +421,7 @@ VALID_AD_TYPES = {'C', 'A', 'N', 'NA', 'OA', 'SA', 'HD', 'H', 'F', 'Cl', 'Br', '
 
 
 def _validate_pdbqt(filepath: str) -> tuple:
-    """Validate PDBQT file before passing to Vina/GNINA."""
+    """Validate PDBQT file before passing to Vina."""
     import os
     try:
         if not os.path.exists(filepath):
