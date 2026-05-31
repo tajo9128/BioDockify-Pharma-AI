@@ -94,10 +94,13 @@ Classes: Highly soluble → Very soluble → Soluble → Moderately soluble → 
 
 Click **Run Docking** — the pipeline executes:
 
-1. **Prepare** — Format detection, PDB→PDBQT conversion, grid box auto-detection
-2. **Vina** — AutoDock Vina docking with configurable exhaustiveness and modes
-3. **GNINA** — CNN deep-learning rescoring (when available in Docker)
-4. **Consensus** — Z-score normalized combination of Vina + GNINA scores
+1. **Prepare** — Format detection, protein standardization (remove waters, add hydrogens), PDB→PDBQT conversion, grid box auto-detection
+2. **Ligand** — 3D conformer generation with fixed seed (ETKDGv3, seed=42) for reproducible results
+3. **Vina** — AutoDock Vina docking with fixed seed (--seed 42) for deterministic search
+4. **GNINA** — CNN deep-learning rescoring (when available in Docker)
+5. **Consensus** — Z-score normalized combination of Vina + GNINA scores
+
+**Reproducibility**: Same protein + ligand + parameters always produces identical poses (same seed, same standardized protein).
 
 ### Step 3: View Results
 
