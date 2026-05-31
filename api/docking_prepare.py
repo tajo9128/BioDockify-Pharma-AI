@@ -81,27 +81,30 @@ def _obabel_available():
 
 
 def _standardize_protein(pdb_path: str, output_path: str):
-    """Standardize protein for reproducible docking: remove waters, add hydrogens, fix residues."""
+    """Standardize protein for reproducible docking: remove waters, keep everything else.
+    Uses text-based processing (not RDKit) for maximum determinism."""
     try:
-        from rdkit import Chem
-        mol = Chem.MolFromPDBFile(pdb_path, removeHs=False)
-        if mol is None:
-            # Fallback: just copy the file
-            import shutil
-            shutil.copy2(pdb_path, output_path)
-            return output_path
-        # Remove water molecules
-        water_pattern = Chem.MolFromSmarts("[OH2]")
-        if water_pattern:
-            water_matches = mol.GetSubstructMatches(water_pattern)
-            if water_matches:
-                edit_mol = Chem.EditableMol(mol)
-                for match in water_matches:
-                    edit_mol.RemoveAtom(match[0])
-                mol = edit_mol.GetMol()
-        # Add hydrogens
-        mol = Chem.AddHs(mol)
-        Chem.MolToPDBFile(mol, output_path)
+        lines_out = []
+        with open(pdb_path, "r") as f:
+            for line in f:
+                # Skip water molecules (HOH, WAT)
+                if line.startswith("ATOM") or line.startswith("HETATM"):
+                    resname = line[17:20].strip()
+                    if resname in ("HOH", "WAT", "TIP3", "TIP4", "SOL"):
+                        continue
+                # Skip REMARK lines (not needed for docking)
+                if line.startswith("REMARK"):
+                    continue
+                lines_out.append(line)
+
+        # Ensure END record
+        if not any(l.strip().startswith("END") for l in lines_out[-5:]):
+            lines_out.append("END\n")
+
+        with open(output_path, "w") as f:
+            f.writelines(lines_out)
+
+        log.info(f"Protein standardized: {sum(1 for l in lines_out if l.startswith('ATOM') or l.startswith('HETATM'))} atoms (waters removed)")
         return output_path
     except Exception as e:
         log.warning(f"Protein standardization failed: {e}, using original")
