@@ -18,7 +18,7 @@
         this.loading = true; this.error = "";
         try {
           const r = await callJsonApi("docking_analysis", { action: "deep_analysis", job_id: this.jobId });
-          if (!r.success) { this.error = r.error; } else { this.deepData = r; this.energies = r.energies || []; this.$nextTick(() => this.init3DView()); }
+          if (!r.success) { this.error = r.error; } else { this.deepData = r; this.energies = r.energies || []; setTimeout(() => this.init3DView(), 200); }
         } catch (e) { this.error = e.message; }
         this.loading = false;
       },
@@ -66,7 +66,7 @@
         else if (n === "dark") { this.proteinStyle = "cartoon"; this.proteinColor = "spectrum"; this.ligandStyle = "stick"; this.ligandColor = "orangeCarbon"; this.bgColor = "#1a1a2e"; }
         else if (n === "surface") { this.proteinOpacity = 0.6; this.showSurface = true; this.ligandStyle = "ballstick"; this.ligandColor = "magentaCarbon"; }
         else if (n === "analysis") { this.proteinStyle = "stick"; this.proteinColor = "rasmol"; this.ligandStyle = "ballstick"; this.ligandColor = "cyanCarbon"; this.bgColor = "#f0f4f8"; }
-        this.$nextTick(() => this.renderScene());
+        setTimeout(() => this.renderScene(), 100);
       },
       energyColor(v) { return v < 0 ? "#22c55e" : "#ff6b6b"; },
     });
@@ -96,7 +96,7 @@
         </div>
 
         <div class="nb-tabs">
-          <button class="nb-tab" :class="{active: $store.dockingAnalysis.activeTab === '3dview'}" @click="$store.dockingAnalysis.activeTab = '3dview'; $store.dockingAnalysis.$nextTick(() => $store.dockingAnalysis.init3DView())">3D View</button>
+          <button class="nb-tab" :class="{active: $store.dockingAnalysis.activeTab === '3dview'}" @click="$store.dockingAnalysis.activeTab = '3dview'; setTimeout(() => $store.dockingAnalysis.init3DView(), 200)">3D View</button>
           <button class="nb-tab" :class="{active: $store.dockingAnalysis.activeTab === '2d'}" @click="$store.dockingAnalysis.activeTab = '2d'">2D Diagram</button>
           <button class="nb-tab" :class="{active: $store.dockingAnalysis.activeTab === 'deep'}" @click="$store.dockingAnalysis.activeTab = 'deep'">Interactions</button>
           <button class="nb-tab" :class="{active: $store.dockingAnalysis.activeTab === 'energy'}" @click="$store.dockingAnalysis.activeTab = 'energy'">Residue Energy</button>
@@ -182,7 +182,7 @@
               <template x-for="c in $store.dockingAnalysis.deepData.clusters">
                 <div class="nb-entry-card" style="display:flex;justify-content:space-between;align-items:center">
                   <div><div class="nb-entry-title" x-text="'Cluster ' + c.cluster_id + ' (' + c.size + ' poses)'"></div><div class="nb-entry-meta" x-text="'Rep: Pose #' + (c.representative + 1) + (c.avg_energy != null ? ' · Avg: ' + c.avg_energy.toFixed(1) + ' kcal/mol' : '')"></div></div>
-                  <button @click="$store.dockingAnalysis.poseIndex = c.representative; $store.dockingAnalysis.activeTab = '3dview'; $store.dockingAnalysis.$nextTick(() => { $store.dockingAnalysis.init3DView(); $store.dockingAnalysis.renderScene(); })" class="nb-tag">View</button>
+                  <button @click="$store.dockingAnalysis.poseIndex = c.representative; $store.dockingAnalysis.activeTab = '3dview'; setTimeout(() => { $store.dockingAnalysis.init3DView(); $store.dockingAnalysis.renderScene(); }, 200)" class="nb-tag">View</button>
                 </div>
               </template>
             </div>
