@@ -12,6 +12,9 @@
       ligandStyle: "stick", ligandColor: "greenCarbon", ligandShow: true,
       showSurface: false, showHBonds: true, showLabels: false, bgColor: "#ffffff",
       spinning: false, zoomLevel: 100,
+      // Upload state
+      uploadMode: false, receptorFile: null, ligandFile: null,
+      receptorName: "", ligandName: "", uploadLoading: false,
 
       async analyze() {
         if (!this.jobId) { this.error = "Enter a docking job ID"; return; }
@@ -21,6 +24,57 @@
           if (!r.success) { this.error = r.error; } else { this.deepData = r; this.energies = r.energies || []; setTimeout(() => this.init3DView(), 200); }
         } catch (e) { this.error = e.message; }
         this.loading = false;
+      },
+
+      async uploadAndAnalyze() {
+        if (!this.receptorFile || !this.ligandFile) { this.error = "Upload both receptor and ligand files"; return; }
+        this.uploadLoading = true; this.error = "";
+        try {
+          const receptorContent = await this._readFile(this.receptorFile);
+          const ligandContent = await this._readFile(this.ligandFile);
+          const r = await callJsonApi("docking_upload", {
+            receptor_content: receptorContent,
+            receptor_filename: this.receptorFile.name,
+            ligand_content: ligandContent,
+            ligand_filename: this.ligandFile.name,
+          });
+          if (r.error) { this.error = r.error; }
+          else {
+            this.jobId = r.job_id;
+            this.message = `Uploaded ${r.num_poses} poses from ${r.ligand_file}. Job ID: ${r.job_id}`;
+            setTimeout(() => this.message = "", 5000);
+            await this.analyze();
+          }
+        } catch (e) { this.error = "Upload failed: " + e.message; }
+        this.uploadLoading = false;
+      },
+
+      _readFile(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsText(file);
+        });
+      },
+
+      handleReceptorUpload(event) {
+        const f = event.target.files[0];
+        if (!f) return;
+        this.receptorFile = f;
+        this.receptorName = f.name;
+      },
+
+      handleLigandUpload(event) {
+        const f = event.target.files[0];
+        if (!f) return;
+        this.ligandFile = f;
+        this.ligandName = f.name;
+      },
+
+      clearUpload() {
+        this.receptorFile = null; this.ligandFile = null;
+        this.receptorName = ""; this.ligandName = "";
       },
       async analyzeJobId(id) { this.jobId = id; await this.analyze(); },
       get3DViewer() { return this.viewerRef || window._dockingViewer; },
@@ -84,16 +138,62 @@
     </div>
 
     <div x-show="$store.dockingAnalysis.error" class="nb-error" x-text="$store.dockingAnalysis.error"></div>
-    <div x-show="$store.dockingAnalysis.loading" class="nb-loading"><div class="loading-spinner"></div><span>Deep analysis running...</span></div>
+    <div x-show="$store.dockingAnalysis.message" class="nb-msg" x-text="$store.dockingAnalysis.message"></div>
+    <div x-show="$store.dockingAnalysis.loading || $store.dockingAnalysis.uploadLoading" class="nb-loading"><div class="loading-spinner"></div><span x-text="$store.dockingAnalysis.uploadLoading ? 'Uploading files...' : 'Deep analysis running...'"></span></div>
 
-    <template x-if="$store.dockingAnalysis.deepData">
-      <div class="nb-content">
-        <div class="nb-form-row" style="margin-bottom:6px;flex-wrap:wrap;gap:3px">
-          <span class="nb-entry-meta" x-text="'Pose ' + ($store.dockingAnalysis.poseIndex + 1) + ' of ' + ($store.dockingAnalysis.deepData.num_poses || 0)"></span>
-          <template x-for="(e, i) in $store.dockingAnalysis.energies">
-            <button @click="$store.dockingAnalysis.poseIndex = i; $store.dockingAnalysis.renderScene()" class="nb-tag" :class="{active: $store.dockingAnalysis.poseIndex === i}" x-text="'#'+(i+1)+' '+e.toFixed(1)"></button>
-          </template>
+    <!-- Upload Mode Toggle -->
+    <div style="display:flex;gap:4px;margin-bottom:6px;flex-shrink:0">
+      <button class="nb-tag" :class="{active: !$store.dockingAnalysis.uploadMode}" @click="$store.dockingAnalysis.uploadMode = false">Job ID</button>
+      <button class="nb-tag" :class="{active: $store.dockingAnalysis.uploadMode}" @click="$store.dockingAnalysis.uploadMode = true">
+        <span class="material-symbols-outlined" style="font-size:12px;vertical-align:-1px">upload_file</span> Upload Files
+      </button>
+    </div>
+
+    <!-- Job ID Input -->
+    <div x-show="!$store.dockingAnalysis.uploadMode" class="nb-form-row" style="margin-bottom:6px;flex-shrink:0">
+      <input type="text" x-model="$store.dockingAnalysis.jobId" placeholder="Docking Job ID" class="nb-input flex-1" style="font-family:monospace" @keyup.enter="$store.dockingAnalysis.analyze()" />
+      <button class="nb-btn-primary" @click="$store.dockingAnalysis.analyze()" style="flex:none;width:auto" :disabled="$store.dockingAnalysis.loading || !$store.dockingAnalysis.jobId">Analyze</button>
+    </div>
+
+    <!-- File Upload Panel -->
+    <div x-show="$store.dockingAnalysis.uploadMode" style="margin-bottom:6px;flex-shrink:0">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <!-- Receptor Upload -->
+        <div class="nb-entry-card" style="text-align:center;padding:12px">
+          <span class="material-symbols-outlined" style="font-size:24px;color:var(--color-primary);display:block;margin-bottom:4px">biotech</span>
+          <div style="font-size:0.64rem;font-weight:600;color:var(--color-text);margin-bottom:4px">Receptor (Protein)</div>
+          <div style="font-size:0.5rem;color:var(--color-text-muted);margin-bottom:6px">PDB · PDBQT · CIF · MOL2</div>
+          <label class="nb-upload-label" style="justify-content:center;font-size:0.58rem;padding:6px 10px;cursor:pointer">
+            <span class="material-symbols-outlined" style="font-size:14px">upload_file</span>
+            <span x-text="$store.dockingAnalysis.receptorName || 'Choose file'"></span>
+            <input type="file" accept=".pdb,.pdbqt,.ent,.cif,.mol2,.mmcif" hidden @change="$store.dockingAnalysis.handleReceptorUpload($event)" />
+          </label>
         </div>
+        <!-- Ligand Upload -->
+        <div class="nb-entry-card" style="text-align:center;padding:12px">
+          <span class="material-symbols-outlined" style="font-size:24px;color:#22c55e;display:block;margin-bottom:4px">science</span>
+          <div style="font-size:0.64rem;font-weight:600;color:var(--color-text);margin-bottom:4px">Docked Ligand (Poses)</div>
+          <div style="font-size:0.5rem;color:var(--color-text-muted);margin-bottom:6px">PDBQT (multi-model) · SDF</div>
+          <label class="nb-upload-label" style="justify-content:center;font-size:0.58rem;padding:6px 10px;cursor:pointer">
+            <span class="material-symbols-outlined" style="font-size:14px">upload_file</span>
+            <span x-text="$store.dockingAnalysis.ligandName || 'Choose file'"></span>
+            <input type="file" accept=".pdbqt,.sdf,.mol" hidden @change="$store.dockingAnalysis.handleLigandUpload($event)" />
+          </label>
+        </div>
+      </div>
+      <div style="display:flex;gap:4px">
+        <button class="nb-btn-primary" @click="$store.dockingAnalysis.uploadAndAnalyze()" style="flex:1" :disabled="$store.dockingAnalysis.uploadLoading || !$store.dockingAnalysis.receptorFile || !$store.dockingAnalysis.ligandFile">
+          <span class="material-symbols-outlined" style="font-size:14px">biotech</span>
+          Upload & Analyze
+        </button>
+        <button class="nb-btn-sm" @click="$store.dockingAnalysis.clearUpload()" x-show="$store.dockingAnalysis.receptorFile || $store.dockingAnalysis.ligandFile" style="padding:6px 10px">Clear</button>
+      </div>
+      <div style="margin-top:6px;padding:6px 8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.15);border-radius:6px">
+        <div style="font-size:0.52rem;color:var(--color-text-muted);line-height:1.4">
+          <b>Supported platforms:</b> AutoDock Vina · Glide (Schrödinger) · GOLD · AutoDock-GPU · rDock · PLANTS · Any tool producing PDBQT or SDF docked poses
+        </div>
+      </div>
+    </div>
 
         <div class="nb-tabs">
           <button class="nb-tab" :class="{active: $store.dockingAnalysis.activeTab === '3dview'}" @click="$store.dockingAnalysis.activeTab = '3dview'; setTimeout(() => $store.dockingAnalysis.init3DView(), 200)">3D View</button>
@@ -205,7 +305,7 @@
       </div>
     </template>
 
-    <template x-if="!$store.dockingAnalysis.deepData && !$store.dockingAnalysis.loading"><div class="nb-empty"><span class="material-symbols-outlined nb-empty-icon">biotech</span><p>Enter a docking job ID</p><p class="nb-empty-hint">Deep analysis: 3D view, 2D diagram, interactions, residue energy, clusters, torsion</p></div></template>
+    <template x-if="!$store.dockingAnalysis.deepData && !$store.dockingAnalysis.loading"><div class="nb-empty"><span class="material-symbols-outlined nb-empty-icon">biotech</span><p>Enter a docking Job ID or upload files</p><p class="nb-empty-hint">Deep analysis: 3D view, 2D diagram, interactions, residue energy, clusters, torsion<br>Upload receptor + docked ligand from any platform (Vina, Glide, GOLD, etc.)</p></div></template>
 
     <style>
       .nb-panel { display:flex;flex-direction:column;height:100%;overflow:hidden;padding:10px 14px;background:var(--color-background) }
@@ -215,6 +315,7 @@
       .nb-sub { color:var(--color-text-muted);font-size:0.58rem;margin:0 }
       .nb-content { flex:1;overflow-y:auto;min-width:0;min-height:0 }
       .nb-error { padding:4px 8px;background:rgba(255,107,107,0.1);border-radius:4px;color:var(--color-error-text);font-size:0.6rem;margin-bottom:4px;flex-shrink:0 }
+      .nb-msg { padding:4px 8px;background:rgba(34,197,94,0.08);border-radius:4px;color:#22c55e;font-size:0.6rem;margin-bottom:4px;flex-shrink:0 }
       .nb-loading { display:flex;align-items:center;gap:5px;font-size:0.62rem;color:var(--color-text-muted);margin-bottom:4px;flex-shrink:0 }
       .loading-spinner { width:12px;height:12px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin 0.8s linear infinite }
       @keyframes spin { to { transform:rotate(360deg) } }
@@ -242,6 +343,8 @@
       .nb-empty-icon { font-size:36px;color:var(--color-border);margin-bottom:8px }
       .nb-empty p { font-size:0.68rem;color:var(--color-text-muted);margin:0 0 4px 0 }
       .nb-empty-hint { font-size:0.6rem;color:var(--color-text-muted);opacity:0.7;line-height:1.3 }
+      .nb-upload-label { display:flex;align-items:center;gap:4px;padding:6px 10px;background:var(--color-background);border:1px dashed var(--color-border);border-radius:6px;color:var(--color-text-muted);cursor:pointer;font-size:0.58rem;transition:all 0.15s }
+      .nb-upload-label:hover { border-color:var(--color-primary);color:var(--color-primary) }
       .flex-1 { flex:1;min-width:0 }
       .int-card { padding:8px;border-radius:7px;text-align:center }
       .int-green { background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2) }
