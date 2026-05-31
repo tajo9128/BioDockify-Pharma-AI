@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://hub.docker.com/r/tajo9128/biodockify-pharma-ai"><img src="https://img.shields.io/badge/docker-tajo9128%2Fbiodockify--pharma--ai-blue.svg" alt="Docker"/></a>
-  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v6.8.1-green.svg" alt="Version"/></a>
+  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v6.8.7-green.svg" alt="Version"/></a>
   <a href="https://github.com/tajo9128/BioDockify-Pharma-AI"><img src="https://img.shields.io/badge/GitHub-BioDockify--Pharma--AI-181717?style=flat&logo=github" alt="GitHub"/></a>
 </p>
 
@@ -14,7 +14,7 @@
   <img src="assets/screenshot.png" alt="BioDockify Pharma AI Screenshot" width="800">
 </p>
 
-**BioDockify Pharma AI** is a comprehensive pharmaceutical research platform with 15 consolidated modules. It combines GNINA CNN molecular docking (conda-forge), Vina docking, Meeko PDB→PDBQT, ProLIF interaction fingerprints, consensus Z-score scoring, SPSS-level biostatistics (20 analysis types + 8 charts), a 25-stage autonomous research pipeline, 10 literature databases, 6-model QSAR (regression + classification), pharmacophore screening (PharmacoNet NCI + ZINCPharmer batch), a 36,145-journal recommender with hijacked journal + fake website detection, an avant-garde JSME molecule editor with 3Dmol.js viewer (4-tab: 3D, Properties, Filters, Optimize), drug properties v2 (hERG/AMES/pKa/BBB/melting point/druglikeness score), and 4 specialized AI sub-agents for deep research, statistics, writing, and execution.
+**BioDockify Pharma AI** is a comprehensive pharmaceutical research platform with 15 consolidated modules. It combines MM-GBSA free energy scoring (CPU-only), AutoDock Vina molecular docking, Meeko PDB→PDBQT conversion, external docking file upload (Vina/Glide/GOLD/AutoDock-GPU/rDock/PLANTS), SPSS-level biostatistics (20 analysis types + 8 charts), a 25-stage autonomous research pipeline, 10 literature databases, 6-model QSAR (regression + classification), pharmacophore screening (PharmacoNet NCI + ZINCPharmer batch), a 36,145-journal recommender with hijacked journal + fake website detection, a Drug Analysis module with 3Dmol.js viewer (3D, Properties, Filters, Optimize), drug properties v2 (hERG/AMES/pKa/BBB/melting point/druglikeness score), and 4 specialized AI sub-agents for deep research, statistics, writing, and execution.
 
 ---
 
@@ -35,29 +35,28 @@
 | # | Module | Function | Backend |
 |---|--------|----------|---------|
 | 1 | **Research Command Center** | Auto-research pipeline + Literature Search + Wet Lab tracking | 23 REST endpoints |
-| 2 | **Molecular Toolkit** | ADMET + SwissADME + BOILED-Egg plot + Bioavailability Radar + Docking (Vina+GNINA) + Inline 3D Docking Analysis (interactions, clusters, residue energy, PLIF, consensus Z-score) | RDKit + Vina + GNINA + Meeko |
-| 3 | **Statistics** | 20 analysis types + 8 chart types + data transform | FastAPI router |
+| 2 | **Molecular Toolkit** | ADMET + SwissADME + BOILED-Egg plot + Bioavailability Radar + Docking (Vina + MM-GBSA) + Inline 3D Docking Analysis (interactions, clusters, residue energy, PLIF) | RDKit + Vina + Meeko |
+| 3 | **Statistics** | 20 analysis types + 8 chart types + data transform | scipy + scikit-learn + pandas + matplotlib |
 | 4 | **Academic Writer** | 8-tab: Lit Review, Paper, Thesis, Grant Writer, Regulatory, Citation Manager, Lecture, Slides | Thesis + Slides + Grant APIs |
 | 5 | **Faculty CMD** | Syllabus, Lectures, Assignments, Plagiarism, Slides generation | faculty_tools |
 | 6 | **Journal Finder** | 36,145 Scopus/WoS journals + verify + deep research (5 live sources) + fake website detector + full dossier + suggest | journals.db + 6 live APIs |
 | 7 | **QSAR Modeler** | 6 regression + 3 classification models, batch predict, read-across, feature selection, Williams Plot, PLS VIP | RDKit + scikit-learn |
-| 8 | **Pharmacophore** | 13 actions: ligand, protein-based, ZINCPharmer batch screen, PharmacoNet NCI, LigandScout .ph4, weighted screening | RDKit |
-| 9 | **Molecule Editor** | JSME drawing + 3Dmol.js viewer (7 styles) + Properties (hERG/AMES/pKa/BBB/MP/druglikeness) + PAINS/Brenk/NIH Filters + Bioisostere Mutagenesis | RDKit + PubChem |
-| 10 | **Docking Analysis** | 3D receptor+ligand viewer with H-bonds, surface, snapshot, zoom. Interaction SVG + PLIF + RMSD clusters + residue energy | 3Dmol.js + RDKit |
+| 8 | **Pharmacophore** | 5 tabs: Protein-based, Screen, Batch, Models, Target ID | RDKit |
+| 9 | **Drug Analysis** | 3Dmol.js viewer (7 styles) + Properties (hERG/AMES/pKa/BBB/MP/druglikeness) + PAINS/Brenk/NIH Filters + Bioisostere Mutagenesis + PubChem search | RDKit + PubChem |
+| 10 | **Docking Analysis** | 3D receptor+ligand viewer with H-bonds, surface, snapshot. Interaction SVG + PLIF + RMSD clusters + residue energy. **External file upload** from any platform | 3Dmol.js + RDKit |
 | 11 | **Knowledge Base** | ChromaDB vector store, semantic search, persistent research memory | ChromaDB |
-| 12 | **System Health** | Platform-aware health badges (Vina + GNINA + RDKit), Docker vs Windows detection | health.py |
-| 13 | **Benchmark** | API health, storage, memory, dependency validation | benchmark.py |
-| 14 | **Backup & Recovery** | Full system backup/restore with preview | backup APIs |
-| 14 | **Backup & Recovery** | Full system backup/restore with preview | backup APIs |
+| 12 | **System Health** | Platform-aware health badges (Vina + MM-GBSA + RDKit + Meeko), Docker vs Windows detection | health.py |
+| 13 | **Deep Research** | 5-database collection (PubMed, Semantic Scholar, Crossref, OpenAlex, arXiv), relevance scanning, store to KB | 5 live APIs |
+| 14 | **Backup & Recovery** | Full system backup/restore with preview + auto-backup on first health check | backup APIs |
 | 15 | **All Tools** | Quick-launch grid for all 15 consolidated modules | N/A |
 
 ### Merged Modules (Accessible via Parent Dashboards)
 
 | Original Module | Now Accessible Via |
 |----------------|-------------------|
-| Drug Properties | Molecule Editor → Properties tab |
-| Drug Analysis (PAINS/Brenk/NIH) | Molecule Editor → Filters tab |
-| Molecular Optimizer | Molecule Editor → Optimize tab |
+| Drug Properties | Drug Analysis → Properties tab |
+| Drug Analysis (PAINS/Brenk/NIH) | Drug Analysis → Filters tab |
+| Molecular Optimizer | Drug Analysis → Optimize tab |
 | Literature Search (10 DB) | Research CMD → Literature tab |
 | Wet Lab Manager | Research CMD → Wet Lab tab |
 | Grant Writer | Academic Writer → Grant tab |
@@ -67,18 +66,33 @@
 | Lecture Builder | Faculty CMD → Lectures tab |
 | Docking Deep Analysis | Molecular Toolkit → Analysis tab |
 
-### GNINA CNN Docking (v6.8.1)
+### MM-GBSA Free Energy Scoring (v6.8.7)
 
-GNINA deep-learning docking auto-chains after AutoDock Vina with the same prepared PDBQT files:
+After AutoDock Vina completes, MM-GBSA free energy scoring runs automatically (CPU-only, no GPU required):
 
-| Mode | Description |
+| Term | Description |
 |------|-------------|
-| `rescore` (default) | CNN rescoring of Vina poses |
-| `all` | CNN scoring on all generated poses |
-| `refinement` | CNN-guided ligand pose refinement |
-| `none` | Traditional Vina scoring only |
+| **MM** | Molecular mechanics energy from Vina (VdW + electrostatics) |
+| **GB** | Generalized Born desolvation penalty |
+| **SA** | Solvent-accessible surface area hydrophobic penalty |
+| **Interaction** | Protein-ligand close contact bonus |
 
-Outputs: `gnina_docked.pdbqt`, `gnina_docked.sdf`, `gnina_log.txt` alongside Vina results. Downloadable from the Docking tab.
+Output: Per-pose MM-GBSA energies, Z-scores, and consensus with Vina (`0.4*Vina_Z + 0.6*MMGBSA_Z`). Displayed as a table in the Docking results.
+
+### External Docking File Upload (v6.8.7)
+
+Upload receptor + docked ligand files from **any docking platform** for deep analysis:
+
+| Platform | Receptor Format | Ligand Format |
+|----------|----------------|---------------|
+| AutoDock Vina | PDB/PDBQT | PDBQT (multi-model) |
+| Glide (Schrödinger) | PDB | SDF |
+| GOLD | PDB/MOL2 | SDF |
+| AutoDock-GPU | PDBQT | PDBQT |
+| rDock | PDB/MOL2 | SDF |
+| PLANTS | PDB/MOL2 | SDF |
+
+Upload panel in Deep Analysis → toggle "Upload Files" → choose receptor + ligand → auto-runs full analysis (3D view, interactions, clusters, residue energy, torsion).
 
 ### 4 Specialized Sub-Agents
 
@@ -104,7 +118,7 @@ Agent0 (Main Orchestrator)
 │         ↓
 │    Pharmacophore (feature detection)
 │         ↓
-├─→ Molecular Toolkit (Docking: Vina → GNINA CNN)
+├─→ Molecular Toolkit (Docking: Vina → MM-GBSA)
 │         ↓
 │    Deep Analysis (3D View, Interactions, Clusters)
 │         ↓
@@ -116,89 +130,27 @@ Agent0 (Main Orchestrator)
 
 ---
 
-## What's New in v6.6.0
+## What's New in v6.8.7
 
-### Avant-Garde Molecule Editor
-Full-featured molecular editor replacing basic SMILES input:
-- **JSME Drawing Canvas**: Self-hosted in-browser molecular drawing (atoms, bonds, rings). Bidirectional sync with SMILES text input.
-- **3Dmol.js Viewer**: 3D structure in 5 styles (Stick, Ball+Stick, Sphere, Cartoon, Surface). Conformer from RDKit ETKDG+MMFF.
-- **Property Panel**: Real-time MW, LogP, TPSA, HBD, HBA, Rotatable Bonds, Lipinski pass/fail.
-- **PubChem Search**: Type compound name → auto-load SMILES + CID + formula.
-- **Export**: PNG, SVG, MOL, SDF 3D — all generated by RDKit backend.
-- **History**: Last 10 molecules saved in localStorage.
-- **Quick Load**: 6 drug examples (Aspirin, Caffeine, Ibuprofen, Glucose, Sildenafil, Paracetamol).
-- 3 new backend APIs: `structure_3d`, `structure_export`, `pubchem_lookup`.
+### External Docking File Upload
+Upload receptor + docked ligand files from any platform (AutoDock Vina, Glide, GOLD, AutoDock-GPU, rDock, PLANTS) for deep analysis. Supports PDB, PDBQT, CIF, MOL2 for receptor and PDBQT, SDF for ligand poses. Auto-creates job and runs full analysis (3D view, interactions, clusters, residue energy, torsion).
 
-### Journal Finder Agentic Research Engine
-Journal module rebuilt from fragmented state into a unified research engine:
-- **DB-Powered**: DecisionEngine now queries the 36,145-journal SQLite database FIRST before live API calls.
-- **Unified API**: Replaced two siloed APIs with a single handler supporting 6 actions: search, verify, profile, suggest, stats, history.
-- **Hijacked Journal Detection**: Cross-references against `data/integrity/hijacked_journals.json` on every verification.
-- **Agent Tool Rewrite**: Was a ghost tool (returned instructions). Now actually executes DB queries and live API calls with 7 actions.
-- **Frontend**: 4 tabs — Verify, Search DB (36K journals), Suggest, Dossier (full journal profile with hijacked alerts).
-- **Bug Fix**: Fixed broken `verify_journal` pipeline action in `api/main.py` (TypeError on url param + dict attribute access).
+### MM-GBSA Free Energy Scoring (replaces ODDT/GNINA)
+CPU-only, no GPU required. Combines Vina MM term + GB desolvation + SA surface area + protein interaction bonus. Spatial grid optimization for large proteins. Per-pose MM-GBSA energies, Z-scores, and consensus with Vina.
 
-### Vina PDBQT Crash Prevention + GNINA Docker Install
-- **PDBQT Sanitizer**: 3-layer defense against `parse_pdbqt.cpp(69)` Vina crashes. Deep validation checks charge (col 71-76) and atom type (col 78-79) on every record. Auto-fixes blank charges → 0.00, infers atom types from elements.
-- **GNINA**: Added to `Dockerfile.release` (wget from GitHub releases v1.3). Added to Docker HEALTHCHECK.
+### Drug Analysis (renamed from Molecule Editor)
+Removed JSME Java applet drawing. Simplified to SMILES input + analysis (3D view, Properties, Filters, Optimize, PubChem search).
 
-### What's New in v6.4.0
+### Security & Stability
+- **file_info.py sandboxed** — blocks access to /etc/shadow, /root, /proc, /sys
+- **restart.py auth** — requires authentication + CSRF
+- **5 crash fixes** — chat_export, chat_files_path_get, nudge, chat_load, upload_work_dir_files
+- **8 bug fixes** — literature search, knowledge base, clinical trials, self_heal, lecture generator, upload, chat errors, JS exceptions
 
-### AutoResearchClaw Pipeline (10 Dimensions)
-A fully autonomous 25-stage research pipeline comparable to the paid AutoResearchClaw product:
-- **9 Phases**: Scoping → Literature → Molecular → QSAR → Docking → Statistics → Decision → Writing → Publication
-- **Triple Debate System**: Hypothesis (Pharmacologist/Biostatistician/Chemist), Method (Docking/QSAR/Pharmacophore/Literature), Results (Writer/Biostatistician)
-- **Self-Healing**: PIVOT to alternative methods, REFINE parameters on failure — max 3 retries per domain
-- **5-Layer Verification**: PubMed ID, CrossRef DOI, ClinicalTrials NCT, PubChem CID, LLM relevance
-- **5 Quality Gates**: Literature (≥5 papers), Molecular (Lipinski/MW), Docking (≥3 poses), Statistical (significance/effect size), Publication (IMRaD/citation integrity)
-- **8 HITL Modes**: Full Auto, Gate Only, Checkpoint, Co-Pilot, Step-by-Step, Express, Regulatory (ICH E9), Custom
-- **Cross-Run Evolution**: Ebbinghaus 30-day time-decay knowledge retention across research sessions
-
-### SPSS-Pro Biostatistics
-Complete SPSS-level statistical suite beyond basic analysis:
-- **20 Analysis Types**: Descriptive, Correlation, T-Test, ANOVA (4 post-hoc), Linear/Multiple/Logistic/Poisson/Negative Binomial/Stepwise Regression, 7 Non-Parametric tests, Survival (Kaplan-Meier + Cox), Normality (3 tests), Homogeneity (2 tests), ROC, Meta-Analysis, PK/PD, Bioequivalence (TOST), Power Analysis, Curve Estimation (11 models)
-- **8 Chart Types**: Histogram, Boxplot, Scatter, Q-Q, Bar, ROC Curve, Survival Curve, Correlation Heatmap — auto-generated base64 PNG
-- **Data Transformation**: Compute variable (formula), Recode, Rank, Fill Missing (mean/median/interpolate), Standardize (z-score/minmax/robust)
-- **Data Reduction**: PCA/Factor Analysis (eigenvalues, loadings, scree plot), Cronbach's Alpha Reliability, K-Means + Hierarchical Clustering with dendrogram
-- **Advanced Deep**: Missing Value Analysis, Curve Estimation, ROC with DeLong comparison, Stepwise Regression (AIC/BIC forward/backward)
-
-### Literature Search (10 Databases)
-Expanded from 3 to 10 academic databases — all free, no paid API keys:
-- PubMed, Semantic Scholar, Google Scholar (citation-ranked), Scopus, Web of Science, arXiv, Elsevier (ScienceDirect), Springer Nature, Europe PMC, bioRxiv/medRxiv
-- Scopus, WoS, Elsevier, and Springer use CrossRef proxy + 36,145-journal ISSN index for filtering
-
-### Journal Recommender
-- 36,145 Scopus + WoS journals in a SQLite database
-- Filter by indexing (Scopus/WoS/dual), open access, and subject category
-- Quality scoring: novelty, rigor, breadth, evidence, clarity → tier assignment (Tier 1-4)
-- Agent tool: "Recommend a journal for my paper"
-
-### GNINA CNN Docking
-
-AutoDock Vina is now paired with **GNINA CNN deep-learning scoring**. After Vina completes, GNINA automatically runs with the same prepared PDBQT files. Download GNINA PDBQT, SDF, and log alongside Vina outputs. CNN scoring modes: `none`, `all`, `rescore`, `refinement`.
-
-### 7 Computational Chemistry Modules
-QSAR modeling (6 ML algorithms), Pharmacophore detection and library screening, Deep Docking Analysis (3D molecular viewer + 6 analysis tabs), Molecular Optimization, Advanced Drug-Likeness Filters (PAINS/Brenk/NIH), 2D Molecule Editor, and System Benchmarking Suite.
-
-### Deep Docking Analysis
-Six-tab analysis panel with **3Dmol.js molecular viewer** (all 16 MoleculeViewer features: cartoon/stick/ball+stick/sphere, chain coloring, surface, H-bond cylinders, snapshot PNG, 4 quick presets), 2D interaction diagram (RDKit SVG), per-residue energy decomposition bar chart, RMSD pose clustering, and ligand torsion analysis.
-
-### Bug Fixes (v6.4.0)
-- Python 3.11 `type` syntax: replaced `type[X | Y]` with `type[X, Y]` for Docker compatibility
-- FastAPI `startup_event()` undefined → caused NameError on startup
-- Ketcher CDN down (`lifescience.opensource.epam.com`) → replaced with RDKit 2D preview + external link
-- Duplicate crontab in requirements.txt → removed
-- 22 garbage/broken files deleted from root
-
-### Bug Fixes (v6.3.0)
-- Docking download links fixed (path segments → query params)
-- Pose ranking corrected (explicit energy sort, most-negative = 1st)
-- Grid box auto-detection from protein atom coordinates
-- Structured Vina log with detailed energy table
-- SurfSense KB search fixed (await/sync method name mismatch)
-- Knowledge Base file upload handler fixed
-- Podcast generation wired to edge-tts (was hardcoded stub)
-- Docking prepare format detection cleaned up
+### Dockerfile
+- Added scipy, scikit-learn, pandas, matplotlib for Statistics module
+- Fixed pip install path (full /opt/venv-a0/bin/python)
+- Healthcheck on port 80
 
 ---
 
