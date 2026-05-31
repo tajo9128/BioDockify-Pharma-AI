@@ -3,6 +3,7 @@
   <script type="module">
     import { createStore } from "/js/AlpineStore.js";
     import { callJsonApi } from "/js/api.js";
+    import { Mol3DViewer, load3Dmol, PRESETS } from "/js/mol3d-engine.js";
 
     const RECENT_KEY = "molecule_editor_recent";
     const DEBOUNCE_MS = 500;
@@ -15,11 +16,13 @@
       dlScore: null, hergData: null, amesData: null, pkaData: null,
       bbbData: null, meltingPoint: null,
       pdbContent: null, pdbName: "", measureMode: false, residues: [],
-      superposedModels: [], showSequence: false,
       filterResult: null, filterLoading: false,
       optStrategy: "", optStrategies: [], optMutants: [], optLoading: false,
       pubchemQuery: "", pubchemLoading: false,
-      recent: [], _viewerReady: false, _viewer: null,
+      recent: [], _viewer: null,
+      // 3D state
+      currentStyle: "ballstick", currentColor: "Jmol",
+      bgColor: "#1a1a2e", showSurface: false,
 
       init() {
         try { this.recent = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); } catch(e) { this.recent = []; }
@@ -28,15 +31,12 @@
       clearAll() {
         this.smiles = ""; this.mw = null; this.propsLoaded = false;
         this.pdbContent = null; this.pdbName = ""; this.residues = [];
-        this.superposedModels = [];
         this.measureMode = false;
-        this._viewerReady = false;
-        if (this._viewer) { this._viewer.removeAllSurfaces(); this._viewer.clear(); this._viewer = null; }
+        if (this._viewer) { this._viewer.destroy(); this._viewer = null; }
       },
 
       _onSmilesChange() {
         clearTimeout(this._debounceTimer);
-        this._viewerReady = false;
         this._debounceTimer = setTimeout(() => { this.loadProperties(); this.init3DView(); }, DEBOUNCE_MS);
       },
 
@@ -99,50 +99,48 @@
         this.optLoading = false;
       },
 
-      init3DView() {
-        if (this._viewerReady) return;
-        const hasPdb = this.pdbContent && this.pdbContent.length > 100;
+      // ── 3D Viewer (uses shared Mol3DViewer engine) ──
+
+      async init3DView() {
+        const hasPdb = this.pdbContent && this.pdbContent.length > 50;
         const hasSmiles = !!this.smiles;
         if (!hasPdb && !hasSmiles) return;
-        if (typeof window.$3Dmol === "undefined") {
-          const s = document.createElement("script");
-          s.src = "https://3Dmol.org/build/3Dmol-min.js";
-          s.onload = () => setTimeout(() => this.init3DView(), 300);
-          document.head.appendChild(s);
-          return;
+
+        const ok = await load3Dmol();
+        if (!ok) { this.error = "Failed to load 3D viewer"; return; }
+
+        if (!this._viewer || !this._viewer.ready) {
+          this._viewer = new Mol3DViewer("me-3d-canvas", { bgColor: this.bgColor });
+          if (!this._viewer.init()) {
+            setTimeout(() => this.init3DView(), 300);
+            return;
+          }
         }
-        const el = document.getElementById("me-3d-canvas");
-        if (!el || el.clientWidth === 0) { setTimeout(() => this.init3DView(), 200); return; }
+
         this.loading = true;
+        const v = this._viewer;
+        v.removeAll();
 
         if (hasPdb) {
-          this._renderProtein(el);
-          return;
-        }
-        callJsonApi("structure_3d", { smiles: this.smiles }).then(r => {
-          if (!r.success) { this.error = r.error || "3D generation failed"; this.loading = false; return; }
-          const v = window.$3Dmol.createViewer(el, { backgroundColor: "#1a1a2e", antialias: true });
-          v.addModel(r.sdf, "sdf");
-          v.setStyle({}, { stick: { radius: 0.12, colorscheme: "Jmol" }, sphere: { scale: 0.3, colorscheme: "Jmol" } });
-          v.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.15, colorscheme: "whiteCarbon" });
-          v.zoomTo(); v.render();
-          this._viewer = v; this._viewerReady = true; window._meViewer = v; this.loading = false;
-          this._setupClickMeasure(v);
-        }).catch(e => { this.error = "3D viewer error: " + e.message; this.loading = false; });
-      },
-
-      _renderProtein(el) {
-        try {
-          const v = window.$3Dmol.createViewer(el, { backgroundColor: "#1a1a2e", antialias: true });
-          v.addModel(this.pdbContent, "pdb");
-          v.setStyle({ chain: "" }, { cartoon: { colorscheme: { prop: "chain", map: window.$3Dmol.elementColors.defaultColors || window.$3Dmol.ChainColors }}} );
-          v.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.08, colorscheme: "whiteCarbon" });
-          v.zoomTo(); v.render();
-          this._viewer = v; this._viewerReady = true; window._meViewer = v; this.loading = false;
+          // Protein mode
+          v._lastProteinPdb = this.pdbContent;
+          v.loadProtein(this.pdbContent, { style: "cartoon", color: "chain", opacity: 1.0 });
+          v.addSurface("vdw", 0.08, "whiteCarbon");
           this._parsePdbResidues(this.pdbContent);
-          this._setupClickMeasure(v);
-          if (this.superposedModels.length > 0) this._addSuperposedModels(v);
-        } catch(e) { this.error = "Protein render error: " + e.message; this.loading = false; }
+          v.zoomTo();
+          this.loading = false;
+        } else {
+          // Small molecule mode
+          try {
+            const r = await callJsonApi("structure_3d", { smiles: this.smiles });
+            if (!r.success) { this.error = r.error || "3D generation failed"; this.loading = false; return; }
+            v._lastLigandPdb = r.sdf;
+            v.loadLigand(r.sdf, "sdf", { style: this.currentStyle, color: this.currentColor });
+            v.addSurface("vdw", 0.15, "whiteCarbon");
+            v.zoomTo();
+            this.loading = false;
+          } catch(e) { this.error = "3D viewer error: " + e.message; this.loading = false; }
+        }
       },
 
       _parsePdbResidues(pdb) {
@@ -160,102 +158,176 @@
         }
       },
 
-      _setupClickMeasure(v) {
-        if (!v || !v.renderer) return;
-        const canvas = v.renderer.domElement;
-        if (!canvas) return;
-        let clicks = [];
-        canvas.addEventListener("click", (e) => {
-          if (!this.measureMode) return;
-          const rect = canvas.getBoundingClientRect();
-          const x = e.clientX - rect.left, y = e.clientY - rect.top;
-          const atom = v.getAtomNearPoint(x, y);
-          if (!atom) return;
-          clicks.push(atom);
-          if (clicks.length === 2) {
-            const d = Math.sqrt((clicks[0].x - clicks[1].x)**2 + (clicks[0].y - clicks[1].y)**2 + (clicks[0].z - clicks[1].z)**2);
-            v.addLabel(`${d.toFixed(2)}\u00c5`, { position: { x: (clicks[0].x+clicks[1].x)/2, y: (clicks[0].y+clicks[1].y)/2 + 0.5, z: (clicks[0].z+clicks[1].z)/2 }, backgroundColor: "rgba(0,0,0,0.7)", fontColor: "white", fontSize: 12 });
-            v.addCylinder({ start: clicks[0], end: clicks[1], radius: 0.1, color: "#ffd93d", fromCap: 1, toCap: 1 });
-            v.render();
-            this.message = `Distance: ${d.toFixed(2)}\u00c5`; setTimeout(() => this.message = "", 2000);
-            clicks = [];
-          }
-        });
+      // ── Style Controls ──
+
+      setStyle(style) {
+        this.currentStyle = style;
+        if (!this._viewer) return;
+        if (this.pdbContent) {
+          this._viewer.setProteinStyle(style === "ballstick" ? "stick" : style, this.currentColor, 1.0);
+        } else {
+          this._viewer.setLigandStyle(style, this.currentColor);
+        }
       },
+
+      setColor(color) {
+        this.currentColor = color;
+        if (!this._viewer) return;
+        if (this.pdbContent) {
+          this._viewer.setProteinStyle(this.currentStyle === "ballstick" ? "stick" : this.currentStyle, color, 1.0);
+        } else {
+          this._viewer.setLigandStyle(this.currentStyle, color);
+        }
+      },
+
+      toggleSurface() {
+        this.showSurface = !this.showSurface;
+        if (!this._viewer) return;
+        if (this.showSurface) {
+          this._viewer.addSurface("vdw", 0.5, "whiteCarbon");
+        } else {
+          this._viewer.removeSurfaces();
+        }
+      },
+
+      // ── Measure Mode ──
 
       toggleMeasureMode() {
         this.measureMode = !this.measureMode;
         if (this.measureMode) {
           this.message = "Click 2 atoms to measure distance";
+          this._measureAtoms = [];
         } else {
           this.message = "";
-          if (this._viewer) { this._viewer.removeAllLabels(); this._viewer.removeAllShapes(); this._viewer.render(); }
+          this._measureAtoms = [];
+          if (this._viewer) this._viewer.clearMeasurements();
         }
       },
 
+      handleCanvasClick(e) {
+        if (!this.measureMode || !this._viewer) return;
+        const atom = this._viewer.getAtomAtEvent(e);
+        if (!atom) return;
+        this._measureAtoms = this._measureAtoms || [];
+        this._measureAtoms.push(atom);
+        if (this._measureAtoms.length === 2) {
+          const d = this._viewer.addMeasurement(this._measureAtoms[0], this._measureAtoms[1]);
+          if (d) {
+            this.message = `Distance: ${d.toFixed(2)} Å`;
+            setTimeout(() => this.message = "", 3000);
+          }
+          this._measureAtoms = [];
+        }
+      },
+
+      // ── Residue Highlighting ──
+
       highlightResidue(key) {
-        const v = this._viewer; if (!v) return;
-        const [chain, resseq] = key.split(":");
-        v.removeAllSurfaces();
-        v.setStyle({}, { cartoon: { opacity: 0.3, colorscheme: { prop: "chain", map: window.$3Dmol.elementColors?.defaultColors }}} );
-        v.setStyle({ chain, resi: parseInt(resseq) }, { cartoon: { color: "#ffd93d" }, stick: { radius: 0.2, color: "#ffd93d" } });
-        v.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.15, colorscheme: "whiteCarbon" });
-        v.zoomTo({ chain, resi: parseInt(resseq) }); v.render();
+        if (!this._viewer) return;
+        const parts = key.split(":");
+        const chain = parts[0];
+        const resseq = parseInt(parts[1]);
+        this._viewer.highlightResidue(chain, resseq, "#ffd93d");
       },
 
       resetProteinView() {
-        const v = this._viewer; if (!v) return;
-        v.removeAllSurfaces();
-        v.setStyle({}, { cartoon: { colorscheme: { prop: "chain", map: window.$3Dmol.elementColors?.defaultColors }}} );
-        v.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.08, colorscheme: "whiteCarbon" });
-        v.zoomTo(); v.render();
+        if (!this._viewer) return;
+        this._viewer.resetProteinView("cartoon", "chain");
+        if (this.pdbContent) {
+          this._viewer.addSurface("vdw", 0.08, "whiteCarbon");
+        }
       },
+
+      // ── Presets ──
+
+      applyPreset(name) {
+        const preset = PRESETS[name];
+        if (!preset) return;
+        this.currentStyle = preset.ligandStyle;
+        this.currentColor = preset.ligandColor;
+        this.bgColor = preset.bgColor;
+        this.showSurface = preset.showSurface;
+        if (this._viewer) {
+          this._viewer.removeAll();
+          if (this.pdbContent) {
+            this._viewer.loadProtein(this.pdbContent, {
+              style: preset.proteinStyle, color: preset.proteinColor, opacity: preset.proteinOpacity,
+            });
+            if (preset.showSurface) this._viewer.addSurface("vdw", 0.5, "whiteCarbon");
+          } else if (this.smiles && this._viewer._lastLigandPdb) {
+            this._viewer.loadLigand(this._viewer._lastLigandPdb, "sdf", {
+              style: preset.ligandStyle, color: preset.ligandColor,
+            });
+            if (preset.showSurface) this._viewer.addSurface("vdw", 0.5, "whiteCarbon");
+          }
+          this._viewer.setBackground(preset.bgColor);
+          this._viewer.zoomTo();
+        }
+      },
+
+      // ── Zoom/Snapshot ──
+
+      zoomIn() { if (this._viewer) this._viewer.zoom(0.8); },
+      zoomOut() { if (this._viewer) this._viewer.zoom(1.25); },
+      resetView() { if (this._viewer) this._viewer.resetView(); },
+
+      takeSnapshot() {
+        if (!this._viewer) { this.error = "No 3D view to capture"; return; }
+        const uri = this._viewer.snapshot();
+        if (uri) {
+          const a = document.createElement("a");
+          a.href = uri; a.download = `molecule_${Date.now()}.png`;
+          a.click(); this.message = "Snapshot saved";
+          setTimeout(() => this.message = "", 1500);
+        }
+      },
+
+      toggleBg() {
+        const newBg = this.bgColor === "#1a1a2e" ? "#ffffff" : "#1a1a2e";
+        this.bgColor = newBg;
+        if (this._viewer) this._viewer.setBackground(newBg);
+      },
+
+      // ── File Handling ──
 
       handlePdbUpload(e) {
         const f = e.target.files[0]; if (!f) return;
         const r = new FileReader();
         r.onload = () => {
           this.pdbContent = r.result; this.pdbName = f.name.replace(/\.[^/.]+$/, "");
-          this._viewerReady = false; this.residues = []; this.superposedModels = [];
-          this.smiles = "";
-          this.propsLoaded = false;
+          this.smiles = ""; this.propsLoaded = false;
           this.activeTab = "3d";
+          if (this._viewer) { this._viewer.destroy(); this._viewer = null; }
           setTimeout(() => this.init3DView(), 100);
           this.message = `${f.name} loaded (PDB structure)`; setTimeout(() => this.message = "", 2000);
         };
         r.readAsText(f);
       },
 
-      toggleStyle(style) {
-        const v = this._viewer; if (!v) return;
-        v.removeAllSurfaces();
-        if (style === "stick") v.setStyle({}, { stick: { radius: 0.15, colorscheme: "Jmol" } });
-        else if (style === "sphere") v.setStyle({}, { sphere: { scale: 0.4, colorscheme: "Jmol" } });
-        else if (style === "ballstick") v.setStyle({}, { stick: { radius: 0.12, colorscheme: "Jmol" }, sphere: { scale: 0.3, colorscheme: "Jmol" } });
-        else if (style === "carbonchain") v.setStyle({}, { cartoon: { color: "spectrum" } });
-        else if (style === "charged") { v.setStyle({}, { stick: { colorscheme: "charge", radius: 0.15 } }); v.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.5, colorscheme: "charge" }); }
-        else if (style === "surface") v.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.7, colorscheme: "whiteCarbon" });
-        else if (style === "cpk") v.setStyle({}, { sphere: { scale: 0.6, colorscheme: "Jmol" } });
-        v.render();
+      handleFileUpload(e) {
+        const f = e.target.files[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = () => {
+          const content = r.result;
+          if (content.includes("ATOM") || content.includes("HETATM")) {
+            this.pdbContent = content; this.pdbName = f.name.replace(/\.[^/.]+$/, "");
+            this.smiles = ""; this.activeTab = "3d";
+            if (this._viewer) { this._viewer.destroy(); this._viewer = null; }
+            setTimeout(() => this.init3DView(), 100);
+          } else {
+            // Try as SMILES
+            const lines = content.split("\n").filter(l => l.trim() && !l.startsWith("#"));
+            if (lines.length) {
+              this.smiles = lines[0].split(/\s/)[0];
+              this._onSmilesChange();
+            }
+          }
+          this.message = `${f.name} loaded`; setTimeout(() => this.message = "", 2000);
+        };
+        r.readAsText(f);
       },
 
-      takeSnapshot() {
-        const v = this._viewer; if (!v) { this.error = "No 3D view to capture"; return; }
-        try {
-          const uri = v.pngURI();
-          const a = document.createElement("a");
-          a.href = uri; a.download = `molecule_${Date.now()}.png`;
-          a.click(); this.message = "Snapshot saved";
-          setTimeout(() => this.message = "", 1500);
-        } catch(e) { this.error = "Snapshot failed: " + e.message; }
-      },
-
-      toggleBg() {
-        const v = this._viewer; if (!v) return;
-        const c = v.getBackgroundColor();
-        v.setBackgroundColor(c === "#ffffff" || c === 0xffffff ? "#1a1a2e" : "#ffffff");
-        v.render();
-      },
+      // ── PubChem ──
 
       async searchPubchem() {
         const q = this.pubchemQuery.trim(); if (!q) return;
@@ -264,13 +336,14 @@
           const r = await callJsonApi("pubchem_lookup", { query: q });
           if (r.success) {
             this.smiles = r.smiles; this._onSmilesChange();
-            try { if (this._jsme) this._jsme.readGenericMolecularInput(r.smiles); } catch(e) {}
             this.message = `Loaded: ${r.name} (CID ${r.cid})`;
             setTimeout(() => this.message = "", 2500);
           } else { this.error = r.error || "Not found"; }
         } catch(e) { this.error = e.message; }
         this.pubchemLoading = false;
       },
+
+      // ── Export/Send ──
 
       exportMolecule(fmt) {
         if (!this.smiles) { this.error = "Enter SMILES first"; return; }
@@ -288,82 +361,29 @@
         if (!this.smiles) { this.error = "Enter or load a SMILES string first"; return; }
         const mt = Alpine.store("molecularToolkit");
         if (mt) { mt.smiles = this.smiles; }
-        this.message = "SMILES sent to ADMET"; setTimeout(() => this.message = "", 2000);
+        this.message = "SMILES sent to ADMET tab"; setTimeout(() => this.message = "", 2000);
       },
+
+      // ── Recent ──
 
       _addRecent() {
         if (!this.smiles) return;
-        this.recent = this.recent.filter(r => r.smiles !== this.smiles);
-        this.recent.unshift({ smiles: this.smiles, label: this.smiles.length > 30 ? this.smiles.slice(0, 30) + "..." : this.smiles, ts: Date.now() });
-        if (this.recent.length > 10) this.recent = this.recent.slice(0, 10);
+        const label = this.smiles.length > 20 ? this.smiles.slice(0,20) + "..." : this.smiles;
+        this.recent = [{ smiles: this.smiles, label, ts: Date.now() }, ...this.recent.filter(r => r.smiles !== this.smiles)].slice(0, 10);
         try { localStorage.setItem(RECENT_KEY, JSON.stringify(this.recent)); } catch(e) {}
       },
 
       loadRecent(smiles) {
-        this.smiles = smiles; this._onSmilesChange();
-        try { if (this._jsme) this._jsme.readGenericMolecularInput(smiles); } catch(e) {}
+        this.smiles = smiles;
+        this._onSmilesChange();
       },
 
       loadExample(name) {
-        const examples = {
-          "Aspirin": "CC(=O)Oc1ccccc1C(=O)O", "Caffeine": "Cn1cnc2c1c(=O)n(c(=O)n2C)C",
-          "Ibuprofen": "CC(C)Cc1ccc(cc1)C(C)C(=O)O", "Glucose": "OC[C@H]1OC(O)[C@H](O)[C@@H](O)[C@@H]1O",
-          "Sildenafil": "CCCC1=C2N(C(=O)N1CCC)CCCC2c3ccc(cc3)S(=O)(=O)N",
-          "Paracetamol": "CC(=O)Nc1ccc(O)cc1",
-        };
-        this.smiles = examples[name] || ""; this._onSmilesChange();
-        try { if (this._jsme && this.smiles) this._jsme.readGenericMolecularInput(this.smiles); } catch(e) {}
-      },
-
-      handleFileUpload(e) {
-        const f = e.target.files[0]; if (!f) return;
-        const r = new FileReader();
-        r.onload = () => {
-          const t = r.result;
-          const ext = f.name.split(".").pop().toLowerCase();
-          if (ext === "smi" || ext === "smiles") {
-            this.smiles = t.split("\n").find(l => l.trim() && !l.startsWith("#"))?.trim() || t.trim();
-            this._onSmilesChange();
-            try { if (this._jsme) this._jsme.readGenericMolecularInput(this.smiles); } catch(e) {}
-          } else { this.molFile = { name: f.name, content: t, ext: ext }; this.message = `${f.name} loaded (${ext})`; }
-        };
-        r.readAsText(f);
+        const examples = { Aspirin: "CC(=O)Oc1ccccc1C(=O)O", Caffeine: "Cn1c(=O)c2c(ncn2C)n(C)c1=O", Ibuprofen: "CC(C)Cc1ccc(cc1)C(C)C(=O)O", Glucose: "OC[C@H]1OC(O)[C@H](O)[C@@H](O)[C@@H]1O", Sildenafil: "CCCc1nn(C)c2c1nc(nc2OCC)c1cc(ccc1OCC)S(=O)(=O)N1CCN(C)CC1", Paracetamol: "CC(=O)Nc1ccc(O)cc1" };
+        if (examples[name]) { this.smiles = examples[name]; this._onSmilesChange(); }
       },
     });
   </script>
-  <style>
-    .me-layout { display: grid; grid-template-columns: 400px 1fr; gap: 10px; height: 100%; }
-    .me-left { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
-    .me-right { display: flex; flex-direction: column; overflow-y: auto; }
-    .me-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--color-border); margin-bottom: 8px; flex-shrink: 0; }
-    .me-tab { padding: 5px 12px; font-size: 0.64rem; font-weight: 600; cursor: pointer; border: none; background: none; color: var(--color-text-muted); border-bottom: 2px solid transparent; transition: all 0.15s; }
-    .me-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
-    .me-3d-view { flex: 1; min-height: 300px; border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; background: #fff; position: relative; }
-    .me-props { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
-    .me-prop { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: var(--color-panel); border-radius: 4px; font-size: 0.6rem; }
-    .me-prop-label { color: var(--color-text-muted); font-weight: 500; }
-    .me-prop-value { color: var(--color-text); font-weight: 600; font-family: monospace; }
-    .me-prop-pass { color: #22c55e; } .me-prop-fail { color: #ef4444; }
-    .me-style-row { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 4px; }
-    .me-style-btn { padding: 2px 8px; font-size: 0.55rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); cursor: pointer; }
-    .me-style-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-    .me-export-row { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 6px; }
-    .me-export-btn { padding: 3px 10px; font-size: 0.58rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-background); color: var(--color-text); cursor: pointer; font-weight: 500; }
-     .me-export-btn:hover { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
-     .me-export-btn.me-active { background: #ffd93d; color: #333; border-color: #ffd93d; font-weight: 700 }
-    .me-export-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .me-recent-item { cursor: pointer; padding: 3px 8px; font-size: 0.56rem; border-radius: 4px; background: color-mix(in srgb, var(--color-primary) 6%, transparent); color: var(--color-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
-     .me-recent-item:hover { background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
-     .me-filter-card { padding:8px;border-radius:6px;text-align:center }
-     .me-filter-card.me-pass { background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.2) }
-     .me-filter-card.me-fail { background:rgba(255,107,107,0.06);border:1px solid rgba(255,107,107,0.2) }
-     .me-filter-title { font-size:0.58rem;font-weight:700;color:var(--color-text) }
-     .me-filter-status { font-size:0.75rem;font-weight:700;margin:3px 0 }
-     .me-pass .me-filter-status { color:#22c55e } .me-fail .me-filter-status { color:#ef4444 }
-     .me-filter-detail { font-size:0.5rem;color:var(--color-text-muted);word-break:break-all }
-     .loading-spinner { width:12px;height:12px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin 0.8s linear infinite }
-    @media (max-width: 750px) { .me-layout { grid-template-columns: 1fr; } .me-left { max-height: 50vh; } }
-  </style>
 </head>
 <body style="margin:0">
   <div x-data class="nb-panel" x-init="$store.moleculeEditor.init()">
@@ -444,29 +464,50 @@
         </div>
 
         <div x-show="$store.moleculeEditor.activeTab === '3d'" style="flex:1;display:flex;flex-direction:column">
-          <div class="me-3d-view" id="me-3d-canvas">
-            <div x-show="!$store.moleculeEditor.smiles" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--color-panel);color:var(--color-text-muted);font-size:0.62rem;pointer-events:none">
+          <!-- 3D Canvas -->
+          <div class="me-3d-view" id="me-3d-canvas" @click="$store.moleculeEditor.handleCanvasClick($event)">
+            <div x-show="!$store.moleculeEditor.smiles && !$store.moleculeEditor.pdbContent" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--color-panel);color:var(--color-text-muted);font-size:0.62rem;pointer-events:none">
               <span class="material-symbols-outlined" style="font-size:40px;opacity:0.2;margin-bottom:6px">view_in_ar</span>
-              <span>Enter SMILES or draw to view 3D</span>
+              <span>Enter SMILES or upload PDB to view 3D</span>
             </div>
           </div>
-          <div class="me-style-row">
-            <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('stick')">Stick</button>
-            <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('ballstick')">Ball+Stick</button>
-            <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('cpk')">CPK</button>
-            <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('sphere')">Sphere</button>
-            <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('carbonchain')">Chain</button>
-            <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('surface')">Surface</button>
-            <button class="me-style-btn" @click="$store.moleculeEditor.toggleStyle('charged')">Charge</button>
+
+          <!-- Style Controls -->
+          <div class="me-controls-row">
+            <span class="me-ctrl-label">Style:</span>
+            <button class="me-style-btn" :class="{active: $store.moleculeEditor.currentStyle === 'stick'}" @click="$store.moleculeEditor.setStyle('stick')">Stick</button>
+            <button class="me-style-btn" :class="{active: $store.moleculeEditor.currentStyle === 'ballstick'}" @click="$store.moleculeEditor.setStyle('ballstick')">Ball+Stick</button>
+            <button class="me-style-btn" :class="{active: $store.moleculeEditor.currentStyle === 'sphere'}" @click="$store.moleculeEditor.setStyle('sphere')">Sphere</button>
+            <button class="me-style-btn" :class="{active: $store.moleculeEditor.currentStyle === 'cpk'}" @click="$store.moleculeEditor.setStyle('cpk')">CPK</button>
+            <button class="me-style-btn" :class="{active: $store.moleculeEditor.currentStyle === 'cartoon'}" @click="$store.moleculeEditor.setStyle('cartoon')">Cartoon</button>
+            <span class="me-separator"></span>
+            <span class="me-ctrl-label">Color:</span>
+            <select x-model="$store.moleculeEditor.currentColor" @change="$store.moleculeEditor.setColor($event.target.value)" class="me-select">
+              <option value="Jmol">Element</option>
+              <option value="chain">Chain</option>
+              <option value="amino">Residue</option>
+              <option value="spectrum">Spectrum</option>
+              <option value="whiteCarbon">White</option>
+              <option value="greenCarbon">Green</option>
+              <option value="cyanCarbon">Cyan</option>
+            </select>
           </div>
-          <div class="me-export-row" style="margin-top:4px;justify-content:flex-end">
-            <button class="me-export-btn" @click="$store.moleculeEditor.toggleMeasureMode()" :class="$store.moleculeEditor.measureMode ? 'me-active' : ''" style="border-color:#ffd93d">
+
+          <!-- Action Controls -->
+          <div class="me-controls-row">
+            <button class="me-style-btn" :class="{active: $store.moleculeEditor.showSurface}" @click="$store.moleculeEditor.toggleSurface()">Surface</button>
+            <button class="me-style-btn" @click="$store.moleculeEditor.applyPreset('default')">Default</button>
+            <button class="me-style-btn" @click="$store.moleculeEditor.applyPreset('dark')">Dark</button>
+            <button class="me-style-btn" @click="$store.moleculeEditor.applyPreset('publication')">Publication</button>
+            <span class="me-separator"></span>
+            <button class="me-style-btn" @click="$store.moleculeEditor.toggleMeasureMode()" :class="{active: $store.moleculeEditor.measureMode}" style="border-color:#ffd93d">
               <span class="material-symbols-outlined" style="font-size:12px">straighten</span> Measure
             </button>
-            <button class="me-export-btn" @click="$store.moleculeEditor.toggleBg()">🌓 BG</button>
-            <button class="me-export-btn" @click="$store.moleculeEditor.takeSnapshot()" style="background:var(--color-primary);color:white;border-color:var(--color-primary)">
-              <span class="material-symbols-outlined" style="font-size:12px">camera</span> Snap
-            </button>
+            <button class="me-style-btn" @click="$store.moleculeEditor.toggleBg()">BG</button>
+            <button class="me-style-btn" @click="$store.moleculeEditor.zoomIn()">+</button>
+            <button class="me-style-btn" @click="$store.moleculeEditor.zoomOut()">−</button>
+            <button class="me-style-btn" @click="$store.moleculeEditor.resetView()">Reset</button>
+            <button class="me-style-btn" @click="$store.moleculeEditor.takeSnapshot()" style="background:var(--color-primary);color:white;border-color:var(--color-primary)">Snap</button>
           </div>
 
           <!-- Protein Sequence Strip -->
@@ -474,7 +515,7 @@
             <div style="margin-top:6px;padding:6px 8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
                 <span style="font-size:0.58rem;font-weight:600;color:var(--color-primary)" x-text="$store.moleculeEditor.residues.length + ' residues · click to zoom'"></span>
-                <button class="me-export-btn" @click="$store.moleculeEditor.resetProteinView()" style="font-size:0.52rem">Reset View</button>
+                <button class="me-style-btn" @click="$store.moleculeEditor.resetProteinView()" style="font-size:0.52rem">Reset View</button>
               </div>
               <div style="display:flex;gap:2px;flex-wrap:wrap;max-height:80px;overflow-y:auto">
                 <template x-for="r in $store.moleculeEditor.residues">
@@ -652,9 +693,49 @@
       .nb-input:focus { outline:none;border-color:var(--color-primary) }
       .nb-btn-primary { display:flex;align-items:center;justify-content:center;gap:3px;padding:6px 10px;background:var(--color-primary);color:white;border:none;border-radius:6px;cursor:pointer;font-size:0.66rem;font-weight:600 }
       .nb-btn-primary:disabled { opacity:0.5;cursor:not-allowed }
+      .nb-btn-secondary { padding:4px 8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:5px;cursor:pointer;font-size:0.54rem;color:var(--color-text-muted) }
+      .nb-btn-secondary:hover { border-color:var(--color-primary);color:var(--color-primary) }
       .nb-upload-label { display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--color-background);border:1px dashed var(--color-border);border-radius:6px;color:var(--color-text-muted);cursor:pointer;font-size:0.64rem;transition:all 0.15s }
       .nb-upload-label:hover { border-color:var(--color-primary);color:var(--color-primary) }
       .nb-upload-label .material-symbols-outlined { font-size:18px }
+      .nb-loading { display:flex;align-items:center;gap:5px;font-size:0.62rem;color:var(--color-text-muted) }
+      .loading-spinner { width:12px;height:12px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin 0.8s linear infinite }
+      @keyframes spin { to { transform:rotate(360deg) } }
+      .me-layout { display:grid;grid-template-columns:340px 1fr;gap:10px;flex:1;min-height:0 }
+      .me-left { display:flex;flex-direction:column;gap:6px;overflow-y:auto }
+      .me-right { display:flex;flex-direction:column;overflow-y:auto }
+      .me-tabs { display:flex;gap:0;border-bottom:1px solid var(--color-border);margin-bottom:8px;flex-shrink:0 }
+      .me-tab { padding:5px 12px;font-size:0.64rem;font-weight:600;cursor:pointer;border:none;background:none;color:var(--color-text-muted);border-bottom:2px solid transparent;transition:all 0.15s }
+      .me-tab.active { color:var(--color-primary);border-bottom-color:var(--color-primary) }
+      .me-3d-view { flex:1;min-height:300px;border:1px solid var(--color-border);border-radius:8px;overflow:hidden;background:#1a1a2e;position:relative }
+      .me-controls-row { display:flex;gap:3px;flex-wrap:wrap;margin-top:4px;align-items:center }
+      .me-style-btn { padding:3px 8px;font-size:0.55rem;border:1px solid var(--color-border);border-radius:4px;background:var(--color-panel);color:var(--color-text);cursor:pointer;transition:all 0.1s }
+      .me-style-btn:hover { border-color:var(--color-primary);color:var(--color-primary) }
+      .me-style-btn.active { background:var(--color-primary);color:white;border-color:var(--color-primary) }
+      .me-select { padding:3px 8px;border:1px solid var(--color-border);border-radius:4px;background:var(--color-background);color:var(--color-text);font-size:0.56rem }
+      .me-ctrl-label { font-size:0.52rem;color:var(--color-text-muted);font-weight:600 }
+      .me-separator { width:1px;height:16px;background:var(--color-border);margin:0 4px }
+      .me-props { display:grid;grid-template-columns:1fr 1fr;gap:4px 10px }
+      .me-prop { display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:var(--color-panel);border-radius:4px;font-size:0.6rem }
+      .me-prop-label { color:var(--color-text-muted);font-weight:500 }
+      .me-prop-value { color:var(--color-text);font-weight:600;font-family:monospace }
+      .me-export-row { display:flex;gap:3px;flex-wrap:wrap;margin-top:6px }
+      .me-export-btn { padding:3px 10px;font-size:0.58rem;border:1px solid var(--color-border);border-radius:4px;background:var(--color-background);color:var(--color-text);cursor:pointer;font-weight:500;transition:all 0.12s }
+      .me-export-btn:hover { background:var(--color-primary);color:white;border-color:var(--color-primary) }
+      .me-export-btn:disabled { opacity:0.4;cursor:not-allowed }
+      .me-recent-item { cursor:pointer;padding:3px 8px;font-size:0.56rem;border-radius:4px;background:color-mix(in srgb, var(--color-primary) 6%, transparent);color:var(--color-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px }
+      .me-recent-item:hover { background:color-mix(in srgb, var(--color-primary) 14%, transparent) }
+      .me-filter-card { padding:8px;border-radius:6px;text-align:center }
+      .me-filter-card.me-pass { background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.2) }
+      .me-filter-card.me-fail { background:rgba(255,107,107,0.06);border:1px solid rgba(255,107,107,0.2) }
+      .me-filter-title { font-size:0.58rem;font-weight:700;color:var(--color-text) }
+      .me-filter-status { font-size:0.75rem;font-weight:700;margin:3px 0 }
+      .me-pass .me-filter-status { color:#22c55e } .me-fail .me-filter-status { color:#ef4444 }
+      .me-filter-detail { font-size:0.5rem;color:var(--color-text-muted);word-break:break-all }
+      .nb-box { padding:8px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:8px }
+      .nb-box h4 { font-size:0.64rem;font-weight:600;color:var(--color-primary);margin:0 0 6px 0 }
+      .nb-entry-card { padding:6px 8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px }
+      @media (max-width:750px) { .me-layout { grid-template-columns:1fr } .me-left { max-height:50vh } }
     </style>
   </div>
 </body>

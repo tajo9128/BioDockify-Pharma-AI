@@ -3,24 +3,33 @@
   <script type="module">
     import { createStore } from "/js/AlpineStore.js";
     import { callJsonApi } from "/js/api.js";
+    import { Mol3DViewer, load3Dmol, PRESETS } from "/js/mol3d-engine.js";
 
     export const store = createStore("dockingAnalysis", {
       jobId: "", activeTab: "3dview", loading: false, error: "", message: "",
       deepData: null, poseIndex: 0, energies: [],
-      viewerReady: false, viewerRef: null,
-      proteinStyle: "cartoon", proteinColor: "spectrum", proteinShow: true, proteinOpacity: 1.0,
-      ligandStyle: "stick", ligandColor: "greenCarbon", ligandShow: true,
-      showSurface: false, showHBonds: true, showLabels: false, bgColor: "#ffffff",
-      spinning: false, zoomLevel: 100,
+      // 3D viewer state
+      proteinStyle: "cartoon", proteinColor: "spectrum", proteinOpacity: 1.0,
+      ligandStyle: "stick", ligandColor: "greenCarbon",
+      showSurface: false, showHBonds: true, showLabels: false,
+      bgColor: "#ffffff", spinning: false,
+      // Upload
       uploadMode: false, receptorFile: null, ligandFile: null,
       receptorName: "", ligandName: "", uploadLoading: false,
+      // Internal
+      _viewer: null,
 
       async analyze() {
         if (!this.jobId) { this.error = "Enter a docking job ID"; return; }
         this.loading = true; this.error = "";
         try {
           const r = await callJsonApi("docking_analysis", { action: "deep_analysis", job_id: this.jobId });
-          if (!r.success) { this.error = r.error; } else { this.deepData = r; this.energies = r.energies || []; setTimeout(() => this.init3DView(), 200); }
+          if (!r.success) { this.error = r.error; }
+          else {
+            this.deepData = r;
+            this.energies = r.energies || [];
+            this._renderAll();
+          }
         } catch (e) { this.error = e.message; }
         this.loading = false;
       },
@@ -75,68 +84,178 @@
         this.receptorFile = null; this.ligandFile = null;
         this.receptorName = ""; this.ligandName = "";
       },
+
       async analyzeJobId(id) { this.jobId = id; await this.analyze(); },
-      get3DViewer() { return this.viewerRef || window._dockingViewer; },
-      init3DView() {
-        if (!window.$3Dmol || this.viewerRef) return;
-        const el = document.getElementById("da-3d-canvas");
-        if (!el || el.clientWidth === 0) { setTimeout(() => this.init3DView(), 200); return; }
-        const v = window.$3Dmol.createViewer(el, { backgroundColor: this.bgColor, antialias: true, cartoonQuality: 10 });
-        this.viewerRef = v; window._dockingViewer = v; this.viewerReady = true; this.renderScene();
+
+      // ── 3D Viewer ──
+
+      async _ensureViewer() {
+        if (this._viewer && this._viewer.ready) return true;
+        const ok = await load3Dmol();
+        if (!ok) { this.error = "Failed to load 3D viewer"; return false; }
+        this._viewer = new Mol3DViewer("da-3d-canvas", { bgColor: this.bgColor });
+        return this._viewer.init();
       },
-      renderScene() {
-        const v = this.get3DViewer(); if (!v || !this.deepData) return;
-        v.removeAllModels(); v.removeAllLabels(); v.removeAllSurfaces();
-        const pdb = (s) => s && (s.includes("ATOM") || s.includes("HETATM"));
+
+      async _renderAll() {
+        const ok = await this._ensureViewer();
+        if (!ok || !this.deepData) return;
+        const v = this._viewer;
         const ov = this.deepData.overlay;
-        if (ov?.receptor_pdb && pdb(ov.receptor_pdb) && this.proteinShow) {
-          v.addModel(ov.receptor_pdb, "pdb");
-          const sc = this.proteinColor === "ss" ? "rasmol" : this.proteinColor;
-          const so = { cartoon:{}, stick:{radius:0.15}, sphere:{radius:0.5}, line:{linewidth:1.5}, cross:{radius:0.1} };
-          so[this.proteinStyle] = so[this.proteinStyle] || {};
-          Object.assign(so[this.proteinStyle], { colorscheme: sc, opacity: this.proteinOpacity });
-          v.setStyle({}, so);
+        if (!ov) return;
+
+        v.removeAll();
+
+        // Load protein
+        if (ov.receptor_pdb) {
+          v._lastProteinPdb = ov.receptor_pdb;
+          v.loadProtein(ov.receptor_pdb, {
+            style: this.proteinStyle,
+            color: this.proteinColor,
+            opacity: this.proteinOpacity,
+          });
         }
-        if (ov?.poses && this.poseIndex < ov.poses.length && this.ligandShow) {
-          const pp = ov.poses[this.poseIndex].pdb;
-          if (pdb(pp)) { v.addModel(pp, "pdb"); const lm = v.getModel(-1); if (this.ligandStyle === "ballstick") lm.setStyle({}, { stick: { colorscheme: this.ligandColor, radius: 0.15 }, sphere: { colorscheme: this.ligandColor, scale: 0.35 } }); else if (this.ligandStyle === "stick") lm.setStyle({}, { stick: { colorscheme: this.ligandColor, radius: 0.22 } }); else if (this.ligandStyle === "sphere") lm.setStyle({}, { sphere: { colorscheme: this.ligandColor, radius: 0.4 } }); else if (this.ligandStyle === "line") lm.setStyle({}, { line: { colorscheme: this.ligandColor, linewidth: 2.5 } }); }
+
+        // Load active pose
+        if (ov.poses && this.poseIndex < ov.poses.length) {
+          const pose = ov.poses[this.poseIndex];
+          if (pose.pdb) {
+            v._lastLigandPdb = pose.pdb;
+            v.loadLigand(pose.pdb, "pdb", {
+              style: this.ligandStyle,
+              color: this.ligandColor,
+            });
+          }
         }
-        if (this.showSurface) try { v.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.5, colorscheme: "whiteCarbon" }, { hetflag: false }); } catch (e) {}
-        if (this.showHBonds && this.deepData?.interactions?.hydrogen_bonds) {
-          this.deepData.interactions.hydrogen_bonds.forEach(hb => { try { const pA = v.selectedAtoms({ resi: hb.resseq, chain: hb.chain }); const lA = v.selectedAtoms({ hetflag: true }); if (pA.length && lA.length) { v.addCylinder({ start: pA[0], end: lA[0], radius: 0.08, color: "#facc15", dashed: true }); if (this.showLabels) v.addLabel(`${hb.distance}Å`, { position: { x: (pA[0].x + lA[0].x) / 2, y: (pA[0].y + lA[0].y) / 2, z: (pA[0].z + lA[0].z) / 2 }, backgroundColor: "black", fontColor: "white", fontSize: 10 }); } } catch (e) {} });
+
+        // Surface
+        if (this.showSurface) {
+          v.addSurface("vdw", 0.5, "whiteCarbon");
         }
-        if (this.showLabels && this.ligandShow) try { v.addPropertyLabels("resn", { hetflag: true }, { fontColor: this.bgColor === "#ffffff" ? "black" : "white", fontSize: 10, showBackground: false }); } catch (e) {}
-        v.zoomTo(this.ligandShow ? { hetflag: true } : undefined); v.render();
+
+        // H-bonds
+        if (this.showHBonds && this.deepData.interactions?.hydrogen_bonds) {
+          v._lastHBonds = this.deepData.interactions.hydrogen_bonds;
+          v.showHBonds(this.deepData.interactions.hydrogen_bonds);
+        }
+
+        v.zoomTo();
+        this._startSpinIfNeeded();
       },
-      zoomIn() { const v = this.get3DViewer(); if (v) { v.zoom(0.8, 500); this.zoomLevel = Math.min(this.zoomLevel + 20, 200); } },
-      zoomOut() { const v = this.get3DViewer(); if (v) { v.zoom(1.25, 500); this.zoomLevel = Math.max(this.zoomLevel - 20, 20); } },
-      resetView() { const v = this.get3DViewer(); if (v) { v.zoomTo(); this.zoomLevel = 100; v.render(); } },
-      toggleSpin() { this.spinning = !this.spinning; const v = this.get3DViewer(); if (v) v.spin(this.spinning ? 0.5 : 0); },
-      takeSnapshot() { const v = this.get3DViewer(); if (!v) return; try { const u = v.pngURI(); const a = document.createElement("a"); a.href = u; a.download = `docking_${this.jobId}.png`; a.click(); } catch (e) {} },
-      setBg(c) { this.bgColor = c; const v = this.get3DViewer(); if (v) { v.setBackgroundColor(c); v.render(); } },
-      applyPreset(n) {
-        if (n === "default") { this.proteinStyle = "cartoon"; this.proteinColor = "ss"; this.ligandStyle = "stick"; this.ligandColor = "greenCarbon"; this.bgColor = "#ffffff"; }
-        else if (n === "dark") { this.proteinStyle = "cartoon"; this.proteinColor = "spectrum"; this.ligandStyle = "stick"; this.ligandColor = "orangeCarbon"; this.bgColor = "#1a1a2e"; }
-        else if (n === "surface") { this.proteinOpacity = 0.6; this.showSurface = true; this.ligandStyle = "ballstick"; this.ligandColor = "magentaCarbon"; }
-        else if (n === "analysis") { this.proteinStyle = "stick"; this.proteinColor = "rasmol"; this.ligandStyle = "ballstick"; this.ligandColor = "cyanCarbon"; this.bgColor = "#f0f4f8"; }
-        setTimeout(() => this.renderScene(), 100);
+
+      _startSpinIfNeeded() {
+        if (this._viewer && this.spinning) {
+          this._viewer.spin(0.5);
+        }
       },
+
+      switchPose(index) {
+        this.poseIndex = index;
+        if (this._viewer && this.deepData?.overlay?.poses) {
+          this._viewer.switchPose(this.deepData.overlay.poses, index);
+          // Re-apply current styles
+          this._viewer.setLigandStyle(this.ligandStyle, this.ligandColor);
+        }
+      },
+
+      applyPreset(name) {
+        const preset = PRESETS[name];
+        if (!preset) return;
+        this.proteinStyle = preset.proteinStyle;
+        this.proteinColor = preset.proteinColor;
+        this.ligandStyle = preset.ligandStyle;
+        this.ligandColor = preset.ligandColor;
+        this.bgColor = preset.bgColor;
+        this.showSurface = preset.showSurface;
+        this.showHBonds = preset.showHBonds;
+        this.proteinOpacity = preset.proteinOpacity;
+        this._renderAll();
+      },
+
+      setProteinStyle(style) {
+        this.proteinStyle = style;
+        if (this._viewer) this._viewer.setProteinStyle(style, this.proteinColor, this.proteinOpacity);
+      },
+
+      setProteinColor(color) {
+        this.proteinColor = color;
+        if (this._viewer) this._viewer.setProteinStyle(this.proteinStyle, color, this.proteinOpacity);
+      },
+
+      setLigandStyle(style) {
+        this.ligandStyle = style;
+        if (this._viewer) this._viewer.setLigandStyle(style, this.ligandColor);
+      },
+
+      setLigandColor(color) {
+        this.ligandColor = color;
+        if (this._viewer) this._viewer.setLigandStyle(this.ligandStyle, color);
+      },
+
+      toggleSurface() {
+        this.showSurface = !this.showSurface;
+        if (this._viewer) {
+          if (this.showSurface) {
+            this._viewer.addSurface("vdw", 0.5, "whiteCarbon");
+          } else {
+            this._viewer.removeSurfaces();
+          }
+        }
+      },
+
+      toggleHBonds() {
+        this.showHBonds = !this.showHBonds;
+        if (this._viewer) {
+          if (this.showHBonds && this.deepData?.interactions?.hydrogen_bonds) {
+            this._viewer.showHBonds(this.deepData.interactions.hydrogen_bonds);
+          } else {
+            this._viewer.clearHBonds();
+          }
+        }
+      },
+
+      toggleSpin() {
+        this.spinning = !this.spinning;
+        if (this._viewer) {
+          this._viewer.spin(this.spinning ? 0.5 : false);
+        }
+      },
+
+      zoomIn() { if (this._viewer) this._viewer.zoom(0.8); },
+      zoomOut() { if (this._viewer) this._viewer.zoom(1.25); },
+      resetView() { if (this._viewer) this._viewer.resetView(); },
+
+      takeSnapshot() {
+        if (!this._viewer) return;
+        const uri = this._viewer.snapshot();
+        if (uri) {
+          const a = document.createElement("a");
+          a.href = uri;
+          a.download = `docking_${this.jobId || "pose"}.png`;
+          a.click();
+          this.message = "Snapshot saved";
+          setTimeout(() => this.message = "", 2000);
+        }
+      },
+
+      setBg(c) {
+        this.bgColor = c;
+        if (this._viewer) this._viewer.setBackground(c);
+      },
+
       energyColor(v) { return v < 0 ? "#22c55e" : "#ff6b6b"; },
     });
-
-    if (typeof window.$3Dmol === "undefined") { const s = document.createElement("script"); s.src = "https://3Dmol.org/build/3Dmol-min.js"; s.onload = () => { if (window._dockingViewer) window._dockingViewer.render(); }; document.head.appendChild(s); }
   </script>
 </head>
 <body>
   <div x-data class="da-panel">
-    <!-- Compact Header -->
+    <!-- Header -->
     <div class="da-header">
       <div class="da-header-left">
         <span class="material-symbols-outlined da-icon">biotech</span>
         <h2>Docking Analysis</h2>
       </div>
       <div class="da-header-right">
-        <!-- Toggle -->
         <div class="da-toggle">
           <button class="da-toggle-btn" :class="{active: !$store.dockingAnalysis.uploadMode}" @click="$store.dockingAnalysis.uploadMode = false">Job ID</button>
           <button class="da-toggle-btn" :class="{active: $store.dockingAnalysis.uploadMode}" @click="$store.dockingAnalysis.uploadMode = true">Upload</button>
@@ -146,7 +265,6 @@
 
     <!-- Input Section -->
     <div class="da-input-section">
-      <!-- Job ID Mode -->
       <div x-show="!$store.dockingAnalysis.uploadMode" class="da-input-row">
         <input type="text" x-model="$store.dockingAnalysis.jobId" placeholder="Enter docking job ID..." class="da-input" @keyup.enter="$store.dockingAnalysis.analyze()" />
         <button class="da-btn" @click="$store.dockingAnalysis.analyze()" :disabled="$store.dockingAnalysis.loading || !$store.dockingAnalysis.jobId">
@@ -154,7 +272,6 @@
         </button>
       </div>
 
-      <!-- Upload Mode -->
       <div x-show="$store.dockingAnalysis.uploadMode" class="da-upload-section">
         <div class="da-upload-grid">
           <div class="da-upload-card">
@@ -192,7 +309,7 @@
 
     <!-- Tabs -->
     <div class="da-tabs" x-show="$store.dockingAnalysis.deepData">
-      <button class="da-tab" :class="{active: $store.dockingAnalysis.activeTab === '3dview'}" @click="$store.dockingAnalysis.activeTab = '3dview'; setTimeout(() => $store.dockingAnalysis.init3DView(), 200)">3D View</button>
+      <button class="da-tab" :class="{active: $store.dockingAnalysis.activeTab === '3dview'}" @click="$store.dockingAnalysis.activeTab = '3dview'">3D View</button>
       <button class="da-tab" :class="{active: $store.dockingAnalysis.activeTab === '2d'}" @click="$store.dockingAnalysis.activeTab = '2d'">2D Diagram</button>
       <button class="da-tab" :class="{active: $store.dockingAnalysis.activeTab === 'deep'}" @click="$store.dockingAnalysis.activeTab = 'deep'">Interactions</button>
       <button class="da-tab" :class="{active: $store.dockingAnalysis.activeTab === 'energy'}" @click="$store.dockingAnalysis.activeTab = 'energy'">Energy</button>
@@ -204,42 +321,77 @@
     <div class="da-content" x-show="$store.dockingAnalysis.deepData">
       <!-- Pose Selector -->
       <div class="da-poses" x-show="$store.dockingAnalysis.energies?.length">
-        <span class="da-pose-label" x-text="'Pose ' + ($store.dockingAnalysis.poseIndex + 1) + '/' + $store.dockingAnalysis.energies.length"></span>
+        <span class="da-pose-label">Pose:</span>
         <template x-for="(e, i) in $store.dockingAnalysis.energies" :key="i">
-          <button @click="$store.dockingAnalysis.poseIndex = i; $store.dockingAnalysis.renderScene()" class="da-pose-btn" :class="{active: $store.dockingAnalysis.poseIndex === i}" x-text="'#'+(i+1)+' '+e.toFixed(1)"></button>
+          <button @click="$store.dockingAnalysis.switchPose(i)" class="da-pose-btn" :class="{active: $store.dockingAnalysis.poseIndex === i}" x-text="'#'+(i+1)+' '+e.toFixed(1)"></button>
         </template>
       </div>
 
       <!-- 3D View -->
       <div x-show="$store.dockingAnalysis.activeTab === '3dview'" class="da-3d-section">
-        <div class="da-3d-controls">
+        <!-- Controls Row 1: Presets -->
+        <div class="da-controls-row">
           <div class="da-presets">
-            <button @click="$store.dockingAnalysis.applyPreset('default')" class="da-preset-btn">Default</button>
-            <button @click="$store.dockingAnalysis.applyPreset('dark')" class="da-preset-btn">Dark</button>
-            <button @click="$store.dockingAnalysis.applyPreset('surface')" class="da-preset-btn">Surface</button>
-            <button @click="$store.dockingAnalysis.applyPreset('analysis')" class="da-preset-btn">Analysis</button>
-          </div>
-          <div class="da-style-controls">
-            <select x-model="$store.dockingAnalysis.proteinStyle" @change="$store.dockingAnalysis.renderScene()" class="da-select"><option value="cartoon">Cartoon</option><option value="stick">Stick</option><option value="sphere">Sphere</option></select>
-            <select x-model="$store.dockingAnalysis.proteinColor" @change="$store.dockingAnalysis.renderScene()" class="da-select"><option value="ss">SS</option><option value="spectrum">Spectrum</option><option value="chain">Chain</option></select>
-            <select x-model="$store.dockingAnalysis.ligandStyle" @change="$store.dockingAnalysis.renderScene()" class="da-select"><option value="stick">Stick</option><option value="ballstick">Ball+Stick</option><option value="sphere">Sphere</option></select>
-            <select x-model="$store.dockingAnalysis.ligandColor" @change="$store.dockingAnalysis.renderScene()" class="da-select"><option value="greenCarbon">Green</option><option value="cyanCarbon">Cyan</option><option value="orangeCarbon">Orange</option><option value="magentaCarbon">Magenta</option></select>
-            <label class="da-check"><input type="checkbox" x-model="$store.dockingAnalysis.showSurface" @change="$store.dockingAnalysis.renderScene()" /> Surface</label>
-            <label class="da-check"><input type="checkbox" x-model="$store.dockingAnalysis.showHBonds" @change="$store.dockingAnalysis.renderScene()" /> H-Bonds</label>
+            <template x-for="p in ['default','dark','publication','pymol','surface','analysis']" :key="p">
+              <button @click="$store.dockingAnalysis.applyPreset(p)" class="da-preset-btn" x-text="p.charAt(0).toUpperCase() + p.slice(1)"></button>
+            </template>
           </div>
         </div>
-        <div id="da-3d-canvas" class="da-3d-canvas">
-          <div x-show="$store.dockingAnalysis.energies?.length" class="da-energy-badge" x-text="(($store.dockingAnalysis.energies[$store.dockingAnalysis.poseIndex] || 0).toFixed(1)) + ' kcal/mol'"></div>
+
+        <!-- Controls Row 2: Style + Color -->
+        <div class="da-controls-row">
+          <span class="da-ctrl-label">Protein:</span>
+          <select x-model="$store.dockingAnalysis.proteinStyle" @change="$store.dockingAnalysis.setProteinStyle($event.target.value)" class="da-select">
+            <option value="cartoon">Cartoon</option>
+            <option value="stick">Stick</option>
+            <option value="sphere">Sphere</option>
+            <option value="line">Line</option>
+            <option value="cross">Cross</option>
+          </select>
+          <select x-model="$store.dockingAnalysis.proteinColor" @change="$store.dockingAnalysis.setProteinColor($event.target.value)" class="da-select">
+            <option value="spectrum">Spectrum</option>
+            <option value="chain">Chain</option>
+            <option value="rasmol">Residue</option>
+            <option value="amino">Amino</option>
+            <option value="whiteCarbon">White</option>
+          </select>
+          <span class="da-ctrl-label" style="margin-left:8px">Ligand:</span>
+          <select x-model="$store.dockingAnalysis.ligandStyle" @change="$store.dockingAnalysis.setLigandStyle($event.target.value)" class="da-select">
+            <option value="stick">Stick</option>
+            <option value="ballstick">Ball+Stick</option>
+            <option value="sphere">Sphere</option>
+            <option value="line">Line</option>
+          </select>
+          <select x-model="$store.dockingAnalysis.ligandColor" @change="$store.dockingAnalysis.setLigandColor($event.target.value)" class="da-select">
+            <option value="greenCarbon">Green</option>
+            <option value="cyanCarbon">Cyan</option>
+            <option value="orangeCarbon">Orange</option>
+            <option value="magentaCarbon">Magenta</option>
+            <option value="yellowCarbon">Yellow</option>
+          </select>
         </div>
-        <div class="da-3d-actions">
+
+        <!-- Controls Row 3: Toggles + Actions -->
+        <div class="da-controls-row">
+          <label class="da-check"><input type="checkbox" x-model="$store.dockingAnalysis.showSurface" @change="$store.dockingAnalysis.toggleSurface()" /> Surface</label>
+          <label class="da-check"><input type="checkbox" x-model="$store.dockingAnalysis.showHBonds" @change="$store.dockingAnalysis.toggleHBonds()" /> H-Bonds</label>
+          <span class="da-separator"></span>
+          <template x-for="c in ['#ffffff','#1a1a2e','#0f2027','#f0f4f8','#111827']">
+            <span @click="$store.dockingAnalysis.setBg(c)" class="da-bg-dot" :style="'background:' + c + ';border-color:' + ($store.dockingAnalysis.bgColor === c ? 'var(--color-primary)' : 'var(--color-border)')"></span>
+          </template>
+          <span class="da-separator"></span>
           <div class="da-zoom">
             <button @click="$store.dockingAnalysis.zoomOut()" class="da-action-btn">−</button>
-            <span class="da-zoom-label" x-text="$store.dockingAnalysis.zoomLevel + '%'"></span>
             <button @click="$store.dockingAnalysis.zoomIn()" class="da-action-btn">+</button>
           </div>
           <button @click="$store.dockingAnalysis.toggleSpin()" class="da-action-btn" :class="{active: $store.dockingAnalysis.spinning}">Spin</button>
           <button @click="$store.dockingAnalysis.resetView()" class="da-action-btn">Reset</button>
           <button @click="$store.dockingAnalysis.takeSnapshot()" class="da-action-btn da-snapshot">Snap</button>
+        </div>
+
+        <!-- 3D Canvas -->
+        <div id="da-3d-canvas" class="da-3d-canvas">
+          <div x-show="$store.dockingAnalysis.energies?.length" class="da-energy-badge" x-text="(($store.dockingAnalysis.energies[$store.dockingAnalysis.poseIndex] || 0).toFixed(1)) + ' kcal/mol'"></div>
         </div>
       </div>
 
@@ -285,7 +437,7 @@
         <template x-for="c in $store.dockingAnalysis.deepData.clusters" :key="c.cluster_id">
           <div class="da-cluster-card">
             <div><div class="da-cluster-title" x-text="'Cluster ' + c.cluster_id + ' (' + c.size + ' poses)'"></div><div class="da-cluster-meta" x-text="'Rep: #' + (c.representative + 1) + (c.avg_energy != null ? ' · ' + c.avg_energy.toFixed(1) + ' kcal/mol' : '')"></div></div>
-            <button @click="$store.dockingAnalysis.poseIndex = c.representative; $store.dockingAnalysis.activeTab = '3dview'; setTimeout(() => { $store.dockingAnalysis.init3DView(); $store.dockingAnalysis.renderScene(); }, 200)" class="da-view-btn">View</button>
+            <button @click="$store.dockingAnalysis.switchPose(c.representative); $store.dockingAnalysis.activeTab = '3dview'" class="da-view-btn">View</button>
           </div>
         </template>
       </div>
@@ -350,32 +502,34 @@
       .da-pose-btn:hover { border-color:var(--color-primary);color:var(--color-primary) }
       .da-pose-btn.active { background:var(--color-primary);color:white;border-color:var(--color-primary) }
       .da-3d-section { display:flex;flex-direction:column;gap:6px }
-      .da-3d-controls { display:flex;flex-wrap:wrap;gap:4px;align-items:center }
+      .da-controls-row { display:flex;gap:4px;align-items:center;flex-wrap:wrap }
       .da-presets { display:flex;gap:2px }
-      .da-preset-btn { padding:2px 8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:4px;cursor:pointer;font-size:0.54rem;color:var(--color-text-muted);transition:all 0.1s }
+      .da-preset-btn { padding:3px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:4px;cursor:pointer;font-size:0.56rem;color:var(--color-text-muted);transition:all 0.1s }
       .da-preset-btn:hover { border-color:var(--color-primary);color:var(--color-primary) }
-      .da-style-controls { display:flex;gap:4px;align-items:center;flex-wrap:wrap }
-      .da-select { padding:2px 6px;border:1px solid var(--color-border);border-radius:4px;background:var(--color-background);color:var(--color-text);font-size:0.54rem }
-      .da-check { font-size:0.52rem;color:var(--color-text-muted);display:flex;align-items:center;gap:2px;cursor:pointer }
-      .da-3d-canvas { width:100%;height:380px;border-radius:8px;border:1px solid var(--color-border);position:relative;background:#1a1a2e }
-      .da-energy-badge { position:absolute;top:8px;right:8px;z-index:10;background:var(--color-primary);color:white;padding:4px 10px;border-radius:6px;font-size:0.7rem;font-weight:700 }
-      .da-3d-actions { display:flex;gap:4px;align-items:center;flex-wrap:wrap }
-      .da-zoom { display:flex;align-items:center;gap:2px;border:1px solid var(--color-border);border-radius:5px;padding:2px 4px }
-      .da-zoom-label { font-size:0.52rem;color:var(--color-text-muted);width:32px;text-align:center }
-      .da-action-btn { padding:3px 8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:4px;cursor:pointer;font-size:0.56rem;color:var(--color-text-muted);transition:all 0.1s }
+      .da-ctrl-label { font-size:0.54rem;color:var(--color-text-muted);font-weight:600 }
+      .da-select { padding:3px 8px;border:1px solid var(--color-border);border-radius:4px;background:var(--color-background);color:var(--color-text);font-size:0.56rem }
+      .da-check { font-size:0.54rem;color:var(--color-text-muted);display:flex;align-items:center;gap:3px;cursor:pointer }
+      .da-separator { width:1px;height:16px;background:var(--color-border);margin:0 4px }
+      .da-bg-dot { display:inline-block;width:16px;height:16px;border-radius:50%;border:2px solid;cursor:pointer;transition:all 0.1s }
+      .da-bg-dot:hover { transform:scale(1.2) }
+      .da-zoom { display:flex;gap:2px }
+      .da-action-btn { padding:3px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:4px;cursor:pointer;font-size:0.56rem;color:var(--color-text-muted);transition:all 0.1s }
       .da-action-btn:hover { border-color:var(--color-primary);color:var(--color-primary) }
-      .da-action-btn.active { background:var(--color-primary);color:white }
+      .da-action-btn.active { background:var(--color-primary);color:white;border-color:var(--color-primary) }
       .da-snapshot { background:#22c55e;color:white;border-color:#22c55e }
+      .da-snapshot:hover { background:#16a34a }
+      .da-3d-canvas { width:100%;height:400px;border-radius:8px;border:1px solid var(--color-border);position:relative;background:#1a1a2e }
+      .da-energy-badge { position:absolute;top:8px;right:8px;z-index:10;background:var(--color-primary);color:white;padding:4px 12px;border-radius:6px;font-size:0.72rem;font-weight:700 }
       .da-2d-section { background:white;border-radius:8px;border:1px solid var(--color-border);padding:10px;overflow:auto }
       .da-interactions { display:flex;flex-direction:column;gap:8px }
       .da-stats-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:6px }
-      .da-stat-card { padding:10px;border-radius:8px;text-align:center }
+      .da-stat-card { padding:12px;border-radius:8px;text-align:center }
       .da-green { background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2) }
       .da-amber { background:rgba(255,217,61,0.08);border:1px solid rgba(255,217,61,0.2) }
       .da-violet { background:rgba(153,50,204,0.08);border:1px solid rgba(153,50,204,0.2) }
       .da-orange { background:rgba(255,140,0,0.08);border:1px solid rgba(255,140,0,0.2) }
-      .da-stat-num { font-size:1.1rem;font-weight:700;color:var(--color-text) }
-      .da-stat-label { font-size:0.52rem;color:var(--color-text-muted);margin-top:2px }
+      .da-stat-num { font-size:1.2rem;font-weight:700;color:var(--color-text) }
+      .da-stat-label { font-size:0.54rem;color:var(--color-text-muted);margin-top:2px }
       .da-residues { margin-top:4px }
       .da-residues-label { font-size:0.58rem;font-weight:600;color:var(--color-text-muted);margin-bottom:4px }
       .da-residues-list { display:flex;gap:3px;flex-wrap:wrap }
