@@ -226,16 +226,15 @@ export const store = createStore("knowledgeModal", {
       this.uploading = true;
       this.error = "";
       try {
-        const formData = new FormData();
+        const fileData = [];
         for (const file of files) {
-          formData.append("files", file);
+          const text = await file.text();
+          fileData.push({ filename: file.name, content: text });
         }
-        const resp = await fetch("/api/knowledge/import", {
-          method: "POST",
-          body: formData,
-          headers: { "X-CSRF-Token": await getCsrfToken() }
+        const result = await callJsonApi("knowledge", {
+          action: "import_files",
+          files: fileData,
         });
-        const result = await resp.json();
         if (result.success) {
           this.addNoteBookEntry(
             `Uploaded: ${files.length} file(s)`,
