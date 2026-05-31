@@ -14,61 +14,18 @@
       rotBonds: null, formula: "", lipinskiPass: null, propsLoaded: false,
       dlScore: null, hergData: null, amesData: null, pkaData: null,
       bbbData: null, meltingPoint: null,
-      // Protein viewer
       pdbContent: null, pdbName: "", measureMode: false, residues: [],
       superposedModels: [], showSequence: false,
-      // Substructure filters
       filterResult: null, filterLoading: false,
-      // Molecule optimization
       optStrategy: "", optStrategies: [], optMutants: [], optLoading: false,
       pubchemQuery: "", pubchemLoading: false,
-      recent: [], jsmeReady: false, _viewerReady: false, _viewer: null,
+      recent: [], _viewerReady: false, _viewer: null,
 
       init() {
         try { this.recent = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); } catch(e) { this.recent = []; }
-        this._loadJSME();
       },
 
-      _loadJSME() {
-        if (typeof window.JSME === "function") { this._initJSME(); return; }
-        const s = document.createElement("script");
-        s.src = "/vendor/jsme/jsme.nocache.js";
-        s.onload = () => this._waitForJSME(0);
-        s.onerror = () => { this.error = "JSME editor failed to load"; };
-        document.head.appendChild(s);
-      },
-
-      _waitForJSME(attempt) {
-        if (typeof window.JSME === "function") { this._initJSME(); return; }
-        if (attempt > 30) { this.error = "JSME editor failed to initialize (timeout)"; return; }
-        setTimeout(() => this._waitForJSME(attempt + 1), 500);
-      },
-
-      _initJSME() {
-        if (this.jsmeReady) return;
-        const el = document.getElementById("jsme-container");
-        if (!el || el.clientWidth === 0) { setTimeout(() => this._initJSME(), 200); return; }
-        try {
-          const applet = new window.JSME("jsme-container", "380px", "340px", {
-            options: "query,hydrogens,polarnitro,nocanonize",
-          });
-          applet.setCallBack("afterStructureModified", (jsmeEvent) => {
-            try {
-              const mol = jsmeEvent ? (jsmeEvent.src || jsmeEvent) : null;
-              if (mol && typeof mol.smiles === "function") {
-                const smi = mol.smiles();
-                if (smi && smi !== this.smiles) { this.smiles = smi; this._onSmilesChange(); }
-              }
-            } catch(e) {}
-          });
-          this._jsme = applet;
-          this.jsmeReady = true;
-          window._jsmeApplet = applet;
-        } catch(e) { this.error = "JSME init error: " + e.message; }
-      },
-
-      clearJSME() {
-        try { if (this._jsme) this._jsme.reset(); } catch(e) {}
+      clearAll() {
         this.smiles = ""; this.mw = null; this.propsLoaded = false;
         this.pdbContent = null; this.pdbName = ""; this.residues = [];
         this.superposedModels = [];
@@ -378,7 +335,6 @@
     .me-layout { display: grid; grid-template-columns: 400px 1fr; gap: 10px; height: 100%; }
     .me-left { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
     .me-right { display: flex; flex-direction: column; overflow-y: auto; }
-    .me-canvas-wrap { border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; background: #fff; min-height: 340px; display: flex; align-items: center; justify-content: center; }
     .me-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--color-border); margin-bottom: 8px; flex-shrink: 0; }
     .me-tab { padding: 5px 12px; font-size: 0.64rem; font-weight: 600; cursor: pointer; border: none; background: none; color: var(--color-text-muted); border-bottom: 2px solid transparent; transition: all 0.15s; }
     .me-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
@@ -412,8 +368,8 @@
 <body style="margin:0">
   <div x-data class="nb-panel" x-init="$store.moleculeEditor.init()">
     <div class="nb-header">
-      <span class="material-symbols-outlined nb-icon">draw</span>
-      <div><h2>Molecule Editor</h2><p class="nb-sub" x-text="$store.moleculeEditor.smiles ? $store.moleculeEditor.smiles.slice(0, 50) + ($store.moleculeEditor.smiles.length > 50 ? '...' : '') : 'Draw, edit & load molecules'"></p></div>
+      <span class="material-symbols-outlined nb-icon">science</span>
+      <div><h2>Drug Analysis</h2><p class="nb-sub" x-text="$store.moleculeEditor.smiles ? $store.moleculeEditor.smiles.slice(0, 50) + ($store.moleculeEditor.smiles.length > 50 ? '...' : '') : 'Analyze drug properties, filters & 3D structure'"></p></div>
     </div>
 
     <div x-show="$store.moleculeEditor.error" class="nb-error" x-text="$store.moleculeEditor.error" @click="$store.moleculeEditor.error=''" style="cursor:pointer"></div>
@@ -422,26 +378,14 @@
     <div class="me-layout">
       <div class="me-left">
         <div class="nb-form">
-          <h4>Draw Molecule</h4>
-          <div class="me-canvas-wrap" id="jsme-container">
-            <div x-show="!$store.moleculeEditor.jsmeReady" style="color:var(--color-text-muted);font-size:0.6rem;text-align:center;padding:20px">
-              <span class="material-symbols-outlined" style="font-size:32px;opacity:0.3">hourglass</span>
-              <p>Loading editor...</p>
-            </div>
-          </div>
-          <div style="display:flex;gap:4px;margin-top:4px">
-            <button class="nb-btn-primary" @click="$store.moleculeEditor.clearJSME()" style="flex:1;font-size:0.6rem;padding:4px 8px">Clear Canvas</button>
-          </div>
-        </div>
-
-        <div class="nb-form">
-          <h4>SMILES</h4>
+          <h4>SMILES Input</h4>
           <div style="display:flex;gap:4px">
-             <input type="text" x-model="$store.moleculeEditor.smiles" @input="$store.moleculeEditor._onSmilesChange()" placeholder="SMILES string..." class="nb-input" style="font-family:monospace" id="smiles-input-dock" />
+             <input type="text" x-model="$store.moleculeEditor.smiles" @input="$store.moleculeEditor._onSmilesChange()" placeholder="SMILES string (e.g. CC(=O)Oc1ccccc1C(=O)O)" class="nb-input" style="font-family:monospace" id="smiles-input-dock" />
             <button class="nb-btn-primary" @click="$store.moleculeEditor.copySmiles()" style="padding:4px 8px;font-size:0.58rem" title="Copy SMILES"><span class="material-symbols-outlined" style="font-size:14px">content_copy</span></button>
           </div>
           <div style="display:flex;gap:3px;margin-top:4px">
             <button class="me-style-btn" @click="$store.moleculeEditor.validateSmiles()">Validate</button>
+            <button class="me-style-btn" @click="$store.moleculeEditor.clearAll()">Clear</button>
           </div>
         </div>
 
@@ -493,7 +437,7 @@
 
       <div class="me-right">
         <div class="me-tabs">
-          <button class="me-tab" :class="{ active: $store.moleculeEditor.activeTab === '3d' }" @click="$store.moleculeEditor.activeTab = '3d'; $nextTick(() => $store.moleculeEditor.init3DView())">3D View</button>
+          <button class="me-tab" :class="{ active: $store.moleculeEditor.activeTab === '3d' }" @click="$store.moleculeEditor.activeTab = '3d'; setTimeout(() => $store.moleculeEditor.init3DView(), 200)">3D View</button>
           <button class="me-tab" :class="{ active: $store.moleculeEditor.activeTab === 'props' }" @click="$store.moleculeEditor.activeTab = 'props'; $store.moleculeEditor.loadProperties()">Properties</button>
           <button class="me-tab" :class="{ active: $store.moleculeEditor.activeTab === 'filters' }" @click="$store.moleculeEditor.activeTab = 'filters'; $store.moleculeEditor.loadFilters()">Filters</button>
           <button class="me-tab" :class="{ active: $store.moleculeEditor.activeTab === 'optimize' }" @click="$store.moleculeEditor.activeTab = 'optimize'; $store.moleculeEditor.loadOptimize()">Optimize</button>
