@@ -260,34 +260,40 @@
     </div>
 
     <div class="panel-content" x-show="$store.literatureModal.activeTab === 'search'">
-      <!-- Search bar -->
-      <div class="search-row">
-        <input
-          type="text"
+      <!-- Search box -->
+      <div class="search-box">
+        <div class="search-box-header">
+          <span class="material-symbols-outlined" style="font-size:18px;color:var(--color-primary)">search</span>
+          <span style="font-size:0.72rem;font-weight:600;color:var(--color-text)">Search Literature</span>
+        </div>
+        <textarea
           x-model="$store.literatureModal.query"
-          placeholder="Search papers (e.g. CRISPR cancer therapy, AI drug discovery)..."
-          class="search-input"
-          @keyup.enter="$store.literatureModal.search()"
-        />
-        <select x-model="$store.literatureModal.database" class="db-select">
-          <option value="pubmed">PubMed</option>
-          <option value="semantic_scholar">Semantic Scholar</option>
-          <option value="google_scholar">Google Scholar</option>
-          <option value="scopus">Scopus</option>
-          <option value="wos">Web of Science</option>
-          <option value="arxiv">arXiv</option>
-          <option value="elsevier">Elsevier (ScienceDirect)</option>
-          <option value="springer">Springer Nature</option>
-          <option value="europe_pmc">Europe PMC</option>
-          <option value="biorxiv">bioRxiv/medRxiv</option>
-        </select>
-        <button class="btn-primary" @click="$store.literatureModal.search()" :disabled="$store.literatureModal.loading || !$store.literatureModal.query">
-          <span class="material-symbols-outlined">search</span>
-          <span x-text="$store.literatureModal.loading ? 'Searching...' : 'Search'"></span>
-        </button>
-        <button class="btn-secondary" @click="$store.literatureModal.clear()" x-show="$store.literatureModal.query || $store.literatureModal.hasResults()">
-          <span class="material-symbols-outlined">clear</span>
-        </button>
+          placeholder="Enter your research topic, keywords, or paper title..."
+          class="search-textarea"
+          rows="3"
+          @keydown.ctrl.enter="$store.literatureModal.search()"
+        ></textarea>
+        <div class="search-controls">
+          <select x-model="$store.literatureModal.database" class="db-select-sm">
+            <option value="pubmed">PubMed</option>
+            <option value="semantic_scholar">Semantic Scholar</option>
+            <option value="google_scholar">Google Scholar</option>
+            <option value="scopus">Scopus</option>
+            <option value="wos">Web of Science</option>
+            <option value="arxiv">arXiv</option>
+            <option value="elsevier">Elsevier</option>
+            <option value="springer">Springer Nature</option>
+            <option value="europe_pmc">Europe PMC</option>
+            <option value="biorxiv">bioRxiv/medRxiv</option>
+          </select>
+          <button class="btn-search" @click="$store.literatureModal.search()" :disabled="$store.literatureModal.loading || !$store.literatureModal.query">
+            <span class="material-symbols-outlined" style="font-size:14px">search</span>
+            <span x-text="$store.literatureModal.loading ? 'Searching...' : 'Search'"></span>
+          </button>
+          <button class="btn-clear" @click="$store.literatureModal.clear()" x-show="$store.literatureModal.query || $store.literatureModal.hasResults()">
+            <span class="material-symbols-outlined" style="font-size:14px">clear</span>
+          </button>
+        </div>
       </div>
 
       <!-- Status -->
@@ -483,18 +489,19 @@
       .panel-icon { font-size: 28px; color: var(--color-primary); }
       .panel-header h2 { color: var(--color-primary); font-size: 1.05rem; margin: 0; font-weight: 700; }
       .panel-content { flex: 1; }
-      .search-row { display: flex; gap: 8px; margin-bottom: 12px; }
-      .search-input { flex: 1; padding: 9px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-panel); color: var(--color-text); font-size: 0.8rem; }
-      .search-input:focus { outline: none; border-color: var(--color-primary); }
-      .search-input::placeholder { color: var(--color-text-muted); font-size: 0.72rem; }
-      .db-select { padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-panel); color: var(--color-text); font-size: 0.72rem; cursor: pointer; min-width: 120px; }
-      .db-select:focus { outline: none; border-color: var(--color-primary); }
-      .btn-primary, .btn-secondary { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.78rem; font-weight: 600; transition: all 0.15s; white-space: nowrap; }
-      .btn-primary { background: var(--color-primary); color: white; border: none; }
-      .btn-primary:hover:not(:disabled) { opacity: 0.9; }
-      .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-      .btn-secondary { background: var(--color-panel); border: 1px solid var(--color-border); color: var(--color-text); }
-      .btn-secondary:hover { border-color: var(--color-primary); }
+      .search-box { padding: 10px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 10px; margin-bottom: 12px; }
+      .search-box-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+      .search-textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-background); color: var(--color-text); font-size: 0.75rem; resize: vertical; min-height: 60px; font-family: inherit; box-sizing: border-box; }
+      .search-textarea:focus { outline: none; border-color: var(--color-primary); }
+      .search-textarea::placeholder { color: var(--color-text-muted); font-size: 0.68rem; }
+      .search-controls { display: flex; gap: 4px; align-items: center; margin-top: 6px; }
+      .db-select-sm { padding: 5px 8px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-background); color: var(--color-text); font-size: 0.62rem; cursor: pointer; min-width: 100px; }
+      .db-select-sm:focus { outline: none; border-color: var(--color-primary); }
+      .btn-search { display: flex; align-items: center; gap: 4px; padding: 6px 16px; background: var(--color-primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.7rem; font-weight: 600; white-space: nowrap; }
+      .btn-search:hover:not(:disabled) { opacity: 0.9; }
+      .btn-search:disabled { opacity: 0.5; cursor: not-allowed; }
+      .btn-clear { display: flex; align-items: center; padding: 6px 8px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; color: var(--color-text-muted); cursor: pointer; }
+      .btn-clear:hover { border-color: var(--color-primary); color: var(--color-primary); }
       .error-banner { padding: 8px 12px; background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.3); border-radius: 6px; color: var(--color-error-text, #ff6b6b); font-size: 0.75rem; margin-bottom: 12px; }
       .info-banner { padding: 8px 12px; background: rgba(0,212,170,0.08); border: 1px solid rgba(0,212,170,0.2); border-radius: 6px; color: var(--color-primary); font-size: 0.75rem; margin-bottom: 12px; }
       .loading-bar { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 0.72rem; color: var(--color-text-muted); }
