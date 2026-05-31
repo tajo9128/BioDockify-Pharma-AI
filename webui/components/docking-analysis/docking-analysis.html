@@ -5,14 +5,13 @@
     import { callJsonApi } from "/js/api.js";
 
     export const store = createStore("dockingAnalysis", {
-      jobId: "", activeTab: "deep", loading: false, error: "",
+      jobId: "", activeTab: "3dview", loading: false, error: "", message: "",
       deepData: null, poseIndex: 0, energies: [],
       viewerReady: false, viewerRef: null,
       proteinStyle: "cartoon", proteinColor: "spectrum", proteinShow: true, proteinOpacity: 1.0,
       ligandStyle: "stick", ligandColor: "greenCarbon", ligandShow: true,
       showSurface: false, showHBonds: true, showLabels: false, bgColor: "#ffffff",
       spinning: false, zoomLevel: 100,
-      // Upload state
       uploadMode: false, receptorFile: null, ligandFile: null,
       receptorName: "", ligandName: "", uploadLoading: false,
 
@@ -41,7 +40,7 @@
           if (r.error) { this.error = r.error; }
           else {
             this.jobId = r.job_id;
-            this.message = `Uploaded ${r.num_poses} poses from ${r.ligand_file}. Job ID: ${r.job_id}`;
+            this.message = `Uploaded ${r.num_poses} poses. Job: ${r.job_id}`;
             setTimeout(() => this.message = "", 5000);
             await this.analyze();
           }
@@ -113,7 +112,7 @@
       zoomOut() { const v = this.get3DViewer(); if (v) { v.zoom(1.25, 500); this.zoomLevel = Math.max(this.zoomLevel - 20, 20); } },
       resetView() { const v = this.get3DViewer(); if (v) { v.zoomTo(); this.zoomLevel = 100; v.render(); } },
       toggleSpin() { this.spinning = !this.spinning; const v = this.get3DViewer(); if (v) v.spin(this.spinning ? 0.5 : 0); },
-      takeSnapshot() { const v = this.get3DViewer(); if (!v) return; try { const u = v.pngURI(); const a = document.createElement("a"); a.href = u; a.download = `biodockify_dock_${this.jobId}.png`; a.click(); } catch (e) {} },
+      takeSnapshot() { const v = this.get3DViewer(); if (!v) return; try { const u = v.pngURI(); const a = document.createElement("a"); a.href = u; a.download = `docking_${this.jobId}.png`; a.click(); } catch (e) {} },
       setBg(c) { this.bgColor = c; const v = this.get3DViewer(); if (v) { v.setBackgroundColor(c); v.render(); } },
       applyPreset(n) {
         if (n === "default") { this.proteinStyle = "cartoon"; this.proteinColor = "ss"; this.ligandStyle = "stick"; this.ligandColor = "greenCarbon"; this.bgColor = "#ffffff"; }
@@ -129,230 +128,281 @@
   </script>
 </head>
 <body>
-  <div x-data class="nb-panel">
-    <div class="nb-header"><span class="material-symbols-outlined nb-icon">biotech</span><div><h2>Docking Deep Analysis</h2><p class="nb-sub">3D View · 2D Diagram · Clusters · Residue Energy · Torsion</p></div></div>
-
-    <div class="nb-form-row" style="margin-bottom:6px;flex-shrink:0">
-      <input type="text" x-model="$store.dockingAnalysis.jobId" placeholder="Docking Job ID" class="nb-input flex-1" style="font-family:monospace" @keyup.enter="$store.dockingAnalysis.analyze()" />
-      <button class="nb-btn-primary" @click="$store.dockingAnalysis.analyze()" style="flex:none;width:auto" :disabled="$store.dockingAnalysis.loading || !$store.dockingAnalysis.jobId">Analyze</button>
-    </div>
-
-    <div x-show="$store.dockingAnalysis.error" class="nb-error" x-text="$store.dockingAnalysis.error"></div>
-    <div x-show="$store.dockingAnalysis.message" class="nb-msg" x-text="$store.dockingAnalysis.message"></div>
-    <div x-show="$store.dockingAnalysis.loading || $store.dockingAnalysis.uploadLoading" class="nb-loading"><div class="loading-spinner"></div><span x-text="$store.dockingAnalysis.uploadLoading ? 'Uploading files...' : 'Deep analysis running...'"></span></div>
-
-    <!-- Upload Mode Toggle -->
-    <div style="display:flex;gap:4px;margin-bottom:6px;flex-shrink:0">
-      <button class="nb-tag" :class="{active: !$store.dockingAnalysis.uploadMode}" @click="$store.dockingAnalysis.uploadMode = false">Job ID</button>
-      <button class="nb-tag" :class="{active: $store.dockingAnalysis.uploadMode}" @click="$store.dockingAnalysis.uploadMode = true">
-        <span class="material-symbols-outlined" style="font-size:12px;vertical-align:-1px">upload_file</span> Upload Files
-      </button>
-    </div>
-
-    <!-- Job ID Input -->
-    <div x-show="!$store.dockingAnalysis.uploadMode" class="nb-form-row" style="margin-bottom:6px;flex-shrink:0">
-      <input type="text" x-model="$store.dockingAnalysis.jobId" placeholder="Docking Job ID" class="nb-input flex-1" style="font-family:monospace" @keyup.enter="$store.dockingAnalysis.analyze()" />
-      <button class="nb-btn-primary" @click="$store.dockingAnalysis.analyze()" style="flex:none;width:auto" :disabled="$store.dockingAnalysis.loading || !$store.dockingAnalysis.jobId">Analyze</button>
-    </div>
-
-    <!-- File Upload Panel -->
-    <div x-show="$store.dockingAnalysis.uploadMode" style="margin-bottom:6px;flex-shrink:0">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <!-- Receptor Upload -->
-        <div class="nb-entry-card" style="text-align:center;padding:12px">
-          <span class="material-symbols-outlined" style="font-size:24px;color:var(--color-primary);display:block;margin-bottom:4px">biotech</span>
-          <div style="font-size:0.64rem;font-weight:600;color:var(--color-text);margin-bottom:4px">Receptor (Protein)</div>
-          <div style="font-size:0.5rem;color:var(--color-text-muted);margin-bottom:6px">PDB · PDBQT · CIF · MOL2</div>
-          <label class="nb-upload-label" style="justify-content:center;font-size:0.58rem;padding:6px 10px;cursor:pointer">
-            <span class="material-symbols-outlined" style="font-size:14px">upload_file</span>
-            <span x-text="$store.dockingAnalysis.receptorName || 'Choose file'"></span>
-            <input type="file" accept=".pdb,.pdbqt,.ent,.cif,.mol2,.mmcif" hidden @change="$store.dockingAnalysis.handleReceptorUpload($event)" />
-          </label>
-        </div>
-        <!-- Ligand Upload -->
-        <div class="nb-entry-card" style="text-align:center;padding:12px">
-          <span class="material-symbols-outlined" style="font-size:24px;color:#22c55e;display:block;margin-bottom:4px">science</span>
-          <div style="font-size:0.64rem;font-weight:600;color:var(--color-text);margin-bottom:4px">Docked Ligand (Poses)</div>
-          <div style="font-size:0.5rem;color:var(--color-text-muted);margin-bottom:6px">PDBQT (multi-model) · SDF</div>
-          <label class="nb-upload-label" style="justify-content:center;font-size:0.58rem;padding:6px 10px;cursor:pointer">
-            <span class="material-symbols-outlined" style="font-size:14px">upload_file</span>
-            <span x-text="$store.dockingAnalysis.ligandName || 'Choose file'"></span>
-            <input type="file" accept=".pdbqt,.sdf,.mol" hidden @change="$store.dockingAnalysis.handleLigandUpload($event)" />
-          </label>
+  <div x-data class="da-panel">
+    <!-- Compact Header -->
+    <div class="da-header">
+      <div class="da-header-left">
+        <span class="material-symbols-outlined da-icon">biotech</span>
+        <h2>Docking Analysis</h2>
+      </div>
+      <div class="da-header-right">
+        <!-- Toggle -->
+        <div class="da-toggle">
+          <button class="da-toggle-btn" :class="{active: !$store.dockingAnalysis.uploadMode}" @click="$store.dockingAnalysis.uploadMode = false">Job ID</button>
+          <button class="da-toggle-btn" :class="{active: $store.dockingAnalysis.uploadMode}" @click="$store.dockingAnalysis.uploadMode = true">Upload</button>
         </div>
       </div>
-      <div style="display:flex;gap:4px">
-        <button class="nb-btn-primary" @click="$store.dockingAnalysis.uploadAndAnalyze()" style="flex:1" :disabled="$store.dockingAnalysis.uploadLoading || !$store.dockingAnalysis.receptorFile || !$store.dockingAnalysis.ligandFile">
-          <span class="material-symbols-outlined" style="font-size:14px">biotech</span>
-          Upload & Analyze
+    </div>
+
+    <!-- Input Section -->
+    <div class="da-input-section">
+      <!-- Job ID Mode -->
+      <div x-show="!$store.dockingAnalysis.uploadMode" class="da-input-row">
+        <input type="text" x-model="$store.dockingAnalysis.jobId" placeholder="Enter docking job ID..." class="da-input" @keyup.enter="$store.dockingAnalysis.analyze()" />
+        <button class="da-btn" @click="$store.dockingAnalysis.analyze()" :disabled="$store.dockingAnalysis.loading || !$store.dockingAnalysis.jobId">
+          <span class="material-symbols-outlined" style="font-size:16px">biotech</span> Analyze
         </button>
-        <button class="nb-btn-sm" @click="$store.dockingAnalysis.clearUpload()" x-show="$store.dockingAnalysis.receptorFile || $store.dockingAnalysis.ligandFile" style="padding:6px 10px">Clear</button>
       </div>
-      <div style="margin-top:6px;padding:6px 8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.15);border-radius:6px">
-        <div style="font-size:0.52rem;color:var(--color-text-muted);line-height:1.4">
-          <b>Supported platforms:</b> AutoDock Vina · Glide (Schrödinger) · GOLD · AutoDock-GPU · rDock · PLANTS · Any tool producing PDBQT or SDF docked poses
+
+      <!-- Upload Mode -->
+      <div x-show="$store.dockingAnalysis.uploadMode" class="da-upload-section">
+        <div class="da-upload-grid">
+          <div class="da-upload-card">
+            <span class="material-symbols-outlined da-upload-icon">biotech</span>
+            <div class="da-upload-label">Receptor</div>
+            <div class="da-upload-hint">PDB · PDBQT · CIF</div>
+            <label class="da-upload-btn">
+              <span x-text="$store.dockingAnalysis.receptorName || 'Choose file'"></span>
+              <input type="file" accept=".pdb,.pdbqt,.ent,.cif,.mol2" hidden @change="$store.dockingAnalysis.handleReceptorUpload($event)" />
+            </label>
+          </div>
+          <div class="da-upload-card">
+            <span class="material-symbols-outlined da-upload-icon" style="color:#22c55e">science</span>
+            <div class="da-upload-label">Ligand Poses</div>
+            <div class="da-upload-hint">PDBQT · SDF</div>
+            <label class="da-upload-btn">
+              <span x-text="$store.dockingAnalysis.ligandName || 'Choose file'"></span>
+              <input type="file" accept=".pdbqt,.sdf,.mol" hidden @change="$store.dockingAnalysis.handleLigandUpload($event)" />
+            </label>
+          </div>
+        </div>
+        <div class="da-upload-actions">
+          <button class="da-btn" @click="$store.dockingAnalysis.uploadAndAnalyze()" :disabled="$store.dockingAnalysis.uploadLoading || !$store.dockingAnalysis.receptorFile || !$store.dockingAnalysis.ligandFile">
+            <span class="material-symbols-outlined" style="font-size:16px">upload_file</span> Upload & Analyze
+          </button>
+          <button class="da-btn-outline" @click="$store.dockingAnalysis.clearUpload()" x-show="$store.dockingAnalysis.receptorFile || $store.dockingAnalysis.ligandFile">Clear</button>
         </div>
       </div>
     </div>
 
-        <div class="nb-tabs">
-          <button class="nb-tab" :class="{active: $store.dockingAnalysis.activeTab === '3dview'}" @click="$store.dockingAnalysis.activeTab = '3dview'; setTimeout(() => $store.dockingAnalysis.init3DView(), 200)">3D View</button>
-          <button class="nb-tab" :class="{active: $store.dockingAnalysis.activeTab === '2d'}" @click="$store.dockingAnalysis.activeTab = '2d'">2D Diagram</button>
-          <button class="nb-tab" :class="{active: $store.dockingAnalysis.activeTab === 'deep'}" @click="$store.dockingAnalysis.activeTab = 'deep'">Interactions</button>
-          <button class="nb-tab" :class="{active: $store.dockingAnalysis.activeTab === 'energy'}" @click="$store.dockingAnalysis.activeTab = 'energy'">Residue Energy</button>
-          <button class="nb-tab" :class="{active: $store.dockingAnalysis.activeTab === 'clusters'}" @click="$store.dockingAnalysis.activeTab = 'clusters'">Clusters</button>
-          <button class="nb-tab" :class="{active: $store.dockingAnalysis.activeTab === 'torsion'}" @click="$store.dockingAnalysis.activeTab = 'torsion'">Torsion</button>
-        </div>
+    <!-- Status -->
+    <div x-show="$store.dockingAnalysis.error" class="da-error" x-text="$store.dockingAnalysis.error" @click="$store.dockingAnalysis.error=''"></div>
+    <div x-show="$store.dockingAnalysis.message" class="da-msg" x-text="$store.dockingAnalysis.message"></div>
+    <div x-show="$store.dockingAnalysis.loading || $store.dockingAnalysis.uploadLoading" class="da-loading"><div class="loading-spinner"></div><span x-text="$store.dockingAnalysis.uploadLoading ? 'Uploading...' : 'Analyzing...'"></span></div>
 
-        <!-- 3D View -->
-        <div x-show="$store.dockingAnalysis.activeTab === '3dview'">
-          <div class="nb-form-row" style="margin-bottom:4px;gap:3px;flex-wrap:wrap">
-            <button @click="$store.dockingAnalysis.applyPreset('default')" class="nb-tag">Default</button>
-            <button @click="$store.dockingAnalysis.applyPreset('dark')" class="nb-tag">Dark</button>
-            <button @click="$store.dockingAnalysis.applyPreset('surface')" class="nb-tag">Surface</button>
-            <button @click="$store.dockingAnalysis.applyPreset('analysis')" class="nb-tag">Analysis</button>
+    <!-- Tabs -->
+    <div class="da-tabs" x-show="$store.dockingAnalysis.deepData">
+      <button class="da-tab" :class="{active: $store.dockingAnalysis.activeTab === '3dview'}" @click="$store.dockingAnalysis.activeTab = '3dview'; setTimeout(() => $store.dockingAnalysis.init3DView(), 200)">3D View</button>
+      <button class="da-tab" :class="{active: $store.dockingAnalysis.activeTab === '2d'}" @click="$store.dockingAnalysis.activeTab = '2d'">2D Diagram</button>
+      <button class="da-tab" :class="{active: $store.dockingAnalysis.activeTab === 'deep'}" @click="$store.dockingAnalysis.activeTab = 'deep'">Interactions</button>
+      <button class="da-tab" :class="{active: $store.dockingAnalysis.activeTab === 'energy'}" @click="$store.dockingAnalysis.activeTab = 'energy'">Energy</button>
+      <button class="da-tab" :class="{active: $store.dockingAnalysis.activeTab === 'clusters'}" @click="$store.dockingAnalysis.activeTab = 'clusters'">Clusters</button>
+      <button class="da-tab" :class="{active: $store.dockingAnalysis.activeTab === 'torsion'}" @click="$store.dockingAnalysis.activeTab = 'torsion'">Torsion</button>
+    </div>
+
+    <!-- Analysis Content -->
+    <div class="da-content" x-show="$store.dockingAnalysis.deepData">
+      <!-- Pose Selector -->
+      <div class="da-poses" x-show="$store.dockingAnalysis.energies?.length">
+        <span class="da-pose-label" x-text="'Pose ' + ($store.dockingAnalysis.poseIndex + 1) + '/' + $store.dockingAnalysis.energies.length"></span>
+        <template x-for="(e, i) in $store.dockingAnalysis.energies" :key="i">
+          <button @click="$store.dockingAnalysis.poseIndex = i; $store.dockingAnalysis.renderScene()" class="da-pose-btn" :class="{active: $store.dockingAnalysis.poseIndex === i}" x-text="'#'+(i+1)+' '+e.toFixed(1)"></button>
+        </template>
+      </div>
+
+      <!-- 3D View -->
+      <div x-show="$store.dockingAnalysis.activeTab === '3dview'" class="da-3d-section">
+        <div class="da-3d-controls">
+          <div class="da-presets">
+            <button @click="$store.dockingAnalysis.applyPreset('default')" class="da-preset-btn">Default</button>
+            <button @click="$store.dockingAnalysis.applyPreset('dark')" class="da-preset-btn">Dark</button>
+            <button @click="$store.dockingAnalysis.applyPreset('surface')" class="da-preset-btn">Surface</button>
+            <button @click="$store.dockingAnalysis.applyPreset('analysis')" class="da-preset-btn">Analysis</button>
           </div>
-          <div class="nb-form-row" style="margin-bottom:4px;gap:4px;flex-wrap:wrap">
-            <select x-model="$store.dockingAnalysis.proteinStyle" @change="$store.dockingAnalysis.renderScene()" class="nb-select" style="flex:none;width:auto"><option value="cartoon">Cartoon</option><option value="stick">Stick</option><option value="sphere">Sphere</option><option value="line">Line</option></select>
-            <select x-model="$store.dockingAnalysis.proteinColor" @change="$store.dockingAnalysis.renderScene()" class="nb-select" style="flex:none;width:auto"><option value="ss">SS</option><option value="spectrum">Spectrum</option><option value="chain">Chain</option><option value="rasmol">Residue</option></select>
-            <input type="range" x-model="$store.dockingAnalysis.proteinOpacity" @change="$store.dockingAnalysis.renderScene()" min="0.1" max="1" step="0.05" style="width:50px" />
-            <select x-model="$store.dockingAnalysis.ligandStyle" @change="$store.dockingAnalysis.renderScene()" class="nb-select" style="flex:none;width:auto"><option value="stick">Stick</option><option value="ballstick">Ball+Stick</option><option value="sphere">Sphere</option><option value="line">Line</option></select>
-            <select x-model="$store.dockingAnalysis.ligandColor" @change="$store.dockingAnalysis.renderScene()" class="nb-select" style="flex:none;width:auto"><option value="greenCarbon">Green</option><option value="cyanCarbon">Cyan</option><option value="orangeCarbon">Orange</option><option value="magentaCarbon">Magenta</option><option value="yellowCarbon">Yellow</option></select>
-            <label class="nb-check-label"><input type="checkbox" x-model="$store.dockingAnalysis.showSurface" @change="$store.dockingAnalysis.renderScene()" /> Surface</label>
-            <label class="nb-check-label"><input type="checkbox" x-model="$store.dockingAnalysis.showHBonds" @change="$store.dockingAnalysis.renderScene()" /> H-Bonds</label>
-            <label class="nb-check-label"><input type="checkbox" x-model="$store.dockingAnalysis.showLabels" @change="$store.dockingAnalysis.renderScene()" /> Labels</label>
-            <template x-for="c in ['#ffffff','#1a1a2e','#0f2027','#f0f4f8','#111827','#1e3a5f']"><span @click="$store.dockingAnalysis.setBg(c)" style="display:inline-block;width:16px;height:16px;border-radius:50%;border:2px solid;cursor:pointer" :style="'background:' + c + ';border-color:' + ($store.dockingAnalysis.bgColor === c ? 'var(--color-primary)' : 'var(--color-border)')"></span></template>
-          </div>
-          <div id="da-3d-canvas" style="width:100%;height:360px;border-radius:8px;border:1px solid var(--color-border);position:relative">
-            <div x-show="$store.dockingAnalysis.energies && $store.dockingAnalysis.energies.length" style="position:absolute;top:8px;right:8px;z-index:10;background:var(--color-primary);color:white;padding:4px 10px;border-radius:6px;font-size:0.7rem;font-weight:700" x-text="(($store.dockingAnalysis.energies[$store.dockingAnalysis.poseIndex] || 0).toFixed(1)) + ' kcal/mol'"></div>
-          </div>
-          <div class="nb-form-row" style="margin-top:4px;gap:3px">
-            <div style="display:flex;align-items:center;gap:2px;border:1px solid var(--color-border);border-radius:5px;padding:2px 4px">
-              <button @click="$store.dockingAnalysis.zoomOut()" class="nb-btn-sm">−</button>
-              <span x-text="$store.dockingAnalysis.zoomLevel + '%'" style="font-size:0.55rem;color:var(--color-text-muted);width:35px;text-align:center"></span>
-              <button @click="$store.dockingAnalysis.zoomIn()" class="nb-btn-sm">+</button>
-            </div>
-            <button @click="$store.dockingAnalysis.toggleSpin()" class="nb-tag" :class="{active: $store.dockingAnalysis.spinning}">Spin</button>
-            <button @click="$store.dockingAnalysis.resetView()" class="nb-tag">Reset</button>
-            <button @click="$store.dockingAnalysis.takeSnapshot()" class="nb-tag" style="background:#22c55e;color:white">Snapshot</button>
+          <div class="da-style-controls">
+            <select x-model="$store.dockingAnalysis.proteinStyle" @change="$store.dockingAnalysis.renderScene()" class="da-select"><option value="cartoon">Cartoon</option><option value="stick">Stick</option><option value="sphere">Sphere</option></select>
+            <select x-model="$store.dockingAnalysis.proteinColor" @change="$store.dockingAnalysis.renderScene()" class="da-select"><option value="ss">SS</option><option value="spectrum">Spectrum</option><option value="chain">Chain</option></select>
+            <select x-model="$store.dockingAnalysis.ligandStyle" @change="$store.dockingAnalysis.renderScene()" class="da-select"><option value="stick">Stick</option><option value="ballstick">Ball+Stick</option><option value="sphere">Sphere</option></select>
+            <select x-model="$store.dockingAnalysis.ligandColor" @change="$store.dockingAnalysis.renderScene()" class="da-select"><option value="greenCarbon">Green</option><option value="cyanCarbon">Cyan</option><option value="orangeCarbon">Orange</option><option value="magentaCarbon">Magenta</option></select>
+            <label class="da-check"><input type="checkbox" x-model="$store.dockingAnalysis.showSurface" @change="$store.dockingAnalysis.renderScene()" /> Surface</label>
+            <label class="da-check"><input type="checkbox" x-model="$store.dockingAnalysis.showHBonds" @change="$store.dockingAnalysis.renderScene()" /> H-Bonds</label>
           </div>
         </div>
-
-        <!-- 2D Diagram -->
-        <div x-show="$store.dockingAnalysis.activeTab === '2d'" x-html="$store.dockingAnalysis.deepData.svg ? $store.dockingAnalysis.deepData.svg.replace('<svg', '<svg style=\"max-width:100%;height:auto\"') : ''" style="background:white;border-radius:8px;border:1px solid var(--color-border);padding:10px;overflow:auto"></div>
-        <div x-show="$store.dockingAnalysis.activeTab === '2d' && !$store.dockingAnalysis.deepData.svg" class="nb-empty"><span class="material-symbols-outlined nb-empty-icon">draw</span><p>SVG diagram not available</p><p class="nb-empty-hint">Requires RDKit</p></div>
-
-        <!-- Interactions -->
-        <div x-show="$store.dockingAnalysis.activeTab === 'deep'">
-          <template x-if="$store.dockingAnalysis.deepData.interactions">
-            <div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:4px;margin-bottom:6px">
-                <div class="int-card int-green"><div class="int-num" x-text="$store.dockingAnalysis.deepData.interactions.summary?.total_hbonds || 0"></div><div class="int-label">H-Bonds</div></div>
-                <div class="int-card int-amber"><div class="int-num" x-text="$store.dockingAnalysis.deepData.interactions.summary?.total_hydrophobic || 0"></div><div class="int-label">Hydrophobic</div></div>
-                <div class="int-card int-violet"><div class="int-num" x-text="$store.dockingAnalysis.deepData.interactions.summary?.total_pi_stacking || 0"></div><div class="int-label">Pi-Stacking</div></div>
-                <div class="int-card int-orange"><div class="int-num" x-text="$store.dockingAnalysis.deepData.interactions.summary?.total_salt_bridges || 0"></div><div class="int-label">Salt Bridges</div></div>
-              </div>
-              <div class="nb-entry-card">
-                <span class="nb-entry-meta">Binding site residues:</span>
-                <span style="font-size:0.58rem;color:var(--color-text)" x-text="$store.dockingAnalysis.deepData.interactions.binding_site_residues?.map(r => r.resname + r.resseq).join(', ')"></span>
-              </div>
-            </div>
-          </template>
+        <div id="da-3d-canvas" class="da-3d-canvas">
+          <div x-show="$store.dockingAnalysis.energies?.length" class="da-energy-badge" x-text="(($store.dockingAnalysis.energies[$store.dockingAnalysis.poseIndex] || 0).toFixed(1)) + ' kcal/mol'"></div>
         </div>
-
-        <!-- Residue Energy -->
-        <div x-show="$store.dockingAnalysis.activeTab === 'energy'">
-          <template x-if="$store.dockingAnalysis.deepData.residue_energy?.length">
-            <div><div class="nb-entry-meta" style="margin-bottom:4px" x-text="$store.dockingAnalysis.deepData.residue_energy.length + ' residues contributing to binding'"></div>
-              <template x-for="r in $store.dockingAnalysis.deepData.residue_energy.slice(0,20)">
-                <div class="nb-entry-card" style="display:flex;align-items:center;gap:6px">
-                  <span class="nb-entry-title" style="width:70px;flex-shrink:0" x-text="r.residue_label"></span>
-                  <div style="flex:1;height:8px;background:var(--color-border);border-radius:4px;overflow:hidden"><div style="height:100%;border-radius:4px;transition:width 0.4s" :style="'width:' + Math.min(100, Math.abs(r.energy) * 40) + '%;background:' + $store.dockingAnalysis.energyColor(r.energy)"></div></div>
-                  <span style="font-size:0.55rem;font-family:monospace;color:var(--color-text);width:50px;text-align:right" x-text="r.energy.toFixed(2) + ' kcal'"></span>
-                </div>
-              </template>
-            </div>
-          </template>
-        </div>
-
-        <!-- Clusters -->
-        <div x-show="$store.dockingAnalysis.activeTab === 'clusters'">
-          <template x-if="$store.dockingAnalysis.deepData.clusters?.length">
-            <div><div class="nb-entry-meta" style="margin-bottom:4px" x-text="$store.dockingAnalysis.deepData.clusters.length + ' clusters (RMSD cutoff 2.0Å)'"></div>
-              <template x-for="c in $store.dockingAnalysis.deepData.clusters">
-                <div class="nb-entry-card" style="display:flex;justify-content:space-between;align-items:center">
-                  <div><div class="nb-entry-title" x-text="'Cluster ' + c.cluster_id + ' (' + c.size + ' poses)'"></div><div class="nb-entry-meta" x-text="'Rep: Pose #' + (c.representative + 1) + (c.avg_energy != null ? ' · Avg: ' + c.avg_energy.toFixed(1) + ' kcal/mol' : '')"></div></div>
-                  <button @click="$store.dockingAnalysis.poseIndex = c.representative; $store.dockingAnalysis.activeTab = '3dview'; setTimeout(() => { $store.dockingAnalysis.init3DView(); $store.dockingAnalysis.renderScene(); }, 200)" class="nb-tag">View</button>
-                </div>
-              </template>
-            </div>
-          </template>
-        </div>
-
-        <!-- Torsion -->
-        <div x-show="$store.dockingAnalysis.activeTab === 'torsion'">
-          <template x-if="$store.dockingAnalysis.deepData.torsions?.length">
-            <div><div class="nb-entry-meta" style="margin-bottom:4px" x-text="$store.dockingAnalysis.deepData.torsions.length + ' dihedral angles'"></div>
-              <template x-for="t in $store.dockingAnalysis.deepData.torsions">
-                <div class="nb-entry-card" style="display:flex;align-items:center;gap:6px;justify-content:space-between">
-                  <span style="font-size:0.58rem;font-family:monospace;color:var(--color-text)" x-text="t.atoms.join(' - ')"></span>
-                  <span style="font-size:0.62rem;font-weight:700;font-family:monospace;color:var(--color-primary)" x-text="t.angle + '°'"></span>
-                </div>
-              </template>
-            </div>
-          </template>
+        <div class="da-3d-actions">
+          <div class="da-zoom">
+            <button @click="$store.dockingAnalysis.zoomOut()" class="da-action-btn">−</button>
+            <span class="da-zoom-label" x-text="$store.dockingAnalysis.zoomLevel + '%'"></span>
+            <button @click="$store.dockingAnalysis.zoomIn()" class="da-action-btn">+</button>
+          </div>
+          <button @click="$store.dockingAnalysis.toggleSpin()" class="da-action-btn" :class="{active: $store.dockingAnalysis.spinning}">Spin</button>
+          <button @click="$store.dockingAnalysis.resetView()" class="da-action-btn">Reset</button>
+          <button @click="$store.dockingAnalysis.takeSnapshot()" class="da-action-btn da-snapshot">Snap</button>
         </div>
       </div>
-    </template>
 
-    <template x-if="!$store.dockingAnalysis.deepData && !$store.dockingAnalysis.loading"><div class="nb-empty"><span class="material-symbols-outlined nb-empty-icon">biotech</span><p>Enter a docking Job ID or upload files</p><p class="nb-empty-hint">Deep analysis: 3D view, 2D diagram, interactions, residue energy, clusters, torsion<br>Upload receptor + docked ligand from any platform (Vina, Glide, GOLD, etc.)</p></div></template>
+      <!-- 2D Diagram -->
+      <div x-show="$store.dockingAnalysis.activeTab === '2d'" class="da-2d-section">
+        <div x-show="$store.dockingAnalysis.deepData.svg" class="da-2d-view" x-html="$store.dockingAnalysis.deepData.svg?.replace('<svg', '<svg style=\"max-width:100%;height:auto\"')"></div>
+        <div x-show="!$store.dockingAnalysis.deepData.svg" class="da-empty"><span class="material-symbols-outlined">draw</span><p>SVG diagram not available</p></div>
+      </div>
+
+      <!-- Interactions -->
+      <div x-show="$store.dockingAnalysis.activeTab === 'deep'" class="da-interactions">
+        <div class="da-stats-grid">
+          <div class="da-stat-card da-green"><div class="da-stat-num" x-text="$store.dockingAnalysis.deepData.interactions?.summary?.total_hbonds || 0"></div><div class="da-stat-label">H-Bonds</div></div>
+          <div class="da-stat-card da-amber"><div class="da-stat-num" x-text="$store.dockingAnalysis.deepData.interactions?.summary?.total_hydrophobic || 0"></div><div class="da-stat-label">Hydrophobic</div></div>
+          <div class="da-stat-card da-violet"><div class="da-stat-num" x-text="$store.dockingAnalysis.deepData.interactions?.summary?.total_pi_stacking || 0"></div><div class="da-stat-label">Pi-Stacking</div></div>
+          <div class="da-stat-card da-orange"><div class="da-stat-num" x-text="$store.dockingAnalysis.deepData.interactions?.summary?.total_salt_bridges || 0"></div><div class="da-stat-label">Salt Bridges</div></div>
+        </div>
+        <div class="da-residues" x-show="$store.dockingAnalysis.deepData.interactions?.binding_site_residues?.length">
+          <div class="da-residues-label">Binding Site Residues</div>
+          <div class="da-residues-list">
+            <template x-for="r in $store.dockingAnalysis.deepData.interactions.binding_site_residues" :key="r.resname+r.resseq">
+              <span class="da-residue-chip" x-text="r.resname + r.resseq"></span>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Energy -->
+      <div x-show="$store.dockingAnalysis.activeTab === 'energy'" class="da-energy-section">
+        <div class="da-energy-label" x-text="($store.dockingAnalysis.deepData.residue_energy?.length || 0) + ' residues contributing'"></div>
+        <template x-for="r in ($store.dockingAnalysis.deepData.residue_energy || []).slice(0,20)" :key="r.residue_label">
+          <div class="da-energy-row">
+            <span class="da-energy-name" x-text="r.residue_label"></span>
+            <div class="da-energy-bar"><div class="da-energy-fill" :style="'width:' + Math.min(100, Math.abs(r.energy) * 40) + '%;background:' + $store.dockingAnalysis.energyColor(r.energy)"></div></div>
+            <span class="da-energy-val" :style="'color:' + $store.dockingAnalysis.energyColor(r.energy)" x-text="r.energy.toFixed(2)"></span>
+          </div>
+        </template>
+      </div>
+
+      <!-- Clusters -->
+      <div x-show="$store.dockingAnalysis.activeTab === 'clusters'" class="da-clusters-section">
+        <div class="da-clusters-label" x-text="($store.dockingAnalysis.deepData.clusters?.length || 0) + ' clusters (RMSD 2.0Å)'"></div>
+        <template x-for="c in $store.dockingAnalysis.deepData.clusters" :key="c.cluster_id">
+          <div class="da-cluster-card">
+            <div><div class="da-cluster-title" x-text="'Cluster ' + c.cluster_id + ' (' + c.size + ' poses)'"></div><div class="da-cluster-meta" x-text="'Rep: #' + (c.representative + 1) + (c.avg_energy != null ? ' · ' + c.avg_energy.toFixed(1) + ' kcal/mol' : '')"></div></div>
+            <button @click="$store.dockingAnalysis.poseIndex = c.representative; $store.dockingAnalysis.activeTab = '3dview'; setTimeout(() => { $store.dockingAnalysis.init3DView(); $store.dockingAnalysis.renderScene(); }, 200)" class="da-view-btn">View</button>
+          </div>
+        </template>
+      </div>
+
+      <!-- Torsion -->
+      <div x-show="$store.dockingAnalysis.activeTab === 'torsion'" class="da-torsion-section">
+        <div class="da-torsion-label" x-text="($store.dockingAnalysis.deepData.torsions?.length || 0) + ' dihedral angles'"></div>
+        <template x-for="t in $store.dockingAnalysis.deepData.torsions" :key="t.atoms.join('')">
+          <div class="da-torsion-card">
+            <span class="da-torsion-atoms" x-text="t.atoms.join(' - ')"></span>
+            <span class="da-torsion-angle" x-text="t.angle + '°'"></span>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div x-show="!$store.dockingAnalysis.deepData && !$store.dockingAnalysis.loading" class="da-empty">
+      <span class="material-symbols-outlined da-empty-icon">biotech</span>
+      <p>Enter a Job ID or upload docking files</p>
+      <p class="da-empty-hint">Supports Vina, Glide, GOLD, AutoDock-GPU, rDock, PLANTS</p>
+    </div>
 
     <style>
-      .nb-panel { display:flex;flex-direction:column;height:100%;overflow:hidden;padding:10px 14px;background:var(--color-background) }
-      .nb-header { display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0 }
-      .nb-icon { font-size:22px;color:var(--color-primary) }
-      .nb-header h2 { color:var(--color-primary);font-size:0.9rem;margin:0;font-weight:700 }
-      .nb-sub { color:var(--color-text-muted);font-size:0.58rem;margin:0 }
-      .nb-content { flex:1;overflow-y:auto;min-width:0;min-height:0 }
-      .nb-error { padding:4px 8px;background:rgba(255,107,107,0.1);border-radius:4px;color:var(--color-error-text);font-size:0.6rem;margin-bottom:4px;flex-shrink:0 }
-      .nb-msg { padding:4px 8px;background:rgba(34,197,94,0.08);border-radius:4px;color:#22c55e;font-size:0.6rem;margin-bottom:4px;flex-shrink:0 }
-      .nb-loading { display:flex;align-items:center;gap:5px;font-size:0.62rem;color:var(--color-text-muted);margin-bottom:4px;flex-shrink:0 }
+      .da-panel { display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background) }
+      .da-header { display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--color-border);flex-shrink:0 }
+      .da-header-left { display:flex;align-items:center;gap:8px }
+      .da-icon { font-size:22px;color:var(--color-primary) }
+      .da-header h2 { font-size:0.85rem;margin:0;font-weight:700;color:var(--color-primary) }
+      .da-toggle { display:flex;gap:2px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;padding:2px }
+      .da-toggle-btn { padding:4px 12px;background:transparent;border:none;border-radius:4px;color:var(--color-text-muted);cursor:pointer;font-size:0.6rem;font-weight:500;transition:all 0.15s }
+      .da-toggle-btn.active { background:var(--color-primary);color:white }
+      .da-input-section { padding:10px 16px;border-bottom:1px solid var(--color-border);flex-shrink:0 }
+      .da-input-row { display:flex;gap:6px }
+      .da-input { flex:1;padding:7px 12px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-panel);color:var(--color-text);font-size:0.7rem;font-family:monospace }
+      .da-input:focus { outline:none;border-color:var(--color-primary) }
+      .da-btn { display:flex;align-items:center;gap:4px;padding:7px 16px;background:var(--color-primary);color:white;border:none;border-radius:6px;cursor:pointer;font-size:0.66rem;font-weight:600;white-space:nowrap }
+      .da-btn:disabled { opacity:0.5;cursor:not-allowed }
+      .da-btn-outline { padding:6px 12px;background:transparent;border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-muted);cursor:pointer;font-size:0.6rem }
+      .da-upload-section { display:flex;flex-direction:column;gap:8px }
+      .da-upload-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px }
+      .da-upload-card { display:flex;flex-direction:column;align-items:center;padding:12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;text-align:center }
+      .da-upload-icon { font-size:24px;color:var(--color-primary);margin-bottom:4px }
+      .da-upload-label { font-size:0.64rem;font-weight:600;color:var(--color-text);margin-bottom:2px }
+      .da-upload-hint { font-size:0.5rem;color:var(--color-text-muted);margin-bottom:6px }
+      .da-upload-btn { display:flex;align-items:center;justify-content:center;gap:4px;padding:5px 10px;background:var(--color-background);border:1px dashed var(--color-border);border-radius:5px;cursor:pointer;font-size:0.56rem;color:var(--color-text-muted);width:100%;transition:all 0.15s }
+      .da-upload-btn:hover { border-color:var(--color-primary);color:var(--color-primary) }
+      .da-upload-actions { display:flex;gap:6px }
+      .da-error { padding:6px 12px;margin:0 16px;background:rgba(255,107,107,0.1);border-radius:5px;color:#ff6b6b;font-size:0.6rem;cursor:pointer }
+      .da-msg { padding:6px 12px;margin:0 16px;background:rgba(34,197,94,0.08);border-radius:5px;color:#22c55e;font-size:0.6rem }
+      .da-loading { display:flex;align-items:center;gap:5px;padding:6px 16px;font-size:0.62rem;color:var(--color-text-muted) }
       .loading-spinner { width:12px;height:12px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin 0.8s linear infinite }
       @keyframes spin { to { transform:rotate(360deg) } }
-      .nb-form-row { display:flex;gap:4px;align-items:center }
-      .nb-input { flex:1;padding:6px 10px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-panel);color:var(--color-text);font-size:0.68rem;min-width:0 }
-      .nb-input:focus { outline:none;border-color:var(--color-primary) }
-      .nb-input::placeholder { color:var(--color-text-muted);font-size:0.62rem }
-      .nb-tabs { display:flex;gap:1px;margin-bottom:4px;flex-wrap:wrap;border-bottom:1px solid var(--color-border);padding-bottom:3px }
-      .nb-tab { padding:4px 8px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--color-text-muted);cursor:pointer;font-size:0.6rem;font-weight:500;transition:all 0.15s }
-      .nb-tab:hover { color:var(--color-text) }
-      .nb-tab.active { color:var(--color-primary);border-bottom-color:var(--color-primary) }
-      .nb-tag { display:inline-block;padding:2px 6px;background:transparent;border:1px solid var(--color-border);border-radius:4px;color:var(--color-text-muted);cursor:pointer;font-size:0.58rem;transition:all 0.1s }
-      .nb-tag:hover { border-color:var(--color-primary);color:var(--color-primary) }
-      .nb-tag.active { background:color-mix(in srgb, var(--color-primary) 12%, transparent);color:var(--color-primary);font-weight:600;border-color:var(--color-primary) }
-      .nb-select { padding:3px 6px;border:1px solid var(--color-border);border-radius:4px;background:var(--color-background);color:var(--color-text);font-size:0.58rem }
-      .nb-check-label { font-size:0.56rem;color:var(--color-text-muted);display:flex;align-items:center;gap:2px;cursor:pointer }
-      .nb-btn-sm { display:flex;align-items:center;justify-content:center;padding:2px 6px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:4px;color:var(--color-text-muted);cursor:pointer;font-size:0.6rem }
-      .nb-btn-sm:hover { border-color:var(--color-primary);color:var(--color-primary) }
-      .nb-btn-primary { display:flex;align-items:center;justify-content:center;gap:3px;padding:6px 10px;background:var(--color-primary);color:white;border:none;border-radius:6px;cursor:pointer;font-size:0.66rem;font-weight:600;white-space:nowrap;box-sizing:border-box }
-      .nb-btn-primary:disabled { opacity:0.5;cursor:not-allowed }
-      .nb-entry-card { padding:8px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:7px;margin-bottom:3px }
-      .nb-entry-title { flex:1;font-size:0.66rem;font-weight:600;color:var(--color-text) }
-      .nb-entry-meta { display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:2px;font-size:0.55rem;color:var(--color-text-muted) }
-      .nb-empty { display:flex;flex-direction:column;align-items:center;padding:30px 16px;text-align:center }
-      .nb-empty-icon { font-size:36px;color:var(--color-border);margin-bottom:8px }
-      .nb-empty p { font-size:0.68rem;color:var(--color-text-muted);margin:0 0 4px 0 }
-      .nb-empty-hint { font-size:0.6rem;color:var(--color-text-muted);opacity:0.7;line-height:1.3 }
-      .nb-upload-label { display:flex;align-items:center;gap:4px;padding:6px 10px;background:var(--color-background);border:1px dashed var(--color-border);border-radius:6px;color:var(--color-text-muted);cursor:pointer;font-size:0.58rem;transition:all 0.15s }
-      .nb-upload-label:hover { border-color:var(--color-primary);color:var(--color-primary) }
-      .flex-1 { flex:1;min-width:0 }
-      .int-card { padding:8px;border-radius:7px;text-align:center }
-      .int-green { background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2) }
-      .int-amber { background:rgba(255,217,61,0.08);border:1px solid rgba(255,217,61,0.2) }
-      .int-violet { background:rgba(153,50,204,0.08);border:1px solid rgba(153,50,204,0.2) }
-      .int-orange { background:rgba(255,140,0,0.08);border:1px solid rgba(255,140,0,0.2) }
-      .int-num { font-size:1.2rem;font-weight:700;color:var(--color-text) }
-      .int-label { font-size:0.55rem;color:var(--color-text-muted);margin-top:1px }
+      .da-tabs { display:flex;gap:1px;padding:0 16px;border-bottom:1px solid var(--color-border);flex-shrink:0 }
+      .da-tab { padding:6px 12px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--color-text-muted);cursor:pointer;font-size:0.62rem;font-weight:500;transition:all 0.15s }
+      .da-tab:hover { color:var(--color-text) }
+      .da-tab.active { color:var(--color-primary);border-bottom-color:var(--color-primary) }
+      .da-content { flex:1;overflow-y:auto;padding:10px 16px }
+      .da-poses { display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:8px }
+      .da-pose-label { font-size:0.58rem;font-weight:600;color:var(--color-text-muted);margin-right:4px }
+      .da-pose-btn { padding:2px 8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:4px;cursor:pointer;font-size:0.56rem;font-family:monospace;color:var(--color-text-muted);transition:all 0.1s }
+      .da-pose-btn:hover { border-color:var(--color-primary);color:var(--color-primary) }
+      .da-pose-btn.active { background:var(--color-primary);color:white;border-color:var(--color-primary) }
+      .da-3d-section { display:flex;flex-direction:column;gap:6px }
+      .da-3d-controls { display:flex;flex-wrap:wrap;gap:4px;align-items:center }
+      .da-presets { display:flex;gap:2px }
+      .da-preset-btn { padding:2px 8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:4px;cursor:pointer;font-size:0.54rem;color:var(--color-text-muted);transition:all 0.1s }
+      .da-preset-btn:hover { border-color:var(--color-primary);color:var(--color-primary) }
+      .da-style-controls { display:flex;gap:4px;align-items:center;flex-wrap:wrap }
+      .da-select { padding:2px 6px;border:1px solid var(--color-border);border-radius:4px;background:var(--color-background);color:var(--color-text);font-size:0.54rem }
+      .da-check { font-size:0.52rem;color:var(--color-text-muted);display:flex;align-items:center;gap:2px;cursor:pointer }
+      .da-3d-canvas { width:100%;height:380px;border-radius:8px;border:1px solid var(--color-border);position:relative;background:#1a1a2e }
+      .da-energy-badge { position:absolute;top:8px;right:8px;z-index:10;background:var(--color-primary);color:white;padding:4px 10px;border-radius:6px;font-size:0.7rem;font-weight:700 }
+      .da-3d-actions { display:flex;gap:4px;align-items:center;flex-wrap:wrap }
+      .da-zoom { display:flex;align-items:center;gap:2px;border:1px solid var(--color-border);border-radius:5px;padding:2px 4px }
+      .da-zoom-label { font-size:0.52rem;color:var(--color-text-muted);width:32px;text-align:center }
+      .da-action-btn { padding:3px 8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:4px;cursor:pointer;font-size:0.56rem;color:var(--color-text-muted);transition:all 0.1s }
+      .da-action-btn:hover { border-color:var(--color-primary);color:var(--color-primary) }
+      .da-action-btn.active { background:var(--color-primary);color:white }
+      .da-snapshot { background:#22c55e;color:white;border-color:#22c55e }
+      .da-2d-section { background:white;border-radius:8px;border:1px solid var(--color-border);padding:10px;overflow:auto }
+      .da-interactions { display:flex;flex-direction:column;gap:8px }
+      .da-stats-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:6px }
+      .da-stat-card { padding:10px;border-radius:8px;text-align:center }
+      .da-green { background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2) }
+      .da-amber { background:rgba(255,217,61,0.08);border:1px solid rgba(255,217,61,0.2) }
+      .da-violet { background:rgba(153,50,204,0.08);border:1px solid rgba(153,50,204,0.2) }
+      .da-orange { background:rgba(255,140,0,0.08);border:1px solid rgba(255,140,0,0.2) }
+      .da-stat-num { font-size:1.1rem;font-weight:700;color:var(--color-text) }
+      .da-stat-label { font-size:0.52rem;color:var(--color-text-muted);margin-top:2px }
+      .da-residues { margin-top:4px }
+      .da-residues-label { font-size:0.58rem;font-weight:600;color:var(--color-text-muted);margin-bottom:4px }
+      .da-residues-list { display:flex;gap:3px;flex-wrap:wrap }
+      .da-residue-chip { padding:2px 6px;background:var(--color-primary);color:white;border-radius:3px;font-size:0.52rem;font-weight:600 }
+      .da-energy-section { display:flex;flex-direction:column;gap:4px }
+      .da-energy-label { font-size:0.58rem;font-weight:600;color:var(--color-text-muted);margin-bottom:4px }
+      .da-energy-row { display:flex;align-items:center;gap:6px }
+      .da-energy-name { font-size:0.56rem;font-weight:600;color:var(--color-text);width:65px;text-align:right;flex-shrink:0 }
+      .da-energy-bar { flex:1;height:8px;background:var(--color-border);border-radius:4px;overflow:hidden }
+      .da-energy-fill { height:100%;border-radius:4px;transition:width 0.4s }
+      .da-energy-val { font-size:0.55rem;font-weight:700;font-family:monospace;width:50px;text-align:right }
+      .da-clusters-section { display:flex;flex-direction:column;gap:4px }
+      .da-clusters-label { font-size:0.58rem;font-weight:600;color:var(--color-text-muted);margin-bottom:4px }
+      .da-cluster-card { display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px }
+      .da-cluster-title { font-size:0.62rem;font-weight:600;color:var(--color-text) }
+      .da-cluster-meta { font-size:0.52rem;color:var(--color-text-muted);margin-top:2px }
+      .da-view-btn { padding:3px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:4px;cursor:pointer;font-size:0.54rem;color:var(--color-text-muted) }
+      .da-view-btn:hover { border-color:var(--color-primary);color:var(--color-primary) }
+      .da-torsion-section { display:flex;flex-direction:column;gap:4px }
+      .da-torsion-label { font-size:0.58rem;font-weight:600;color:var(--color-text-muted);margin-bottom:4px }
+      .da-torsion-card { display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:5px }
+      .da-torsion-atoms { font-size:0.56rem;font-family:monospace;color:var(--color-text-muted) }
+      .da-torsion-angle { font-size:0.62rem;font-weight:700;font-family:monospace;color:var(--color-primary) }
+      .da-empty { display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center }
+      .da-empty-icon { font-size:42px;color:var(--color-border);margin-bottom:10px;opacity:0.4 }
+      .da-empty p { font-size:0.72rem;color:var(--color-text-muted);margin:0 0 4px 0 }
+      .da-empty-hint { font-size:0.6rem;color:var(--color-text-muted);opacity:0.6 }
     </style>
   </div>
 </body>

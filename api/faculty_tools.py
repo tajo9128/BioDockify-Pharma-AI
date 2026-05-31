@@ -59,14 +59,27 @@ class FacultyTools(ApiHandler):
             try:
                 from modules.faculty_materials import SyllabusParser
                 parser = SyllabusParser()
-                # Try parsing as text
                 result = parser._extract_syllabus_info(text)
-                course_name = result.get("course_name", "")
-                topics = result.get("topics", []) or result.get("weekly_topics", [])
+                course_name = result.get("course_info", {}).get("title", "")
+                # Extract topics from weeks array
+                weeks = result.get("weeks", [])
+                if weeks:
+                    topics = [w.get("topic", "") for w in weeks if w.get("topic")]
+                else:
+                    topics = result.get("topics", []) or result.get("weekly_topics", [])
                 duration = str(result.get("duration", ""))
             except:
                 course_name = "Course (auto-detected)"
                 topics = [l for l in lines[:20] if len(l) > 20]
+
+        # If still no topics, extract from lines that look like topics
+        if not topics:
+            for line in lines:
+                line = line.strip()
+                if len(line) > 10 and not line.startswith(("Course", "Instructor", "Professor", "Code", "Credit", "Hour", "Week 1")):
+                    # Check if line looks like a topic (not a header)
+                    if any(c.isalpha() for c in line) and not line.isupper():
+                        topics.append(line)
 
         return {
             "course_name": course_name or "Untitled Course",
