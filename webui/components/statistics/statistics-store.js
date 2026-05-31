@@ -134,24 +134,19 @@ Alpine.data("statisticsModal", () => ({
       if (!file) return;
       this.loading = true;
       this.fileName = file.name;
-      // Parse raw data locally for factor/reliability/cluster APIs
-      this._parseLocalFile(file);
       try {
-        const formData = new FormData();
-        formData.append("file", file);
-        const token = await getCsrfToken();
-        const resp = await fetch("/api/statistics/import-data", {
-          method: "POST", body: formData,
-          headers: { "X-CSRF-Token": token }
+        const content = await file.text();
+        const data = await callJsonApi("statistics_import", {
+          action: "import_file",
+          content: content,
+          filename: file.name,
         });
-        const data = await resp.json();
         if (data.status === "success" || data.data_summary) {
           const summary = data.data_summary || data;
           this.columns = summary.column_names || [];
           this.rowCount = summary.rows || 0;
           this.hasData = true;
           this.step = 2;
-          // Parse file locally for factor/reliability/cluster APIs
           this._parseLocalFile(file);
           this.results = "";
           this.errorMessage = "";
