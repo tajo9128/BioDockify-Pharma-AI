@@ -372,13 +372,8 @@ Alpine.data("statisticsModal", () => ({
     if (!file) return;
     this.loading = true; this.fileName = file.name;
     try {
-      const fd = new FormData(); fd.append("file", file);
-      const token = await getCsrfToken();
-      const resp = await fetch("/api/statistics/import-data", {
-        method: "POST", body: fd,
-        headers: { "X-CSRF-Token": token }
-      });
-      const d = await resp.json();
+      const content = await file.text();
+      const d = await callJsonApi("statistics_import", { action: "import_file", content: content, filename: file.name });
       const s = d.data_summary || d;
       this.columns = s.column_names || []; this.rowCount = s.rows || 0;
       this.hasData = true; this.step = 2;
@@ -397,8 +392,3 @@ Alpine.data("statisticsModal", () => ({
     this.step = 2;
   },
 }));
-
-async function getCsrfToken() {
-  try { const r = await fetch("/api/csrf_token"); const j = await r.json(); return j.token; }
-  catch { return ""; }
-}
