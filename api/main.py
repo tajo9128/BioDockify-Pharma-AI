@@ -1477,7 +1477,34 @@ async def startup_event():
             logger.warning(f"Background Init: Model warmup failed: {e}")
             # Do NOT re-raise, to keep the thread alive
 
-        # C. Start Background Services (Ollama/SurfSense)
+        # C. Initialize Knowledge Base directories
+        try:
+            logger.info("Background Init: Initializing Knowledge Base...")
+            import os
+            kb_dirs = [
+                "/a0/data/knowledge_base",
+                "/a0/data/knowledge_base/literature",
+                "/a0/data/knowledge_base/deep_research",
+                "/a0/data/knowledge_base/faculty",
+                "/a0/data/knowledge_base/docking",
+                "/a0/data/knowledge_base/drug_analysis",
+                "/a0/data/knowledge_base/pharmacophore",
+                "/a0/data/knowledge_base/qsar",
+                "/a0/data/knowledge_base/statistics",
+                "/a0/data/knowledge_base/clinical_trials",
+                "/a0/data/knowledge_base/patents",
+                "/a0/data/knowledge_base/notes",
+                "/a0/data/knowledge_base/misc",
+                "/a0/usr/knowledge/main",
+                "/a0/usr/knowledge/solutions",
+            ]
+            for d in kb_dirs:
+                os.makedirs(d, exist_ok=True)
+            logger.info(f"Background Init: Knowledge Base directories ready ({len(kb_dirs)} dirs)")
+        except Exception as e:
+            logger.warning(f"Background Init: KB directory creation failed: {e}")
+
+        # D. Start Background Services (Ollama/SurfSense)
         try:
             from runtime.config_loader import load_config
             from runtime.service_manager import get_service_manager

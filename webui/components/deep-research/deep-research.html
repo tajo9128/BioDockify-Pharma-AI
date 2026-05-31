@@ -38,24 +38,9 @@
         if (!this.sessionId) { this.error = "Collect sources first"; return; }
         this.loading = true; this.error = "";
         try {
-          const r = await callJsonApi("deep_research", { action: "store", session_id: this.sessionId, max_store: 50 });
+          const r = await callJsonApi("deep_research", { action: "store", session_id: this.sessionId, max_store: 50, topic: this.topic });
           if (r.status === "ok") {
-            // Add entries to the knowledge base notebook
-            const kb = Alpine.store("knowledgeModal");
-            const sources = this.scannedSources.length ? this.scannedSources : this.sources;
-            let added = 0;
-            for (const src of sources.slice(0, 50)) {
-              if (kb && kb.addNoteBookEntry) {
-                kb.addNoteBookEntry(
-                  src.title || "Untitled",
-                  src.abstract || "",
-                  (src.journal || src.database || "Deep Research") + (src.doi ? " DOI:" + src.doi : ""),
-                  ["deep-research", "literature"]
-                );
-                added++;
-              }
-            }
-            this.message = `${r.stored} papers saved + ${added} added to notebook`;
+            this.message = `${r.stored} papers stored in Knowledge Base under 'Deep Research' category`;
           } else { this.error = r.error || "Store failed"; }
         } catch (e) { this.error = e.message; }
         this.loading = false;

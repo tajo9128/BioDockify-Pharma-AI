@@ -137,11 +137,13 @@
             query: this.query,
             database: this.database,
             max_results: 15,
+            store_to_kb: true,
           });
           if (resp.error) { this.error = resp.error; return; }
           this.papers = resp.papers || [];
           this.total = resp.total || 0;
-          this.message = this.papers.length ? "" : "No papers found.";
+          const kbCount = resp.kb_stored || 0;
+          this.message = this.papers.length ? (kbCount > 0 ? `${this.papers.length} papers found, ${kbCount} stored in Knowledge Base` : "") : "No papers found.";
         } catch (e) { this.error = e.message; }
         this.loading = false;
         this.persist();
