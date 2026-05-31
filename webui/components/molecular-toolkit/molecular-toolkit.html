@@ -887,7 +887,7 @@
           <div class="mt-results">
             <!-- Analysis Sub-Tabs -->
             <div style="display:flex;gap:2px;margin-bottom:10px;flex-wrap:wrap">
-              <button class="nb-tab-sm" :class="{active:$store.molecularToolkit.daActiveTab=='3d'}" @click="$store.molecularToolkit.daActiveTab='3d';$nextTick(()=>$store.molecularToolkit.initDA3DView())">3D View</button>
+              <button class="nb-tab-sm" :class="{active:$store.molecularToolkit.daActiveTab=='3d'}" @click="$store.molecularToolkit.daActiveTab='3d';setTimeout(()=>$store.molecularToolkit.initDA3DView(), 300)">3D View</button>
               <button class="nb-tab-sm" :class="{active:$store.molecularToolkit.daActiveTab=='overview'}" @click="$store.molecularToolkit.daActiveTab='overview'">Overview</button>
               <button class="nb-tab-sm" :class="{active:$store.molecularToolkit.daActiveTab=='interactions'}" @click="$store.molecularToolkit.daActiveTab='interactions'">Interactions</button>
               <button class="nb-tab-sm" :class="{active:$store.molecularToolkit.daActiveTab=='energy'}" @click="$store.molecularToolkit.daActiveTab='energy'">Residue Energy</button>

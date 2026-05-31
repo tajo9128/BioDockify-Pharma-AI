@@ -225,7 +225,7 @@
       .ph-tab.active { color:var(--color-primary);border-bottom-color:var(--color-primary) }
       .ph-tab .material-symbols-outlined { font-size:14px }
       .ph-body { flex:1;overflow-y:auto }
-      .ph-grid { display:grid;grid-template-columns:280px 1fr;gap:10px;min-height:0 }
+      .ph-grid { display:flex;flex-direction:column;gap:6px;min-height:0 }
       .ph-left { display:flex;flex-direction:column;gap:6px }
       .ph-right { display:flex;flex-direction:column;gap:6px }
       .ph-chip { padding:2px 8px;border-radius:4px;font-size:0.52rem;font-weight:600;color:white }
@@ -234,7 +234,6 @@
       .ph-hit { display:flex;justify-content:space-between;align-items:center;padding:3px 6px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:4px;margin-bottom:2px }
       .ph-hit-smi { font-family:monospace;font-size:0.54rem;color:var(--color-text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
       .ph-hit-score { font-weight:700;color:var(--color-primary);font-size:0.58rem;margin-left:8px }
-      @media (max-width:650px) { .ph-grid { grid-template-columns:1fr } }
 
       .nb-box { padding:8px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:6px }
       .nb-box h4 { font-size:0.64rem;font-weight:600;color:var(--color-primary);margin:0 0 6px;display:flex;align-items:center;gap:4px }
