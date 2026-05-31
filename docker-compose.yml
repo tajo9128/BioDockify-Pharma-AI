@@ -14,6 +14,9 @@ version: '3.8'
 services:
   biodockify-pharma-ai:
     image: tajo9128/biodockify-pharma-ai:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.release
     container_name: biodockify-pharma-ai
     ports:
       # VPS: map to host port 50001 (Caddy proxies to this)
