@@ -326,6 +326,13 @@ def _compute_plif(receptor_atoms, ligand_atoms, cutoff=4.5):
 
 class DockingAnalysisHandler(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
+        try:
+            return await self._process_safe(input, request)
+        except Exception as e:
+            log.exception(f"Docking analysis error: {e}")
+            return {"success": False, "error": f"Analysis failed: {str(e)[:300]}"}
+
+    async def _process_safe(self, input: dict, request: Request) -> dict | Response:
         action = input.get("action", "analyze")
 
         # ── Shared data loader ──
@@ -336,21 +343,25 @@ class DockingAnalysisHandler(ApiHandler):
 
         receptor_atoms = ligand_models = receptor_text = energies = None
         if job_id and os.path.exists(protein_pdb_path) and os.path.exists(docked_path):
-            with open(protein_pdb_path) as f:
-                receptor_text = f.read()
-            with open(docked_path) as f:
-                pdbqt_text = f.read()
-            receptor_atoms = _parse_pdb_atoms(receptor_text)
-            ligand_models = _parse_pdbqt_models(pdbqt_text)
-            energies = []
-            for line in pdbqt_text.split("\n"):
-                if "REMARK VINA RESULT:" in line:
-                    parts = line.split()
-                    if len(parts) >= 4:
-                        try:
-                            energies.append(float(parts[3]))
-                        except ValueError:
-                            pass
+            try:
+                with open(protein_pdb_path) as f:
+                    receptor_text = f.read()
+                with open(docked_path) as f:
+                    pdbqt_text = f.read()
+                receptor_atoms = _parse_pdb_atoms(receptor_text)
+                ligand_models = _parse_pdbqt_models(pdbqt_text)
+                energies = []
+                for line in pdbqt_text.split("\n"):
+                    if "REMARK VINA RESULT:" in line:
+                        parts = line.split()
+                        if len(parts) >= 4:
+                            try:
+                                energies.append(float(parts[3]))
+                            except ValueError:
+                                pass
+            except Exception as e:
+                log.warning(f"Failed to load docking data for job {job_id}: {e}")
+                receptor_atoms = ligand_models = receptor_text = energies = None
 
         # ── analyze ──
         if action == "analyze":
