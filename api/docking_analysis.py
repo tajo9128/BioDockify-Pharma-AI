@@ -2,7 +2,6 @@
 from helpers.api import ApiHandler, Request, Response
 from helpers import files
 import os, logging, math, json
-import numpy as np
 
 log = logging.getLogger("docking_analysis_api")
 JOBS_DIR = files.get_abs_path("tmp/docking_jobs")
@@ -51,6 +50,8 @@ def _distance(a1, a2):
 
 
 def _analyze_interactions(receptor_atoms, ligand_atoms, pocket_cutoff=5.0):
+    """Compute protein-ligand interactions: H-bonds, hydrophobic, pi-stacking, salt bridges."""
+    import numpy as np
     hbonds, hydrophobic, pi_stacking, salt_bridges = [], [], [], []
     binding_site = set()
     receptor_by_res = {}
@@ -97,6 +98,8 @@ def _analyze_interactions(receptor_atoms, ligand_atoms, pocket_cutoff=5.0):
 
 
 def _kabsch_rmsd(P, Q):
+    """Kabsch RMSD between two point clouds."""
+    import numpy as np
     Pc = P - P.mean(axis=0)
     Qc = Q - Q.mean(axis=0)
     C = Qc.T @ Pc
@@ -109,6 +112,7 @@ def _kabsch_rmsd(P, Q):
 
 def _rmsd_cluster(ligand_models, cutoff=2.0):
     """Cluster poses by RMSD using scipy hierarchical clustering."""
+    import numpy as np
     n = len(ligand_models)
     if n <= 1:
         return [{"representative": 0, "members": list(range(n)), "size": n}]
@@ -142,6 +146,7 @@ def _rmsd_cluster(ligand_models, cutoff=2.0):
 
 def _torsion_analysis(ligand_atoms):
     """Calculate dihedral angles from consecutive atom quartets."""
+    import numpy as np
     dihedrals = []
     if len(ligand_atoms) < 4:
         return dihedrals
@@ -187,6 +192,7 @@ def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, 
     """Generate 2D interaction diagram SVG via RDKit.
     Uses known_smiles if provided, otherwise tries to reconstruct from PDBQT atoms."""
     try:
+        import numpy as np
         from rdkit import Chem
         from rdkit.Chem import Draw, AllChem
         from rdkit.Chem.Draw import IPythonConsole
@@ -197,24 +203,24 @@ def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, 
         latoms = ligand_models[pose_index]
         smiles = known_smiles.strip() if known_smiles else None
         if not smiles:
-            from rdkit.Chem import rdFMCS
-            lig_coords = np.array([[a["x"], a["y"], a["z"]] for a in latoms])
-            lig_symbols = [a["element"] for a in latoms]
-            rw = Chem.RWMol()
-            conf = Chem.Conformer(len(latoms))
-            for i, (sym, pos) in enumerate(zip(lig_symbols, lig_coords)):
-                atom = Chem.Atom(sym)
-                rw.AddAtom(atom)
-                conf.SetAtomPosition(i, [float(pos[0]), float(pos[1]), float(pos[2])])
-            mol = rw.GetMol()
-            mol.AddConformer(conf)
             try:
-                mol = Chem.RemoveHs(mol)
+                lig_coords = np.array([[a["x"], a["y"], a["z"]] for a in latoms])
+                lig_symbols = [a["element"] for a in latoms]
+                rw = Chem.RWMol()
+                conf = Chem.Conformer(len(latoms))
+                for i, (sym, pos) in enumerate(zip(lig_symbols, lig_coords)):
+                    atom = Chem.Atom(sym)
+                    rw.AddAtom(atom)
+                    conf.SetAtomPosition(i, [float(pos[0]), float(pos[1]), float(pos[2])])
+                mol = rw.GetMol()
+                mol.AddConformer(conf)
+                try:
+                    mol = Chem.RemoveHs(mol)
+                except Exception:
+                    pass
+                smiles = Chem.MolToSmiles(mol) if mol.GetNumAtoms() > 0 else None
             except Exception:
                 pass
-            smiles = Chem.MolToSmiles(mol) if mol.GetNumAtoms() > 0 else None
-        except Exception:
-            pass
 
         if smiles:
             lig_mol = Chem.MolFromSmiles(smiles)
