@@ -327,11 +327,8 @@ class DockingRun(ApiHandler):
                     "pdbqt": f"/api/docking_download?job_id={job_id}&filename=docked_output.pdbqt",
                     "sdf": f"/api/docking_download?job_id={job_id}&filename=docked_poses.sdf" if sdf_available else None,
                     "log": f"/api/docking_download?job_id={job_id}&filename=vina_log.txt",
-                    "gnina_pdbqt": gnina_result.get("download_links", {}).get("gnina_pdbqt") if gnina_result else None,
-                    "gnina_sdf": gnina_result.get("download_links", {}).get("gnina_sdf") if gnina_result else None,
-                    "gnina_log": gnina_result.get("download_links", {}).get("gnina_log") if gnina_result else None,
                 },
-                "gnina": gnina_result,
+                "consensus": consensus,
             }
 
         except subprocess.TimeoutExpired:
