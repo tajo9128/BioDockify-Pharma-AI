@@ -19,6 +19,9 @@ export const store = createStore("knowledgeModal", {
   chatLoading: false,
   // Library
   libraryCategories: [],
+  libraryEntries: [],
+  libraryCategory: "",
+  kbStatus: null,
 
   // Tags
   tags: ["biochemistry", "pharmacology", "molecular-biology", "medicinal-chemistry", "drug-discovery"],
@@ -207,6 +210,7 @@ export const store = createStore("knowledgeModal", {
   },
 
   buildLibrary() {
+    // Build from local entries
     const cats = {};
     for (const entry of this.entries) {
       for (const tag of (entry.tags || ["untagged"])) {
@@ -216,6 +220,47 @@ export const store = createStore("knowledgeModal", {
       }
     }
     this.libraryCategories = Object.values(cats).sort((a, b) => b.count - a.count);
+    // Also load from KB API
+    this.loadLibraryFromKB();
+  },
+
+  async loadLibraryFromKB() {
+    try {
+      const r = await callJsonApi("knowledge", { action: "status" });
+      if (r.status === "ok") {
+        this.kbStatus = r;
+        // Build categories from KB
+        const kbCats = [];
+        const labels = r.category_labels || {};
+        for (const [key, count] of Object.entries(r.categories || {})) {
+          kbCats.push({ name: key, label: labels[key] || key, count: count, source: "kb" });
+        }
+        // Merge with local categories
+        for (const cat of kbCats) {
+          const existing = this.libraryCategories.find(c => c.name === cat.name);
+          if (existing) {
+            existing.count += cat.count;
+            existing.source = "kb";
+            existing.label = cat.label;
+          } else {
+            this.libraryCategories.push(cat);
+          }
+        }
+        this.libraryCategories.sort((a, b) => b.count - a.count);
+      }
+    } catch (e) {}
+  },
+
+  async loadLibraryEntries(category) {
+    this.libraryCategory = category;
+    this.loading = true;
+    try {
+      const r = await callJsonApi("knowledge", { action: "library", category: category, limit: 50 });
+      if (r.status === "ok") {
+        this.libraryEntries = r.entries || [];
+      }
+    } catch (e) {}
+    this.loading = false;
   },
 
   openInWriter(entry) {

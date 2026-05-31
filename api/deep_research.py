@@ -147,9 +147,10 @@ class DeepResearchHandler(ApiHandler):
         }
 
     def _store_to_kb(self, input: dict) -> dict:
-        """Store selected sources to knowledge base."""
+        """Store selected sources to knowledge base with proper categorization."""
         session_id = input.get("session_id", "")
         max_store = int(input.get("max_store", 50))
+        topic = input.get("topic", "")
 
         session_path = os.path.join(STORAGE_DIR, f"session_{session_id}.json")
         if not os.path.exists(session_path):
@@ -158,19 +159,55 @@ class DeepResearchHandler(ApiHandler):
         with open(session_path, "r", encoding="utf-8") as f:
             session = json.load(f)
 
+        if not topic:
+            topic = session.get("topic", "Deep Research")
+
         sources = session.get("scanned_sources", session.get("sources", []))[:max_store]
         stored = 0
         for src in sources:
             try:
-                content = f"Title: {src.get('title', '')}\nAuthors: {', '.join(src.get('authors', []))}\nYear: {src.get('year', '')}\nAbstract: {src.get('abstract', '')}\nDOI: {src.get('doi', '')}"
-                filepath = os.path.join(STORAGE_DIR, f"paper_{stored:04d}.txt")
-                with open(filepath, "w", encoding="utf-8") as f:
-                    f.write(content)
+                title = src.get("title", "Untitled")
+                authors = ", ".join(src.get("authors", [])[:5])
+                year = src.get("year", "")
+                abstract = src.get("abstract", "")
+                doi = src.get("doi", "")
+                journal = src.get("journal", "")
+                database = src.get("database", "")
+
+                content = f"**Authors:** {authors}\n**Year:** {year}\n**Journal:** {journal}\n**Database:** {database}\n**DOI:** {doi}\n\n## Abstract\n\n{abstract}"
+
+                # Store in knowledge base
+                from api.knowledge import _store_entry
+                _store_entry(
+                    category="deep_research",
+                    title=title,
+                    content=content,
+                    tags=f"{topic},{database},{year}",
+                    source=f"Deep Research: {topic}",
+                    metadata={"doi": doi, "pmid": src.get("pmid", ""), "citations": src.get("citations", 0)}
+                )
                 stored += 1
             except Exception as e:
                 log.warning(f"Store paper failed: {e}")
 
-        return {"status": "ok", "stored": stored, "session_id": session_id}
+        # Also store a summary
+        summary_content = f"## Deep Research Summary: {topic}\n\n"
+        summary_content += f"**Date:** {datetime.now().strftime('%Y-%m-%d')}\n"
+        summary_content += f"**Total Sources:** {len(sources)}\n\n"
+        summary_content += "### Key Papers\n\n"
+        for i, src in enumerate(sources[:10], 1):
+            summary_content += f"{i}. {src.get('title', '')} ({src.get('year', '')}) - {src.get('journal', '')}\n"
+
+        from api.knowledge import _store_entry
+        _store_entry(
+            category="deep_research",
+            title=f"Research Summary: {topic}",
+            content=summary_content,
+            tags=f"{topic},summary",
+            source="Deep Research Summary"
+        )
+
+        return {"status": "ok", "stored": stored, "session_id": session_id, "topic": topic}
 
     def _get_status(self, input: dict) -> dict:
         session_id = input.get("session_id", "")

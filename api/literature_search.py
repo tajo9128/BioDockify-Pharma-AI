@@ -13,6 +13,7 @@ class LiteratureSearch(ApiHandler):
         query = (input.get("query", "") or "").strip()
         database = input.get("database", "pubmed").strip()
         max_results = min(int(input.get("max_results", 10) or 10), 50)
+        store_to_kb = input.get("store_to_kb", False)
 
         if not query:
             return {"error": "Search query required", "papers": [], "total": 0}
@@ -43,11 +44,34 @@ class LiteratureSearch(ApiHandler):
         else:
             return {"error": f"Unknown database: {database}", "papers": [], "total": 0}
 
+        # Store to knowledge base if requested
+        kb_stored = 0
+        if store_to_kb and papers:
+            try:
+                from api.knowledge import _store_entry
+                for paper in papers[:20]:
+                    title = paper.get("title", "Untitled")
+                    authors = ", ".join(paper.get("authors", [])[:5])
+                    abstract = paper.get("abstract", "")
+                    content = f"**Authors:** {authors}\n**Year:** {paper.get('year', '')}\n**Journal:** {paper.get('journal', '')}\n**Database:** {database}\n\n## Abstract\n\n{abstract}"
+                    _store_entry(
+                        category="literature",
+                        title=title,
+                        content=content,
+                        tags=f"{query},{database}",
+                        source=f"Literature Search: {database}",
+                        metadata={"doi": paper.get("doi", ""), "pmid": paper.get("pmid", "")}
+                    )
+                    kb_stored += 1
+            except Exception as e:
+                logger.warning(f"KB store failed: {e}")
+
         return {
             "papers": papers,
             "total": total,
             "query": query,
             "database": database,
+            "kb_stored": kb_stored,
         }
 
     async def _search_pubmed(self, query: str, max_results: int):

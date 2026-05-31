@@ -1,9 +1,20 @@
-"""Faculty Tools API - Syllabus parsing, assignment generation, question bank, plagiarism check."""
+"""Faculty Tools API - Syllabus parsing, assignment generation, question bank, plagiarism check.
+All results are stored in the Knowledge Base for academic writing, slides, and notes."""
 from helpers.api import ApiHandler, Request
 import json
 import logging
 
 logger = logging.getLogger("faculty_tools")
+
+
+def _store_to_kb(category: str, title: str, content: str, tags: str = ""):
+    """Store faculty content in knowledge base."""
+    try:
+        from api.knowledge import _store_entry
+        return _store_entry(category="faculty", title=title, content=content, tags=tags, source=f"Faculty: {category}")
+    except Exception as e:
+        logger.warning(f"KB store failed: {e}")
+        return None
 
 
 class FacultyTools(ApiHandler):
@@ -61,7 +72,6 @@ class FacultyTools(ApiHandler):
                 parser = SyllabusParser()
                 result = parser._extract_syllabus_info(text)
                 course_name = result.get("course_info", {}).get("title", "")
-                # Extract topics from weeks array
                 weeks = result.get("weeks", [])
                 if weeks:
                     topics = [w.get("topic", "") for w in weeks if w.get("topic")]
@@ -77,11 +87,10 @@ class FacultyTools(ApiHandler):
             for line in lines:
                 line = line.strip()
                 if len(line) > 10 and not line.startswith(("Course", "Instructor", "Professor", "Code", "Credit", "Hour", "Week 1")):
-                    # Check if line looks like a topic (not a header)
                     if any(c.isalpha() for c in line) and not line.isupper():
                         topics.append(line)
 
-        return {
+        result = {
             "course_name": course_name or "Untitled Course",
             "course_code": course_code,
             "topics": topics[:20],
@@ -91,6 +100,18 @@ class FacultyTools(ApiHandler):
             "estimated_weeks": max(1, len(topics) // 2),
             "estimated_lectures": len(topics),
         }
+
+        # Store syllabus in knowledge base
+        kb_content = f"## Syllabus: {result['course_name']}\n\n"
+        kb_content += f"**Code:** {result['course_code']}\n"
+        kb_content += f"**Duration:** {result['duration']}\n"
+        kb_content += f"**Topics:** {result['topic_count']}\n\n"
+        kb_content += "### Topics\n\n"
+        for i, t in enumerate(result['topics'], 1):
+            kb_content += f"{i}. {t}\n"
+        _store_to_kb("syllabus", f"Syllabus: {result['course_name']}", kb_content, f"{result['course_name']},syllabus")
+
+        return result
 
     def _gen_assignment(self, input: dict) -> dict:
         topic = (input.get("topic", "") or "").strip()
@@ -120,7 +141,7 @@ class FacultyTools(ApiHandler):
             {"criterion": "Writing Quality", "weight": 10, "levels": ["Excellent (9-10)", "Good (7-8)", "Adequate (5-6)", "Poor (<5)"]},
         ]
 
-        return {
+        result = {
             "topic": topic,
             "type": atype,
             "level": level,
@@ -131,6 +152,17 @@ class FacultyTools(ApiHandler):
             "suggested_deadline": "2 weeks from assignment date",
             "submission_format": "PDF or DOCX via LMS",
         }
+
+        # Store assignment in knowledge base
+        kb_content = f"## Assignment: {topic}\n\n"
+        kb_content += f"**Type:** {atype} | **Level:** {level} | **Words:** {word_count}\n\n"
+        kb_content += f"### Prompt\n\n{prompt}\n\n"
+        kb_content += "### Rubric (100 marks)\n\n"
+        for r in rubric:
+            kb_content += f"**{r['criterion']}** ({r['weight']}%): {', '.join(r['levels'])}\n\n"
+        _store_to_kb("assignment", f"Assignment: {topic}", kb_content, f"{topic},assignment,{atype}")
+
+        return result
 
     def _gen_questions(self, input: dict) -> dict:
         topic = (input.get("topic", "") or "").strip()
@@ -192,7 +224,7 @@ class FacultyTools(ApiHandler):
         if not topic:
             return {"error": "Topic required"}
 
-        return {
+        result = {
             "topic": topic,
             "duration": duration,
             "level": level,
@@ -217,3 +249,19 @@ class FacultyTools(ApiHandler):
                 f"Find and summarize 2 recent research papers on {topic}",
             ],
         }
+
+        # Store lecture in knowledge base
+        kb_content = f"## Lecture: {topic}\n\n"
+        kb_content += f"**Duration:** {duration} min | **Level:** {level}\n\n"
+        kb_content += "### Learning Objectives\n\n"
+        for obj in result["learning_objectives"]:
+            kb_content += f"- {obj}\n"
+        kb_content += "\n### Lecture Structure\n\n"
+        for sec in result["lecture_structure"]:
+            kb_content += f"**{sec['section']}**: {sec['content']}\n\n"
+        kb_content += "### Homework\n\n"
+        for hw in result["homework"]:
+            kb_content += f"- {hw}\n"
+        _store_to_kb("lecture", f"Lecture: {topic}", kb_content, f"{topic},lecture")
+
+        return result
