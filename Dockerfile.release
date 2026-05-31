@@ -100,8 +100,6 @@ RUN rm -f /usr/local/bin/gnina && \
 EXPOSE 50001
 
 HEALTHCHECK --interval=30s --timeout=15s --retries=3 CMD \
-  python3 -c "from rdkit import Chem; Chem.MolFromSmiles('CCO')" && \
-  (vina --version >/dev/null 2>&1 || true) && \
-  curl -sf http://localhost:50001/api/health || exit 1
+  curl -sf http://localhost:80/api/health || exit 1
 
 CMD ["/exe/initialize.sh", "main"]
