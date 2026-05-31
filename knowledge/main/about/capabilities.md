@@ -282,6 +282,29 @@ Full research lifecycle management via `/api/research/management/`:
 - **Wet Lab Status**: Experiment status (planned/running/completed/failed), protocol management
 - **Research Dashboard**: Real-time view of all active research projects
 
+## Knowledge Base — Central Hub
+The Knowledge Base is the SINGLE SOURCE OF TRUTH for all research data. ALL modules store their outputs here, and ALL output modules read from here.
+
+**Data Flow IN (store with category):**
+- Deep Research → `deep_research` category (papers + summaries)
+- Literature Search → `literature` category (papers from 10 databases)
+- Faculty CMD → `faculty` category (syllabus, lectures, assignments)
+- Docking → `docking` category (results, poses, interactions)
+- Drug Analysis → `drug_analysis` category (properties, filters)
+- Pharmacophore → `pharmacophore` category (features, screening)
+- QSAR → `qsar` category (models, predictions)
+- Statistics → `statistics` category (analysis results)
+- Clinical Trials → `clinical_trials` category
+- Patents → `patents` category
+
+**Data Flow OUT (read from KB):**
+- Academic Writer reads papers, references, data for thesis/papers
+- Slides Generator reads content for presentation slides
+- Faculty CMD reads syllabus context for lecture generation
+- Chat semantic search across all stored knowledge
+
+**API Actions:** store, library, categories, query, reindex, status
+
 ## Internet-Based Features
 The agent has FULL INTERNET ACCESS for:
 - **Literature Search**: Live queries to PubMed, Semantic Scholar, Google Scholar, arXiv, Europe PMC, bioRxiv, Crossref, OpenAlex
