@@ -1,19 +1,16 @@
 ### vision_load
 load and analyze images
-args:
-- `action` (one of: load, describe, analyze)
-- `image_path` (path to image file)
-- `question` (optional: question about the image)
-returns image description, analysis results
+args: `action` (load, describe, analyze), `image_path`
+optional: `question`
 example:
 ~~~json
 {
   "thoughts": ["I need to analyze this image."],
-  "headline": "Loading image for analysis",
+  "headline": "Loading image",
   "tool_name": "vision_load",
   "tool_args": {
     "action": "load",
-    "image_path": "workdir/compound_structure.png"
+    "image_path": "workdir/compound.png"
   }
 }
 ~~~

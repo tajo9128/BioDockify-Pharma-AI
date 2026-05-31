@@ -1,13 +1,11 @@
 ### benchmark
-run system benchmarks and diagnostics
-args:
-- `action` (one of: run, api_health, storage, memory, dependencies)
-returns system health metrics, dependency status, performance benchmarks
+run system diagnostics
+args: `action` (run, api_health, storage, memory, dependencies)
 example:
 ~~~json
 {
-  "thoughts": ["I need to check the system health."],
-  "headline": "Running system benchmark",
+  "thoughts": ["I need to check system health."],
+  "headline": "Running diagnostics",
   "tool_name": "benchmark",
   "tool_args": {
     "action": "run"

@@ -1,19 +1,16 @@
 ### verify_tool
 5-layer verification of research claims
-args:
-- `action` (one of: verify, check_citation, check_claim)
-- `claim` (claim to verify)
-- `citation` (optional: citation to check)
-returns verification status, sources, confidence score
+args: `action` (verify, check_citation, check_claim)
+optional: `claim`, `citation`
 example:
 ~~~json
 {
-  "thoughts": ["I need to verify this research claim."],
-  "headline": "Verifying research claim",
+  "thoughts": ["I need to verify this claim."],
+  "headline": "Verifying claim",
   "tool_name": "verify_tool",
   "tool_args": {
     "action": "verify",
-    "claim": "Aspirin reduces risk of heart attack by 30%"
+    "claim": "Aspirin reduces heart attack risk by 30%"
   }
 }
 ~~~

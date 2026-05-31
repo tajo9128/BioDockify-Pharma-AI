@@ -1,14 +1,11 @@
 ### pipeline_tool
-run the autonomous research pipeline (25 stages, 9 phases)
-args:
-- `action` (one of: start, status, resume, cancel)
-- `topic` (research topic)
-- `mode` (optional: full, quick, literature_only)
-returns pipeline status, stage progress, results
+run autonomous research pipeline (25 stages, 9 phases)
+args: `action` (start, status, resume, cancel), `topic`
+optional: `mode` (full, quick, literature_only)
 example:
 ~~~json
 {
-  "thoughts": ["I need to run a full research pipeline on this topic."],
+  "thoughts": ["I need to run a full research pipeline."],
   "headline": "Starting research pipeline",
   "tool_name": "pipeline_tool",
   "tool_args": {

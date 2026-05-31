@@ -1,16 +1,11 @@
 ### qsar
-QSAR modeling: train ML models on molecular descriptors, predict bioactivity, batch screening
-args:
-- `action` (one of: train, predict, batch_predict, strategies)
-- `smiles` (SMILES string for single prediction)
-- `smiles_list` (newline-separated SMILES for batch prediction)
-- `endpoint` (property to predict, e.g. "activity", "toxicity")
-- `model_type` (optional: rf, gbr, svr, pls, ridge, lasso)
-returns trained model metrics (R², RMSE, MAE), predictions, applicability domain
+QSAR modeling: train ML models, predict bioactivity
+args: `action` (train, predict, batch_predict, strategies), `smiles`
+optional: `smiles_list`, `endpoint`, `model_type`
 example:
 ~~~json
 {
-  "thoughts": ["I need to predict bioactivity for these compounds."],
+  "thoughts": ["I need to predict bioactivity."],
   "headline": "Running QSAR prediction",
   "tool_name": "qsar",
   "tool_args": {

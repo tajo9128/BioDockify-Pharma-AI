@@ -1,15 +1,12 @@
 ### mol_optimizer
-molecular optimization: bioisostere mutagenesis for lead optimization
-args:
-- `action` (one of: strategies, mutate)
-- `smiles` (SMILES string of the molecule to optimize)
-- `strategy` (optional: optimization strategy ID)
-returns mutant SMILES with improved properties (MW, LogP, HBD, HBA)
+molecular optimization: bioisostere mutagenesis
+args: `action` (strategies, mutate), `smiles`
+optional: `strategy`
 example:
 ~~~json
 {
-  "thoughts": ["I need to optimize this lead compound."],
-  "headline": "Generating molecular mutants",
+  "thoughts": ["I need to optimize this compound."],
+  "headline": "Generating mutants",
   "tool_name": "mol_optimizer",
   "tool_args": {
     "action": "mutate",
