@@ -846,7 +846,12 @@
             </div>
 
             <div class="agent-help">
-              <button class="agent-help-btn" @click="const chat=document.querySelector('#chat-input');if(chat){chat.focus();chat.value='Analyze these docking results: ' + $store.molecularToolkit.dockingLigandName + ' binding to protein. Best pose energy: ' + $store.molecularToolkit.dockingPoses[0].energy.toFixed(2) + ' kcal/mol. ' + $store.molecularToolkit.dockingPoses.length + ' poses found.';chat.dispatchEvent(new Event('input',{bubbles:true}));}">
+              <button class="agent-help-btn" @click="
+                const msg = 'Analyze these docking results: ' + ($store.molecularToolkit.dockingLigandName || 'ligand') + ' binding to protein. Best pose energy: ' + ($store.molecularToolkit.dockingPoses[0]?.energy?.toFixed(2) || 'N/A') + ' kcal/mol. ' + ($store.molecularToolkit.dockingPoses.length || 0) + ' poses found. Job ID: ' + ($store.molecularToolkit.dockingJobId || 'N/A') + '. Provide: 1) binding mode interpretation, 2) key interactions, 3) comparison with known inhibitors, 4) druggability assessment.';
+                const chat = document.querySelector('#chat-input') || document.querySelector('textarea[data-chat-input]') || document.querySelector('.chat-input textarea');
+                if (chat) { chat.value = msg; chat.dispatchEvent(new Event('input', { bubbles: true })); chat.focus(); }
+                else { navigator.clipboard.writeText(msg).then(() => { $store.molecularToolkit.message = 'Analysis prompt copied to clipboard — paste into chat'; setTimeout(() => $store.molecularToolkit.message = '', 3000); }); }
+              ">
                 <span class="material-symbols-outlined">psychology</span>
                 <span>Ask agent to analyze these docking results</span>
               </button>
