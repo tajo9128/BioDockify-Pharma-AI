@@ -24,13 +24,33 @@
       async startTraining() { if (!this.datasetProcessed) { this.error = "Process dataset first"; return; } this.loading = true; this.error = ""; try { const r = await callJsonApi("qsar", { action: "train", X: this.datasetProcessed.X, y: this.datasetProcessed.y, feature_names: this.datasetProcessed.feature_names, model_type: this.modelType, model_name: this.modelName || `QSAR_${Date.now()}`, cv_folds: this.cvFolds, test_split: this.testSplit / 100, task: this.task, _smiles: this.datasetProcessed._smiles || [] }); if (r.error) { this.error = r.error; } else { this.trainingJobId = r.job_id; this.trainingStatus = "pending"; this.trainedModelId = null; this.pollTraining(); } } catch (e) { this.error = e.message; } this.loading = false; },
       async pollTraining() { if (!this.trainingJobId) return; const r = await callJsonApi("qsar", { action: "training_status", job_id: this.trainingJobId }); this.trainingStatus = r.status; if (r.status === "completed") { this.trainedModelId = r.model_id; const mt = r.result?.metrics || {}; this.message = this.task === "classification" ? `CV Acc: ${(mt.cv_accuracy||0).toFixed(3)} · F1: ${(mt.train_f1||0).toFixed(3)}` : `CV R²: ${(mt.cv_r2||0).toFixed(3)} · RMSE: ${(mt.cv_rmse||0).toFixed(3)}`; await this.loadModels(); } else if (r.status === "failed") { this.error = r.error || "Training failed"; } else { setTimeout(() => this.pollTraining(), 2000); } },
       async loadModels() { try { this.savedModels = (await callJsonApi("qsar", { action: "models" })).models || []; } catch (e) {} },
-      async runPrediction() { if (!this.predictSmiles || !this.selectedModelId) { this.error = "Enter SMILES and select a model"; return; } this.loading = true; this.error = ""; try { this.predictResult = await callJsonApi("qsar", { action: "predict", model_id: this.selectedModelId, smiles: this.predictSmiles }); } catch (e) { this.error = e.message; } this.loading = false; },
+      async runPrediction() { if (!this.predictSmiles || !this.selectedModelId) { this.error = "Enter SMILES and select a model"; return; } this.loading = true; this.error = ""; try { this.predictResult = await callJsonApi("qsar", { action: "predict", model_id: this.selectedModelId, smiles: this.predictSmiles }); this._storeQsartoKB(); } catch (e) { this.error = e.message; } this.loading = false; },
       async runBatchPredict() { if (!this.batchSmiles || !this.batchModelId) { this.error = "Enter SMILES and select a model"; return; } this.batchLoading = true; this.error = ""; try { const r = await callJsonApi("qsar", { action: "predict_batch", model_id: this.batchModelId, smiles_list: this.batchSmiles }); if (r.error) { this.error = r.error; } else { this.batchResults = r.predictions || []; this.message = `${r.n_predictions}/${r.total} predicted`; } } catch (e) { this.error = e.message; } this.batchLoading = false; },
       async runReadAcross() { if (!this.raSmiles || !this.raModelId) { this.error = "Enter SMILES and select a model"; return; } this.raLoading = true; this.error = ""; try { const r = await callJsonApi("qsar", { action: "read_across", model_id: this.raModelId, smiles: this.raSmiles }); if (r.error) { this.error = r.error; } else { this.raAnalogues = r.analogues || []; } } catch (e) { this.error = e.message; } this.raLoading = false; },
       async loadWilliamsPlot(id) { this.wpModelId = id; this.loading = true; try { const r = await callJsonApi("qsar", { action: "williams_plot", model_id: id }); if (r.error) { this.error = r.error; } else { this.williamsSvg = r.svg; this.activeTab = "williams"; } } catch (e) { this.error = e.message; } this.loading = false; },
       async deleteModel(id) { await callJsonApi("qsar", { action: "delete_model", model_id: id }); await this.loadModels(); },
       mDesc(m) { if (m.model_task === "classification") return `Acc:${(m.metrics?.cv_accuracy||0).toFixed(3)} F1:${(m.metrics?.train_f1||0).toFixed(3)}`; return `R²:${(m.metrics?.cv_r2||0).toFixed(3)} RMSE:${(m.metrics?.cv_rmse||0).toFixed(3)}`; },
       classCounts(y) { const c = {}; (y||[]).forEach(v => { c[v] = (c[v]||0)+1; }); return Object.entries(c).map(([k,v]) => `${k}:${v}`).join(' '); },
+
+      async _storeQsartoKB() {
+        if (!this.predictResult) return;
+        try {
+          const smiles = this.predictSmiles;
+          const pred = this.predictResult;
+          let content = `## QSAR Prediction: ${smiles}\n\n`;
+          content += `**Model:** ${this.selectedModelId}\n`;
+          content += `**Predicted Value:** ${pred.prediction ?? pred.predicted_value ?? 'N/A'}\n`;
+          if (pred.applicability_domain) content += `**Applicability Domain:** ${pred.applicability_domain}\n`;
+          await callJsonApi("knowledge", {
+            action: "store",
+            category: "qsar",
+            title: `QSAR: ${smiles.slice(0,30)}`,
+            content: content,
+            tags: `${smiles},qsar,prediction`,
+            source: "QSAR Module",
+          });
+        } catch (e) { /* silently fail */ }
+      },
     });
   </script>
 </head>

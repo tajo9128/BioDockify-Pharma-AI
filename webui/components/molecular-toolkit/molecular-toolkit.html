@@ -161,10 +161,46 @@
             this.dockingMmgbsa = r.mmgbsa || null;
             this.dockingStatus = r.poses?.length ? "complete" : "error";
             if (!this.dockingPoses.length) this.error = "No binding poses found. Check PDB and ligand SMILES.";
-            if (this.dockingStatus === "complete") { this.fetchBestPose2d(); }
+            if (this.dockingStatus === "complete") {
+              this.fetchBestPose2d();
+              // Auto-store docking results in Knowledge Base
+              this._storeDockingToKB(r);
+            }
           }
         } catch (e) { this.error = e.message; this.dockingStatus = "error"; }
         this.loading = false;
+      },
+
+      async _storeDockingToKB(result) {
+        try {
+          const ligandName = this.dockingLigandName || "ligand";
+          const proteinName = this.dockingProteinName || "protein";
+          const bestEnergy = this.dockingPoses[0]?.energy?.toFixed(2) || "N/A";
+          const mmgbsa = this.dockingMmgbsa?.best_mmgbsa?.toFixed(3) || "N/A";
+          let content = `## Docking: ${ligandName} → ${proteinName}\n\n`;
+          content += `**Job ID:** ${this.dockingJobId}\n`;
+          content += `**Best Vina Energy:** ${bestEnergy} kcal/mol\n`;
+          content += `**Best MM-GBSA:** ${mmgbsa} kcal/mol\n`;
+          content += `**Poses:** ${this.dockingPoses.length}\n\n`;
+          content += `### Pose Energies\n\n`;
+          this.dockingPoses.forEach((p, i) => {
+            content += `Pose ${i+1}: ${p.energy?.toFixed(2)} kcal/mol\n`;
+          });
+          if (this.dockingMmgbsa?.per_pose) {
+            content += `\n### MM-GBSA Scores\n\n`;
+            this.dockingMmgbsa.per_pose.slice(0, 5).forEach(p => {
+              content += `Pose ${p.pose_index+1}: MM-GBSA=${p.mmgbsa_energy?.toFixed(3)}, Consensus Z=${p.consensus_z?.toFixed(3)}\n`;
+            });
+          }
+          await callJsonApi("knowledge", {
+            action: "store",
+            category: "docking",
+            title: `Docking: ${ligandName} → ${proteinName}`,
+            content: content,
+            tags: `${ligandName},${proteinName},docking,vina`,
+            source: `Docking Job ${this.dockingJobId}`,
+          });
+        } catch (e) { /* silently fail */ }
       },
 
       openDeepAnalysis() {
@@ -291,9 +327,40 @@
         this.loading = true; this.error = ""; this.swissAdmeResult = null;
         try {
           const r = await callJsonApi("admet_swiss_endpoint", { smiles: this.smiles.trim() });
-          if (r.error) { this.error = r.error; } else { this.swissAdmeResult = r; }
+          if (r.error) { this.error = r.error; } else {
+            this.swissAdmeResult = r;
+            // Auto-store ADMET results in KB
+            this._storeADMETToKB(r);
+          }
         } catch (e) { this.error = e.message; }
         this.loading = false;
+      },
+
+      async _storeADMETToKB(result) {
+        try {
+          const smiles = this.smiles;
+          const formula = result.physicochemical?.formula || "";
+          const mw = result.physicochemical?.mw || "";
+          let content = `## ADMET Analysis: ${smiles}\n\n`;
+          content += `**Formula:** ${formula} | **MW:** ${mw} g/mol\n\n`;
+          content += `### Lipophilicity\n`;
+          content += `Consensus LogP: ${result.lipophilicity?.consensus_logp}\n\n`;
+          content += `### Pharmacokinetics\n`;
+          content += `GI Absorption: ${result.pharmacokinetics?.gi_absorption}\n`;
+          content += `BBB Permeant: ${result.pharmacokinetics?.bbb_permeant}\n`;
+          content += `P-gp Substrate: ${result.pharmacokinetics?.gp_substrate}\n\n`;
+          content += `### Druglikeness\n`;
+          content += `Consensus: ${result.druglikeness?.consensus}/5 passed\n`;
+          content += `Bioavailability: ${result.druglikeness?.bioavailability_score}\n`;
+          await callJsonApi("knowledge", {
+            action: "store",
+            category: "drug_analysis",
+            title: `ADMET: ${formula || smiles.slice(0,30)}`,
+            content: content,
+            tags: `${smiles},admet,swissadme`,
+            source: "SwissADME Analysis",
+          });
+        } catch (e) { /* silently fail */ }
       },
 
       async runSimilarity() {

@@ -228,10 +228,31 @@ Alpine.data("statisticsModal", () => ({
       this.chartImage = null;
       // Auto-generate chart
       this.generateChart();
+      // Auto-store to Knowledge Base
+      this._storeToKB(result);
     } catch (e) {
       this.errorMessage = "Analysis failed: " + (e.message || "API unavailable. Try asking the agent instead.");
     }
     this.loading = false;
+  },
+
+  async _storeToKB(result) {
+    try {
+      const analysisType = this.activeAnalysis || this.testType;
+      const summary = this.results ? this.results.substring(0, 1500) : JSON.stringify(result).substring(0, 1500);
+      let content = `## Statistical Analysis: ${analysisType}\n\n`;
+      content += `**File:** ${this.fileName}\n`;
+      content += `**Rows:** ${this.rowCount} | **Columns:** ${this.columns.length}\n\n`;
+      content += `### Results\n\n\`\`\`json\n${summary}\n\`\`\`\n`;
+      await callJsonApi("knowledge", {
+        action: "store",
+        category: "statistics",
+        title: `Statistics: ${analysisType} — ${this.fileName}`,
+        content: content,
+        tags: `${analysisType},statistics,${this.fileName}`,
+        source: "Statistics Module",
+      });
+    } catch (e) { /* silently fail */ }
   },
 
   async generateChart() {

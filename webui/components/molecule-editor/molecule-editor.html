@@ -70,8 +70,34 @@
             this.pkaData = r.pka || null;
             this.bbbData = r.bbb_permeability || null;
             this.meltingPoint = r.melting_point || null;
+            // Auto-store to Knowledge Base
+            this._storeDrugPropsToKB(r);
           }
         } catch(e) {}
+      },
+
+      async _storeDrugPropsToKB(r) {
+        try {
+          const smiles = this.smiles;
+          let content = `## Drug Properties: ${smiles}\n\n`;
+          content += `**Formula:** ${r.formula} | **MW:** ${r.molecular_weight} g/mol\n`;
+          content += `**LogP:** ${r.logp} | **TPSA:** ${r.tpsa} Å²\n`;
+          content += `**HBD:** ${r.hbd} | **HBA:** ${r.hba}\n`;
+          content += `**Rotatable Bonds:** ${r.rotatable_bonds}\n`;
+          content += `**Lipinski:** ${r.lipinski_pass ? 'PASS' : 'FAIL'}\n`;
+          if (r.druglikeness_score) content += `**Druglikeness Score:** ${r.druglikeness_score.score}\n`;
+          if (r.herg) content += `**hERG Risk:** ${r.herg.risk}\n`;
+          if (r.ames) content += `**AMES Mutagenicity:** ${r.ames.risk}\n`;
+          if (r.bbb_permeability) content += `**BBB Permeability:** ${r.bbb_permeability.label}\n`;
+          await callJsonApi("knowledge", {
+            action: "store",
+            category: "drug_analysis",
+            title: `Drug Properties: ${r.formula || smiles.slice(0,30)}`,
+            content: content,
+            tags: `${smiles},drug_properties,${r.formula}`,
+            source: "Drug Analysis Module",
+          });
+        } catch (e) { /* silently fail */ }
       },
 
       async loadFilters() {

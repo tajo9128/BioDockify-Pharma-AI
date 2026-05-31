@@ -20,7 +20,7 @@
 
       async init() { await this.loadNciTypes(); },
       async loadNciTypes() { try { const r = await callJsonApi("pharmacophore", { action: "nci_types" }); this.nciTypes = r; this.nciLoaded = true; } catch (e) {} },
-      async generate() { if (!this.smiles) { this.error = "Enter SMILES"; return; } this.loading = true; this.error = ""; try { const r = await callJsonApi("pharmacophore", { action: "generate", smiles: this.smiles }); if (!r.success) { this.error = r.error; } else { this.features = r.features; this.featureSummary = r.feature_summary; } } catch (e) { this.error = e.message; } this.loading = false; },
+      async generate() { if (!this.smiles) { this.error = "Enter SMILES"; return; } this.loading = true; this.error = ""; try { const r = await callJsonApi("pharmacophore", { action: "generate", smiles: this.smiles }); if (!r.success) { this.error = r.error; } else { this.features = r.features; this.featureSummary = r.feature_summary; this._storePharmacophoreToKB(r); } } catch (e) { this.error = e.message; } this.loading = false; },
       async screen() { if (!this.querySmiles || !this.librarySmiles) { this.error = "Enter query and library SMILES"; return; } this.screenLoading = true; this.error = ""; try { const r = await callJsonApi("pharmacophore", { action: "screen", query_smiles: this.querySmiles, library_smiles: this.librarySmiles }); if (!r.success) { this.error = r.error; } else { this.hits = r.hits; } } catch (e) { this.error = e.message; } this.screenLoading = false; },
       async proteinModel() { if (!this.proteinPdb) { this.error = "Enter protein PDB"; return; } this.loading = true; this.error = ""; const p = { action: "protein_model", protein_pdb: this.proteinPdb, cutoff: parseFloat(this.proteinCutoff) || 8.0 }; if (this.proteinCenter) { const parts = this.proteinCenter.split(",").map(s => parseFloat(s.trim())); if (parts.length === 3 && parts.every(n => !isNaN(n))) p.center = { x: parts[0], y: parts[1], z: parts[2] }; } try { const r = await callJsonApi("pharmacophore", p); if (!r.success) { this.error = r.error; } else { this.proteinFeatures = r.features; this.proteinSummary = r.feature_summary; this.proteinResidues = r.binding_site_residues || []; this.pmExport = r.pm_export || ""; } } catch (e) { this.error = e.message; } this.loading = false; },
       async sharedMergedModel() { if (!this.modelSmilesList) { this.error = "Enter SMILES"; return; } this.loading = true; this.error = ""; try { const r = await callJsonApi("pharmacophore", { action: this.modelType === "shared" ? "shared_model" : "merged_model", smiles_list: this.modelSmilesList }); if (!r.success) { this.error = r.error; } else { this.sharedFeatures = r.shared_features || []; this.mergedFeatures = r.merged_features || []; } } catch (e) { this.error = e.message; } this.loading = false; },
@@ -33,6 +33,28 @@
       async computeStats() { if (!this.statsHits || !this.statsTotal) { this.error = "Enter hits JSON and total"; return; } this.loading = true; this.error = ""; try { const h = JSON.parse(this.statsHits); const r = await callJsonApi("pharmacophore", { action: "screen_stats", hits: h, total_screened: parseInt(this.statsTotal) }); if (!r.success) { this.error = r.error; } else { this.statsResult = r.statistics; } } catch (e) { this.error = e.message; } this.loading = false; },
       fColor(t) { const c = {Donor:'#4169E1',Acceptor:'#DC143C',Hydrophobic:'#FFD700',Aromatic:'#9932CC',PosIonizable:'#32CD32',NegIonizable:'#FF8C00',HBond_donor:'#4169E1',HBond_acceptor:'#DC143C',Cation:'#32CD32',Anion:'#FF8C00',Halogen:'#00CED1'}; return c[t]||'#888' },
       copyPm() { if (this.pmExport) { navigator.clipboard.writeText(this.pmExport); this.message = "Copied"; setTimeout(() => this.message = '', 1500); } },
+
+      async _storePharmacophoreToKB(result) {
+        try {
+          const smiles = this.smiles;
+          let content = `## Pharmacophore: ${smiles}\n\n`;
+          content += `**Features:** ${result.features?.length || 0}\n\n`;
+          if (result.feature_summary) {
+            content += `### Feature Summary\n\n`;
+            for (const [type, count] of Object.entries(result.feature_summary)) {
+              content += `- ${type}: ${count}\n`;
+            }
+          }
+          await callJsonApi("knowledge", {
+            action: "store",
+            category: "pharmacophore",
+            title: `Pharmacophore: ${smiles.slice(0,30)}`,
+            content: content,
+            tags: `${smiles},pharmacophore`,
+            source: "Pharmacophore Module",
+          });
+        } catch (e) { /* silently fail */ }
+      },
     });
   </script>
 </head>
