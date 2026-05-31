@@ -4,7 +4,7 @@
     import { createStore } from "/js/AlpineStore.js";
     import { callJsonApi } from "/js/api.js";
     export const store = createStore("pharmacophore", {
-      activeTab: "generate", loading: false, error: "",
+      activeTab: "protein", loading: false, error: "",
       smiles: "", features: [], featureSummary: {},
       querySmiles: "", librarySmiles: "", hits: [], screenLoading: false,
       proteinPdb: "", proteinCenter: "", proteinCutoff: "8.0", proteinFeatures: [], proteinSummary: {}, proteinResidues: [], pmExport: "",
@@ -48,7 +48,6 @@
     <div x-show="$store.pharmacophore.loading" class="nb-loading"><div class="loading-spinner"></div><span>Computing...</span></div>
 
     <div class="ph-tabs">
-      <button class="ph-tab" :class="{active:$store.pharmacophore.activeTab=='generate'}" @click="$store.pharmacophore.activeTab='generate'"><span class="material-symbols-outlined">molecule</span> Ligand</button>
       <button class="ph-tab" :class="{active:$store.pharmacophore.activeTab=='protein'}" @click="$store.pharmacophore.activeTab='protein'"><span class="material-symbols-outlined">biotech</span> Protein</button>
       <button class="ph-tab" :class="{active:$store.pharmacophore.activeTab=='screen'}" @click="$store.pharmacophore.activeTab='screen'"><span class="material-symbols-outlined">filter_alt</span> Screen</button>
       <button class="ph-tab" :class="{active:$store.pharmacophore.activeTab=='batch'}" @click="$store.pharmacophore.activeTab='batch'"><span class="material-symbols-outlined">dataset</span> Batch</button>
@@ -57,28 +56,6 @@
     </div>
 
     <div class="ph-body">
-      <!-- Ligand -->
-      <div x-show="$store.pharmacophore.activeTab=='generate'" class="ph-grid">
-        <div class="ph-left">
-          <div class="nb-box"><h4><span class="material-symbols-outlined">molecule</span> Ligand Pharmacophore</h4>
-            <input type="text" x-model="$store.pharmacophore.smiles" placeholder="SMILES (e.g. CC(=O)Oc1ccccc1C(=O)O)" class="nb-input" style="font-family:monospace" @keyup.enter="$store.pharmacophore.generate()" />
-            <button class="nb-btn-primary" @click="$store.pharmacophore.generate()" :disabled="$store.pharmacophore.loading || !$store.pharmacophore.smiles">Generate</button>
-          </div>
-        </div>
-        <div class="ph-right">
-          <template x-if="$store.pharmacophore.features.length">
-            <div class="nb-box">
-              <h4 x-text="$store.pharmacophore.features.length + ' Features'"></h4>
-              <div style="display:flex;gap:3px;flex-wrap:wrap">
-                <template x-for="(count, type) in $store.pharmacophore.featureSummary">
-                  <span class="ph-chip" :style="'background:'+$store.pharmacophore.fColor(type)" x-text="type + ': ' + count"></span>
-                </template>
-              </div>
-            </div>
-          </template>
-        </div>
-      </div>
-
       <!-- Protein -->
       <div x-show="$store.pharmacophore.activeTab=='protein'" class="ph-grid">
         <div class="ph-left">
