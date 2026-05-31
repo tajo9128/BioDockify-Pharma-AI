@@ -43,23 +43,16 @@ class HealthCheck(ApiHandler):
             except:
                 health["checks"].append({"name": "AutoDock Vina", "status": "fail", "detail": "Not installed"})
 
-            # GNINA — check if binary exists and works
-            gnina_detail = ""
+            # ODDT ML Scoring (RF-Score + NNScore) — CPU-only, cross-platform
+            oddt_detail = ""
             try:
-                import platform
-                r = subprocess.run(["gnina", "--help"], capture_output=True, timeout=10)
-                gnina_ok = r.returncode <= 1
-                gnina_detail = "Available" if gnina_ok else "Binary exists but returned error"
-            except FileNotFoundError:
-                gnina_ok = False
-                if platform.system() == "Windows":
-                    gnina_detail = "Docker only — rebuild image with: docker compose build --no-cache"
-                else:
-                    gnina_detail = "Not installed — rebuild image with: docker compose build --no-cache"
-            except Exception as e:
-                gnina_ok = False
-                gnina_detail = f"Error: {str(e)[:60]}"
-            health["checks"].append({"name": "GNINA CNN", "status": "ok" if gnina_ok else "warn", "detail": gnina_detail})
+                import oddt
+                oddt_detail = "Available (RF-Score + NNScore)"
+                oddt_ok = True
+            except ImportError:
+                oddt_ok = False
+                oddt_detail = "Not installed (pip install oddt)"
+            health["checks"].append({"name": "ML Scoring (ODDT)", "status": "ok" if oddt_ok else "warn", "detail": oddt_detail})
 
             # RDKit
             try:

@@ -11,25 +11,29 @@ log = logging.getLogger("docking_run")
 JOBS_DIR = files.get_abs_path("tmp/docking_jobs")
 
 
-def _compute_consensus_score(poses, gnina_result=None):
-    """Combine Vina + GNINA CNN scores into Z-score normalized consensus."""
+def _compute_consensus_score(poses, oddt_result=None):
+    """Combine Vina + ODDT RF-Score into Z-score normalized consensus. CPU-only."""
     import numpy as np
     vina_scores = np.array([p.get("energy", 0) for p in poses], dtype=np.float64)
-    gnina_scores = None
-    if gnina_result and gnina_result.get("success") and gnina_result.get("poses"):
-        gnina_scores = np.array([p.get("cnn_score", 0) for p in gnina_result.get("poses", [])], dtype=np.float64)
+    rf_scores = None
+    if oddt_result and oddt_result.get("success") and oddt_result.get("poses"):
+        rf_scores = np.array([p.get("rf_score", 0) for p in oddt_result.get("poses", [])], dtype=np.float64)
     n_poses = len(vina_scores)
     consensus = []
     for i in range(n_poses):
         ze = (vina_scores[i] - vina_scores.mean()) / (vina_scores.std() + 1e-10) if n_poses > 1 else 0
-        zgn = 0
-        if gnina_scores is not None and i < len(gnina_scores):
-            zgn = (gnina_scores[i] - gnina_scores.mean()) / (gnina_scores.std() + 1e-10) if len(gnina_scores) > 1 else 0
-        consensus_z = float(0.6 * ze + 0.4 * zgn) if gnina_scores is not None else float(ze)
-        consensus.append({"pose_index": i, "vina_energy": float(vina_scores[i]),
-            "gnina_cnn": float(gnina_scores[i]) if gnina_scores is not None and i < len(gnina_scores) else None,
-            "consensus_z": round(consensus_z, 4), "vina_z": round(float(ze), 4),
-            "gnina_z": round(float(zgn), 4) if gnina_scores is not None else None})
+        zrf = 0
+        if rf_scores is not None and i < len(rf_scores):
+            zrf = (rf_scores[i] - rf_scores.mean()) / (rf_scores.std() + 1e-10) if len(rf_scores) > 1 else 0
+        consensus_z = float(0.5 * ze + 0.5 * zrf) if rf_scores is not None else float(ze)
+        consensus.append({
+            "pose_index": i,
+            "vina_energy": float(vina_scores[i]),
+            "rf_score": float(rf_scores[i]) if rf_scores is not None and i < len(rf_scores) else None,
+            "consensus_z": round(consensus_z, 4),
+            "vina_z": round(float(ze), 4),
+            "rf_z": round(float(zrf), 4) if rf_scores is not None else None,
+        })
     consensus.sort(key=lambda c: c["consensus_z"])
     return {"num_poses": n_poses, "per_pose": consensus, "best_consensus_z": consensus[0]["consensus_z"] if consensus else None}
 
@@ -292,29 +296,20 @@ class DockingRun(ApiHandler):
             except Exception:
                 pass
 
-            # ── GNINA CNN Docking (auto-chain after Vina) ──
-            gnina_result = None
+            # ── CPU-Only ML Scoring (ODDT RF-Score + NNScore) ──
+            oddt_result = None
             try:
-                from api.docking_gnina import run_gnina
-                gnina_result = run_gnina(
-                    job_id=job_id,
-                    receptor_pdbqt=receptor,
-                    ligand_pdbqt=ligand,
-                    center=center,
-                    size=size,
-                    exhaustiveness=exhaustiveness,
-                    num_modes=num_modes,
-                    cnn_scoring="rescore",
-                )
-                if gnina_result.get("success"):
-                    log.info(f"GNINA completed for job {job_id}")
+                from api.docking_oddt import oddt_rescore
+                oddt_result = oddt_rescore(job_id=job_id)
+                if oddt_result.get("success"):
+                    log.info(f"ODDT rescoring completed for job {job_id}")
                 else:
-                    log.warning(f"GNINA skipped or failed: {gnina_result.get('error', 'unknown')}")
-            except Exception as gnina_err:
-                log.warning(f"GNINA chaining error: {gnina_err}")
+                    log.warning(f"ODDT rescoring failed: {oddt_result.get('error', 'unknown')}")
+            except Exception as oddt_err:
+                log.warning(f"ODDT rescoring error: {oddt_err}")
 
-            # ── Consensus Z-Score Scoring ──
-            consensus = _compute_consensus_score(poses, gnina_result)
+            # ── Consensus Z-Score Scoring (Vina + ODDT) ──
+            consensus = _compute_consensus_score(poses, oddt_result)
 
             return {
                 "status": "complete",
@@ -327,6 +322,7 @@ class DockingRun(ApiHandler):
                 "stdout": result.stdout[:3000],
                 "stderr": result.stderr[:1000] if result.stderr else "",
                 "consensus": consensus,
+                "oddt": oddt_result,
                 "download_links": {
                     "pdbqt": f"/api/docking_download?job_id={job_id}&filename=docked_output.pdbqt",
                     "sdf": f"/api/docking_download?job_id={job_id}&filename=docked_poses.sdf" if sdf_available else None,
