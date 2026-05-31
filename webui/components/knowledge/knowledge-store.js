@@ -64,11 +64,16 @@ export const store = createStore("knowledgeModal", {
     this.loading = true;
     this.error = "";
     try {
-      const result = await callJsonApi("knowledge/query", {
+      const result = await callJsonApi("knowledge", {
+        action: "query",
         query: this.searchQuery,
         top_k: 10
       });
       this.searchResults = result.results || [];
+      if (!this.searchResults.length) {
+        this.message = "No results found. Try different keywords or upload documents first.";
+        setTimeout(() => { this.message = ""; }, 3000);
+      }
     } catch (e) {
       this.error = e.message;
       this.searchResults = [];
@@ -171,14 +176,54 @@ export const store = createStore("knowledgeModal", {
   },
 
   chatWithKB() {
-    const ctx = this.searchResults.length
-      ? this.searchResults.map(r => (r.title || r.content || "").substring(0, 200)).join("\n")
-      : this.entries.map(e => e.question + ": " + e.answer).join("\n").substring(0, 3000);
-    const input = document.getElementById("chat-input");
+    // Build context from search results or saved entries
+    let ctx = "";
+    if (this.searchResults.length) {
+      ctx = this.searchResults.map(r => {
+        const title = r.metadata?.source || r.title || "";
+        const text = (r.text || r.content || "").substring(0, 300);
+        return title ? `[${title}] ${text}` : text;
+      }).join("\n");
+    } else if (this.entries.length) {
+      ctx = this.entries.slice(0, 20).map(e => {
+        return `${e.question}: ${e.answer}`.substring(0, 300);
+      }).join("\n");
+    }
+
+    if (!ctx) {
+      this.error = "No knowledge base content. Upload files or add entries first.";
+      setTimeout(() => { this.error = ""; }, 3000);
+      return;
+    }
+
+    const prompt = `Based on this knowledge base content, answer my question:\n\n${ctx.substring(0, 3000)}\n\nQuestion: `;
+
+    // Try Alpine store chat input first, then DOM fallback
+    try {
+      if (typeof Alpine !== "undefined" && Alpine.store("chatInput")) {
+        Alpine.store("chatInput").message = prompt;
+        return;
+      }
+    } catch {}
+
+    // DOM fallback — find chat input in various locations
+    const input = document.querySelector("#chat-input")
+      || document.querySelector("textarea[data-chat-input]")
+      || document.querySelector(".chat-input textarea")
+      || document.querySelector("[x-model*='chatInput']");
+
     if (input) {
-      input.value = `Based on this knowledge base content, answer my question:\n\n${ctx}\n\nQuestion: `;
+      input.value = prompt;
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.focus();
+      // Auto-scroll to bottom
+      input.scrollTop = input.scrollHeight;
+    } else {
+      // Last resort: copy to clipboard
+      navigator.clipboard.writeText(prompt).then(() => {
+        this.message = "KB context copied to clipboard — paste into chat";
+        setTimeout(() => { this.message = ""; }, 3000);
+      });
     }
   },
 
