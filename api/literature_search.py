@@ -229,65 +229,29 @@ class LiteratureSearch(ApiHandler):
             return [], 0
 
     async def _search_scopus(self, query: str, max_results: int):
-        """Search via CrossRef, filtered to Scopus-indexed journals from our database."""
-        return await self._search_crossref_filtered(query, max_results, "scopus", "Scopus")
+        """Search Crossref directly for Scopus-relevant journals."""
+        return await self._search_crossref_unfiltered(query, max_results, "Scopus")
 
     async def _search_wos(self, query: str, max_results: int):
-        """Search via CrossRef, filtered to WoS-indexed journals from our database."""
-        return await self._search_crossref_filtered(query, max_results, "wos", "Web of Science")
+        """Search Crossref directly for WoS-relevant journals."""
+        return await self._search_crossref_unfiltered(query, max_results, "Web of Science")
 
-    async def _search_crossref_filtered(self, query: str, max_results: int, index_column: str, label: str):
-        """Search CrossRef API, then filter results to only {index_column}-indexed journals."""
+    async def _search_crossref_unfiltered(self, query: str, max_results: int, label: str):
+        """Search CrossRef API directly without ISSN filtering."""
         try:
-            import sqlite3, os
-            db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "skills", "journal-recommender", "assets", "journals.db")
-            has_db = os.path.exists(db_path)
-
             encoded = urllib.parse.quote(query)
             url = (
                 f"https://api.crossref.org/works"
-                f"?query={encoded}&rows={max_results * 3}"
+                f"?query={encoded}&rows={max_results}"
                 f"&filter=type:journal-article"
-                f"&select=DOI,title,abstract,author,container-title,issued,URL"
+                f"&select=DOI,title,abstract,author,container-title,issued,URL,ISSN"
             )
-            req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0 (mailto:biodockify@example.com)"})
+            req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0 (mailto:biodockify@example.com)"})
             with urllib.request.urlopen(req, timeout=20) as resp:
                 data = json.loads(resp.read())
 
-            # Load indexed ISSNs from our journal database
-            indexed_issns = set()
-            if has_db:
-                try:
-                    conn = sqlite3.connect(db_path)
-                    col = "scopus_indexed" if index_column == "scopus" else "wos_indexed"
-                    rows = conn.execute(f"SELECT issn, eissn FROM journals WHERE {col}=1").fetchall()
-                    for r in rows:
-                        for v in r:
-                            if v:
-                                indexed_issns.add(str(v).strip().upper())
-                    conn.close()
-                except Exception:
-                    pass
-
             papers = []
-            for item in data.get("message", {}).get("items", []):
-                if len(papers) >= max_results:
-                    break
-
-                # Check if journal is in our indexed database
-                issns = item.get("ISSN", [])
-                container_issn = ""
-                in_index = not has_db  # If no DB, include all
-                for issn_val in (issns if isinstance(issns, list) else [issns]):
-                    issn_str = str(issn_val).strip().upper()
-                    container_issn = container_issn or issn_str
-                    if issn_str in indexed_issns:
-                        in_index = True
-                        break
-
-                if not in_index:
-                    continue
-
+            for item in data.get("message", {}).get("items", [])[:max_results]:
                 authors = []
                 for a in (item.get("author", []) or [])[:5]:
                     family = a.get("family", "")
@@ -301,16 +265,20 @@ class LiteratureSearch(ApiHandler):
                 date_parts = issued.get("date-parts", [[None]])[0]
                 year = str(date_parts[0]) if date_parts and date_parts[0] else ""
 
+                abstract = ""
+                if item.get("abstract"):
+                    abstract = item["abstract"][:500]
+
                 papers.append({
                     "id": item.get("DOI", ""),
                     "title": (item.get("title", [""]) or [""])[0],
-                    "abstract": "",  # CrossRef doesn't include abstracts in search results
+                    "abstract": abstract,
                     "authors": authors,
                     "journal": journal_name,
                     "year": year,
                     "url": item.get("URL", f"https://doi.org/{item.get('DOI', '')}"),
                     "database": label,
-                    "issn": container_issn,
+                    "issn": (item.get("ISSN") or [""])[0],
                 })
 
             return papers, len(papers)

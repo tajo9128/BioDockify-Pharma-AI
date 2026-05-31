@@ -167,75 +167,60 @@ Alpine.data("statisticsModal", () => ({
     this.results = "";
     this.errorMessage = "";
     try {
-      let endpoint = "";
-      let payload = {};
-      switch (this.testType) {
-        case "descriptive": endpoint = "statistics/analyze/descriptive"; break;
-        case "correlation":
-          if (this.selectedCorrCols.length < 2) { this.errorMessage = "Select at least 2 columns for correlation"; this.loading = false; return; }
-          endpoint = "statistics/analyze/correlation";
-          payload = { columns: this.selectedCorrCols, method: this.correlationMethod }; break;
-        case "ttest":
-          if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select both Group and Value columns"; this.loading = false; return; }
-          endpoint = "statistics/analyze/t-test";
-          payload = { group_col: this.selectedGroupCol, value_col: this.selectedValueCol, test_type: this.ttestType, equal_var: this.ttestEqualVar }; break;
-        case "anova":
-          if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select both Group and Value columns for ANOVA"; this.loading = false; return; }
-          endpoint = "statistics/analyze/anova";
-          payload = { group_col: this.selectedGroupCol, value_col: this.selectedValueCol, post_hoc: this.anovaPostHoc }; break;
-        case "regression":
-        case "survival":
-        case "pkpd":
-          this.errorMessage = "This analysis runs via the AI agent. Ask in the chat panel.";
-          this.loading = false; return;
-        case "power":
-          endpoint = "statistics/analyze/power";
-          payload = { test_type: "ttest_ind", effect_size: this.powerEffectSize, alpha: this.powerAlpha, power: this.powerTarget }; break;
-        case "factor":
-          endpoint = "statistics_reduction";
-          payload = { action: "factor", data: this.rawData || [], columns: this.columns, n_components: null }; break;
-        case "reliability":
-          endpoint = "statistics_reduction";
-          payload = { action: "reliability", data: this.rawData || [], columns: this.columns }; break;
-        case "cluster":
-          endpoint = "statistics_reduction";
-          payload = { action: this.clusterMethod === "hierarchical" ? "cluster_hierarchical" : "cluster_kmeans",
-                       data: this.rawData || [], columns: this.columns, n_clusters: this.clusterK || 3,
-                       method: this.clusterMethod === "hierarchical" ? "ward" : undefined }; break;
-        case "chisquare":
-          endpoint = "statistics/analyze/chi-square-independence";
-          if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select Group and Value columns"; this.loading = false; return; }
-          payload = { group_col: this.selectedGroupCol, value_col: this.selectedValueCol }; break;
-        case "mannwhitney":
-          endpoint = "statistics/analyze/mann-whitney";
-          if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select Group and Value columns"; this.loading = false; return; }
-          payload = { group_col: this.selectedGroupCol, value_col: this.selectedValueCol }; break;
-        case "wilcoxon":
-          endpoint = "statistics/analyze/wilcoxon-signed-rank";
-          if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select Group and Value columns"; this.loading = false; return; }
-          payload = { group_col: this.selectedGroupCol, value_col: this.selectedValueCol }; break;
-        case "kruskalwallis":
-          endpoint = "statistics/analyze/kruskal-wallis";
-          if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select Group and Value columns"; this.loading = false; return; }
-          payload = { group_col: this.selectedGroupCol, value_col: this.selectedValueCol }; break;
-        case "friedman":
-          endpoint = "statistics/analyze/friedman";
-          payload = { data: this.rawData || [], columns: this.columns }; break;
-        case "fisher":
-          endpoint = "statistics/analyze/fisher-exact";
-          payload = { data: this.rawData || [], columns: this.columns }; break;
-        case "normality":
-          endpoint = "statistics/diagnostic/normality";
-          payload = { data: this.rawData || [], columns: this.columns }; break;
-        case "homogeneity":
-          endpoint = "statistics/diagnostic/homogeneity";
-          if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select Group and Value columns"; this.loading = false; return; }
-          payload = { group_col: this.selectedGroupCol, value_col: this.selectedValueCol }; break;
-        case "roc":
-          endpoint = "statistics_advanced";
-          payload = { action: "roc", y_true: this.rawData?.[0] || [], y_score: this.rawData?.[1] || [] }; break;
-        default: this.errorMessage = "Unknown analysis type"; this.loading = false; return;
+      let endpoint = "statistics_analyze";
+      let payload = { action: this.testType };
+      const tt = this.testType;
+
+      if (tt === "descriptive") {
+        payload = { action: "descriptive", data: this.rawData || [], columns: this.columns };
+      } else if (tt === "correlation") {
+        if (this.selectedCorrCols.length < 2) { this.errorMessage = "Select at least 2 columns for correlation"; this.loading = false; return; }
+        payload = { action: "correlation", data: this.rawData || [], columns: this.columns, selected_cols: this.selectedCorrCols, method: this.correlationMethod };
+      } else if (tt === "ttest") {
+        if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select both Group and Value columns"; this.loading = false; return; }
+        payload = { action: "ttest", data: this.rawData || [], columns: this.columns, group_col: this.selectedGroupCol, value_col: this.selectedValueCol, test_type: this.ttestType, equal_var: this.ttestEqualVar };
+      } else if (tt === "anova") {
+        if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select both Group and Value columns"; this.loading = false; return; }
+        payload = { action: "anova", data: this.rawData || [], columns: this.columns, group_col: this.selectedGroupCol, value_col: this.selectedValueCol, post_hoc: this.anovaPostHoc };
+      } else if (tt === "chisquare") {
+        if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select Group and Value columns"; this.loading = false; return; }
+        payload = { action: "chisquare", data: this.rawData || [], columns: this.columns, group_col: this.selectedGroupCol, value_col: this.selectedValueCol };
+      } else if (tt === "mannwhitney") {
+        if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select Group and Value columns"; this.loading = false; return; }
+        payload = { action: "mannwhitney", data: this.rawData || [], columns: this.columns, group_col: this.selectedGroupCol, value_col: this.selectedValueCol };
+      } else if (tt === "wilcoxon") {
+        if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select Group and Value columns"; this.loading = false; return; }
+        payload = { action: "wilcoxon", data: this.rawData || [], columns: this.columns, group_col: this.selectedGroupCol, value_col: this.selectedValueCol };
+      } else if (tt === "kruskalwallis") {
+        if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select Group and Value columns"; this.loading = false; return; }
+        payload = { action: "kruskalwallis", data: this.rawData || [], columns: this.columns, group_col: this.selectedGroupCol, value_col: this.selectedValueCol };
+      } else if (tt === "friedman") {
+        payload = { action: "friedman", data: this.rawData || [], columns: this.columns };
+      } else if (tt === "fisher") {
+        payload = { action: "fisher", data: this.rawData || [], columns: this.columns };
+      } else if (tt === "normality") {
+        payload = { action: "normality", data: this.rawData || [], columns: this.columns };
+      } else if (tt === "homogeneity") {
+        if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select Group and Value columns"; this.loading = false; return; }
+        payload = { action: "homogeneity", data: this.rawData || [], columns: this.columns, group_col: this.selectedGroupCol, value_col: this.selectedValueCol };
+      } else if (tt === "roc") {
+        endpoint = "statistics_advanced";
+        payload = { action: "roc", y_true: this.rawData?.[0] || [], y_score: this.rawData?.[1] || [] };
+      } else if (tt === "power") {
+        payload = { action: "power", test_type: "ttest_ind", effect_size: this.powerEffectSize, alpha: this.powerAlpha, power: this.powerTarget };
+      } else if (tt === "factor") {
+        endpoint = "statistics_reduction";
+        payload = { action: "factor", data: this.rawData || [], columns: this.columns, n_components: null };
+      } else if (tt === "reliability") {
+        endpoint = "statistics_reduction";
+        payload = { action: "reliability", data: this.rawData || [], columns: this.columns };
+      } else if (tt === "cluster") {
+        endpoint = "statistics_reduction";
+        payload = { action: this.clusterMethod === "hierarchical" ? "cluster_hierarchical" : "cluster_kmeans", data: this.rawData || [], columns: this.columns, n_clusters: this.clusterK || 3 };
+      } else {
+        this.errorMessage = "Unknown analysis type"; this.loading = false; return;
       }
+
       const result = await callJsonApi(endpoint, payload);
       this.resultsJson = result;
       this.results = JSON.stringify(result, null, 2);
