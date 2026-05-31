@@ -1,6 +1,46 @@
 from helpers.api import ApiHandler, Request, Response
 from helpers import errors, git
-import os
+import os, logging
+
+log = logging.getLogger("health")
+
+_BACKUP_DONE_TODAY = False
+
+
+def _auto_backup_if_needed():
+    """Run auto-backup once per container start."""
+    global _BACKUP_DONE_TODAY
+    if _BACKUP_DONE_TODAY:
+        return
+    _BACKUP_DONE_TODAY = True
+    try:
+        import shutil
+        from datetime import datetime
+        backup_dir = "/a0/usr/backups"
+        data_dir = "/a0/usr"
+        os.makedirs(backup_dir, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = os.path.join(backup_dir, f"auto_backup_{ts}")
+        critical = ["data", "knowledge", "memory", "projects", "agents", "skills", "prompts"]
+        files = ["settings.json", "identity.md"]
+        backed = []
+        for d in critical:
+            src = os.path.join(data_dir, d)
+            if os.path.isdir(src):
+                shutil.copytree(src, os.path.join(backup_path, d), dirs_exist_ok=True)
+                backed.append(d)
+        for f in files:
+            src = os.path.join(data_dir, f)
+            if os.path.isfile(src):
+                shutil.copy2(src, os.path.join(backup_path, f))
+                backed.append(f)
+        # Clean old backups (keep 7)
+        all_backups = sorted([d for d in os.listdir(backup_dir) if d.startswith("auto_backup_")])
+        for old in all_backups[:-7]:
+            shutil.rmtree(os.path.join(backup_dir, old), ignore_errors=True)
+        log.info(f"[Auto-Backup] Created: {backup_path} ({len(backed)} items)")
+    except Exception as e:
+        log.warning(f"[Auto-Backup] Failed: {e}")
 
 
 class HealthCheck(ApiHandler):
