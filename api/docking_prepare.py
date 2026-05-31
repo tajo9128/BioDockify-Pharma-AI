@@ -30,12 +30,8 @@ def _run_obabel(args, timeout=60, label="conversion"):
         return False, "", str(e)
 
 
-def _obabel_available():
-    try:
-        subprocess.run(["obabel", "-V"], capture_output=True, timeout=5)
-        return True
-    except Exception:
-        return False
+    Chem.MolToMolFile(mol, output_sdf)
+    return output_sdf, None
 
 
 def _meeko_to_pdbqt(output_path, mol, is_ligand=True):
@@ -74,6 +70,68 @@ def _sanitize_pdbqt_str(pdbqt_str, is_ligand=True):
         torsions = sum(1 for l in lines if "ACTIVE_BOND" in l or "rotatable" in l.lower())
         lines.append(f"TORSDOF {max(0, torsions)}")
     return "\n".join(lines)
+
+
+def _obabel_available():
+    try:
+        subprocess.run(["obabel", "-V"], capture_output=True, timeout=5)
+        return True
+    except Exception:
+        return False
+
+
+def _standardize_protein(pdb_path: str, output_path: str):
+    """Standardize protein for reproducible docking: remove waters, add hydrogens, fix residues."""
+    try:
+        from rdkit import Chem
+        mol = Chem.MolFromPDBFile(pdb_path, removeHs=False)
+        if mol is None:
+            # Fallback: just copy the file
+            import shutil
+            shutil.copy2(pdb_path, output_path)
+            return output_path
+        # Remove water molecules
+        water_pattern = Chem.MolFromSmarts("[OH2]")
+        if water_pattern:
+            water_matches = mol.GetSubstructMatches(water_pattern)
+            if water_matches:
+                edit_mol = Chem.EditableMol(mol)
+                for match in water_matches:
+                    edit_mol.RemoveAtom(match[0])
+                mol = edit_mol.GetMol()
+        # Add hydrogens
+        mol = Chem.AddHs(mol)
+        Chem.MolToPDBFile(mol, output_path)
+        return output_path
+    except Exception as e:
+        log.warning(f"Protein standardization failed: {e}, using original")
+        import shutil
+        shutil.copy2(pdb_path, output_path)
+        return output_path
+
+
+def _standardize_ligand(smiles: str, output_sdf: str, seed: int = 42):
+    """Standardize ligand for reproducible docking: fixed seed conformer generation."""
+    from rdkit import Chem
+    from rdkit.Chem import AllChem
+
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return None, "Invalid SMILES"
+
+    mol = Chem.AddHs(mol)
+    params = AllChem.ETKDGv3()
+    params.randomSeed = seed
+    params.numThreads = 0
+    params.useSmallRingTorsions = True
+    params.useBasicKnowledge = True
+    status = AllChem.EmbedMolecule(mol, params)
+    if status != 0:
+        return None, "3D conformer generation failed"
+
+    AllChem.MMFFOptimizeMolecule(mol, maxIters=500)
+    Chem.MolToMolFile(mol, output_sdf)
+    return output_sdf, None
 
 
 def _detect_format(content, filename_hint=""):
@@ -203,6 +261,10 @@ class DockingPrepare(ApiHandler):
                 "hint": "Paste PDB format content directly"
             }
 
+        # === Standardize protein for reproducible docking ===
+        std_pdb_path = os.path.join(job_dir, "protein_standardized.pdb")
+        pdb_path = _standardize_protein(pdb_path, std_pdb_path)
+
         # === Ligand preparation ===
         ligand_pdbqt = os.path.join(job_dir, f"{ligand_name}.pdbqt")
         sdf_path = os.path.join(job_dir, f"{ligand_name}.sdf")
@@ -230,8 +292,11 @@ class DockingPrepare(ApiHandler):
                     ligand_errors.append(f"Invalid SMILES: {smiles[:50]}")
                 else:
                     mol = Chem.AddHs(mol)
-                    AllChem.EmbedMolecule(mol, AllChem.ETKDG())
-                    AllChem.MMFFOptimizeMolecule(mol)
+                    params = AllChem.ETKDGv3()
+                    params.randomSeed = 42
+                    params.numThreads = 0
+                    AllChem.EmbedMolecule(mol, params)
+                    AllChem.MMFFOptimizeMolecule(mol, maxIters=500)
                     writer = Chem.SDWriter(sdf_path)
                     writer.write(mol)
                     writer.close()
@@ -284,8 +349,11 @@ class DockingPrepare(ApiHandler):
                 if mol:
                     mol = Chem.AddHs(mol)
                     from rdkit.Chem import AllChem
-                    AllChem.EmbedMolecule(mol, AllChem.ETKDG())
-                    AllChem.MMFFOptimizeMolecule(mol)
+                    params = AllChem.ETKDGv3()
+                    params.randomSeed = 42
+                    params.numThreads = 0
+                    AllChem.EmbedMolecule(mol, params)
+                    AllChem.MMFFOptimizeMolecule(mol, maxIters=500)
                     meeko_ok, meeko_err = _meeko_to_pdbqt(ligand_pdbqt, mol, is_ligand=True)
                     if meeko_ok: ligand_prep_ok = True
                     else: ligand_errors.append(f"Meeko: {meeko_err}")

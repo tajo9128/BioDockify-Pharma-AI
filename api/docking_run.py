@@ -191,6 +191,7 @@ class DockingRun(ApiHandler):
             "--size_z", str(size.get("z", 20)),
             "--exhaustiveness", str(exhaustiveness),
             "--num_modes", str(num_modes),
+            "--seed", "42",
         ]
 
         log.info(f"Running Vina: {' '.join(vina_args)}")
