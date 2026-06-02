@@ -31,7 +31,6 @@
       smiles: "",
       preset: "",
       admetResult: null,
-      swissAdmeResult: null,
 
       // Similarity
       querySmiles: "",
@@ -322,20 +321,6 @@
         this.loading = false;
       },
 
-      async runSwissADME() {
-        if (!this.smiles.trim()) return;
-        this.loading = true; this.error = ""; this.swissAdmeResult = null;
-        try {
-          const r = await callJsonApi("admet_swiss_endpoint", { smiles: this.smiles.trim() });
-          if (r.error) { this.error = r.error; } else {
-            this.swissAdmeResult = r;
-            // Auto-store ADMET results in KB
-            this._storeADMETToKB(r);
-          }
-        } catch (e) { this.error = e.message; }
-        this.loading = false;
-      },
-
       async _storeADMETToKB(result) {
         try {
           const smiles = this.smiles;
@@ -453,49 +438,49 @@
       <!-- ADMET Tab -->
       <div x-show="$store.molecularToolkit.activeTab === 'admet'" class="tab-content">
         <div class="mt-input-row">
-          <input type="text" x-model="$store.molecularToolkit.smiles" placeholder="SMILES string (e.g. CC(=O)Oc1ccccc1C(=O)O)" class="mt-input" @keyup.enter="$store.molecularToolkit.runSwissADME()" />
-          <button class="btn-run" @click="$store.molecularToolkit.runSwissADME()" :disabled="$store.molecularToolkit.loading || !$store.molecularToolkit.smiles" style="flex:none;width:auto;margin-top:0">
+          <input type="text" x-model="$store.molecularToolkit.smiles" placeholder="SMILES string (e.g. CC(=O)Oc1ccccc1C(=O)O)" class="mt-input" @keyup.enter="$store.molecularToolkit.runADMET()" />
+          <button class="btn-run" @click="$store.molecularToolkit.runADMET()" :disabled="$store.molecularToolkit.loading || !$store.molecularToolkit.smiles" style="flex:none;width:auto;margin-top:0">
             <span class="material-symbols-outlined">play_arrow</span>
-            🇨🇭 SwissADME
+            Run ADMET
           </button>
         </div>
 
-        <!-- SwissADME Results -->
-        <template x-if="$store.molecularToolkit.swissAdmeResult">
+        <!-- ADMET Results -->
+        <template x-if="$store.molecularToolkit.admetResult">
           <div class="mt-results">
             <!-- Molecule Header -->
             <div class="mt-mol-header">
-              <span class="mt-mol-smiles" x-text="$store.molecularToolkit.swissAdmeResult.smiles"></span>
-              <span class="mt-mol-formula" x-text="$store.molecularToolkit.swissAdmeResult.physicochemical.formula"></span>
+              <span class="mt-mol-smiles" x-text="$store.molecularToolkit.admetResult.smiles"></span>
+              <span class="mt-mol-formula" x-text="$store.molecularToolkit.admetResult.physicochemical.formula"></span>
             </div>
 
             <!-- 1. Physicochemical Properties -->
             <div class="analysis-section">
               <h3 class="section-title">1. Physicochemical Properties</h3>
               <div class="mt-props" style="grid-template-columns:repeat(auto-fill,minmax(105px,1fr))">
-                <div class="mt-prop"><span class="mt-prop-label">MW</span><span class="mt-prop-val" x-text="$store.molecularToolkit.swissAdmeResult.physicochemical.mw + ' g/mol'"></span></div>
-                <div class="mt-prop"><span class="mt-prop-label">Heavy atoms</span><span class="mt-prop-val" x-text="$store.molecularToolkit.swissAdmeResult.physicochemical.heavy_atoms"></span></div>
-                <div class="mt-prop"><span class="mt-prop-label">Arom heavy</span><span class="mt-prop-val" x-text="$store.molecularToolkit.swissAdmeResult.physicochemical.aromatic_heavy_atoms"></span></div>
-                <div class="mt-prop"><span class="mt-prop-label">Frac Csp3</span><span class="mt-prop-val" x-text="$store.molecularToolkit.swissAdmeResult.physicochemical.fraction_csp3"></span></div>
-                <div class="mt-prop"><span class="mt-prop-label">Rot bonds</span><span class="mt-prop-val" x-text="$store.molecularToolkit.swissAdmeResult.physicochemical.rotatable_bonds"></span></div>
-                <div class="mt-prop"><span class="mt-prop-label">HBA</span><span class="mt-prop-val" x-text="$store.molecularToolkit.swissAdmeResult.physicochemical.hba"></span></div>
-                <div class="mt-prop"><span class="mt-prop-label">HBD</span><span class="mt-prop-val" x-text="$store.molecularToolkit.swissAdmeResult.physicochemical.hbd"></span></div>
-                <div class="mt-prop"><span class="mt-prop-label">MR</span><span class="mt-prop-val" x-text="$store.molecularToolkit.swissAdmeResult.physicochemical.molar_refractivity"></span></div>
-                <div class="mt-prop"><span class="mt-prop-label">TPSA</span><span class="mt-prop-val" x-text="$store.molecularToolkit.swissAdmeResult.physicochemical.tpsa + ' Å²'"></span></div>
+                <div class="mt-prop"><span class="mt-prop-label">MW</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.physicochemical.mw + ' g/mol'"></span></div>
+                <div class="mt-prop"><span class="mt-prop-label">Heavy atoms</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.physicochemical.heavy_atoms"></span></div>
+                <div class="mt-prop"><span class="mt-prop-label">Arom heavy</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.physicochemical.aromatic_heavy_atoms"></span></div>
+                <div class="mt-prop"><span class="mt-prop-label">Frac Csp3</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.physicochemical.fraction_csp3"></span></div>
+                <div class="mt-prop"><span class="mt-prop-label">Rot bonds</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.physicochemical.rotatable_bonds"></span></div>
+                <div class="mt-prop"><span class="mt-prop-label">HBA</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.physicochemical.hba"></span></div>
+                <div class="mt-prop"><span class="mt-prop-label">HBD</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.physicochemical.hbd"></span></div>
+                <div class="mt-prop"><span class="mt-prop-label">MR</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.physicochemical.molar_refractivity"></span></div>
+                <div class="mt-prop"><span class="mt-prop-label">TPSA</span><span class="mt-prop-val" x-text="$store.molecularToolkit.admetResult.physicochemical.tpsa + ' Å²'"></span></div>
               </div>
             </div>
 
             <!-- 2. Lipophilicity -->
             <div class="analysis-section">
-              <h3 class="section-title">2. Lipophilicity <span style="font-weight:400;color:var(--color-text-muted);font-size:0.64rem">— consensus: <b style="color:var(--color-primary)" x-text="$store.molecularToolkit.swissAdmeResult.lipophilicity.consensus_logp"></b></span></h3>
+              <h3 class="section-title">2. Lipophilicity <span style="font-weight:400;color:var(--color-text-muted);font-size:0.64rem">— consensus: <b style="color:var(--color-primary)" x-text="$store.molecularToolkit.admetResult.lipophilicity.consensus_logp"></b></span></h3>
               <table class="lipo-table">
                 <thead><tr><th>Model</th><th>Value</th></tr></thead>
                 <tbody>
-                  <tr><td>iLOGP</td><td x-text="$store.molecularToolkit.swissAdmeResult.lipophilicity.ilogp"></td></tr>
-                  <tr><td>XLOGP3</td><td x-text="$store.molecularToolkit.swissAdmeResult.lipophilicity.xlogp3"></td></tr>
-                  <tr><td>WLOGP</td><td x-text="$store.molecularToolkit.swissAdmeResult.lipophilicity.wlogp"></td></tr>
-                  <tr><td>MLOGP</td><td x-text="$store.molecularToolkit.swissAdmeResult.lipophilicity.mlogp"></td></tr>
-                  <tr><td>SILICOS-IT</td><td x-text="$store.molecularToolkit.swissAdmeResult.lipophilicity.silicos_it"></td></tr>
+                  <tr><td>iLOGP</td><td x-text="$store.molecularToolkit.admetResult.lipophilicity.ilogp"></td></tr>
+                  <tr><td>XLOGP3</td><td x-text="$store.molecularToolkit.admetResult.lipophilicity.xlogp3"></td></tr>
+                  <tr><td>WLOGP</td><td x-text="$store.molecularToolkit.admetResult.lipophilicity.wlogp"></td></tr>
+                  <tr><td>MLOGP</td><td x-text="$store.molecularToolkit.admetResult.lipophilicity.mlogp"></td></tr>
+                  <tr><td>SILICOS-IT</td><td x-text="$store.molecularToolkit.admetResult.lipophilicity.silicos_it"></td></tr>
                 </tbody>
               </table>
             </div>
@@ -508,18 +493,18 @@
                 <tbody>
                   <tr>
                     <td>ESOL</td>
-                    <td x-text="$store.molecularToolkit.swissAdmeResult.solubility.esol_logs"></td>
-                    <td x-text="$store.molecularToolkit.swissAdmeResult.solubility.esol_class"></td>
+                    <td x-text="$store.molecularToolkit.admetResult.solubility.esol_logs"></td>
+                    <td x-text="$store.molecularToolkit.admetResult.solubility.esol_class"></td>
                   </tr>
                   <tr>
                     <td>Ali</td>
-                    <td x-text="$store.molecularToolkit.swissAdmeResult.solubility.ali_logs"></td>
-                    <td x-text="$store.molecularToolkit.swissAdmeResult.solubility.ali_class"></td>
+                    <td x-text="$store.molecularToolkit.admetResult.solubility.ali_logs"></td>
+                    <td x-text="$store.molecularToolkit.admetResult.solubility.ali_class"></td>
                   </tr>
                   <tr>
                     <td>SILICOS-IT</td>
-                    <td x-text="$store.molecularToolkit.swissAdmeResult.solubility.silicos_it_logs"></td>
-                    <td x-text="$store.molecularToolkit.swissAdmeResult.solubility.silicos_it_class"></td>
+                    <td x-text="$store.molecularToolkit.admetResult.solubility.silicos_it_logs"></td>
+                    <td x-text="$store.molecularToolkit.admetResult.solubility.silicos_it_class"></td>
                   </tr>
                 </tbody>
               </table>
@@ -529,67 +514,67 @@
             <div class="analysis-section">
               <h3 class="section-title">4. Pharmacokinetics</h3>
               <div class="analysis-grid">
-                <div class="analysis-card" :class="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.gi_absorption === 'High' ? 'selected' : ''">
-                  <span class="card-icon" x-text="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.gi_absorption === 'High' ? '✅' : '❌'"></span>
+                <div class="analysis-card" :class="$store.molecularToolkit.admetResult.pharmacokinetics.gi_absorption === 'High' ? 'selected' : ''">
+                  <span class="card-icon" x-text="$store.molecularToolkit.admetResult.pharmacokinetics.gi_absorption === 'High' ? '✅' : '❌'"></span>
                   <span class="card-title">GI Absorption</span>
-                  <span class="card-desc" x-text="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.gi_absorption"></span>
+                  <span class="card-desc" x-text="$store.molecularToolkit.admetResult.pharmacokinetics.gi_absorption"></span>
                 </div>
-                <div class="analysis-card" :class="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.bbb_permeant === 'Yes' ? 'selected' : ''">
-                  <span class="card-icon" x-text="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.bbb_permeant === 'Yes' ? '✅' : '❌'"></span>
+                <div class="analysis-card" :class="$store.molecularToolkit.admetResult.pharmacokinetics.bbb_permeant === 'Yes' ? 'selected' : ''">
+                  <span class="card-icon" x-text="$store.molecularToolkit.admetResult.pharmacokinetics.bbb_permeant === 'Yes' ? '✅' : '❌'"></span>
                   <span class="card-title">BBB Permeant</span>
-                  <span class="card-desc" x-text="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.bbb_permeant"></span>
+                  <span class="card-desc" x-text="$store.molecularToolkit.admetResult.pharmacokinetics.bbb_permeant"></span>
                 </div>
-                <div class="analysis-card" :class="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.pgp_substrate === 'No' ? 'selected' : ''">
-                  <span class="card-icon" x-text="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.pgp_substrate === 'No' ? '✅' : '⚠️'"></span>
+                <div class="analysis-card" :class="$store.molecularToolkit.admetResult.pharmacokinetics.pgp_substrate === 'No' ? 'selected' : ''">
+                  <span class="card-icon" x-text="$store.molecularToolkit.admetResult.pharmacokinetics.pgp_substrate === 'No' ? '✅' : '⚠️'"></span>
                   <span class="card-title">P-gp Substrate</span>
-                  <span class="card-desc" x-text="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.pgp_substrate"></span>
+                  <span class="card-desc" x-text="$store.molecularToolkit.admetResult.pharmacokinetics.pgp_substrate"></span>
                 </div>
                 <div class="analysis-card">
                   <span class="card-icon">🧴</span>
                   <span class="card-title">Log Kp</span>
-                  <span class="card-desc" x-text="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.log_kp_cm_s + ' cm/s'"></span>
+                  <span class="card-desc" x-text="$store.molecularToolkit.admetResult.pharmacokinetics.log_kp_cm_s + ' cm/s'"></span>
                 </div>
               </div>
               <h4 style="font-size:0.66rem;color:var(--color-text-muted);margin:8px 0 4px">CYP450 Inhibition</h4>
               <div class="analysis-grid" style="grid-template-columns:repeat(5,1fr)">
-                <div class="analysis-card" :class="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.cyp1a2 === 'No' ? 'selected' : ''">
-                  <span class="card-icon" x-text="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.cyp1a2 === 'No' ? '✅' : '⚠️'"></span>
+                <div class="analysis-card" :class="$store.molecularToolkit.admetResult.pharmacokinetics.cyp1a2 === 'No' ? 'selected' : ''">
+                  <span class="card-icon" x-text="$store.molecularToolkit.admetResult.pharmacokinetics.cyp1a2 === 'No' ? '✅' : '⚠️'"></span>
                   <span class="card-title">CYP1A2</span>
-                  <span class="card-desc" x-text="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.cyp1a2"></span>
+                  <span class="card-desc" x-text="$store.molecularToolkit.admetResult.pharmacokinetics.cyp1a2"></span>
                 </div>
-                <div class="analysis-card" :class="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.cyp2c19 === 'No' ? 'selected' : ''">
-                  <span class="card-icon" x-text="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.cyp2c19 === 'No' ? '✅' : '⚠️'"></span>
+                <div class="analysis-card" :class="$store.molecularToolkit.admetResult.pharmacokinetics.cyp2c19 === 'No' ? 'selected' : ''">
+                  <span class="card-icon" x-text="$store.molecularToolkit.admetResult.pharmacokinetics.cyp2c19 === 'No' ? '✅' : '⚠️'"></span>
                   <span class="card-title">CYP2C19</span>
-                  <span class="card-desc" x-text="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.cyp2c19"></span>
+                  <span class="card-desc" x-text="$store.molecularToolkit.admetResult.pharmacokinetics.cyp2c19"></span>
                 </div>
-                <div class="analysis-card" :class="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.cyp2c9 === 'No' ? 'selected' : ''">
-                  <span class="card-icon" x-text="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.cyp2c9 === 'No' ? '✅' : '⚠️'"></span>
+                <div class="analysis-card" :class="$store.molecularToolkit.admetResult.pharmacokinetics.cyp2c9 === 'No' ? 'selected' : ''">
+                  <span class="card-icon" x-text="$store.molecularToolkit.admetResult.pharmacokinetics.cyp2c9 === 'No' ? '✅' : '⚠️'"></span>
                   <span class="card-title">CYP2C9</span>
-                  <span class="card-desc" x-text="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.cyp2c9"></span>
+                  <span class="card-desc" x-text="$store.molecularToolkit.admetResult.pharmacokinetics.cyp2c9"></span>
                 </div>
-                <div class="analysis-card" :class="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.cyp2d6 === 'No' ? 'selected' : ''">
-                  <span class="card-icon" x-text="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.cyp2d6 === 'No' ? '✅' : '⚠️'"></span>
+                <div class="analysis-card" :class="$store.molecularToolkit.admetResult.pharmacokinetics.cyp2d6 === 'No' ? 'selected' : ''">
+                  <span class="card-icon" x-text="$store.molecularToolkit.admetResult.pharmacokinetics.cyp2d6 === 'No' ? '✅' : '⚠️'"></span>
                   <span class="card-title">CYP2D6</span>
-                  <span class="card-desc" x-text="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.cyp2d6"></span>
+                  <span class="card-desc" x-text="$store.molecularToolkit.admetResult.pharmacokinetics.cyp2d6"></span>
                 </div>
-                <div class="analysis-card" :class="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.cyp3a4 === 'No' ? 'selected' : ''">
-                  <span class="card-icon" x-text="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.cyp3a4 === 'No' ? '✅' : '⚠️'"></span>
+                <div class="analysis-card" :class="$store.molecularToolkit.admetResult.pharmacokinetics.cyp3a4 === 'No' ? 'selected' : ''">
+                  <span class="card-icon" x-text="$store.molecularToolkit.admetResult.pharmacokinetics.cyp3a4 === 'No' ? '✅' : '⚠️'"></span>
                   <span class="card-title">CYP3A4</span>
-                  <span class="card-desc" x-text="$store.molecularToolkit.swissAdmeResult.pharmacokinetics.cyp3a4"></span>
+                  <span class="card-desc" x-text="$store.molecularToolkit.admetResult.pharmacokinetics.cyp3a4"></span>
                 </div>
               </div>
             </div>
 
             <!-- 5. Druglikeness -->
             <div class="analysis-section">
-              <h3 class="section-title">5. Druglikeness <span style="font-weight:400;color:var(--color-text-muted);font-size:0.64rem">— <b style="color:var(--color-primary)" x-text="$store.molecularToolkit.swissAdmeResult.druglikeness.consensus + '/5 passed'"></b></span></h3>
+              <h3 class="section-title">5. Druglikeness <span style="font-weight:400;color:var(--color-text-muted);font-size:0.64rem">— <b style="color:var(--color-primary)" x-text="$store.molecularToolkit.admetResult.druglikeness.consensus + '/5 passed'"></b></span></h3>
               <div class="analysis-grid">
                 <template x-for="f in [
-                  {k:'lipinski',n:'Lipinski',d:'Pfizer',v:$store.molecularToolkit.swissAdmeResult.druglikeness.lipinski},
-                  {k:'ghose',n:'Ghose',d:'Amgen',v:$store.molecularToolkit.swissAdmeResult.druglikeness.ghose},
-                  {k:'veber',n:'Veber',d:'GSK',v:$store.molecularToolkit.swissAdmeResult.druglikeness.veber},
-                  {k:'egan',n:'Egan',d:'Pharmacia',v:$store.molecularToolkit.swissAdmeResult.druglikeness.egan},
-                  {k:'muegge',n:'Muegge',d:'Bayer',v:$store.molecularToolkit.swissAdmeResult.druglikeness.muegge}
+                  {k:'lipinski',n:'Lipinski',d:'Pfizer',v:$store.molecularToolkit.admetResult.druglikeness.lipinski},
+                  {k:'ghose',n:'Ghose',d:'Amgen',v:$store.molecularToolkit.admetResult.druglikeness.ghose},
+                  {k:'veber',n:'Veber',d:'GSK',v:$store.molecularToolkit.admetResult.druglikeness.veber},
+                  {k:'egan',n:'Egan',d:'Pharmacia',v:$store.molecularToolkit.admetResult.druglikeness.egan},
+                  {k:'muegge',n:'Muegge',d:'Bayer',v:$store.molecularToolkit.admetResult.druglikeness.muegge}
                 ]" :key="f.k">
                   <div class="analysis-card" :class="f.v.passed ? 'selected' : ''">
                     <span class="card-icon" x-text="f.v.passed ? '✅' : '❌'"></span>
@@ -600,7 +585,7 @@
                 <div class="analysis-card">
                   <span class="card-icon">💊</span>
                   <span class="card-title">Bioavail</span>
-                  <span class="card-desc" x-text="$store.molecularToolkit.swissAdmeResult.druglikeness.bioavailability_score"></span>
+                  <span class="card-desc" x-text="$store.molecularToolkit.admetResult.druglikeness.bioavailability_score"></span>
                 </div>
               </div>
             </div>
@@ -609,28 +594,28 @@
             <div class="analysis-section">
               <h3 class="section-title">6. Medicinal Chemistry</h3>
               <div class="analysis-grid">
-                <div class="analysis-card" :class="$store.molecularToolkit.swissAdmeResult.medicinal.leadlikeness.passed ? 'selected' : ''">
-                  <span class="card-icon" x-text="$store.molecularToolkit.swissAdmeResult.medicinal.leadlikeness.passed ? '✅' : '❌'"></span>
+                <div class="analysis-card" :class="$store.molecularToolkit.admetResult.medicinal.leadlikeness.passed ? 'selected' : ''">
+                  <span class="card-icon" x-text="$store.molecularToolkit.admetResult.medicinal.leadlikeness.passed ? '✅' : '❌'"></span>
                   <span class="card-title">Leadlikeness</span>
-                  <span class="card-desc" x-text="$store.molecularToolkit.swissAdmeResult.medicinal.leadlikeness.violations + ' violations'"></span>
+                  <span class="card-desc" x-text="$store.molecularToolkit.admetResult.medicinal.leadlikeness.violations + ' violations'"></span>
                 </div>
               </div>
               <div style="margin-top:6px">
                 <span style="font-size:0.62rem;color:var(--color-text-muted)">Synthetic Accessibility: </span>
-                <span style="font-size:0.72rem;font-weight:700;color:var(--color-primary);font-family:var(--font-mono)" x-text="$store.molecularToolkit.swissAdmeResult.medicinal.synthetic_accessibility"></span>
+                <span style="font-size:0.72rem;font-weight:700;color:var(--color-primary);font-family:var(--font-mono)" x-text="$store.molecularToolkit.admetResult.medicinal.synthetic_accessibility"></span>
                 <span style="font-size:0.58rem;color:var(--color-text-muted)"> /10</span>
                 <div class="sa-bar" style="margin-top:4px">
-                  <div class="sa-bar-fill" :style="'width:' + ($store.molecularToolkit.swissAdmeResult.medicinal.synthetic_accessibility / 10 * 100) + '%'"></div>
+                  <div class="sa-bar-fill" :style="'width:' + ($store.molecularToolkit.admetResult.medicinal.synthetic_accessibility / 10 * 100) + '%'"></div>
                 </div>
                 <span style="font-size:0.52rem;color:var(--color-text-muted)">1 = easy · 10 = difficult</span>
               </div>
             </div>
 
             <!-- 7. BOILED-Egg Plot -->
-            <template x-if="$store.molecularToolkit.swissAdmeResult.plots?.boiled_egg">
+            <template x-if="$store.molecularToolkit.admetResult.plots?.boiled_egg">
               <div class="analysis-section">
                 <h3 class="section-title">7. BOILED-Egg <span style="font-weight:400;color:var(--color-text-muted);font-size:0.64rem">— Brain Or IntestinaL EstimateD permeation</span></h3>
-                <div style="display:flex;justify-content:center;overflow:hidden" x-html="$store.molecularToolkit.swissAdmeResult.plots.boiled_egg"></div>
+                <div style="display:flex;justify-content:center;overflow:hidden" x-html="$store.molecularToolkit.admetResult.plots.boiled_egg"></div>
                 <div style="display:flex;gap:8px;justify-content:center;font-size:0.55rem;color:var(--color-text-muted);margin-top:4px">
                   <span style="display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:10px;height:10px;background:#fffbe6;border:1px solid #ddd;border-radius:2px"></span> GI Absorption (White)</span>
                   <span style="display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:10px;height:10px;background:#ffe8a1;border:1px solid #d4a76a;border-radius:2px"></span> BBB Permeation (Yolk)</span>
@@ -641,10 +626,10 @@
             </template>
 
             <!-- 8. Bioavailability Radar -->
-            <template x-if="$store.molecularToolkit.swissAdmeResult.plots?.bioavailability_radar">
+            <template x-if="$store.molecularToolkit.admetResult.plots?.bioavailability_radar">
               <div class="analysis-section">
                 <h3 class="section-title">8. Bioavailability Radar</h3>
-                <div style="display:flex;justify-content:center;overflow:hidden" x-html="$store.molecularToolkit.swissAdmeResult.plots.bioavailability_radar"></div>
+                <div style="display:flex;justify-content:center;overflow:hidden" x-html="$store.molecularToolkit.admetResult.plots.bioavailability_radar"></div>
                 <div style="font-size:0.52rem;color:var(--color-text-muted);text-align:center;margin-top:2px">
                   6-axis oral drug-likeness: LIPO · SIZE · POLAR · INSOLU · INSATU · FLEX
                 </div>
