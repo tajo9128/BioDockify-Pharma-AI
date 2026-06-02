@@ -23,6 +23,16 @@ class FacultyTools(ApiHandler):
 
         if action == "syllabus":
             return self._parse_syllabus(input)
+        elif action == "plan_semester":
+            return self._plan_semester(input)
+        elif action == "plan_class":
+            return self._plan_class(input)
+        elif action == "lesson_plan":
+            return self._lesson_plan(input)
+        elif action == "prep_notes":
+            return self._prep_notes(input)
+        elif action == "make_slides":
+            return self._make_slides(input)
         elif action == "assignment":
             return self._gen_assignment(input)
         elif action == "questions":
@@ -33,7 +43,7 @@ class FacultyTools(ApiHandler):
             return self._gen_lecture(input)
         else:
             return {
-                "actions": ["syllabus", "assignment", "questions", "plagiarism", "lecture"],
+                "actions": ["syllabus", "plan_semester", "plan_class", "lesson_plan", "prep_notes", "make_slides", "assignment", "questions", "plagiarism", "lecture"],
                 "hint": "Send action with topic/text"
             }
 
@@ -110,6 +120,213 @@ class FacultyTools(ApiHandler):
         for i, t in enumerate(result['topics'], 1):
             kb_content += f"{i}. {t}\n"
         _store_to_kb("syllabus", f"Syllabus: {result['course_name']}", kb_content, f"{result['course_name']},syllabus")
+
+        return result
+
+    def _plan_semester(self, input: dict) -> dict:
+        """Divide syllabus into semester plan with weeks and classes."""
+        course_name = input.get("course_name", "Course")
+        topics = input.get("topics", [])
+        weeks = int(input.get("weeks", 16))
+        classes_per_week = int(input.get("classes_per_week", 2))
+        total_classes = weeks * classes_per_week
+
+        if not topics:
+            return {"error": "Topics required"}
+
+        # Distribute topics across weeks
+        classes = []
+        class_num = 1
+        for week in range(1, weeks + 1):
+            for cls in range(1, classes_per_week + 1):
+                topic_idx = (class_num - 1) % len(topics)
+                classes.append({
+                    "class_num": class_num,
+                    "week": week,
+                    "class_in_week": cls,
+                    "topic": topics[topic_idx],
+                    "status": "planned",
+                })
+                class_num += 1
+
+        result = {
+            "course_name": course_name,
+            "weeks": weeks,
+            "classes_per_week": classes_per_week,
+            "total_classes": total_classes,
+            "classes": classes,
+        }
+
+        # Store in KB
+        kb_content = f"## Semester Plan: {course_name}\n\n"
+        kb_content += f"**Weeks:** {weeks} | **Classes/Week:** {classes_per_week} | **Total:** {total_classes}\n\n"
+        current_week = 0
+        for c in classes:
+            if c["week"] != current_week:
+                current_week = c["week"]
+                kb_content += f"\n### Week {current_week}\n\n"
+            kb_content += f"- Class {c['class_num']}: {c['topic']}\n"
+        _store_to_kb("faculty", f"Semester Plan: {course_name}", kb_content, f"{course_name},semester")
+
+        return result
+
+    def _plan_class(self, input: dict) -> dict:
+        """Plan a single class with objectives, activities, timing."""
+        topic = input.get("topic", "")
+        duration = int(input.get("duration", 50))
+        level = input.get("level", "undergraduate")
+
+        if not topic:
+            return {"error": "Topic required"}
+
+        # Calculate timing
+        intro_time = max(5, int(duration * 0.1))
+        main_time = int(duration * 0.6)
+        activity_time = int(duration * 0.2)
+        summary_time = max(5, int(duration * 0.1))
+
+        result = {
+            "topic": topic,
+            "duration": duration,
+            "level": level,
+            "objectives": [
+                f"Understand the fundamental concepts of {topic}",
+                f"Analyze key principles and mechanisms",
+                f"Apply knowledge to solve pharmaceutical problems",
+            ],
+            "structure": [
+                {"section": "Introduction", "time": f"{intro_time} min", "content": f"Overview and relevance of {topic}"},
+                {"section": "Core Content", "time": f"{main_time} min", "content": f"Key theories, mechanisms, and frameworks"},
+                {"section": "Activity", "time": f"{activity_time} min", "content": "Case study, problem-solving, or discussion"},
+                {"section": "Summary", "time": f"{summary_time} min", "content": "Key takeaways and next class preview"},
+            ],
+            "materials": [
+                "Lecture slides",
+                "Handout with key concepts",
+                "Practice problems",
+            ],
+        }
+
+        # Store in KB
+        kb_content = f"## Class Plan: {topic}\n\n"
+        kb_content += f"**Duration:** {duration} min | **Level:** {level}\n\n"
+        for s in result["structure"]:
+            kb_content += f"### {s['section']} ({s['time']})\n{s['content']}\n\n"
+        _store_to_kb("faculty", f"Class Plan: {topic}", kb_content, f"{topic},class_plan")
+
+        return result
+
+    def _lesson_plan(self, input: dict) -> dict:
+        """Generate detailed lesson plan with teaching methods and assessment."""
+        topic = input.get("topic", "")
+        duration = int(input.get("duration", 50))
+        level = input.get("level", "undergraduate")
+        teaching_method = input.get("method", "lecture")
+
+        if not topic:
+            return {"error": "Topic required"}
+
+        methods = {
+            "lecture": {"desc": "Traditional lecture with Q&A", "activities": ["Presentation", "Examples", "Q&A"]},
+            "interactive": {"desc": "Interactive session with discussions", "activities": ["Brief intro", "Group discussion", "Case study", "Wrap-up"]},
+            "lab": {"desc": "Hands-on laboratory session", "activities": ["Demo", "Guided practice", "Independent work", "Debrief"]},
+            "seminar": {"desc": "Student-led seminar", "activities": ["Student presentation", "Group discussion", "Summary"]},
+        }
+        method_info = methods.get(teaching_method, methods["lecture"])
+
+        result = {
+            "topic": topic,
+            "duration": duration,
+            "level": level,
+            "teaching_method": teaching_method,
+            "method_description": method_info["desc"],
+            "learning_objectives": [
+                f"Understand the fundamental concepts of {topic}",
+                f"Analyze key principles and mechanisms",
+                f"Apply knowledge to solve pharmaceutical problems",
+            ],
+            "activities": method_info["activities"],
+            "assessment": "In-class questions, end-of-session quiz",
+            "materials": ["Slides", "Handouts", "Whiteboard"],
+            "prerequisites": "Previous lecture content",
+        }
+
+        # Store in KB
+        kb_content = f"## Lesson Plan: {topic}\n\n"
+        kb_content += f"**Method:** {method_info['desc']} | **Duration:** {duration} min\n\n"
+        kb_content += "### Objectives\n"
+        for obj in result["learning_objectives"]:
+            kb_content += f"- {obj}\n"
+        kb_content += "\n### Activities\n"
+        for act in result["activities"]:
+            kb_content += f"- {act}\n"
+        _store_to_kb("faculty", f"Lesson Plan: {topic}", kb_content, f"{topic},lesson_plan")
+
+        return result
+
+    def _prep_notes(self, input: dict) -> dict:
+        """Generate student-ready notes for a topic."""
+        topic = input.get("topic", "")
+        level = input.get("level", "undergraduate")
+
+        if not topic:
+            return {"error": "Topic required"}
+
+        result = {
+            "topic": topic,
+            "level": level,
+            "sections": [
+                {"title": "Key Concepts", "content": f"Core principles and definitions related to {topic}"},
+                {"title": "Important Definitions", "content": f"Key terms and their definitions"},
+                {"title": "Mechanisms", "content": f"Step-by-step mechanisms and pathways"},
+                {"title": "Examples", "content": f"Real-world pharmaceutical examples"},
+                {"title": "Practice Questions", "content": f"Review questions for self-assessment"},
+            ],
+        }
+
+        # Store in KB
+        kb_content = f"## Study Notes: {topic}\n\n"
+        kb_content += f"**Level:** {level}\n\n"
+        for s in result["sections"]:
+            kb_content += f"### {s['title']}\n{s['content']}\n\n"
+        _store_to_kb("faculty", f"Notes: {topic}", kb_content, f"{topic},notes")
+
+        return result
+
+    def _make_slides(self, input: dict) -> dict:
+        """Generate slides outline from topic."""
+        topic = input.get("topic", "")
+        num_slides = int(input.get("num_slides", 10))
+        style = input.get("style", "academic")
+
+        if not topic:
+            return {"error": "Topic required"}
+
+        slides = [
+            {"slide": 1, "title": topic, "content": "Introduction and objectives"},
+            {"slide": 2, "title": "Background", "content": f"Context and relevance of {topic}"},
+            {"slide": 3, "title": "Key Concepts", "content": "Core principles and definitions"},
+            {"slide": 4, "title": "Mechanisms", "content": "Step-by-step mechanisms"},
+            {"slide": 5, "title": "Applications", "content": "Pharmaceutical applications"},
+            {"slide": 6, "title": "Case Study", "content": "Real-world example"},
+            {"slide": 7, "title": "Discussion", "content": "Analysis and implications"},
+            {"slide": 8, "title": "Summary", "content": "Key takeaways"},
+            {"slide": 9, "title": "References", "content": "Citations and further reading"},
+            {"slide": 10, "title": "Q&A", "content": "Questions and discussion"},
+        ]
+
+        result = {
+            "topic": topic,
+            "num_slides": min(num_slides, len(slides)),
+            "style": style,
+            "slides": slides[:num_slides],
+        }
+
+        # Store in KB
+        kb_content = f"## Slides Outline: {topic}\n\n"
+        for s in result["slides"]:
+            kb_content += f"### Slide {s['slide']}: {s['title']}\n{s['content']}\n\n"
+        _store_to_kb("faculty", f"Slides: {topic}", kb_content, f"{topic},slides")
 
         return result
 

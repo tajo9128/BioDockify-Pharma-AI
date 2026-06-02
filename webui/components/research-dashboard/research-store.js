@@ -13,6 +13,16 @@ export const store = createStore("researchDashboard", {
   newNotes: "",
   newComments: "",
   newType: "phd",
+  newDepartment: "pharma_chemistry",
+
+  // Department configs
+  departments: [
+    { id: "pharma_chemistry", name: "Pharmaceutical Chemistry", desc: "Drug design, SAR, synthesis" },
+    { id: "pharmacognosy", name: "Pharmacognosy", desc: "Natural products, phytochemicals" },
+    { id: "pharmacology", name: "Pharmacology", desc: "Mechanism, PK/PD, toxicology" },
+    { id: "pharmaceutics", name: "Pharmaceutics", desc: "Formulation, delivery, stability" },
+    { id: "clinical_pharmacy", name: "Clinical Pharmacy", desc: "Clinical trials, outcomes" },
+  ],
 
   get activeProject() {
     return this.projects.find(p => p.research_id === this.activeProjectId) || null;
@@ -59,13 +69,24 @@ export const store = createStore("researchDashboard", {
       try { $store.projects.openProjectsModal(); } catch {}
     }
 
-    // 2. Send research prompt to agent
+    // 2. Get department-specific databases
+    const deptDbs = {
+      pharma_chemistry: "PubMed, SciFinder, Reaxys, ChEMBL, DrugBank",
+      pharmacognosy: "PubMed, NAPRALERT, KNapsack, ChemSpider, PubChem",
+      pharmacology: "PubMed, DrugBank, ChEMBL, KEGG, Reactome",
+      pharmaceutics: "PubMed, FDA Orange Book, Excipient DB",
+      clinical_pharmacy: "PubMed, ClinicalTrials.gov, Cochrane, Embase",
+    };
+    const dbs = deptDbs[this.newDepartment] || "PubMed, Semantic Scholar, Google Scholar";
+
+    // 3. Send research prompt to agent
     let prompt = `Research task: ${this.newTopic}\n`;
     prompt += `Type: ${this.newType}\n`;
+    prompt += `Department: ${this.departments.find(d => d.id === this.newDepartment)?.name || this.newDepartment}\n`;
     if (this.newNotes.trim()) prompt += `Topics: ${this.newNotes}\n`;
     if (this.newComments.trim()) prompt += `Instructions: ${this.newComments}\n`;
     prompt += `\nPlease:\n`;
-    prompt += `1. Search all 10 databases (PubMed, Semantic Scholar, Google Scholar, Scopus, WoS, arXiv, Elsevier, Springer, Europe PMC, bioRxiv)\n`;
+    prompt += `1. Search databases: ${dbs}\n`;
     prompt += `2. Synthesize findings into a literature review\n`;
     prompt += `3. Save papers to Knowledge Base with #${this.newType} tag\n`;
     prompt += `4. Track progress and provide updates\n`;

@@ -37,6 +37,11 @@
         <textarea x-model="$store.researchDashboard.newNotes" placeholder="Topics / objectives (one per line, optional)..." class="rd-textarea" rows="2"></textarea>
         <textarea x-model="$store.researchDashboard.newComments" placeholder="Additional comments / instructions for the agent (optional)..." class="rd-textarea" rows="2" style="margin-bottom:6px"></textarea>
         <div class="rd-new-row">
+          <select x-model="$store.researchDashboard.newDepartment" class="rd-select-sm">
+            <template x-for="dept in $store.researchDashboard.departments" :key="dept.id">
+              <option :value="dept.id" x-text="dept.name"></option>
+            </template>
+          </select>
           <select x-model="$store.researchDashboard.newType" class="rd-select-sm">
             <option value="phd">PhD</option><option value="grand">Grand Research</option>
             <option value="review_article">Review</option><option value="general">General</option>
