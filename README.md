@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://hub.docker.com/r/tajo9128/biodockify-pharma-ai"><img src="https://img.shields.io/badge/docker-tajo9128%2Fbiodockify--pharma--ai-blue.svg" alt="Docker"/></a>
-  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v6.8.7-green.svg" alt="Version"/></a>
+  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v6.9.2-green.svg" alt="Version"/></a>
   <a href="https://github.com/tajo9128/BioDockify-Pharma-AI"><img src="https://img.shields.io/badge/GitHub-BioDockify--Pharma--AI-181717?style=flat&logo=github" alt="GitHub"/></a>
 </p>
 
@@ -14,7 +14,7 @@
   <img src="assets/screenshot.png" alt="BioDockify Pharma AI Screenshot" width="800">
 </p>
 
-**BioDockify Pharma AI** is a comprehensive pharmaceutical research platform with 15 consolidated modules. It combines MM-GBSA free energy scoring (CPU-only), AutoDock Vina molecular docking, Meeko PDB→PDBQT conversion, external docking file upload (Vina/Glide/GOLD/AutoDock-GPU/rDock/PLANTS), SPSS-level biostatistics (20 analysis types + 8 charts), a 25-stage autonomous research pipeline, 10 literature databases, 6-model QSAR (regression + classification), pharmacophore screening (PharmacoNet NCI + ZINCPharmer batch), a 36,145-journal recommender with hijacked journal + fake website detection, a Drug Analysis module with 3Dmol.js viewer (3D, Properties, Filters, Optimize), drug properties v2 (hERG/AMES/pKa/BBB/melting point/druglikeness score), and 4 specialized AI sub-agents for deep research, statistics, writing, and execution.
+**BioDockify Pharma AI** is a comprehensive pharmaceutical research platform with 15 consolidated modules. It combines MM-GBSA free energy scoring (CPU-only), AutoDock Vina molecular docking, external docking file upload (Vina/Glide/GOLD/AutoDock-GPU/rDock/PLANTS), SPSS-level biostatistics (20 analysis types + 8 charts), a 25-stage autonomous research pipeline, 10 literature databases, 6-model QSAR (regression + classification), pharmacophore screening, a 36,145-journal recommender, a Drug Analysis module with 3Dmol.js viewer, drug properties v2 (hERG/AMES/pKa/BBB/melting point/druglikeness score), 4 specialized AI sub-agents, department-aware research management, faculty semester planning, and a central Knowledge Base with 18 categories supporting PDF/DOCX/XLSX/audio/video.
 
 ---
 
@@ -130,27 +130,42 @@ Agent0 (Main Orchestrator)
 
 ---
 
-## What's New in v6.8.7
+## What's New in v6.9.2
 
-### External Docking File Upload
-Upload receptor + docked ligand files from any platform (AutoDock Vina, Glide, GOLD, AutoDock-GPU, rDock, PLANTS) for deep analysis. Supports PDB, PDBQT, CIF, MOL2 for receptor and PDBQT, SDF for ligand poses. Auto-creates job and runs full analysis (3D view, interactions, clusters, residue energy, torsion).
+### Research Management System (Department-Aware)
+- **5 department configs**: Pharmaceutical Chemistry, Pharmacognosy, Pharmacology, Pharmaceutics, Clinical Pharmacy
+- **Department-specific milestones**: Each department has different research workflows and milestones
+- **Department-specific databases**: Pharma Chemistry uses SciFinder/Reaxys, Pharmacognosy uses NAPRALERT/KNapsack, etc.
+- **Department selector** in Research CMD on project creation
+- **Agent asks department** when user starts research
 
-### MM-GBSA Free Energy Scoring (replaces ODDT/GNINA)
-CPU-only, no GPU required. Combines Vina MM term + GB desolvation + SA surface area + protein interaction bonus. Spatial grid optimization for large proteins. Per-pose MM-GBSA energies, Z-scores, and consensus with Vina.
+### Academic Management System (Faculty CMD)
+- **Semester planner**: Divide syllabus into N weeks × M classes/week
+- **Class planner**: Per-class objectives, activities, timing breakdown
+- **Lesson planner**: Teaching method, materials, assessment
+- **Notes preparation**: Student-ready notes per topic
+- **Slides generation**: Slides outline from lesson plan
+- **All outputs auto-store to Knowledge Base** with category=faculty
 
-### Drug Analysis (renamed from Molecule Editor)
-Removed JSME Java applet drawing. Simplified to SMILES input + analysis (3D view, Properties, Filters, Optimize, PubChem search).
+### Knowledge Base (Central Hub)
+- **18 categories**: literature, deep_research, web_scraping, clinical_trials, patents, docking, drug_analysis, pharmacophore, qsar, statistics, faculty, wetlab, books, protocols, data_files, audio_video, notes, misc
+- **Multi-format support**: PDF, DOCX, XLSX, CSV, HTML, JSON, SDF, PDB, MP3, MP4
+- **Auto-detect category** from file extension and filename keywords
+- **Document chunking**: Hierarchical splitting (sections → paragraphs → sliding window)
+- **Knowledge graph**: Entity extraction (drugs, targets, diseases, plants) + relationship mapping
+- **Direct file upload**: Drag-drop upload with auto-chunking and vector indexing
 
-### Security & Stability
-- **file_info.py sandboxed** — blocks access to /etc/shadow, /root, /proc, /sys
-- **restart.py auth** — requires authentication + CSRF
-- **5 crash fixes** — chat_export, chat_files_path_get, nudge, chat_load, upload_work_dir_files
-- **8 bug fixes** — literature search, knowledge base, clinical trials, self_heal, lecture generator, upload, chat errors, JS exceptions
+### Agent Orchestrator Role
+- **Research Management section**: Department-aware workflows
+- **Academic Management section**: Teaching workflows (syllabus → semester → class → lesson → notes → slides)
+- **Knowledge Base section**: 18 categories, store/browse API usage
 
-### Dockerfile
-- Added scipy, scikit-learn, pandas, matplotlib for Statistics module
-- Fixed pip install path (full /opt/venv-a0/bin/python)
-- Healthcheck on port 80
+### Previous: v6.8.7
+- External Docking File Upload
+- MM-GBSA Free Energy Scoring (replaces ODDT/GNINA)
+- Drug Analysis (renamed from Molecule Editor)
+- Security & Stability fixes
+- Dockerfile updates (scipy, sklearn, pandas, matplotlib)
 
 ---
 

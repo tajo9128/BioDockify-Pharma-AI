@@ -1,22 +1,45 @@
 ﻿# BioDockify AI - AGENTS.md
 
-**Last updated: 2026-05-31 | Version: v6.8.7**
+**Last updated: 2026-06-02 | Version: v6.9.2**
 
-## Today's Additions (2026-05-31) — v6.8.7 Release
+## Today's Additions (2026-06-02) — v6.9.2 Release
 
-### External Docking File Upload
-- **Upload from any platform** — receptor (PDB/PDBQT/CIF/MOL2) + docked ligand (PDBQT/SDF) from AutoDock Vina, Glide, GOLD, AutoDock-GPU, rDock, PLANTS
-- **`api/docking_upload.py`** — creates temp job directory, parses Vina REMARK energies and MODEL counts
-- **Frontend toggle** — switch between Job ID input and file upload mode in Deep Analysis
+### Research Management System (Department-Aware)
+- **5 department configs**: Pharmaceutical Chemistry, Pharmacognosy, Pharmacology, Pharmaceutics, Clinical Pharmacy
+- **`modules/research_configs.py`** — per-department milestones, databases, KB categories, output types
+- **Department selector** in Research CMD — user selects department on project creation
+- **Department-specific databases**: Pharma Chemistry uses SciFinder/Reaxys, Pharmacognosy uses NAPRALERT/KNapsack, etc.
+- **Agent prompt updated** — agent now asks department when user starts research
 
-### Drug Analysis (renamed from Molecule Editor)
-- **Removed JSME drawing** — Java applet removed, simplified to SMILES input + analysis
-- **Renamed module** — "Molecule Editor" → "Drug Analysis" (icon: `science`)
-- **Fixed `$nextTick` error** — 3D View tab button now uses `setTimeout`
+### Academic Management System (Faculty CMD)
+- **Semester planner** — `plan_semester` action: divide syllabus into N weeks × M classes/week
+- **Class planner** — `plan_class` action: per-class objectives, activities, timing breakdown
+- **Lesson planner** — `lesson_plan` action: teaching method, materials, assessment
+- **Notes preparation** — `prep_notes` action: student-ready notes per topic
+- **Slides generation** — `make_slides` action: slides outline from lesson plan
+- **All outputs auto-store to Knowledge Base** with category=faculty
 
-### Security Fixes
-- **`file_info.py` sandboxed** — only allows access to `/a0/usr/workdir`, `/a0/usr`, `/a0/data`, `/a0/knowledge`, `/a0/tmp`. Blocks `/etc/shadow`, `/root`, `/proc`, `/sys`
-- **`restart.py` auth** — added `requires_auth` + `requires_csrf`
+### Knowledge Base (Central Hub)
+- **18 categories**: literature, deep_research, web_scraping, clinical_trials, patents, docking, drug_analysis, pharmacophore, qsar, statistics, faculty, wetlab, books, protocols, data_files, audio_video, notes, misc
+- **Multi-format support**: PDF, DOCX, XLSX, CSV, HTML, JSON, SDF, PDB, MP3, MP4
+- **Auto-detect category** from file extension and filename keywords
+- **Document chunking** — hierarchical splitting (sections → paragraphs → sliding window)
+- **Knowledge graph** — entity extraction (drugs, targets, diseases, plants) + relationship mapping
+- **Direct file upload** — drag-drop upload with auto-chunking and vector indexing
+
+### Agent Orchestrator Role
+- **Research Management section** — department-aware workflows
+- **Academic Management section** — teaching workflows (syllabus → semester → class → lesson → notes → slides)
+- **Knowledge Base section** — 18 categories, store/browse API usage
+
+### Previous Additions (2026-05-31) — v6.8.7 Release
+- External Docking File Upload
+- Drug Analysis (renamed from Molecule Editor)
+- Security Fixes (file_info sandbox, restart auth)
+- MM-GBSA Free Energy Scoring
+- ODDT + GNINA Removed
+- Dockerfile Updates (scipy, sklearn, pandas, matplotlib)
+- Bug Fixes (literature search, knowledge base, clinical trials, etc.)
 
 ### Crash Fixes (5 endpoints)
 - `chat_export.py`, `chat_files_path_get.py`, `nudge.py`, `chat_load.py`, `upload_work_dir_files.py` — all `raise Exception` replaced with `return {error}`
