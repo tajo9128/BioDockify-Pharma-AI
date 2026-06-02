@@ -14,11 +14,11 @@
         <button class="nb-btn-sm" @click="$store.knowledgeModal.reindexKB()" :disabled="$store.knowledgeModal.loading" title="Re-index Knowledge Base">
           <span class="material-symbols-outlined">sync</span>
         </button>
+        <button class="nb-btn-sm" @click="$store.knowledgeModal.loadGraph()" :disabled="$store.knowledgeModal.loading" title="Knowledge Graph">
+          <span class="material-symbols-outlined">hub</span>
+        </button>
         <button class="nb-btn-sm" @click="$store.knowledgeModal.triggerFileUpload()" :disabled="$store.knowledgeModal.uploading" title="Upload files">
           <span class="material-symbols-outlined">upload_file</span>
-        </button>
-        <button class="nb-btn-sm" @click="$store.knowledgeModal.buildGraph()" title="Knowledge Graph">
-          <span class="material-symbols-outlined">hub</span>
         </button>
         <button class="nb-btn-sm" @click="$store.knowledgeModal.exportJson()" title="Export JSON">
           <span class="material-symbols-outlined">download</span>

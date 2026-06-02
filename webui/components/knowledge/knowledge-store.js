@@ -387,6 +387,51 @@ export const store = createStore("knowledgeModal", {
       }
     } catch (e) {}
   },
+
+  async uploadFiles(files) {
+    if (!files || !files.length) return;
+    this.uploading = true;
+    this.error = "";
+    try {
+      const fileData = [];
+      for (const file of files) {
+        const text = await file.text();
+        fileData.push({ filename: file.name, content: text });
+      }
+      const r = await callJsonApi("knowledge", {
+        action: "upload",
+        files: fileData,
+        category: "notes",
+      });
+      if (r.status === "ok") {
+        this.message = r.message || `${files.length} file(s) uploaded`;
+        await this.loadLibraryFromKB();
+      } else {
+        this.error = r.error || "Upload failed";
+      }
+    } catch (e) {
+      this.error = "Upload error: " + e.message;
+    }
+    this.uploading = false;
+    setTimeout(() => { this.message = ""; }, 3000);
+  },
+
+  async loadGraph() {
+    this.loading = true;
+    this.error = "";
+    try {
+      const r = await callJsonApi("knowledge", { action: "graph", limit: 50 });
+      if (r.status === "ok" && r.graph) {
+        this.graphData = r.graph;
+        this.showGraph = true;
+      } else {
+        this.error = r.error || "Failed to load graph";
+      }
+    } catch (e) {
+      this.error = "Graph error: " + e.message;
+    }
+    this.loading = false;
+  },
 });
 
 

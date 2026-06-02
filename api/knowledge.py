@@ -117,6 +117,10 @@ class KnowledgeHandler(ApiHandler):
             return self._categories()
         elif action == "library":
             return self._library(input)
+        elif action == "upload":
+            return self._upload(input)
+        elif action == "graph":
+            return self._graph(input)
 
         return {"status": "error", "error": f"Unknown action: {action}"}
 
@@ -296,3 +300,94 @@ class KnowledgeHandler(ApiHandler):
 
         entries.sort(key=lambda x: x.get("created_at", ""), reverse=True)
         return {"status": "ok", "entries": entries[:limit], "total": len(entries)}
+
+    def _upload(self, input: dict) -> dict:
+        """Upload files to KB with chunking and indexing."""
+        try:
+            files = input.get("files", [])
+            category = input.get("category", "notes")
+            tags = input.get("tags", "")
+
+            if not files:
+                return {"status": "error", "error": "No files provided"}
+
+            # Try to use chunker
+            try:
+                from modules.rag.chunker import chunk_document
+                use_chunker = True
+            except ImportError:
+                use_chunker = False
+
+            stored = 0
+            chunked = 0
+            for file_data in files:
+                filename = file_data.get("filename", "upload.txt")
+                content = file_data.get("content", "")
+                if not content:
+                    continue
+
+                # Store file entry
+                entry = _store_entry(category, filename, content, tags, source="File Upload")
+                stored += 1
+
+                # Chunk and index if chunker available
+                if use_chunker and len(content) > 200:
+                    try:
+                        chunks = chunk_document(content, doc_id=filename)
+                        if chunks:
+                            # Store chunks in vector store
+                            try:
+                                from modules.rag.vector_store import get_vector_store
+                                store = get_vector_store()
+                                if store:
+                                    texts = [c["text"] for c in chunks]
+                                    metadatas = [{"doc_id": filename, "section": c.get("section_title", ""), "category": category} for c in chunks]
+                                    add_fn = getattr(store, "add_documents", None) or getattr(store, "add_texts", None)
+                                    if add_fn:
+                                        add_fn(texts, metadatas)
+                                        chunked += len(chunks)
+                            except Exception as e:
+                                log.debug(f"Vector indexing failed: {e}")
+                    except Exception as e:
+                        log.debug(f"Chunking failed: {e}")
+
+            return {
+                "status": "ok",
+                "stored": stored,
+                "chunked": chunked,
+                "message": f"Uploaded {stored} file(s), {chunked} chunks indexed",
+            }
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    def _graph(self, input: dict) -> dict:
+        """Build knowledge graph from KB entries."""
+        try:
+            from modules.rag.knowledge_graph import build_graph
+
+            index = _load_index()
+            entries = index.get("entries", [])
+
+            # Load content for entries (limited to avoid memory issues)
+            limit = min(int(input.get("limit", 50)), 100)
+            graph_entries = []
+            for entry in entries[:limit]:
+                filepath = entry.get("file", "")
+                content = ""
+                if filepath and os.path.exists(filepath):
+                    try:
+                        with open(filepath, "r", encoding="utf-8") as f:
+                            content = f.read()[:2000]  # Limit content for graph building
+                    except Exception:
+                        pass
+                graph_entries.append({
+                    "id": entry.get("id", ""),
+                    "title": entry.get("title", ""),
+                    "content": content,
+                    "category": entry.get("category", ""),
+                })
+
+            graph = build_graph(graph_entries)
+            return {"status": "ok", "graph": graph}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
