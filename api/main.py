@@ -1496,7 +1496,9 @@ async def startup_event():
                 "/a0/data/knowledge_base/notes",
                 "/a0/data/knowledge_base/misc",
                 "/a0/usr/knowledge/main",
+                "/a0/usr/knowledge/custom",
                 "/a0/usr/knowledge/solutions",
+                "/a0/usr/knowledge/fragments",
             ]
             for d in kb_dirs:
                 os.makedirs(d, exist_ok=True)

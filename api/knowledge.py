@@ -205,11 +205,62 @@ class KnowledgeHandler(ApiHandler):
             return {"success": False, "error": str(e)}
 
     def _reindex(self) -> dict:
-        """Re-index all knowledge files."""
+        """Re-index all knowledge files from all KB directories."""
         try:
             index = _load_index()
-            indexed = len(index.get("entries", []))
-            return {"status": "ok", "indexed": indexed, "message": f"Knowledge base has {indexed} entries"}
+            existing_files = set(e.get("file", "") for e in index.get("entries", []))
+            new_count = 0
+
+            # Scan ALL knowledge directories
+            scan_dirs = [
+                os.path.join(os.path.dirname(__file__), "..", "data", "knowledge_base"),
+                os.path.join(os.path.dirname(__file__), "..", "usr", "knowledge", "main"),
+                os.path.join(os.path.dirname(__file__), "..", "usr", "knowledge", "custom"),
+                os.path.join(os.path.dirname(__file__), "..", "usr", "knowledge", "solutions"),
+            ]
+
+            for scan_dir in scan_dirs:
+                if not os.path.isdir(scan_dir):
+                    continue
+                for root, dirs, files_list in os.walk(scan_dir):
+                    for fname in files_list:
+                        if not fname.endswith((".md", ".txt", ".json")):
+                            continue
+                        fpath = os.path.join(root, fname)
+                        if fpath in existing_files:
+                            continue
+                        try:
+                            with open(fpath, "r", encoding="utf-8") as f:
+                                content = f.read()
+                            if len(content) < 20:
+                                continue
+                            # Extract category from path
+                            rel_path = os.path.relpath(fpath, scan_dir)
+                            parts = rel_path.split(os.sep)
+                            category = parts[0] if len(parts) > 1 else "notes"
+                            if category not in CATEGORIES:
+                                category = "notes"
+                            title = os.path.splitext(fname)[0].replace("_", " ").replace("-", " ").title()
+                            entry = {
+                                "id": f"{category}_{len(index['entries'])}",
+                                "title": title,
+                                "category": category,
+                                "category_label": CATEGORIES.get(category, category),
+                                "tags": [category],
+                                "source": f"Re-indexed from {rel_path}",
+                                "file": fpath,
+                                "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+                                "size": len(content),
+                            }
+                            index["entries"].append(entry)
+                            index["categories"][category] = index["categories"].get(category, 0) + 1
+                            new_count += 1
+                        except Exception:
+                            continue
+
+            _save_index(index)
+            total = len(index.get("entries", []))
+            return {"status": "ok", "indexed": total, "new": new_count, "message": f"Knowledge base: {total} entries ({new_count} new)"}
         except Exception as e:
             return {"status": "error", "error": str(e)}
 

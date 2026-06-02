@@ -54,6 +54,8 @@ export const store = createStore("knowledgeModal", {
       if (s.tags) this.tags = s.tags;
       if (s.favorites) this.favorites = s.favorites;
     } catch {}
+    // Load library entries from KB API
+    this.loadLibraryFromKB();
   },
 
   get filteredEntries() {
@@ -341,6 +343,8 @@ export const store = createStore("knowledgeModal", {
       const r = await callJsonApi("knowledge", { action: "reindex" });
       if (r.status === "ok") {
         this.message = r.message || "Re-indexed successfully";
+        // Refresh library after reindex
+        await this.loadLibraryFromKB();
       } else {
         this.error = r.error || "Re-index failed";
       }
@@ -356,6 +360,30 @@ export const store = createStore("knowledgeModal", {
       const r = await callJsonApi("knowledge", { action: "status" });
       if (r.status === "ok") {
         this.kbStatus = r;
+      }
+    } catch (e) {}
+  },
+
+  async loadLibraryFromKB() {
+    try {
+      const r = await callJsonApi("knowledge", { action: "library", limit: 100 });
+      if (r.status === "ok" && r.entries) {
+        // Add KB entries to the library
+        for (const entry of r.entries) {
+          const exists = this.entries.find(e => e.question === entry.title && e.source === entry.source);
+          if (!exists) {
+            this.entries.unshift({
+              id: entry.id || Date.now(),
+              question: entry.title,
+              answer: "",
+              tags: entry.tags || [],
+              source: entry.source || entry.category_label || "Knowledge Base",
+              saved: true,
+              createdAt: entry.created_at || new Date().toISOString(),
+            });
+          }
+        }
+        this.persist();
       }
     } catch (e) {}
   },

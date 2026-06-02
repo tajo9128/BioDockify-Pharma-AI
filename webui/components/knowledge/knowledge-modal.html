@@ -67,10 +67,10 @@
     </div>
 
     <!-- Library Tab -->
-    <div x-show="$store.knowledgeModal.activeTab === 'library'" style="flex:1;overflow-y:auto">
+    <div x-show="$store.knowledgeModal.activeTab === 'library'" style="flex:1;overflow-y:auto" x-init="$store.knowledgeModal.loadLibraryFromKB()">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <span style="font-size:0.7rem;font-weight:600;color:var(--color-text)">Library Categories</span>
-        <button class="nb-btn-sm" @click="$store.knowledgeModal.buildLibrary()"><span class="material-symbols-outlined" style="font-size:14px">refresh</span> Refresh</button>
+        <button class="nb-btn-sm" @click="$store.knowledgeModal.loadLibraryFromKB()"><span class="material-symbols-outlined" style="font-size:14px">refresh</span> Refresh</button>
       </div>
       <template x-for="cat in $store.knowledgeModal.libraryCategories" :key="cat.name">
         <div class="nb-entry-card" style="cursor:pointer" @click="$store.knowledgeModal.filterByTag(cat.name); $store.knowledgeModal.activeTab='notebook'">

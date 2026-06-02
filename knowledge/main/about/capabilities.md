@@ -285,25 +285,32 @@ Full research lifecycle management via `/api/research/management/`:
 ## Knowledge Base — Central Hub
 The Knowledge Base is the SINGLE SOURCE OF TRUTH for all research data. ALL modules store their outputs here, and ALL output modules read from here.
 
+**Storage Paths (CRITICAL):**
+- `/a0/data/knowledge_base/{category}/` — Primary KB storage (categories: literature, deep_research, faculty, docking, drug_analysis, pharmacophore, qsar, statistics, clinical_trials, patents, notes, misc)
+- `/a0/data/knowledge_base/index.json` — Master index file (must be updated when adding entries)
+- `/a0/usr/knowledge/main/` — Framework knowledge files
+- `/a0/usr/knowledge/custom/` — User/agent knowledge files (also scanned by vector DB)
+
 **Data Flow IN (store with category):**
-- Deep Research → `deep_research` category (papers + summaries)
-- Literature Search → `literature` category (papers from 10 databases)
-- Faculty CMD → `faculty` category (syllabus, lectures, assignments)
-- Docking → `docking` category (results, poses, interactions)
-- Drug Analysis → `drug_analysis` category (properties, filters)
-- Pharmacophore → `pharmacophore` category (features, screening)
-- QSAR → `qsar` category (models, predictions)
-- Statistics → `statistics` category (analysis results)
+- Deep Research → `deep_research` category
+- Literature Search → `literature` category
+- Faculty CMD → `faculty` category
+- Docking → `docking` category
+- Drug Analysis → `drug_analysis` category
+- Pharmacophore → `pharmacophore` category
+- QSAR → `qsar` category
+- Statistics → `statistics` category
 - Clinical Trials → `clinical_trials` category
 - Patents → `patents` category
 
-**Data Flow OUT (read from KB):**
-- Academic Writer reads papers, references, data for thesis/papers
-- Slides Generator reads content for presentation slides
-- Faculty CMD reads syllabus context for lecture generation
-- Chat semantic search across all stored knowledge
-
 **API Actions:** store, library, categories, query, reindex, status
+
+**When to store data:**
+- ALWAYS store research results after deep research or literature search
+- ALWAYS store faculty materials after generation
+- ALWAYS store analysis results after docking, QSAR, or pharmacophore
+- Use `callJsonApi("knowledge", { action: "store", category, title, content, tags, source })`
+- For bulk imports, use `action: "import_files"` with file array
 
 ## Internet-Based Features
 The agent has FULL INTERNET ACCESS for:

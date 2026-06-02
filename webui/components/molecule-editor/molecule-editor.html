@@ -729,10 +729,12 @@
       @keyframes spin { to { transform:rotate(360deg) } }
       .me-layout { display:grid;grid-template-columns:340px 1fr;gap:10px;flex:1;min-height:0 }
       .me-left { display:flex;flex-direction:column;gap:6px;overflow-y:auto }
-      .me-right { display:flex;flex-direction:column;overflow-y:auto }
+      .me-right { display:flex;flex-direction:column;overflow-y:auto;min-height:0 }
       .me-tabs { display:flex;gap:0;border-bottom:1px solid var(--color-border);margin-bottom:8px;flex-shrink:0 }
       .me-tab { padding:5px 12px;font-size:0.64rem;font-weight:600;cursor:pointer;border:none;background:none;color:var(--color-text-muted);border-bottom:2px solid transparent;transition:all 0.15s }
       .me-tab.active { color:var(--color-primary);border-bottom-color:var(--color-primary) }
+      .me-tab-content { display:none;flex:1;overflow-y:auto;min-height:0 }
+      .me-tab-content.active { display:flex;flex-direction:column }
       .me-3d-view { flex:1;min-height:300px;border:1px solid var(--color-border);border-radius:8px;overflow:hidden;background:#1a1a2e;position:relative }
       .me-controls-row { display:flex;gap:3px;flex-wrap:wrap;margin-top:4px;align-items:center }
       .me-style-btn { padding:3px 8px;font-size:0.55rem;border:1px solid var(--color-border);border-radius:4px;background:var(--color-panel);color:var(--color-text);cursor:pointer;transition:all 0.1s }
