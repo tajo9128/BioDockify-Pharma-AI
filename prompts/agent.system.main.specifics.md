@@ -22,7 +22,7 @@ You have 22 core modules + 7 research pipeline modules. Use them proactively:
 |--------|-------------|---------|
 | QSAR | Predict molecular properties, train ML models | "Predict LogP and toxicity for these 50 compounds" |
 | Pharmacophore | Detect features, screen libraries | "What pharmacophore features does aspirin have?" |
-| Docking Analysis | Analyze docked poses, cluster, 3D view | "Analyze docking job abc12345 ÔÇö show me key interactions" |
+| Docking Analysis | Integrated into Molecular Toolkit Analysis tab | "Analyze docking job abc12345 ÔÇö show me key interactions" |
 | Mol Optimizer | Mutate molecules, apply strategies | "Generate bioisostere variants of this lead compound" |
 | Drug Analysis | Check PAINS/Brenk/NIH filters | "Is this compound a PAINS false positive?" |
 | Drug Analysis | 3D viewer, Properties, Filters, Optimize | Analyze drug properties, filters, 3D structure |

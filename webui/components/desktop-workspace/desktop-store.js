@@ -20,8 +20,7 @@ const defaultModules = [
   { id: "journal-finder", title: "Journal Finder", icon: "verified", component: "/components/journal-finder/journal-finder.html", order: 11, defaultWidth: 600, defaultHeight: 550 },
   { id: "qsar", title: "QSAR Modeler", icon: "model_training", component: "/components/qsar/qsar.html", order: 12, defaultWidth: 700, defaultHeight: 550 },
   { id: "pharmacophore", title: "Pharmacophore", icon: "ads_click", component: "/components/pharmacophore/pharmacophore.html", order: 13, defaultWidth: 650, defaultHeight: 500 },
-  { id: "docking-analysis", title: "Docking Analysis", icon: "biotech", component: "/components/docking-analysis/docking-analysis.html", order: 14, defaultWidth: 750, defaultHeight: 600 },
-  { id: "molecule-editor", title: "Drug Analysis", icon: "science", component: "/components/molecule-editor/molecule-editor.html", order: 15, defaultWidth: 850, defaultHeight: 650 },
+  { id: "molecule-editor", title: "Drug Analysis", icon: "science", component: "/components/molecule-editor/molecule-editor.html", order: 14, defaultWidth: 850, defaultHeight: 650 },
 ];
 
 const model = {
