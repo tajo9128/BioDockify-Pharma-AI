@@ -10,16 +10,28 @@ os.makedirs(KB_DIR, exist_ok=True)
 
 # Category directories
 CATEGORIES = {
+    # Research Sources
     "literature": "Literature & Papers",
     "deep_research": "Deep Research",
-    "faculty": "Faculty & Teaching",
+    "web_scraping": "Web Scraping",
+    "clinical_trials": "Clinical Trials",
+    "patents": "Patents",
+    # Computational
     "docking": "Docking Results",
     "drug_analysis": "Drug Analysis",
     "pharmacophore": "Pharmacophore",
     "qsar": "QSAR Models",
     "statistics": "Statistical Analysis",
-    "clinical_trials": "Clinical Trials",
-    "patents": "Patents",
+    # Teaching
+    "faculty": "Faculty & Teaching",
+    # Wet Lab
+    "wetlab": "Wet Lab & Experiments",
+    # Uploads
+    "books": "Books & References",
+    "protocols": "Protocols & Methods",
+    "data_files": "Data Files (CSV/XLSX)",
+    "audio_video": "Audio & Video",
+    # General
     "notes": "Research Notes",
     "misc": "Miscellaneous",
 }
@@ -95,6 +107,42 @@ def _store_entry(category: str, title: str, content: str, tags: str = "", source
         log.debug(f"Vector indexing skipped: {e}")
 
     return entry
+
+
+def _detect_category(filename: str) -> str:
+    """Auto-detect KB category from filename/extension."""
+    ext = os.path.splitext(filename)[1].lower()
+    name_lower = filename.lower()
+
+    # By extension
+    if ext == '.pdf':
+        return "books"
+    elif ext in ('.xlsx', '.xls', '.csv'):
+        return "data_files"
+    elif ext in ('.mp3', '.wav', '.ogg', '.m4a', '.flac'):
+        return "audio_video"
+    elif ext in ('.mp4', '.avi', '.mkv', '.mov', '.webm'):
+        return "audio_video"
+    elif ext in ('.sdf', '.mol', '.mol2', '.pdb', '.pdbqt'):
+        return "docking"
+
+    # By filename keywords
+    if any(kw in name_lower for kw in ('protocol', 'method', 'procedure', 'sop')):
+        return "protocols"
+    if any(kw in name_lower for kw in ('wetlab', 'experiment', 'lab_notebook', 'results')):
+        return "wetlab"
+    if any(kw in name_lower for kw in ('syllabus', 'lecture', 'homework', 'assignment')):
+        return "faculty"
+    if any(kw in name_lower for kw in ('patent', 'prior_art')):
+        return "patents"
+    if any(kw in name_lower for kw in ('clinical', 'trial', 'nct')):
+        return "clinical_trials"
+    if any(kw in name_lower for kw in ('docking', 'vina', 'pose', 'binding')):
+        return "docking"
+    if any(kw in name_lower for kw in ('qsar', 'model', 'prediction')):
+        return "qsar"
+
+    return "notes"
 
 
 class KnowledgeHandler(ApiHandler):
@@ -302,18 +350,22 @@ class KnowledgeHandler(ApiHandler):
         return {"status": "ok", "entries": entries[:limit], "total": len(entries)}
 
     def _upload(self, input: dict) -> dict:
-        """Upload files to KB with chunking and indexing."""
+        """Upload files to KB with chunking and indexing.
+        
+        Supports: TXT, MD, PDF, DOCX, XLSX, CSV, HTML, JSON, SDF, PDB, PDBQT
+        Auto-detects category from file type if not specified.
+        """
         try:
             files = input.get("files", [])
-            category = input.get("category", "notes")
+            category = input.get("category", "")  # Empty = auto-detect
             tags = input.get("tags", "")
 
             if not files:
                 return {"status": "error", "error": "No files provided"}
 
-            # Try to use chunker
+            # Try to use chunker with multi-format support
             try:
-                from modules.rag.chunker import chunk_document
+                from modules.rag.chunker import chunk_document, extract_text_from_file
                 use_chunker = True
             except ImportError:
                 use_chunker = False
@@ -323,6 +375,11 @@ class KnowledgeHandler(ApiHandler):
             for file_data in files:
                 filename = file_data.get("filename", "upload.txt")
                 content = file_data.get("content", "")
+
+                # Auto-detect category from file type if not specified
+                if not category:
+                    category = _detect_category(filename)
+
                 if not content:
                     continue
 
@@ -355,7 +412,8 @@ class KnowledgeHandler(ApiHandler):
                 "status": "ok",
                 "stored": stored,
                 "chunked": chunked,
-                "message": f"Uploaded {stored} file(s), {chunked} chunks indexed",
+                "category": category,
+                "message": f"Uploaded {stored} file(s) to {CATEGORIES.get(category, category)}, {chunked} chunks indexed",
             }
         except Exception as e:
             return {"status": "error", "error": str(e)}

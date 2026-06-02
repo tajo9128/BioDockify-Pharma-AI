@@ -301,7 +301,7 @@ export const store = createStore("knowledgeModal", {
   triggerFileUpload() {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = ".csv,.pdf,.txt,.md,.json,.docx";
+    input.accept = ".csv,.pdf,.txt,.md,.json,.docx,.xlsx,.xls,.html,.htm,.sdf,.mol,.pdb,.pdbqt,.mp3,.wav,.mp4,.avi";
     input.multiple = true;
     input.onchange = async (e) => {
       const files = e.target.files;
@@ -314,19 +314,16 @@ export const store = createStore("knowledgeModal", {
           const text = await file.text();
           fileData.push({ filename: file.name, content: text });
         }
+        // Use 'upload' action — auto-detects category from file type
         const result = await callJsonApi("knowledge", {
-          action: "import_files",
+          action: "upload",
           files: fileData,
         });
-        if (result.success) {
-          this.addNoteBookEntry(
-            `Uploaded: ${files.length} file(s)`,
-            `${result.count || files.length} document(s) added to knowledge base`,
-            "File Upload",
-            ["upload", "import"]
-          );
+        if (result.status === "ok") {
+          this.message = result.message || `${files.length} file(s) uploaded`;
+          await this.loadLibraryFromKB();
         } else {
-          this.error = result.error || "Import failed";
+          this.error = result.error || "Upload failed";
         }
       } catch (e) {
         this.error = "Upload error: " + e.message;
@@ -398,10 +395,10 @@ export const store = createStore("knowledgeModal", {
         const text = await file.text();
         fileData.push({ filename: file.name, content: text });
       }
+      // Don't specify category — backend auto-detects from file type
       const r = await callJsonApi("knowledge", {
         action: "upload",
         files: fileData,
-        category: "notes",
       });
       if (r.status === "ok") {
         this.message = r.message || `${files.length} file(s) uploaded`;

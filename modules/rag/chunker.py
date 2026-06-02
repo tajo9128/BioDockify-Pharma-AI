@@ -5,10 +5,83 @@ Splits documents into:
 - Paragraphs (by blank lines)
 - Sentences (by punctuation)
 
+Supports: TXT, MD, PDF, DOCX, XLSX, CSV, HTML, JSON
+
 Returns structured chunks with metadata for vector indexing.
 """
 import re
+import os
 from typing import List, Dict, Any
+
+
+def extract_text_from_file(filepath: str) -> str:
+    """Extract text content from various file formats.
+    
+    Supports: .txt, .md, .pdf, .docx, .xlsx, .csv, .html, .json
+    """
+    ext = os.path.splitext(filepath)[1].lower()
+
+    try:
+        if ext in ('.txt', '.md', '.csv', '.json', '.html', '.htm', '.py', '.r', '.sas'):
+            with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+                return f.read()
+
+        elif ext == '.pdf':
+            try:
+                import pypdf
+                with open(filepath, 'rb') as f:
+                    reader = pypdf.PdfReader(f)
+                    text_parts = []
+                    for page in reader.pages:
+                        page_text = page.extract_text()
+                        if page_text:
+                            text_parts.append(page_text)
+                    return "\n\n".join(text_parts)
+            except ImportError:
+                return f"[PDF file: {os.path.basename(filepath)} — pypdf not installed]"
+
+        elif ext == '.docx':
+            try:
+                from docx import Document
+                doc = Document(filepath)
+                paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+                return "\n\n".join(paragraphs)
+            except ImportError:
+                return f"[DOCX file: {os.path.basename(filepath)} — python-docx not installed]"
+
+        elif ext in ('.xlsx', '.xls'):
+            try:
+                import openpyxl
+                wb = openpyxl.load_workbook(filepath, read_only=True, data_only=True)
+                text_parts = []
+                for sheet in wb.worksheets:
+                    sheet_text = []
+                    for row in sheet.iter_rows(values_only=True):
+                        row_vals = [str(c) if c is not None else "" for c in row]
+                        if any(v.strip() for v in row_vals):
+                            sheet_text.append("\t".join(row_vals))
+                    if sheet_text:
+                        text_parts.append(f"Sheet: {sheet.title}\n" + "\n".join(sheet_text))
+                wb.close()
+                return "\n\n".join(text_parts)
+            except ImportError:
+                return f"[XLSX file: {os.path.basename(filepath)} — openpyxl not installed]"
+
+        elif ext in ('.sdf', '.mol', '.mol2'):
+            with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+                return f.read()
+
+        elif ext in ('.pdb', '.pdbqt', '.cif'):
+            with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+                return f.read()
+
+        else:
+            # Try reading as text
+            with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+                return f.read()
+
+    except Exception as e:
+        return f"[Error reading {os.path.basename(filepath)}: {str(e)}]"
 
 
 def chunk_document(text: str, doc_id: str = "", max_chunk_chars: int = 500, overlap_chars: int = 50) -> List[Dict[str, Any]]:
