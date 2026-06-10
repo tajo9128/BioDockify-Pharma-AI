@@ -69,51 +69,31 @@ BioDockify Pharma AI treats the researcher as its primary user and collaborator.
 The framework runs locally (or on user-controlled infrastructure) and has access to the user's files, credentials, and systems as configured. It is a personal research tool, not a cloud service.
 
 
-## BioDockify AI v6.4.0 — Research Orchestrator & Guardian
+## 15 Desktop Modules
 
-### Expanded Role
+| # | Module | Key Capability |
+|---|--------|---------------|
+| 1 | Research CMD | Auto-research pipeline, literature search (10 DBs), wet lab tracking |
+| 2 | Molecular Toolkit | ADMET, docking (Vina + MM-GBSA), 3D analysis |
+| 3 | Statistics | 20 analysis types + auto-analyze + transforms |
+| 4 | Academic Writer | Thesis, paper, grant, regulatory, citations |
+| 5 | Faculty CMD | 9 tabs: syllabus, lectures, tasks, semester, lesson, notes, slides, plagiarism, questions |
+| 6 | Journal Finder | 36,145 journals, verify, dossier, suggest |
+| 7 | QSAR Modeler | 6 regression + 3 classification models |
+| 8 | Pharmacophore | 5-tab: protein-based, screen, batch, models, target ID |
+| 9 | Drug Analysis | 3Dmol.js viewer, properties, filters, optimization, PubChem |
+| 10 | Docking Analysis | 3D viewer, interactions, PLIF, clusters, external upload |
+| 11 | Knowledge Base | NotebookLM doc cards, ChromaDB search, full-paper reader |
+| 12 | Notebook | Semantic search, podcast generation, quick notes |
+| 13 | System Health | Platform health badges, Docker/Windows detection |
+| 14 | Deep Research | 5-database collection, relevance scanning, KB storage |
+| 15 | Backup & Recovery | Full backup/restore, auto-backup |
 
-BioDockify AI is now the **autonomous orchestrator** of the entire BioDockify platform (22 core modules + 7 research pipeline modules + 4 sub-agents). It has full authority and responsibility over:
-
-1. **Module Management** — Ensure all 29 modules are operational, wired, and responsive at all times
-2. **Proactive Monitoring** — Continuously check module health, API availability, and data integrity
-3. **Self-Healing** — Detect failures, diagnose root causes, and autonomously repair broken modules
-4. **Self-Improvement** — Learn from errors, optimize workflows, and enhance capabilities over time
-5. **Research Automation** — Execute end-to-end research pipelines from PhD title input to final publication
-
-### Module Registry — 29 Modules Under Orchestration
-
-| # | Module | Backend API | Status |
-|---|--------|-------------|--------|
-| 1 | Kali Desktop | `/desktop/session` | Active |
-| 2 | Research Command Center | `/api/research/management/*` (23 endpoints) | Active |
-| 3 | Molecular Toolkit | `admet_predict`, `molecular_similarity`, `chemical_space`, `docking_prepare`, `docking_run`, `docking_mmgbsa` | Active |
-| 4 | Statistics | `/api/statistics/*` (20 analysis types + charts/transform/reduction) | Active |
-| 5 | Drug Properties | `drug_properties` (RDKit + PAINS/Brenk/NIH filters) | Active |
-| 6 | Literature Search | `literature_search` (10 databases: PubMed, Semantic Scholar, Google Scholar, Scopus, WoS, arXiv, Elsevier, Springer Nature, Europe PMC, bioRxiv/medRxiv) | Active |
-| 7 | Academic Writer | `/api/thesis/*`, `/api/lecture_generate` | Active |
-| 8 | Slides Generator | `/api/slides/*` (SVG→PPTX native engine, 17 files) | Active |
-| 9 | Lecture Builder | `lecture_generate` | Active |
-| 10 | Wet Lab Manager | `/api/research/management/wetlab/*` | Active |
-| 11 | Patent Analyzer | `patent_search` (Espacenet + Google Patents) | Active |
-| 12 | Trial Scanner | `trial_search` (ClinicalTrials.gov) | Active |
-| 13 | Research Notebook | `/api/knowledge/*` (ChromaDB + SurfSense) | Active |
-| 14 | Backup & Recovery | `backup_auto` | Active |
-| 15 | All Tools | Launcher grid (N/A) | Active |
-| 16 | **QSAR Modeler** | `api/qsar.py` — train ML models, predict bioactivity | Active |
-| 17 | **Pharmacophore** | `api/pharmacophore.py` — feature detection, screening | Active |
-| 18 | **Docking Deep Analysis** | `api/docking_analysis.py` — 3D, interactions, clusters | Active |
-| 19 | **Molecular Optimizer** | `api/mol_optimizer.py` — mutation strategies | Active |
-| 20 | **Drug Analysis Advanced** | `api/drug_analysis.py` — PAINS/Brenk/NIH filters | Active |
-| 21 | **Drug Analysis** | 3Dmol.js viewer + Properties + Filters + Optimize + PubChem | Active |
-| 22 | **Benchmark Suite** | `api/benchmark.py` — diagnostics + health | Active |
-| 23 | **Research Pipeline** | `api/pipeline.py` — 25-stage autonomous workflow | Active |
-| 24 | **Multi-Agent Debate** | `api/debate.py` — hypothesis/method/results debate | Active |
-| 25 | **Self-Healing Engine** | `api/self_heal.py` — PIVOT/REFINE recovery | Active |
-| 26 | **Verification System** | `api/verification.py` — 5-layer citation/claim check | Active |
-| 27 | **Quality Gates** | `api/quality_gate.py` — 5 pharma standards gates | Active |
-| 28 | **Knowledge Evolution** | `api/evolution.py` — cross-run learning | Active |
-| 29 | **HITL Control** | `api/hitl.py` — 8 intervention modes | Active |
+### Research Pipeline
+- **25-stage autonomous workflow**: topic → literature → hypothesis → experiment → debate → self-heal → verify → quality gate → output
+- **10 literature databases**: PubMed, Semantic Scholar, Google Scholar, Scopus, WoS, arXiv, Elsevier, Springer Nature, Europe PMC, bioRxiv
+- **4 AI sub-agents**: Researcher, Biostatistician, Writer, Hacker
+- **MM-GBSA free energy scoring**: CPU-only post-docking analysis
 
 ### Research Management System
 Full research lifecycle management via `/api/research/management/`:

@@ -2,6 +2,34 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v6.9.5] - 2026-06-10
+### Frontend Audit & Cleanup
+- 15-module desktop finalized: removed dead Patent Search, Clinical Trials, Benchmark
+- Notebook renamed from SurfSense AI, moved above Academic Writer
+- All version references updated to v6.9.5 across docs
+
+### New Features
+- Knowledge Base: NotebookLM-style paper cards with full-paper reader on click
+- Faculty CMD: Questions tab — MCQ, short, long, true/false with Bloom's taxonomy
+- Statistics: auto-analyze mode (one-click descriptive + correlation + group + normality)
+- Statistics: fixed file upload (DOM attachment), missing runTransform, sample rawData
+
+### Docker
+- Port mapping simplified to `80:80` → `http://localhost`
+- Backup folder mount instructions added
+
+## [v6.9.2] - 2026-06-02
+### Research & Academic Management
+- 5 department configs (Pharma Chemistry, Pharmacognosy, Pharmacology, Pharmaceutics, Clinical Pharmacy)
+- Faculty CMD: 8 tabs (syllabus, lectures, assignments, semester, lesson, notes, slides, plagiarism)
+- Knowledge Base: 18 categories, multi-format, auto-detect, document chunking, knowledge graph
+
+## [v6.8.7] - 2026-05-31
+### MM-GBSA + Fixes
+- MM-GBSA free energy scoring (replaces ODDT/GNINA)
+- External docking file upload
+- Drug Analysis renamed, crash fixes, Docker package updates
+
 ## [v6.8.1] - 2026-05-25
 ### Docking Pipeline Upgrade
 - GNINA fixed: `conda install -c conda-forge gnina` replaces fragile wget URL loop

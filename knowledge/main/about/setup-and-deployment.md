@@ -1,4 +1,4 @@
-﻿# BioDockify Pharma AI v1.60 - Setup and Deployment
+﻿# BioDockify Pharma AI v6.9.5 - Setup and Deployment
 
 ## Docker Deployment (Standard)
 

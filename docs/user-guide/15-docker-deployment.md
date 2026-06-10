@@ -16,7 +16,7 @@ BioDockify runs in Docker with two Python runtimes:
 ```yaml
 services:
   biodockify:
-    image: tajo9128/biodockify-pharma-ai:v6.8.1
+    image: tajo9128/biodockify-pharma-ai:v6.9.5
     ports:
       - "50001:50001"
     volumes:

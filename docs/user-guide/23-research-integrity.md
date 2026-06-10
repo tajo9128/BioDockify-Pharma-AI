@@ -48,7 +48,7 @@
 ```markdown
 ## AI Assistance Disclosure
 Portions of this manuscript were drafted with assistance from 
-BioDockify Pharma AI (v6.8.1). All content was reviewed and 
+BioDockify Pharma AI (v6.9.5). All content was reviewed and 
 verified by the authors.
 ```
 

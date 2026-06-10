@@ -187,7 +187,7 @@ The most important path is `/a0/usr` — this contains:
 ```yaml
 services:
   biodockify:
-    image: tajo9128/biodockify-pharma-ai:v6.8.1
+    image: tajo9128/biodockify-pharma-ai:v6.9.5
     ports:
       - "50001:50001"
     volumes:
@@ -334,7 +334,7 @@ Click **All Tools** in the sidebar to see the module grid:
 | WebSocket connection failed | Check X-CSRF-Token header, clear browser cache |
 | 3D viewer not loading | Check internet connection (3Dmol.js loads from CDN) |
 | Model not found after training | Check volume mount — models saved in `data/qsar_models/` |
-| Welcome screen empty | Fixed in v6.8.1 — forces chat mode on first login |
+| Welcome screen empty | Fixed in v6.9.5 — forces chat mode on first login |
 
 ### Getting Help
 

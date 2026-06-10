@@ -4,7 +4,7 @@
 
 BioDockify AI now features advanced self-awareness, self-consciousness, and comprehensive system control capabilities, providing production-ready autonomy for pharmaceutical research workflows.
 
-**Version:** 2.7.2+  
+**Version:** v6.9.5  
 **Last Updated:** 2026-02-14  
 **Test Coverage:** 100% (12/12 tests passing)
 
@@ -409,7 +409,7 @@ BioDockify AI now features:
 ✅ **100% Test Coverage**: 12/12 tests passing  
 
 **Status**: Production Ready  
-**Version**: 2.7.2+  
+**Version**: v6.9.5  
 **Last Updated**: 2026-02-14
 
 ---
