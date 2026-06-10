@@ -12,9 +12,9 @@
           <p class="header-subtitle">Upload data · Auto-Analyze · Instant Results</p>
         </div>
       </div>
-      <div class="health-badge" :class="{ready: health?.ready, missing: health && !health?.ready}" x-show="health">
-        <span class="material-symbols-outlined" style="font-size:13px" x-text="health?.ready ? 'check_circle' : 'warning'"></span>
-        <span x-text="health?.ready ? 'All deps ready' : (health?.missing?.length || 0) + ' deps missing'"></span>
+      <div class="health-badge" :class="{ready: health?.ready, missing: health && !health?.ready}" x-show="health && !health?.ready">
+        <span class="material-symbols-outlined" style="font-size:13px">warning</span>
+        <span x-text="health?.missing?.length ? (health.missing.length + ' deps missing: ' + health.missing.join(', ')) : 'Dependencies unavailable'"></span>
       </div>
       <div class="step-indicator">
         <div class="step" :class="{'active': step >= 1, 'current': step === 1}">
