@@ -21,8 +21,7 @@ const defaultModules = [
   { id: "journal-finder", title: "Journal Finder", icon: "verified", component: "/components/journal-finder/journal-finder.html", order: 12, defaultWidth: 600, defaultHeight: 550 },
   { id: "backup", title: "Backup & Recovery", icon: "backup", component: "/components/backup-recovery/recovery-panel.html", order: 13, defaultWidth: 650, defaultHeight: 450 },
   { id: "system-health", title: "System Health", icon: "monitoring", component: "/components/system-health/system-health.html", order: 14, defaultWidth: 500, defaultHeight: 500 },
-  { id: "surfsense", title: "Notebook AI", icon: "menu_book", component: "/components/surfsense/surfsense.html", order: 15, defaultWidth: 700, defaultHeight: 550 },
-  { id: "patent-analyzer", title: "Patent Search", icon: "description", component: "/components/patent-analyzer/patent-panel.html", order: 16, defaultWidth: 700, defaultHeight: 550 },
+  { id: "surfsense", title: "Notebook", icon: "menu_book", component: "/components/surfsense/surfsense.html", order: 15, defaultWidth: 700, defaultHeight: 550 },
   { id: "trial-scanner", title: "Clinical Trials", icon: "clinical_notes", component: "/components/trial-scanner/trial-panel.html", order: 17, defaultWidth: 700, defaultHeight: 550 },
   { id: "benchmark", title: "Benchmark", icon: "speed", component: "/components/benchmark/benchmark.html", order: 18, defaultWidth: 650, defaultHeight: 500 },
 ];

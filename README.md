@@ -14,7 +14,7 @@
   <img src="assets/screenshot.png" alt="BioDockify Pharma AI Screenshot" width="800">
 </p>
 
-**BioDockify Pharma AI** is a comprehensive pharmaceutical research platform with 18 consolidated desktop modules. It combines MM-GBSA free energy scoring (CPU-only), AutoDock Vina molecular docking, external docking file upload (Vina/Glide/GOLD/AutoDock-GPU/rDock/PLANTS), SPSS-level biostatistics (20 analysis types + auto-analyze), a 25-stage autonomous research pipeline, 10 literature databases, 6-model QSAR (regression + classification), pharmacophore screening, a 36,145-journal recommender, a Drug Analysis module with 3Dmol.js viewer, drug properties v2 (hERG/AMES/pKa/BBB/melting point/druglikeness score), NotebookLM-style research document reader, 4 specialized AI sub-agents, department-aware research management, faculty semester planning + question bank generator, patent search, clinical trial scanner, system benchmarks, and a central Knowledge Base with 18 categories supporting PDF/DOCX/XLSX/audio/video.
+**BioDockify Pharma AI** is a comprehensive pharmaceutical research platform with 17 consolidated desktop modules. It combines MM-GBSA free energy scoring (CPU-only), AutoDock Vina molecular docking, external docking file upload (Vina/Glide/GOLD/AutoDock-GPU/rDock/PLANTS), SPSS-level biostatistics (20 analysis types + auto-analyze), a 25-stage autonomous research pipeline, 10 literature databases, 6-model QSAR (regression + classification), pharmacophore screening, a 36,145-journal recommender, a Drug Analysis module with 3Dmol.js viewer, drug properties v2 (hERG/AMES/pKa/BBB/melting point/druglikeness score), NotebookLM-style research document reader, 4 specialized AI sub-agents, department-aware research management, faculty semester planning + question bank generator, clinical trial scanner, system benchmarks, and a central Knowledge Base with 18 categories supporting PDF/DOCX/XLSX/audio/video.
 
 ---
 
@@ -30,7 +30,7 @@
 
 ## Features
 
-### 18 Consolidated Research Modules
+### 17 Consolidated Research Modules
 
 | # | Module | Function | Backend |
 |---|--------|----------|---------|
@@ -45,14 +45,13 @@
 | 9 | **Drug Analysis** | 3Dmol.js viewer (7 styles) + Properties (hERG/AMES/pKa/BBB/MP/druglikeness) + PAINS/Brenk/NIH Filters + Bioisostere Mutagenesis + PubChem search | RDKit + PubChem |
 | 10 | **Docking Analysis** | 3D receptor+ligand viewer with H-bonds, surface, snapshot. Interaction SVG + PLIF + RMSD clusters + residue energy. **External file upload** from any platform | 3Dmol.js + RDKit |
 | 11 | **Knowledge Base** | NotebookLM-style document cards with full-paper reader, ChromaDB vector search, semantic search, persistent research memory | ChromaDB |
-| 12 | **Notebook AI** | Research Notebook with KB Search, Podcast generation (edge-tts), Document Storage, Slide Decks, Video Summaries, RAG Chat | ChromaDB + edge-tts + FFmpeg + Playwright |
+| 12 | **Notebook** | Research Notebook with KB Search, Podcast generation (edge-tts), Document Storage, Slide Decks, Video Summaries, RAG Chat | ChromaDB + edge-tts + FFmpeg + Playwright |
 | 13 | **System Health** | Platform-aware health badges (Vina + MM-GBSA + RDKit + Meeko), Docker vs Windows detection | health.py |
 | 14 | **Deep Research** | 5-database collection (PubMed, Semantic Scholar, Crossref, OpenAlex, arXiv), relevance scanning, store to KB | 5 live APIs |
 | 15 | **Backup & Recovery** | Full system backup/restore with preview + auto-backup on first health check | backup APIs |
-| 16 | **Patent Search** | Search patents by drug name, SMILES, or compound across patent databases | patent_search.py |
-| 17 | **Clinical Trials** | Scan ClinicalTrials.gov by drug/condition/status with full trial details | trial_search.py |
-| 18 | **Benchmark** | System diagnostics and validation suite | benchmark.py |
-| 15 | **All Tools** | Quick-launch grid for all 15 consolidated modules | N/A |
+| 16 | **Clinical Trials** | Scan ClinicalTrials.gov by drug/condition/status with full trial details | trial_search.py |
+| 17 | **Benchmark** | System diagnostics and validation suite | benchmark.py |
+| — | **All Tools** | Quick-launch grid for all 17 consolidated modules | N/A |
 
 ### Merged Modules (Accessible via Parent Dashboards)
 

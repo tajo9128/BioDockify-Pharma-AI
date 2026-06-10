@@ -37,10 +37,10 @@
           const r = await callJsonApi("surfsense/check", { base_url: this.surfsenseUrl });
           if (r.status === "success") {
             this.status = "online";
-            this.message = "SurfSense is running and healthy";
+            this.message = "Notebook is running and healthy";
           } else {
             this.status = "offline";
-            this.message = r.message || "SurfSense is not reachable";
+            this.message = r.message || "Notebook is not reachable";
           }
         } catch (e) {
           this.status = "offline";
@@ -54,10 +54,10 @@
         try {
           const r = await callJsonApi("v2/system/start-surfsense", {});
           if (r.status === "success") {
-            this.message = "SurfSense starting... check status in a moment";
+            this.message = "Notebook starting... check status in a moment";
             setTimeout(() => this.checkStatus(), 3000);
           } else {
-            this.error = r.error || "Failed to start SurfSense";
+            this.error = r.error || "Failed to start Notebook";
           }
         } catch (e) { this.error = e.message; }
         this.loading = false;
@@ -140,7 +140,7 @@
       <span class="ss-status-dot" :class="{'online': $store.surfsense.status === 'online', 'offline': $store.surfsense.status !== 'online'}"></span>
       <span x-text="$store.surfsense.status === 'online' ? 'Connected' : ($store.surfsense.status === 'checking' ? 'Checking...' : 'Offline')"></span>
       <span x-show="$store.surfsense.status !== 'online'" style="margin-left:auto">
-        <button class="ss-btn-start" @click="$store.surfsense.startSurfSense()" :disabled="$store.surfsense.loading">Start SurfSense</button>
+        <button class="ss-btn-start" @click="$store.surfsense.startSurfSense()" :disabled="$store.surfsense.loading">Start Notebook</button>
       </span>
     </div>
 
@@ -189,7 +189,7 @@
 
       <div class="ss-card">
         <h4>API Cost</h4>
-        <p class="ss-card-text">SurfSense uses ChromaDB for search (free), edge-tts for audio (free), FFmpeg for video (free), Playwright for slides (free). Only the chat/RAG feature uses your LLM API key.</p>
+        <p class="ss-card-text">Notebook uses ChromaDB for search (free), edge-tts for audio (free), FFmpeg for video (free), Playwright for slides (free). Only the chat/RAG feature uses your LLM API key.</p>
       </div>
     </div>
 
