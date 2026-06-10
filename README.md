@@ -190,7 +190,7 @@ All research data — memory, chats, settings, knowledge base, projects, AND bac
 
 ```bash
 # The -v flag is REQUIRED. Without it, ALL data is lost on container delete.
-docker run -d -p 32768:50001 --name biodockify-pharma \
+docker run -d -p 32768:80 --name biodockify-pharma \
   -v biodockify_pharma_usr:/a0/usr \
   tajo9128/biodockify-pharma-ai:latest
 
@@ -210,7 +210,7 @@ services:
     image: tajo9128/biodockify-pharma-ai:latest
     container_name: biodockify-pharma-ai
     ports:
-      - "32768:50001"    # host:container — change host port as needed
+      - "32768:80"    # host:container — change host port as needed
     volumes:
       - biodockify_pharma_usr:/a0/usr
     restart: unless-stopped
