@@ -188,18 +188,10 @@ All research data — memory, chats, settings, knowledge base, projects, AND bac
 
 ### 1. Run with persistence (REQUIRED)
 
-**Setup backup folder (recommended):**
 ```bash
-# Create an empty folder for backups on your host machine
-mkdir ~/biodockify-backups      # Linux/macOS
-mkdir %USERPROFILE%\biodockify-backups   # Windows (PowerShell)
-```
-
-Then run:
-
-```bash
-# The -v flag is REQUIRED. Without it, ALL data is lost on container delete.
-docker run -d -p 32768:80 --name biodockify-pharma \
+docker run -d \
+  --name biodockify-pharma \
+  -p 32768:80 \
   -v biodockify_pharma_usr:/a0/usr \
   -v ~/biodockify-backups:/app/data \
   tajo9128/biodockify-pharma-ai:latest
@@ -207,36 +199,45 @@ docker run -d -p 32768:80 --name biodockify-pharma \
 # Visit http://localhost:32768
 ```
 
-**If container is deleted and recreated with the SAME volume name (`biodockify_pharma_usr`), ALL data returns.**
+**Optional settings:**
 
-### 2. Or use Docker Compose (recommended)
+| Flag | What it does | Example |
+|------|-------------|---------|
+| `--name` | Give your container a friendly name | `--name my-biodockify` |
+| `-p 32768:80` | Map host port → container port 80 | `-p 80:80` to open at `http://localhost` |
+| `-v name:/a0/usr` | Persistent data volume (REQUIRED) | Keep as-is |
+| `-v ~/backups:/app/data` | Mount backup folder on your PC | Replace `~/backups` with your folder path |
 
-Create a folder and save this as `docker-compose.yml`:
-
+**Create backup folder first:**
 ```bash
-# First create an empty backup folder
-mkdir backup-data   # Linux/macOS/WSL
-# OR: New-Item -ItemType Directory -Name "backup-data"   # Windows PowerShell
+mkdir ~/biodockify-backups            # Linux / macOS
+mkdir C:\biodockify-backups           # Windows
 ```
 
+> **If container is deleted and recreated with the SAME volume name, ALL data returns.**
+
+---
+
+### 2. Or use Docker Compose
+
+Save as `docker-compose.yml`:
+
 ```yaml
-version: '3.8'
 services:
-  biodockify-pharma-ai:
+  biodockify:
     image: tajo9128/biodockify-pharma-ai:latest
-    container_name: biodockify-pharma-ai
+    container_name: biodockify
     ports:
-      - "32768:80"    # host:container — change host port as needed
+      - "32768:80"
     volumes:
-      - biodockify_pharma_usr:/a0/usr
-      - ./backup-data:/app/data    # create empty folder named "backup-data" first
+      - biodockify_usr:/a0/usr
+      - ./backup-data:/app/data
     restart: unless-stopped
 
 volumes:
-  biodockify_pharma_usr:
+  biodockify_usr:
 ```
 
-Then run:
 ```bash
 docker compose up -d
 ```
