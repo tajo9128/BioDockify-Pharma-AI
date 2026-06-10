@@ -14,7 +14,7 @@
   <img src="assets/screenshot.png" alt="BioDockify Pharma AI Screenshot" width="800">
 </p>
 
-**BioDockify Pharma AI** is a comprehensive pharmaceutical research platform with 15 consolidated desktop modules. It combines MM-GBSA free energy scoring (CPU-only), AutoDock Vina molecular docking, external docking file upload (Vina/Glide/GOLD/AutoDock-GPU/rDock/PLANTS), SPSS-level biostatistics (20 analysis types + auto-analyze), a 25-stage autonomous research pipeline, 10 literature databases, 6-model QSAR (regression + classification), pharmacophore screening, a 36,145-journal recommender, a Drug Analysis module with 3Dmol.js viewer, drug properties v2 (hERG/AMES/pKa/BBB/melting point/druglikeness score), NotebookLM-style research document reader, 4 specialized AI sub-agents, department-aware research management, faculty semester planning + question bank generator, and a central Knowledge Base with 18 categories supporting PDF/DOCX/XLSX/audio/video.
+**BioDockify Pharma AI** is a pharmaceutical research platform with 15 integrated modules. It features AutoDock Vina molecular docking with MM-GBSA free energy scoring, SPSS-level biostatistics (20 analysis types + auto-analyze), a 25-stage autonomous research pipeline, literature search across 10 databases, QSAR modeling (6 regression + 3 classification), pharmacophore screening, a 36,145-journal recommender, Drug Analysis with 3Dmol.js viewer and properties (hERG/AMES/pKa/BBB), a NotebookLM-style document reader, 4 AI sub-agents, faculty command center with semester planning and question bank generator, and a ChromaDB knowledge base supporting PDF/DOCX/XLSX/audio/video.
 
 ---
 
