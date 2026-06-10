@@ -82,12 +82,14 @@ Output: Per-pose MM-GBSA energies, Z-scores, and consensus with Vina (`0.4*Vina_
 
 ### External Docking File Upload
 
-Upload receptor + docked ligand files for deep analysis. Supports standard docking formats:
+Upload receptor and docked ligand files for deep analysis.
 
-```bash
-# Receptor: PDB, PDBQT
-# Ligand:  PDBQT (multi-model), SDF
-```
+| File | Accepted Formats |
+|------|-----------------|
+| Receptor | `.pdb`, `.pdbqt` |
+| Ligand | `.pdbqt` (multi-model), `.sdf` |
+
+Upload via Molecular Toolkit → Docking → Deep Analysis → toggle "Upload Files" → auto-runs full analysis (3D view, interactions, clusters).
 
 ### 4 Specialized Sub-Agents
 
