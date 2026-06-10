@@ -51,21 +51,23 @@ Alpine.data("statisticsModal", () => ({
   },
 
   async readFileAsContent(file) {
-    // Check for binary formats that need base64
     const ext = (file.name || "").split(".").pop().toLowerCase();
     if (ext === "xlsx" || ext === "xls") {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
-          const binary = reader.result;
-          const base64 = btoa(String.fromCharCode(...new Uint8Array(binary)));
-          resolve({ content: base64, isBinary: true });
+          const bytes = new Uint8Array(reader.result);
+          let binary = "";
+          const chunkSize = 8192;
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+          }
+          resolve({ content: btoa(binary), isBinary: true });
         };
         reader.onerror = reject;
         reader.readAsArrayBuffer(file);
       });
     }
-    // Text formats
     const text = await file.text();
     return { content: text, isBinary: false };
   },
@@ -194,8 +196,10 @@ Alpine.data("statisticsModal", () => ({
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".csv,.xlsx,.xls,.json";
+    input.style.display = "none";
     input.onchange = async (e) => {
       const file = e.target.files[0];
+      input.remove();
       if (!file) return;
       this.loading = true;
       this.fileName = file.name;
@@ -231,6 +235,7 @@ Alpine.data("statisticsModal", () => ({
       }
       this.loading = false;
     };
+    document.body.appendChild(input);
     input.click();
   },
 
