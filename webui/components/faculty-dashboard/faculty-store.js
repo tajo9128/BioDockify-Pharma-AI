@@ -27,6 +27,32 @@ export const store = createStore("facultyTools", {
   plagText: "",
   plagResult: null,
 
+  // Questions bank
+  questionsTopic: "",
+  questionsType: "mcq",
+  questionsBloom: "understand",
+  questionsCount: 5,
+  questionsResult: null,
+
+  // Semester planning
+  semesterWeeks: 16,
+  semesterClassesPerWeek: 2,
+  semesterResult: null,
+
+  // Class/Lesson planning
+  classTopic: "",
+  classDuration: "50",
+  classResult: null,
+  lessonMethod: "lecture",
+  lessonResult: null,
+
+  // Notes/Slides
+  notesTopic: "",
+  notesResult: null,
+  slidesTopic: "",
+  slidesNumSlides: 10,
+  slidesResult: null,
+
   // Flat properties (synced from active subject)
   syllabusText: "",
   syllabusFileName: "",
@@ -196,6 +222,99 @@ export const store = createStore("facultyTools", {
     this.loading = false;
   },
 
+  async genQuestions() {
+    if (!this.questionsTopic.trim()) return;
+    this.loading = true; this.error = ""; this.questionsResult = null;
+    try {
+      this.questionsResult = await callJsonApi("faculty_tools", {
+        action: "questions",
+        topic: this.questionsTopic,
+        type: this.questionsType,
+        bloom: this.questionsBloom,
+        count: this.questionsCount,
+      });
+    } catch (e) { this.error = e.message; }
+    this.loading = false;
+  },
+
+  async planSemester() {
+    if (!this.syllabusResult?.topics?.length) { this.error = "Parse syllabus first"; return; }
+    this.loading = true; this.error = ""; this.semesterResult = null;
+    try {
+      this.semesterResult = await callJsonApi("faculty_tools", {
+        action: "plan_semester",
+        course_name: this.syllabusResult.course_name || "Course",
+        topics: this.syllabusResult.topics,
+        weeks: this.semesterWeeks,
+        classes_per_week: this.semesterClassesPerWeek,
+      });
+      if (this.semesterResult.error) { this.error = this.semesterResult.error; this.semesterResult = null; }
+      else { this.message = `Semester planned: ${this.semesterResult.total_classes} classes over ${this.semesterWeeks} weeks`; }
+    } catch (e) { this.error = e.message; }
+    this.loading = false;
+    setTimeout(() => { this.message = ""; }, 3000);
+  },
+
+  async planClass() {
+    if (!this.classTopic.trim()) { this.error = "Enter a topic"; return; }
+    this.loading = true; this.error = ""; this.classResult = null;
+    try {
+      this.classResult = await callJsonApi("faculty_tools", {
+        action: "plan_class",
+        topic: this.classTopic,
+        duration: this.classDuration,
+        level: this.lectureLevel,
+      });
+      if (this.classResult.error) { this.error = this.classResult.error; this.classResult = null; }
+    } catch (e) { this.error = e.message; }
+    this.loading = false;
+  },
+
+  async planLesson() {
+    if (!this.classTopic.trim()) { this.error = "Enter a topic"; return; }
+    this.loading = true; this.error = ""; this.lessonResult = null;
+    try {
+      this.lessonResult = await callJsonApi("faculty_tools", {
+        action: "lesson_plan",
+        topic: this.classTopic,
+        duration: this.classDuration,
+        level: this.lectureLevel,
+        method: this.lessonMethod,
+      });
+      if (this.lessonResult.error) { this.error = this.lessonResult.error; this.lessonResult = null; }
+    } catch (e) { this.error = e.message; }
+    this.loading = false;
+  },
+
+  async prepNotes() {
+    if (!this.notesTopic.trim()) { this.error = "Enter a topic"; return; }
+    this.loading = true; this.error = ""; this.notesResult = null;
+    try {
+      this.notesResult = await callJsonApi("faculty_tools", {
+        action: "prep_notes",
+        topic: this.notesTopic,
+        level: this.lectureLevel,
+      });
+      if (this.notesResult.error) { this.error = this.notesResult.error; this.notesResult = null; }
+    } catch (e) { this.error = e.message; }
+    this.loading = false;
+  },
+
+  async makeSlides() {
+    if (!this.slidesTopic.trim()) { this.error = "Enter a topic"; return; }
+    this.loading = true; this.error = ""; this.slidesResult = null;
+    try {
+      this.slidesResult = await callJsonApi("faculty_tools", {
+        action: "make_slides",
+        topic: this.slidesTopic,
+        num_slides: this.slidesNumSlides,
+        style: "academic",
+      });
+      if (this.slidesResult.error) { this.error = this.slidesResult.error; this.slidesResult = null; }
+    } catch (e) { this.error = e.message; }
+    this.loading = false;
+  },
+
   sendToAgent(prompt) {
     const input = document.getElementById("chat-input");
     if (input) {
@@ -211,17 +330,5 @@ export const store = createStore("facultyTools", {
   litReview() {
     const name = this.syllabusResult?.course_name || this.subjects[this.activeSubject-1].name;
     this.sendToAgent(`Conduct a comprehensive literature review for: ${name}. Search PubMed, Semantic Scholar, arXiv for recent papers (last 5 years). Structure: 1) Introduction, 2) Current State of Knowledge, 3) Key Findings, 4) Research Gaps, 5) Future Directions. Include 10+ citations.`);
-  },
-
-  prepareNotes() {
-    const name = this.syllabusResult?.course_name || this.subjects[this.activeSubject-1].name;
-    const topics = (this.syllabusResult?.topics || []).join(', ');
-    this.sendToAgent(`Prepare structured study notes for: ${name}. Topics: ${topics}. For each topic provide: 1) Key concepts (bullet points), 2) Important definitions, 3) Diagrams to draw, 4) Memory aids/mnemonics, 5) Practice questions. Format as student-ready notes.`);
-  },
-
-  makeSlides() {
-    const name = this.syllabusResult?.course_name || this.subjects[this.activeSubject-1].name;
-    const topics = (this.syllabusResult?.topics || []).slice(0, 10).join(', ');
-    this.sendToAgent(`Create a ${Math.min(this.syllabusResult?.topic_count || 10, 15)}-slide presentation for: ${name}. Topics to cover: ${topics}. For each slide: Slide number, Title, 3-4 bullet points, Speaker notes. Style: Academic. Include introduction and summary slides.`);
   },
 });

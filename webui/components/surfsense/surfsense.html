@@ -1,0 +1,319 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+
+    export const store = createStore("surfsense", {
+      activeTab: "status",
+      status: "checking",
+      message: "",
+      error: "",
+      loading: false,
+      // Search
+      searchQuery: "",
+      searchResults: [],
+      searchLoading: false,
+      // Podcast
+      podcastText: "",
+      podcastVoice: "alloy",
+      podcastUrl: "",
+      podcastLoading: false,
+      // Settings
+      surfsenseUrl: "http://localhost:8000",
+
+      async init() {
+        await this.checkStatus();
+        // Load config
+        try {
+          const r = await callJsonApi("settings", { action: "get" });
+          if (r?.ai_provider?.surfsense_url) this.surfsenseUrl = r.ai_provider.surfsense_url;
+        } catch {}
+      },
+
+      async checkStatus() {
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("surfsense/check", { base_url: this.surfsenseUrl });
+          if (r.status === "success") {
+            this.status = "online";
+            this.message = "SurfSense is running and healthy";
+          } else {
+            this.status = "offline";
+            this.message = r.message || "SurfSense is not reachable";
+          }
+        } catch (e) {
+          this.status = "offline";
+          this.error = e.message;
+        }
+        this.loading = false;
+      },
+
+      async startSurfSense() {
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("v2/system/start-surfsense", {});
+          if (r.status === "success") {
+            this.message = "SurfSense starting... check status in a moment";
+            setTimeout(() => this.checkStatus(), 3000);
+          } else {
+            this.error = r.error || "Failed to start SurfSense";
+          }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async search() {
+        if (!this.searchQuery.trim()) return;
+        this.searchLoading = true; this.searchResults = [];
+        try {
+          const r = await callJsonApi("surfsense/search", {
+            query: this.searchQuery,
+            top_k: 10,
+          });
+          this.searchResults = r.results || [];
+          if (!this.searchResults.length) this.message = "No results found";
+        } catch (e) {
+          this.error = "Search failed: " + e.message;
+        }
+        this.searchLoading = false;
+      },
+
+      async generatePodcast() {
+        if (!this.podcastText.trim()) return;
+        this.podcastLoading = true; this.podcastUrl = ""; this.error = "";
+        try {
+          const r = await callJsonApi("surfsense/podcast", {
+            chat_id: this.podcastText,
+            voice: this.podcastVoice,
+          });
+          if (r.audio_url) {
+            this.podcastUrl = "/api/files/" + r.audio_url;
+            this.message = "Podcast generated — " + (r.duration || "ready");
+          } else if (r.error) {
+            this.error = r.error;
+          } else {
+            this.message = "Podcast request sent";
+          }
+        } catch (e) { this.error = "Podcast error: " + e.message; }
+        this.podcastLoading = false;
+      },
+
+      openSurfSense() {
+        window.open(this.surfsenseUrl, "_blank");
+      },
+
+      persist() {
+        try { localStorage.setItem("biodockify.surfsense", JSON.stringify({ url: this.surfsenseUrl })); } catch {}
+      },
+
+      restore() {
+        try {
+          const s = JSON.parse(localStorage.getItem("biodockify.surfsense") || "{}");
+          if (s.url) this.surfsenseUrl = s.url;
+        } catch {}
+      },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="ss-panel" x-init="$store.surfsense.restore(); $store.surfsense.init()">
+    <!-- Header -->
+    <div class="ss-header">
+      <span class="material-symbols-outlined ss-icon">psychology</span>
+      <div>
+        <h2>Notebook AI</h2>
+        <p class="ss-sub">Research Notebook · Podcast · Search · Storage</p>
+      </div>
+      <div class="ss-header-actions">
+        <button class="ss-btn-sm" @click="$store.surfsense.checkStatus()" :disabled="$store.surfsense.loading">
+          <span class="material-symbols-outlined">refresh</span>
+        </button>
+        <button class="ss-btn-sm" @click="$store.surfsense.openSurfSense()" title="Open in browser">
+          <span class="material-symbols-outlined">open_in_new</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Status badge -->
+    <div class="ss-status-bar">
+      <span class="ss-status-dot" :class="{'online': $store.surfsense.status === 'online', 'offline': $store.surfsense.status !== 'online'}"></span>
+      <span x-text="$store.surfsense.status === 'online' ? 'Connected' : ($store.surfsense.status === 'checking' ? 'Checking...' : 'Offline')"></span>
+      <span x-show="$store.surfsense.status !== 'online'" style="margin-left:auto">
+        <button class="ss-btn-start" @click="$store.surfsense.startSurfSense()" :disabled="$store.surfsense.loading">Start SurfSense</button>
+      </span>
+    </div>
+
+    <!-- Messages -->
+    <div x-show="$store.surfsense.error" class="ss-error" x-text="$store.surfsense.error" @click="$store.surfsense.error = ''"></div>
+    <div x-show="$store.surfsense.message" class="ss-msg" x-text="$store.surfsense.message"></div>
+
+    <!-- Tabs -->
+    <div class="ss-tabs">
+      <button class="ss-tab" :class="{active: $store.surfsense.activeTab === 'status'}" @click="$store.surfsense.activeTab = 'status'">
+        <span class="material-symbols-outlined" style="font-size:14px">monitoring</span> Status
+      </button>
+      <button class="ss-tab" :class="{active: $store.surfsense.activeTab === 'search'}" @click="$store.surfsense.activeTab = 'search'">
+        <span class="material-symbols-outlined" style="font-size:14px">search</span> Search KB
+      </button>
+      <button class="ss-tab" :class="{active: $store.surfsense.activeTab === 'podcast'}" @click="$store.surfsense.activeTab = 'podcast'">
+        <span class="material-symbols-outlined" style="font-size:14px">podcasts</span> Podcast
+      </button>
+    </div>
+
+    <!-- Status Tab -->
+    <div x-show="$store.surfsense.activeTab === 'status'" class="ss-content">
+      <div class="ss-card">
+        <h4>Service Status</h4>
+        <div class="ss-info-row">
+          <span class="ss-info-label">URL</span>
+          <span class="ss-info-value" x-text="$store.surfsense.surfsenseUrl"></span>
+        </div>
+        <div class="ss-info-row">
+          <span class="ss-info-label">Health</span>
+          <span class="ss-info-value" :class="{online: $store.surfsense.status === 'online'}" x-text="$store.surfsense.status === 'online' ? 'Healthy' : 'Unreachable'"></span>
+        </div>
+      </div>
+
+      <div class="ss-card">
+        <h4>Features</h4>
+        <div class="ss-feature-grid">
+          <div class="ss-feature"><span class="material-symbols-outlined">upload_file</span> Document Storage</div>
+          <div class="ss-feature"><span class="material-symbols-outlined">search</span> Vector Search</div>
+          <div class="ss-feature"><span class="material-symbols-outlined">podcasts</span> Podcast Audio</div>
+          <div class="ss-feature"><span class="material-symbols-outlined">slideshow</span> Slide Decks</div>
+          <div class="ss-feature"><span class="material-symbols-outlined">videocam</span> Video Summaries</div>
+          <div class="ss-feature"><span class="material-symbols-outlined">chat</span> KB Chat (RAG)</div>
+        </div>
+      </div>
+
+      <div class="ss-card">
+        <h4>API Cost</h4>
+        <p class="ss-card-text">SurfSense uses ChromaDB for search (free), edge-tts for audio (free), FFmpeg for video (free), Playwright for slides (free). Only the chat/RAG feature uses your LLM API key.</p>
+      </div>
+    </div>
+
+    <!-- Search Tab -->
+    <div x-show="$store.surfsense.activeTab === 'search'" class="ss-content">
+      <div class="ss-search-row">
+        <input type="text" x-model="$store.surfsense.searchQuery" placeholder="Search your knowledge base..." class="ss-input"
+          @keyup.enter="$store.surfsense.search()" />
+        <button class="ss-btn-primary" @click="$store.surfsense.search()" :disabled="$store.surfsense.searchLoading">
+          <span class="material-symbols-outlined">search</span>
+        </button>
+      </div>
+
+      <div x-show="$store.surfsense.searchLoading" class="ss-loading"><div class="loading-spinner"></div> Searching...</div>
+
+      <template x-if="$store.surfsense.searchResults.length">
+        <div class="ss-results">
+          <h4 x-text="'Results (' + $store.surfsense.searchResults.length + ')'"></h4>
+          <template x-for="r in $store.surfsense.searchResults" :key="r.id || r.title">
+            <div class="ss-result-card">
+              <div class="ss-result-title" x-text="r.title || r.source || 'Untitled'"></div>
+              <div class="ss-result-snippet" x-text="(r.content || r.text || '').substring(0, 300)"></div>
+              <div class="ss-result-meta">
+                <span x-show="r.score" class="ss-result-score" x-text="'Relevance: ' + Math.round(r.score * 100) + '%'"></span>
+                <span x-show="r.source" x-text="'Source: ' + r.source"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+
+    <!-- Podcast Tab -->
+    <div x-show="$store.surfsense.activeTab === 'podcast'" class="ss-content">
+      <div class="ss-card">
+        <h4>Generate Research Podcast</h4>
+        <p class="ss-card-text">Convert any text into spoken audio using neural TTS (edge-tts, free).</p>
+        <textarea x-model="$store.surfsense.podcastText" placeholder="Paste research text, summary, or notes here..." class="ss-textarea" rows="6"></textarea>
+        <div class="ss-podcast-row">
+          <select x-model="$store.surfsense.podcastVoice" class="ss-select">
+            <option value="alloy">Alloy (Neutral)</option>
+            <option value="echo">Echo (Warm)</option>
+            <option value="fable">Fable (British)</option>
+            <option value="onyx">Onyx (Deep)</option>
+            <option value="nova">Nova (Friendly)</option>
+            <option value="shimmer">Shimmer (Clear)</option>
+          </select>
+          <button class="ss-btn-primary" @click="$store.surfsense.generatePodcast()" :disabled="$store.surfsense.podcastLoading || !$store.surfsense.podcastText">
+            <span class="material-symbols-outlined">podcasts</span> Generate
+          </button>
+        </div>
+        <div x-show="$store.surfsense.podcastLoading" class="ss-loading"><div class="loading-spinner"></div> Generating audio...</div>
+        <div x-show="$store.surfsense.podcastUrl" style="margin-top:10px">
+          <audio :src="$store.surfsense.podcastUrl" controls style="width:100%;border-radius:6px"></audio>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      .ss-panel { display: flex; flex-direction: column; height: 100%; overflow: hidden; padding: 10px 14px; background: var(--color-background); }
+      .ss-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-shrink: 0; }
+      .ss-icon { font-size: 22px; color: #6366f1; }
+      .ss-header h2 { color: var(--color-text); font-size: 0.9rem; margin: 0; font-weight: 700; }
+      .ss-sub { color: var(--color-text-muted); font-size: 0.55rem; margin: 0; }
+      .ss-header-actions { display: flex; gap: 3px; margin-left: auto; }
+      .ss-btn-sm { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 5px; color: var(--color-text-muted); cursor: pointer; }
+      .ss-btn-sm:hover { border-color: #6366f1; color: #6366f1; }
+      .ss-btn-sm:disabled { opacity: 0.4; }
+      .ss-btn-sm .material-symbols-outlined { font-size: 15px; }
+
+      .ss-status-bar { display: flex; align-items: center; gap: 6px; padding: 5px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.62rem; color: var(--color-text); margin-bottom: 6px; flex-shrink: 0; }
+      .ss-status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+      .ss-status-dot.online { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.4); }
+      .ss-status-dot.offline { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,0.4); }
+      .ss-btn-start { padding: 2px 10px; background: #6366f1; color: white; border: none; border-radius: 4px; font-size: 0.56rem; font-weight: 600; cursor: pointer; }
+      .ss-btn-start:hover { background: #5558e6; }
+      .ss-btn-start:disabled { opacity: 0.5; }
+
+      .ss-error { padding: 4px 8px; background: rgba(255,107,107,0.1); border-radius: 4px; color: var(--color-error-text); font-size: 0.58rem; margin-bottom: 4px; cursor: pointer; }
+      .ss-msg { padding: 4px 8px; background: rgba(99,102,241,0.08); border-radius: 4px; color: #6366f1; font-size: 0.58rem; margin-bottom: 4px; }
+
+      .ss-tabs { display: flex; gap: 1px; margin-bottom: 6px; flex-shrink: 0; border-bottom: 1px solid var(--color-border); padding-bottom: 3px; }
+      .ss-tab { display: flex; align-items: center; gap: 3px; padding: 4px 10px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--color-text-muted); cursor: pointer; font-size: 0.6rem; font-weight: 500; }
+      .ss-tab:hover { color: var(--color-text); }
+      .ss-tab.active { color: #6366f1; border-bottom-color: #6366f1; }
+
+      .ss-content { flex: 1; overflow-y: auto; min-height: 0; }
+      .ss-card { padding: 10px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 6px; }
+      .ss-card h4 { font-size: 0.66rem; font-weight: 600; color: var(--color-text); margin: 0 0 6px 0; }
+      .ss-card-text { font-size: 0.58rem; color: var(--color-text-muted); line-height: 1.5; margin: 0; }
+
+      .ss-info-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 0.6rem; }
+      .ss-info-label { color: var(--color-text-muted); }
+      .ss-info-value { color: var(--color-text); font-weight: 500; }
+      .ss-info-value.online { color: #22c55e; }
+
+      .ss-feature-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; }
+      .ss-feature { display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: var(--color-background); border-radius: 5px; font-size: 0.58rem; color: var(--color-text); }
+      .ss-feature .material-symbols-outlined { font-size: 16px; color: #6366f1; }
+
+      .ss-search-row { display: flex; gap: 5px; margin-bottom: 8px; }
+      .ss-input { flex: 1; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-panel); color: var(--color-text); font-size: 0.66rem; }
+      .ss-input:focus { outline: none; border-color: #6366f1; }
+      .ss-input::placeholder { color: var(--color-text-muted); font-size: 0.6rem; }
+      .ss-btn-primary { display: flex; align-items: center; gap: 3px; padding: 6px 10px; background: #6366f1; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.64rem; font-weight: 600; white-space: nowrap; }
+      .ss-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+      .ss-btn-primary .material-symbols-outlined { font-size: 16px; }
+
+      .ss-loading { display: flex; align-items: center; gap: 5px; font-size: 0.6rem; color: var(--color-text-muted); margin: 8px 0; }
+      .loading-spinner { width: 12px; height: 12px; border: 2px solid var(--color-border); border-top: 2px solid #6366f1; border-radius: 50%; animation: spin 0.8s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      .ss-results h4 { font-size: 0.62rem; font-weight: 600; color: var(--color-text); margin: 0 0 4px 0; }
+      .ss-result-card { padding: 8px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-left: 3px solid #6366f1; border-radius: 6px; margin-bottom: 4px; }
+      .ss-result-title { font-size: 0.64rem; font-weight: 600; color: var(--color-text); margin-bottom: 3px; }
+      .ss-result-snippet { font-size: 0.58rem; color: var(--color-text-muted); line-height: 1.4; }
+      .ss-result-meta { display: flex; gap: 8px; margin-top: 4px; font-size: 0.52rem; color: var(--color-text-muted); }
+      .ss-result-score { color: #6366f1; font-weight: 600; }
+
+      .ss-textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-background); color: var(--color-text); font-size: 0.62rem; resize: vertical; min-height: 60px; box-sizing: border-box; font-family: inherit; }
+      .ss-textarea:focus { outline: none; border-color: #6366f1; }
+      .ss-podcast-row { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
+      .ss-select { padding: 5px 8px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-panel); color: var(--color-text); font-size: 0.6rem; }
+    </style>
+  </div>
+</body>
+</html>

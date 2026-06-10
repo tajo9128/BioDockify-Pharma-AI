@@ -157,25 +157,116 @@
         <div x-show="$store.knowledgeModal.filteredEntries.length" class="nb-entries">
           <h4 x-text="'Notebook Entries (' + $store.knowledgeModal.filteredEntries.length + ')'"></h4>
           <template x-for="entry in $store.knowledgeModal.filteredEntries" :key="entry.id">
-            <div class="nb-entry-card" :class="{saved: $store.knowledgeModal.favorites.includes(entry.id)}">
-              <div class="nb-entry-header">
-                <button class="nb-fav-btn" :class="{active: $store.knowledgeModal.favorites.includes(entry.id)}"
-                  @click="$store.knowledgeModal.toggleFavorite(entry.id)"
-                  x-text="$store.knowledgeModal.favorites.includes(entry.id) ? '⭐' : '☆'"></button>
-                <span class="nb-entry-title" x-text="entry.question"></span>
-                <button class="nb-writer-btn" @click="$store.knowledgeModal.openInWriter(entry)" title="Open in Academic Writer">📝</button>
-                <button class="nb-del-btn" @click="$store.knowledgeModal.deleteEntry(entry)">×</button>
+            <!-- Render paper entries differently -->
+            <template x-if="$store.knowledgeModal.tryParsePapers(entry.answer).isCollection">
+              <div class="nb-entry-card nb-paper-collection" :class="{saved: $store.knowledgeModal.favorites.includes(entry.id)}">
+                <div class="nb-entry-header">
+                  <button class="nb-fav-btn" :class="{active: $store.knowledgeModal.favorites.includes(entry.id)}"
+                    @click="$store.knowledgeModal.toggleFavorite(entry.id)"
+                    x-text="$store.knowledgeModal.favorites.includes(entry.id) ? '⭐' : '☆'"></button>
+                  <span class="nb-entry-title" x-text="entry.question"></span>
+                  <span class="nb-paper-count" x-text="'📄 ' + $store.knowledgeModal.tryParsePapers(entry.answer).papers.length + ' docs'"></span>
+                  <button class="nb-toggle-btn" @click="entry._expanded = !entry._expanded"
+                    x-text="entry._expanded ? '▲ Collapse' : '▼ Expand'"></button>
+                  <button class="nb-del-btn" @click="$store.knowledgeModal.deleteEntry(entry)">×</button>
+                </div>
+                <!-- Paper card list (expandable) -->
+                <div x-show="!entry.hasOwnProperty('_expanded') || entry._expanded" class="nb-paper-list">
+                  <template x-for="(paper, pi) in $store.knowledgeModal.tryParsePapers(entry.answer).papers" :key="entry.id + '_' + pi">
+                    <div class="nb-paper-card" @click="$store.knowledgeModal.openPaperReader(paper)">
+                      <div class="nbp-title" x-text="paper.title || paper.question || 'Untitled'"></div>
+                      <div class="nbp-meta">
+                        <span x-show="$store.knowledgeModal.formatAuthors(paper.authors)" class="nbp-authors"
+                          x-text="$store.knowledgeModal.formatAuthors(paper.authors)"></span>
+                        <span x-show="paper.journal" class="nbp-journal" x-text="paper.journal"></span>
+                        <span x-show="paper.year" class="nbp-year" x-text="paper.year"></span>
+                        <span x-show="paper.citations" class="nbp-citations" x-text="'Cited: ' + paper.citations"></span>
+                      </div>
+                      <div x-show="paper.abstract" class="nbp-abstract" x-text="(paper.abstract || '').substring(0, 300)"></div>
+                      <div class="nbp-actions" @click.stop>
+                        <a x-show="paper.url" :href="paper.url" target="_blank" class="nbp-action-btn">🔗 Open</a>
+                        <a x-show="paper.doi" :href="'https://doi.org/' + paper.doi" target="_blank" class="nbp-action-btn">📄 DOI</a>
+                        <button @click="$store.knowledgeModal.openInWriter({question: paper.title, answer: paper.abstract || '', source: paper.journal || ''})" class="nbp-action-btn">📝 Write</button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+                      <div x-show="paper.abstract" class="nbp-abstract" x-text="paper.abstract?.substring(0, 300)"></div>
+                      <div class="nbp-actions">
+                        <a x-show="paper.url" :href="paper.url" target="_blank" class="nbp-action-btn">🔗 Open</a>
+                        <a x-show="paper.doi" :href="'https://doi.org/' + paper.doi" target="_blank" class="nbp-action-btn">📄 DOI</a>
+                        <button @click="$store.knowledgeModal.openInWriter({question: paper.title, answer: paper.abstract || '', source: paper.journal || ''})" class="nbp-action-btn">📝 Write</button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+                <div class="nb-entry-meta">
+                  <template x-for="tag in (entry.tags || [])" :key="tag">
+                    <button class="nb-entry-tag" @click="$store.knowledgeModal.filterByTag(tag)" x-text="'#' + tag"></button>
+                  </template>
+                  <span x-show="entry.source" class="nb-entry-source" x-text="'📄 ' + entry.source"></span>
+                  <span class="nb-entry-date" x-text="entry.createdAt?.substring(0, 10)"></span>
+                </div>
               </div>
-              <div class="nb-entry-body" x-show="entry.answer" x-text="entry.answer"></div>
-              <div class="nb-entry-meta">
-                <template x-for="tag in (entry.tags || [])" :key="tag">
-                  <button class="nb-entry-tag" @click="$store.knowledgeModal.filterByTag(tag)" x-text="'#' + tag"></button>
-                </template>
-                <span x-show="entry.source" class="nb-entry-source" x-text="'📄 ' + entry.source"></span>
-                <span class="nb-entry-date" x-text="entry.createdAt?.substring(0, 10)"></span>
+            </template>
+            <!-- Regular entry (non-paper) -->
+            <template x-if="!$store.knowledgeModal.tryParsePapers(entry.answer).isCollection">
+              <div class="nb-entry-card" :class="{saved: $store.knowledgeModal.favorites.includes(entry.id)}">
+                <div class="nb-entry-header">
+                  <button class="nb-fav-btn" :class="{active: $store.knowledgeModal.favorites.includes(entry.id)}"
+                    @click="$store.knowledgeModal.toggleFavorite(entry.id)"
+                    x-text="$store.knowledgeModal.favorites.includes(entry.id) ? '⭐' : '☆'"></button>
+                  <span class="nb-entry-title" x-text="entry.question"></span>
+                  <button class="nb-writer-btn" @click="$store.knowledgeModal.openInWriter(entry)" title="Open in Academic Writer">📝</button>
+                  <button class="nb-del-btn" @click="$store.knowledgeModal.deleteEntry(entry)">×</button>
+                </div>
+                <div class="nb-entry-body" x-show="entry.answer" x-text="entry.answer?.substring(0, 500)"></div>
+                <div class="nb-entry-meta">
+                  <template x-for="tag in (entry.tags || [])" :key="tag">
+                    <button class="nb-entry-tag" @click="$store.knowledgeModal.filterByTag(tag)" x-text="'#' + tag"></button>
+                  </template>
+                  <span x-show="entry.source" class="nb-entry-source" x-text="'📄 ' + entry.source"></span>
+                  <span class="nb-entry-date" x-text="entry.createdAt?.substring(0, 10)"></span>
+                </div>
               </div>
-            </div>
+            </template>
           </template>
+        </div>
+
+        <!-- Full Paper Reader -->
+        <div x-show="$store.knowledgeModal.readingPaper" class="nb-paper-reader-overlay" @click.self="$store.knowledgeModal.closePaperReader()">
+          <div class="nb-paper-reader">
+            <div class="npr-header">
+              <button class="npr-close" @click="$store.knowledgeModal.closePaperReader()">✕</button>
+              <h2 class="npr-title" x-text="$store.knowledgeModal.readingPaper?.title || 'Untitled'"></h2>
+            </div>
+            <div class="npr-authors" x-show="$store.knowledgeModal.formatAuthors($store.knowledgeModal.readingPaper?.authors)">
+              <span x-text="$store.knowledgeModal.formatAuthors($store.knowledgeModal.readingPaper?.authors)"></span>
+            </div>
+            <div class="npr-meta-grid">
+              <template x-for="m in $store.knowledgeModal.getPaperMetadata($store.knowledgeModal.readingPaper)" :key="m.label">
+                <div class="npr-meta-item">
+                  <span class="npr-meta-label" x-text="m.label"></span>
+                  <span x-show="m.label !== 'URL' && m.label !== 'DOI'" class="npr-meta-value" x-text="m.value"></span>
+                  <a x-show="m.label === 'DOI'" :href="'https://doi.org/' + m.value" target="_blank" class="npr-meta-link" x-text="m.value"></a>
+                  <a x-show="m.label === 'URL'" :href="m.value" target="_blank" class="npr-meta-link" x-text="m.value"></a>
+                </div>
+              </template>
+            </div>
+            <div class="npr-section" x-show="$store.knowledgeModal.readingPaper?.abstract">
+              <h3>Abstract</h3>
+              <p x-text="$store.knowledgeModal.readingPaper?.abstract"></p>
+            </div>
+            <div class="npr-section" x-show="$store.knowledgeModal.getFullText($store.knowledgeModal.readingPaper)">
+              <h3>Full Text</h3>
+              <pre class="npr-fulltext" x-text="$store.knowledgeModal.getFullText($store.knowledgeModal.readingPaper)"></pre>
+            </div>
+            <div class="npr-actions-row">
+              <a x-show="$store.knowledgeModal.readingPaper?.url" :href="$store.knowledgeModal.readingPaper?.url" target="_blank" class="nb-btn-primary">🔗 Open Original</a>
+              <a x-show="$store.knowledgeModal.readingPaper?.doi" :href="'https://doi.org/' + $store.knowledgeModal.readingPaper?.doi" target="_blank" class="nb-btn-primary">📄 View DOI</a>
+              <button class="nb-btn-primary" @click="const p = $store.knowledgeModal.readingPaper; $store.knowledgeModal.openInWriter({question: p.title, answer: p.abstract || '', source: p.journal || ''}); $store.knowledgeModal.closePaperReader()">📝 Send to Writer</button>
+            </div>
+          </div>
         </div>
 
         <div x-show="!$store.knowledgeModal.entries.length && !$store.knowledgeModal.searchResults.length && !$store.knowledgeModal.loading" class="nb-empty">
@@ -266,6 +357,45 @@
       .nb-empty-icon { font-size: 36px; color: var(--color-border); margin-bottom: 8px; }
       .nb-empty p { font-size: 0.68rem; color: var(--color-text-muted); margin: 0 0 4px 0; }
       .nb-empty-hint { font-size: 0.6rem; color: var(--color-text-muted); opacity: 0.7; line-height: 1.3; }
+
+      /* Paper collection / NotebookLM-style document cards */
+      .nb-paper-collection { border-left-color: var(--color-primary) !important; background: color-mix(in srgb, var(--color-primary) 3%, var(--color-panel)); }
+      .nb-paper-count { font-size: 0.54rem; color: var(--color-primary); font-weight: 600; padding: 1px 8px; background: rgba(0,212,170,0.1); border-radius: 10px; }
+      .nb-toggle-btn { padding: 1px 6px; background: transparent; border: 1px solid var(--color-border); border-radius: 3px; font-size: 0.52rem; color: var(--color-text-muted); cursor: pointer; }
+      .nb-toggle-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+      .nb-paper-list { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; max-height: 500px; overflow-y: auto; }
+      .nb-paper-card { padding: 8px 10px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 6px; transition: all 0.12s; }
+      .nb-paper-card:hover { border-color: var(--color-primary); box-shadow: 0 2px 8px rgba(0,212,170,0.06); }
+      .nbp-title { font-size: 0.64rem; font-weight: 600; color: var(--color-text); margin-bottom: 3px; line-height: 1.3; }
+      .nbp-meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 3px; }
+      .nbp-authors { font-size: 0.54rem; color: var(--color-text-muted); font-style: italic; }
+      .nbp-journal { font-size: 0.54rem; color: var(--color-primary); font-weight: 500; }
+      .nbp-year { font-size: 0.52rem; color: var(--color-text-muted); background: var(--color-panel); padding: 1px 5px; border-radius: 3px; }
+      .nbp-citations { font-size: 0.5rem; color: var(--color-text-muted); }
+      .nbp-abstract { font-size: 0.56rem; color: var(--color-text-muted); line-height: 1.4; margin-top: 3px; padding-top: 3px; border-top: 1px solid var(--color-border); }
+      .nbp-actions { display: flex; gap: 4px; margin-top: 4px; }
+      .nbp-action-btn { padding: 2px 8px; background: color-mix(in srgb, var(--color-primary) 8%, transparent); border: none; border-radius: 4px; font-size: 0.52rem; color: var(--color-primary); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 2px; }
+      .nbp-action-btn:hover { background: color-mix(in srgb, var(--color-primary) 16%, transparent); }
+
+      /* Full Paper Reader */
+      .nb-paper-reader-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 9999; display: flex; align-items: flex-start; justify-content: center; padding: 20px; overflow-y: auto; }
+      .nb-paper-reader { width: 100%; max-width: 750px; background: var(--color-background, #0a0a1a); border: 1px solid var(--color-border); border-radius: 14px; padding: 24px; margin: 20px 0; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+      .npr-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+      .npr-close { padding: 4px 10px; background: transparent; border: 1px solid var(--color-border); border-radius: 6px; color: var(--color-text-muted); font-size: 0.9rem; cursor: pointer; line-height: 1; flex-shrink: 0; }
+      .npr-close:hover { border-color: var(--color-error-text); color: var(--color-error-text); }
+      .npr-title { font-size: 1.05rem; font-weight: 700; color: var(--color-text); margin: 0; line-height: 1.3; }
+      .npr-authors { font-size: 0.74rem; color: var(--color-text-muted); font-style: italic; margin-bottom: 12px; }
+      .npr-meta-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+      .npr-meta-item { padding: 3px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 5px; }
+      .npr-meta-label { font-size: 0.5rem; font-weight: 600; color: var(--color-primary); text-transform: uppercase; display: block; margin-bottom: 1px; }
+      .npr-meta-value { font-size: 0.62rem; color: var(--color-text); }
+      .npr-meta-link { font-size: 0.58rem; color: var(--color-primary); text-decoration: none; word-break: break-all; }
+      .npr-meta-link:hover { text-decoration: underline; }
+      .npr-section { margin-bottom: 16px; }
+      .npr-section h3 { font-size: 0.68rem; font-weight: 600; color: var(--color-primary); margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.3px; }
+      .npr-section p { font-size: 0.72rem; color: var(--color-text-muted); line-height: 1.6; margin: 0; }
+      .npr-fulltext { padding: 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; font-size: 0.66rem; font-family: var(--font-mono, 'Consolas', monospace); color: var(--color-text); line-height: 1.6; white-space: pre-wrap; max-height: 500px; overflow-y: auto; margin: 0; }
+      .npr-actions-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--color-border); }
     </style>
 
     <script>

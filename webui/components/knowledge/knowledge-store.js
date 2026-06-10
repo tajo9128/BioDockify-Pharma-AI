@@ -33,7 +33,76 @@ export const store = createStore("knowledgeModal", {
   showGraph: false,
   graphData: { nodes: [], edges: [] },
 
+  // Document card view (Google NotebookLM style)
+  expandedEntry: null,
+  docCardView: true,
+  readingPaper: null,  // Full-paper reader state
+
   _restored: false,
+
+  // Detect if an entry contains a paper/document collection
+  isPaperCollection(entry) {
+    return entry?.tags?.includes("literature") || entry?.tags?.includes("paper") || entry?.tags?.includes("deep_research");
+  },
+
+  // Parse papers from an entry's answer content (JSON array of papers)
+  parsePapers(entry) {
+    if (!entry?.answer) return [];
+    try {
+      const parsed = JSON.parse(entry.answer);
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed?.papers && Array.isArray(parsed.papers)) return parsed.papers;
+      if (parsed?.results && Array.isArray(parsed.results)) return parsed.results;
+      return [];
+    } catch { return []; }
+  },
+
+  // Try parsing papers but catch errors silently
+  tryParsePapers(answer) {
+    if (!answer) return { papers: [], isCollection: false };
+    try {
+      const parsed = JSON.parse(answer);
+      if (Array.isArray(parsed)) return { papers: parsed, isCollection: true };
+      if (parsed?.papers) return { papers: parsed.papers, isCollection: true };
+      if (parsed?.results) return { papers: parsed.results, isCollection: true };
+      if (parsed?.title || parsed?.authors) return { papers: [parsed], isCollection: true };
+      return { papers: [], isCollection: false };
+    } catch { return { papers: [], isCollection: false }; }
+  },
+
+  // Format authors list
+  formatAuthors(authors) {
+    if (!authors) return "";
+    if (Array.isArray(authors)) return authors.slice(0, 3).join(", ") + (authors.length > 3 ? " et al." : "");
+    return String(authors);
+  },
+
+  // Full-paper reader
+  openPaperReader(paper) {
+    this.readingPaper = paper;
+  },
+
+  closePaperReader() {
+    this.readingPaper = null;
+  },
+
+  // Get full text content from paper object (checks multiple field names)
+  getFullText(paper) {
+    return paper?.full_text || paper?.content || paper?.text || paper?.body || paper?.answer || "";
+  },
+
+  // Get all metadata fields from paper
+  getPaperMetadata(paper) {
+    const meta = [];
+    if (paper?.journal) meta.push({ label: "Journal", value: paper.journal });
+    if (paper?.year) meta.push({ label: "Year", value: paper.year });
+    if (paper?.doi) meta.push({ label: "DOI", value: paper.doi });
+    if (paper?.url) meta.push({ label: "URL", value: paper.url });
+    if (paper?.database) meta.push({ label: "Database", value: paper.database });
+    if (paper?.citations) meta.push({ label: "Citations", value: paper.citations });
+    if (paper?.keywords && paper.keywords.length) meta.push({ label: "Keywords", value: Array.isArray(paper.keywords) ? paper.keywords.join(", ") : paper.keywords });
+    return meta;
+  },
 
   persist() {
     try {

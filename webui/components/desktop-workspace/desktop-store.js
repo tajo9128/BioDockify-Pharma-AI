@@ -7,20 +7,24 @@ function generateId() {
 }
 
 const defaultModules = [
-  { id: "research-dashboard", title: "Research CMD", icon: "rocket_launch", component: "/components/research-dashboard/research-dashboard.html", order: 1, defaultWidth: 800, defaultHeight: 600 },
-  { id: "molecular-toolkit", title: "Molecular Toolkit", icon: "biotech", component: "/components/molecular-toolkit/molecular-toolkit.html", order: 2, defaultWidth: 750, defaultHeight: 600 },
-  { id: "research", title: "All Tools", icon: "apps", component: "/components/research/research-tools.html", order: 3, defaultWidth: 700, defaultHeight: 500 },
-  { id: "deep-research", title: "Deep Research", icon: "travel_explore", component: "/components/deep-research/deep-research.html", order: 4, defaultWidth: 800, defaultHeight: 650 },
-  { id: "statistics", title: "Statistics", icon: "analytics", component: "/components/statistics/statistics-modal.html", order: 5, defaultWidth: 750, defaultHeight: 550 },
-  { id: "knowledge", title: "Knowledge Base", icon: "psychology", component: "/components/knowledge/knowledge-modal.html", order: 6, defaultWidth: 700, defaultHeight: 500 },
-  { id: "thesis", title: "Academic Writer", icon: "description", component: "/components/thesis/thesis-modal.html", order: 7, defaultWidth: 700, defaultHeight: 500 },
-  { id: "backup", title: "Backup & Recovery", icon: "backup", component: "/components/backup-recovery/recovery-panel.html", order: 8, defaultWidth: 650, defaultHeight: 450 },
-  { id: "system-health", title: "System Health", icon: "monitoring", component: "/components/system-health/system-health.html", order: 9, defaultWidth: 500, defaultHeight: 500 },
-  { id: "faculty-dashboard", title: "Faculty CMD", icon: "school", component: "/components/faculty-dashboard/faculty-dashboard.html", order: 10, defaultWidth: 700, defaultHeight: 550 },
-  { id: "journal-finder", title: "Journal Finder", icon: "verified", component: "/components/journal-finder/journal-finder.html", order: 11, defaultWidth: 600, defaultHeight: 550 },
-  { id: "qsar", title: "QSAR Modeler", icon: "model_training", component: "/components/qsar/qsar.html", order: 12, defaultWidth: 700, defaultHeight: 550 },
-  { id: "pharmacophore", title: "Pharmacophore", icon: "ads_click", component: "/components/pharmacophore/pharmacophore.html", order: 13, defaultWidth: 650, defaultHeight: 500 },
-  { id: "molecule-editor", title: "Drug Analysis", icon: "science", component: "/components/molecule-editor/molecule-editor.html", order: 14, defaultWidth: 850, defaultHeight: 650 },
+  { id: "research", title: "All Tools", icon: "apps", component: "/components/research/research-tools.html", order: 1, defaultWidth: 700, defaultHeight: 500 },
+  { id: "research-dashboard", title: "Research CMD", icon: "rocket_launch", component: "/components/research-dashboard/research-dashboard.html", order: 2, defaultWidth: 800, defaultHeight: 600 },
+  { id: "deep-research", title: "Deep Research", icon: "travel_explore", component: "/components/deep-research/deep-research.html", order: 3, defaultWidth: 800, defaultHeight: 650 },
+  { id: "molecular-toolkit", title: "Molecular Toolkit", icon: "biotech", component: "/components/molecular-toolkit/molecular-toolkit.html", order: 4, defaultWidth: 750, defaultHeight: 600 },
+  { id: "qsar", title: "QSAR Modeler", icon: "model_training", component: "/components/qsar/qsar.html", order: 5, defaultWidth: 700, defaultHeight: 550 },
+  { id: "molecule-editor", title: "Drug Analysis", icon: "science", component: "/components/molecule-editor/molecule-editor.html", order: 6, defaultWidth: 850, defaultHeight: 650 },
+  { id: "pharmacophore", title: "Pharmacophore", icon: "ads_click", component: "/components/pharmacophore/pharmacophore.html", order: 7, defaultWidth: 650, defaultHeight: 500 },
+  { id: "statistics", title: "Statistics", icon: "analytics", component: "/components/statistics/statistics-modal.html", order: 8, defaultWidth: 750, defaultHeight: 550 },
+  { id: "knowledge", title: "Knowledge Base", icon: "psychology", component: "/components/knowledge/knowledge-modal.html", order: 9, defaultWidth: 700, defaultHeight: 500 },
+  { id: "thesis", title: "Academic Writer", icon: "description", component: "/components/thesis/thesis-modal.html", order: 10, defaultWidth: 700, defaultHeight: 500 },
+  { id: "faculty-dashboard", title: "Faculty CMD", icon: "school", component: "/components/faculty-dashboard/faculty-dashboard.html", order: 11, defaultWidth: 700, defaultHeight: 550 },
+  { id: "journal-finder", title: "Journal Finder", icon: "verified", component: "/components/journal-finder/journal-finder.html", order: 12, defaultWidth: 600, defaultHeight: 550 },
+  { id: "backup", title: "Backup & Recovery", icon: "backup", component: "/components/backup-recovery/recovery-panel.html", order: 13, defaultWidth: 650, defaultHeight: 450 },
+  { id: "system-health", title: "System Health", icon: "monitoring", component: "/components/system-health/system-health.html", order: 14, defaultWidth: 500, defaultHeight: 500 },
+  { id: "surfsense", title: "Notebook AI", icon: "menu_book", component: "/components/surfsense/surfsense.html", order: 15, defaultWidth: 700, defaultHeight: 550 },
+  { id: "patent-analyzer", title: "Patent Search", icon: "description", component: "/components/patent-analyzer/patent-panel.html", order: 16, defaultWidth: 700, defaultHeight: 550 },
+  { id: "trial-scanner", title: "Clinical Trials", icon: "clinical_notes", component: "/components/trial-scanner/trial-panel.html", order: 17, defaultWidth: 700, defaultHeight: 550 },
+  { id: "benchmark", title: "Benchmark", icon: "speed", component: "/components/benchmark/benchmark.html", order: 18, defaultWidth: 650, defaultHeight: 500 },
 ];
 
 const model = {

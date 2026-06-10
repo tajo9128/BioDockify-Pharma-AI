@@ -35,6 +35,71 @@ Alpine.data("statisticsModal", () => ({
   chartLoading: false,
   rawData: null,         // Raw numeric data arrays for factor/reliability/cluster
   errorMessage: "",
+  autoMode: false,       // Auto-analyze mode: skip manual test selection
+  autoResult: null,      // Full auto-analyze result
+  health: null,          // Dependency health check result
+
+  async checkHealth() {
+    try {
+      const r = await callJsonApi("statistics_auto", { action: "health" });
+      this.health = r.health || r;
+      return r;
+    } catch (e) {
+      this.health = { error: e.message, ready: false };
+      return null;
+    }
+  },
+
+  async readFileAsContent(file) {
+    // Check for binary formats that need base64
+    const ext = (file.name || "").split(".").pop().toLowerCase();
+    if (ext === "xlsx" || ext === "xls") {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const binary = reader.result;
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(binary)));
+          resolve({ content: base64, isBinary: true });
+        };
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file);
+      });
+    }
+    // Text formats
+    const text = await file.text();
+    return { content: text, isBinary: false };
+  },
+
+  async autoAnalyze(file) {
+    this.loading = true; this.errorMessage = ""; this.autoResult = null;
+    try {
+      this.autoMode = true;
+      const { content, isBinary } = await this.readFileAsContent(file);
+      const result = await callJsonApi("statistics_auto", {
+        action: "auto_analyze",
+        content: content,
+        filename: file.name,
+      });
+      if (result.status === "ok") {
+        this.autoResult = result;
+        this.fileName = file.name;
+        this.columns = result.data_summary?.column_names || [];
+        this.rowCount = result.data_summary?.total_rows || 0;
+        this.hasData = true;
+        this.step = 3;  // skip to results
+        this.results = JSON.stringify(result, null, 2);
+        this.resultsJson = result;
+        this.activeAnalysis = "Auto-Analyze";
+        this._storeToKB(result);
+        this.persist();
+      } else {
+        this.errorMessage = result.error || "Auto-analyze failed";
+      }
+    } catch (e) {
+      this.errorMessage = "Auto-analyze error: " + (e.message || "API unavailable");
+    }
+    this.loading = false;
+  },
 
   async _parseLocalFile(file) {
     try {
@@ -134,27 +199,36 @@ Alpine.data("statisticsModal", () => ({
       if (!file) return;
       this.loading = true;
       this.fileName = file.name;
+      this.autoMode = true;
+      this.errorMessage = "";
+      this.autoResult = null;
       try {
-        const content = await file.text();
-        const data = await callJsonApi("statistics_import", {
-          action: "import_file",
+        const { content, isBinary } = await this.readFileAsContent(file);
+        const result = await callJsonApi("statistics_auto", {
+          action: "auto_analyze",
           content: content,
           filename: file.name,
         });
-        if (data.status === "success" || data.data_summary) {
-          const summary = data.data_summary || data;
-          this.columns = summary.column_names || [];
-          this.rowCount = summary.rows || 0;
+        if (result.status === "ok") {
+          this.autoResult = result;
+          this.columns = result.data_summary?.column_names || [];
+          this.rowCount = result.data_summary?.total_rows || 0;
           this.hasData = true;
-          this.step = 2;
-          this._parseLocalFile(file);
-          this.results = "";
-          this.errorMessage = "";
+          this.step = 3;
+          this.results = JSON.stringify(result, null, 2);
+          this.resultsJson = result;
+          this.chartImage = null;
+          this.activeAnalysis = "Auto-Analyze";
+          this._storeToKB(result);
           this.persist();
+          // Also parse locally for rawData
+          await this._parseLocalFile(file);
         } else {
-          this.errorMessage = "Import failed: " + (data.detail || data.error || "Unknown error");
+          this.errorMessage = result.error || "Upload failed";
         }
-      } catch (e) { this.errorMessage = "Import error: " + e.message; }
+      } catch (e) {
+        this.errorMessage = "Upload error: " + (e.message || "API unavailable. Try asking the agent instead.");
+      }
       this.loading = false;
     };
     input.click();
@@ -362,6 +436,7 @@ Alpine.data("statisticsModal", () => ({
     this.selectedGroupCol = ""; this.selectedValueCol = ""; this.selectedCorrCols = [];
     this.testType = null; this.results = ""; this.resultsJson = null; this.errorMessage = "";
     this.activeAnalysis = ""; this.viewMode = "table";
+    this.autoMode = false; this.autoResult = null;
   },
 
   sendToAgent(prompt) {
@@ -378,12 +453,25 @@ Alpine.data("statisticsModal", () => ({
     if (!file) return;
     this.loading = true; this.fileName = file.name;
     try {
-      const content = await file.text();
-      const d = await callJsonApi("statistics_import", { action: "import_file", content: content, filename: file.name });
-      const s = d.data_summary || d;
-      this.columns = s.column_names || []; this.rowCount = s.rows || 0;
-      this.hasData = true; this.step = 2;
-      this.persist();
+      const { content, isBinary } = await this.readFileAsContent(file);
+      const result = await callJsonApi("statistics_auto", {
+        action: "auto_analyze",
+        content: content,
+        filename: file.name,
+      });
+      if (result.status === "ok") {
+        this.autoResult = result;
+        this.columns = result.data_summary?.column_names || [];
+        this.rowCount = result.data_summary?.total_rows || 0;
+        this.hasData = true; this.step = 3;
+        this.results = JSON.stringify(result, null, 2);
+        this.resultsJson = result;
+        this.activeAnalysis = "Auto-Analyze";
+        this._storeToKB(result);
+        this.persist();
+      } else {
+        this.errorMessage = result.error || "Import failed";
+      }
     } catch (e) { this.errorMessage = "Import error: " + e.message; }
     this.loading = false;
   },

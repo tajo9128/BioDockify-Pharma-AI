@@ -9,7 +9,7 @@
       <span class="material-symbols-outlined fd-header-icon">school</span>
       <div>
         <h2>Faculty Command Center</h2>
-        <p class="fd-header-sub">Syllabus . Lectures . Assignments . Plagiarism Check</p>
+        <p class="fd-header-sub">Syllabus . Lectures . Tasks . Semester . Lesson . Notes . Slides . Plagiarism . Questions</p>
       </div>
     </div>
 
@@ -32,13 +32,25 @@
         <span class="material-symbols-outlined">cast</span> Lectures
       </button>
       <button class="fd-tab" :class="{active: $store.facultyTools.activeTab === 'assignment'}" @click="$store.facultyTools.activeTab = 'assignment'">
-        <span class="material-symbols-outlined">assignment</span> Assignments
+        <span class="material-symbols-outlined">assignment</span> Tasks
+      </button>
+      <button class="fd-tab" :class="{active: $store.facultyTools.activeTab === 'semester'}" @click="$store.facultyTools.activeTab = 'semester'">
+        <span class="material-symbols-outlined">calendar_month</span> Semester
+      </button>
+      <button class="fd-tab" :class="{active: $store.facultyTools.activeTab === 'lesson'}" @click="$store.facultyTools.activeTab = 'lesson'">
+        <span class="material-symbols-outlined">co_present</span> Lesson
+      </button>
+      <button class="fd-tab" :class="{active: $store.facultyTools.activeTab === 'notes'}" @click="$store.facultyTools.activeTab = 'notes'">
+        <span class="material-symbols-outlined">edit_note</span> Notes
+      </button>
+      <button class="fd-tab" :class="{active: $store.facultyTools.activeTab === 'slides'}" @click="$store.facultyTools.activeTab = 'slides'">
+        <span class="material-symbols-outlined">slideshow</span> Slides
       </button>
       <button class="fd-tab" :class="{active: $store.facultyTools.activeTab === 'plagiarism'}" @click="$store.facultyTools.activeTab = 'plagiarism'">
         <span class="material-symbols-outlined">plagiarism</span> Plagiarism
       </button>
-      <button class="fd-tab" :class="{active: $store.facultyTools.activeTab === 'slides'}" @click="$store.facultyTools.activeTab = 'slides'">
-        <span class="material-symbols-outlined">slideshow</span> Slides
+      <button class="fd-tab" :class="{active: $store.facultyTools.activeTab === 'questions'}" @click="$store.facultyTools.activeTab = 'questions'">
+        <span class="material-symbols-outlined">quiz</span> Questions
       </button>
     </div>
 
@@ -104,21 +116,25 @@
               <span class="material-symbols-outlined">menu_book</span>
               <span>Lit Review</span>
             </button>
-            <button class="fd-action-card" @click="$store.facultyTools.prepareNotes()" :disabled="$store.facultyTools.loading">
-              <span class="material-symbols-outlined">edit_note</span>
-              <span>Prep Notes</span>
+            <button class="fd-action-card" @click="$store.facultyTools.activeTab = 'semester'">
+              <span class="material-symbols-outlined">calendar_month</span>
+              <span>Semester</span>
             </button>
-            <button class="fd-action-card" @click="$store.facultyTools.makeSlides()" :disabled="$store.facultyTools.loading">
-              <span class="material-symbols-outlined">slideshow</span>
-              <span>Slides</span>
+            <button class="fd-action-card" @click="$store.facultyTools.activeTab = 'notes'">
+              <span class="material-symbols-outlined">edit_note</span>
+              <span>Notes</span>
             </button>
             <button class="fd-action-card" @click="$store.facultyTools.lectureTopic=$store.facultyTools.syllabusResult.course_name;$store.facultyTools.activeTab='lecture'">
               <span class="material-symbols-outlined">cast</span>
               <span>Lectures</span>
             </button>
+            <button class="fd-action-card" @click="$store.facultyTools.activeTab = 'slides'">
+              <span class="material-symbols-outlined">slideshow</span>
+              <span>Slides</span>
+            </button>
             <button class="fd-action-card" @click="$store.facultyTools.assignTopic=$store.facultyTools.syllabusResult.course_name;$store.facultyTools.activeTab='assignment'">
               <span class="material-symbols-outlined">assignment</span>
-              <span>Assign</span>
+              <span>Tasks</span>
             </button>
           </div>
         </div>
@@ -246,6 +262,237 @@
       </div>
     </div>
 
+    <!-- Semester Plan Tab -->
+    <div x-show="$store.facultyTools.activeTab === 'semester'" class="fd-tab-content">
+      <div class="fd-card">
+        <h4><span class="material-symbols-outlined">calendar_month</span> Semester Planning</h4>
+        <p class="fd-desc">Plan your full semester with week-by-week class distribution. Requires a parsed syllabus.</p>
+
+        <div class="fd-row" style="margin-bottom:6px">
+          <label class="fd-num-label"><span>Weeks</span><input type="number" x-model.number="$store.facultyTools.semesterWeeks" min="4" max="24" class="fd-num-input" /></label>
+          <label class="fd-num-label"><span>Classes/Week</span><input type="number" x-model.number="$store.facultyTools.semesterClassesPerWeek" min="1" max="6" class="fd-num-input" /></label>
+          <button class="fd-btn" @click="$store.facultyTools.planSemester()" :disabled="$store.facultyTools.loading || !$store.facultyTools.syllabusResult?.topics?.length" style="margin-left:auto">
+            <span class="material-symbols-outlined">auto_awesome</span> Plan Semester
+          </button>
+        </div>
+
+        <div x-show="!$store.facultyTools.syllabusResult?.topics?.length" class="fd-hint">
+          <span class="material-symbols-outlined" style="font-size:13px">info</span> Parse a syllabus first on the Syllabus tab to enable semester planning.
+        </div>
+      </div>
+
+      <template x-if="$store.facultyTools.semesterResult">
+        <div class="fd-card fd-card-accent">
+          <h4 x-text="$store.facultyTools.semesterResult.course_name + ' — Semester Plan'"></h4>
+          <div class="fd-meta-row">
+            <span x-text="$store.facultyTools.semesterResult.total_classes + ' classes'"></span>
+            <span x-text="$store.facultyTools.semesterResult.weeks + ' weeks'"></span>
+            <span x-text="$store.facultyTools.semesterResult.classes_per_week + '/week'"></span>
+          </div>
+          <div class="fd-semester-grid">
+            <template x-for="c in $store.facultyTools.semesterResult.classes" :key="c.class_num">
+              <div class="fd-sem-cell" @click="$store.facultyTools.classTopic = c.topic; $store.facultyTools.activeTab = 'lesson'">
+                <span class="fd-sem-num" x-text="'W' + c.week + '·C' + c.class_in_week"></span>
+                <span class="fd-sem-nr" x-text="'#' + c.class_num"></span>
+                <span class="fd-sem-topic" x-text="c.topic"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <div x-show="!$store.facultyTools.semesterResult && !$store.facultyTools.loading" class="fd-empty">
+        <span class="material-symbols-outlined fd-empty-icon">calendar_month</span>
+        <p>Configure weeks and classes/week, then click "Plan Semester"</p>
+        <p class="fd-empty-hint">Classes are distributed across weeks — click any cell to plan that class</p>
+      </div>
+    </div>
+
+    <!-- Lesson Tab -->
+    <div x-show="$store.facultyTools.activeTab === 'lesson'" class="fd-tab-content">
+      <!-- Class Plan -->
+      <div class="fd-card">
+        <h4><span class="material-symbols-outlined">co_present</span> Class Plan</h4>
+        <input type="text" x-model="$store.facultyTools.classTopic" placeholder="Class topic..." class="fd-input" @keyup.enter="$store.facultyTools.planClass()" />
+        <div class="fd-row">
+          <select x-model="$store.facultyTools.classDuration" class="fd-select">
+            <option value="30">30 min</option><option value="50">50 min</option><option value="60">60 min</option><option value="90">90 min</option>
+          </select>
+          <select x-model="$store.facultyTools.lectureLevel" class="fd-select">
+            <option value="undergraduate">Undergrad</option><option value="graduate">Graduate</option><option value="pharmd">Pharm.D</option>
+          </select>
+          <button class="fd-btn" @click="$store.facultyTools.planClass()" :disabled="$store.facultyTools.loading || !$store.facultyTools.classTopic">
+            <span class="material-symbols-outlined">schedule</span> Plan Class
+          </button>
+        </div>
+        <!-- Topic chips from syllabus -->
+        <div x-show="$store.facultyTools.syllabusResult?.topics?.length" class="fd-topic-selector" style="margin-top:6px">
+          <span class="fd-label">From Syllabus:</span>
+          <div class="fd-topic-chips">
+            <template x-for="t in $store.facultyTools.syllabusResult.topics" :key="t">
+              <button class="fd-topic-chip-btn" :class="{active: $store.facultyTools.classTopic === t}" @click="$store.facultyTools.classTopic = t" x-text="t"></button>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <template x-if="$store.facultyTools.classResult">
+        <div class="fd-card fd-card-accent">
+          <h4 x-text="$store.facultyTools.classResult.topic + ' — ' + $store.facultyTools.classResult.duration + ' min'"></h4>
+          <div class="fd-section"><strong>Objectives</strong>
+            <ul><template x-for="o in $store.facultyTools.classResult.objectives"><li x-text="o"></li></template></ul>
+          </div>
+          <div class="fd-section"><strong>Structure</strong>
+            <template x-for="s in $store.facultyTools.classResult.structure">
+              <div class="fd-sec-item"><span x-text="s.section + ' (' + s.time + ')'"></span><span x-text="s.content"></span></div>
+            </template>
+          </div>
+          <div class="fd-section" x-show="$store.facultyTools.classResult.materials?.length"><strong>Materials</strong>
+            <ul><template x-for="m in $store.facultyTools.classResult.materials"><li x-text="m"></li></template></ul>
+          </div>
+        </div>
+      </template>
+
+      <!-- Lesson Plan -->
+      <div class="fd-card">
+        <h4><span class="material-symbols-outlined">menu_book</span> Detailed Lesson Plan</h4>
+        <p class="fd-desc">Uses same topic from class plan above.</p>
+        <div class="fd-row">
+          <select x-model="$store.facultyTools.lessonMethod" class="fd-select">
+            <option value="lecture">Lecture</option><option value="interactive">Interactive</option><option value="lab">Lab Session</option><option value="seminar">Seminar</option>
+          </select>
+          <button class="fd-btn-outline" @click="$store.facultyTools.planLesson()" :disabled="$store.facultyTools.loading || !$store.facultyTools.classTopic">
+            <span class="material-symbols-outlined">auto_awesome</span> Lesson Plan
+          </button>
+        </div>
+      </div>
+
+      <template x-if="$store.facultyTools.lessonResult">
+        <div class="fd-card fd-card-accent">
+          <h4 x-text="'Lesson: ' + $store.facultyTools.lessonResult.topic"></h4>
+          <div class="fd-meta-row">
+            <span x-text="'Method: ' + $store.facultyTools.lessonResult.method_description"></span>
+            <span x-text="$store.facultyTools.lessonResult.duration + ' min'"></span>
+          </div>
+          <div class="fd-section"><strong>Learning Objectives</strong>
+            <ul><template x-for="o in $store.facultyTools.lessonResult.learning_objectives"><li x-text="o"></li></template></ul>
+          </div>
+          <div class="fd-section"><strong>Activities</strong>
+            <ul><template x-for="a in $store.facultyTools.lessonResult.activities"><li x-text="a"></li></template></ul>
+          </div>
+          <div class="fd-section"><strong>Assessment</strong><p x-text="$store.facultyTools.lessonResult.assessment"></p></div>
+        </div>
+      </template>
+
+      <div x-show="!$store.facultyTools.classResult && !$store.facultyTools.lessonResult && !$store.facultyTools.loading" class="fd-empty">
+        <span class="material-symbols-outlined fd-empty-icon">co_present</span>
+        <p>Enter a class topic and click "Plan Class" to structure your session</p>
+        <p class="fd-empty-hint">Then generate a detailed lesson plan with teaching methods</p>
+      </div>
+    </div>
+
+    <!-- Notes Tab -->
+    <div x-show="$store.facultyTools.activeTab === 'notes'" class="fd-tab-content">
+      <div class="fd-card">
+        <h4><span class="material-symbols-outlined">edit_note</span> Prepare Student Notes</h4>
+        <p class="fd-desc">Generate structured, student-ready notes for any topic.</p>
+        <input type="text" x-model="$store.facultyTools.notesTopic" placeholder="Topic for notes (e.g. Enzyme Kinetics)..." class="fd-input" @keyup.enter="$store.facultyTools.prepNotes()" />
+        <div class="fd-row">
+          <select x-model="$store.facultyTools.lectureLevel" class="fd-select">
+            <option value="undergraduate">Undergrad</option><option value="graduate">Graduate</option><option value="pharmd">Pharm.D</option>
+          </select>
+          <button class="fd-btn" @click="$store.facultyTools.prepNotes()" :disabled="$store.facultyTools.loading || !$store.facultyTools.notesTopic">
+            <span class="material-symbols-outlined">auto_awesome</span> Prepare Notes
+          </button>
+        </div>
+        <!-- Topic chips from syllabus -->
+        <div x-show="$store.facultyTools.syllabusResult?.topics?.length" class="fd-topic-selector" style="margin-top:6px">
+          <span class="fd-label">From Syllabus:</span>
+          <div class="fd-topic-chips">
+            <template x-for="t in $store.facultyTools.syllabusResult.topics" :key="t">
+              <button class="fd-topic-chip-btn" :class="{active: $store.facultyTools.notesTopic === t}" @click="$store.facultyTools.notesTopic = t" x-text="t"></button>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <template x-if="$store.facultyTools.notesResult">
+        <div class="fd-card fd-card-accent">
+          <h4 x-text="'Notes: ' + $store.facultyTools.notesResult.topic"></h4>
+          <p class="fd-meta-row" x-text="'Level: ' + $store.facultyTools.notesResult.level"></p>
+          <template x-for="s in $store.facultyTools.notesResult.sections" :key="s.title">
+            <div class="fd-note-section">
+              <div class="fd-note-title">
+                <span class="material-symbols-outlined" style="font-size:16px">
+                  <template x-if="s.title === 'Key Concepts'">psychology</template>
+                  <template x-if="s.title === 'Important Definitions'">menu_book</template>
+                  <template x-if="s.title === 'Mechanisms'">account_tree</template>
+                  <template x-if="s.title === 'Examples'">science</template>
+                  <template x-if="s.title === 'Practice Questions'">quiz</template>
+                </span>
+                <strong x-text="s.title"></strong>
+              </div>
+              <p class="fd-note-content" x-text="s.content"></p>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <div x-show="!$store.facultyTools.notesResult && !$store.facultyTools.loading" class="fd-empty">
+        <span class="material-symbols-outlined fd-empty-icon">edit_note</span>
+        <p>Enter a topic and prepare structured student notes</p>
+        <p class="fd-empty-hint">Notes include Key Concepts, Definitions, Mechanisms, Examples, and Practice Questions</p>
+      </div>
+    </div>
+
+    <!-- Slides Tab -->
+    <div x-show="$store.facultyTools.activeTab === 'slides'" class="fd-tab-content">
+      <div class="fd-card">
+        <h4><span class="material-symbols-outlined">slideshow</span> Generate Slides Outline</h4>
+        <p class="fd-desc">Generate a structured slide-by-slide outline for your lecture.</p>
+        <input type="text" x-model="$store.facultyTools.slidesTopic" placeholder="Topic for slides..." class="fd-input" @keyup.enter="$store.facultyTools.makeSlides()" />
+        <div class="fd-row">
+          <label class="fd-num-label"><span>Slides</span><input type="number" x-model.number="$store.facultyTools.slidesNumSlides" min="3" max="20" class="fd-num-input" style="width:50px" /></label>
+          <button class="fd-btn" @click="$store.facultyTools.makeSlides()" :disabled="$store.facultyTools.loading || !$store.facultyTools.slidesTopic">
+            <span class="material-symbols-outlined">auto_awesome</span> Generate
+          </button>
+        </div>
+        <!-- Topic chips from syllabus -->
+        <div x-show="$store.facultyTools.syllabusResult?.topics?.length" class="fd-topic-selector" style="margin-top:6px">
+          <span class="fd-label">From Syllabus:</span>
+          <div class="fd-topic-chips">
+            <template x-for="t in $store.facultyTools.syllabusResult.topics" :key="t">
+              <button class="fd-topic-chip-btn" :class="{active: $store.facultyTools.slidesTopic === t}" @click="$store.facultyTools.slidesTopic = t" x-text="t"></button>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <template x-if="$store.facultyTools.slidesResult">
+        <div class="fd-card fd-card-accent">
+          <h4 x-text="'Slides: ' + $store.facultyTools.slidesResult.topic + ' (' + $store.facultyTools.slidesResult.num_slides + ' slides)'"></h4>
+          <div class="fd-meta-row">
+            <span x-text="'Style: ' + $store.facultyTools.slidesResult.style"></span>
+          </div>
+          <template x-for="s in $store.facultyTools.slidesResult.slides" :key="s.slide">
+            <div class="fd-slide-item">
+              <div class="fd-slide-head">
+                <span class="fd-slide-num" x-text="s.slide"></span>
+                <span class="fd-slide-title" x-text="s.title"></span>
+              </div>
+              <p class="fd-slide-content" x-text="s.content"></p>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <div x-show="!$store.facultyTools.slidesResult && !$store.facultyTools.loading" class="fd-empty">
+        <span class="material-symbols-outlined fd-empty-icon">slideshow</span>
+        <p>Enter a topic and specify the number of slides</p>
+        <p class="fd-empty-hint">Generates a structured slide outline with titles and content per slide</p>
+      </div>
+    </div>
+
     <!-- Plagiarism Tab -->
     <div x-show="$store.facultyTools.activeTab === 'plagiarism'" class="fd-tab-content">
       <div class="fd-card">
@@ -278,9 +525,45 @@
       </div>
     </div>
 
-    <!-- Slides Tab -->
-    <div x-show="$store.facultyTools.activeTab === 'slides'" class="fd-tab-content">
-      <x-component path="slides/slides-modal.html"></x-component>
+    <!-- Questions Tab -->
+    <div x-show="$store.facultyTools.activeTab === 'questions'" class="fd-tab-content">
+      <div class="fd-card">
+        <h4><span class="material-symbols-outlined">quiz</span> Generate Question Bank</h4>
+        <p class="fd-desc">Auto-generate MCQ, short-answer, long-answer, or true/false questions with Bloom's taxonomy levels.</p>
+        <div class="fd-row">
+          <input type="text" x-model="$store.facultyTools.questionsTopic" placeholder="Topic (e.g. Enzyme Kinetics)" class="fd-input" />
+        </div>
+        <div class="fd-row" style="margin-top:6px">
+          <select x-model="$store.facultyTools.questionsType" class="fd-select">
+            <option value="mcq">MCQ</option>
+            <option value="short">Short Answer</option>
+            <option value="long">Long Answer</option>
+            <option value="true_false">True/False</option>
+          </select>
+          <select x-model="$store.facultyTools.questionsBloom" class="fd-select">
+            <option value="remember">Remember</option>
+            <option value="understand">Understand</option>
+            <option value="apply">Apply</option>
+            <option value="analyze">Analyze</option>
+            <option value="evaluate">Evaluate</option>
+            <option value="create">Create</option>
+          </select>
+          <input type="number" x-model="$store.facultyTools.questionsCount" min="1" max="50" class="fd-num-input" title="Number of questions" />
+          <button class="fd-btn" @click="$store.facultyTools.genQuestions()" :disabled="$store.facultyTools.loading || !$store.facultyTools.questionsTopic">
+            Generate
+          </button>
+        </div>
+      </div>
+      <template x-if="$store.facultyTools.questionsResult">
+        <div class="fd-card fd-card-accent">
+          <h4><span class="material-symbols-outlined">checklist</span> Generated Questions</h4>
+          <div class="fd-prompt" x-text="$store.facultyTools.questionsResult"></div>
+        </div>
+      </template>
+      <div x-show="!$store.facultyTools.questionsResult && !$store.facultyTools.loading" class="fd-empty">
+        <span class="material-symbols-outlined fd-empty-icon">quiz</span>
+        <p>Enter a topic, choose type and Bloom's level, then generate</p>
+      </div>
     </div>
 
     <style>
@@ -296,10 +579,10 @@
       .fd-subject-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--color-border); flex-shrink: 0; }
       .fd-subject-dot.filled { background: #22c55e; }
       .fd-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--color-border); margin-bottom: 10px; flex-shrink: 0; }
-      .fd-tab { display: flex; align-items: center; gap: 3px; padding: 5px 10px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--color-text-muted); cursor: pointer; font-size: 0.62rem; font-weight: 500; transition: all 0.15s; }
+      .fd-tab { display: flex; align-items: center; gap: 2px; padding: 5px 6px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--color-text-muted); cursor: pointer; font-size: 0.58rem; font-weight: 500; transition: all 0.15s; white-space: nowrap; }
       .fd-tab:hover { color: var(--color-text); }
       .fd-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
-      .fd-tab .material-symbols-outlined { font-size: 14px; }
+      .fd-tab .material-symbols-outlined { font-size: 12px; }
       .fd-error { padding: 6px 10px; background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.2); border-radius: 5px; color: var(--color-error-text, #ff6b6b); font-size: 0.6rem; margin-bottom: 6px; flex-shrink: 0; }
       .fd-msg { padding: 6px 10px; background: rgba(0,212,170,0.08); border: 1px solid rgba(0,212,170,0.15); border-radius: 5px; color: var(--color-primary); font-size: 0.6rem; margin-bottom: 6px; flex-shrink: 0; }
       .fd-loading { display: flex; align-items: center; gap: 5px; font-size: 0.6rem; color: var(--color-text-muted); margin-bottom: 6px; flex-shrink: 0; }
@@ -410,6 +693,36 @@
       .fd-empty-icon { font-size: 40px; color: var(--color-border); margin-bottom: 8px; opacity: 0.5; }
       .fd-empty p { font-size: 0.62rem; color: var(--color-text-muted); margin: 0; }
       .fd-empty-hint { font-size: 0.54rem !important; opacity: 0.6; margin-top: 4px !important; }
+
+      /* Semester grid */
+      .fd-semester-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 4px; max-height: 350px; overflow-y: auto; }
+      .fd-sem-cell { display: flex; align-items: center; gap: 4px; padding: 4px 6px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 5px; cursor: pointer; transition: all 0.12s; font-size: 0.52rem; }
+      .fd-sem-cell:hover { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 5%, var(--color-background)); }
+      .fd-sem-num { font-size: 0.45rem; font-weight: 600; color: var(--color-primary); white-space: nowrap; min-width: 32px; }
+      .fd-sem-nr { font-size: 0.45rem; color: var(--color-text-muted); min-width: 16px; }
+      .fd-sem-topic { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text); }
+
+      /* Number inputs */
+      .fd-num-label { display: flex; flex-direction: column; gap: 2px; font-size: 0.52rem; color: var(--color-text-muted); font-weight: 500; }
+      .fd-num-input { width: 55px; padding: 4px 6px; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-background); color: var(--color-text); font-size: 0.6rem; text-align: center; }
+      .fd-num-input:focus { outline: none; border-color: var(--color-primary); }
+      .fd-hint { display: flex; align-items: center; gap: 5px; padding: 6px 10px; background: rgba(255,217,61,0.06); border: 1px solid rgba(255,217,61,0.15); border-radius: 6px; font-size: 0.52rem; color: var(--color-text-muted); margin-top: 6px; }
+
+      /* Note sections */
+      .fd-note-section { padding: 8px 0; border-top: 1px solid var(--color-border); }
+      .fd-note-section:first-child { border-top: none; }
+      .fd-note-title { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+      .fd-note-title strong { font-size: 0.6rem; color: var(--color-text); }
+      .fd-note-title .material-symbols-outlined { color: var(--color-primary); }
+      .fd-note-content { font-size: 0.54rem; color: var(--color-text-muted); margin: 0; line-height: 1.5; }
+
+      /* Slides */
+      .fd-slide-item { padding: 6px 0; border-top: 1px solid var(--color-border); }
+      .fd-slide-item:first-child { border-top: none; }
+      .fd-slide-head { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+      .fd-slide-num { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; background: var(--color-primary); color: white; border-radius: 50%; font-size: 0.54rem; font-weight: 700; flex-shrink: 0; }
+      .fd-slide-title { font-size: 0.6rem; font-weight: 600; color: var(--color-text); }
+      .fd-slide-content { font-size: 0.52rem; color: var(--color-text-muted); margin: 0; line-height: 1.4; }
     </style>
   </div>
 </body>

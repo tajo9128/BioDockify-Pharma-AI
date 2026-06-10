@@ -3,14 +3,18 @@
   <script type="module" src="/components/statistics/statistics-store.js"></script>
 </head>
 <body>
-  <div x-data="statisticsModal" class="statistics-panel" x-init="restore()">
+  <div x-data="statisticsModal" class="statistics-panel" x-init="restore(); checkHealth()">
     <div class="panel-header">
       <div class="header-left">
         <span class="material-symbols-outlined header-icon">analytics</span>
         <div>
           <h2>Statistical Analysis</h2>
-          <p class="header-subtitle">Upload data · Select test · Export results</p>
+          <p class="header-subtitle">Upload data · Auto-Analyze · Instant Results</p>
         </div>
+      </div>
+      <div class="health-badge" :class="{ready: health?.ready, missing: health && !health?.ready}" x-show="health">
+        <span class="material-symbols-outlined" style="font-size:13px" x-text="health?.ready ? 'check_circle' : 'warning'"></span>
+        <span x-text="health?.ready ? 'All deps ready' : (health?.missing?.length || 0) + ' deps missing'"></span>
       </div>
       <div class="step-indicator">
         <div class="step" :class="{'active': step >= 1, 'current': step === 1}">
@@ -37,7 +41,7 @@
           <div class="upload-zone" @click="importData()" @dragover.prevent @drop.prevent="handleDrop($event)">
             <span class="material-symbols-outlined upload-icon">cloud_upload</span>
             <p class="upload-title">Drop your data file here</p>
-            <p class="upload-subtitle">or click to browse</p>
+            <p class="upload-subtitle">or click to browse — auto-analyzes everything</p>
             <div class="upload-formats">
               <span class="format-badge">CSV</span>
               <span class="format-badge">Excel</span>
@@ -45,8 +49,8 @@
             </div>
           </div>
           <div class="upload-info">
-            <span class="material-symbols-outlined info-icon">info</span>
-            <span>Data stays private — processed locally in your browser</span>
+            <span class="material-symbols-outlined info-icon">auto_awesome</span>
+            <span>One-click upload → auto-detects columns, runs descriptive stats, correlation, group tests, normality — all automatically</span>
           </div>
           <button class="btn-sample" @click="useSampleData()" style="margin-top:10px;width:100%;padding:8px;background:var(--color-panel);border:1px dashed var(--color-border);border-radius:8px;color:var(--color-text-muted);cursor:pointer;font-size:0.72rem">
             <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px">science</span>
@@ -453,76 +457,175 @@
         <div class="results-header">
           <div class="data-info-bar">
             <span class="material-symbols-outlined success-icon">check_circle</span>
-            <span class="analysis-name" x-text="'Analysis: ' + ({descriptive:'Descriptive',correlation:'Correlation',ttest:'T-Test',anova:'ANOVA',regression:'Regression',survival:'Survival',power:'Power',pkpd:'PK/PD'}[activeAnalysis] || activeAnalysis || 'None')"></span>
+            <span class="file-name" x-text="fileName"></span>
+            <span class="row-count" x-text="'(' + rowCount + ' rows, ' + columns.length + ' cols)'"></span>
+            <span x-show="autoMode" class="auto-badge"><span class="material-symbols-outlined" style="font-size:11px">auto_awesome</span> Auto</span>
           </div>
           <div class="results-actions">
-            <button class="btn-secondary" @click="step = 2; results = ''; testType = null">
-              <span class="material-symbols-outlined">arrow_back</span>
-              Back
-            </button>
             <button class="btn-secondary" @click="resetData()">
-              <span class="material-symbols-outlined">refresh</span>
-              New Data
+              <span class="material-symbols-outlined">refresh</span> New Data
+            </button>
+            <button class="btn-secondary" @click="step = 2; autoMode = false; testType = null; results = ''; resultsJson = null">
+              <span class="material-symbols-outlined">tune</span> Manual Test
             </button>
             <button class="btn-primary" @click="downloadResults('csv')" :disabled="!results">
-              <span class="material-symbols-outlined">download</span>
-              Download CSV
-            </button>
-            <button class="btn-primary" @click="downloadResults('json')" :disabled="!results">
-              <span class="material-symbols-outlined">code</span>
-              Download JSON
+              <span class="material-symbols-outlined">download</span> CSV
             </button>
             <button class="btn-primary" @click="saveToNotebook()" :disabled="!results" style="background: #6366f1;">
-              <span class="material-symbols-outlined">bookmark</span>
-              Notebook
+              <span class="material-symbols-outlined">bookmark</span> KB
             </button>
           </div>
         </div>
 
-        <div class="results-container" x-show="results">
-          <div class="results-toolbar">
-            <div class="view-toggle">
-              <button class="toggle-btn" :class="{'active': viewMode === 'table'}" @click="viewMode = 'table'">
-                <span class="material-symbols-outlined">table_chart</span>
-                Table
-              </button>
-              <button class="toggle-btn" :class="{'active': viewMode === 'raw'}" @click="viewMode = 'raw'">
-                <span class="material-symbols-outlined">code</span>
-                Raw
-              </button>
-              <button class="toggle-btn" :class="{'active': viewMode === 'chart'}" @click="viewMode = 'chart'; generateChart()">
-                <span class="material-symbols-outlined">bar_chart</span>
-                Charts
-              </button>
+        <!-- Error message -->
+        <div x-show="errorMessage" class="stats-error" x-text="errorMessage" @click="errorMessage = ''" style="cursor:pointer"></div>
+
+        <!-- Auto-Analyze Results View -->
+        <div x-show="autoResult" class="auto-results">
+          <!-- Data Summary -->
+          <div class="auto-section">
+            <h4><span class="material-symbols-outlined">info</span> Data Summary</h4>
+            <div class="auto-summary-grid">
+              <div class="auto-summary-item"><span class="as-label">Rows</span><span class="as-value" x-text="autoResult?.data_summary?.total_rows"></span></div>
+              <div class="auto-summary-item"><span class="as-label">Columns</span><span class="as-value" x-text="autoResult?.data_summary?.total_columns"></span></div>
+              <div class="auto-summary-item"><span class="as-label">Numeric</span><span class="as-value" x-text="autoResult?.data_summary?.numeric_columns?.length || 0"></span></div>
+              <div class="auto-summary-item"><span class="as-label">Categorical</span><span class="as-value" x-text="autoResult?.data_summary?.categorical_columns?.length || 0"></span></div>
             </div>
-            <button class="btn-icon" @click="downloadChart()" x-show="chartImage" title="Download chart as PNG">
-              <span class="material-symbols-outlined">download</span>
-            </button>
-            <button class="btn-icon" @click="copyResults()" title="Copy to clipboard">
-              <span class="material-symbols-outlined">content_copy</span>
-            </button>
-          </div>
-          <div class="results-content">
-            <pre x-show="viewMode === 'raw'" x-text="results"></pre>
-            <div x-show="viewMode === 'table'" class="table-view" x-html="formatTable(results)"></div>
-            <div x-show="viewMode === 'chart'" class="chart-view">
-              <div x-show="chartLoading" class="chart-loading">
-                <div class="loading-spinner"></div><span>Generating chart...</span>
-              </div>
-              <img x-show="chartImage" :src="'data:image/png;base64,' + chartImage" style="max-width:100%;border-radius:8px" />
-              <div x-show="!chartImage && !chartLoading" class="chart-empty">
-                <span class="material-symbols-outlined">bar_chart</span>
-                <p>Click the Charts button to visualize your results</p>
-              </div>
+            <div class="auto-col-chips">
+              <span class="auto-chip chip-num" x-text="'Numeric: ' + (autoResult?.data_summary?.numeric_columns || []).join(', ')"></span>
+              <span class="auto-chip chip-cat" x-show="autoResult?.data_summary?.categorical_columns?.length" x-text="'Categorical: ' + (autoResult?.data_summary?.categorical_columns || []).join(', ')"></span>
             </div>
           </div>
+
+          <!-- Descriptive Statistics -->
+          <div class="auto-section" x-show="autoResult?.descriptive && Object.keys(autoResult.descriptive).length">
+            <h4><span class="material-symbols-outlined">functions</span> Descriptive Statistics</h4>
+            <div class="auto-desc-table-wrap">
+              <table class="auto-desc-table">
+                <thead><tr><th>Column</th><th>N</th><th>Mean</th><th>Median</th><th>Std</th><th>Min</th><th>Max</th><th>Skew</th></tr></thead>
+                <tbody>
+                  <template x-for="(v, k) in autoResult?.descriptive || {}" :key="k">
+                    <tr x-show="v && typeof v.n === 'number'">
+                      <td class="col-name" x-text="k"></td>
+                      <td x-text="v.n"></td>
+                      <td x-text="v.mean"></td>
+                      <td x-text="v.median"></td>
+                      <td x-text="v.std"></td>
+                      <td x-text="v.min"></td>
+                      <td x-text="v.max"></td>
+                      <td x-text="v.skewness"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Correlation Matrix -->
+          <div class="auto-section" x-show="autoResult?.correlation?.matrix">
+            <h4><span class="material-symbols-outlined">show_chart</span> <span x-text="'Correlation Matrix (' + (autoResult?.correlation?.method || 'Pearson') + ')'"></span></h4>
+            <div class="auto-desc-table-wrap">
+              <table class="auto-desc-table">
+                <thead><tr><th></th><template x-for="c in autoResult?.correlation?.columns" :key="c"><th x-text="c"></th></template></tr></thead>
+                <tbody>
+                  <template x-for="(row, ri) in autoResult?.correlation?.matrix" :key="ri">
+                    <tr>
+                      <td class="col-name" x-text="autoResult?.correlation?.columns[ri]"></td>
+                      <template x-for="(val, ci) in row" :key="ci">
+                        <td :class="{'corr-strong': Math.abs(val) > 0.7, 'corr-med': Math.abs(val) > 0.4 && Math.abs(val) <= 0.7}" x-text="val"></td>
+                      </template>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Group Tests -->
+          <div class="auto-section" x-show="autoResult?.group_tests && Object.keys(autoResult.group_tests).filter(k => k !== '_error').length">
+            <h4><span class="material-symbols-outlined">compare_arrows</span> Group Comparison</h4>
+            <template x-for="(v, k) in autoResult?.group_tests || {}" :key="k">
+              <div class="auto-group-card" x-show="v && v.test">
+                <div class="agc-header">
+                  <span class="agc-name" x-text="k"></span>
+                  <span class="agc-test" x-text="v.test"></span>
+                  <span class="agc-p" :class="{sig: v.significant}" x-text="'p=' + v.p_value"></span>
+                </div>
+                <div class="agc-groups">
+                  <template x-for="(gv, gk) in v.groups || {}" :key="gk">
+                    <span class="agc-group-chip" x-text="gk + ': n=' + gv.n + ', x̄=' + gv.mean"></span>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <!-- Normality -->
+          <div class="auto-section" x-show="autoResult?.normality && Object.keys(autoResult.normality).length">
+            <h4><span class="material-symbols-outlined">bar_chart</span> Normality Tests (Shapiro-Wilk)</h4>
+            <div class="auto-desc-table-wrap">
+              <table class="auto-desc-table">
+                <thead><tr><th>Column</th><th>W Statistic</th><th>p-value</th><th>Normal?</th></tr></thead>
+                <tbody>
+                  <template x-for="(v, k) in autoResult?.normality || {}" :key="k">
+                    <tr x-show="v && v.test">
+                      <td class="col-name" x-text="k"></td>
+                      <td x-text="v.statistic"></td>
+                      <td x-text="v.p_value"></td>
+                      <td :class="{'norm-yes': v.is_normal, 'norm-no': !v.is_normal}" x-text="v.is_normal ? 'Yes' : 'No'"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Recommendations -->
+          <div class="auto-section" x-show="autoResult?.recommendations?.length">
+            <h4><span class="material-symbols-outlined">tips_and_updates</span> Recommendations</h4>
+            <ul class="auto-recommendations">
+              <template x-for="r in autoResult?.recommendations" :key="r">
+                <li x-text="r"></li>
+              </template>
+            </ul>
+          </div>
+
+          <!-- Raw JSON toggle -->
+          <button class="btn-text" @click="viewMode = viewMode === 'raw' ? 'auto' : 'raw'" style="margin-top:8px">
+            <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle">code</span>
+            <span x-text="viewMode === 'raw' ? 'Hide Raw JSON' : 'Show Raw JSON'"></span>
+          </button>
+          <pre x-show="viewMode === 'raw'" x-text="results" class="auto-raw-json"></pre>
         </div>
 
-        <div class="no-results" x-show="!results && !loading">
-          <span class="material-symbols-outlined">hourglass_empty</span>
-          <p>Run an analysis to see results here</p>
+        <!-- Manual Test Results (fallback) -->
+        <div x-show="!autoResult && step === 3" class="manual-results">
+          <div class="results-container" x-show="results">
+            <div class="results-toolbar">
+              <div class="view-toggle">
+                <button class="toggle-btn" :class="{'active': viewMode === 'table'}" @click="viewMode = 'table'">
+                  <span class="material-symbols-outlined">table_chart</span> Table
+                </button>
+                <button class="toggle-btn" :class="{'active': viewMode === 'raw'}" @click="viewMode = 'raw'">
+                  <span class="material-symbols-outlined">code</span> Raw
+                </button>
+              </div>
+              <button class="btn-icon" @click="copyResults()" title="Copy to clipboard">
+                <span class="material-symbols-outlined">content_copy</span>
+              </button>
+            </div>
+            <div class="results-content">
+              <pre x-show="viewMode === 'raw'" x-text="results"></pre>
+              <div x-show="viewMode === 'table'" class="table-view" x-html="formatTable(results)"></div>
+            </div>
+          </div>
+          <div class="no-results" x-show="!results && !loading">
+            <span class="material-symbols-outlined">hourglass_empty</span>
+            <p>Run a manual test from Step 2 to see results here</p>
+          </div>
         </div>
 
+        <!-- Agent Help -->
         <div class="agent-help">
           <button class="agent-help-btn" @click="sendToAgent(`Help me interpret these statistical results. Explain what p-values, effect sizes, and confidence intervals mean. ${results ? 'Here are the results: ' + results.substring(0, 500) : ''}`)">
             <span class="material-symbols-outlined">psychology</span>
@@ -530,8 +633,6 @@
           </button>
         </div>
       </div>
-      </div>
-    </div>
 
     <style>
       .statistics-panel { display: flex; flex-direction: column; height: 100%; overflow: hidden; background: var(--color-background); }
@@ -665,6 +766,64 @@
       .chart-loading { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 30px; font-size: 0.7rem; color: var(--color-text-muted); }
       .chart-empty { display: flex; flex-direction: column; align-items: center; padding: 30px; color: var(--color-text-muted); }
       .chart-empty .material-symbols-outlined { font-size: 36px; opacity: 0.3; margin-bottom: 8px; }
+
+      /* Health badge */
+      .health-badge { display: flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 12px; font-size: 0.6rem; font-weight: 500; flex-shrink: 0; }
+      .health-badge.ready { background: rgba(34,197,94,0.08); color: #22c55e; border: 1px solid rgba(34,197,94,0.2); }
+      .health-badge.missing { background: rgba(255,107,107,0.08); color: #ff6b6b; border: 1px solid rgba(255,107,107,0.2); }
+
+      /* Auto badge */
+      .auto-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); border-radius: 8px; font-size: 0.58rem; color: #6366f1; font-weight: 600; margin-left: auto; }
+
+      /* Auto results */
+      .auto-results { display: flex; flex-direction: column; gap: 10px; }
+      .auto-section { padding: 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 10px; }
+      .auto-section h4 { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; font-weight: 700; color: var(--color-text); margin: 0 0 8px 0; }
+      .auto-section h4 .material-symbols-outlined { font-size: 16px; color: var(--color-primary); }
+
+      /* Summary grid */
+      .auto-summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
+      .auto-summary-item { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; background: var(--color-background); border-radius: 6px; }
+      .as-label { font-size: 0.52rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
+      .as-value { font-size: 1rem; font-weight: 700; color: var(--color-primary); }
+
+      /* Column chips */
+      .auto-col-chips { display: flex; flex-direction: column; gap: 4px; }
+      .auto-chip { font-size: 0.54rem; padding: 3px 8px; border-radius: 4px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .chip-num { background: color-mix(in srgb, var(--color-primary) 8%, transparent); color: var(--color-primary); }
+      .chip-cat { background: rgba(251,146,60,0.08); color: #fb923c; }
+
+      /* Descriptive table */
+      .auto-desc-table-wrap { overflow-x: auto; }
+      .auto-desc-table { width: 100%; border-collapse: collapse; font-size: 0.58rem; }
+      .auto-desc-table th { padding: 4px 8px; text-align: left; border-bottom: 2px solid var(--color-border); color: var(--color-text-muted); font-weight: 600; white-space: nowrap; position: sticky; top: 0; background: var(--color-panel); }
+      .auto-desc-table td { padding: 3px 8px; border-bottom: 1px solid var(--color-border); color: var(--color-text); white-space: nowrap; }
+      .auto-desc-table .col-name { font-weight: 600; color: var(--color-primary); }
+
+      /* Correlation colors */
+      .corr-strong { color: var(--color-primary) !important; font-weight: 700; }
+      .corr-med { color: var(--color-text); font-weight: 600; }
+
+      /* Group test cards */
+      .auto-group-card { padding: 8px 10px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: 6px; }
+      .agc-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+      .agc-name { font-size: 0.58rem; font-weight: 600; color: var(--color-text); }
+      .agc-test { font-size: 0.54rem; padding: 1px 6px; background: color-mix(in srgb, var(--color-primary) 10%, transparent); border-radius: 3px; color: var(--color-primary); }
+      .agc-p { font-size: 0.6rem; font-weight: 700; color: var(--color-text-muted); }
+      .agc-p.sig { color: #22c55e; }
+      .agc-groups { display: flex; gap: 6px; flex-wrap: wrap; }
+      .agc-group-chip { font-size: 0.52rem; padding: 2px 7px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 4px; color: var(--color-text-muted); }
+
+      /* Normality */
+      .norm-yes { color: #22c55e !important; font-weight: 600; }
+      .norm-no { color: #fb923c !important; font-weight: 600; }
+
+      /* Recommendations */
+      .auto-recommendations { margin: 0; padding-left: 16px; font-size: 0.56rem; color: var(--color-text-muted); line-height: 1.6; }
+      .auto-recommendations li { margin-bottom: 2px; }
+
+      /* Raw JSON */
+      .auto-raw-json { padding: 10px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.58rem; font-family: var(--font-mono, monospace); color: var(--color-text); white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
     </style>
   </div>
 </body>
