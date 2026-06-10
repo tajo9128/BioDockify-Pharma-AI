@@ -1,8 +1,23 @@
 ﻿# BioDockify AI - AGENTS.md
 
-**Last updated: 2026-06-02 | Version: v6.9.2**
+**Last updated: 2026-06-10 | Version: v6.9.5**
 
-## Today's Additions (2026-06-02) — v6.9.2 Release
+## Today's Additions (2026-06-10) — v6.9.5 Release
+
+### Frontend Module Audited & Consolidated (15 Core Modules)
+- **Desktop modules finalized at 15**: Research CMD, Molecular Toolkit, Statistics, Academic Writer, Faculty CMD, Journal Finder, QSAR Modeler, Pharmacophore, Drug Analysis, Docking Analysis, Knowledge Base, Notebook, System Health, Deep Research, Backup & Recovery
+- **Removed from desktop**: Patent Search, Clinical Trials, Benchmark — accessible via agent tools instead
+- **Module order revised**: Notebook now sits above Academic Writer
+- **Faculty CMD**: Added Questions tab (MCQ/short/long/true-false + Bloom's taxonomy levels)
+- **Statistics**: Auto-analyze mode (one-click descriptive + correlation + group + normality), fixed file upload (DOM attachment), fixed missing runTransform method, fixed sample data rawData generation
+- **Knowledge Base**: NotebookLM-style paper collection cards with full-paper reader on click
+- **Notebook module** (replaces SurfSense branding): Semantic search via ChromaDB, podcast generation, quick notes
+
+### Module Count Cleanup
+- **All references updated to 15 modules** in README, agent knowledge, and AGENTS.md
+- **Docker section**: simplified to clean copy-paste format with `80:80` port mapping and backup folder mount
+
+### Previous Additions (2026-06-02) — v6.9.2 Release
 
 ### Research Management System (Department-Aware)
 - **5 department configs**: Pharmaceutical Chemistry, Pharmacognosy, Pharmacology, Pharmaceutics, Clinical Pharmacy
