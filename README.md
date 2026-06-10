@@ -80,16 +80,16 @@ After AutoDock Vina completes, MM-GBSA free energy scoring runs automatically (C
 
 Output: Per-pose MM-GBSA energies, Z-scores, and consensus with Vina (`0.4*Vina_Z + 0.6*MMGBSA_Z`). Displayed as a table in the Docking results.
 
-### External Docking File Upload
+### Docking Input Formats
 
-Upload receptor and docked ligand files for deep analysis.
+Molecular Toolkit docking accepts multiple formats via RDKit + OpenBabel conversion:
 
 | File | Accepted Formats |
 |------|-----------------|
-| Receptor | `.pdb`, `.pdbqt` |
-| Ligand | `.pdbqt` (multi-model), `.sdf` |
+| Protein | `.pdb`, `.pdbqt`, `.ent`, `.mol2`, `.cif` |
+| Ligand | `.smi` (SMILES), `.sdf`, `.mol`, `.pdb`, `.mol2` |
 
-Upload via Molecular Toolkit → Docking → Deep Analysis → toggle "Upload Files" → auto-runs full analysis (3D view, interactions, clusters).
+Both protein and ligand are auto-converted to PDBQT for Vina docking.
 
 ### 4 Specialized Sub-Agents
 
