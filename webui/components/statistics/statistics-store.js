@@ -486,8 +486,51 @@ Alpine.data("statisticsModal", () => ({
   useSampleData() {
     this.fileName = "sample-data.csv";
     this.columns = ["Treatment", "Response", "Weight", "Age", "Dose", "Score", "Group", "Time"];
-    this.rowCount = 100;
+    this.rowCount = 50;
     this.hasData = true;
     this.step = 2;
+    // Generate realistic sample data for rawData
+    const samples = {
+      "Treatment": () => Math.random() > 0.5 ? "A" : "B",
+      "Response": () => +(Math.random() * 20 + 50 + (Math.random() > 0.5 ? 5 : -5)).toFixed(2),
+      "Weight": () => +(Math.random() * 30 + 60).toFixed(1),
+      "Age": () => Math.floor(Math.random() * 40 + 25),
+      "Dose": () => +(Math.random() * 5 + 1).toFixed(1),
+      "Score": () => +(Math.random() * 30 + 60).toFixed(1),
+      "Group": () => Math.floor(Math.random() * 3 + 1),
+      "Time": () => Math.floor(Math.random() * 24 + 1),
+    };
+    const rows = [];
+    for (let i = 0; i < 50; i++) {
+      rows.push(this.columns.map(c => samples[c]()));
+    }
+    this._setRawData(this.columns, rows);
+  },
+
+  async runTransform(mode) {
+    this.transformMode = mode;
+    this.loading = true; this.errorMessage = "";
+    try {
+      const result = await callJsonApi("statistics_transform", {
+        action: mode,
+        raw_data: this.rawData || [],
+        columns: this.columns,
+        formula: this.transformFormula,
+        column: this.transformColumn,
+        target: this.transformTarget,
+      });
+      if (result.status === "ok" || result.success) {
+        if (result.data) {
+          this._setRawData(result.columns || this.columns, result.data);
+        }
+        this.message = "Transform applied";
+        setTimeout(() => { this.message = ""; }, 2000);
+      } else {
+        this.errorMessage = result.error || "Transform failed";
+      }
+    } catch (e) {
+      this.errorMessage = "Transform error: " + e.message;
+    }
+    this.loading = false;
   },
 }));
