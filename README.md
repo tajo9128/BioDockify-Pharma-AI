@@ -189,29 +189,19 @@ All research data — memory, chats, settings, knowledge base, projects, AND bac
 ### 1. Run with persistence (REQUIRED)
 
 ```bash
+# Create backup folder first
+mkdir ~/biodockify-backups            # Linux / macOS
+mkdir C:\biodockify-backups           # Windows
+
+# Run container
 docker run -d \
   --name biodockify-pharma \
-  -p 32768:80 \
+  -p 80:80 \
   -v biodockify_pharma_usr:/a0/usr \
   -v ~/biodockify-backups:/app/data \
   tajo9128/biodockify-pharma-ai:latest
 
-# Visit http://localhost:32768
-```
-
-**Optional settings:**
-
-| Flag | What it does | Example |
-|------|-------------|---------|
-| `--name` | Give your container a friendly name | `--name my-biodockify` |
-| `-p 32768:80` | Map host port → container port 80 | `-p 80:80` to open at `http://localhost` |
-| `-v name:/a0/usr` | Persistent data volume (REQUIRED) | Keep as-is |
-| `-v ~/backups:/app/data` | Mount backup folder on your PC | Replace `~/backups` with your folder path |
-
-**Create backup folder first:**
-```bash
-mkdir ~/biodockify-backups            # Linux / macOS
-mkdir C:\biodockify-backups           # Windows
+# Visit http://localhost
 ```
 
 > **If container is deleted and recreated with the SAME volume name, ALL data returns.**
@@ -228,7 +218,7 @@ services:
     image: tajo9128/biodockify-pharma-ai:latest
     container_name: biodockify
     ports:
-      - "32768:80"
+      - "80:80"
     volumes:
       - biodockify_usr:/a0/usr
       - ./backup-data:/app/data
