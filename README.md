@@ -188,10 +188,20 @@ All research data — memory, chats, settings, knowledge base, projects, AND bac
 
 ### 1. Run with persistence (REQUIRED)
 
+**Setup backup folder (recommended):**
+```bash
+# Create an empty folder for backups on your host machine
+mkdir ~/biodockify-backups      # Linux/macOS
+mkdir %USERPROFILE%\biodockify-backups   # Windows (PowerShell)
+```
+
+Then run:
+
 ```bash
 # The -v flag is REQUIRED. Without it, ALL data is lost on container delete.
 docker run -d -p 32768:80 --name biodockify-pharma \
   -v biodockify_pharma_usr:/a0/usr \
+  -v ~/biodockify-backups:/app/data \
   tajo9128/biodockify-pharma-ai:latest
 
 # Visit http://localhost:32768
@@ -203,6 +213,12 @@ docker run -d -p 32768:80 --name biodockify-pharma \
 
 Create a folder and save this as `docker-compose.yml`:
 
+```bash
+# First create an empty backup folder
+mkdir backup-data   # Linux/macOS/WSL
+# OR: New-Item -ItemType Directory -Name "backup-data"   # Windows PowerShell
+```
+
 ```yaml
 version: '3.8'
 services:
@@ -213,6 +229,7 @@ services:
       - "32768:80"    # host:container — change host port as needed
     volumes:
       - biodockify_pharma_usr:/a0/usr
+      - ./backup-data:/app/data    # create empty folder named "backup-data" first
     restart: unless-stopped
 
 volumes:
