@@ -31,11 +31,9 @@ All notable changes to BioDockify Pharma AI.
 - Drug Analysis renamed, crash fixes, Docker package updates
 
 ## [v6.8.1] - 2026-05-25
-### Docking Pipeline Upgrade
-- GNINA fixed: `conda install -c conda-forge gnina` replaces fragile wget URL loop
-- Meeko pure-Python PDB→PDBQT fallback (works on Windows without obabel)
-- ProLIF interaction fingerprints: per-residue bitmask encoding (HBD/HBA/HYD/ARO/ION)
-- Consensus Z-score scoring: Vina + GNINA combined into single normalized score
+### Docking & Analysis
+- Meeko pure-Python PDB→PDBQT conversion (cross-platform, no obabel needed)
+- Consensus Z-score scoring: Vina + MM-GBSA combined into single normalized score
 - Inline 3D docking analysis: receptor+ligand viewer with H-bonds, surface, snapshot
 - Best pose 2D SVG diagram + 3D PDB download
 

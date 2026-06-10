@@ -7,7 +7,7 @@
 | v6.9.5 | 2026-06-10 | 15-module audit, NotebookLM doc cards, Notebook AI, Faculty Questions tab, stats auto-analyze, Docker port 80 |
 | v6.9.2 | 2026-06-02 | Research management (5 depts), Faculty CMD (8 tabs), KB 18 categories, doc chunking, knowledge graph |
 | v6.8.7 | 2026-05-31 | MM-GBSA free energy scoring, external docking upload, Drug Analysis rename, crash fixes, Docker updates |
-| v6.8.1 | 2026-05-25 | GNINA conda-forge fix, Meeko PDBQT fallback, ProLIF fingerprints, consensus Z-score |
+| v6.8.1 | 2026-05-25 | Meeko PDBQT conversion, consensus Z-score, inline 3D analysis |
 | v6.8.0 | 2026-05-25 | Module consolidation (29→15), molecule editor 4-tab, docking analysis inline, QSAR v2 |
 | v6.7.0 | 2026-05-24 | Pharmacophore overhaul, SwissADME, PDBQT sanitize fix, GNINA health badges |
 | v6.6.0 | 2026-05-23 | 18 bug fixes, QSAR batch prediction, read-across, Williams Plot |
