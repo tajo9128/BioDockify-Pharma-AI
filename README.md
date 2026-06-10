@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://hub.docker.com/r/tajo9128/biodockify-pharma-ai"><img src="https://img.shields.io/badge/docker-tajo9128%2Fbiodockify--pharma--ai-blue.svg" alt="Docker"/></a>
-  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v6.9.2-green.svg" alt="Version"/></a>
+  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v6.9.5-green.svg" alt="Version"/></a>
   <a href="https://github.com/tajo9128/BioDockify-Pharma-AI"><img src="https://img.shields.io/badge/GitHub-BioDockify--Pharma--AI-181717?style=flat&logo=github" alt="GitHub"/></a>
 </p>
 
@@ -14,7 +14,7 @@
   <img src="assets/screenshot.png" alt="BioDockify Pharma AI Screenshot" width="800">
 </p>
 
-**BioDockify Pharma AI** is a comprehensive pharmaceutical research platform with 15 consolidated modules. It combines MM-GBSA free energy scoring (CPU-only), AutoDock Vina molecular docking, external docking file upload (Vina/Glide/GOLD/AutoDock-GPU/rDock/PLANTS), SPSS-level biostatistics (20 analysis types + 8 charts), a 25-stage autonomous research pipeline, 10 literature databases, 6-model QSAR (regression + classification), pharmacophore screening, a 36,145-journal recommender, a Drug Analysis module with 3Dmol.js viewer, drug properties v2 (hERG/AMES/pKa/BBB/melting point/druglikeness score), 4 specialized AI sub-agents, department-aware research management, faculty semester planning, and a central Knowledge Base with 18 categories supporting PDF/DOCX/XLSX/audio/video.
+**BioDockify Pharma AI** is a comprehensive pharmaceutical research platform with 18 consolidated desktop modules. It combines MM-GBSA free energy scoring (CPU-only), AutoDock Vina molecular docking, external docking file upload (Vina/Glide/GOLD/AutoDock-GPU/rDock/PLANTS), SPSS-level biostatistics (20 analysis types + auto-analyze), a 25-stage autonomous research pipeline, 10 literature databases, 6-model QSAR (regression + classification), pharmacophore screening, a 36,145-journal recommender, a Drug Analysis module with 3Dmol.js viewer, drug properties v2 (hERG/AMES/pKa/BBB/melting point/druglikeness score), NotebookLM-style research document reader, 4 specialized AI sub-agents, department-aware research management, faculty semester planning + question bank generator, patent search, clinical trial scanner, system benchmarks, and a central Knowledge Base with 18 categories supporting PDF/DOCX/XLSX/audio/video.
 
 ---
 
@@ -30,24 +30,28 @@
 
 ## Features
 
-### 15 Consolidated Research Modules
+### 18 Consolidated Research Modules
 
 | # | Module | Function | Backend |
 |---|--------|----------|---------|
 | 1 | **Research Command Center** | Auto-research pipeline + Literature Search + Wet Lab tracking | 23 REST endpoints |
 | 2 | **Molecular Toolkit** | ADMET + SwissADME + BOILED-Egg plot + Bioavailability Radar + Docking (Vina + MM-GBSA) + Inline 3D Docking Analysis (interactions, clusters, residue energy, PLIF) | RDKit + Vina + Meeko |
-| 3 | **Statistics** | 20 analysis types + 8 chart types + data transform | scipy + scikit-learn + pandas + matplotlib |
+| 3 | **Statistics** | 20 analysis types + auto-analyze (descriptive/correlation/group/normality) + data transform | scipy + scikit-learn + pandas + matplotlib |
 | 4 | **Academic Writer** | 8-tab: Lit Review, Paper, Thesis, Grant Writer, Regulatory, Citation Manager, Lecture, Slides | Thesis + Slides + Grant APIs |
-| 5 | **Faculty CMD** | Syllabus, Lectures, Assignments, Plagiarism, Slides generation | faculty_tools |
+| 5 | **Faculty CMD** | 9 tabs: Syllabus, Lectures, Tasks, Semester, Lesson, Notes, Slides, Plagiarism, Questions (MCQ/SA/LA/TF + Bloom's taxonomy) | faculty_tools |
 | 6 | **Journal Finder** | 36,145 Scopus/WoS journals + verify + deep research (5 live sources) + fake website detector + full dossier + suggest | journals.db + 6 live APIs |
 | 7 | **QSAR Modeler** | 6 regression + 3 classification models, batch predict, read-across, feature selection, Williams Plot, PLS VIP | RDKit + scikit-learn |
 | 8 | **Pharmacophore** | 5 tabs: Protein-based, Screen, Batch, Models, Target ID | RDKit |
 | 9 | **Drug Analysis** | 3Dmol.js viewer (7 styles) + Properties (hERG/AMES/pKa/BBB/MP/druglikeness) + PAINS/Brenk/NIH Filters + Bioisostere Mutagenesis + PubChem search | RDKit + PubChem |
 | 10 | **Docking Analysis** | 3D receptor+ligand viewer with H-bonds, surface, snapshot. Interaction SVG + PLIF + RMSD clusters + residue energy. **External file upload** from any platform | 3Dmol.js + RDKit |
-| 11 | **Knowledge Base** | ChromaDB vector store, semantic search, persistent research memory | ChromaDB |
-| 12 | **System Health** | Platform-aware health badges (Vina + MM-GBSA + RDKit + Meeko), Docker vs Windows detection | health.py |
-| 13 | **Deep Research** | 5-database collection (PubMed, Semantic Scholar, Crossref, OpenAlex, arXiv), relevance scanning, store to KB | 5 live APIs |
-| 14 | **Backup & Recovery** | Full system backup/restore with preview + auto-backup on first health check | backup APIs |
+| 11 | **Knowledge Base** | NotebookLM-style document cards with full-paper reader, ChromaDB vector search, semantic search, persistent research memory | ChromaDB |
+| 12 | **Notebook AI** | Research Notebook with KB Search, Podcast generation (edge-tts), Document Storage, Slide Decks, Video Summaries, RAG Chat | ChromaDB + edge-tts + FFmpeg + Playwright |
+| 13 | **System Health** | Platform-aware health badges (Vina + MM-GBSA + RDKit + Meeko), Docker vs Windows detection | health.py |
+| 14 | **Deep Research** | 5-database collection (PubMed, Semantic Scholar, Crossref, OpenAlex, arXiv), relevance scanning, store to KB | 5 live APIs |
+| 15 | **Backup & Recovery** | Full system backup/restore with preview + auto-backup on first health check | backup APIs |
+| 16 | **Patent Search** | Search patents by drug name, SMILES, or compound across patent databases | patent_search.py |
+| 17 | **Clinical Trials** | Scan ClinicalTrials.gov by drug/condition/status with full trial details | trial_search.py |
+| 18 | **Benchmark** | System diagnostics and validation suite | benchmark.py |
 | 15 | **All Tools** | Quick-launch grid for all 15 consolidated modules | N/A |
 
 ### Merged Modules (Accessible via Parent Dashboards)
@@ -185,12 +189,12 @@ All research data — memory, chats, settings, knowledge base, projects, AND bac
 ### 1. Run with persistence (REQUIRED)
 
 ```bash
-# ⚠️  The -v flag is REQUIRED. Without it, ALL data is lost on container delete.
-docker run -d -p 50001:50001 --name biodockify-pharma \
+# The -v flag is REQUIRED. Without it, ALL data is lost on container delete.
+docker run -d -p 80:50001 --name biodockify-pharma \
   -v biodockify_pharma_usr:/a0/usr \
   tajo9128/biodockify-pharma-ai:latest
 
-# Visit http://localhost:3000
+# Visit http://localhost
 ```
 
 **If container is deleted and recreated with the SAME volume name (`biodockify_pharma_usr`), ALL data returns.**
@@ -206,7 +210,7 @@ services:
     image: tajo9128/biodockify-pharma-ai:latest
     container_name: biodockify-pharma-ai
     ports:
-      - "50001:50001"
+      - "80:50001"
     volumes:
       - biodockify_pharma_usr:/a0/usr
     restart: unless-stopped
