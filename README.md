@@ -67,7 +67,7 @@
 | Lecture Builder | Faculty CMD → Lectures tab |
 | Docking Deep Analysis | Molecular Toolkit → Analysis tab |
 
-### MM-GBSA Free Energy Scoring (v6.8.7)
+### MM-GBSA Free Energy Scoring
 
 After AutoDock Vina completes, MM-GBSA free energy scoring runs automatically (CPU-only, no GPU required):
 
@@ -80,20 +80,14 @@ After AutoDock Vina completes, MM-GBSA free energy scoring runs automatically (C
 
 Output: Per-pose MM-GBSA energies, Z-scores, and consensus with Vina (`0.4*Vina_Z + 0.6*MMGBSA_Z`). Displayed as a table in the Docking results.
 
-### External Docking File Upload (v6.8.7)
+### External Docking File Upload
 
-Upload receptor + docked ligand files from **any docking platform** for deep analysis:
+Upload receptor + docked ligand files for deep analysis. Supports standard docking formats:
 
-| Platform | Receptor Format | Ligand Format |
-|----------|----------------|---------------|
-| AutoDock Vina | PDB/PDBQT | PDBQT (multi-model) |
-| Glide (Schrödinger) | PDB | SDF |
-| GOLD | PDB/MOL2 | SDF |
-| AutoDock-GPU | PDBQT | PDBQT |
-| rDock | PDB/MOL2 | SDF |
-| PLANTS | PDB/MOL2 | SDF |
-
-Upload panel in Deep Analysis → toggle "Upload Files" → choose receptor + ligand → auto-runs full analysis (3D view, interactions, clusters, residue energy, torsion).
+```bash
+# Receptor: PDB, PDBQT
+# Ligand:  PDBQT (multi-model), SDF
+```
 
 ### 4 Specialized Sub-Agents
 
@@ -131,42 +125,14 @@ Agent0 (Main Orchestrator)
 
 ---
 
-## What's New in v6.9.2
+## What's New in v6.9.5
 
-### Research Management System (Department-Aware)
-- **5 department configs**: Pharmaceutical Chemistry, Pharmacognosy, Pharmacology, Pharmaceutics, Clinical Pharmacy
-- **Department-specific milestones**: Each department has different research workflows and milestones
-- **Department-specific databases**: Pharma Chemistry uses SciFinder/Reaxys, Pharmacognosy uses NAPRALERT/KNapsack, etc.
-- **Department selector** in Research CMD on project creation
-- **Agent asks department** when user starts research
-
-### Academic Management System (Faculty CMD)
-- **Semester planner**: Divide syllabus into N weeks × M classes/week
-- **Class planner**: Per-class objectives, activities, timing breakdown
-- **Lesson planner**: Teaching method, materials, assessment
-- **Notes preparation**: Student-ready notes per topic
-- **Slides generation**: Slides outline from lesson plan
-- **All outputs auto-store to Knowledge Base** with category=faculty
-
-### Knowledge Base (Central Hub)
-- **18 categories**: literature, deep_research, web_scraping, clinical_trials, patents, docking, drug_analysis, pharmacophore, qsar, statistics, faculty, wetlab, books, protocols, data_files, audio_video, notes, misc
-- **Multi-format support**: PDF, DOCX, XLSX, CSV, HTML, JSON, SDF, PDB, MP3, MP4
-- **Auto-detect category** from file extension and filename keywords
-- **Document chunking**: Hierarchical splitting (sections → paragraphs → sliding window)
-- **Knowledge graph**: Entity extraction (drugs, targets, diseases, plants) + relationship mapping
-- **Direct file upload**: Drag-drop upload with auto-chunking and vector indexing
-
-### Agent Orchestrator Role
-- **Research Management section**: Department-aware workflows
-- **Academic Management section**: Teaching workflows (syllabus → semester → class → lesson → notes → slides)
-- **Knowledge Base section**: 18 categories, store/browse API usage
-
-### Previous: v6.8.7
-- External Docking File Upload
-- MM-GBSA Free Energy Scoring (replaces ODDT/GNINA)
-- Drug Analysis (renamed from Molecule Editor)
-- Security & Stability fixes
-- Dockerfile updates (scipy, sklearn, pandas, matplotlib)
+- **15-module desktop** — finalized after audit, removed dead modules
+- **Faculty CMD**: 9 tabs including Questions generator (MCQ → True/False with Bloom's taxonomy)
+- **Statistics**: auto-analyze mode (one-click descriptive, correlation, group tests, normality)
+- **Knowledge Base**: NotebookLM-style paper cards with full-paper reader on click
+- **Notebook**: semantic search, podcast generation, quick notes
+- **Docker**: simplified to `-p 80:80` open at `http://localhost`
 
 ---
 
