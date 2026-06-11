@@ -321,6 +321,9 @@ class StatisticsAuto(ApiHandler):
         })
 
         # 4. Group comparisons — auto-detect test sub-type (paired, independent, two-way)
+        paired = False
+        two_way = False
+        n_groups = 0
         if group_candidates and numeric:
             try:
                 group_col = group_candidates[0]
