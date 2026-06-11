@@ -37,18 +37,6 @@ Alpine.data("statisticsModal", () => ({
   errorMessage: "",
   autoMode: false,       // Auto-analyze mode: skip manual test selection
   autoResult: null,      // Full auto-analyze result
-  health: null,          // Dependency health check result
-
-  async checkHealth() {
-    try {
-      const r = await callJsonApi("statistics_auto", { action: "health" });
-      this.health = r.health || r;
-      return r;
-    } catch (e) {
-      this.health = { error: e.message, ready: false };
-      return null;
-    }
-  },
 
   async readFileAsContent(file) {
     const ext = (file.name || "").split(".").pop().toLowerCase();

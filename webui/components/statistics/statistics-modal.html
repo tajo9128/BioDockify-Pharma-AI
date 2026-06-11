@@ -3,7 +3,7 @@
   <script type="module" src="/components/statistics/statistics-store.js"></script>
 </head>
 <body>
-  <div x-data="statisticsModal" class="statistics-panel" x-init="restore(); checkHealth()">
+  <div x-data="statisticsModal" class="statistics-panel" x-init="restore()">
     <div class="panel-header">
       <div class="header-left">
         <span class="material-symbols-outlined header-icon">analytics</span>
@@ -11,10 +11,6 @@
           <h2>Statistical Analysis</h2>
           <p class="header-subtitle">Upload data · Auto-Analyze · Instant Results</p>
         </div>
-      </div>
-      <div class="health-badge" :class="{ready: health?.ready, missing: health && !health?.ready}" x-show="health && !health?.ready">
-        <span class="material-symbols-outlined" style="font-size:13px">warning</span>
-        <span x-text="health?.missing?.length ? (health.missing.length + ' deps missing: ' + health.missing.join(', ')) : 'Dependencies unavailable'"></span>
       </div>
       <div class="step-indicator">
         <div class="step" :class="{'active': step >= 1, 'current': step === 1}">
@@ -766,11 +762,6 @@
       .chart-loading { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 30px; font-size: 0.7rem; color: var(--color-text-muted); }
       .chart-empty { display: flex; flex-direction: column; align-items: center; padding: 30px; color: var(--color-text-muted); }
       .chart-empty .material-symbols-outlined { font-size: 36px; opacity: 0.3; margin-bottom: 8px; }
-
-      /* Health badge */
-      .health-badge { display: flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 12px; font-size: 0.6rem; font-weight: 500; flex-shrink: 0; }
-      .health-badge.ready { background: rgba(34,197,94,0.08); color: #22c55e; border: 1px solid rgba(34,197,94,0.2); }
-      .health-badge.missing { background: rgba(255,107,107,0.08); color: #ff6b6b; border: 1px solid rgba(255,107,107,0.2); }
 
       /* Auto badge */
       .auto-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); border-radius: 8px; font-size: 0.58rem; color: #6366f1; font-weight: 600; margin-left: auto; }
