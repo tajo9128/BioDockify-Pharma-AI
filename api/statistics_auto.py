@@ -81,19 +81,21 @@ def _classify_columns(rows, cols):
     """Classify each column as numeric, categorical, or group."""
     numeric = []
     categorical = []
-    group_candidates = []  # dichotomous or few unique values
+    group_candidates = []
     n = len(rows)
 
     for ci, col in enumerate(cols):
-        vals = [_safe_float(r.get(col)) if isinstance(r, dict) else _safe_float(r[ci]) for r in rows]
-        numeric_count = sum(1 for v in vals if v is not None)
-        unique_vals = set(v for v in vals if v is not None)
+        raw_vals = [str(r.get(col)) if isinstance(r, dict) else str(r[ci]) if r[ci] is not None else "" for r in rows]
+        float_vals = [_safe_float(v) for v in raw_vals]
+        numeric_count = sum(1 for v in float_vals if v is not None)
+        raw_unique = set(v for v in raw_vals if v and v.strip() and v != "nan")
+        float_unique = set(v for v in float_vals if v is not None)
+        n_unique = len(raw_unique) if raw_unique else len(float_unique)
 
-        if numeric_count > n * 0.7 and len(unique_vals) > 2:
+        if numeric_count > n * 0.7 and len(float_unique) > 2:
             numeric.append(col)
-        elif len(unique_vals) <= 20 and len(unique_vals) >= 1:
-            if 2 <= len(unique_vals) <= 20:
-                group_candidates.append(col)
+        elif n_unique <= 20 and n_unique >= 2:
+            group_candidates.append(col)
             categorical.append(col)
         elif numeric_count > 0:
             numeric.append(col)
