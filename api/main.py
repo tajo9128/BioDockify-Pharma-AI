@@ -711,7 +711,7 @@ def repair_system(service: str = "ollama"):
 @app.post("/api/v2/system/start-surfsense")
 def start_surfsense():
     """
-    V2: Explicitly start SurfSense Knowledge Engine via Docker.
+    V2: Explicitly start ChromaDB + Knowledge Graph via Docker.
     """
     from runtime.config_loader import load_config
     from runtime.service_manager import get_service_manager
@@ -1915,7 +1915,7 @@ def health_check_detailed():
     # 4. Knowledge Engine (SurfSense)
     status["components"]["knowledge_engine"] = {
         "status": "ok",
-        "message": "SurfSense Knowledge Engine",
+        "message": "ChromaDB + Knowledge Graph",
     }
 
     # 5. System Resources
@@ -2453,7 +2453,7 @@ async def agent_execute(request: AgentExecuteRequest):
 
 
 class Neo4jCheckRequest(BaseModel):
-    """DEPRECATED: Neo4j has been replaced by SurfSense Knowledge Engine."""
+    """DEPRECATED: Neo4j has been replaced by ChromaDB + Knowledge Graph."""
 
     uri: str = ""
     user: str = ""
@@ -2464,12 +2464,12 @@ class Neo4jCheckRequest(BaseModel):
 def check_neo4j_endpoint(request: Neo4jCheckRequest):
     """
     DEPRECATED: Neo4j Graph Database check.
-    Neo4j has been replaced by SurfSense Knowledge Engine.
+    Neo4j has been replaced by ChromaDB + Knowledge Graph.
     This endpoint is kept for backward compatibility.
     """
     return {
         "status": "deprecated",
-        "message": "Neo4j has been replaced by SurfSense Knowledge Engine. Configure SurfSense in Settings > Cloud APIs instead.",
+        "message": "Neo4j has been replaced by ChromaDB + Knowledge Graph. Use the Knowledge Base module instead.",
     }
 
 
