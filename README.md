@@ -8,6 +8,8 @@
   <a href="https://hub.docker.com/r/tajo9128/biodockify-pharma-ai"><img src="https://img.shields.io/badge/docker-tajo9128%2Fbiodockify--pharma--ai-blue.svg" alt="Docker"/></a>
   <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v6.9.5-green.svg" alt="Version"/></a>
   <a href="https://github.com/tajo9128/BioDockify-Pharma-AI"><img src="https://img.shields.io/badge/GitHub-BioDockify--Pharma--AI-181717?style=flat&logo=github" alt="GitHub"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"/></a>
+  <a href="docs/user-guide/README.md"><img src="https://img.shields.io/badge/docs-user%20guide-lightgrey.svg" alt="Documentation"/></a>
 </p>
 
 <p align="center">
@@ -241,12 +243,17 @@ https://hub.docker.com/r/tajo9128/biodockify-pharma-ai
 
 ## License
 
-BioDockify Pharma AI is a pharmaceutical research fork of Agent Zero. See [Agent Zero repository](https://github.com/agent0ai/agent-zero) for original license and documentation.
+BioDockify Pharma AI is open-source under the [MIT License](LICENSE), inherited from the [Agent Zero](https://github.com/agent0ai/agent-zero) framework by Jan Tomasek. See the original repository for framework license details.
 
----
+## Documentation
 
-## Support & Links
+- [User Guide](docs/user-guide/README.md) — 28 chapters covering installation, modules, research workflows
+- [Architecture](ARCHITECTURE.md) — system design and component overview
+- [AGENTS.md](AGENTS.md) — developer reference and conventions
+- [CHANGELOG](CHANGELOG.md) — release history
 
-- BioDockify Issues: https://github.com/tajo9128/BioDockify-Pharma-AI/issues
-- Docker Hub: https://hub.docker.com/r/tajo9128/biodockify-pharma-ai
-- Agent Zero (original): https://github.com/agent0ai/agent-zero
+## Support
+
+- [GitHub Issues](https://github.com/tajo9128/BioDockify-Pharma-AI/issues)
+- [Docker Hub](https://hub.docker.com/r/tajo9128/biodockify-pharma-ai)
+- [Agent Zero](https://github.com/agent0ai/agent-zero) (original framework)
