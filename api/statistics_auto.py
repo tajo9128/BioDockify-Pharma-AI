@@ -92,7 +92,7 @@ def _classify_columns(rows, cols):
         if numeric_count > n * 0.7 and len(unique_vals) > 2:
             numeric.append(col)
         elif len(unique_vals) <= 20 and len(unique_vals) >= 1:
-            if len(unique_vals) == 2:
+            if 2 <= len(unique_vals) <= 20:
                 group_candidates.append(col)
             categorical.append(col)
         elif numeric_count > 0:
