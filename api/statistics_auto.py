@@ -105,6 +105,8 @@ def _classify_columns(rows, cols):
 
 def _col_values(rows, col, cols):
     """Extract numeric values for a column."""
+    if not HAS_NUMPY:
+        return []
     ci = cols.index(col) if col in cols else None
     if ci is None:
         return []
