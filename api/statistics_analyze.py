@@ -38,7 +38,9 @@ class StatisticsAnalyze(ApiHandler):
     async def _dispatch(self, input: dict) -> dict:
         action = input.get("action", "")
 
-        if action == "descriptive":
+        if action == "auto_decide":
+            return self._auto_decide(input)
+        elif action == "descriptive":
             return self._descriptive(input)
         elif action == "correlation":
             return self._correlation(input)
@@ -66,9 +68,130 @@ class StatisticsAnalyze(ApiHandler):
             return self._roc(input)
         elif action == "power":
             return self._power(input)
-        return {"error": f"Unknown action: {action}", "actions": ["descriptive","correlation","ttest","anova","chisquare","mannwhitney","wilcoxon","kruskalwallis","friedman","fisher","normality","homogeneity","roc","power"]}
+        elif action == "survival":
+            return self._survival(input)
+        return {"error": f"Unknown action: {action}"}
 
-        return {"status": "error", "error": f"Unknown analysis: {action}"}
+    def _auto_decide(self, input: dict):
+        """Step 3-6: AI decides sub-type, runs test, returns results with explanations."""
+        test_type = input.get("test_type", "descriptive")
+        columns = input.get("columns", [])
+        summary = input.get("summary", {})
+        group_cols = summary.get("group_columns", [])
+        numeric_cols = summary.get("numeric_columns", [])
+        categorical_cols = summary.get("categorical_columns", [])
+
+        result = {"status": "ok", "test_type": test_type, "sub_type": "auto-decided"}
+        exp = []
+
+        try:
+            if test_type == "ttest":
+                gc = group_cols[0] if group_cols else ""
+                nc = numeric_cols[0] if numeric_cols else columns[0] if len(columns) > 1 else ""
+                input["group_col"] = gc
+                input["value_col"] = nc
+                input["test_type"] = "independent"
+                input["equal_var"] = True
+                exp.append({"step": 1, "title": "AI Decision", "detail": f"Running Independent T-Test: {nc} ~ {gc}", "findings": ["Comparing 2 independent groups. If data is paired (same subjects measured twice), results may differ."]})
+                exp.append({"step": 2, "title": "Running Test", "detail": "Performing statistical computation..."})
+                r = self._ttest(input)
+                result.update(r)
+                sig = r.get("significant", False)
+                exp.append({"step": 3, "title": "Interpretation", "detail": f"p={r.get('p_value',0):.4f} — {'SIGNIFICANT — the groups differ' if sig else 'NOT significant — no evidence of difference between groups'}."})
+
+            elif test_type == "anova":
+                gc = group_cols[0] if group_cols else ""
+                nc = numeric_cols[0] if numeric_cols else columns[0] if len(columns) > 1 else ""
+                input["group_col"] = gc
+                input["value_col"] = nc
+                exp.append({"step": 1, "title": "AI Decision", "detail": f"Running One-Way ANOVA: {nc} ~ {gc}", "findings": [f"Comparing means across groups in '{gc}'."]})
+                r = self._anova(input)
+                result.update(r)
+                sig = r.get("significant", False)
+                exp.append({"step": 2, "title": "Interpretation", "detail": f"p={r.get('p_value',0):.4f} — {'SIGNIFICANT — at least one group differs' if sig else 'NOT significant — no group differences'}."})
+
+            elif test_type == "correlation":
+                input["selected_cols"] = numeric_cols[:10]
+                input["method"] = "pearson"
+                exp.append({"step": 1, "title": "Pearson Correlation", "detail": "Measures linear relationship between numeric columns. r ranges from -1 to +1."})
+                r = self._correlation(input)
+                result.update(r)
+                if r.get("correlation_matrix"):
+                    n = len(r.get("columns", []))
+                    strong = []
+                    for i in range(n):
+                        for j in range(i+1, n):
+                            if abs(r["correlation_matrix"][i][j]) > 0.7:
+                                strong.append(f"{r['columns'][i]} vs {r['columns'][j]}: r={r['correlation_matrix'][i][j]:.3f}")
+                    exp.append({"step": 2, "title": "Findings", "findings": strong if strong else ["No strong correlations (|r|>0.7) found."]})
+
+            elif test_type == "descriptive":
+                exp.append({"step": 1, "title": "Descriptive Statistics", "detail": "Summary statistics for numeric columns. Mean=average, Median=middle value, Std=spread."})
+                r = self._descriptive(input)
+                result.update(r)
+
+            elif test_type == "normality":
+                exp.append({"step": 1, "title": "Shapiro-Wilk Normality", "detail": "Tests if data follows normal distribution. p>0.05 = normal (use parametric tests). p<0.05 = not normal (use non-parametric tests)."})
+                r = self._normality(input)
+                result.update(r)
+
+            elif test_type == "chisquare":
+                gc = group_cols[0] if group_cols else ""
+                vc = group_cols[1] if len(group_cols) > 1 else (categorical_cols[0] if categorical_cols else "")
+                input["group_col"] = gc
+                input["value_col"] = vc
+                if not gc or not vc:
+                    return {"status": "error", "error": "Need 2 categorical columns for Chi-Square"}
+                exp.append({"step": 1, "title": "Chi-Square", "detail": "Tests association between categorical variables."})
+                r = self._chisquare(input)
+                result.update(r)
+                sig = r.get("significant", False)
+                exp.append({"step": 2, "title": "Interpretation", "detail": f"p={r.get('p_value',0):.4f} — {'SIGNIFICANT association' if sig else 'No significant association'}."})
+
+            elif test_type == "mannwhitney":
+                gc = group_cols[0] if group_cols else ""
+                nc = numeric_cols[0] if numeric_cols else ""
+                input["group_col"] = gc
+                input["value_col"] = nc
+                exp.append({"step": 1, "title": "Mann-Whitney U", "detail": "Non-parametric comparison of 2 groups. Use when data is not normally distributed."})
+                r = self._mannwhitney(input)
+                result.update(r)
+                sig = r.get("significant", False)
+                exp.append({"step": 2, "title": "Interpretation", "detail": f"p={r.get('p_value',0):.4f} — {'SIGNIFICANT difference' if sig else 'No significant difference'}."})
+
+            elif test_type == "survival":
+                exp.append({"step": 1, "title": "Survival Analysis", "detail": "Agent-driven — use chat to analyze survival data."})
+                result["message"] = "Survival analysis requires agent chat. Type your request with the data attached."
+
+            elif test_type == "regression":
+                exp.append({"step": 1, "title": "Regression Analysis", "detail": "Agent-driven — use chat to run regression."})
+                result["message"] = "Regression analysis requires agent chat. Type your request with the data attached."
+
+            elif test_type == "roc":
+                exp.append({"step": 1, "title": "ROC/AUC Analysis", "detail": "Agent-driven — use chat for ROC analysis."})
+                result["message"] = "ROC analysis requires agent chat. Type your request with the data attached."
+
+            elif test_type in ("factor", "cluster"):
+                exp.append({"step": 1, "title": test_type.title() + " Analysis", "detail": "Agent-driven — use chat for this analysis."})
+                result["message"] = f"{test_type.title()} analysis requires agent chat."
+
+            else:
+                return {"status": "error", "error": f"Test '{test_type}' not available"}
+
+            if r.get("significant") is not None:
+                result["test_name"] = (r.get("test") or test_type).replace("Independent T-Test", "T-Test").replace("One-Way ANOVA", "ANOVA")
+                result["sub_type"] = r.get("test") or test_type
+
+            # Merge metrics for display
+            metrics = {}
+            for k in ("statistic", "p_value", "n", "required_n", "auc", "odds_ratio"):
+                if k in r: metrics[k] = r[k]
+            if metrics: result["metrics"] = metrics
+
+            result["explanations"] = exp
+            return _to_json_safe(result)
+        except Exception as e:
+            return _to_json_safe({"status": "error", "error": str(e), "test_type": test_type})
 
     def _descriptive(self, input: dict) -> dict:
         data = input.get("data", [])

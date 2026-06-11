@@ -2,166 +2,16 @@ import { callJsonApi } from "/js/api.js";
 
 Alpine.data("statisticsModal", () => ({
   step: 1,
-  hasData: false,
   fileName: "",
   columns: [],
   rowCount: 0,
-  testType: null,
-  selectedGroupCol: "",
-  selectedValueCol: "",
-  selectedCorrCols: [],
-  correlationMethod: "pearson",
-  anovaPostHoc: true,
-  ttestType: "independent",
-  ttestEqualVar: true,
-  powerEffectSize: 0.5,
-  powerAlpha: 0.05,
-  powerTarget: 0.80,
-  clusterK: 3,
-  clusterMethod: "kmeans",
-  results: "",
-  resultsJson: null,
+  summary: null,          // AI analysis: column classification + recommendations
+  testType: "",
   loading: false,
-  activeAnalysis: "",
-  viewMode: "auto",
-  rawData: null,
   errorMessage: "",
-  autoResult: null,
+  result: null,            // Final results with explanations
 
-  // === File reading ===
-  readFileContent(file) {
-    const ext = (file.name || "").split(".").pop().toLowerCase();
-    if (ext === "xlsx" || ext === "xls") {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const bytes = new Uint8Array(reader.result);
-          let binary = "";
-          const chunk = 8192;
-          for (let i = 0; i < bytes.length; i += chunk) {
-            binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + chunk, bytes.length)));
-          }
-          resolve({ content: btoa(binary), isBinary: true });
-        };
-        reader.onerror = () => reject(new Error("Failed to read file"));
-        reader.readAsArrayBuffer(file);
-      });
-    }
-    return file.text().then(text => ({ content: text, isBinary: false }));
-  },
-
-  // === Upload: parse file, then go to test selection ===
-  async processFile(file) {
-    if (!file) return;
-    this.loading = true;
-    this.errorMessage = "";
-    this.autoResult = null;
-    this.fileName = file.name;
-    try {
-      const { content } = await this.readFileContent(file);
-      this._buildRawDataFromContent(content, file.name);
-      // Quick summary only — let backend parse and classify
-      const result = await callJsonApi("statistics_auto", {
-        action: "auto_analyze",
-        content: content,
-        filename: file.name,
-      });
-      if (result.status === "ok") {
-        this.columns = result.data_summary?.column_names || [];
-        this.rowCount = result.data_summary?.total_rows || 0;
-        this.hasData = true;
-        this.step = 2;  // Go to test selection, NOT straight to results
-        // Store the full result for "Auto-Analyze" button
-        this.autoResult = result;
-        this.results = JSON.stringify(result, null, 2);
-        this.resultsJson = result;
-        this.persist();
-      } else {
-        this.errorMessage = result.error || "Analysis failed";
-      }
-    } catch (e) {
-      this.errorMessage = "Upload error: " + (e.message || "API unavailable");
-    }
-    this.loading = false;
-  },
-
-  // Called when user clicks "Auto-Analyze All" on step 2
-  showFullAnalysis() {
-    this.step = 3;
-    this.activeAnalysis = "Auto-Analyze";
-    this.viewMode = "auto";
-    this._storeToKB(this.resultsJson);
-  },
-
-  _buildRawDataFromContent(content, filename) {
-    try {
-      if (filename.endsWith(".json")) {
-        const obj = JSON.parse(content);
-        const arr = Array.isArray(obj) ? obj : (obj.data || Object.values(obj)[0] || []);
-        if (arr.length) this._extractNumeric(arr);
-      } else {
-        const lines = content.split("\n").filter(l => l.trim());
-        if (lines.length < 2) return;
-        const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
-        const rows = [];
-        for (let i = 1; i < lines.length; i++) {
-          rows.push(lines[i].split(",").map(v => {
-            const c = v.trim().replace(/^"|"$/g, "");
-            const n = parseFloat(c);
-            return isNaN(n) ? c : n;
-          }));
-        }
-        this._extractNumeric(rows.map(r => {
-          const o = {};
-          headers.forEach((h, i) => o[h] = r[i]);
-          return o;
-        }));
-      }
-    } catch (e) { /* best effort */ }
-  },
-
-  _extractNumeric(items) {
-    const cols = Object.keys(items[0] || {});
-    if (!cols.length) return;
-    // Keep ALL columns (numeric + text) and convert to row arrays
-    this.rawData = items.map(item => cols.map(c => {
-      const v = item[c];
-      const n = parseFloat(v);
-      return isNaN(n) ? (v ?? "") : n;
-    }));
-  },
-
-  // === Sample Data ===
-  useSampleData() {
-    this.fileName = "sample-data.csv";
-    this.columns = ["Treatment", "Response", "Weight", "Age", "Dose", "Score", "Group"];
-    this.rowCount = 50;
-    this.hasData = true;
-    this.step = 2;
-    const gens = {
-      "Treatment": () => Math.random() > 0.5 ? "A" : "B",
-      "Response": () => +(Math.random() * 20 + 50 + (Math.random() > 0.5 ? 5 : -5)).toFixed(2),
-      "Weight": () => +(Math.random() * 30 + 60).toFixed(1),
-      "Age": () => Math.floor(Math.random() * 40 + 25),
-      "Dose": () => +(Math.random() * 5 + 1).toFixed(1),
-      "Score": () => +(Math.random() * 30 + 60).toFixed(1),
-      "Group": () => Math.floor(Math.random() * 3 + 1),
-    };
-    const rows = [];
-    for (let i = 0; i < 50; i++) rows.push(this.columns.map(c => gens[c]()));
-    this._setRawArray(this.columns, rows);
-    this.persist();
-  },
-
-  _setRawArray(headers, rows) {
-    this.rawData = rows.map(row => headers.map((_, ci) => {
-      const v = row[ci];
-      const n = parseFloat(v);
-      return isNaN(n) ? (v ?? "") : n;
-    }));
-  },
-
-  // === Upload trigger ===
+  // === Step 1: Upload ===
   openFilePicker() {
     const input = document.createElement("input");
     input.type = "file";
@@ -170,7 +20,7 @@ Alpine.data("statisticsModal", () => ({
     input.onchange = (e) => {
       const file = e.target.files?.[0];
       input.remove();
-      if (file) this.processFile(file);
+      if (file) this.processUpload(file);
     };
     document.body.appendChild(input);
     input.click();
@@ -178,151 +28,120 @@ Alpine.data("statisticsModal", () => ({
 
   handleDrop(e) {
     const file = e.dataTransfer?.files?.[0];
-    if (file) this.processFile(file);
+    if (file) this.processUpload(file);
   },
 
-  // === Manual test execution ===
-  selectTest(type) {
-    this.testType = type;
-    this.results = "";
-    this.resultsJson = null;
-    this.errorMessage = "";
-    this.activeAnalysis = "";
-    this.persist();
-  },
-
-  async runAnalysis() {
-    if (!this.testType) { this.errorMessage = "Select an analysis type first"; return; }
-    this.activeAnalysis = this.testType;
+  async processUpload(file) {
     this.loading = true;
-    this.results = "";
     this.errorMessage = "";
+    this.fileName = file.name;
+    this.summary = null;
+    this.result = null;
     try {
-      let endpoint = "statistics_analyze";
-      let payload = { action: this.testType, columns: this.columns };
-
-      const tt = this.testType;
-      if (tt === "descriptive") {
-        payload = { action: "descriptive", data: this.rawData || [], columns: this.columns };
-      } else if (tt === "correlation") {
-        if (this.selectedCorrCols.length < 2) { this.errorMessage = "Select at least 2 columns"; this.loading = false; return; }
-        payload = { action: "correlation", data: this.rawData || [], columns: this.columns, selected_cols: this.selectedCorrCols, method: this.correlationMethod };
-      } else if (tt === "ttest") {
-        if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select Group and Value columns"; this.loading = false; return; }
-        payload = { action: "ttest", data: this.rawData || [], columns: this.columns, group_col: this.selectedGroupCol, value_col: this.selectedValueCol, test_type: this.ttestType, equal_var: this.ttestEqualVar };
-      } else if (tt === "anova") {
-        if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select Group and Value columns"; this.loading = false; return; }
-        payload = { action: "anova", data: this.rawData || [], columns: this.columns, group_col: this.selectedGroupCol, value_col: this.selectedValueCol, post_hoc: this.anovaPostHoc };
-      } else if (tt === "chisquare" || tt === "mannwhitney" || tt === "wilcoxon" || tt === "kruskalwallis" || tt === "homogeneity") {
-        if (!this.selectedGroupCol || !this.selectedValueCol) { this.errorMessage = "Select Group and Value columns"; this.loading = false; return; }
-        payload = { action: tt, data: this.rawData || [], columns: this.columns, group_col: this.selectedGroupCol, value_col: this.selectedValueCol };
-      } else if (tt === "friedman" || tt === "fisher" || tt === "normality") {
-        payload = { action: tt, data: this.rawData || [], columns: this.columns };
-      } else if (tt === "power") {
-        payload = { action: "power", test_type: "ttest_ind", effect_size: this.powerEffectSize, alpha: this.powerAlpha, power: this.powerTarget };
-      } else if (tt === "factor" || tt === "reliability") {
-        endpoint = "statistics_reduction";
-        payload = { action: tt, data: this.rawData || [], columns: this.columns };
-      } else if (tt === "cluster") {
-        endpoint = "statistics_reduction";
-        payload = { action: this.clusterMethod === "hierarchical" ? "cluster_hierarchical" : "cluster_kmeans", data: this.rawData || [], columns: this.columns, n_clusters: this.clusterK };
-      } else if (tt === "roc") {
-        endpoint = "statistics_advanced";
-        payload = { action: "roc", y_true: this.rawData?.[0] || [], y_score: this.rawData?.[1] || [] };
+      const { content } = await this.readContent(file);
+      // Step 2+3: AI analyzes file — classifies columns, recommends tests
+      const r = await callJsonApi("statistics_auto", {
+        action: "analyze",
+        content: content,
+        filename: file.name,
+      });
+      if (r.status === "ok") {
+        this.summary = r;
+        this.columns = r.data_summary?.column_names || [];
+        this.rowCount = r.data_summary?.total_rows || 0;
+        this.step = 2;
+        this.testType = r.recommended_test || "";
+      } else {
+        this.errorMessage = r.error || "Upload failed";
       }
-
-      const result = await callJsonApi(endpoint, payload);
-      this.resultsJson = result;
-      this.results = JSON.stringify(result, null, 2);
-      this.step = 3;
-      this.viewMode = "raw";
-      this.autoResult = null;
-      this._storeToKB(result);
     } catch (e) {
-      this.errorMessage = "Analysis failed: " + (e.message || "API unavailable");
+      this.errorMessage = "Upload error: " + (e.message || "API unavailable");
     }
     this.loading = false;
   },
 
-  async _storeToKB(result) {
-    try {
-      const at = this.activeAnalysis || this.testType;
-      const summary = this.results ? this.results.substring(0, 1500) : JSON.stringify(result).substring(0, 1500);
-      await callJsonApi("knowledge", {
-        action: "store", category: "statistics",
-        title: `Statistics: ${at} — ${this.fileName}`,
-        content: `## Statistical Analysis: ${at}\n\n**File:** ${this.fileName}\n**Rows:** ${this.rowCount} | **Columns:** ${this.columns.length}\n\n\`\`\`json\n${summary}\n\`\`\``,
-        tags: `${at},statistics,${this.fileName}`,
-        source: "Statistics Module",
+  readContent(file) {
+    const ext = (file.name || "").split(".").pop().toLowerCase();
+    if (ext === "xlsx" || ext === "xls") {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const bytes = new Uint8Array(reader.result);
+          let b = "";
+          for (let i = 0; i < bytes.length; i += 8192)
+            b += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + 8192, bytes.length)));
+          resolve({ content: btoa(b), isBinary: true });
+        };
+        reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.readAsArrayBuffer(file);
       });
-    } catch (e) { /* silent */ }
-  },
-
-  // === Persistence ===
-  persist() {
-    try {
-      localStorage.setItem("biodockify.statistics", JSON.stringify({
-        fileName: this.fileName, columns: this.columns, rowCount: this.rowCount,
-        testType: this.testType, selectedGroupCol: this.selectedGroupCol,
-        selectedValueCol: this.selectedValueCol, correlationMethod: this.correlationMethod,
-      }));
-    } catch (e) {}
-  },
-
-  restore() {
-    try {
-      const s = JSON.parse(localStorage.getItem("biodockify.statistics") || "{}");
-      if (s.fileName && s.columns?.length) {
-        this.fileName = s.fileName; this.columns = s.columns;
-        this.rowCount = s.rowCount || 0; this.hasData = true; this.step = 2;
-      }
-      if (s.testType) this.testType = s.testType;
-      if (s.selectedGroupCol) this.selectedGroupCol = s.selectedGroupCol;
-      if (s.selectedValueCol) this.selectedValueCol = s.selectedValueCol;
-      if (s.correlationMethod) this.correlationMethod = s.correlationMethod;
-    } catch (e) {}
-  },
-
-  // === Results helpers ===
-  resetData() {
-    this.step = 1; this.hasData = false; this.fileName = ""; this.columns = [];
-    this.rowCount = 0; this.rawData = null; this.testType = null;
-    this.selectedGroupCol = ""; this.selectedValueCol = ""; this.selectedCorrCols = [];
-    this.results = ""; this.resultsJson = null; this.errorMessage = "";
-    this.activeAnalysis = ""; this.viewMode = "auto"; this.autoResult = null;
-  },
-
-  downloadResults(format) {
-    if (!this.resultsJson) return;
-    let content, mime, ext;
-    if (format === "csv") {
-      const r = this.resultsJson?.results || this.resultsJson;
-      content = "key,value\n" + Object.entries(r || {}).map(([k, v]) => `${k},${v}`).join("\n");
-      mime = "text/csv"; ext = "csv";
-    } else {
-      content = JSON.stringify(this.resultsJson, null, 2);
-      mime = "application/json"; ext = "json";
     }
-    const blob = new Blob([content], { type: mime });
+    return file.text().then(t => ({ content: t, isBinary: false }));
+  },
+
+  // === Step 2 → Run Selected Test ===
+  async runSelectedTest() {
+    if (!this.testType) { this.errorMessage = "Select a test type"; return; }
+    this.loading = true;
+    this.errorMessage = "";
+    this.result = null;
+    try {
+      // Step 3-6: AI decides sub-type, performs test, returns results + explanations
+      const r = await callJsonApi("statistics_analyze", {
+        action: "auto_decide",
+        test_type: this.testType,
+        columns: this.columns,
+        summary: this.summary?.data_summary || {},
+      });
+      if (r.status === "ok") {
+        this.result = r;
+        this.step = 3;
+      } else {
+        this.errorMessage = r.error || "Analysis failed";
+      }
+    } catch (e) {
+      this.errorMessage = "Analysis error: " + (e.message || "API unavailable");
+    }
+    this.loading = false;
+  },
+
+  // === Navigation ===
+  resetData() {
+    this.step = 1;
+    this.fileName = "";
+    this.columns = [];
+    this.rowCount = 0;
+    this.summary = null;
+    this.testType = "";
+    this.result = null;
+    this.errorMessage = "";
+  },
+
+  goBack() {
+    this.step = 2;
+    this.result = null;
+  },
+
+  // === Save ===
+  saveToKB() {
+    if (typeof $store !== "undefined" && $store.knowledgeModal?.addNoteBookEntry && this.result) {
+      $store.knowledgeModal.addNoteBookEntry(
+        `${this.testType} — ${this.fileName}`,
+        JSON.stringify(this.result, null, 2),
+        "Statistical Analysis",
+        ["statistics", this.testType]
+      );
+    }
+  },
+
+  downloadJSON() {
+    if (!this.result) return;
+    const blob = new Blob([JSON.stringify(this.result, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = `statistics-results.${ext}`;
-    a.click(); URL.revokeObjectURL(url);
+    a.href = url;
+    a.download = "statistics-result.json";
+    a.click();
+    URL.revokeObjectURL(url);
   },
-
-  saveToNotebook() {
-    if (!this.resultsJson) return;
-    const title = `${this.activeAnalysis || "Analysis"} on ${this.fileName || "data"}`;
-    const content = typeof this.results === "string" ? this.results : JSON.stringify(this.resultsJson || {}, null, 2);
-    if (typeof $store !== "undefined" && $store.knowledgeModal?.addNoteBookEntry) {
-      $store.knowledgeModal.addNoteBookEntry(title, content, "Statistical Analysis", ["statistics", this.activeAnalysis || "analysis"]);
-    }
-  },
-
-  sendToAgent(prompt) {
-    const input = document.getElementById("chat-input");
-    if (input) { input.value = prompt; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); }
-  },
-
-  closeModal() { this.resetData(); if (typeof closeModal === "function") closeModal(); },
 }));

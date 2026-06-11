@@ -3,328 +3,238 @@
   <script type="module" src="/components/statistics/statistics-store.js"></script>
 </head>
 <body>
-  <div x-data="statisticsModal" class="stats-panel" x-init="restore()">
+  <div x-data="statisticsModal" class="sp" x-init="restore">
     <!-- Header -->
-    <div class="st-header">
-      <span class="material-symbols-outlined st-hicon">analytics</span>
-      <div><h2>Statistical Analysis</h2><p class="st-sub">Upload data · Auto-Analyze · 20 Tests</p></div>
-      <div class="st-steps">
-        <span class="st-step" :class="{on:step>=1}">1<span class="st-step-label">Upload</span></span>
-        <span class="st-step-bar" :class="{on:step>=2}"></span>
-        <span class="st-step" :class="{on:step>=2}">2<span class="st-step-label">Test</span></span>
-        <span class="st-step-bar" :class="{on:step>=3}"></span>
-        <span class="st-step" :class="{on:step>=3}">3<span class="st-step-label">Results</span></span>
+    <div class="sh">
+      <span class="material-symbols-outlined" style="font-size:22px;color:var(--color-primary)">analytics</span>
+      <div><h2>Statistical Analysis</h2><p style="font-size:0.55rem;color:var(--color-text-muted);margin:0">Upload · AI Analyzes · AI Performs Test · Results</p></div>
+      <div class="ss">
+        <span class="sstep" :class="{on:step>=1}"><b>1</b><small>Upload</small></span>
+        <span class="sbar" :class="{on:step>=2}"></span>
+        <span class="sstep" :class="{on:step>=2}"><b>2</b><small>Choose Test</small></span>
+        <span class="sbar" :class="{on:step>=3}"></span>
+        <span class="sstep" :class="{on:step>=3}"><b>3</b><small>Results</small></span>
       </div>
     </div>
 
-    <!-- Error -->
-    <div x-show="errorMessage" class="st-err" x-text="errorMessage" @click="errorMessage=''" style="cursor:pointer"></div>
+    <div x-show="errorMessage" class="se" x-text="errorMessage" @click="errorMessage=''" style="cursor:pointer"></div>
 
     <!-- ===== STEP 1: Upload ===== -->
-    <div x-show="step === 1" class="st-body">
-      <div class="st-upload" @click="openFilePicker()" @dragover.prevent @drop.prevent="handleDrop($event)">
-        <span class="material-symbols-outlined" style="font-size:40px;color:var(--color-primary);opacity:0.7">cloud_upload</span>
-        <p style="color:var(--color-text);font-weight:600;margin:8px 0 4px">Drop file or click to browse</p>
-        <p style="color:var(--color-text-muted);font-size:0.72rem">CSV · Excel · JSON — auto-analyzes everything</p>
+    <div x-show="step === 1" class="sb">
+      <div class="su" @click="openFilePicker()" @dragover.prevent @drop.prevent="handleDrop($event)">
+        <span class="material-symbols-outlined" style="font-size:44px;color:var(--color-primary);opacity:0.7">cloud_upload</span>
+        <p style="color:var(--color-text);font-weight:600;margin:10px 0 4px;font-size:0.95rem">Drop file or click to browse</p>
+        <p style="color:var(--color-text-muted);font-size:0.72rem">CSV, Excel, JSON — AI will analyze and recommend tests</p>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <span class="sb">CSV</span><span class="sb">Excel</span><span class="sb">JSON</span>
+        </div>
       </div>
-      <button class="st-sample-btn" @click="useSampleData()">Use sample data (skip upload)</button>
+      <div x-show="loading" style="text-align:center;padding:12px;color:var(--color-text-muted);font-size:0.64rem">
+        <span class="spin"></span> Analyzing file...
+      </div>
     </div>
 
-    <!-- ===== STEP 2: Choose Test ===== -->
-    <div x-show="step === 2" class="st-body">
-      <div class="st-info">
+    <!-- ===== STEP 2: Choose Test & AI Recommendation ===== -->
+    <div x-show="step === 2" class="sb">
+      <!-- Data summary from AI -->
+      <div class="sc">
         <span class="material-symbols-outlined" style="font-size:16px;color:#22c55e">check_circle</span>
-        <b x-text="fileName"></b>
-        <span style="color:var(--color-text-muted);font-size:0.7rem" x-text="'(' + rowCount + ' rows, ' + columns.length + ' cols)'"></span>
-        <button class="st-link" @click="resetData()">Change</button>
+        <b x-text="fileName" style="font-size:0.72rem"></b>
+        <span style="color:var(--color-text-muted);font-size:0.64rem" x-text="'(' + rowCount + ' rows, ' + columns.length + ' cols)'"></span>
+        <button class="sl" @click="resetData()">Change</button>
       </div>
 
-      <!-- Auto-Analyze Everything button -->
-      <template x-if="autoResult">
-        <button class="st-auto-btn" @click="showFullAnalysis()">
-          <span class="material-symbols-outlined">auto_awesome</span>
-          Auto-Analyze Everything — descriptive, correlation, normality, group tests in one view
-        </button>
+      <template x-if="summary">
+        <div>
+          <!-- AI Recommendations -->
+          <div class="sr" x-show="summary?.recommended_test">
+            <span class="material-symbols-outlined" style="font-size:16px;color:#6366f1">psychology</span>
+            <div>
+              <b style="font-size:0.62rem;color:#6366f1">AI Recommendation</b>
+              <p style="font-size:0.56rem;color:var(--color-text-muted);margin:2px 0 0" x-text="summary.recommendation_text || 'Based on data structure'"></p>
+            </div>
+          </div>
+
+          <!-- Column info -->
+          <div style="font-size:0.54rem;color:var(--color-text-muted);margin:8px 0 6px">
+            <span x-text="'Numeric: ' + (summary.data_summary?.numeric_columns || []).join(', ') || 'none'"></span>
+            <span x-show="summary.data_summary?.group_columns?.length" style="margin-left:10px" x-text="' | Groups: ' + (summary.data_summary?.group_columns || []).join(', ')"></span>
+          </div>
+
+          <!-- Test selector -->
+          <h3 style="font-size:0.68rem;font-weight:700;color:var(--color-text);margin:0 0 6px">Select Statistical Test</h3>
+          <div class="stg">
+            <button class="stc" :class="{on:testType==='ttest'}" @click="testType='ttest'">
+              <span class="material-symbols-outlined">compare_arrows</span>
+              <span>T-Test</span><small>Compare 2 groups</small>
+            </button>
+            <button class="stc" :class="{on:testType==='anova'}" @click="testType='anova'">
+              <span class="material-symbols-outlined">grid_view</span>
+              <span>ANOVA</span><small>Compare 3+ groups</small>
+            </button>
+            <button class="stc" :class="{on:testType==='correlation'}" @click="testType='correlation'">
+              <span class="material-symbols-outlined">show_chart</span>
+              <span>Correlation</span><small>Relationships</small>
+            </button>
+            <button class="stc" :class="{on:testType==='descriptive'}" @click="testType='descriptive'">
+              <span class="material-symbols-outlined">functions</span>
+              <span>Descriptive</span><small>Summary stats</small>
+            </button>
+            <button class="stc" :class="{on:testType==='chisquare'}" @click="testType='chisquare'">
+              <span class="material-symbols-outlined">table_chart</span>
+              <span>Chi-Square</span><small>Categorical</small>
+            </button>
+            <button class="stc" :class="{on:testType==='mannwhitney'}" @click="testType='mannwhitney'">
+              <span class="material-symbols-outlined">sort</span>
+              <span>Mann-Whitney</span><small>Non-parametric</small>
+            </button>
+            <button class="stc" :class="{on:testType==='normality'}" @click="testType='normality'">
+              <span class="material-symbols-outlined">bar_chart</span>
+              <span>Normality</span><small>Distribution check</small>
+            </button>
+            <button class="stc" :class="{on:testType==='survival'}" @click="testType='survival'">
+              <span class="material-symbols-outlined">timeline</span>
+              <span>Survival</span><small>Time-to-event</small>
+            </button>
+            <button class="stc" :class="{on:testType==='regression'}" @click="testType='regression'">
+              <span class="material-symbols-outlined">trending_up</span>
+              <span>Regression</span><small>Prediction</small>
+            </button>
+            <button class="stc" :class="{on:testType==='roc'}" @click="testType='roc'">
+              <span class="material-symbols-outlined">troubleshoot</span>
+              <span>ROC/AUC</span><small>Diagnostic</small>
+            </button>
+            <button class="stc" :class="{on:testType==='factor'}" @click="testType='factor'">
+              <span class="material-symbols-outlined">account_tree</span>
+              <span>PCA</span><small>Dimension reduce</small>
+            </button>
+            <button class="stc" :class="{on:testType==='cluster'}" @click="testType='cluster'">
+              <span class="material-symbols-outlined">bubble_chart</span>
+              <span>Cluster</span><small>Grouping</small>
+            </button>
+          </div>
+
+          <!-- Run button -->
+          <button class="sr1" @click="runSelectedTest()" :disabled="loading || !testType" x-text="loading ? 'Running...' : 'Run Analysis'"></button>
+          <div x-show="loading" style="text-align:center;padding:8px;color:var(--color-text-muted);font-size:0.6rem"><span class="spin"></span> AI analyzing and performing test...</div>
+        </div>
       </template>
-
-      <!-- OR select specific test -->
-      <div class="st-divider" x-show="autoResult"><span>OR select a specific test</span></div>
-      <h3 class="st-h3">Choose Analysis Type</h3>
-      <select x-model="testType" class="st-select" @change="selectTest(testType)" style="width:100%;margin-bottom:8px">
-        <option value="">-- Select test --</option>
-        <option value="descriptive">Descriptive Statistics</option>
-        <option value="correlation">Correlation</option>
-        <option value="ttest">T-Test</option>
-        <option value="anova">ANOVA</option>
-        <option value="regression">Regression</option>
-        <option value="chisquare">Chi-Square</option>
-        <option value="mannwhitney">Mann-Whitney U</option>
-        <option value="wilcoxon">Wilcoxon Signed Rank</option>
-        <option value="kruskalwallis">Kruskal-Wallis</option>
-        <option value="friedman">Friedman Test</option>
-        <option value="fisher">Fisher Exact</option>
-        <option value="normality">Normality (Shapiro-Wilk)</option>
-        <option value="homogeneity">Homogeneity (Levene)</option>
-        <option value="roc">ROC Curve</option>
-        <option value="power">Power Analysis</option>
-        <option value="survival">Survival Analysis</option>
-        <option value="factor">Factor Analysis (PCA)</option>
-        <option value="reliability">Reliability (Cronbach α)</option>
-        <option value="cluster">Cluster Analysis</option>
-        <option value="pkpd">PK/PD</option>
-      </select>
-
-      <!-- Test params -->
-      <div x-show="testType" class="st-params">
-        <template x-if="['correlation'].includes(testType)">
-          <div>
-            <label class="st-label">Select columns</label>
-            <div class="st-chips">
-              <template x-for="c in columns" :key="c">
-                <label class="st-chip" :class="{on:selectedCorrCols.includes(c)}">
-                  <input type="checkbox" :value="c" x-model="selectedCorrCols" hidden>
-                  <span x-text="c"></span>
-                </label>
-              </template>
-            </div>
-            <label class="st-label" style="margin-top:6px">Method</label>
-            <select x-model="correlationMethod" class="st-select">
-              <option value="pearson">Pearson</option>
-              <option value="spearman">Spearman</option>
-              <option value="kendall">Kendall</option>
-            </select>
-          </div>
-        </template>
-
-        <template x-if="['ttest','anova','chisquare','mannwhitney','wilcoxon','kruskalwallis','homogeneity'].includes(testType)">
-          <div class="st-row">
-            <div><label class="st-label">Group Column</label>
-              <select x-model="selectedGroupCol" class="st-select"><option value="">-- Select --</option>
-                <template x-for="c in columns" :key="c"><option :value="c" x-text="c"></option></template>
-              </select>
-            </div>
-            <div><label class="st-label">Value Column</label>
-              <select x-model="selectedValueCol" class="st-select"><option value="">-- Select --</option>
-                <template x-for="c in columns" :key="c"><option :value="c" x-text="c"></option></template>
-              </select>
-            </div>
-          </div>
-        </template>
-
-        <template x-if="testType==='ttest'">
-          <div class="st-row" style="margin-top:4px">
-            <label><input type="radio" value="independent" x-model="ttestType"> Independent</label>
-            <label><input type="radio" value="paired" x-model="ttestType"> Paired</label>
-            <label><input type="checkbox" x-model="ttestEqualVar"> Equal variance</label>
-          </div>
-        </template>
-
-        <template x-if="testType==='anova'">
-          <label style="margin-top:4px"><input type="checkbox" x-model="anovaPostHoc"> Post-hoc (Tukey HSD)</label>
-        </template>
-
-        <template x-if="testType==='cluster'">
-          <div class="st-row">
-            <div><label class="st-label">Clusters (K)</label><input type="number" x-model="clusterK" min="2" max="10" class="st-input" style="width:60px"></div>
-            <div><label class="st-label">Method</label><select x-model="clusterMethod" class="st-select"><option value="kmeans">K-Means</option><option value="hierarchical">Hierarchical</option></select></div>
-          </div>
-        </template>
-
-        <template x-if="testType==='power'">
-          <div class="st-row">
-            <div><label class="st-label">Effect Size</label><input type="number" x-model="powerEffectSize" step="0.1" min="0.1" class="st-input" style="width:70px"></div>
-            <div><label class="st-label">Alpha</label><input type="number" x-model="powerAlpha" step="0.01" class="st-input" style="width:70px"></div>
-            <div><label class="st-label">Power</label><input type="number" x-model="powerTarget" step="0.05" class="st-input" style="width:70px"></div>
-          </div>
-        </template>
-
-        <template x-if="['regression','survival','pkpd'].includes(testType)">
-          <div class="st-note">Agent-driven — type request in chat panel.</div>
-        </template>
-
-        <template x-if="['friedman','fisher','normality','descriptive','factor','reliability','roc'].includes(testType)">
-          <div class="st-note">All numeric columns used automatically.</div>
-        </template>
-      </div>
-
-      <button class="st-run" @click="runAnalysis()" :disabled="loading || !testType" x-text="loading ? 'Running...' : 'Run Analysis'"></button>
-      <div x-show="loading" class="st-loading"><span class="st-spin"></span> Processing data...</div>
     </div>
 
     <!-- ===== STEP 3: Results ===== -->
-    <div x-show="step === 3" class="st-body">
-      <div class="st-info">
+    <div x-show="step === 3 && result" class="sb">
+      <div class="sc">
         <span class="material-symbols-outlined" style="font-size:16px;color:#22c55e">check_circle</span>
-        <b x-text="fileName"></b>
-        <span style="color:var(--color-text-muted);font-size:0.7rem" x-text="'(' + rowCount + ' rows, ' + columns.length + ' cols)'"></span>
-        <template x-if="autoResult"><span class="st-badge">Auto</span></template>
-        <button class="st-link" @click="resetData()">New</button>
-        <button class="st-link" @click="step=2;autoResult=null;testType=null;results='';resultsJson=null">Manual</button>
-        <button class="st-btn" @click="downloadResults('csv')" :disabled="!results">CSV</button>
-        <button class="st-btn" @click="saveToNotebook()" :disabled="!results" style="background:#6366f1">KB</button>
-        <button class="st-btn" @click="sendToAgent('Analyze this statistical dataset: ' + columns.join(', ') + '. Rows: ' + rowCount + '. Recommend appropriate tests and interpret the auto-analysis results: ' + (results || '').substring(0,1000))" :disabled="!results" style="background:#a855f7">AI</button>
+        <b x-text="result?.test_name || testType"></b>
+        <span x-show="result?.sub_type" style="font-size:0.55rem;padding:1px 6px;background:color-mix(in srgb,var(--color-primary)15%,transparent);border-radius:8px;color:var(--color-primary);font-weight:600" x-text="result.sub_type"></span>
+        <button class="sl" style="margin-left:auto" @click="goBack()">Back</button>
+        <button class="sl" @click="resetData()">New</button>
+        <button style="padding:3px 8px;background:var(--color-primary);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.56rem;font-weight:600" @click="downloadJSON()">JSON</button>
+        <button style="padding:3px 8px;background:#6366f1;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.56rem;font-weight:600" @click="saveToKB()">Save</button>
       </div>
 
-      <!-- Auto-Analyze View -->
-      <div x-show="autoResult" class="st-auto">
-        <!-- Step-by-step explanations -->
-        <div class="st-card" style="background:color-mix(in srgb, var(--color-primary) 5%, var(--color-panel));border-color:color-mix(in srgb, var(--color-primary) 20%, var(--color-border))">
-          <h4 style="color:var(--color-primary)">How Your Data Was Analyzed</h4>
-          <template x-for="exp in (autoResult?.explanations || [])" :key="exp.step">
-            <div style="margin-bottom:8px;border-left:3px solid color-mix(in srgb, var(--color-primary) 40%, var(--color-border));padding-left:10px">
-              <div style="font-size:0.58rem;font-weight:700;color:var(--color-primary);margin-bottom:2px" x-text="'Step '+exp.step+': '+exp.title"></div>
-              <div style="font-size:0.54rem;color:var(--color-text-muted);line-height:1.4" x-text="exp.detail"></div>
+      <!-- Metric summary -->
+      <template x-if="result?.metrics">
+        <div class="sm">
+          <template x-for="(v,k) in result.metrics" :key="k">
+            <div class="sm1">
+              <small class="sml" x-text="k"></small>
+              <span class="smv" x-text="typeof v==='number'?v.toFixed(4):v"></span>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <!-- Group comparison -->
+      <template x-if="result?.groups?.length">
+        <div class="sc1">
+          <h4>Group Comparison</h4>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+            <template x-for="g in result.groups" :key="g.name">
+              <div style="flex:1;min-width:80px;padding:8px;background:var(--color-background);border:1px solid var(--color-border);border-radius:6px;text-align:center">
+                <div style="font-size:0.6rem;font-weight:600;color:var(--color-text)" x-text="g.name"></div>
+                <div style="font-size:0.72rem;font-weight:700;color:var(--color-primary)" x-text="g.mean?.toFixed(2)"></div>
+                <div style="font-size:0.48rem;color:var(--color-text-muted)" x-text="'n='+g.n"></div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <!-- Correlation matrix -->
+      <template x-if="result?.correlation?.matrix">
+        <div class="sc1">
+          <h4>Correlation Matrix</h4>
+          <div style="overflow-x:auto;font-size:0.52rem">
+            <table style="width:100%;border-collapse:collapse">
+              <tr><th></th><template x-for="c in result.correlation.columns" :key="c"><th style="padding:2px 5px;text-align:left;color:var(--color-text-muted)" x-text="c"></th></template></tr>
+              <template x-for="(row,ri) in result.correlation.matrix" :key="ri">
+                <tr><td style="font-weight:600;color:var(--color-primary);padding:2px 5px" x-text="result.correlation.columns[ri]"></td>
+                  <template x-for="v in row"><td style="padding:2px 5px" :style="{color:Math.abs(v)>0.7?'var(--color-primary)':'var(--color-text)',fontWeight:Math.abs(v)>0.7?'700':'400'}" x-text="v?.toFixed(2)"></td></template>
+                </tr>
+              </template>
+            </table>
+          </div>
+        </div>
+      </template>
+
+      <!-- Step-by-step explanation -->
+      <template x-if="result?.explanations?.length">
+        <div class="sc1" style="background:color-mix(in srgb,var(--color-primary)4%,var(--color-panel));border-color:color-mix(in srgb,var(--color-primary)18%,var(--color-border))">
+          <h4 style="color:var(--color-primary)">How AI Analyzed Your Data</h4>
+          <template x-for="exp in result.explanations" :key="exp.step">
+            <div style="margin-bottom:7px;border-left:2px solid color-mix(in srgb,var(--color-primary)35%,var(--color-border));padding-left:9px">
+              <div style="font-size:0.56rem;font-weight:700;color:var(--color-primary);margin-bottom:1px" x-text="'Step '+exp.step+': '+exp.title"></div>
+              <div style="font-size:0.52rem;color:var(--color-text-muted);line-height:1.4" x-text="exp.detail"></div>
               <template x-if="exp.findings?.length">
-                <div style="margin-top:3px">
-                  <template x-for="f in exp.findings" :key="f">
-                    <div style="font-size:0.52rem;color:var(--color-text);padding:2px 6px;margin:1px 0;background:var(--color-background);border-radius:3px" :class="{'st-expl-sig': exp.significant === true}" x-text="'• ' + f"></div>
-                  </template>
+                <div style="margin-top:2px">
+                  <template x-for="f in exp.findings"><div style="font-size:0.5rem;color:var(--color-text);padding:1px 5px;margin:1px 0;background:var(--color-background);border-radius:3px" x-text="'• '+f"></div></template>
                 </div>
               </template>
             </div>
           </template>
         </div>
-
-        <div class="st-card">
-          <h4>Data Summary</h4>
-          <div class="st-summary">
-            <span><b x-text="autoResult?.data_summary?.total_rows"></b> Rows</span>
-            <span><b x-text="autoResult?.data_summary?.total_columns"></b> Cols</span>
-            <span><b x-text="autoResult?.data_summary?.numeric_columns?.length"></b> Numeric</span>
-            <span><b x-text="autoResult?.data_summary?.categorical_columns?.length"></b> Categorical</span>
-          </div>
-          <small style="color:var(--color-text-muted)" x-text="'Numeric: ' + (autoResult?.data_summary?.numeric_columns || []).join(', ')"></small>
-        </div>
-
-        <div class="st-card" x-show="autoResult?.descriptive && Object.keys(autoResult.descriptive).filter(k=>k!=='_error').length">
-          <h4>Descriptive Statistics</h4>
-          <div class="st-table-wrap"><table class="st-table">
-            <tr><th>Col</th><th>N</th><th>Mean</th><th>Med</th><th>Std</th><th>Min</th><th>Max</th><th>Skew</th></tr>
-            <template x-for="(v,k) in autoResult?.descriptive || {}" :key="k">
-              <tr x-show="v && typeof v.n === 'number'">
-                <td class="tc"><b x-text="k"></b></td>
-                <td x-text="v.n"></td><td x-text="v.mean"></td><td x-text="v.median"></td>
-                <td x-text="v.std"></td><td x-text="v.min"></td><td x-text="v.max"></td><td x-text="v.skewness"></td>
-              </tr>
-            </template>
-          </table></div>
-        </div>
-
-        <div class="st-card" x-show="autoResult?.correlation?.matrix">
-          <h4>Correlation Matrix (Pearson)</h4>
-          <div class="st-table-wrap"><table class="st-table">
-            <tr><th></th><template x-for="c in autoResult?.correlation?.columns" :key="c"><th x-text="c"></th></template></tr>
-            <template x-for="(row,ri) in autoResult?.correlation?.matrix" :key="ri">
-              <tr><td class="tc"><b x-text="autoResult?.correlation?.columns[ri]"></b></td>
-                <template x-for="(v,ci) in row" :key="ci">
-                  <td :class="{'tstrong':Math.abs(v)>0.7,'tmed':Math.abs(v)>0.4}" x-text="v"></td>
-                </template>
-              </tr>
-            </template>
-          </table></div>
-        </div>
-
-        <div class="st-card" x-show="autoResult?.group_tests && Object.keys(autoResult.group_tests).filter(k=>k!=='_error').length">
-          <h4>Group Comparison</h4>
-          <template x-for="(v,k) in autoResult?.group_tests||{}" :key="k">
-            <div class="st-gcard" x-show="v && v.test">
-              <span class="st-gname" x-text="k"></span>
-              <span class="st-gtest" x-text="v.test"></span>
-              <span class="st-gp" :class="{sig:v.significant}" x-text="'p='+v.p_value"></span>
-              <div class="st-gchips"><template x-for="(gv,gk) in v.groups||{}" :key="gk">
-                <span x-text="gk+': n='+gv.n+', x̄='+gv.mean"></span>
-              </template></div>
-            </div>
-          </template>
-        </div>
-
-        <button class="st-link" style="margin-top:6px" @click="viewMode=viewMode==='raw'?'auto':'raw'" x-text="viewMode==='raw'?'Hide JSON':'Show JSON'"></button>
-        <pre x-show="viewMode==='raw'" class="st-json" x-text="results"></pre>
-      </div>
-
-      <!-- Manual Test View -->
-      <div x-show="!autoResult" class="st-manual">
-        <div x-show="results" class="st-card">
-          <div class="st-row" style="margin-bottom:4px">
-            <button class="st-tab" :class="{on:viewMode==='raw'}" @click="viewMode='raw'">Raw</button>
-            <button class="st-tab" :class="{on:viewMode==='table'}" @click="viewMode='table'">Table</button>
-          </div>
-          <pre x-show="viewMode==='raw'" class="st-json" x-text="results"></pre>
-          <div x-show="viewMode==='table'" x-html="formatTable(results)"></div>
-        </div>
-        <div x-show="!results && !loading" class="st-empty">Run a test from Step 2</div>
-      </div>
+      </template>
     </div>
 
     <style>
-      .stats-panel{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background)}
-      .st-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--color-border);flex-shrink:0}
-      .st-hicon{font-size:24px;color:var(--color-primary)}
-      .st-header h2{font-size:0.92rem;margin:0;font-weight:700;color:var(--color-text)}
-      .st-sub{font-size:0.58rem;color:var(--color-text-muted);margin:1px 0 0}
-      .st-steps{display:flex;align-items:center;gap:4px;margin-left:auto}
-      .st-step{display:flex;align-items:center;gap:4px;font-size:0.65rem;font-weight:700;color:var(--color-border);opacity:0.4}
-      .st-step.on{color:var(--color-primary);opacity:1}
-      .st-step-bar{width:18px;height:2px;background:var(--color-border)}
-      .st-step-bar.on{background:var(--color-primary)}
-      .st-step-label{font-weight:400;font-size:0.55rem}
-      .st-err{padding:6px 12px;margin:8px 16px 0;background:rgba(255,107,107,0.08);border:1px solid rgba(255,107,107,0.2);border-radius:6px;color:var(--color-error-text);font-size:0.62rem}
-      .st-body{flex:1;overflow-y:auto;padding:16px}
-      .st-upload{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;border:2px dashed var(--color-border);border-radius:12px;cursor:pointer;transition:all .15s;background:var(--color-panel)}
-      .st-upload:hover{border-color:var(--color-primary);background:var(--color-panel)}
-      .st-sample-btn{display:block;width:100%;margin-top:10px;padding:8px;background:var(--color-panel);border:1px dashed var(--color-border);border-radius:8px;color:var(--color-text-muted);cursor:pointer;font-size:0.7rem;text-align:center}
-      .st-sample-btn:hover{border-color:var(--color-primary);color:var(--color-primary)}
-      .st-info{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:12px;font-size:0.75rem;flex-wrap:wrap}
-      .st-link{padding:2px 8px;background:transparent;border:1px solid var(--color-border);border-radius:4px;color:var(--color-text-muted);cursor:pointer;font-size:0.62rem;margin-left:auto}
-      .st-link:hover{border-color:var(--color-primary);color:var(--color-primary)}
-      .st-btn{display:inline-flex;align-items:center;gap:3px;padding:4px 10px;background:var(--color-primary);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.62rem;font-weight:600}
-      .st-btn:disabled{opacity:.5;cursor:default}
-      .st-h3{font-size:0.68rem;font-weight:700;color:var(--color-text);margin:0 0 6px}
-      .st-select{padding:6px 10px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-panel);color:var(--color-text);font-size:0.64rem;box-sizing:border-box}
-      .st-select:focus{outline:none;border-color:var(--color-primary)}
-      .st-input{padding:5px 8px;border:1px solid var(--color-border);border-radius:4px;background:var(--color-panel);color:var(--color-text);font-size:0.64rem;text-align:center}
-      .st-input:focus{outline:none;border-color:var(--color-primary)}
-      .st-label{display:block;font-size:0.58rem;font-weight:600;color:var(--color-text-muted);margin-bottom:3px}
-      .st-params{margin-top:10px;padding:10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px}
-      .st-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
-      .st-row>div{flex:1;min-width:120px}
-      .st-chips{display:flex;flex-wrap:wrap;gap:4px}
-      .st-chip{padding:3px 10px;border:1px solid var(--color-border);border-radius:5px;cursor:pointer;font-size:0.58rem;color:var(--color-text-muted)}
-      .st-chip.on{background:var(--color-primary);color:#fff;border-color:var(--color-primary)}
-      .st-note{padding:8px 10px;background:var(--color-panel);border-radius:6px;font-size:0.6rem;color:var(--color-text-muted)}
-      .st-run{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:12px;padding:10px;background:var(--color-primary);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600}
-      .st-run:disabled{opacity:.5;cursor:default}
-      .st-loading{display:flex;align-items:center;gap:6px;font-size:0.64rem;color:var(--color-text-muted);margin-top:8px}
-      .st-spin{width:14px;height:14px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin .8s linear infinite}
+      .sp{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background)}
+      .sh{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--color-border);flex-shrink:0}
+      .sh h2{font-size:0.85rem;margin:0;font-weight:700;color:var(--color-text)}
+      .ss{display:flex;align-items:center;gap:3px;margin-left:auto}
+      .sstep{display:flex;align-items:center;gap:3px;font-size:0.6rem;color:var(--color-border);opacity:0.35}
+      .sstep b{font-size:0.62rem}
+      .sstep.on{color:var(--color-primary);opacity:1}
+      .sstep small{font-weight:400;font-size:0.5rem}
+      .sbar{width:14px;height:2px;background:var(--color-border)}
+      .sbar.on{background:var(--color-primary)}
+      .se{padding:5px 12px;margin:6px 14px 0;background:rgba(255,107,107,.06);border:1px solid rgba(255,107,107,.2);border-radius:5px;color:var(--color-error-text);font-size:0.58rem}
+      .sb{flex:1;overflow-y:auto;padding:14px}
+      .su{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;border:2px dashed var(--color-border);border-radius:12px;cursor:pointer;transition:.15s;background:var(--color-panel)}
+      .su:hover{border-color:var(--color-primary)}
+      .sb{display:inline-flex;padding:2px 8px;background:var(--color-background);border:1px solid var(--color-border);border-radius:5px;font-size:0.6rem;color:var(--color-text-muted);font-weight:600}
+      .sc{display:flex;align-items:center;gap:6px;padding:7px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:7px;margin-bottom:10px;flex-wrap:wrap;font-size:0.68rem}
+      .sc h4{font-size:0.62rem;font-weight:700;color:var(--color-text);margin:0 0 5px}
+      .sc1{padding:9px 11px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:7px;margin-bottom:6px}
+      .sl{padding:2px 7px;background:transparent;border:1px solid var(--color-border);border-radius:4px;color:var(--color-text-muted);cursor:pointer;font-size:0.54rem}
+      .sl:hover{border-color:var(--color-primary);color:var(--color-primary)}
+      .sr{display:flex;align-items:flex-start;gap:6px;padding:8px 10px;background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.15);border-radius:7px;margin-bottom:10px}
+      .stg{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:5px;margin-bottom:10px}
+      .stc{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 5px;background:var(--color-panel);border:2px solid var(--color-border);border-radius:8px;cursor:pointer;transition:.12s;text-align:center}
+      .stc:hover{border-color:var(--color-primary)}
+      .stc.on{border-color:var(--color-primary);background:color-mix(in srgb,var(--color-primary)8%,var(--color-panel))}
+      .stc .material-symbols-outlined{font-size:18px;color:var(--color-primary)}
+      .stc span{font-size:0.62rem;font-weight:700;color:var(--color-text)}
+      .stc small{font-size:0.5rem;color:var(--color-text-muted)}
+      .sr1{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:10px;background:var(--color-primary);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.72rem;font-weight:600;transition:.15s}
+      .sr1:hover:not(:disabled){opacity:.9}
+      .sr1:disabled{opacity:.4;cursor:default}
+      .sm{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+      .sm1{display:flex;flex-direction:column;align-items:center;padding:6px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;min-width:55px}
+      .sml{font-size:0.46rem;color:var(--color-text-muted);text-transform:uppercase}
+      .smv{font-size:0.72rem;font-weight:700;color:var(--color-primary)}
+      .spin{width:12px;height:12px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin .8s linear infinite;display:inline-block;margin-right:4px;vertical-align:middle}
       @keyframes spin{to{transform:rotate(360deg)}}
-      .st-badge{padding:1px 7px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);border-radius:8px;font-size:0.5rem;color:#6366f1;font-weight:600}
-      .st-auto{display:flex;flex-direction:column;gap:8px}
-      .st-card{padding:10px 12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px}
-      .st-card h4{font-size:0.62rem;font-weight:700;color:var(--color-text);margin:0 0 6px}
-      .st-summary{display:flex;gap:12px;font-size:0.6rem;color:var(--color-text-muted);margin-bottom:4px}
-      .st-table-wrap{overflow-x:auto}
-      .st-table{width:100%;border-collapse:collapse;font-size:0.54rem}
-      .st-table th,.st-table td{padding:2px 6px;text-align:left;border-bottom:1px solid var(--color-border);white-space:nowrap}
-      .st-table th{font-weight:600;color:var(--color-text-muted)}
-      .tc{color:var(--color-primary)!important;font-weight:600}
-      .tstrong{color:var(--color-primary)!important;font-weight:700}
-      .tmed{font-weight:600}
-      .st-gcard{padding:6px 8px;background:var(--color-background);border:1px solid var(--color-border);border-radius:5px;margin-bottom:4px}
-      .st-gname{font-size:0.54rem;font-weight:600}
-      .st-gtest{font-size:0.5rem;padding:1px 5px;background:var(--color-panel);border-radius:3px;margin:0 6px;color:var(--color-primary)}
-      .st-gp{font-size:0.55rem;font-weight:700}
-      .st-gp.sig{color:#22c55e}
-      .st-gchips{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px;font-size:0.48rem;color:var(--color-text-muted)}
-      .st-json{padding:8px 10px;background:var(--color-background);border:1px solid var(--color-border);border-radius:6px;font-size:0.56rem;font-family:monospace;color:var(--color-text);white-space:pre-wrap;max-height:400px;overflow-y:auto;margin:0}
-      .st-manual .st-tab{padding:3px 8px;background:transparent;border:1px solid var(--color-border);border-radius:3px;cursor:pointer;font-size:0.56rem;color:var(--color-text-muted)}
-      .st-manual .st-tab.on{background:var(--color-primary);color:#fff;border-color:var(--color-primary)}
-      .st-empty{text-align:center;padding:30px;color:var(--color-text-muted);font-size:0.64rem}
-      .st-expl-sig{color:#22c55e!important;font-weight:600!important}
-      .st-auto-btn{display:flex;align-items:center;gap:6px;width:100%;padding:12px;background:color-mix(in srgb,var(--color-primary)8%,var(--color-panel));border:2px solid color-mix(in srgb,var(--color-primary)30%,var(--color-border));border-radius:10px;cursor:pointer;font-size:0.7rem;font-weight:600;color:var(--color-primary);margin-bottom:10px;transition:all .15s}
-      .st-auto-btn:hover{background:color-mix(in srgb,var(--color-primary)15%,var(--color-panel));border-color:var(--color-primary)}
-      .st-auto-btn .material-symbols-outlined{font-size:20px}
-      .st-divider{display:flex;align-items:center;gap:8px;margin:10px 0 12px;color:var(--color-text-muted);font-size:0.55rem;text-transform:uppercase;letter-spacing:0.5px}
-      .st-divider:before,.st-divider:after{content:'';flex:1;height:1px;background:var(--color-border)}
     </style>
   </div>
 </body>

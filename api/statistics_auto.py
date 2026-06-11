@@ -144,10 +144,116 @@ class StatisticsAuto(ApiHandler):
 
         if action == "health":
             return self._health()
+        elif action == "analyze":
+            return self._analyze(input)
         elif action == "auto_analyze":
             return self._auto_analyze(input)
 
-        return {"actions": ["health", "auto_analyze"], "hint": "Upload a file with action=auto_analyze"}
+        return {"actions": ["health", "analyze"], "hint": "Upload with action=analyze for AI column detection"}
+
+    def _analyze(self, input: dict):
+        """Step 2: AI analyzes file — classifies columns, recommends best test."""
+        content = input.get("content", "")
+        filename = input.get("filename", "data.csv")
+        if not content:
+            return {"status": "error", "error": "No file content provided"}
+
+        rows, cols, err = _parse_content(content, filename)
+        if err:
+            return {"status": "error", "error": err}
+        if not rows or not cols:
+            return {"status": "error", "error": "No data parsed"}
+
+        n_rows = len(rows)
+        numeric, categorical, group_candidates = _classify_columns(rows, cols)
+
+        # Check normality for recommendation
+        normal_cols = []
+        not_normal = []
+        if HAS_SCIPY:
+            for col in numeric:
+                arr = _col_values(rows, col, cols)
+                if len(arr) >= 8:
+                    arr = arr[~np.isnan(arr)]
+                    if len(arr) >= 8:
+                        stat, p = scipy_stats.shapiro(arr[:min(5000, len(arr))])
+                        if bool(p > 0.05): normal_cols.append(col)
+                        else: not_normal.append(col)
+
+        # AI decides best test
+        recommended = "descriptive"
+        rec_text = ""
+
+        if group_candidates:
+            group_col = group_candidates[0]
+            gvals = set()
+            for r in rows:
+                v = str(r.get(group_col) or "").strip()
+                if v: gvals.add(v)
+            n_groups = len(gvals)
+
+            # Detect paired
+            id_col = None
+            for c in categorical:
+                if c not in group_candidates:
+                    ids = set(str(r.get(c) or "") for r in rows if str(r.get(c) or "").strip())
+                    if len(ids) > n_rows * 0.4:
+                        id_col = c
+                        break
+            paired = False
+            if id_col:
+                gids = {}
+                for r in rows:
+                    g = str(r.get(group_col) or "")
+                    pid = str(r.get(id_col) or "")
+                    if g and pid: gids.setdefault(g, set()).add(pid)
+                if len(gids) >= 2:
+                    sets = list(gids.values())
+                    common = sets[0]
+                    for s in sets[1:]: common = common & s
+                    paired = len(common) > min(len(s) for s in sets) * 0.6
+
+            all_n = all(c in normal_cols for c in numeric if c != group_col)
+
+            if paired:
+                if n_groups == 2:
+                    recommended = "ttest"
+                    rec_text = f"AI detected PAIRED data (same subjects in both groups). 2 groups found in '{group_col}'. Recommend Paired T-Test. {'Data is normal — parametric test appropriate.' if all_n else 'Data may not be normal — consider Wilcoxon Signed Rank instead.'}"
+                else:
+                    recommended = "anova"
+                    rec_text = f"AI detected PAIRED/REPEATED data with {n_groups} groups in '{group_col}'. Recommend Repeated Measures ANOVA. {'Data is normal.' if all_n else 'Consider Friedman test (non-parametric).'}"
+            elif n_groups == 2:
+                recommended = "ttest"
+                rec_text = f"AI detected 2 independent groups in '{group_col}' ({', '.join(sorted(gvals))}). Recommend Independent T-Test. {'Data is normal — parametric test appropriate.' if all_n else 'Data may not be normal — consider Mann-Whitney U instead.'}"
+            elif n_groups >= 3:
+                recommended = "anova"
+                rec_text = f"AI detected {n_groups} independent groups in '{group_col}'. Recommend One-Way ANOVA. {'Data is normal.' if all_n else 'Consider Kruskal-Wallis (non-parametric).'}"
+        elif len(numeric) >= 2:
+            recommended = "correlation"
+            rec_text = f"AI detected {len(numeric)} numeric columns with no group variable. Recommend Correlation Analysis."
+        elif len(numeric) == 1:
+            recommended = "descriptive"
+            rec_text = f"AI detected 1 numeric column ({numeric[0]}). Recommend Descriptive Statistics."
+        elif categorical:
+            recommended = "chisquare"
+            rec_text = f"AI detected categorical data. Recommend Chi-Square test for association."
+
+        return _to_json_safe({
+            "status": "ok",
+            "action": "analyze",
+            "filename": filename,
+            "data_summary": {
+                "total_rows": n_rows,
+                "total_columns": len(cols),
+                "column_names": cols,
+                "numeric_columns": numeric,
+                "categorical_columns": categorical,
+                "group_columns": group_candidates,
+            },
+            "recommended_test": recommended,
+            "recommendation_text": rec_text,
+            "normality": {c: (c in normal_cols) for c in numeric},
+        })
 
     def _health(self):
         return {
