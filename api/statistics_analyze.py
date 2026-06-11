@@ -17,8 +17,25 @@ except ImportError:
     HAS_STATSMODELS = False
 
 
+def _to_json_safe(obj):
+    """Recursively convert numpy types to native Python types."""
+    if isinstance(obj, dict):
+        return {k: _to_json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, np.ndarray)):
+        return [_to_json_safe(v) for v in obj]
+    if isinstance(obj, (np.integer, np.floating)):
+        return obj.item()
+    if isinstance(obj, np.bool_):
+        return bool(obj)
+    return obj
+
+
 class StatisticsAnalyze(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
+        result = await self._dispatch(input)
+        return _to_json_safe(result)
+
+    async def _dispatch(self, input: dict) -> dict:
         action = input.get("action", "")
 
         if action == "descriptive":
@@ -49,6 +66,7 @@ class StatisticsAnalyze(ApiHandler):
             return self._roc(input)
         elif action == "power":
             return self._power(input)
+        return {"error": f"Unknown action: {action}", "actions": ["descriptive","correlation","ttest","anova","chisquare","mannwhitney","wilcoxon","kruskalwallis","friedman","fisher","normality","homogeneity","roc","power"]}
 
         return {"status": "error", "error": f"Unknown analysis: {action}"}
 
@@ -176,7 +194,7 @@ class StatisticsAnalyze(ApiHandler):
                     # Multi-group → one-way ANOVA
                     arrays = [groups[g] for g in group_names]
                     stat, p = scipy_stats.f_oneway(*arrays)
-                    return {"status": "ok", "action": "anova_one", "test": "One-way ANOVA (independent)", "statistic": round(float(stat), 4), "p_value": round(float(p), 6), "groups": [{"name": g, "n": len(groups[g]), "mean": round(np.mean(groups[g]), 4)} for g in group_names], "significant": p < 0.05}
+                    return {"status": "ok", "action": "anova_one", "test": "One-way ANOVA (independent)", "statistic": round(float(stat), 4), "p_value": round(float(p), 6), "groups": [{"name": g, "n": len(groups[g]), "mean": round(np.mean(groups[g]), 4)} for g in group_names], "significant": bool(p < 0.05)}
             else:  # paired
                 if len(group_names) != 2:
                     return {"status": "error", "error": "Paired test requires exactly 2 groups"}
@@ -308,7 +326,7 @@ class StatisticsAnalyze(ApiHandler):
             if len(names) != 2:
                 return {"status": "error", "error": "Mann-Whitney U requires exactly 2 groups"}
             stat, p = scipy_stats.mannwhitneyu(groups[names[0]], groups[names[1]], alternative='two-sided')
-            return {"status": "ok", "action": "mannwhitney", "test": "Mann-Whitney U", "statistic": round(float(stat), 4), "p_value": round(float(p), 6), "group1": {"name": names[0], "n": len(groups[names[0]])}, "group2": {"name": names[1], "n": len(groups[names[1]])}, "significant": p < 0.05}
+            return {"status": "ok", "action": "mannwhitney", "test": "Mann-Whitney U", "statistic": round(float(stat), 4), "p_value": round(float(p), 6), "group1": {"name": names[0], "n": len(groups[names[0]])}, "group2": {"name": names[1], "n": len(groups[names[1]])}, "significant": bool(p < 0.05)}
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
@@ -336,7 +354,7 @@ class StatisticsAnalyze(ApiHandler):
             if len(g1) != len(g2):
                 return {"status": "error", "error": "Wilcoxon requires equal observations in each group"}
             stat, p = scipy_stats.wilcoxon(g1, g2)
-            return {"status": "ok", "action": "wilcoxon", "test": "Wilcoxon Signed Rank", "statistic": round(float(stat), 4), "p_value": round(float(p), 6), "n": len(g1), "significant": p < 0.05}
+            return {"status": "ok", "action": "wilcoxon", "test": "Wilcoxon Signed Rank", "statistic": round(float(stat), 4), "p_value": round(float(p), 6), "n": len(g1), "significant": bool(p < 0.05)}
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
@@ -360,7 +378,7 @@ class StatisticsAnalyze(ApiHandler):
             names = sorted(groups.keys())
             arrays = [groups[g] for g in names]
             stat, p = scipy_stats.kruskal(*arrays)
-            return {"status": "ok", "action": "kruskalwallis", "test": "Kruskal-Wallis", "statistic": round(float(stat), 4), "p_value": round(float(p), 6), "groups": [{"name": g, "n": len(groups[g])} for g in names], "significant": p < 0.05}
+            return {"status": "ok", "action": "kruskalwallis", "test": "Kruskal-Wallis", "statistic": round(float(stat), 4), "p_value": round(float(p), 6), "groups": [{"name": g, "n": len(groups[g])} for g in names], "significant": bool(p < 0.05)}
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
@@ -380,7 +398,7 @@ class StatisticsAnalyze(ApiHandler):
                 return {"status": "error", "error": "Need at least 3 columns with numeric data"}
             arrays = [np.array(a[:min(len(x) for x in arrays)]) for a in arrays]
             stat, p = scipy_stats.friedmanchisquare(*arrays)
-            return {"status": "ok", "action": "friedman", "test": "Friedman", "statistic": round(float(stat), 4), "p_value": round(float(p), 6), "n_samples": len(arrays[0]), "significant": p < 0.05}
+            return {"status": "ok", "action": "friedman", "test": "Friedman", "statistic": round(float(stat), 4), "p_value": round(float(p), 6), "n_samples": len(arrays[0]), "significant": bool(p < 0.05)}
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
@@ -401,10 +419,10 @@ class StatisticsAnalyze(ApiHandler):
             table = [[contingency[r].get(c, 0) for c in labels_c] for r in labels_r]
             if len(labels_r) == 2 and len(labels_c) == 2:
                 oddsr, p = scipy_stats.fisher_exact(table)
-                return {"status": "ok", "action": "fisher_exact", "test": "Fisher Exact", "odds_ratio": round(float(oddsr), 4), "p_value": round(float(p), 6), "table": table, "row_labels": labels_r, "col_labels": labels_c, "significant": p < 0.05}
+                return {"status": "ok", "action": "fisher_exact", "test": "Fisher Exact", "odds_ratio": round(float(oddsr), 4), "p_value": round(float(p), 6), "table": table, "row_labels": labels_r, "col_labels": labels_c, "significant": bool(p < 0.05)}
             else:
                 chi2, p, dof, expected = scipy_stats.chi2_contingency(table)
-                return {"status": "ok", "action": "chi_square", "test": "Chi-Square (Fisher fallback)", "statistic": round(float(chi2), 4), "p_value": round(float(p), 6), "significant": p < 0.05}
+                return {"status": "ok", "action": "chi_square", "test": "Chi-Square (Fisher fallback)", "statistic": round(float(chi2), 4), "p_value": round(float(p), 6), "significant": bool(p < 0.05)}
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
@@ -425,7 +443,7 @@ class StatisticsAnalyze(ApiHandler):
                 else:
                     stat, p = scipy_stats.shapiro(arr[:5000])
                     test = "Shapiro-Wilk"
-                results[col] = {"test": test, "statistic": round(float(stat), 4), "p_value": round(float(p), 6), "normal": p > 0.05, "n": len(arr)}
+                results[col] = {"test": test, "statistic": round(float(stat), 4), "p_value": round(float(p), 6), "normal": bool(p > 0.05), "n": len(arr)}
             return {"status": "ok", "action": "normality", "results": results}
         except Exception as e:
             return {"status": "error", "error": str(e)}
@@ -449,7 +467,7 @@ class StatisticsAnalyze(ApiHandler):
                 if g: groups.setdefault(g, []).append(v)
             arrays = [groups[g] for g in sorted(groups.keys())]
             stat, p = scipy_stats.levene(*arrays)
-            return {"status": "ok", "action": "homogeneity", "test": "Levene", "statistic": round(float(stat), 4), "p_value": round(float(p), 6), "homogeneous": p > 0.05, "n_groups": len(arrays)}
+            return {"status": "ok", "action": "homogeneity", "test": "Levene", "statistic": round(float(stat), 4), "p_value": round(float(p), 6), "homogeneous": bool(p > 0.05), "n_groups": len(arrays)}
         except Exception as e:
             return {"status": "error", "error": str(e)}
 

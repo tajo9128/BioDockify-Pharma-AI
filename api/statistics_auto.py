@@ -121,6 +121,23 @@ def _col_values(rows, col, cols):
     return np.array(vals, dtype=float)
 
 
+def _to_json_safe(obj):
+    """Recursively convert numpy types to native Python types for JSON serialization."""
+    if isinstance(obj, dict):
+        return {k: _to_json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_to_json_safe(v) for v in obj]
+    if isinstance(obj, np.ndarray):
+        return _to_json_safe(obj.tolist())
+    if isinstance(obj, float):
+        return float(obj)
+    if isinstance(obj, bool):
+        return bool(obj)
+    if isinstance(obj, int):
+        return int(obj)
+    return obj
+
+
 class StatisticsAuto(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
         action = input.get("action", "")
@@ -204,7 +221,7 @@ class StatisticsAuto(ApiHandler):
 
         if not HAS_SCIPY:
             report["error"] = "scipy not installed. Run: pip install scipy"
-            return report
+            return _to_json_safe(report)
 
         # 1. Descriptive stats for all numeric columns
         desc_findings = []
@@ -454,4 +471,4 @@ class StatisticsAuto(ApiHandler):
             "findings": recs
         })
 
-        return report
+        return _to_json_safe(report)
