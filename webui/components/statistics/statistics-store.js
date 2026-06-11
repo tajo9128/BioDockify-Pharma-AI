@@ -74,7 +74,7 @@ Alpine.data("statisticsModal", () => ({
         this.resultsJson = result;
         this.activeAnalysis = "Auto-Analyze";
         this.viewMode = "auto";
-        this._buildRawData(file);
+        this._buildRawDataFromContent(content, file.name);
         this._storeToKB(result);
         this.persist();
       } else {
@@ -86,16 +86,14 @@ Alpine.data("statisticsModal", () => ({
     this.loading = false;
   },
 
-  // Build raw data arrays for manual testing
-  async _buildRawData(file) {
+  _buildRawDataFromContent(content, filename) {
     try {
-      const text = await file.text();
-      if (file.name.endsWith(".json")) {
-        const obj = JSON.parse(text);
+      if (filename.endsWith(".json")) {
+        const obj = JSON.parse(content);
         const arr = Array.isArray(obj) ? obj : (obj.data || Object.values(obj)[0] || []);
         if (arr.length) this._extractNumeric(arr);
       } else {
-        const lines = text.split("\n").filter(l => l.trim());
+        const lines = content.split("\n").filter(l => l.trim());
         if (lines.length < 2) return;
         const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
         const rows = [];
