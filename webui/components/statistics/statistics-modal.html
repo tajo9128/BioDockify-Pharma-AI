@@ -153,6 +153,7 @@
         <button class="st-link" @click="step=2;autoResult=null;testType=null;results='';resultsJson=null">Manual</button>
         <button class="st-btn" @click="downloadResults('csv')" :disabled="!results">CSV</button>
         <button class="st-btn" @click="saveToNotebook()" :disabled="!results" style="background:#6366f1">KB</button>
+        <button class="st-btn" @click="sendToAgent('Analyze this statistical dataset: ' + columns.join(', ') + '. Rows: ' + rowCount + '. Recommend appropriate tests and interpret the auto-analysis results: ' + (results || '').substring(0,1000))" :disabled="!results" style="background:#a855f7">AI</button>
       </div>
 
       <!-- Auto-Analyze View -->
