@@ -1,8 +1,20 @@
 ﻿# BioDockify AI - AGENTS.md
 
-**Last updated: 2026-06-10 | Version: v6.9.5**
+**Last updated: 2026-06-11 | Version: v6.9.5**
 
-## Today's Additions (2026-06-10) — v6.9.5 Release
+## Today's Additions (2026-06-11) — Statistics Module Production Release
+
+### Statistics Module — Complete Rewrite & Hardening
+- **19 demo files tested — all pass**: Every statistical test type verified (t-test, ANOVA, correlation, chi-square, Mann-Whitney, Wilcoxon, Kruskal-Wallis, Friedman, Fisher, survival, PCA, cluster, AUC, power, logistic, Poisson)
+- **Auto-detect test sub-type**: Paired vs independent t-test (detects matching Patient_IDs across groups); One-Way vs Two-Way ANOVA (detects multiple group columns); recommends correct test based on data structure
+- **Step-by-step explanations**: 7-step walkthrough for students/researchers — File Parsed → Column Classification → Descriptive Stats (with metric definitions) → Correlation Matrix (r interpretation) → Normality Test (Shapiro-Wilk, parametric vs non-parametric guidance) → Group Comparison (T-Test/ANOVA with sub-type rationale) → Summary & Recommendations
+- **Agent-powered interpretation**: "Ask Agent" button sends dataset + results to Agent Zero for deeper analysis and test recommendations
+- **Bug fixes**: numpy.bool_ JSON serialization (18 instances), text-only group column detection, rawData preserves all columns for group tests, file consumed twice fix, missing runTransform method
+- **Backend resilience**: statistics_auto.py handles missing numpy gracefully, proper health check, robust column classification with raw string detection
+
+### Agent Role — Statistics Module
+- **Agent responsibility**: When users upload statistical data, the agent explains results in plain language suitable for PG students and PhD researchers. The agent defines each metric (mean, median, std, p-value, r, F-statistic), interprets significance, and recommends next steps.
+- **Test sub-type decisions**: Agent decides Paired vs Independent T-Test based on patient ID matching. Agent detects Two-Way ANOVA potential when multiple group columns exist. Agent recommends parametric vs non-parametric based on Shapiro-Wilk normality results.
 
 ### Frontend Module Audit & Merge
 - **14 consolidated desktop modules** after merging Knowledge Base + Notebook
