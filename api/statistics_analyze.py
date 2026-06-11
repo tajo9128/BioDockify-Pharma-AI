@@ -170,7 +170,7 @@ class StatisticsAnalyze(ApiHandler):
                         "test": "Independent T-Test", "statistic": round(float(stat), 4), "p_value": round(float(p), 6),
                         "group1": {"name": group_names[0], "n": len(g1), "mean": round(np.mean(g1), 4), "std": round(np.std(g1, ddof=1), 4)},
                         "group2": {"name": group_names[1], "n": len(g2), "mean": round(np.mean(g2), 4), "std": round(np.std(g2, ddof=1), 4)},
-                        "significant": p < 0.05,
+                        "significant": bool(p < 0.05),
                     }
                 else:
                     # Multi-group → one-way ANOVA
@@ -189,7 +189,7 @@ class StatisticsAnalyze(ApiHandler):
                     "statistic": round(float(stat), 4), "p_value": round(float(p), 6),
                     "group1": {"name": group_names[0], "n": len(g1), "mean": round(np.mean(g1), 4), "std": round(np.std(g1, ddof=1), 4)},
                     "group2": {"name": group_names[1], "n": len(g2), "mean": round(np.mean(g2), 4), "std": round(np.std(g2, ddof=1), 4)},
-                    "significant": p < 0.05,
+                    "significant": bool(p < 0.05),
                 }
         except Exception as e:
             return {"status": "error", "error": str(e)}
@@ -228,7 +228,7 @@ class StatisticsAnalyze(ApiHandler):
                 "test": "One-way ANOVA",
                 "statistic": round(float(stat), 4), "p_value": round(float(p), 6),
                 "groups": [{"name": g, "n": len(groups[g]), "mean": round(np.mean(groups[g]), 4), "std": round(np.std(groups[g], ddof=1), 4)} for g in group_names],
-                "significant": p < 0.05,
+                "significant": bool(p < 0.05),
             }
 
             if post_hoc and p < 0.05 and len(group_names) >= 2:
@@ -282,7 +282,7 @@ class StatisticsAnalyze(ApiHandler):
                 "degrees_of_freedom": int(dof),
                 "observed": table, "expected": expected.tolist(),
                 "row_labels": row_labels, "col_labels": col_labels,
-                "significant": p < 0.05,
+                "significant": bool(p < 0.05),
             }
         except Exception as e:
             return {"status": "error", "error": str(e)}

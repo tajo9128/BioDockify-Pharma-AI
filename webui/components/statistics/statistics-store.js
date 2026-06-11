@@ -115,21 +115,13 @@ Alpine.data("statisticsModal", () => ({
 
   _extractNumeric(items) {
     const cols = Object.keys(items[0] || {});
-    const data = [];
-    for (const col of cols) {
-      const vals = [];
-      for (const item of items) {
-        const v = item[col];
-        if (typeof v === "number" && !isNaN(v)) vals.push(v);
-      }
-      if (vals.length > 1) data.push(vals);
-    }
-    if (data.length) {
-      const minLen = Math.min(...data.map(c => c.length));
-      this.rawData = data.map(c => c.slice(0, minLen))[0]
-        ? data[0].map((_, i) => data.map(c => c[i]))
-        : [];
-    }
+    if (!cols.length) return;
+    // Keep ALL columns (numeric + text) and convert to row arrays
+    this.rawData = items.map(item => cols.map(c => {
+      const v = item[c];
+      const n = parseFloat(v);
+      return isNaN(n) ? (v ?? "") : n;
+    }));
   },
 
   // === Sample Data ===
@@ -155,22 +147,11 @@ Alpine.data("statisticsModal", () => ({
   },
 
   _setRawArray(headers, rows) {
-    const data = [];
-    for (const col of headers) {
-      const vals = [];
-      for (const row of rows) {
-        const ci = headers.indexOf(col);
-        const v = row[ci];
-        if (typeof v === "number" && !isNaN(v)) vals.push(v);
-      }
-      if (vals.length > 1) data.push(vals);
-    }
-    if (data.length) {
-      const minLen = Math.min(...data.map(c => c.length));
-      const aligned = data.map(c => c.slice(0, minLen));
-      this.rawData = aligned[0].map((_, i) => aligned.map(c => c[i]));
-    }
-    this.columns = headers;
+    this.rawData = rows.map(row => headers.map((_, ci) => {
+      const v = row[ci];
+      const n = parseFloat(v);
+      return isNaN(n) ? (v ?? "") : n;
+    }));
   },
 
   // === Upload trigger ===
