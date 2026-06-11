@@ -29,8 +29,10 @@
     <!-- Tabs -->
     <div class="nb-tabs">
       <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='notebook'}" @click="$store.knowledgeModal.activeTab='notebook'"><span class="material-symbols-outlined" style="font-size:14px">edit_note</span> Notebook</button>
-      <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='chat'}" @click="$store.knowledgeModal.activeTab='chat'"><span class="material-symbols-outlined" style="font-size:14px">chat</span> Chat with KB</button>
+      <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='chat'}" @click="$store.knowledgeModal.activeTab='chat'"><span class="material-symbols-outlined" style="font-size:14px">chat</span> Chat</button>
       <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='library'}" @click="$store.knowledgeModal.activeTab='library'"><span class="material-symbols-outlined" style="font-size:14px">local_library</span> Library</button>
+      <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='podcast'}" @click="$store.knowledgeModal.activeTab='podcast'"><span class="material-symbols-outlined" style="font-size:14px">podcasts</span> Podcast</button>
+      <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='notes'}" @click="$store.knowledgeModal.activeTab='notes'"><span class="material-symbols-outlined" style="font-size:14px">edit_note</span> Notes</button>
     </div>
 
     <!-- Search -->
@@ -87,6 +89,45 @@
       <div x-show="!$store.knowledgeModal.libraryCategories.length" style="text-align:center;padding:30px;color:var(--color-text-muted);font-size:0.64rem">
         <span class="material-symbols-outlined" style="font-size:28px;opacity:0.2;display:block;margin-bottom:4px">local_library</span>
         No categories yet. Add entries with tags to organize your library.
+      </div>
+    </div>
+
+    <!-- Podcast Tab -->
+    <div x-show="$store.knowledgeModal.activeTab === 'podcast'" style="flex:1;overflow-y:auto">
+      <div style="padding:10px 12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:6px">
+        <h4 style="font-size:0.66rem;font-weight:600;color:var(--color-text);margin:0 0 6px 0">Generate Research Podcast</h4>
+        <p style="font-size:0.58rem;color:var(--color-text-muted);line-height:1.5;margin:0 0 8px 0">Convert text into spoken audio using TTS (configure API key in Settings).</p>
+        <textarea x-model="$store.knowledgeModal.podcastText" placeholder="Paste research text, summary, or notes here..." class="nb-textarea" rows="6"></textarea>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
+          <select x-model="$store.knowledgeModal.podcastVoice" style="padding:5px 8px;border:1px solid var(--color-border);border-radius:5px;background:var(--color-panel);color:var(--color-text);font-size:0.6rem">
+            <option value="alloy">Alloy (Neutral)</option>
+            <option value="echo">Echo (Warm)</option>
+            <option value="fable">Fable (British)</option>
+            <option value="onyx">Onyx (Deep)</option>
+            <option value="nova">Nova (Friendly)</option>
+            <option value="shimmer">Shimmer (Clear)</option>
+          </select>
+          <button class="nb-btn-primary" @click="$store.knowledgeModal.generatePodcast()" :disabled="$store.knowledgeModal.podcastLoading || !$store.knowledgeModal.podcastText">
+            <span class="material-symbols-outlined">podcasts</span> Generate
+          </button>
+        </div>
+        <div x-show="$store.knowledgeModal.podcastLoading" class="nb-loading"><div class="loading-spinner"></div><span>Generating audio...</span></div>
+        <div x-show="$store.knowledgeModal.podcastUrl" style="margin-top:10px">
+          <audio :src="$store.knowledgeModal.podcastUrl" controls style="width:100%;border-radius:6px"></audio>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notes Tab -->
+    <div x-show="$store.knowledgeModal.activeTab === 'notes'" style="flex:1;overflow-y:auto">
+      <div style="padding:10px 12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px">
+        <h4 style="font-size:0.66rem;font-weight:600;color:var(--color-text);margin:0 0 6px 0">Quick Note</h4>
+        <p style="font-size:0.58rem;color:var(--color-text-muted);line-height:1.5;margin:0 0 8px 0">Save a quick research note to the Knowledge Base.</p>
+        <input type="text" id="nb-note-title" placeholder="Note title..." class="nb-input-sm" />
+        <textarea id="nb-note-content" placeholder="Your note..." class="nb-textarea" rows="4"></textarea>
+        <button class="nb-btn-primary" @click="$store.knowledgeModal.addQuickNote()">
+          <span class="material-symbols-outlined">save</span> Save to Knowledge Base
+        </button>
       </div>
     </div>
 

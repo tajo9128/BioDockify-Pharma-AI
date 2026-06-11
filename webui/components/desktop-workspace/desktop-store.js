@@ -16,12 +16,11 @@ const defaultModules = [
   { id: "pharmacophore", title: "Pharmacophore", icon: "ads_click", component: "/components/pharmacophore/pharmacophore.html", order: 7, defaultWidth: 650, defaultHeight: 500 },
   { id: "statistics", title: "Statistics", icon: "analytics", component: "/components/statistics/statistics-modal.html", order: 8, defaultWidth: 750, defaultHeight: 550 },
   { id: "knowledge", title: "Knowledge Base", icon: "psychology", component: "/components/knowledge/knowledge-modal.html", order: 9, defaultWidth: 700, defaultHeight: 500 },
-  { id: "surfsense", title: "Notebook", icon: "menu_book", component: "/components/surfsense/surfsense.html", order: 10, defaultWidth: 700, defaultHeight: 550 },
-  { id: "thesis", title: "Academic Writer", icon: "description", component: "/components/thesis/thesis-modal.html", order: 11, defaultWidth: 700, defaultHeight: 500 },
-  { id: "faculty-dashboard", title: "Faculty CMD", icon: "school", component: "/components/faculty-dashboard/faculty-dashboard.html", order: 12, defaultWidth: 700, defaultHeight: 550 },
-  { id: "journal-finder", title: "Journal Finder", icon: "verified", component: "/components/journal-finder/journal-finder.html", order: 13, defaultWidth: 600, defaultHeight: 550 },
-  { id: "backup", title: "Backup & Recovery", icon: "backup", component: "/components/backup-recovery/recovery-panel.html", order: 14, defaultWidth: 650, defaultHeight: 450 },
-  { id: "system-health", title: "System Health", icon: "monitoring", component: "/components/system-health/system-health.html", order: 15, defaultWidth: 500, defaultHeight: 500 },
+  { id: "thesis", title: "Academic Writer", icon: "description", component: "/components/thesis/thesis-modal.html", order: 10, defaultWidth: 700, defaultHeight: 500 },
+  { id: "faculty-dashboard", title: "Faculty CMD", icon: "school", component: "/components/faculty-dashboard/faculty-dashboard.html", order: 11, defaultWidth: 700, defaultHeight: 550 },
+  { id: "journal-finder", title: "Journal Finder", icon: "verified", component: "/components/journal-finder/journal-finder.html", order: 12, defaultWidth: 600, defaultHeight: 550 },
+  { id: "backup", title: "Backup & Recovery", icon: "backup", component: "/components/backup-recovery/recovery-panel.html", order: 13, defaultWidth: 650, defaultHeight: 450 },
+  { id: "system-health", title: "System Health", icon: "monitoring", component: "/components/system-health/system-health.html", order: 14, defaultWidth: 500, defaultHeight: 500 },
 ];
 
 const model = {

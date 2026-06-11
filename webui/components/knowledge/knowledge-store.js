@@ -38,6 +38,12 @@ export const store = createStore("knowledgeModal", {
   docCardView: true,
   readingPaper: null,  // Full-paper reader state
 
+  // Podcast
+  podcastText: "",
+  podcastVoice: "alloy",
+  podcastUrl: "",
+  podcastLoading: false,
+
   _restored: false,
 
   // Detect if an entry contains a paper/document collection
@@ -102,6 +108,52 @@ export const store = createStore("knowledgeModal", {
     if (paper?.citations) meta.push({ label: "Citations", value: paper.citations });
     if (paper?.keywords && paper.keywords.length) meta.push({ label: "Keywords", value: Array.isArray(paper.keywords) ? paper.keywords.join(", ") : paper.keywords });
     return meta;
+  },
+
+  async generatePodcast() {
+    if (!this.podcastText.trim()) return;
+    this.podcastLoading = true; this.podcastUrl = ""; this.error = "";
+    try {
+      const r = await callJsonApi("knowledge/podcast", {
+        text: this.podcastText,
+        voice: this.podcastVoice,
+      });
+      if (r.audio_base64) {
+        const byteStr = atob(r.audio_base64);
+        const bytes = new Uint8Array(byteStr.length);
+        for (let i = 0; i < byteStr.length; i++) bytes[i] = byteStr.charCodeAt(i);
+        const blob = new Blob([bytes], { type: "audio/mp3" });
+        this.podcastUrl = URL.createObjectURL(blob);
+        this.message = "Podcast generated";
+      } else if (r.status === "success") {
+        this.message = "Podcast generated";
+      } else {
+        this.error = r.error || "Podcast generation failed — check TTS API key in Settings";
+      }
+    } catch (e) { this.error = "Podcast error: " + e.message; }
+    this.podcastLoading = false;
+  },
+
+  async addQuickNote() {
+    const titleEl = document.getElementById("nb-note-title");
+    const contentEl = document.getElementById("nb-note-content");
+    const title = titleEl?.value?.trim();
+    const content = contentEl?.value?.trim();
+    if (!title || !content) return;
+    try {
+      await callJsonApi("knowledge", {
+        action: "store",
+        category: "notes",
+        title: title,
+        content: content,
+        tags: "notes,knowledge-base",
+        source: "Quick Note",
+      });
+      this.message = "Note saved to Knowledge Base";
+      setTimeout(() => { this.message = ""; }, 2000);
+      if (titleEl) titleEl.value = "";
+      if (contentEl) contentEl.value = "";
+    } catch (e) { this.error = "Save failed: " + e.message; }
   },
 
   persist() {

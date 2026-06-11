@@ -3,10 +3,10 @@
 All notable changes to BioDockify Pharma AI.
 
 ## [v6.9.5] - 2026-06-10
-### Frontend Audit & Cleanup
-- 15-module desktop finalized: removed dead Patent Search, Clinical Trials, Benchmark
-- Notebook renamed from SurfSense AI, moved above Academic Writer
-- All version references updated to v6.9.5 across docs
+### Frontend Audit & Merge
+- **14-module desktop**: Knowledge Base + Notebook merged into 5-tab panel
+- Knowledge Base: Notebook doc cards, Chat with KB, Library, Podcast (TTS), Notes
+- Removed: standalone Notebook, Patent Search, Clinical Trials, Benchmark
 
 ### New Features
 - Knowledge Base: NotebookLM-style paper cards with full-paper reader on click

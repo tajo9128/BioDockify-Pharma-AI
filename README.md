@@ -14,7 +14,7 @@
   <img src="assets/screenshot.png" alt="BioDockify Pharma AI Screenshot" width="800">
 </p>
 
-**BioDockify Pharma AI** is a pharmaceutical research platform with 15 integrated modules. It features AutoDock Vina molecular docking with MM-GBSA free energy scoring, SPSS-level biostatistics (20 analysis types + auto-analyze), a 25-stage autonomous research pipeline, literature search across 10 databases, QSAR modeling (6 regression + 3 classification), pharmacophore screening, a 36,145-journal recommender, Drug Analysis with 3Dmol.js viewer and properties (hERG/AMES/pKa/BBB), a NotebookLM-style document reader, 4 AI sub-agents, faculty command center with semester planning and question bank generator, and a ChromaDB knowledge base supporting PDF/DOCX/XLSX/audio/video.
+**BioDockify Pharma AI** is a pharmaceutical research platform with 14 integrated modules. It features AutoDock Vina molecular docking with MM-GBSA free energy scoring, SPSS-level biostatistics (20 analysis types + auto-analyze), a 25-stage autonomous research pipeline, literature search across 10 databases, QSAR modeling, pharmacophore screening, a 36,145-journal recommender, Drug Analysis with 3Dmol.js viewer, a NotebookLM-style document reader with podcast generation, 4 AI sub-agents, faculty command center with question bank generator, and a ChromaDB knowledge base supporting PDF/DOCX/XLSX/audio/video.
 
 ---
 
@@ -30,26 +30,25 @@
 
 ## Features
 
-### 15 Consolidated Research Modules
+### 14 Consolidated Research Modules
 
 | # | Module | Function | Backend |
 |---|--------|----------|---------|
 | 1 | **Research Command Center** | Auto-research pipeline + Literature Search + Wet Lab tracking | 23 REST endpoints |
-| 2 | **Molecular Toolkit** | ADMET + SwissADME + BOILED-Egg plot + Bioavailability Radar + Docking (Vina + MM-GBSA) + Inline 3D Docking Analysis (interactions, clusters, residue energy, PLIF) | RDKit + Vina + Meeko |
-| 3 | **Statistics** | 20 analysis types + auto-analyze (descriptive/correlation/group/normality) + data transform | scipy + scikit-learn + pandas + matplotlib |
-| 4 | **Academic Writer** | 8-tab: Lit Review, Paper, Thesis, Grant Writer, Regulatory, Citation Manager, Lecture, Slides | Thesis + Slides + Grant APIs |
-| 5 | **Faculty CMD** | 9 tabs: Syllabus, Lectures, Tasks, Semester, Lesson, Notes, Slides, Plagiarism, Questions (MCQ/SA/LA/TF + Bloom's taxonomy) | faculty_tools |
-| 6 | **Journal Finder** | 36,145 Scopus/WoS journals + verify + deep research (5 live sources) + fake website detector + full dossier + suggest | journals.db + 6 live APIs |
-| 7 | **QSAR Modeler** | 6 regression + 3 classification models, batch predict, read-across, feature selection, Williams Plot, PLS VIP | RDKit + scikit-learn |
+| 2 | **Molecular Toolkit** | ADMET + Docking (Vina + MM-GBSA) + Inline 3D Analysis (interactions, clusters, residue energy) | RDKit + Vina + Meeko |
+| 3 | **Statistics** | 20 analysis types + auto-analyze (descriptive/correlation/group/normality) + data transform | scipy + pandas + matplotlib |
+| 4 | **Academic Writer** | 8-tab: Lit Review, Paper, Thesis, Grant, Regulatory, Citation, Lecture, Slides | Thesis + Slides + Grant APIs |
+| 5 | **Faculty CMD** | 9 tabs: Syllabus, Lectures, Tasks, Semester, Lesson, Notes, Slides, Plagiarism, Questions | faculty_tools |
+| 6 | **Journal Finder** | 36,145 journals + verify + deep research + fake detector + dossier | journals.db + 6 live APIs |
+| 7 | **QSAR Modeler** | 6 regression + 3 classification, batch predict, read-across, feature selection | RDKit + scikit-learn |
 | 8 | **Pharmacophore** | 5 tabs: Protein-based, Screen, Batch, Models, Target ID | RDKit |
-| 9 | **Drug Analysis** | 3Dmol.js viewer (7 styles) + Properties (hERG/AMES/pKa/BBB/MP/druglikeness) + PAINS/Brenk/NIH Filters + Bioisostere Mutagenesis + PubChem search | RDKit + PubChem |
-| 10 | **Docking Analysis** | 3D receptor+ligand viewer with H-bonds, surface, snapshot. Interaction SVG + PLIF + RMSD clusters + residue energy. **External file upload** from any platform | 3Dmol.js + RDKit |
-| 11 | **Knowledge Base** | NotebookLM-style document cards with full-paper reader, ChromaDB vector search, semantic search, persistent research memory | ChromaDB |
-| 12 | **Notebook** | Research Notebook with KB Search, Podcast generation (edge-tts), Document Storage, Slide Decks, Video Summaries, RAG Chat | ChromaDB + edge-tts + FFmpeg + Playwright |
-| 13 | **System Health** | Platform-aware health badges (Vina + MM-GBSA + RDKit + Meeko), Docker vs Windows detection | health.py |
-| 14 | **Deep Research** | 5-database collection (PubMed, Semantic Scholar, Crossref, OpenAlex, arXiv), relevance scanning, store to KB | 5 live APIs |
-| 15 | **Backup & Recovery** | Full system backup/restore with preview + auto-backup on first health check | backup APIs |
-| — | **All Tools** | Quick-launch grid for all 15 consolidated modules | N/A |
+| 9 | **Drug Analysis** | 3Dmol.js viewer + Properties (hERG/AMES/pKa/BBB) + Filters + Optimization + PubChem | RDKit + PubChem |
+| 10 | **Docking Analysis** | 3D receptor+ligand viewer, interactions, PLIF, clusters, external file upload | 3Dmol.js + RDKit |
+| 11 | **Knowledge Base** | 5 tabs: Notebook (doc cards + full reader), Chat with KB, Library, Podcast (TTS), Notes | ChromaDB + TTS |
+| 12 | **System Health** | Platform-aware health badges (Vina/MM-GBSA/RDKit/Meeko), Docker vs Windows | health.py |
+| 13 | **Deep Research** | 5-database collection (PubMed, S2, Crossref, OpenAlex, arXiv), relevance scanning | 5 live APIs |
+| 14 | **Backup & Recovery** | Full system backup/restore with preview + auto-backup | backup APIs |
+| — | **All Tools** | Quick-launch grid for all 14 consolidated modules | N/A |
 
 ### Merged Modules (Accessible via Parent Dashboards)
 
@@ -129,11 +128,10 @@ Agent0 (Main Orchestrator)
 
 ## What's New in v6.9.5
 
-- **15-module desktop** — finalized after audit, removed dead modules
+- **14-module desktop** — Knowledge Base + Notebook merged (5 tabs: Notebook, Chat, Library, Podcast, Notes)
+- **Knowledge Base**: NotebookLM paper cards with full reader, podcast generation (TTS), quick notes
 - **Faculty CMD**: 9 tabs including Questions generator (MCQ → True/False with Bloom's taxonomy)
 - **Statistics**: auto-analyze mode (one-click descriptive, correlation, group tests, normality)
-- **Knowledge Base**: NotebookLM-style paper cards with full-paper reader on click
-- **Notebook**: semantic search, podcast generation, quick notes
 - **Docker**: simplified to `-p 80:80` open at `http://localhost`
 
 ---
