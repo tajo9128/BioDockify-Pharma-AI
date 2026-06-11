@@ -5,7 +5,7 @@
 ### Installation
 | Problem | Solution |
 |---------|---------|
-| Port 50001 already in use | Change port in docker-compose.yml: `"50002:50001"` |
+| Port 80 already in use | Change port in docker-compose.yml: `"8080:80"` |
 | Docker build fails | Run `docker compose build --no-cache` |
 | Image pull fails | Check internet connection, try `docker login` |
 | Container won't start | Check logs: `docker compose logs` |
@@ -58,5 +58,5 @@
 ## Getting Help
 
 - **GitHub Issues**: https://github.com/tajo9128/BioDockify-Pharma-AI/issues
-- **Health Check**: http://localhost:50001/api/health
+- **Health Check**: http://localhost/api/health
 - **Logs**: `docker compose logs -f --tail=100`

@@ -14,7 +14,7 @@ Real-time monitoring of all dependencies.
 | RDKit | 🟢/🔴 | RDKit chemistry library |
 
 ### Full Health Check
-Visit `http://localhost:50001/api/health` for JSON:
+Visit `http://localhost/api/health` for JSON:
 ```json
 {
   "health": {
@@ -98,7 +98,7 @@ docker compose down
 docker compose up -d
 
 # 3. Verify
-curl http://localhost:50001/api/health
+curl http://localhost/api/health
 ```
 
 ---

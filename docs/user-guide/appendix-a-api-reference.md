@@ -1,7 +1,7 @@
 # Appendix A: API Reference
 
 ## API Architecture
-All endpoints accessible at `http://localhost:50001/api/<endpoint>` via POST with JSON body.
+All endpoints accessible at `http://localhost/api/<endpoint>` via POST with JSON body.
 
 ## Core Endpoints
 

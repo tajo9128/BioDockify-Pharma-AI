@@ -134,14 +134,14 @@ docker compose logs -f
 Open your browser and navigate to:
 
 ```
-http://localhost:50001
+http://localhost
 ```
 
 You should see the BioDockify chat interface. Click the **All Tools** button in the sidebar to see all 15 modules.
 
 ### Health Check
 
-Visit `http://localhost:50001/api/health` to verify all services:
+Visit `http://localhost/api/health` to verify all services:
 
 ```json
 {
@@ -189,7 +189,7 @@ services:
   biodockify:
     image: tajo9128/biodockify-pharma-ai:v6.9.5
     ports:
-      - "50001:50001"
+      - "80:80"
     volumes:
       - biodockify_usr:/a0/usr          # ← CRITICAL: All user data
       - biodockify_data:/a0/data        # Models, databases
@@ -277,7 +277,7 @@ Configure in **Settings → Speech**.
 
 ### Step 1: Open the Interface
 
-Navigate to `http://localhost:50001`. You'll see the welcome screen with a chat input.
+Navigate to `http://localhost`. You'll see the welcome screen with a chat input.
 
 ### Step 2: Explore the Modules
 
@@ -328,7 +328,7 @@ Click **All Tools** in the sidebar to see the module grid:
 
 | Problem | Solution |
 |---------|---------|
-| Port 50001 already in use | Change port in `docker-compose.yml`: `"50002:50001"` |
+| Port 80 already in use | Change port in `docker-compose.yml`: `"8080:80"` |
 | GNINA shows yellow/warn | Normal on Windows — GNINA requires Docker (Linux). Use Docker for full docking pipeline |
 | RDKit import error | Rebuild: `docker compose build --no-cache` |
 | WebSocket connection failed | Check X-CSRF-Token header, clear browser cache |
@@ -339,7 +339,7 @@ Click **All Tools** in the sidebar to see the module grid:
 ### Getting Help
 
 - **GitHub Issues**: [github.com/tajo9128/BioDockify-Pharma-AI/issues](https://github.com/tajo9128/BioDockify-Pharma-AI/issues)
-- **Health Check**: Visit `http://localhost:50001/api/health`
+- **Health Check**: Visit `http://localhost/api/health`
 - **Logs**: `docker compose logs -f --tail=100`
 
 ---
@@ -360,7 +360,7 @@ docker compose down
 docker compose up -d
 
 # 4. Verify health
-curl http://localhost:50001/api/health
+curl http://localhost/api/health
 ```
 
 **Your data is safe** — volumes persist across container updates.

@@ -18,7 +18,7 @@ services:
   biodockify:
     image: tajo9128/biodockify-pharma-ai:v6.9.5
     ports:
-      - "50001:50001"
+      - "80:80"
     volumes:
       - biodockify_usr:/a0/usr
       - biodockify_data:/a0/data
@@ -41,12 +41,12 @@ services:
 
 ## 15.4 Port Configuration
 
-Default: `50001`
+Default: `80`
 
 Change in `docker-compose.yml`:
 ```yaml
 ports:
-  - "8080:50001"  # Access via http://localhost:8080
+  - "8080:80"  # Access via http://localhost:8080
 ```
 
 ---
@@ -112,5 +112,5 @@ The container includes a health check:
 ```dockerfile
 HEALTHCHECK --interval=30s --timeout=15s --retries=3 CMD \
   python3 -c "from rdkit import Chem; Chem.MolFromSmiles('CCO')" && \
-  curl -sf http://localhost:50001/api/health || exit 1
+  curl -sf http://localhost/api/health || exit 1
 ```
