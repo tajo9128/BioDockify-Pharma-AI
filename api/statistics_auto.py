@@ -266,7 +266,7 @@ class StatisticsAuto(ApiHandler):
                     "test": "Shapiro-Wilk",
                     "statistic": round(float(stat), 4),
                     "p_value": round(float(p), 6),
-                    "is_normal": p > 0.05,
+                    "is_normal": bool(p > 0.05),
                     "n": len(arr),
                 }
         except Exception as e:
@@ -296,7 +296,7 @@ class StatisticsAuto(ApiHandler):
                             "statistic": round(float(stat), 4),
                             "p_value": round(float(p), 6),
                             "groups": {g: {"n": len(groups[g]), "mean": round(np.mean(groups[g]), 4)} for g in gnames},
-                            "significant": p < 0.05,
+                            "significant": bool(p < 0.05),
                         }
                     else:
                         stat, p = scipy_stats.f_oneway(*arrays)
@@ -305,7 +305,7 @@ class StatisticsAuto(ApiHandler):
                             "statistic": round(float(stat), 4),
                             "p_value": round(float(p), 6),
                             "groups": {g: {"n": len(groups[g]), "mean": round(np.mean(groups[g]), 4)} for g in gnames},
-                            "significant": p < 0.05,
+                            "significant": bool(p < 0.05),
                         }
                     break  # one group test is sufficient
             except Exception as e:
