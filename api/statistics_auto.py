@@ -1,9 +1,16 @@
 """Statistics Auto-Analyze API — upload file, auto-detect columns, run all applicable tests.
 No user input required beyond uploading a file."""
 from helpers.api import ApiHandler, Request, Response
-import logging, io, csv, json, base64, traceback, numpy as np
+import logging, io, csv, json, base64, traceback
 
 log = logging.getLogger("statistics_auto")
+
+try:
+    import numpy as np
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
+    np = None
 
 try:
     from scipy import stats as scipy_stats
@@ -136,6 +143,8 @@ class StatisticsAuto(ApiHandler):
         }
 
     def _auto_analyze(self, input: dict):
+        if not HAS_NUMPY:
+            return {"status": "error", "error": "numpy not installed. Run: pip install numpy scipy pandas"}
         content = input.get("content", "")
         filename = input.get("filename", "data.csv")
         if not content:
