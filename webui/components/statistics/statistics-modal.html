@@ -30,7 +30,7 @@
       <button class="st-sample-btn" @click="useSampleData()">Use sample data (skip upload)</button>
     </div>
 
-    <!-- ===== STEP 2: Manual Test ===== -->
+    <!-- ===== STEP 2: Choose Test ===== -->
     <div x-show="step === 2" class="st-body">
       <div class="st-info">
         <span class="material-symbols-outlined" style="font-size:16px;color:#22c55e">check_circle</span>
@@ -39,7 +39,16 @@
         <button class="st-link" @click="resetData()">Change</button>
       </div>
 
-      <!-- Test type selector -->
+      <!-- Auto-Analyze Everything button -->
+      <template x-if="autoResult">
+        <button class="st-auto-btn" @click="showFullAnalysis()">
+          <span class="material-symbols-outlined">auto_awesome</span>
+          Auto-Analyze Everything — descriptive, correlation, normality, group tests in one view
+        </button>
+      </template>
+
+      <!-- OR select specific test -->
+      <div class="st-divider" x-show="autoResult"><span>OR select a specific test</span></div>
       <h3 class="st-h3">Choose Analysis Type</h3>
       <select x-model="testType" class="st-select" @change="selectTest(testType)" style="width:100%;margin-bottom:8px">
         <option value="">-- Select test --</option>
@@ -311,6 +320,11 @@
       .st-manual .st-tab.on{background:var(--color-primary);color:#fff;border-color:var(--color-primary)}
       .st-empty{text-align:center;padding:30px;color:var(--color-text-muted);font-size:0.64rem}
       .st-expl-sig{color:#22c55e!important;font-weight:600!important}
+      .st-auto-btn{display:flex;align-items:center;gap:6px;width:100%;padding:12px;background:color-mix(in srgb,var(--color-primary)8%,var(--color-panel));border:2px solid color-mix(in srgb,var(--color-primary)30%,var(--color-border));border-radius:10px;cursor:pointer;font-size:0.7rem;font-weight:600;color:var(--color-primary);margin-bottom:10px;transition:all .15s}
+      .st-auto-btn:hover{background:color-mix(in srgb,var(--color-primary)15%,var(--color-panel));border-color:var(--color-primary)}
+      .st-auto-btn .material-symbols-outlined{font-size:20px}
+      .st-divider{display:flex;align-items:center;gap:8px;margin:10px 0 12px;color:var(--color-text-muted);font-size:0.55rem;text-transform:uppercase;letter-spacing:0.5px}
+      .st-divider:before,.st-divider:after{content:'';flex:1;height:1px;background:var(--color-border)}
     </style>
   </div>
 </body>

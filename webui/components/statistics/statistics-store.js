@@ -50,7 +50,7 @@ Alpine.data("statisticsModal", () => ({
     return file.text().then(text => ({ content: text, isBinary: false }));
   },
 
-  // === Upload: auto-analyze a file ===
+  // === Upload: parse file, then go to test selection ===
   async processFile(file) {
     if (!file) return;
     this.loading = true;
@@ -59,23 +59,22 @@ Alpine.data("statisticsModal", () => ({
     this.fileName = file.name;
     try {
       const { content } = await this.readFileContent(file);
+      this._buildRawDataFromContent(content, file.name);
+      // Quick summary only — let backend parse and classify
       const result = await callJsonApi("statistics_auto", {
         action: "auto_analyze",
         content: content,
         filename: file.name,
       });
       if (result.status === "ok") {
-        this.autoResult = result;
         this.columns = result.data_summary?.column_names || [];
         this.rowCount = result.data_summary?.total_rows || 0;
         this.hasData = true;
-        this.step = 3;
+        this.step = 2;  // Go to test selection, NOT straight to results
+        // Store the full result for "Auto-Analyze" button
+        this.autoResult = result;
         this.results = JSON.stringify(result, null, 2);
         this.resultsJson = result;
-        this.activeAnalysis = "Auto-Analyze";
-        this.viewMode = "auto";
-        this._buildRawDataFromContent(content, file.name);
-        this._storeToKB(result);
         this.persist();
       } else {
         this.errorMessage = result.error || "Analysis failed";
@@ -84,6 +83,14 @@ Alpine.data("statisticsModal", () => ({
       this.errorMessage = "Upload error: " + (e.message || "API unavailable");
     }
     this.loading = false;
+  },
+
+  // Called when user clicks "Auto-Analyze All" on step 2
+  showFullAnalysis() {
+    this.step = 3;
+    this.activeAnalysis = "Auto-Analyze";
+    this.viewMode = "auto";
+    this._storeToKB(this.resultsJson);
   },
 
   _buildRawDataFromContent(content, filename) {
