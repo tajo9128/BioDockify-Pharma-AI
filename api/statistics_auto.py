@@ -183,6 +183,7 @@ class StatisticsAuto(ApiHandler):
             "normality": {},
             "group_tests": {},
             "recommendations": [],
+            "explanations": [],
             "diagnostics": {
                 "scipy": HAS_SCIPY,
                 "statsmodels": HAS_STATSMODELS,
@@ -191,11 +192,22 @@ class StatisticsAuto(ApiHandler):
             },
         }
 
+        # Step-by-step explanations for students and researchers
+        report["explanations"].append({
+            "step": 1, "title": "File Parsed",
+            "detail": f"Successfully read {n_rows} rows and {len(cols)} columns from '{filename}'. Columns detected: {', '.join(cols)}."
+        })
+        report["explanations"].append({
+            "step": 2, "title": "Column Classification",
+            "detail": f"Numeric columns ({len(numeric)}): {', '.join(numeric) if numeric else 'none'}. Categorical columns ({len(categorical)}): {', '.join(categorical) if categorical else 'none'}. Potential group columns: {', '.join(group_candidates) if group_candidates else 'none detected'}."
+        })
+
         if not HAS_SCIPY:
             report["error"] = "scipy not installed. Run: pip install scipy"
             return report
 
         # 1. Descriptive stats for all numeric columns
+        desc_findings = []
         try:
             for col in numeric:
                 arr = _col_values(rows, col, cols)
@@ -216,8 +228,18 @@ class StatisticsAuto(ApiHandler):
                     "skewness": round(float(scipy_stats.skew(arr)), 4),
                     "kurtosis": round(float(scipy_stats.kurtosis(arr)), 4),
                 }
+                m = round(float(np.mean(arr)), 4)
+                s = round(float(np.std(arr, ddof=1)), 4)
+                sk = round(float(scipy_stats.skew(arr)), 4)
+                desc_findings.append(f"'{col}': mean={m}, SD={s}, range [{round(float(np.min(arr)),4)}–{round(float(np.max(arr)),4)}], skew={sk}" + (" (normal)" if abs(sk)<1 else " (skewed)" if abs(sk)<2 else " (highly skewed)"))
         except Exception as e:
             report["descriptive"]["_error"] = str(e)
+
+        report["explanations"].append({
+            "step": 3, "title": "Descriptive Statistics",
+            "detail": "Computed for all numeric columns. Key metrics explained: Mean = average value. Median = middle value (50th percentile, less affected by outliers). Std = standard deviation (spread of data—smaller means values are close together). Skewness = symmetry (0 = perfectly symmetric; >1 or <-1 suggests skew). Kurtosis = tail heaviness. Q25/Q75 = 25th and 75th percentiles (interquartile range).",
+            "findings": desc_findings
+        })
 
         # 2. Correlation matrix (all numeric columns)
         if len(numeric) >= 2:
@@ -251,10 +273,26 @@ class StatisticsAuto(ApiHandler):
                         "matrix": corr.tolist(),
                         "p_values": pvals.tolist(),
                     }
+                    strong = []
+                    for i in range(n):
+                        for j in range(i+1, n):
+                            if abs(corr[i,j]) > 0.7:
+                                strong.append(f"{valid_cols[i]} vs {valid_cols[j]}: r={corr[i,j]:.3f} (p={pvals[i,j]:.4f})")
+                    report["explanations"].append({
+                        "step": 4, "title": "Pearson Correlation Matrix",
+                        "detail": "Measures linear relationship between numeric columns. r ranges from -1 (perfect negative) to +1 (perfect positive). |r|>0.7 = strong, 0.4<|r|<0.7 = moderate, |r|<0.4 = weak. P-value <0.05 means the correlation is statistically significant (unlikely due to chance).",
+                        "findings": strong if strong else ["No strong correlations found (|r|>0.7)"]
+                    })
             except Exception as e:
                 report["correlation"]["_error"] = str(e)
+        else:
+            report["explanations"].append({
+                "step": 4, "title": "Correlation Skipped",
+                "detail": "Need at least 2 numeric columns for correlation analysis."
+            })
 
         # 3. Normality tests
+        norm_findings = []
         try:
             for col in numeric:
                 arr = _col_values(rows, col, cols)
@@ -264,15 +302,23 @@ class StatisticsAuto(ApiHandler):
                 if len(arr) > 5000:
                     arr = arr[:5000]
                 stat, p = scipy_stats.shapiro(arr[:(min(5000, len(arr)))])
+                is_n = bool(p > 0.05)
                 report["normality"][col] = {
                     "test": "Shapiro-Wilk",
                     "statistic": round(float(stat), 4),
                     "p_value": round(float(p), 6),
-                    "is_normal": bool(p > 0.05),
+                    "is_normal": is_n,
                     "n": len(arr),
                 }
+                norm_findings.append(f"'{col}': Shapiro-Wilk p={p:.4f} → {'NORMAL ✓ (use parametric tests)' if is_n else 'NOT NORMAL ⚠ (consider non-parametric tests)'}")
         except Exception as e:
             report["normality"]["_error"] = str(e)
+
+        report["explanations"].append({
+            "step": 5, "title": "Normality Test (Shapiro-Wilk)",
+            "detail": "Tests whether data follows a normal (bell-curve) distribution. Null hypothesis: data IS normally distributed. If p>0.05 → data is normal → use parametric tests (t-test, ANOVA, Pearson). If p≤0.05 → data is NOT normal → use non-parametric tests (Mann-Whitney, Kruskal-Wallis, Spearman). This is the most important check before choosing a statistical test.",
+            "findings": norm_findings if norm_findings else ["Not enough data points (minimum 8 required per column)"]
+        })
 
         # 4. Group comparisons (auto-detect T-Test / ANOVA)
         if group_candidates and numeric:
@@ -300,6 +346,12 @@ class StatisticsAuto(ApiHandler):
                             "groups": {g: {"n": len(groups[g]), "mean": round(np.mean(groups[g]), 4)} for g in gnames},
                             "significant": bool(p < 0.05),
                         }
+                        gdesc = "; ".join(f"{g} (n={len(groups[g])}, mean={round(np.mean(groups[g]),4)})" for g in gnames)
+                        report["explanations"].append({
+                            "step": 6, "title": "Independent T-Test",
+                            "detail": f"Compares means of '{value_col}' between 2 groups ({', '.join(gnames)}). Null hypothesis: there is NO difference between groups. T-statistic={stat:.4f}, p={p:.6f}. If p<0.05 → the groups ARE significantly different. If p≥0.05 → no evidence of difference. Group summary: {gdesc}. Note: T-test assumes normal distribution. Check Step 5 results to verify this assumption.",
+                            "significant": bool(p < 0.05)
+                        })
                     else:
                         stat, p = scipy_stats.f_oneway(*arrays)
                         report["group_tests"][f"{value_col} ~ {group_col}"] = {
@@ -309,23 +361,43 @@ class StatisticsAuto(ApiHandler):
                             "groups": {g: {"n": len(groups[g]), "mean": round(np.mean(groups[g]), 4)} for g in gnames},
                             "significant": bool(p < 0.05),
                         }
+                        gdesc = "; ".join(f"{g} (n={len(groups[g])}, mean={round(np.mean(groups[g]),4)})" for g in gnames[:6])
+                        report["explanations"].append({
+                            "step": 6, "title": "One-Way ANOVA",
+                            "detail": f"Compares means of '{value_col}' across {len(gnames)} groups. Null hypothesis: ALL group means are equal. F-statistic={stat:.4f}, p={p:.6f}. If p<0.05 → at least one group is significantly different from others. If p≥0.05 → no evidence of differences. Group summary: {gdesc}. Note: ANOVA assumes normality and equal variance. Check Step 5 for normality results.",
+                            "significant": bool(p < 0.05)
+                        })
                     break  # one group test is sufficient
             except Exception as e:
                 report["group_tests"]["_error"] = str(e)
+        elif not group_candidates:
+            report["explanations"].append({
+                "step": 6, "title": "Group Comparison Skipped",
+                "detail": "No group/grouping column detected (need 2-20 unique text/label values). If your data has groups (e.g., Drug vs Placebo), ensure the group column contains text labels, not numbers."
+            })
 
         # 5. Generate recommendations
         recs = []
         if numeric:
-            recs.append(f"Descriptive statistics computed for {len(numeric)} numeric columns")
+            recs.append(f"Your dataset has {len(numeric)} numeric column(s): {', '.join(numeric)}. Use these for parametric tests.")
         if len(numeric) >= 2:
-            recs.append(f"Pearson correlation available for {len(numeric)} columns")
+            recs.append(f"Correlation analysis is available between {len(numeric)} numeric columns. Check the correlation matrix for relationships.")
         if group_candidates:
-            recs.append(f"Group comparison possible with: {', '.join(group_candidates[:3])}")
+            recs.append(f"Group column '{group_candidates[0]}' detected with {len(set(str(r.get(group_candidates[0])) for r in rows if r.get(group_candidates[0]) and str(r.get(group_candidates[0])).strip()))} group(s). Run the appropriate test based on group count and normality.")
         for col, n_test in report.get("normality", {}).items():
             if isinstance(n_test, dict) and not n_test.get("is_normal", True):
-                recs.append(f"'{col}' is not normally distributed — consider non-parametric tests (Mann-Whitney, Kruskal-Wallis)")
+                recs.append(f"'{col}' is NOT normally distributed. Use non-parametric alternatives: Mann-Whitney U (2 groups), Kruskal-Wallis (3+ groups), or Spearman correlation instead of Pearson.")
+        all_normal = all(v.get("is_normal", False) for v in report.get("normality", {}).values() if isinstance(v, dict))
+        if all_normal and numeric and group_candidates:
+            recs.append("All numeric columns are normally distributed. Safe to use parametric tests (t-test for 2 groups, ANOVA for 3+ groups, Pearson correlation).")
         if not recs:
-            recs.append("Data imported successfully. Run a specific test for detailed results.")
+            recs.append("Data imported successfully. Use the Manual Test option to select a specific analysis.")
         report["recommendations"] = recs
+
+        report["explanations"].append({
+            "step": 7, "title": "Summary & Recommendations",
+            "detail": "Based on the analysis above, here is what you should do next:",
+            "findings": recs
+        })
 
         return report

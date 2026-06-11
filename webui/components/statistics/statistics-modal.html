@@ -158,6 +158,24 @@
 
       <!-- Auto-Analyze View -->
       <div x-show="autoResult" class="st-auto">
+        <!-- Step-by-step explanations -->
+        <div class="st-card" style="background:color-mix(in srgb, var(--color-primary) 5%, var(--color-panel));border-color:color-mix(in srgb, var(--color-primary) 20%, var(--color-border))">
+          <h4 style="color:var(--color-primary)">How Your Data Was Analyzed</h4>
+          <template x-for="exp in (autoResult?.explanations || [])" :key="exp.step">
+            <div style="margin-bottom:8px;border-left:3px solid color-mix(in srgb, var(--color-primary) 40%, var(--color-border));padding-left:10px">
+              <div style="font-size:0.58rem;font-weight:700;color:var(--color-primary);margin-bottom:2px" x-text="'Step '+exp.step+': '+exp.title"></div>
+              <div style="font-size:0.54rem;color:var(--color-text-muted);line-height:1.4" x-text="exp.detail"></div>
+              <template x-if="exp.findings?.length">
+                <div style="margin-top:3px">
+                  <template x-for="f in exp.findings" :key="f">
+                    <div style="font-size:0.52rem;color:var(--color-text);padding:2px 6px;margin:1px 0;background:var(--color-background);border-radius:3px" :class="{'st-expl-sig': exp.significant === true}" x-text="'• ' + f"></div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
         <div class="st-card">
           <h4>Data Summary</h4>
           <div class="st-summary">
@@ -292,6 +310,7 @@
       .st-manual .st-tab{padding:3px 8px;background:transparent;border:1px solid var(--color-border);border-radius:3px;cursor:pointer;font-size:0.56rem;color:var(--color-text-muted)}
       .st-manual .st-tab.on{background:var(--color-primary);color:#fff;border-color:var(--color-primary)}
       .st-empty{text-align:center;padding:30px;color:var(--color-text-muted);font-size:0.64rem}
+      .st-expl-sig{color:#22c55e!important;font-weight:600!important}
     </style>
   </div>
 </body>
