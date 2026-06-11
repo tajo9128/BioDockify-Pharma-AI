@@ -3,818 +3,294 @@
   <script type="module" src="/components/statistics/statistics-store.js"></script>
 </head>
 <body>
-  <div x-data="statisticsModal" class="statistics-panel" x-init="restore()">
-    <div class="panel-header">
-      <div class="header-left">
-        <span class="material-symbols-outlined header-icon">analytics</span>
-        <div>
-          <h2>Statistical Analysis</h2>
-          <p class="header-subtitle">Upload data · Auto-Analyze · Instant Results</p>
-        </div>
-      </div>
-      <div class="step-indicator">
-        <div class="step" :class="{'active': step >= 1, 'current': step === 1}">
-          <span class="step-number">1</span>
-          <span class="step-label">Upload</span>
-        </div>
-        <div class="step-connector" :class="{'active': step >= 2}"></div>
-        <div class="step" :class="{'active': step >= 2, 'current': step === 2}">
-          <span class="step-number">2</span>
-          <span class="step-label">Select Test</span>
-        </div>
-        <div class="step-connector" :class="{'active': step >= 3}"></div>
-        <div class="step" :class="{'active': step >= 3, 'current': step === 3}">
-          <span class="step-number">3</span>
-          <span class="step-label">Results</span>
-        </div>
+  <div x-data="statisticsModal" class="stats-panel" x-init="restore()">
+    <!-- Header -->
+    <div class="st-header">
+      <span class="material-symbols-outlined st-hicon">analytics</span>
+      <div><h2>Statistical Analysis</h2><p class="st-sub">Upload data · Auto-Analyze · 20 Tests</p></div>
+      <div class="st-steps">
+        <span class="st-step" :class="{on:step>=1}">1<span class="st-step-label">Upload</span></span>
+        <span class="st-step-bar" :class="{on:step>=2}"></span>
+        <span class="st-step" :class="{on:step>=2}">2<span class="st-step-label">Test</span></span>
+        <span class="st-step-bar" :class="{on:step>=3}"></span>
+        <span class="st-step" :class="{on:step>=3}">3<span class="st-step-label">Results</span></span>
       </div>
     </div>
 
-    <div class="panel-body">
-      <!-- Step 1: Upload -->
-      <div x-show="step === 1" class="step-content">
-        <div class="upload-card">
-          <div class="upload-zone" @click="importData()" @dragover.prevent @drop.prevent="handleDrop($event)">
-            <span class="material-symbols-outlined upload-icon">cloud_upload</span>
-            <p class="upload-title">Drop your data file here</p>
-            <p class="upload-subtitle">or click to browse — auto-analyzes everything</p>
-            <div class="upload-formats">
-              <span class="format-badge">CSV</span>
-              <span class="format-badge">Excel</span>
-              <span class="format-badge">JSON</span>
-            </div>
-          </div>
-          <div class="upload-info">
-            <span class="material-symbols-outlined info-icon">auto_awesome</span>
-            <span>One-click upload → auto-detects columns, runs descriptive stats, correlation, group tests, normality — all automatically</span>
-          </div>
-          <button class="btn-sample" @click="useSampleData()" style="margin-top:10px;width:100%;padding:8px;background:var(--color-panel);border:1px dashed var(--color-border);border-radius:8px;color:var(--color-text-muted);cursor:pointer;font-size:0.72rem">
-            <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px">science</span>
-            Use sample data to explore features (skip upload)
-          </button>
-        </div>
+    <!-- Error -->
+    <div x-show="errorMessage" class="st-err" x-text="errorMessage" @click="errorMessage=''" style="cursor:pointer"></div>
+
+    <!-- ===== STEP 1: Upload ===== -->
+    <div x-show="step === 1" class="st-body">
+      <div class="st-upload" @click="openFilePicker()" @dragover.prevent @drop.prevent="handleDrop($event)">
+        <span class="material-symbols-outlined" style="font-size:40px;color:var(--color-primary);opacity:0.7">cloud_upload</span>
+        <p style="color:var(--color-text);font-weight:600;margin:8px 0 4px">Drop file or click to browse</p>
+        <p style="color:var(--color-text-muted);font-size:0.72rem">CSV · Excel · JSON — auto-analyzes everything</p>
+      </div>
+      <button class="st-sample-btn" @click="useSampleData()">Use sample data (skip upload)</button>
+    </div>
+
+    <!-- ===== STEP 2: Manual Test ===== -->
+    <div x-show="step === 2" class="st-body">
+      <div class="st-info">
+        <span class="material-symbols-outlined" style="font-size:16px;color:#22c55e">check_circle</span>
+        <b x-text="fileName"></b>
+        <span style="color:var(--color-text-muted);font-size:0.7rem" x-text="'(' + rowCount + ' rows, ' + columns.length + ' cols)'"></span>
+        <button class="st-link" @click="resetData()">Change</button>
       </div>
 
-      <!-- Step 2: Select Test -->
-      <div x-show="step === 2" class="step-content">
-        <div class="data-info-bar">
-          <span class="material-symbols-outlined success-icon">check_circle</span>
-          <span class="file-name" x-text="fileName"></span>
-          <span class="row-count" x-text="'(' + rowCount + ' rows, ' + columns.length + ' cols)'"></span>
-          <button class="btn-text" @click="resetData()">Change file</button>
-        </div>
+      <!-- Test type selector -->
+      <h3 class="st-h3">Choose Analysis Type</h3>
+      <select x-model="testType" class="st-select" @change="selectTest(testType)" style="width:100%;margin-bottom:8px">
+        <option value="">-- Select test --</option>
+        <option value="descriptive">Descriptive Statistics</option>
+        <option value="correlation">Correlation</option>
+        <option value="ttest">T-Test</option>
+        <option value="anova">ANOVA</option>
+        <option value="regression">Regression</option>
+        <option value="chisquare">Chi-Square</option>
+        <option value="mannwhitney">Mann-Whitney U</option>
+        <option value="wilcoxon">Wilcoxon Signed Rank</option>
+        <option value="kruskalwallis">Kruskal-Wallis</option>
+        <option value="friedman">Friedman Test</option>
+        <option value="fisher">Fisher Exact</option>
+        <option value="normality">Normality (Shapiro-Wilk)</option>
+        <option value="homogeneity">Homogeneity (Levene)</option>
+        <option value="roc">ROC Curve</option>
+        <option value="power">Power Analysis</option>
+        <option value="survival">Survival Analysis</option>
+        <option value="factor">Factor Analysis (PCA)</option>
+        <option value="reliability">Reliability (Cronbach α)</option>
+        <option value="cluster">Cluster Analysis</option>
+        <option value="pkpd">PK/PD</option>
+      </select>
 
-        <!-- Error message (shown in step 2) -->
-        <div x-show="errorMessage" class="stats-error" x-text="errorMessage" @click="errorMessage = ''" style="cursor:pointer"></div>
-        <div x-show="loading" class="dock-loading" style="margin-bottom:8px"><div class="loading-spinner"></div><span>Running analysis...</span></div>
-
-        <!-- Data preview -->
-        <div class="data-preview" x-show="columns.length">
-          <p class="section-label">Columns: <span x-text="columns.join(', ')"></span></p>
-        </div>
-
-        <!-- Data Transformation (quick actions) -->
-        <div class="transform-section" x-show="hasData && step === 2">
-          <h4 class="section-title" style="margin-bottom:4px">Transform Data</h4>
-          <div class="analysis-grid" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr));margin-bottom:8px">
-            <button class="analysis-card" @click="runTransform('standardize')" :disabled="loading">
-              <span class="material-symbols-outlined card-icon">swap_vert</span>
-              <span class="card-title">Standardize</span>
-              <span class="card-desc">Z-score</span>
-            </button>
-            <button class="analysis-card" @click="runTransform('fill_missing')" :disabled="loading">
-              <span class="material-symbols-outlined card-icon">healing</span>
-              <span class="card-title">Fill Missing</span>
-              <span class="card-desc">Mean</span>
-            </button>
-            <button class="analysis-card" @click="runTransform('rank')" :disabled="loading">
-              <span class="material-symbols-outlined card-icon">format_list_numbered</span>
-              <span class="card-title">Rank Cases</span>
-              <span class="card-desc">Ordinal</span>
-            </button>
-            <button class="analysis-card" @click="runTransform('compute')" :disabled="loading">
-              <span class="material-symbols-outlined card-icon">calculate</span>
-              <span class="card-title">Compute</span>
-              <span class="card-desc">Formula</span>
-            </button>
-            <button class="analysis-card" @click="runTransform('recode')" :disabled="loading">
-              <span class="material-symbols-outlined card-icon">autorenew</span>
-              <span class="card-title">Recode</span>
-              <span class="card-desc">Remap</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Test type selector -->
-        <div class="analysis-section">
-          <div class="section-header-row" style="margin-bottom:6px">
-            <h3 class="section-title">Choose Analysis Type</h3>
-            <span style="font-size:0.58rem;color:var(--color-text-muted)" x-text="'20 tests'"></span>
-            <select x-model="testType" class="test-type-dropdown" @change="selectTest(testType)">
-              <option value="">-- Select test type --</option>
-              <option value="descriptive">Descriptive Statistics</option>
-              <option value="correlation">Correlation Analysis</option>
-              <option value="ttest">T-Test</option>
-              <option value="anova">ANOVA</option>
-              <option value="regression">Regression</option>
-              <option value="survival">Survival Analysis</option>
-              <option value="power">Power Analysis</option>
-              <option value="pkpd">PK/PD Analysis</option>
-              <option value="factor">Factor Analysis (PCA)</option>
-              <option value="reliability">Reliability (Cronbach's α)</option>
-              <option value="cluster">Cluster Analysis</option>
-              <option value="chisquare">Chi-Square Test</option>
-              <option value="mannwhitney">Mann-Whitney U</option>
-              <option value="wilcoxon">Wilcoxon Signed Rank</option>
-              <option value="kruskalwallis">Kruskal-Wallis</option>
-              <option value="friedman">Friedman Test</option>
-              <option value="fisher">Fisher Exact</option>
-              <option value="normality">Normality Test</option>
-              <option value="homogeneity">Homogeneity (Levene)</option>
-              <option value="roc">ROC Curve</option>
+      <!-- Test params -->
+      <div x-show="testType" class="st-params">
+        <template x-if="['correlation'].includes(testType)">
+          <div>
+            <label class="st-label">Select columns</label>
+            <div class="st-chips">
+              <template x-for="c in columns" :key="c">
+                <label class="st-chip" :class="{on:selectedCorrCols.includes(c)}">
+                  <input type="checkbox" :value="c" x-model="selectedCorrCols" hidden>
+                  <span x-text="c"></span>
+                </label>
+              </template>
+            </div>
+            <label class="st-label" style="margin-top:6px">Method</label>
+            <select x-model="correlationMethod" class="st-select">
+              <option value="pearson">Pearson</option>
+              <option value="spearman">Spearman</option>
+              <option value="kendall">Kendall</option>
             </select>
           </div>
-          <div class="analysis-grid">
-            <button class="analysis-card" :class="{'selected': testType === 'descriptive'}" @click="selectTest('descriptive')">
-              <span class="material-symbols-outlined card-icon">functions</span>
-              <span class="card-title">Descriptive</span>
-              <span class="card-desc">Mean, median, SD</span>
-            </button>
-            <button class="analysis-card" :class="{'selected': testType === 'correlation'}" @click="selectTest('correlation')">
-              <span class="material-symbols-outlined card-icon">show_chart</span>
-              <span class="card-title">Correlation</span>
-              <span class="card-desc">Pearson, Spearman</span>
-            </button>
-            <button class="analysis-card" :class="{'selected': testType === 'ttest'}" @click="selectTest('ttest')">
-              <span class="material-symbols-outlined card-icon">compare_arrows</span>
-              <span class="card-title">T-Test</span>
-              <span class="card-desc">Compare two groups</span>
-            </button>
-            <button class="analysis-card" :class="{'selected': testType === 'anova'}" @click="selectTest('anova')">
-              <span class="material-symbols-outlined card-icon">grid_view</span>
-              <span class="card-title">ANOVA</span>
-              <span class="card-desc">Multiple groups</span>
-            </button>
-            <button class="analysis-card" :class="{'selected': testType === 'regression'}" @click="selectTest('regression')">
-              <span class="material-symbols-outlined card-icon">trending_up</span>
-              <span class="card-title">Regression</span>
-              <span class="card-desc">Linear, logistic</span>
-            </button>
-            <button class="analysis-card" :class="{'selected': testType === 'survival'}" @click="selectTest('survival')">
-              <span class="material-symbols-outlined card-icon">timeline</span>
-              <span class="card-title">Survival</span>
-              <span class="card-desc">Kaplan-Meier</span>
-            </button>
-            <button class="analysis-card" :class="{'selected': testType === 'power'}" @click="selectTest('power')">
-              <span class="material-symbols-outlined card-icon">bolt</span>
-              <span class="card-title">Power Analysis</span>
-              <span class="card-desc">Sample size calc</span>
-            </button>
-            <button class="analysis-card" :class="{'selected': testType === 'pkpd'}" @click="selectTest('pkpd')">
-              <span class="material-symbols-outlined card-icon">science</span>
-              <span class="card-title">PK/PD</span>
-              <span class="card-desc">Pharmacokinetics</span>
-            </button>
-            <button class="analysis-card" :class="{'selected': testType === 'factor'}" @click="selectTest('factor')">
-              <span class="material-symbols-outlined card-icon">account_tree</span>
-              <span class="card-title">Factor Analysis</span>
-              <span class="card-desc">PCA, loadings</span>
-            </button>
-            <button class="analysis-card" :class="{'selected': testType === 'reliability'}" @click="selectTest('reliability')">
-              <span class="material-symbols-outlined card-icon">verified</span>
-              <span class="card-title">Reliability</span>
-              <span class="card-desc">Cronbach's α</span>
-            </button>
-            <button class="analysis-card" :class="{'selected': testType === 'cluster'}" @click="selectTest('cluster')">
-              <span class="material-symbols-outlined card-icon">bubble_chart</span>
-              <span class="card-title">Cluster</span>
-              <span class="card-desc">K-Means, Hierarchical</span>
-            </button>
+        </template>
+
+        <template x-if="['ttest','anova','chisquare','mannwhitney','wilcoxon','kruskalwallis','homogeneity'].includes(testType)">
+          <div class="st-row">
+            <div><label class="st-label">Group Column</label>
+              <select x-model="selectedGroupCol" class="st-select"><option value="">-- Select --</option>
+                <template x-for="c in columns" :key="c"><option :value="c" x-text="c"></option></template>
+              </select>
+            </div>
+            <div><label class="st-label">Value Column</label>
+              <select x-model="selectedValueCol" class="st-select"><option value="">-- Select --</option>
+                <template x-for="c in columns" :key="c"><option :value="c" x-text="c"></option></template>
+              </select>
+            </div>
           </div>
-        </div>
+        </template>
 
-        <!-- Test parameters form (shown after selecting a test) -->
-        <div x-show="testType" class="test-params">
-          <h3 class="section-title" x-text="'Configure: ' + ({descriptive:'Descriptive Stats',correlation:'Correlation',ttest:'T-Test',anova:'ANOVA',regression:'Regression',survival:'Survival',power:'Power Analysis',pkpd:'PK/PD',factor:'Factor Analysis',reliability:'Reliability',cluster:'Cluster',chisquare:'Chi-Square',mannwhitney:'Mann-Whitney',wilcoxon:'Wilcoxon',kruskalwallis:'Kruskal-Wallis',friedman:'Friedman',fisher:'Fisher Exact',normality:'Normality',homogeneity:'Homogeneity',roc:'ROC Curve'}[testType] || testType)"></h3>
-
-          <!-- Descriptive - no params needed -->
-          <template x-if="testType === 'descriptive'">
-            <div class="params-note">
-              <span class="material-symbols-outlined">info</span>
-              <span>Computes mean, median, std, min, max, quartiles for all numeric columns</span>
-            </div>
-          </template>
-
-          <!-- Correlation params -->
-          <template x-if="testType === 'correlation'">
-            <div class="params-form">
-              <div class="form-group">
-                <label class="form-label">Select columns to correlate</label>
-                <div class="checkbox-grid">
-                  <template x-for="col in columns" :key="col">
-                    <label class="checkbox-item" :class="{'checked': selectedCorrCols.includes(col)}">
-                      <input type="checkbox" :value="col" x-model="selectedCorrCols" style="display:none">
-                      <span class="checkbox-indicator" x-text="selectedCorrCols.includes(col) ? '☑' : '☐'"></span>
-                      <span x-text="col"></span>
-                    </label>
-                  </template>
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Method</label>
-                  <select x-model="correlationMethod" class="form-select">
-                    <option value="pearson">Pearson</option>
-                    <option value="spearman">Spearman</option>
-                    <option value="kendall">Kendall</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <!-- T-Test params -->
-          <template x-if="testType === 'ttest'">
-            <div class="params-form">
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Group Column</label>
-                  <select x-model="selectedGroupCol" class="form-select">
-                    <option value="">-- Select column --</option>
-                    <template x-for="col in columns" :key="col">
-                      <option :value="col" x-text="col"></option>
-                    </template>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Value Column</label>
-                  <select x-model="selectedValueCol" class="form-select">
-                    <option value="">-- Select column --</option>
-                    <template x-for="col in columns" :key="col">
-                      <option :value="col" x-text="col"></option>
-                    </template>
-                  </select>
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Test Type</label>
-                  <div class="radio-group">
-                    <label class="radio-item">
-                      <input type="radio" value="independent" x-model="ttestType">
-                      <span>Independent</span>
-                    </label>
-                    <label class="radio-item">
-                      <input type="radio" value="paired" x-model="ttestType">
-                      <span>Paired</span>
-                    </label>
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label class="form-check">
-                    <input type="checkbox" x-model="ttestEqualVar">
-                    <span>Equal variance</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <!-- ANOVA params -->
-          <template x-if="testType === 'anova'">
-            <div class="params-form">
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Group Column</label>
-                  <select x-model="selectedGroupCol" class="form-select">
-                    <option value="">-- Select column --</option>
-                    <template x-for="col in columns" :key="col">
-                      <option :value="col" x-text="col"></option>
-                    </template>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Value Column</label>
-                  <select x-model="selectedValueCol" class="form-select">
-                    <option value="">-- Select column --</option>
-                    <template x-for="col in columns" :key="col">
-                      <option :value="col" x-text="col"></option>
-                    </template>
-                  </select>
-                </div>
-              </div>
-              <div class="form-row">
-                <label class="form-check">
-                  <input type="checkbox" x-model="anovaPostHoc">
-                  <span>Post-hoc test (Tukey HSD)</span>
-                </label>
-              </div>
-            </div>
-          </template>
-
-          <!-- Regression / Survival / PKPD - agent-based -->
-          <template x-if="['regression', 'survival', 'pkpd'].includes(testType)">
-            <div class="params-note agent-note">
-              <span class="material-symbols-outlined">psychology</span>
-              <span>This analysis type is agent-driven. Type your request in the chat panel — the agent will perform the analysis for you.</span>
-            </div>
-          </template>
-
-          <!-- Factor Analysis - no params needed (runs on all numeric cols) -->
-          <template x-if="testType === 'factor'">
-            <div class="params-note">
-              <span class="material-symbols-outlined">info</span>
-              <span>Performs PCA on all numeric columns. Returns eigenvalues, loadings, scree plot.</span>
-            </div>
-          </template>
-
-          <!-- Reliability - no params needed -->
-          <template x-if="testType === 'reliability'">
-            <div class="params-note">
-              <span class="material-symbols-outlined">info</span>
-              <span>Computes Cronbach's alpha from all numeric columns. Returns item-total statistics.</span>
-            </div>
-          </template>
-
-          <!-- Cluster params -->
-          <template x-if="testType === 'cluster'">
-            <div class="params-form">
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Clusters (K)</label>
-                  <input type="number" x-model="clusterK" min="2" max="10" value="3" class="form-input" style="width:80px" />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Method</label>
-                  <select x-model="clusterMethod" class="form-select">
-                    <option value="kmeans">K-Means</option>
-                    <option value="hierarchical">Hierarchical</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <!-- Non-parametric / Diagnostic test params (same as t-test — group + value cols) -->
-          <template x-if="['mannwhitney','wilcoxon','kruskalwallis','homogeneity','chisquare'].includes(testType)">
-            <div class="params-form">
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Group Column</label>
-                  <select x-model="selectedGroupCol" class="form-select">
-                    <option value="">-- Select column --</option>
-                    <template x-for="col in columns" :key="col"><option :value="col" x-text="col"></option></template>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Value Column</label>
-                  <select x-model="selectedValueCol" class="form-select">
-                    <option value="">-- Select column --</option>
-                    <template x-for="col in columns" :key="col"><option :value="col" x-text="col"></option></template>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <!-- Friedman + Fisher + Normality — all columns -->
-          <template x-if="['friedman','fisher','normality'].includes(testType)">
-            <div class="params-note">
-              <span class="material-symbols-outlined">info</span>
-              <span>Uses all numeric columns automatically</span>
-            </div>
-          </template>
-
-          <!-- ROC params -->
-          <template x-if="testType === 'roc'">
-            <div class="params-form">
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">True Labels Column</label>
-                  <select x-model="selectedGroupCol" class="form-select">
-                    <option value="">-- Select column --</option>
-                    <template x-for="col in columns" :key="col"><option :value="col" x-text="col"></option></template>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Predicted Score Column</label>
-                  <select x-model="selectedValueCol" class="form-select">
-                    <option value="">-- Select column --</option>
-                    <template x-for="col in columns" :key="col"><option :value="col" x-text="col"></option></template>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <!-- Power Analysis params -->
-          <template x-if="testType === 'power'">
-            <div class="params-form">
-              <div class="form-row three-col">
-                <div class="form-group">
-                  <label class="form-label">Effect Size (d)</label>
-                  <input type="number" x-model="powerEffectSize" step="0.1" min="0.1" max="2" class="form-input">
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Alpha</label>
-                  <input type="number" x-model="powerAlpha" step="0.01" min="0.01" max="0.5" class="form-input">
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Target Power</label>
-                  <input type="number" x-model="powerTarget" step="0.05" min="0.5" max="0.99" class="form-input">
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <!-- Run button -->
-          <button class="btn-run" @click="runAnalysis()" :disabled="loading">
-            <span class="material-symbols-outlined">play_arrow</span>
-            <span x-text="loading ? 'Running...' : 'Run Analysis'"></span>
-          </button>
-
-          <!-- Loading spinner -->
-          <div x-show="loading" class="loading-bar">
-            <div class="loading-spinner"></div>
-            <span>Processing your data...</span>
+        <template x-if="testType==='ttest'">
+          <div class="st-row" style="margin-top:4px">
+            <label><input type="radio" value="independent" x-model="ttestType"> Independent</label>
+            <label><input type="radio" value="paired" x-model="ttestType"> Paired</label>
+            <label><input type="checkbox" x-model="ttestEqualVar"> Equal variance</label>
           </div>
-        </div>
+        </template>
 
-        <div class="agent-help">
-          <button class="agent-help-btn" @click="sendToAgent(`Explain how to choose the right statistical test. Which test should I use and when? What's the difference between t-test, ANOVA, and regression?`)">
-            <span class="material-symbols-outlined">psychology</span>
-            <span>Ask agent: how to choose the right test?</span>
-          </button>
-        </div>
+        <template x-if="testType==='anova'">
+          <label style="margin-top:4px"><input type="checkbox" x-model="anovaPostHoc"> Post-hoc (Tukey HSD)</label>
+        </template>
+
+        <template x-if="testType==='cluster'">
+          <div class="st-row">
+            <div><label class="st-label">Clusters (K)</label><input type="number" x-model="clusterK" min="2" max="10" class="st-input" style="width:60px"></div>
+            <div><label class="st-label">Method</label><select x-model="clusterMethod" class="st-select"><option value="kmeans">K-Means</option><option value="hierarchical">Hierarchical</option></select></div>
+          </div>
+        </template>
+
+        <template x-if="testType==='power'">
+          <div class="st-row">
+            <div><label class="st-label">Effect Size</label><input type="number" x-model="powerEffectSize" step="0.1" min="0.1" class="st-input" style="width:70px"></div>
+            <div><label class="st-label">Alpha</label><input type="number" x-model="powerAlpha" step="0.01" class="st-input" style="width:70px"></div>
+            <div><label class="st-label">Power</label><input type="number" x-model="powerTarget" step="0.05" class="st-input" style="width:70px"></div>
+          </div>
+        </template>
+
+        <template x-if="['regression','survival','pkpd'].includes(testType)">
+          <div class="st-note">Agent-driven — type request in chat panel.</div>
+        </template>
+
+        <template x-if="['friedman','fisher','normality','descriptive','factor','reliability','roc'].includes(testType)">
+          <div class="st-note">All numeric columns used automatically.</div>
+        </template>
       </div>
 
-      <!-- Step 3: Results -->
-      <div x-show="step === 3" class="step-content">
-        <div class="results-header">
-          <div class="data-info-bar">
-            <span class="material-symbols-outlined success-icon">check_circle</span>
-            <span class="file-name" x-text="fileName"></span>
-            <span class="row-count" x-text="'(' + rowCount + ' rows, ' + columns.length + ' cols)'"></span>
-            <span x-show="autoMode" class="auto-badge"><span class="material-symbols-outlined" style="font-size:11px">auto_awesome</span> Auto</span>
+      <button class="st-run" @click="runAnalysis()" :disabled="loading || !testType" x-text="loading ? 'Running...' : 'Run Analysis'"></button>
+      <div x-show="loading" class="st-loading"><span class="st-spin"></span> Processing data...</div>
+    </div>
+
+    <!-- ===== STEP 3: Results ===== -->
+    <div x-show="step === 3" class="st-body">
+      <div class="st-info">
+        <span class="material-symbols-outlined" style="font-size:16px;color:#22c55e">check_circle</span>
+        <b x-text="fileName"></b>
+        <span style="color:var(--color-text-muted);font-size:0.7rem" x-text="'(' + rowCount + ' rows, ' + columns.length + ' cols)'"></span>
+        <template x-if="autoResult"><span class="st-badge">Auto</span></template>
+        <button class="st-link" @click="resetData()">New</button>
+        <button class="st-link" @click="step=2;autoResult=null;testType=null;results='';resultsJson=null">Manual</button>
+        <button class="st-btn" @click="downloadResults('csv')" :disabled="!results">CSV</button>
+        <button class="st-btn" @click="saveToNotebook()" :disabled="!results" style="background:#6366f1">KB</button>
+      </div>
+
+      <!-- Auto-Analyze View -->
+      <div x-show="autoResult" class="st-auto">
+        <div class="st-card">
+          <h4>Data Summary</h4>
+          <div class="st-summary">
+            <span><b x-text="autoResult?.data_summary?.total_rows"></b> Rows</span>
+            <span><b x-text="autoResult?.data_summary?.total_columns"></b> Cols</span>
+            <span><b x-text="autoResult?.data_summary?.numeric_columns?.length"></b> Numeric</span>
+            <span><b x-text="autoResult?.data_summary?.categorical_columns?.length"></b> Categorical</span>
           </div>
-          <div class="results-actions">
-            <button class="btn-secondary" @click="resetData()">
-              <span class="material-symbols-outlined">refresh</span> New Data
-            </button>
-            <button class="btn-secondary" @click="step = 2; autoMode = false; testType = null; results = ''; resultsJson = null">
-              <span class="material-symbols-outlined">tune</span> Manual Test
-            </button>
-            <button class="btn-primary" @click="downloadResults('csv')" :disabled="!results">
-              <span class="material-symbols-outlined">download</span> CSV
-            </button>
-            <button class="btn-primary" @click="saveToNotebook()" :disabled="!results" style="background: #6366f1;">
-              <span class="material-symbols-outlined">bookmark</span> KB
-            </button>
-          </div>
+          <small style="color:var(--color-text-muted)" x-text="'Numeric: ' + (autoResult?.data_summary?.numeric_columns || []).join(', ')"></small>
         </div>
 
-        <!-- Error message -->
-        <div x-show="errorMessage" class="stats-error" x-text="errorMessage" @click="errorMessage = ''" style="cursor:pointer"></div>
-
-        <!-- Auto-Analyze Results View -->
-        <div x-show="autoResult" class="auto-results">
-          <!-- Data Summary -->
-          <div class="auto-section">
-            <h4><span class="material-symbols-outlined">info</span> Data Summary</h4>
-            <div class="auto-summary-grid">
-              <div class="auto-summary-item"><span class="as-label">Rows</span><span class="as-value" x-text="autoResult?.data_summary?.total_rows"></span></div>
-              <div class="auto-summary-item"><span class="as-label">Columns</span><span class="as-value" x-text="autoResult?.data_summary?.total_columns"></span></div>
-              <div class="auto-summary-item"><span class="as-label">Numeric</span><span class="as-value" x-text="autoResult?.data_summary?.numeric_columns?.length || 0"></span></div>
-              <div class="auto-summary-item"><span class="as-label">Categorical</span><span class="as-value" x-text="autoResult?.data_summary?.categorical_columns?.length || 0"></span></div>
-            </div>
-            <div class="auto-col-chips">
-              <span class="auto-chip chip-num" x-text="'Numeric: ' + (autoResult?.data_summary?.numeric_columns || []).join(', ')"></span>
-              <span class="auto-chip chip-cat" x-show="autoResult?.data_summary?.categorical_columns?.length" x-text="'Categorical: ' + (autoResult?.data_summary?.categorical_columns || []).join(', ')"></span>
-            </div>
-          </div>
-
-          <!-- Descriptive Statistics -->
-          <div class="auto-section" x-show="autoResult?.descriptive && Object.keys(autoResult.descriptive).length">
-            <h4><span class="material-symbols-outlined">functions</span> Descriptive Statistics</h4>
-            <div class="auto-desc-table-wrap">
-              <table class="auto-desc-table">
-                <thead><tr><th>Column</th><th>N</th><th>Mean</th><th>Median</th><th>Std</th><th>Min</th><th>Max</th><th>Skew</th></tr></thead>
-                <tbody>
-                  <template x-for="(v, k) in autoResult?.descriptive || {}" :key="k">
-                    <tr x-show="v && typeof v.n === 'number'">
-                      <td class="col-name" x-text="k"></td>
-                      <td x-text="v.n"></td>
-                      <td x-text="v.mean"></td>
-                      <td x-text="v.median"></td>
-                      <td x-text="v.std"></td>
-                      <td x-text="v.min"></td>
-                      <td x-text="v.max"></td>
-                      <td x-text="v.skewness"></td>
-                    </tr>
-                  </template>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Correlation Matrix -->
-          <div class="auto-section" x-show="autoResult?.correlation?.matrix">
-            <h4><span class="material-symbols-outlined">show_chart</span> <span x-text="'Correlation Matrix (' + (autoResult?.correlation?.method || 'Pearson') + ')'"></span></h4>
-            <div class="auto-desc-table-wrap">
-              <table class="auto-desc-table">
-                <thead><tr><th></th><template x-for="c in autoResult?.correlation?.columns" :key="c"><th x-text="c"></th></template></tr></thead>
-                <tbody>
-                  <template x-for="(row, ri) in autoResult?.correlation?.matrix" :key="ri">
-                    <tr>
-                      <td class="col-name" x-text="autoResult?.correlation?.columns[ri]"></td>
-                      <template x-for="(val, ci) in row" :key="ci">
-                        <td :class="{'corr-strong': Math.abs(val) > 0.7, 'corr-med': Math.abs(val) > 0.4 && Math.abs(val) <= 0.7}" x-text="val"></td>
-                      </template>
-                    </tr>
-                  </template>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Group Tests -->
-          <div class="auto-section" x-show="autoResult?.group_tests && Object.keys(autoResult.group_tests).filter(k => k !== '_error').length">
-            <h4><span class="material-symbols-outlined">compare_arrows</span> Group Comparison</h4>
-            <template x-for="(v, k) in autoResult?.group_tests || {}" :key="k">
-              <div class="auto-group-card" x-show="v && v.test">
-                <div class="agc-header">
-                  <span class="agc-name" x-text="k"></span>
-                  <span class="agc-test" x-text="v.test"></span>
-                  <span class="agc-p" :class="{sig: v.significant}" x-text="'p=' + v.p_value"></span>
-                </div>
-                <div class="agc-groups">
-                  <template x-for="(gv, gk) in v.groups || {}" :key="gk">
-                    <span class="agc-group-chip" x-text="gk + ': n=' + gv.n + ', x̄=' + gv.mean"></span>
-                  </template>
-                </div>
-              </div>
+        <div class="st-card" x-show="autoResult?.descriptive && Object.keys(autoResult.descriptive).filter(k=>k!=='_error').length">
+          <h4>Descriptive Statistics</h4>
+          <div class="st-table-wrap"><table class="st-table">
+            <tr><th>Col</th><th>N</th><th>Mean</th><th>Med</th><th>Std</th><th>Min</th><th>Max</th><th>Skew</th></tr>
+            <template x-for="(v,k) in autoResult?.descriptive || {}" :key="k">
+              <tr x-show="v && typeof v.n === 'number'">
+                <td class="tc"><b x-text="k"></b></td>
+                <td x-text="v.n"></td><td x-text="v.mean"></td><td x-text="v.median"></td>
+                <td x-text="v.std"></td><td x-text="v.min"></td><td x-text="v.max"></td><td x-text="v.skewness"></td>
+              </tr>
             </template>
-          </div>
-
-          <!-- Normality -->
-          <div class="auto-section" x-show="autoResult?.normality && Object.keys(autoResult.normality).length">
-            <h4><span class="material-symbols-outlined">bar_chart</span> Normality Tests (Shapiro-Wilk)</h4>
-            <div class="auto-desc-table-wrap">
-              <table class="auto-desc-table">
-                <thead><tr><th>Column</th><th>W Statistic</th><th>p-value</th><th>Normal?</th></tr></thead>
-                <tbody>
-                  <template x-for="(v, k) in autoResult?.normality || {}" :key="k">
-                    <tr x-show="v && v.test">
-                      <td class="col-name" x-text="k"></td>
-                      <td x-text="v.statistic"></td>
-                      <td x-text="v.p_value"></td>
-                      <td :class="{'norm-yes': v.is_normal, 'norm-no': !v.is_normal}" x-text="v.is_normal ? 'Yes' : 'No'"></td>
-                    </tr>
-                  </template>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Recommendations -->
-          <div class="auto-section" x-show="autoResult?.recommendations?.length">
-            <h4><span class="material-symbols-outlined">tips_and_updates</span> Recommendations</h4>
-            <ul class="auto-recommendations">
-              <template x-for="r in autoResult?.recommendations" :key="r">
-                <li x-text="r"></li>
-              </template>
-            </ul>
-          </div>
-
-          <!-- Raw JSON toggle -->
-          <button class="btn-text" @click="viewMode = viewMode === 'raw' ? 'auto' : 'raw'" style="margin-top:8px">
-            <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle">code</span>
-            <span x-text="viewMode === 'raw' ? 'Hide Raw JSON' : 'Show Raw JSON'"></span>
-          </button>
-          <pre x-show="viewMode === 'raw'" x-text="results" class="auto-raw-json"></pre>
+          </table></div>
         </div>
 
-        <!-- Manual Test Results (fallback) -->
-        <div x-show="!autoResult && step === 3" class="manual-results">
-          <div class="results-container" x-show="results">
-            <div class="results-toolbar">
-              <div class="view-toggle">
-                <button class="toggle-btn" :class="{'active': viewMode === 'table'}" @click="viewMode = 'table'">
-                  <span class="material-symbols-outlined">table_chart</span> Table
-                </button>
-                <button class="toggle-btn" :class="{'active': viewMode === 'raw'}" @click="viewMode = 'raw'">
-                  <span class="material-symbols-outlined">code</span> Raw
-                </button>
-              </div>
-              <button class="btn-icon" @click="copyResults()" title="Copy to clipboard">
-                <span class="material-symbols-outlined">content_copy</span>
-              </button>
-            </div>
-            <div class="results-content">
-              <pre x-show="viewMode === 'raw'" x-text="results"></pre>
-              <div x-show="viewMode === 'table'" class="table-view" x-html="formatTable(results)"></div>
-            </div>
-          </div>
-          <div class="no-results" x-show="!results && !loading">
-            <span class="material-symbols-outlined">hourglass_empty</span>
-            <p>Run a manual test from Step 2 to see results here</p>
-          </div>
+        <div class="st-card" x-show="autoResult?.correlation?.matrix">
+          <h4>Correlation Matrix (Pearson)</h4>
+          <div class="st-table-wrap"><table class="st-table">
+            <tr><th></th><template x-for="c in autoResult?.correlation?.columns" :key="c"><th x-text="c"></th></template></tr>
+            <template x-for="(row,ri) in autoResult?.correlation?.matrix" :key="ri">
+              <tr><td class="tc"><b x-text="autoResult?.correlation?.columns[ri]"></b></td>
+                <template x-for="(v,ci) in row" :key="ci">
+                  <td :class="{'tstrong':Math.abs(v)>0.7,'tmed':Math.abs(v)>0.4}" x-text="v"></td>
+                </template>
+              </tr>
+            </template>
+          </table></div>
         </div>
 
-        <!-- Agent Help -->
-        <div class="agent-help">
-          <button class="agent-help-btn" @click="sendToAgent(`Help me interpret these statistical results. Explain what p-values, effect sizes, and confidence intervals mean. ${results ? 'Here are the results: ' + results.substring(0, 500) : ''}`)">
-            <span class="material-symbols-outlined">psychology</span>
-            <span>Ask agent to interpret these results</span>
-          </button>
+        <div class="st-card" x-show="autoResult?.group_tests && Object.keys(autoResult.group_tests).filter(k=>k!=='_error').length">
+          <h4>Group Comparison</h4>
+          <template x-for="(v,k) in autoResult?.group_tests||{}" :key="k">
+            <div class="st-gcard" x-show="v && v.test">
+              <span class="st-gname" x-text="k"></span>
+              <span class="st-gtest" x-text="v.test"></span>
+              <span class="st-gp" :class="{sig:v.significant}" x-text="'p='+v.p_value"></span>
+              <div class="st-gchips"><template x-for="(gv,gk) in v.groups||{}" :key="gk">
+                <span x-text="gk+': n='+gv.n+', x̄='+gv.mean"></span>
+              </template></div>
+            </div>
+          </template>
         </div>
+
+        <button class="st-link" style="margin-top:6px" @click="viewMode=viewMode==='raw'?'auto':'raw'" x-text="viewMode==='raw'?'Hide JSON':'Show JSON'"></button>
+        <pre x-show="viewMode==='raw'" class="st-json" x-text="results"></pre>
       </div>
+
+      <!-- Manual Test View -->
+      <div x-show="!autoResult" class="st-manual">
+        <div x-show="results" class="st-card">
+          <div class="st-row" style="margin-bottom:4px">
+            <button class="st-tab" :class="{on:viewMode==='raw'}" @click="viewMode='raw'">Raw</button>
+            <button class="st-tab" :class="{on:viewMode==='table'}" @click="viewMode='table'">Table</button>
+          </div>
+          <pre x-show="viewMode==='raw'" class="st-json" x-text="results"></pre>
+          <div x-show="viewMode==='table'" x-html="formatTable(results)"></div>
+        </div>
+        <div x-show="!results && !loading" class="st-empty">Run a test from Step 2</div>
+      </div>
+    </div>
 
     <style>
-      .statistics-panel { display: flex; flex-direction: column; height: 100%; overflow: hidden; background: var(--color-background); }
-      .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--color-border); background: var(--color-panel); flex-shrink: 0; }
-      .header-left { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-      .header-icon { font-size: 28px; color: var(--color-primary); }
-      .panel-header h2 { color: var(--color-text); font-size: 1.05rem; margin: 0; font-weight: 700; }
-      .header-subtitle { color: var(--color-text-muted); font-size: 0.7rem; margin: 2px 0 0 0; }
-      .step-indicator { display: flex; align-items: center; gap: 6px; }
-      .step { display: flex; align-items: center; gap: 6px; opacity: 0.35; transition: opacity 0.2s; }
-      .step.active { opacity: 0.7; } .step.current { opacity: 1; }
-      .step-number { width: 22px; height: 22px; border-radius: 50%; background: var(--color-border); color: var(--color-text-muted); display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; }
-      .step.active .step-number { background: var(--color-primary); color: white; }
-      .step-label { font-size: 0.68rem; font-weight: 600; color: var(--color-text-muted); }
-      .step.active .step-label { color: var(--color-text); }
-      .step-connector { width: 24px; height: 2px; background: var(--color-border); }
-      .step-connector.active { background: var(--color-primary); }
-      .panel-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
-
-      /* Upload */
-      .upload-zone { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 20px; border: 2px dashed var(--color-border); border-radius: 12px; cursor: pointer; transition: all 0.2s; background: var(--color-panel); }
-      .upload-zone:hover { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 4%, var(--color-panel)); }
-      .upload-icon { font-size: 44px; color: var(--color-primary); margin-bottom: 10px; opacity: 0.8; }
-      .upload-title { color: var(--color-text); font-size: 0.95rem; font-weight: 600; margin: 0 0 4px 0; }
-      .upload-subtitle { color: var(--color-text-muted); font-size: 0.75rem; margin: 0 0 12px 0; }
-      .upload-formats { display: flex; gap: 6px; }
-      .format-badge { padding: 3px 10px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.68rem; font-weight: 600; color: var(--color-text-muted); }
-      .upload-info { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: color-mix(in srgb, var(--color-primary) 6%, transparent); border-radius: 8px; margin-top: 10px; font-size: 0.7rem; color: var(--color-text-muted); }
-      .info-icon { font-size: 16px; color: var(--color-primary); flex-shrink: 0; }
-      .quick-actions { margin-top: 20px; }
-      .section-label { font-size: 0.7rem; font-weight: 600; color: var(--color-text-muted); margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.4px; }
-      .example-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-      .chip { padding: 6px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; font-size: 0.72rem; color: var(--color-text); cursor: pointer; transition: all 0.15s; }
-      .chip:hover { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 6%, var(--color-panel)); }
-
-      /* Data info */
-      .data-info-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 12px; font-size: 0.75rem; flex-wrap: wrap; }
-      .success-icon { font-size: 16px; color: #22c55e; flex-shrink: 0; }
-      .file-name { color: var(--color-text); font-weight: 600; }
-      .row-count { color: var(--color-text-muted); font-size: 0.7rem; }
-      .btn-text { margin-left: auto; padding: 3px 10px; background: transparent; border: 1px solid var(--color-border); border-radius: 6px; color: var(--color-text-muted); cursor: pointer; font-size: 0.68rem; }
-      .btn-text:hover { border-color: var(--color-primary); color: var(--color-primary); }
-      .data-preview { padding: 8px 12px; background: color-mix(in srgb, var(--color-primary) 4%, var(--color-background)); border-radius: 6px; margin-bottom: 12px; font-size: 0.7rem; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-      /* Analysis grid */
-      .analysis-section { margin-bottom: 16px; }
-      .section-header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
-      .section-title { font-size: 0.8rem; font-weight: 700; color: var(--color-text); margin: 0; padding-bottom: 6px; border-bottom: 1px solid var(--color-border); }
-      .section-header-row .section-title { border-bottom: none; padding-bottom: 0; flex-shrink: 0; }
-      .test-type-dropdown { padding: 5px 8px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-background); color: var(--color-text); font-size: 0.68rem; font-weight: 500; cursor: pointer; min-width: 170px; }
-      .test-type-dropdown:focus { outline: none; border-color: var(--color-primary); }
-      .analysis-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
-      .nb-chip-row { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 4px; }
-      .nb-chip { padding: 2px 6px; background: color-mix(in srgb, var(--color-primary) 8%, var(--color-panel)); border: 1px solid var(--color-border); border-radius: 3px; font-size: 0.5rem; color: var(--color-text-muted); }
-      .analysis-card { display: flex; flex-direction: column; align-items: center; padding: 12px 8px; background: var(--color-panel); border: 2px solid var(--color-border); border-radius: 10px; cursor: pointer; transition: all 0.15s; text-align: center; }
-      .analysis-card:hover { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 5%, var(--color-panel)); transform: translateY(-1px); }
-      .analysis-card.selected { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 10%, var(--color-panel)); box-shadow: 0 0 0 1px var(--color-primary); }
-      .card-icon { font-size: 26px; color: var(--color-primary); margin-bottom: 4px; }
-      .card-title { font-size: 0.74rem; font-weight: 700; color: var(--color-text); }
-      .card-desc { font-size: 0.62rem; color: var(--color-text-muted); margin-top: 2px; }
-
-      /* Test params */
-      .test-params { margin-top: 12px; padding: 14px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 10px; }
-      .params-note { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: color-mix(in srgb, var(--color-primary) 6%, var(--color-background)); border-radius: 8px; font-size: 0.72rem; color: var(--color-text-muted); }
-      .params-note .material-symbols-outlined { font-size: 18px; color: var(--color-primary); flex-shrink: 0; }
-      .agent-note { background: color-mix(in srgb, var(--color-accent, #4fc3f7) 6%, var(--color-background)); }
-      .agent-note .material-symbols-outlined { color: var(--color-accent, #4fc3f7); }
-      .params-form { display: flex; flex-direction: column; gap: 12px; }
-      .form-row { display: flex; gap: 10px; flex-wrap: wrap; }
-      .form-row.three-col > .form-group { flex: 1; min-width: 100px; }
-      .form-group { flex: 1; min-width: 140px; }
-      .form-label { display: block; font-size: 0.68rem; font-weight: 600; color: var(--color-text-muted); margin-bottom: 4px; }
-      .form-select, .form-input { width: 100%; padding: 7px 10px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-background); color: var(--color-text); font-size: 0.72rem; }
-      .form-select:focus, .form-input:focus { outline: none; border-color: var(--color-primary); }
-      .radio-group { display: flex; gap: 12px; padding: 6px 0; }
-      .radio-item { display: flex; align-items: center; gap: 4px; font-size: 0.72rem; color: var(--color-text); cursor: pointer; }
-      .radio-item input { accent-color: var(--color-primary); }
-      .form-check { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--color-text); cursor: pointer; }
-      .form-check input { accent-color: var(--color-primary); }
-      .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px; max-height: 160px; overflow-y: auto; padding: 4px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 6px; }
-      .checkbox-item { display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; color: var(--color-text); transition: background 0.12s; }
-      .checkbox-item:hover { background: color-mix(in srgb, var(--color-primary) 6%, transparent); }
-      .checkbox-indicator { font-size: 0.85rem; flex-shrink: 0; width: 16px; text-align: center; }
-
-      /* Run button */
-      .btn-run { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 14px; padding: 10px; background: var(--color-primary); border: none; border-radius: 8px; color: white; cursor: pointer; font-size: 0.82rem; font-weight: 600; transition: all 0.15s; }
-      .btn-run:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-      .btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-      .loading-bar { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 0.72rem; color: var(--color-text-muted); }
-      .loading-spinner { width: 16px; height: 16px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
-      @keyframes spin { to { transform: rotate(360deg); } }
-
-      /* Results */
-      .results-header { margin-bottom: 14px; }
-      .analysis-name { color: var(--color-text); font-weight: 500; }
-      .results-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
-      .btn-secondary { display: flex; align-items: center; gap: 4px; padding: 7px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; color: var(--color-text); cursor: pointer; font-size: 0.72rem; font-weight: 500; }
-      .btn-secondary:hover { border-color: var(--color-primary); }
-      .btn-primary { display: flex; align-items: center; gap: 4px; padding: 7px 12px; background: var(--color-primary); border: none; border-radius: 6px; color: white; cursor: pointer; font-size: 0.72rem; font-weight: 600; }
-      .btn-primary:hover:not(:disabled) { opacity: 0.9; }
-      .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-      .results-container { background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; }
-      .results-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--color-border); background: var(--color-background); }
-      .view-toggle { display: flex; gap: 3px; }
-      .toggle-btn { display: flex; align-items: center; gap: 3px; padding: 4px 8px; background: transparent; border: 1px solid transparent; border-radius: 5px; color: var(--color-text-muted); cursor: pointer; font-size: 0.68rem; }
-      .toggle-btn:hover { background: var(--color-panel); }
-      .toggle-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-      .btn-icon { padding: 4px; background: transparent; border: none; border-radius: 5px; color: var(--color-text-muted); cursor: pointer; }
-      .btn-icon:hover { background: var(--color-panel); color: var(--color-text); }
-      .results-content { padding: 12px; max-height: 400px; overflow-y: auto; }
-      .results-content pre { white-space: pre-wrap; font-family: var(--font-mono, 'SF Mono', Monaco, Consolas, monospace); font-size: 0.7rem; color: var(--color-text); margin: 0; line-height: 1.5; }
-      .table-view { overflow-x: auto; }
-      .table-view table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
-      .table-view th { padding: 6px 10px; text-align: left; border-bottom: 2px solid var(--color-border); background: var(--color-background); font-weight: 600; color: var(--color-text); position: sticky; top: 0; white-space: nowrap; }
-      .table-view td { padding: 5px 10px; text-align: left; border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); }
-      .no-results { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 20px; color: var(--color-text-muted); text-align: center; }
-      .no-results .material-symbols-outlined { font-size: 40px; opacity: 0.3; margin-bottom: 10px; }
-      .no-results p { font-size: 0.8rem; margin: 0; }
-
-      /* Agent help */
-      .agent-help { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--color-border); }
-      .agent-help-btn { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: color-mix(in srgb, var(--color-accent, #4fc3f7) 8%, var(--color-panel)); border: 1px solid color-mix(in srgb, var(--color-accent, #4fc3f7) 25%, var(--color-border)); border-radius: 8px; color: var(--color-text); cursor: pointer; font-size: 0.72rem; font-weight: 500; width: 100%; justify-content: center; transition: all 0.15s; }
-      .agent-help-btn:hover { background: color-mix(in srgb, var(--color-accent, #4fc3f7) 15%, var(--color-panel)); border-color: var(--color-accent, #4fc3f7); }
-      .agent-help-btn .material-symbols-outlined { font-size: 18px; color: var(--color-accent, #4fc3f7); }
-
-      .stats-error { padding: 8px 12px; background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.2); border-radius: 6px; color: var(--color-error-text, #ff6b6b); font-size: 0.68rem; margin-bottom: 8px; }
-      .dock-loading { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; color: var(--color-text-muted); }
-
-      /* Chart view */
-      .chart-view { text-align: center; }
-      .chart-loading { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 30px; font-size: 0.7rem; color: var(--color-text-muted); }
-      .chart-empty { display: flex; flex-direction: column; align-items: center; padding: 30px; color: var(--color-text-muted); }
-      .chart-empty .material-symbols-outlined { font-size: 36px; opacity: 0.3; margin-bottom: 8px; }
-
-      /* Auto badge */
-      .auto-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); border-radius: 8px; font-size: 0.58rem; color: #6366f1; font-weight: 600; margin-left: auto; }
-
-      /* Auto results */
-      .auto-results { display: flex; flex-direction: column; gap: 10px; }
-      .auto-section { padding: 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 10px; }
-      .auto-section h4 { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; font-weight: 700; color: var(--color-text); margin: 0 0 8px 0; }
-      .auto-section h4 .material-symbols-outlined { font-size: 16px; color: var(--color-primary); }
-
-      /* Summary grid */
-      .auto-summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
-      .auto-summary-item { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; background: var(--color-background); border-radius: 6px; }
-      .as-label { font-size: 0.52rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
-      .as-value { font-size: 1rem; font-weight: 700; color: var(--color-primary); }
-
-      /* Column chips */
-      .auto-col-chips { display: flex; flex-direction: column; gap: 4px; }
-      .auto-chip { font-size: 0.54rem; padding: 3px 8px; border-radius: 4px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .chip-num { background: color-mix(in srgb, var(--color-primary) 8%, transparent); color: var(--color-primary); }
-      .chip-cat { background: rgba(251,146,60,0.08); color: #fb923c; }
-
-      /* Descriptive table */
-      .auto-desc-table-wrap { overflow-x: auto; }
-      .auto-desc-table { width: 100%; border-collapse: collapse; font-size: 0.58rem; }
-      .auto-desc-table th { padding: 4px 8px; text-align: left; border-bottom: 2px solid var(--color-border); color: var(--color-text-muted); font-weight: 600; white-space: nowrap; position: sticky; top: 0; background: var(--color-panel); }
-      .auto-desc-table td { padding: 3px 8px; border-bottom: 1px solid var(--color-border); color: var(--color-text); white-space: nowrap; }
-      .auto-desc-table .col-name { font-weight: 600; color: var(--color-primary); }
-
-      /* Correlation colors */
-      .corr-strong { color: var(--color-primary) !important; font-weight: 700; }
-      .corr-med { color: var(--color-text); font-weight: 600; }
-
-      /* Group test cards */
-      .auto-group-card { padding: 8px 10px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: 6px; }
-      .agc-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
-      .agc-name { font-size: 0.58rem; font-weight: 600; color: var(--color-text); }
-      .agc-test { font-size: 0.54rem; padding: 1px 6px; background: color-mix(in srgb, var(--color-primary) 10%, transparent); border-radius: 3px; color: var(--color-primary); }
-      .agc-p { font-size: 0.6rem; font-weight: 700; color: var(--color-text-muted); }
-      .agc-p.sig { color: #22c55e; }
-      .agc-groups { display: flex; gap: 6px; flex-wrap: wrap; }
-      .agc-group-chip { font-size: 0.52rem; padding: 2px 7px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 4px; color: var(--color-text-muted); }
-
-      /* Normality */
-      .norm-yes { color: #22c55e !important; font-weight: 600; }
-      .norm-no { color: #fb923c !important; font-weight: 600; }
-
-      /* Recommendations */
-      .auto-recommendations { margin: 0; padding-left: 16px; font-size: 0.56rem; color: var(--color-text-muted); line-height: 1.6; }
-      .auto-recommendations li { margin-bottom: 2px; }
-
-      /* Raw JSON */
-      .auto-raw-json { padding: 10px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.58rem; font-family: var(--font-mono, monospace); color: var(--color-text); white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+      .stats-panel{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background)}
+      .st-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--color-border);flex-shrink:0}
+      .st-hicon{font-size:24px;color:var(--color-primary)}
+      .st-header h2{font-size:0.92rem;margin:0;font-weight:700;color:var(--color-text)}
+      .st-sub{font-size:0.58rem;color:var(--color-text-muted);margin:1px 0 0}
+      .st-steps{display:flex;align-items:center;gap:4px;margin-left:auto}
+      .st-step{display:flex;align-items:center;gap:4px;font-size:0.65rem;font-weight:700;color:var(--color-border);opacity:0.4}
+      .st-step.on{color:var(--color-primary);opacity:1}
+      .st-step-bar{width:18px;height:2px;background:var(--color-border)}
+      .st-step-bar.on{background:var(--color-primary)}
+      .st-step-label{font-weight:400;font-size:0.55rem}
+      .st-err{padding:6px 12px;margin:8px 16px 0;background:rgba(255,107,107,0.08);border:1px solid rgba(255,107,107,0.2);border-radius:6px;color:var(--color-error-text);font-size:0.62rem}
+      .st-body{flex:1;overflow-y:auto;padding:16px}
+      .st-upload{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;border:2px dashed var(--color-border);border-radius:12px;cursor:pointer;transition:all .15s;background:var(--color-panel)}
+      .st-upload:hover{border-color:var(--color-primary);background:var(--color-panel)}
+      .st-sample-btn{display:block;width:100%;margin-top:10px;padding:8px;background:var(--color-panel);border:1px dashed var(--color-border);border-radius:8px;color:var(--color-text-muted);cursor:pointer;font-size:0.7rem;text-align:center}
+      .st-sample-btn:hover{border-color:var(--color-primary);color:var(--color-primary)}
+      .st-info{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:12px;font-size:0.75rem;flex-wrap:wrap}
+      .st-link{padding:2px 8px;background:transparent;border:1px solid var(--color-border);border-radius:4px;color:var(--color-text-muted);cursor:pointer;font-size:0.62rem;margin-left:auto}
+      .st-link:hover{border-color:var(--color-primary);color:var(--color-primary)}
+      .st-btn{display:inline-flex;align-items:center;gap:3px;padding:4px 10px;background:var(--color-primary);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.62rem;font-weight:600}
+      .st-btn:disabled{opacity:.5;cursor:default}
+      .st-h3{font-size:0.68rem;font-weight:700;color:var(--color-text);margin:0 0 6px}
+      .st-select{padding:6px 10px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-panel);color:var(--color-text);font-size:0.64rem;box-sizing:border-box}
+      .st-select:focus{outline:none;border-color:var(--color-primary)}
+      .st-input{padding:5px 8px;border:1px solid var(--color-border);border-radius:4px;background:var(--color-panel);color:var(--color-text);font-size:0.64rem;text-align:center}
+      .st-input:focus{outline:none;border-color:var(--color-primary)}
+      .st-label{display:block;font-size:0.58rem;font-weight:600;color:var(--color-text-muted);margin-bottom:3px}
+      .st-params{margin-top:10px;padding:10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px}
+      .st-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+      .st-row>div{flex:1;min-width:120px}
+      .st-chips{display:flex;flex-wrap:wrap;gap:4px}
+      .st-chip{padding:3px 10px;border:1px solid var(--color-border);border-radius:5px;cursor:pointer;font-size:0.58rem;color:var(--color-text-muted)}
+      .st-chip.on{background:var(--color-primary);color:#fff;border-color:var(--color-primary)}
+      .st-note{padding:8px 10px;background:var(--color-panel);border-radius:6px;font-size:0.6rem;color:var(--color-text-muted)}
+      .st-run{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:12px;padding:10px;background:var(--color-primary);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600}
+      .st-run:disabled{opacity:.5;cursor:default}
+      .st-loading{display:flex;align-items:center;gap:6px;font-size:0.64rem;color:var(--color-text-muted);margin-top:8px}
+      .st-spin{width:14px;height:14px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin .8s linear infinite}
+      @keyframes spin{to{transform:rotate(360deg)}}
+      .st-badge{padding:1px 7px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);border-radius:8px;font-size:0.5rem;color:#6366f1;font-weight:600}
+      .st-auto{display:flex;flex-direction:column;gap:8px}
+      .st-card{padding:10px 12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px}
+      .st-card h4{font-size:0.62rem;font-weight:700;color:var(--color-text);margin:0 0 6px}
+      .st-summary{display:flex;gap:12px;font-size:0.6rem;color:var(--color-text-muted);margin-bottom:4px}
+      .st-table-wrap{overflow-x:auto}
+      .st-table{width:100%;border-collapse:collapse;font-size:0.54rem}
+      .st-table th,.st-table td{padding:2px 6px;text-align:left;border-bottom:1px solid var(--color-border);white-space:nowrap}
+      .st-table th{font-weight:600;color:var(--color-text-muted)}
+      .tc{color:var(--color-primary)!important;font-weight:600}
+      .tstrong{color:var(--color-primary)!important;font-weight:700}
+      .tmed{font-weight:600}
+      .st-gcard{padding:6px 8px;background:var(--color-background);border:1px solid var(--color-border);border-radius:5px;margin-bottom:4px}
+      .st-gname{font-size:0.54rem;font-weight:600}
+      .st-gtest{font-size:0.5rem;padding:1px 5px;background:var(--color-panel);border-radius:3px;margin:0 6px;color:var(--color-primary)}
+      .st-gp{font-size:0.55rem;font-weight:700}
+      .st-gp.sig{color:#22c55e}
+      .st-gchips{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px;font-size:0.48rem;color:var(--color-text-muted)}
+      .st-json{padding:8px 10px;background:var(--color-background);border:1px solid var(--color-border);border-radius:6px;font-size:0.56rem;font-family:monospace;color:var(--color-text);white-space:pre-wrap;max-height:400px;overflow-y:auto;margin:0}
+      .st-manual .st-tab{padding:3px 8px;background:transparent;border:1px solid var(--color-border);border-radius:3px;cursor:pointer;font-size:0.56rem;color:var(--color-text-muted)}
+      .st-manual .st-tab.on{background:var(--color-primary);color:#fff;border-color:var(--color-primary)}
+      .st-empty{text-align:center;padding:30px;color:var(--color-text-muted);font-size:0.64rem}
     </style>
   </div>
 </body>
