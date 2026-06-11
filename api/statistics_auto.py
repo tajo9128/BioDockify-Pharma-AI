@@ -320,10 +320,39 @@ class StatisticsAuto(ApiHandler):
             "findings": norm_findings if norm_findings else ["Not enough data points (minimum 8 required per column)"]
         })
 
-        # 4. Group comparisons (auto-detect T-Test / ANOVA)
+        # 4. Group comparisons — auto-detect test sub-type (paired, independent, two-way)
         if group_candidates and numeric:
             try:
                 group_col = group_candidates[0]
+                # Detect paired data: check if an ID column has overlapping IDs across groups
+                id_col = None
+                for c in categorical:
+                    if c not in group_candidates:
+                        raw = [str(r.get(c) or "") for r in rows]
+                        unique_ids = len(set(v for v in raw if v.strip()))
+                        if unique_ids > n_rows * 0.4:
+                            id_col = c
+                            break
+
+                paired = False
+                if id_col:
+                    group_ids = {}
+                    for r in rows:
+                        g = str(r.get(group_col) or "")
+                        pid = str(r.get(id_col) or "")
+                        if g and pid:
+                            group_ids.setdefault(g, set()).add(pid)
+                    if len(group_ids) >= 2:
+                        id_sets = list(group_ids.values())
+                        common = id_sets[0]
+                        for s in id_sets[1:]:
+                            common = common & s
+                        if id_sets and len(common) > min(len(s) for s in id_sets) * 0.6:
+                            paired = True
+
+                # Detect two-way possibility
+                two_way = len(group_candidates) >= 2
+
                 for value_col in numeric:
                     if value_col == group_col:
                         continue
@@ -337,61 +366,83 @@ class StatisticsAuto(ApiHandler):
                         continue
                     gnames = sorted(groups.keys())
                     arrays = [groups[g] for g in gnames]
-                    if len(gnames) == 2:
+                    n_groups = len(gnames)
+
+                    if paired and n_groups == 2 and len(arrays[0]) == len(arrays[1]):
+                        stat, p = scipy_stats.ttest_rel(arrays[0], arrays[1])
+                        test_name = "Paired T-Test 🔗"
+                        test_desc = f"Same subjects measured in both groups ({', '.join(gnames)}). Paired design detected — using Paired T-Test (ttest_rel) because measurements come from matched subjects (before/after or crossover)."
+                        sub_type = "paired"
+                    elif n_groups == 2:
                         stat, p = scipy_stats.ttest_ind(arrays[0], arrays[1])
-                        report["group_tests"][f"{value_col} ~ {group_col}"] = {
-                            "test": "Independent T-Test",
-                            "statistic": round(float(stat), 4),
-                            "p_value": round(float(p), 6),
-                            "groups": {g: {"n": len(groups[g]), "mean": round(np.mean(groups[g]), 4)} for g in gnames},
-                            "significant": bool(p < 0.05),
-                        }
-                        gdesc = "; ".join(f"{g} (n={len(groups[g])}, mean={round(np.mean(groups[g]),4)})" for g in gnames)
-                        report["explanations"].append({
-                            "step": 6, "title": "Independent T-Test",
-                            "detail": f"Compares means of '{value_col}' between 2 groups ({', '.join(gnames)}). Null hypothesis: there is NO difference between groups. T-statistic={stat:.4f}, p={p:.6f}. If p<0.05 → the groups ARE significantly different. If p≥0.05 → no evidence of difference. Group summary: {gdesc}. Note: T-test assumes normal distribution. Check Step 5 results to verify this assumption.",
-                            "significant": bool(p < 0.05)
-                        })
+                        test_name = "Independent T-Test"
+                        test_desc = f"Compares '{value_col}' between 2 independent groups ({', '.join(gnames)}). Different subjects in each group — using Independent T-Test (ttest_ind)."
+                        sub_type = "independent"
                     else:
                         stat, p = scipy_stats.f_oneway(*arrays)
-                        report["group_tests"][f"{value_col} ~ {group_col}"] = {
-                            "test": "One-Way ANOVA",
-                            "statistic": round(float(stat), 4),
-                            "p_value": round(float(p), 6),
-                            "groups": {g: {"n": len(groups[g]), "mean": round(np.mean(groups[g]), 4)} for g in gnames},
-                            "significant": bool(p < 0.05),
-                        }
-                        gdesc = "; ".join(f"{g} (n={len(groups[g])}, mean={round(np.mean(groups[g]),4)})" for g in gnames[:6])
-                        report["explanations"].append({
-                            "step": 6, "title": "One-Way ANOVA",
-                            "detail": f"Compares means of '{value_col}' across {len(gnames)} groups. Null hypothesis: ALL group means are equal. F-statistic={stat:.4f}, p={p:.6f}. If p<0.05 → at least one group is significantly different from others. If p≥0.05 → no evidence of differences. Group summary: {gdesc}. Note: ANOVA assumes normality and equal variance. Check Step 5 for normality results.",
-                            "significant": bool(p < 0.05)
-                        })
-                    break  # one group test is sufficient
+                        if two_way and len(group_candidates) >= 2:
+                            test_name = "One-Way ANOVA ⚠ Two-Way Possible"
+                            test_desc = f"Running One-Way ANOVA on '{group_col}' ({n_groups} groups). Note: a second group column '{group_candidates[1]}' was detected. For Two-Way ANOVA (testing both factors simultaneously), use the Manual Test tab."
+                            sub_type = "one_way_two_way_possible"
+                        else:
+                            test_name = "One-Way ANOVA"
+                            test_desc = f"Compares '{value_col}' across {n_groups} independent groups. F-test determines if at least one group mean differs."
+                            sub_type = "one_way"
+
+                    gdesc = "; ".join(f"{g} (n={len(groups[g])}, x\u0304={round(np.mean(groups[g]),3)})" for g in gnames)
+                    report["group_tests"][f"{value_col} ~ {group_col}"] = {
+                        "test": test_name,
+                        "statistic": round(float(stat), 4),
+                        "p_value": round(float(p), 6),
+                        "groups": {g: {"n": len(groups[g]), "mean": round(np.mean(groups[g]), 4)} for g in gnames},
+                        "significant": bool(p < 0.05),
+                        "paired": paired,
+                        "sub_type": sub_type,
+                    }
+                    sig = bool(p < 0.05)
+                    report["explanations"].append({
+                        "step": 6, "title": test_name,
+                        "detail": test_desc + f"\n\nStatistic={stat:.4f}, p={p:.6f}. " + ("SIGNIFICANT (p<0.05) \u2014 the difference between groups is statistically meaningful." if sig else "NOT significant (p\u22650.05) \u2014 no evidence of difference between groups.") + f"\n\nGroup summary: {gdesc}",
+                        "significant": sig,
+                        "findings": [gdesc],
+                        "test_sub_type": sub_type
+                    })
+                    break
             except Exception as e:
                 report["group_tests"]["_error"] = str(e)
         elif not group_candidates:
             report["explanations"].append({
                 "step": 6, "title": "Group Comparison Skipped",
-                "detail": "No group/grouping column detected (need 2-20 unique text/label values). If your data has groups (e.g., Drug vs Placebo), ensure the group column contains text labels, not numbers."
+                "detail": "No group column detected (need 2-20 unique text/label values). If your data has groups (e.g., Drug vs Placebo), ensure the group column contains text labels, not numbers."
             })
 
         # 5. Generate recommendations
         recs = []
         if numeric:
-            recs.append(f"Your dataset has {len(numeric)} numeric column(s): {', '.join(numeric)}. Use these for parametric tests.")
+            recs.append(f"Your dataset has {len(numeric)} numeric column(s): {', '.join(numeric)}.")
         if len(numeric) >= 2:
-            recs.append(f"Correlation analysis is available between {len(numeric)} numeric columns. Check the correlation matrix for relationships.")
+            recs.append(f"Correlation analysis available between {len(numeric)} columns. Check the correlation matrix.")
         if group_candidates:
-            recs.append(f"Group column '{group_candidates[0]}' detected with {len(set(str(r.get(group_candidates[0])) for r in rows if r.get(group_candidates[0]) and str(r.get(group_candidates[0])).strip()))} group(s). Run the appropriate test based on group count and normality.")
+            recs.append(f"Group column '{group_candidates[0]}' detected.")
+            if paired:
+                recs.append("Matching IDs across groups \u2014 paired/crossover design. Use Paired T-Test (2 groups) or Repeated Measures ANOVA (3+ groups).")
+            elif n_groups == 2:
+                recs.append(f"{n_groups} groups with independent subjects \u2014 Independent T-Test used.")
+            else:
+                recs.append(f"{n_groups} groups \u2014 One-Way ANOVA used.")
+            if two_way and len(group_candidates) >= 2:
+                recs.append(f"Two grouping columns detected: '{group_candidates[0]}' and '{group_candidates[1]}'. Use Two-Way ANOVA from Manual Test to analyze both simultaneously.")
         for col, n_test in report.get("normality", {}).items():
             if isinstance(n_test, dict) and not n_test.get("is_normal", True):
-                recs.append(f"'{col}' is NOT normally distributed. Use non-parametric alternatives: Mann-Whitney U (2 groups), Kruskal-Wallis (3+ groups), or Spearman correlation instead of Pearson.")
+                recs.append(f"'{col}' is NOT normal \u2014 use non-parametric: Mann-Whitney U (2 groups), Kruskal-Wallis (3+), Spearman correlation.")
         all_normal = all(v.get("is_normal", False) for v in report.get("normality", {}).values() if isinstance(v, dict))
         if all_normal and numeric and group_candidates:
-            recs.append("All numeric columns are normally distributed. Safe to use parametric tests (t-test for 2 groups, ANOVA for 3+ groups, Pearson correlation).")
+            if paired:
+                recs.append("All data is normal and paired \u2714 Use Paired T-Test / Repeated Measures ANOVA.")
+            else:
+                recs.append("All data is normally distributed \u2714 Parametric tests (t-test, ANOVA, Pearson) are appropriate.")
         if not recs:
-            recs.append("Data imported successfully. Use the Manual Test option to select a specific analysis.")
+            recs.append("Data imported. Use the Manual Test tab to select a specific analysis.")
         report["recommendations"] = recs
 
         report["explanations"].append({
