@@ -134,14 +134,14 @@ class StatisticsAuto(ApiHandler):
         return {
             "status": "ok",
             "health": {
+                "numpy": HAS_NUMPY,
                 "scipy": HAS_SCIPY,
                 "statsmodels": HAS_STATSMODELS,
                 "sklearn": HAS_SKLEARN,
                 "pandas": HAS_PANDAS,
-                "numpy": True,
             },
-            "missing": [p for p, ok in [("scipy", HAS_SCIPY), ("statsmodels", HAS_STATSMODELS), ("sklearn", HAS_SKLEARN), ("pandas", HAS_PANDAS)] if not ok],
-            "ready": all([HAS_SCIPY, HAS_STATSMODELS, HAS_SKLEARN, HAS_PANDAS]),
+            "missing": [p for p, ok in [("numpy", HAS_NUMPY), ("scipy", HAS_SCIPY), ("statsmodels", HAS_STATSMODELS), ("sklearn", HAS_SKLEARN), ("pandas", HAS_PANDAS)] if not ok],
+            "ready": all([HAS_NUMPY, HAS_SCIPY, HAS_STATSMODELS, HAS_SKLEARN, HAS_PANDAS]),
         }
 
     def _auto_analyze(self, input: dict):
