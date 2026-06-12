@@ -1,8 +1,15 @@
 """Statistics Analysis API — unified endpoint for all statistical tests."""
 from helpers.api import ApiHandler, Request, Response
-import logging, numpy as np
+import logging
 
 log = logging.getLogger("statistics_analyze")
+
+try:
+    import numpy as np
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
+    np = None
 
 try:
     from scipy import stats as scipy_stats
@@ -32,6 +39,8 @@ def _to_json_safe(obj):
 
 class StatisticsAnalyze(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
+        if not HAS_NUMPY:
+            return {"status": "error", "error": "numpy not installed. Statistics module unavailable."}
         result = await self._dispatch(input)
         return _to_json_safe(result)
 

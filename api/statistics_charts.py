@@ -1,9 +1,15 @@
 """Statistics Charts API — generates publication-quality charts (histogram, boxplot, scatter, ROC, etc.)."""
 from helpers.api import ApiHandler, Request, Response
 import os, io, base64, logging
-import numpy as np
 
 log = logging.getLogger("statistics_charts")
+
+try:
+    import numpy as np
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
+    np = None
 
 # Auto-detect matplotlib backend
 try:
