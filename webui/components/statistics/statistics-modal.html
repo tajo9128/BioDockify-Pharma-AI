@@ -3,21 +3,21 @@
   <script type="module" src="/components/statistics/statistics-store.js"></script>
 </head>
 <body>
-  <div x-data="statisticsModal" class="sp" x-init="restore">
+  <div x-data="statisticsModal" class="sp" x-init="init()">
     <!-- Header -->
     <div class="sh">
       <span class="material-symbols-outlined" style="font-size:22px;color:var(--color-primary)">analytics</span>
-      <div><h2>Statistical Analysis</h2><p style="font-size:0.55rem;color:var(--color-text-muted);margin:0">Upload · AI Analyzes · AI Performs Test · Results</p></div>
+      <div><h2>Statistical Analysis</h2><p class="shs">Publishable Results · AI-Powered · 20 Tests</p></div>
       <div class="ss">
-        <span class="sstep" :class="{on:step>=1}"><b>1</b><small>Upload</small></span>
+        <span class="sstep" :class="{on:step>=1}"><b>1</b></span>
         <span class="sbar" :class="{on:step>=2}"></span>
-        <span class="sstep" :class="{on:step>=2}"><b>2</b><small>Choose Test</small></span>
+        <span class="sstep" :class="{on:step>=2}"><b>2</b></span>
         <span class="sbar" :class="{on:step>=3}"></span>
-        <span class="sstep" :class="{on:step>=3}"><b>3</b><small>Results</small></span>
+        <span class="sstep" :class="{on:step>=3}"><b>3</b></span>
       </div>
     </div>
 
-    <div x-show="errorMessage" class="se" x-text="errorMessage" @click="errorMessage=''" style="cursor:pointer"></div>
+    <div x-show="errorMessage" class="se" x-text="errorMessage" @click="errorMessage=''"></div>
 
     <!-- ===== STEP 1: Upload ===== -->
     <div x-show="step === 1" class="sb">
@@ -25,175 +25,172 @@
         <span class="material-symbols-outlined" style="font-size:44px;color:var(--color-primary);opacity:0.7">cloud_upload</span>
         <p style="color:var(--color-text);font-weight:600;margin:10px 0 4px;font-size:0.95rem">Drop file or click to browse</p>
         <p style="color:var(--color-text-muted);font-size:0.72rem">CSV, Excel, JSON — AI will analyze and recommend tests</p>
-        <div style="display:flex;gap:6px;margin-top:8px">
-          <span class="sb">CSV</span><span class="sb">Excel</span><span class="sb">JSON</span>
-        </div>
+        <div style="display:flex;gap:6px;margin-top:8px"><span class="sb1">CSV</span><span class="sb1">Excel</span><span class="sb1">JSON</span></div>
       </div>
-      <div x-show="loading" style="text-align:center;padding:12px;color:var(--color-text-muted);font-size:0.64rem">
-        <span class="spin"></span> Analyzing file...
-      </div>
+      <div x-show="loading" style="text-align:center;padding:12px;color:var(--color-text-muted);font-size:0.64rem"><span class="spin"></span> Analyzing...</div>
     </div>
 
-    <!-- ===== STEP 2: Choose Test & AI Recommendation ===== -->
+    <!-- ===== STEP 2: Setup & Test Selection ===== -->
     <div x-show="step === 2" class="sb">
-      <!-- Data summary from AI -->
+      <!-- Data info bar -->
       <div class="sc">
         <span class="material-symbols-outlined" style="font-size:16px;color:#22c55e">check_circle</span>
-        <b x-text="fileName" style="font-size:0.72rem"></b>
-        <span style="color:var(--color-text-muted);font-size:0.64rem" x-text="'(' + rowCount + ' rows, ' + columns.length + ' cols)'"></span>
+        <b style="font-size:0.72rem" x-text="fileName"></b>
+        <span style="color:var(--color-text-muted);font-size:0.64rem" x-text="'(' + rowCount + 'r × ' + columns.length + 'c)'"></span>
         <button class="sl" @click="resetData()">Change</button>
+        <button class="sl" @click="toggleTable()" style="margin-left:4px" x-text="showTable ? 'Hide Table' : 'Edit Data'"></button>
       </div>
 
-      <template x-if="summary">
+      <!-- PHASE 1: Editable Table -->
+      <div x-show="showTable" class="st">
+        <div style="max-height:280px;overflow:auto">
+          <table class="stt">
+            <thead><tr><th>#</th><template x-for="c in columns"><th x-text="c"></th></template><th></th></tr></thead>
+            <tbody>
+              <template x-for="(row,ri) in dataRows.slice(0,25)"><tr>
+                <td class="stn" x-text="ri+1"></td>
+                <template x-for="(val,ci) in row"><td><input x-model="dataRows[ri][ci]" @input="isDirty=true"></td></template>
+                <td><button style="background:none;border:none;color:var(--color-error-text);cursor:pointer;font-size:0.7rem" @click="deleteRow(ri)">×</button></td>
+              </tr></template>
+            </tbody>
+          </table>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:4px">
+          <button class="sl" @click="addRow()">+ Add Row</button>
+          <button x-show="isDirty" class="sr2" @click="reAnalyze()">Re-Analyze</button>
+        </div>
+      </div>
+
+      <!-- AI Recommendation -->
+      <div class="sr" x-show="summary?.recommended_test">
+        <span class="material-symbols-outlined" style="font-size:16px;color:#6366f1">psychology</span>
         <div>
-          <!-- AI Recommendations -->
-          <div class="sr" x-show="summary?.recommended_test">
-            <span class="material-symbols-outlined" style="font-size:16px;color:#6366f1">psychology</span>
-            <div>
-              <b style="font-size:0.62rem;color:#6366f1">AI Recommendation</b>
-              <p style="font-size:0.56rem;color:var(--color-text-muted);margin:2px 0 0" x-text="summary.recommendation_text || 'Based on data structure'"></p>
-            </div>
-          </div>
+          <b style="font-size:0.62rem;color:#6366f1">AI Recommendation</b>
+          <p style="font-size:0.56rem;color:var(--color-text-muted);margin:2px 0 0" x-text="summary.recommendation_text || ''"></p>
+        </div>
+      </div>
 
-          <!-- Column info -->
-          <div style="font-size:0.54rem;color:var(--color-text-muted);margin:8px 0 6px">
-            <span x-text="'Numeric: ' + (summary.data_summary?.numeric_columns || []).join(', ') || 'none'"></span>
-            <span x-show="summary.data_summary?.group_columns?.length" style="margin-left:10px" x-text="' | Groups: ' + (summary.data_summary?.group_columns || []).join(', ')"></span>
-            <span x-show="summary.data_summary?.categorical_columns?.length" style="margin-left:10px" x-text="' | Categorical: ' + (summary.data_summary?.categorical_columns || []).join(', ')"></span>
-          </div>
+      <!-- Column summary -->
+      <div style="font-size:0.54rem;color:var(--color-text-muted);margin:8px 0 6px">
+        <span x-text="'Numeric: ' + (summary?.data_summary?.numeric_columns||[]).join(', ') || 'none'"></span>
+        <span x-show="summary?.data_summary?.group_columns?.length" style="margin-left:10px" x-text="' | Groups: ' + (summary?.data_summary?.group_columns||[]).join(', ')"></span>
+      </div>
 
-          <!-- Test selector -->
-          <h3 style="font-size:0.68rem;font-weight:700;color:var(--color-text);margin:0 0 6px">Select Statistical Test</h3>
-          <div class="stg">
-            <button class="stc" :class="{on:testType==='ttest'}" @click="testType='ttest'">
-              <span class="material-symbols-outlined">compare_arrows</span>
-              <span>T-Test</span><small>Compare 2 groups</small>
-            </button>
-            <button class="stc" :class="{on:testType==='anova'}" @click="testType='anova'">
-              <span class="material-symbols-outlined">grid_view</span>
-              <span>ANOVA</span><small>Compare 3+ groups</small>
-            </button>
-            <button class="stc" :class="{on:testType==='correlation'}" @click="testType='correlation'">
-              <span class="material-symbols-outlined">show_chart</span>
-              <span>Correlation</span><small>Relationships</small>
-            </button>
-            <button class="stc" :class="{on:testType==='descriptive'}" @click="testType='descriptive'">
-              <span class="material-symbols-outlined">functions</span>
-              <span>Descriptive</span><small>Summary stats</small>
-            </button>
-            <button class="stc" :class="{on:testType==='chisquare'}" @click="testType='chisquare'">
-              <span class="material-symbols-outlined">table_chart</span>
-              <span>Chi-Square</span><small>Categorical</small>
-            </button>
-            <button class="stc" :class="{on:testType==='mannwhitney'}" @click="testType='mannwhitney'">
-              <span class="material-symbols-outlined">sort</span>
-              <span>Mann-Whitney</span><small>Non-parametric</small>
-            </button>
-            <button class="stc" :class="{on:testType==='normality'}" @click="testType='normality'">
-              <span class="material-symbols-outlined">bar_chart</span>
-              <span>Normality</span><small>Distribution check</small>
-            </button>
-            <button class="stc" :class="{on:testType==='survival'}" @click="testType='survival'">
-              <span class="material-symbols-outlined">timeline</span>
-              <span>Survival</span><small>Time-to-event</small>
-            </button>
-            <button class="stc" :class="{on:testType==='regression'}" @click="testType='regression'">
-              <span class="material-symbols-outlined">trending_up</span>
-              <span>Regression</span><small>Prediction</small>
-            </button>
-            <button class="stc" :class="{on:testType==='roc'}" @click="testType='roc'">
-              <span class="material-symbols-outlined">troubleshoot</span>
-              <span>ROC/AUC</span><small>Diagnostic</small>
-            </button>
-            <button class="stc" :class="{on:testType==='factor'}" @click="testType='factor'">
-              <span class="material-symbols-outlined">account_tree</span>
-              <span>PCA</span><small>Dimension reduce</small>
-            </button>
-            <button class="stc" :class="{on:testType==='cluster'}" @click="testType='cluster'">
-              <span class="material-symbols-outlined">bubble_chart</span>
-              <span>Cluster</span><small>Grouping</small>
-            </button>
-          </div>
+      <!-- Test cards -->
+      <h3 style="font-size:0.68rem;font-weight:700;color:var(--color-text);margin:0 0 6px">Select Test</h3>
+      <div class="stg">
+        <button class="stc" :class="{on:testType==='ttest'}" @click="testType='ttest'"><span class="material-symbols-outlined">compare_arrows</span><span>T-Test</span><small>Compare 2 groups</small></button>
+        <button class="stc" :class="{on:testType==='anova'}" @click="testType='anova'"><span class="material-symbols-outlined">grid_view</span><span>ANOVA</span><small>3+ groups</small></button>
+        <button class="stc" :class="{on:testType==='correlation'}" @click="testType='correlation'"><span class="material-symbols-outlined">show_chart</span><span>Correlation</span><small>Relationships</small></button>
+        <button class="stc" :class="{on:testType==='descriptive'}" @click="testType='descriptive'"><span class="material-symbols-outlined">functions</span><span>Descriptive</span><small>Summary</small></button>
+        <button class="stc" :class="{on:testType==='chisquare'}" @click="testType='chisquare'"><span class="material-symbols-outlined">table_chart</span><span>Chi-Square</span><small>Categorical</small></button>
+        <button class="stc" :class="{on:testType==='mannwhitney'}" @click="testType='mannwhitney'"><span class="material-symbols-outlined">sort</span><span>Mann-Whitney</span><small>2 groups</small></button>
+        <button class="stc" :class="{on:testType==='normality'}" @click="testType='normality'"><span class="material-symbols-outlined">bar_chart</span><span>Normality</span><small>Distribution</small></button>
+        <button class="stc" :class="{on:testType==='wilcoxon'}" @click="testType='wilcoxon'"><span class="material-symbols-outlined">swap_horiz</span><span>Wilcoxon</span><small>Paired</small></button>
+        <button class="stc" :class="{on:testType==='kruskalwallis'}" @click="testType='kruskalwallis'"><span class="material-symbols-outlined">account_tree</span><span>Kruskal-Wallis</span><small>3+ groups</small></button>
+        <button class="stc" :class="{on:testType==='friedman'}" @click="testType='friedman'"><span class="material-symbols-outlined">repeat</span><span>Friedman</span><small>Repeated</small></button>
+        <button class="stc" :class="{on:testType==='roc'}" @click="testType='roc'"><span class="material-symbols-outlined">troubleshoot</span><span>ROC/AUC</span><small>Diagnostic</small></button>
+        <button class="stc" :class="{on:testType==='factor'}" @click="testType='factor'"><span class="material-symbols-outlined">bubble_chart</span><span>PCA</span><small>Reduce</small></button>
+        <button class="stc" :class="{on:testType==='cluster'}" @click="testType='cluster'"><span class="material-symbols-outlined">scatter_plot</span><span>Cluster</span><small>Groups</small></button>
+        <button class="stc" :class="{on:testType==='fisher'}" @click="testType='fisher'"><span class="material-symbols-outlined">grid_on</span><span>Fisher</span><small>Exact</small></button>
+        <button class="stc" :class="{on:testType==='homogeneity'}" @click="testType='homogeneity'"><span class="material-symbols-outlined">checklist</span><span>Levene</span><small>Variance</small></button>
+        <button class="stc" :class="{on:testType==='power'}" @click="testType='power'"><span class="material-symbols-outlined">bolt</span><span>Power</span><small>Sample size</small></button>
+      </div>
 
-          <!-- Run button -->
-          <button class="sr1" @click="runSelectedTest()" :disabled="loading || !testType" x-text="loading ? 'Running...' : 'Run Analysis'"></button>
-          <div x-show="loading" style="text-align:center;padding:8px;color:var(--color-text-muted);font-size:0.6rem"><span class="spin"></span> AI analyzing and performing test...</div>
+      <!-- PHASE 2: Variable Assignment Chips -->
+      <template x-if="testType && Object.keys(slotLabels()).length">
+        <div>
+          <h3 style="font-size:0.64rem;font-weight:700;color:var(--color-text);margin:10px 0 6px">Assign Variables</h3>
+          <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px">
+            <template x-for="(label, slot) in slotLabels()"><div class="sva" :class="{active:activeSlot===slot}" @click="activeSlot=slot">
+              <span class="svl" x-text="label"></span>
+              <span class="svv" :class="{empty:!slots[slot]}" x-text="slots[slot]||'Click to assign — then click a column below'"></span>
+              <button x-show="slots[slot]" class="svx" @click.stop="clearSlot(slot)">×</button>
+            </div></template>
+          </div>
+          <div class="sch"><template x-for="c in colTypes"><button class="schb" :class="{assigned:isAssigned(c.name),on:activeSlot&&c.name===slots[activeSlot]}" @click="assignColumn(c.name)" :disabled="!activeSlot">
+            <span class="sct" :class="'t'+c.type" x-text="c.type"></span><span x-text="c.name"></span>
+          </button></template></div>
         </div>
       </template>
+
+      <!-- PHASE 3: Live toggle + Run -->
+      <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+        <button class="sr1" style="flex:1" @click="runSelectedTest()" :disabled="loading || !testType" x-text="loading ? 'Running...' : 'Run ' + (testType||'Analysis')"></button>
+        <button class="sl" :class="{on:liveMode}" @click="toggleLive()" title="Auto-rerun on changes">
+          <span class="material-symbols-outlined" style="font-size:14px">bolt</span>
+          <span x-text="liveMode?'Live':'Manual'"></span>
+        </button>
+      </div>
+      <div x-show="loading" style="text-align:center;padding:6px;color:var(--color-text-muted);font-size:0.58rem"><span class="spin"></span> Processing...</div>
+
+      <!-- PHASE 6: Results History -->
+      <div x-show="history.length" style="margin-top:14px;border-top:1px solid var(--color-border);padding-top:10px">
+        <h3 style="font-size:0.62rem;font-weight:700;color:var(--color-text);margin:0 0 6px">History (<span x-text="history.length"></span>)</h3>
+        <template x-for="h in history.slice(0,10)"><div class="shc" @click="showHistoryResult(h)">
+          <div>
+            <b style="font-size:0.58rem" x-text="h.summary"></b>
+            <small style="font-size:0.5rem;color:var(--color-text-muted);display:block" x-text="new Date(h.id).toLocaleTimeString()"></small>
+          </div>
+          <button class="svx" @click.stop="removeFromHistory(h.id)">×</button>
+        </div></template>
+      </div>
     </div>
 
-    <!-- ===== STEP 3: Results ===== -->
+    <!-- ===== STEP 3: Results (PHASE 4: APA Output) ===== -->
     <div x-show="step === 3 && result" class="sb">
       <div class="sc">
-        <span class="material-symbols-outlined" style="font-size:16px;color:#22c55e">check_circle</span>
         <b x-text="result?.test_name || testType"></b>
-        <span x-show="result?.sub_type" style="font-size:0.55rem;padding:1px 6px;background:color-mix(in srgb,var(--color-primary)15%,transparent);border-radius:8px;color:var(--color-primary);font-weight:600" x-text="result.sub_type"></span>
+        <span x-show="result?.sub_type" class="sst" x-text="result.sub_type"></span>
+        <span x-show="result?.apa_output?.meta?.significant" style="font-size:0.6rem;font-weight:700;color:#22c55e">SIGNIFICANT</span>
+        <span x-show="result?.apa_output?.meta?.significant===false" style="font-size:0.6rem;font-weight:700;color:var(--color-text-muted)">not significant</span>
         <button class="sl" style="margin-left:auto" @click="goBack()">Back</button>
         <button class="sl" @click="resetData()">New</button>
-        <button style="padding:3px 8px;background:var(--color-primary);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.56rem;font-weight:600" @click="downloadJSON()">JSON</button>
-        <button style="padding:3px 8px;background:#6366f1;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.56rem;font-weight:600" @click="saveToKB()">Save</button>
+        <button class="sl" @click="downloadJSON()">JSON</button>
+        <button class="sl" style="background:var(--color-primary);color:#fff" @click="saveToKB()">Save</button>
       </div>
 
-      <!-- Metric summary -->
-      <template x-if="result?.metrics">
-        <div class="sm">
-          <template x-for="(v,k) in result.metrics" :key="k">
-            <div class="sm1">
-              <small class="sml" x-text="k"></small>
-              <span class="smv" x-text="typeof v==='number'?v.toFixed(4):v"></span>
-            </div>
-          </template>
-        </div>
-      </template>
+      <!-- Publication-Quality Output -->
+      <template x-if="result?.apa_output">
+        <div class="jo">
+          <h3 class="jt" x-text="result.apa_output.title"></h3>
 
-      <!-- Group comparison -->
-      <template x-if="result?.groups?.length">
-        <div class="sc1">
-          <h4>Group Comparison</h4>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
-            <template x-for="g in result.groups" :key="g.name">
-              <div style="flex:1;min-width:80px;padding:8px;background:var(--color-background);border:1px solid var(--color-border);border-radius:6px;text-align:center">
-                <div style="font-size:0.6rem;font-weight:600;color:var(--color-text)" x-text="g.name"></div>
-                <div style="font-size:0.72rem;font-weight:700;color:var(--color-primary)" x-text="g.mean?.toFixed(2)"></div>
-                <div style="font-size:0.48rem;color:var(--color-text-muted)" x-text="'n='+g.n"></div>
-              </div>
-            </template>
-          </div>
-        </div>
-      </template>
-
-      <!-- Correlation matrix -->
-      <template x-if="result?.correlation?.matrix">
-        <div class="sc1">
-          <h4>Correlation Matrix</h4>
-          <div style="overflow-x:auto;font-size:0.52rem">
-            <table style="width:100%;border-collapse:collapse">
-              <tr><th></th><template x-for="c in result.correlation.columns" :key="c"><th style="padding:2px 5px;text-align:left;color:var(--color-text-muted)" x-text="c"></th></template></tr>
-              <template x-for="(row,ri) in result.correlation.matrix" :key="ri">
-                <tr><td style="font-weight:600;color:var(--color-primary);padding:2px 5px" x-text="result.correlation.columns[ri]"></td>
-                  <template x-for="v in row"><td style="padding:2px 5px" :style="{color:Math.abs(v)>0.7?'var(--color-primary)':'var(--color-text)',fontWeight:Math.abs(v)>0.7?'700':'400'}" x-text="v?.toFixed(2)"></td></template>
-                </tr>
-              </template>
+          <!-- Tables -->
+          <template x-for="tbl in result.apa_output.tables"><div class="jb">
+            <p class="jc" x-text="tbl.caption"></p>
+            <table class="jtab"><thead><tr><template x-for="h in tbl.headers"><th x-text="h"></th></template></tr></thead>
+              <tbody><template x-for="row in tbl.rows"><tr>
+                <template x-for="(cell,ci) in row"><td :class="{bld:tbl.sig&&tbl.sig[ci]}" :style="ci>0?'text-align:right;padding-right:16px':'text-align:left'" x-text="cell"></td></template>
+              </tr></template></tbody>
             </table>
+            <p class="jn" x-show="tbl.note" x-text="tbl.note"></p>
+          </div></template>
+
+          <!-- Chart -->
+          <div x-show="result.apa_output.chart?.base64" style="margin:8px 0"><img :src="'data:image/png;base64,'+result.apa_output.chart.base64" style="max-width:100%;border:1px solid var(--color-border);border-radius:6px"></div>
+
+          <!-- Python Code -->
+          <details style="margin:8px 0"><summary style="font-size:0.58rem;color:var(--color-text-muted);cursor:pointer">Show Python Code</summary>
+            <pre style="padding:8px;background:var(--color-background);border:1px solid var(--color-border);border-radius:5px;font-size:0.52rem;font-family:monospace;color:var(--color-text);white-space:pre-wrap;max-height:300px;overflow-y:auto" x-text="result.apa_output.python_code"></pre>
+          </details>
+
+          <!-- AI Interpretation -->
+          <div class="jai" x-show="result.apa_output.ai_interpretation">
+            <span class="material-symbols-outlined" style="font-size:16px;color:#6366f1">psychology</span>
+            <div><b style="font-size:0.6rem;color:#6366f1">AI Interpretation</b>
+            <p style="font-size:0.56rem;color:var(--color-text-muted);margin:2px 0 0;line-height:1.5" x-text="result.apa_output.ai_interpretation"></p></div>
           </div>
         </div>
       </template>
 
-      <!-- Step-by-step explanation -->
-      <template x-if="result?.explanations?.length">
+      <!-- Fallback: explanations if no APA output -->
+      <template x-if="!result?.apa_output && result?.explanations?.length">
         <div class="sc1" style="background:color-mix(in srgb,var(--color-primary)4%,var(--color-panel));border-color:color-mix(in srgb,var(--color-primary)18%,var(--color-border))">
-          <h4 style="color:var(--color-primary)">How AI Analyzed Your Data</h4>
-          <template x-for="exp in result.explanations" :key="exp.step">
-            <div style="margin-bottom:7px;border-left:2px solid color-mix(in srgb,var(--color-primary)35%,var(--color-border));padding-left:9px">
-              <div style="font-size:0.56rem;font-weight:700;color:var(--color-primary);margin-bottom:1px" x-text="'Step '+exp.step+': '+exp.title"></div>
-              <div style="font-size:0.52rem;color:var(--color-text-muted);line-height:1.4" x-text="exp.detail"></div>
-              <template x-if="exp.findings?.length">
-                <div style="margin-top:2px">
-                  <template x-for="f in exp.findings"><div style="font-size:0.5rem;color:var(--color-text);padding:1px 5px;margin:1px 0;background:var(--color-background);border-radius:3px" x-text="'• '+f"></div></template>
-                </div>
-              </template>
-            </div>
-          </template>
+          <h4 style="color:var(--color-primary);font-size:0.62rem;margin:0 0 6px">Analysis Steps</h4>
+          <template x-for="exp in result.explanations"><div style="margin-bottom:6px;border-left:2px solid color-mix(in srgb,var(--color-primary)35%,var(--color-border));padding-left:8px">
+            <div style="font-size:0.55rem;font-weight:700;color:var(--color-primary)" x-text="'Step '+exp.step+': '+exp.title"></div>
+            <div style="font-size:0.5rem;color:var(--color-text-muted);line-height:1.4" x-text="exp.detail"></div>
+          </div></template>
         </div>
       </template>
     </div>
@@ -201,39 +198,71 @@
     <style>
       .sp{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background)}
       .sh{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--color-border);flex-shrink:0}
-      .sh h2{font-size:0.85rem;margin:0;font-weight:700;color:var(--color-text)}
+      .sh h2{font-size:0.85rem;margin:0;font-weight:700;color:var(--color-text)}.shs{font-size:0.52rem;color:var(--color-text-muted);margin:0}
       .ss{display:flex;align-items:center;gap:3px;margin-left:auto}
-      .sstep{display:flex;align-items:center;gap:3px;font-size:0.6rem;color:var(--color-border);opacity:0.35}
-      .sstep b{font-size:0.62rem}
-      .sstep.on{color:var(--color-primary);opacity:1}
-      .sstep small{font-weight:400;font-size:0.5rem}
-      .sbar{width:14px;height:2px;background:var(--color-border)}
-      .sbar.on{background:var(--color-primary)}
-      .se{padding:5px 12px;margin:6px 14px 0;background:rgba(255,107,107,.06);border:1px solid rgba(255,107,107,.2);border-radius:5px;color:var(--color-error-text);font-size:0.58rem}
+      .sstep{display:flex;align-items:center;gap:2px;font-size:0.6rem;color:var(--color-border);opacity:0.35}
+      .sstep b{font-size:0.65rem}.sstep.on{color:var(--color-primary);opacity:1}
+      .sbar{width:14px;height:2px;background:var(--color-border)}.sbar.on{background:var(--color-primary)}
+      .se{padding:5px 12px;margin:6px 14px 0;background:rgba(255,107,107,.06);border:1px solid rgba(255,107,107,.2);border-radius:5px;color:var(--color-error-text);font-size:0.58rem;cursor:pointer}
       .sb{flex:1;overflow-y:auto;padding:14px}
       .su{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;border:2px dashed var(--color-border);border-radius:12px;cursor:pointer;transition:.15s;background:var(--color-panel)}
-      .su:hover{border-color:var(--color-primary)}
-      .sb{display:inline-flex;padding:2px 8px;background:var(--color-background);border:1px solid var(--color-border);border-radius:5px;font-size:0.6rem;color:var(--color-text-muted);font-weight:600}
+      .su:hover{border-color:var(--color-primary)}.sb1{display:inline-flex;padding:2px 8px;background:var(--color-background);border:1px solid var(--color-border);border-radius:5px;font-size:0.6rem;color:var(--color-text-muted);font-weight:600}
       .sc{display:flex;align-items:center;gap:6px;padding:7px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:7px;margin-bottom:10px;flex-wrap:wrap;font-size:0.68rem}
-      .sc h4{font-size:0.62rem;font-weight:700;color:var(--color-text);margin:0 0 5px}
       .sc1{padding:9px 11px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:7px;margin-bottom:6px}
-      .sl{padding:2px 7px;background:transparent;border:1px solid var(--color-border);border-radius:4px;color:var(--color-text-muted);cursor:pointer;font-size:0.54rem}
-      .sl:hover{border-color:var(--color-primary);color:var(--color-primary)}
+      .sl{padding:3px 8px;background:transparent;border:1px solid var(--color-border);border-radius:4px;color:var(--color-text-muted);cursor:pointer;font-size:0.54rem;display:inline-flex;align-items:center;gap:2px}
+      .sl:hover{border-color:var(--color-primary);color:var(--color-primary)}.sl.on{background:var(--color-primary);color:#fff;border-color:var(--color-primary)}
       .sr{display:flex;align-items:flex-start;gap:6px;padding:8px 10px;background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.15);border-radius:7px;margin-bottom:10px}
-      .stg{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:5px;margin-bottom:10px}
-      .stc{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 5px;background:var(--color-panel);border:2px solid var(--color-border);border-radius:8px;cursor:pointer;transition:.12s;text-align:center}
-      .stc:hover{border-color:var(--color-primary)}
-      .stc.on{border-color:var(--color-primary);background:color-mix(in srgb,var(--color-primary)8%,var(--color-panel))}
-      .stc .material-symbols-outlined{font-size:18px;color:var(--color-primary)}
-      .stc span{font-size:0.62rem;font-weight:700;color:var(--color-text)}
-      .stc small{font-size:0.5rem;color:var(--color-text-muted)}
-      .sr1{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:10px;background:var(--color-primary);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.72rem;font-weight:600;transition:.15s}
-      .sr1:hover:not(:disabled){opacity:.9}
-      .sr1:disabled{opacity:.4;cursor:default}
-      .sm{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
-      .sm1{display:flex;flex-direction:column;align-items:center;padding:6px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;min-width:55px}
-      .sml{font-size:0.46rem;color:var(--color-text-muted);text-transform:uppercase}
-      .smv{font-size:0.72rem;font-weight:700;color:var(--color-primary)}
+      .sr2{padding:4px 10px;background:var(--color-primary);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.54rem;font-weight:600}
+      .sr1{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;background:var(--color-primary);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.72rem;font-weight:600;transition:.15s}
+      .sr1:hover:not(:disabled){opacity:.9}.sr1:disabled{opacity:.4;cursor:default}
+
+      /* Editable table */
+      .st{margin-bottom:8px;padding:6px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px}
+      .stt{width:100%;border-collapse:collapse;font-size:0.56rem}
+      .stt th{padding:3px 5px;text-align:left;border-bottom:2px solid var(--color-border);color:var(--color-text-muted);font-weight:600;white-space:nowrap}
+      .stt td{padding:1px 2px;border-bottom:1px solid var(--color-border)}.stn{color:var(--color-text-muted);text-align:center;font-size:0.5rem}
+      .stt input{width:100%;padding:2px 4px;border:1px solid transparent;border-radius:2px;background:transparent;color:var(--color-text);font-size:0.54rem;box-sizing:border-box}
+      .stt input:focus{outline:none;border-color:var(--color-primary);background:var(--color-background)}
+
+      /* Test cards */
+      .stg{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:4px;margin-bottom:8px}
+      .stc{display:flex;flex-direction:column;align-items:center;gap:1px;padding:7px 4px;background:var(--color-panel);border:2px solid var(--color-border);border-radius:7px;cursor:pointer;transition:.12s;text-align:center}
+      .stc:hover{border-color:var(--color-primary)}.stc.on{border-color:var(--color-primary);background:color-mix(in srgb,var(--color-primary)8%,var(--color-panel))}
+      .stc .material-symbols-outlined{font-size:16px;color:var(--color-primary)}
+      .stc span{font-size:0.58rem;font-weight:700;color:var(--color-text)}.stc small{font-size:0.46rem;color:var(--color-text-muted)}
+
+      /* Variable assignment */
+      .sva{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--color-background);border:1px solid var(--color-border);border-radius:5px;cursor:pointer;transition:.1s}
+      .sva:hover,.sva.active{border-color:var(--color-primary);background:color-mix(in srgb,var(--color-primary)5%,var(--color-background))}
+      .svl{font-size:0.54rem;font-weight:600;color:var(--color-text-muted);min-width:120px}
+      .svv{flex:1;font-size:0.56rem;color:var(--color-text)}.svv.empty{color:var(--color-text-muted);font-style:italic}
+      .svx{background:none;border:none;color:var(--color-text-muted);cursor:pointer;font-size:0.6rem;padding:0 2px}
+      .svx:hover{color:var(--color-error-text)}
+      .sch{display:flex;flex-wrap:wrap;gap:3px}
+      .schb{display:flex;align-items:center;gap:3px;padding:3px 8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:4px;cursor:pointer;font-size:0.54rem;color:var(--color-text);transition:.1s}
+      .schb:hover:not(:disabled){border-color:var(--color-primary)}.schb:disabled{opacity:.4;cursor:default}
+      .schb.assigned{background:color-mix(in srgb,var(--color-primary)12%,var(--color-panel));border-color:var(--color-primary)}
+      .schb.on{border-color:var(--color-primary);box-shadow:0 0 0 1px var(--color-primary)}
+      .sct{padding:0 3px;border-radius:3px;font-size:0.44rem;font-weight:700}.tN{background:rgba(34,197,94,.12);color:#22c55e}.tG{background:rgba(99,102,241,.12);color:#6366f1}.tC{background:rgba(251,146,60,.12);color:#fb923c}
+
+      /* History */
+      .shc{display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:5px;margin-bottom:3px;cursor:pointer;transition:.1s}
+      .shc:hover{border-color:var(--color-primary)}
+      .sst{font-size:0.52rem;padding:1px 6px;background:color-mix(in srgb,var(--color-primary)12%,transparent);border-radius:8px;color:var(--color-primary);font-weight:600}
+
+      /* APA / Publication Output */
+      .jo{padding:6px 0}
+      .jt{font-size:0.74rem;font-weight:700;color:var(--color-text);margin:4px 0 8px}
+      .jb{margin-bottom:12px}
+      .jc{font-style:italic;font-size:0.56rem;color:var(--color-text-muted);margin:0 0 3px}
+      .jtab{width:100%;border-collapse:collapse;font-family:'Times New Roman',Georgia,serif;font-size:0.58rem}
+      .jtab th{padding:3px 8px;text-align:left;border-bottom:2px solid #000;font-weight:700;color:var(--color-text)}
+      .jtab td{padding:2px 8px;border-bottom:1px solid var(--color-border);color:var(--color-text)}
+      .jtab tr:last-child td{border-bottom:2px solid #000}
+      .jtab .bld{font-weight:700}.jn{font-style:italic;font-size:0.5rem;color:var(--color-text-muted);margin:2px 0 0}
+      .jai{display:flex;align-items:flex-start;gap:6px;padding:8px 10px;background:rgba(99,102,241,.04);border:1px solid rgba(99,102,241,.1);border-radius:6px;margin-top:8px}
+
+      /* Spinner */
       .spin{width:12px;height:12px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin .8s linear infinite;display:inline-block;margin-right:4px;vertical-align:middle}
       @keyframes spin{to{transform:rotate(360deg)}}
     </style>

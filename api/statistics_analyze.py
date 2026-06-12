@@ -37,7 +37,136 @@ def _to_json_safe(obj):
     return obj
 
 
-class StatisticsAnalyze(ApiHandler):
+# ===== APA Output Builder =====
+
+def _apa_table(caption, headers, rows, note="", sig_cols=None):
+    return {"caption": caption, "headers": headers, "rows": rows, "note": note, "sig": sig_cols}
+
+def _fmt(v, d=2): return f"{v:.{d}f}" if isinstance(v, (int, float, np.floating)) else str(v)
+
+def _p_str(p, alpha=0.05):
+    if p < 0.001: return "< .001"
+    if p < 0.01: return f"{p:.3f}"
+    if isinstance(p, (float, np.floating)): return f"{p:.{2 if p >= 0.05 else 3}f}"
+    return str(p)
+
+def _effect_interpretation(d):
+    d = abs(d)
+    if d < 0.2: return "negligible"
+    if d < 0.5: return "small"
+    if d < 0.8: return "medium"
+    return "large"
+
+def _build_python_code(test_type, params=None):
+    params = params or {}
+    if test_type == "ttest":
+        return f"""from scipy import stats
+# Independent T-Test: {params.get('value','Y')} ~ {params.get('group','X')}
+group1_vals = [...]  # values for group 1
+group2_vals = [...]  # values for group 2
+t_stat, p_value = stats.ttest_ind(group1_vals, group2_vals, equal_var={params.get('equal_var',True)})
+print(f"t={{t_stat:.4f}}, p={{p_value:.6f}}")"""
+    if test_type == "anova":
+        return f"""from scipy import stats
+# One-Way ANOVA: {params.get('value','Y')} ~ {params.get('group','X')}
+g1, g2, g3 = [...], [...], [...]  # one list per group
+f_stat, p_value = stats.f_oneway(g1, g2, g3)
+print(f"F={{f_stat:.4f}}, p={{p_value:.6f}}")
+# Post-hoc Tukey HSD: from statsmodels.stats.multicomp import pairwise_tukeyhsd"""
+    if test_type == "correlation":
+        return f"""from scipy import stats
+# Pearson Correlation
+r, p = stats.pearsonr(x_vals, y_vals)
+print(f"r={{r:.4f}}, p={{p:.6f}}")"""
+    if test_type == "descriptive":
+        return f"""import numpy as np
+from scipy import stats
+# Descriptive Statistics for a column
+data = np.array([...])  # your values
+print(f"N={{len(data)}}, Mean={{np.mean(data):.2f}}, SD={{np.std(data, ddof=1):.2f}}")
+print(f"Median={{np.median(data):.2f}}, Skew={{stats.skew(data):.3f}}")"""
+    if test_type == "chisquare":
+        return f"""from scipy import stats
+# Chi-Square Test of Independence
+observed = [[a, b], [c, d]]  # contingency table
+chi2, p, dof, expected = stats.chi2_contingency(observed)
+print(f"X2={{chi2:.4f}}, df={{dof}}, p={{p:.6f}}")"""
+    if test_type == "mannwhitney":
+        return f"""from scipy import stats
+# Mann-Whitney U Test
+u_stat, p = stats.mannwhitneyu(group1, group2, alternative='two-sided')
+print(f"U={{u_stat:.4f}}, p={{p:.6f}}")"""
+    if test_type == "wilcoxon":
+        return f"""from scipy import stats
+# Wilcoxon Signed-Rank Test
+w_stat, p = stats.wilcoxon(before, after)
+print(f"W={{w_stat:.4f}}, p={{p:.6f}}")"""
+    if test_type == "kruskalwallis":
+        return f"""from scipy import stats
+# Kruskal-Wallis H Test
+h_stat, p = stats.kruskal(g1, g2, g3)
+print(f"H={{h_stat:.4f}}, p={{p:.6f}}")"""
+    if test_type == "friedman":
+        return f"""from scipy import stats
+# Friedman Test
+chi2, p = stats.friedmanchisquare(t1, t2, t3)
+print(f"X2={{chi2:.4f}}, p={{p:.6f}}")"""
+    if test_type == "normality":
+        return f"""from scipy import stats
+# Shapiro-Wilk Normality Test
+w_stat, p = stats.shapiro(data)
+print(f"W={{w_stat:.4f}}, p={{p:.6f}}")
+print(f"Normal: {p > 0.05}")"""
+    if test_type == "fisher":
+        return f"""from scipy import stats
+# Fisher's Exact Test
+odds_ratio, p = stats.fisher_exact([[a,b],[c,d]])
+print(f"OR={{odds_ratio:.4f}}, p={{p:.6f}}")"""
+    if test_type == "homogeneity":
+        return f"""from scipy import stats
+# Levene's Test for Homogeneity of Variance
+w_stat, p = stats.levene(g1, g2, g3)
+print(f"W={{w_stat:.4f}}, p={{p:.6f}}")"""
+    return f"# {test_type} — see scipy documentation\n"
+
+def _ai_interpret(test_type, result, params=None):
+    params = params or {}
+    sig = result.get("significant", False)
+    p = result.get("p_value", 0)
+
+    if test_type == "ttest":
+        g1 = result.get("group1", {}); g2 = result.get("group2", {})
+        n1, n2 = g1.get("n", 0), g2.get("n", 0)
+        m1, m2 = g1.get("mean", 0), g2.get("mean", 0)
+        t = result.get("statistic", 0)
+        d = abs(m1 - m2) / max(max(g1.get("std", 1), g2.get("std", 1)), 0.001)
+        eff = _effect_interpretation(d)
+        return f"The {g1.get('name','Group 1')} group (n={n1}, M={_fmt(m1)}) showed significantly different values compared to {g2.get('name','Group 2')} (n={n2}, M={_fmt(m2)}), t≈{_fmt(t)}, p={_p_str(p)}. Cohen's d ≈ {_fmt(d,2)} indicates a {eff} effect size." if sig else f"No significant difference between {g1.get('name','Group 1')} (n={n1}, M={_fmt(m1)}) and {g2.get('name','Group 2')} (n={n2}, M={_fmt(m2)}), t≈{_fmt(t)}, p={_p_str(p)}."
+
+    if test_type == "anova":
+        grps = result.get("groups", [])
+        fstat = result.get("statistic", 0)
+        return f"ANOVA revealed {'significant differences among groups' if sig else 'no significant difference among groups'}, F≈{_fmt(fstat)}, p={_p_str(p)}. " + (" ").join([f"{g.get('name','Group')} (M={_fmt(g.get('mean',0))})" for g in grps[:4]]) + "."
+
+    if test_type == "correlation":
+        r_val = result.get("statistic", 0) or 0
+        return f"A {'strong' if abs(r_val)>0.7 else 'moderate' if abs(r_val)>0.4 else 'weak'} {'positive' if r_val>0 else 'negative'} correlation was found, r≈{_fmt(r_val)}, p={_p_str(p)}." + (" The relationship is statistically significant." if sig else " The relationship is not statistically significant.")
+
+    if test_type == "normality":
+        nc = result.get("normality", {})
+        if isinstance(nc, dict):
+            normal = [c for c, v in nc.items() if isinstance(v, dict) and v.get("normal")]
+            not_n = [c for c, v in nc.items() if isinstance(v, dict) and not v.get("normal")]
+            parts = []
+            if normal: parts.append(f"{', '.join(normal)} {'follows' if len(normal)==1 else 'follow'} a normal distribution")
+            if not_n: parts.append(f"{', '.join(not_n)} {'does' if len(not_n)==1 else 'do'} NOT follow a normal distribution — consider non-parametric tests")
+            return ". ".join(parts) + "." if parts else "Normality assessed via Shapiro-Wilk."
+        return f"Normality assessed. {'Data appears normally distributed.' if sig else 'Data may not be normally distributed.'}"
+
+    return f"{'Statistically significant result' if sig else 'No statistically significant result'}, p={_p_str(p)}."
+
+
+# ===== StatisticsAnalyze =====
     async def process(self, input: dict, request: Request) -> dict:
         if not HAS_NUMPY:
             return {"status": "error", "error": "numpy not installed. Statistics module unavailable."}
@@ -219,10 +348,94 @@ class StatisticsAnalyze(ApiHandler):
                 "groups_found": group_cols,
                 "numeric_found": numeric_cols,
             }
+            # Phase 4: APA Publication Output
+            result["apa_output"] = self._build_apa(test_type, r, exp, columns)
+            result["apa_output"]["python_code"] = _build_python_code(test_type, {})
+            result["apa_output"]["ai_interpretation"] = _ai_interpret(test_type, r, {})
+            result["apa_output"]["meta"] = {"significant": r.get("significant", False), "test": test_type}
             return _to_json_safe(result)
 
         except Exception as e:
             return _to_json_safe({"status": "error", "error": str(e), "test_type": test_type})
+
+    def _build_apa(self, test_type, r, exp, columns):
+        sig = r.get("significant", False)
+        p = r.get("p_value", 0)
+        if test_type == "ttest":
+            g1 = r.get("group1", {}); g2 = r.get("group2", {})
+            return {
+                "title": "Independent Samples T-Test",
+                "tables": [
+                    _apa_table("Table 1. Group Descriptives",
+                        ["Group", "N", "Mean", "SD", "SE"],
+                        [[g1.get("name","G1"), g1.get("n",0), _fmt(g1.get("mean",0)), _fmt(g1.get("std",0)), _fmt(g1.get("std",0)/max(g1.get("n",1)**0.5,0.001))],
+                         [g2.get("name","G2"), g2.get("n",0), _fmt(g2.get("mean",0)), _fmt(g2.get("std",0)), _fmt(g2.get("std",0)/max(g2.get("n",1)**0.5,0.001))]],
+                        note=f"Note. N={g1.get('n',0)+g2.get('n',0)}."),
+                    _apa_table("Table 2. Independent Samples T-Test",
+                        ["", "t", "df", "p"],
+                        [[r.get("variable", columns[0] if columns else "Y"), _fmt(r.get("statistic",0)), r.get("df", g1.get("n",0)+g2.get("n",0)-2) or g1.get("n",0)+g2.get("n",0)-2, _p_str(p)]],
+                        note=f"Note. Student's t-test. {'Equal variances assumed.' if r.get('equal_var',True) else 'Welch correction applied.'}", sig_cols=[False, True if sig else True, False, True]),
+                ]
+            }
+        if test_type == "anova":
+            grps = r.get("groups", []); fstat = r.get("statistic", 0); df1 = len(grps)-1 if len(grps)>1 else 1; df2 = sum(g.get("n",0) for g in grps) - len(grps)
+            return {
+                "title": "One-Way ANOVA",
+                "tables": [
+                    _apa_table("Table 1. Group Descriptives",
+                        ["Group", "N", "Mean", "SD"],
+                        [[g.get("name",f"G{i+1}"), g.get("n",0), _fmt(g.get("mean",0)), _fmt(g.get("std",0))] for i,g in enumerate(grps[:8])],
+                        note=f"Note. Total N={df2+len(grps)}."),
+                    _apa_table("Table 2. ANOVA Summary",
+                        ["Source", "df", "F", "p"],
+                        [[r.get("variable","Value"), f"{df1},{df2}", _fmt(fstat), _p_str(p)]],
+                        note="Note. One-way between-subjects ANOVA.", sig_cols=[False, False, False, True]),
+                ]
+            }
+        if test_type == "correlation":
+            corr_cols = r.get("columns", []); matrix = r.get("correlation_matrix", []); pvals = r.get("p_values", [])
+            n = len(corr_cols)
+            if n and matrix:
+                rows = []
+                for i in range(n):
+                    row = [corr_cols[i]]
+                    for j in range(n):
+                        v = matrix[i][j] if i < len(matrix) and j < len(matrix[i]) else ""
+                        if i != j and v: v = f"{v:.3f}"
+                        elif i == j: v = "—"
+                        row.append(v)
+                    if len(row) > 1: rows.append(row)
+                return {
+                    "title": "Pearson Correlation Matrix",
+                    "tables": [_apa_table("Table 1. Correlation Matrix", [""] + corr_cols[:8], rows, note=f"Note. N={r.get('n',0)}. Values are Pearson r.")],
+                }
+            return {"title": "Correlation", "tables": []}
+        if test_type == "descriptive":
+            desc = r.get("descriptive", {}) or r
+            if isinstance(desc, dict):
+                cols = [k for k in desc if isinstance(desc[k], dict) and "mean" in desc[k]]
+                if cols:
+                    rows = [["N", *[_fmt(desc[c].get("n",0)) for c in cols]],
+                            ["Mean", *[_fmt(desc[c].get("mean",0)) for c in cols]],
+                            ["Median", *[_fmt(desc[c].get("median",0)) for c in cols]],
+                            ["SD", *[_fmt(desc[c].get("std",0)) for c in cols]],
+                            ["Min", *[_fmt(desc[c].get("min",0)) for c in cols]],
+                            ["Max", *[_fmt(desc[c].get("max",0)) for c in cols]],
+                            ["Skewness", *[_fmt(desc[c].get("skewness",0),3) for c in cols]],
+                            ["Kurtosis", *[_fmt(desc[c].get("kurtosis",0),3) for c in cols]]]
+                    return {"title":"Descriptive Statistics","tables":[_apa_table("Table 1. Summary Statistics",[""]+cols,rows,note=f"Note. N={max([desc[c].get('n',0) for c in cols]) if cols else 'N/A'}.")]}
+            return {"title":"Descriptive Statistics","tables":[]}
+        if test_type == "normality":
+            nc = r.get("normality", {}) or r
+            if isinstance(nc, dict):
+                rows = [[c, v.get("test","Shapiro-Wilk"), _fmt(v.get("statistic",0),4), _p_str(v.get("p_value",0)), "✓ Normal" if v.get("normal") else "× Not Normal"] for c,v in nc.items() if isinstance(v,dict) and "p_value" in v]
+                return {"title":"Normality Tests (Shapiro-Wilk)","tables":[_apa_table("Table 1. Normality Tests",["Column","Test","W","p","Result"],rows,note="Note. p\u2265.05 indicates normal distribution.")]}
+            return {"title":"Normality Tests","tables":[]}
+        # Generic fallback for any test
+        rows = []
+        if r.get("p_value"): rows.append(["p-value", _p_str(p)])
+        if r.get("statistic"): rows.append(["Statistic", _fmt(r["statistic"],4)])
+        return {"title": r.get("test", test_type.title()), "tables": [_apa_table("Results", ["Metric","Value"], rows)] if rows else []}
 
     def _descriptive(self, input: dict) -> dict:
         data = input.get("data", [])
