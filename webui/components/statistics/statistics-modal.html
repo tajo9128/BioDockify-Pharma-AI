@@ -59,6 +59,7 @@
           <div style="font-size:0.54rem;color:var(--color-text-muted);margin:8px 0 6px">
             <span x-text="'Numeric: ' + (summary.data_summary?.numeric_columns || []).join(', ') || 'none'"></span>
             <span x-show="summary.data_summary?.group_columns?.length" style="margin-left:10px" x-text="' | Groups: ' + (summary.data_summary?.group_columns || []).join(', ')"></span>
+            <span x-show="summary.data_summary?.categorical_columns?.length" style="margin-left:10px" x-text="' | Categorical: ' + (summary.data_summary?.categorical_columns || []).join(', ')"></span>
           </div>
 
           <!-- Test selector -->
