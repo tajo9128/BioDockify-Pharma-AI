@@ -122,13 +122,16 @@ Alpine.data("statisticsModal", () => ({
 
   _parseRawRows(content, cols) {
     try {
+      if (!content || content.length < 5) return [];
+      // Only parse CSV — XLSX/JSON handled by backend parse in _analyze
+      if (this.fileName.endsWith(".xlsx") || this.fileName.endsWith(".xls") || this.fileName.endsWith(".json")) return [];
       const lines = content.split("\n").filter(l => l.trim());
       if (lines.length < 2) return [];
       const rows = [];
       for (let i = 1; i < lines.length; i++) {
         rows.push(lines[i].split(",").map(v => v.trim().replace(/^"|"$/g, "")));
       }
-      return rows.slice(0, 500); // cap at 500 for performance
+      return rows.slice(0, 500);
     } catch { return []; }
   },
 
