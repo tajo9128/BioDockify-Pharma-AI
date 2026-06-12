@@ -159,6 +159,7 @@ Alpine.data("statisticsModal", () => ({
         columns: this.columns,
         summary: this.summary?.data_summary || {},
         slots: this.slots,
+        data: this.dataRows,
       });
       if (r.status === "ok") {
         this.result = r; this.step = 3;
