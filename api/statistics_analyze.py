@@ -80,58 +80,88 @@ class StatisticsAnalyze(ApiHandler):
         group_cols = summary.get("group_columns", [])
         numeric_cols = summary.get("numeric_columns", [])
         categorical_cols = summary.get("categorical_columns", [])
+        total_rows = summary.get("total_rows", 0)
 
-        result = {"status": "ok", "test_type": test_type, "sub_type": "auto-decided"}
-        exp = []
+        def _err(msg, hint=""):
+            return {"status": "error", "test_type": test_type, "error": msg, "hint": hint}
 
         try:
+            # Validate test can work with available columns
+            if test_type in ("ttest", "anova", "mannwhitney"):
+                if not group_cols:
+                    return _err(
+                        f"No group column found for {test_type.upper()}.",
+                        "Your data needs a column with group labels (e.g., 'Treatment', 'Group') containing 2+ distinct text values like 'Drug' and 'Placebo'."
+                    )
+                if not numeric_cols:
+                    return _err(
+                        f"No numeric column found for {test_type.upper()}.",
+                        "Your data needs at least one numeric column (e.g., 'Score', 'Response') with number values to compare between groups."
+                    )
+                # Verify group column actually has 2+ groups
+                gc_name = group_cols[0]
+                if gc_name not in columns:
+                    return _err(f"Group column '{gc_name}' not found in data columns.", f"Available columns: {', '.join(columns[:10])}")
+
+            if test_type == "correlation" and len(numeric_cols) < 2:
+                return _err("Need at least 2 numeric columns for correlation.", f"Found {len(numeric_cols)} numeric column(s): {', '.join(numeric_cols) if numeric_cols else 'none'}.")
+
+            if test_type == "chisquare" and len(group_cols) < 2 and len(categorical_cols) < 2:
+                return _err("Need at least 2 categorical columns for Chi-Square test.", f"Found group columns: {group_cols}, categorical: {categorical_cols}")
+
+            # Execute test
+            result = {"status": "ok", "test_type": test_type, "sub_type": "auto-decided"}
+            exp = []
+
             if test_type == "ttest":
-                gc = group_cols[0] if group_cols else ""
-                nc = numeric_cols[0] if numeric_cols else columns[0] if len(columns) > 1 else ""
+                gc = group_cols[0]
+                nc = numeric_cols[0] if numeric_cols else (columns[1] if len(columns) > 1 else columns[0])
                 input["group_col"] = gc
                 input["value_col"] = nc
                 input["test_type"] = "independent"
                 input["equal_var"] = True
-                exp.append({"step": 1, "title": "AI Decision", "detail": f"Running Independent T-Test: {nc} ~ {gc}", "findings": ["Comparing 2 independent groups. If data is paired (same subjects measured twice), results may differ."]})
-                exp.append({"step": 2, "title": "Running Test", "detail": "Performing statistical computation..."})
+                exp.append({"step": 1, "title": "AI Decision", "detail": f"Running Independent T-Test: {nc} vs {gc}", "findings": [f"Groups: {', '.join(group_cols[:3])}"]})
                 r = self._ttest(input)
+                if r.get("error"):
+                    return _err(r["error"], "Check that the group column contains exactly 2 distinct text labels like 'Drug' and 'Placebo'.")
                 result.update(r)
                 sig = r.get("significant", False)
-                exp.append({"step": 3, "title": "Interpretation", "detail": f"p={r.get('p_value',0):.4f} — {'SIGNIFICANT — the groups differ' if sig else 'NOT significant — no evidence of difference between groups'}."})
+                exp.append({"step": 2, "title": "Result", "detail": f"p={r.get('p_value',0):.4f} — {'SIGNIFICANT: groups differ' if sig else 'NOT significant: no difference detected'}."})
 
             elif test_type == "anova":
-                gc = group_cols[0] if group_cols else ""
-                nc = numeric_cols[0] if numeric_cols else columns[0] if len(columns) > 1 else ""
+                gc = group_cols[0]
+                nc = numeric_cols[0] if numeric_cols else (columns[1] if len(columns) > 1 else columns[0])
                 input["group_col"] = gc
                 input["value_col"] = nc
-                exp.append({"step": 1, "title": "AI Decision", "detail": f"Running One-Way ANOVA: {nc} ~ {gc}", "findings": [f"Comparing means across groups in '{gc}'."]})
+                exp.append({"step": 1, "title": "AI Decision", "detail": f"Running One-Way ANOVA: {nc} vs {gc}"})
                 r = self._anova(input)
+                if r.get("error"):
+                    return _err(r["error"], "Check that the group column contains 3+ distinct text labels for ANOVA.")
                 result.update(r)
                 sig = r.get("significant", False)
-                exp.append({"step": 2, "title": "Interpretation", "detail": f"p={r.get('p_value',0):.4f} — {'SIGNIFICANT — at least one group differs' if sig else 'NOT significant — no group differences'}."})
+                exp.append({"step": 2, "title": "Result", "detail": f"p={r.get('p_value',0):.4f} — {'SIGNIFICANT: at least one group differs' if sig else 'NOT significant: no group differences'}."})
 
             elif test_type == "correlation":
                 input["selected_cols"] = numeric_cols[:10]
                 input["method"] = "pearson"
-                exp.append({"step": 1, "title": "Pearson Correlation", "detail": "Measures linear relationship between numeric columns. r ranges from -1 to +1."})
+                exp.append({"step": 1, "title": "Pearson Correlation", "detail": "Measures linear relationship between numeric columns."})
                 r = self._correlation(input)
                 result.update(r)
-                if r.get("correlation_matrix"):
-                    n = len(r.get("columns", []))
-                    strong = []
-                    for i in range(n):
-                        for j in range(i+1, n):
-                            if abs(r["correlation_matrix"][i][j]) > 0.7:
-                                strong.append(f"{r['columns'][i]} vs {r['columns'][j]}: r={r['correlation_matrix'][i][j]:.3f}")
-                    exp.append({"step": 2, "title": "Findings", "findings": strong if strong else ["No strong correlations (|r|>0.7) found."]})
+                n = len(r.get("columns", []))
+                strong = []
+                for i in range(n):
+                    for j in range(i+1, n):
+                        if abs(r.get("correlation_matrix", [[]])[i][j] if r.get("correlation_matrix") else 0) > 0.7:
+                            strong.append(f"{r['columns'][i]} vs {r['columns'][j]}: r={r['correlation_matrix'][i][j]:.3f}")
+                exp.append({"step": 2, "title": "Findings", "findings": strong if strong else ["No strong correlations (|r|>0.7) found."]})
 
             elif test_type == "descriptive":
-                exp.append({"step": 1, "title": "Descriptive Statistics", "detail": "Summary statistics for numeric columns. Mean=average, Median=middle value, Std=spread."})
+                exp.append({"step": 1, "title": "Descriptive Statistics", "detail": "Summary for every numeric column."})
                 r = self._descriptive(input)
                 result.update(r)
 
             elif test_type == "normality":
-                exp.append({"step": 1, "title": "Shapiro-Wilk Normality", "detail": "Tests if data follows normal distribution. p>0.05 = normal (use parametric tests). p<0.05 = not normal (use non-parametric tests)."})
+                exp.append({"step": 1, "title": "Normality Check", "detail": "Shapiro-Wilk: p>0.05 = normal distribution."})
                 r = self._normality(input)
                 result.update(r)
 
@@ -140,56 +170,48 @@ class StatisticsAnalyze(ApiHandler):
                 vc = group_cols[1] if len(group_cols) > 1 else (categorical_cols[0] if categorical_cols else "")
                 input["group_col"] = gc
                 input["value_col"] = vc
-                if not gc or not vc:
-                    return {"status": "error", "error": "Need 2 categorical columns for Chi-Square"}
                 exp.append({"step": 1, "title": "Chi-Square", "detail": "Tests association between categorical variables."})
                 r = self._chisquare(input)
                 result.update(r)
-                sig = r.get("significant", False)
-                exp.append({"step": 2, "title": "Interpretation", "detail": f"p={r.get('p_value',0):.4f} — {'SIGNIFICANT association' if sig else 'No significant association'}."})
 
             elif test_type == "mannwhitney":
-                gc = group_cols[0] if group_cols else ""
-                nc = numeric_cols[0] if numeric_cols else ""
+                gc = group_cols[0]
+                nc = numeric_cols[0]
                 input["group_col"] = gc
                 input["value_col"] = nc
-                exp.append({"step": 1, "title": "Mann-Whitney U", "detail": "Non-parametric comparison of 2 groups. Use when data is not normally distributed."})
+                exp.append({"step": 1, "title": "Mann-Whitney U", "detail": "Non-parametric comparison of 2 groups."})
                 r = self._mannwhitney(input)
+                if r.get("error"):
+                    return _err(r["error"], "Mann-Whitney needs 2 distinct groups in the group column.")
                 result.update(r)
-                sig = r.get("significant", False)
-                exp.append({"step": 2, "title": "Interpretation", "detail": f"p={r.get('p_value',0):.4f} — {'SIGNIFICANT difference' if sig else 'No significant difference'}."})
 
-            elif test_type == "survival":
-                exp.append({"step": 1, "title": "Survival Analysis", "detail": "Agent-driven — use chat to analyze survival data."})
-                result["message"] = "Survival analysis requires agent chat. Type your request with the data attached."
-
-            elif test_type == "regression":
-                exp.append({"step": 1, "title": "Regression Analysis", "detail": "Agent-driven — use chat to run regression."})
-                result["message"] = "Regression analysis requires agent chat. Type your request with the data attached."
-
-            elif test_type == "roc":
-                exp.append({"step": 1, "title": "ROC/AUC Analysis", "detail": "Agent-driven — use chat for ROC analysis."})
-                result["message"] = "ROC analysis requires agent chat. Type your request with the data attached."
-
-            elif test_type in ("factor", "cluster"):
-                exp.append({"step": 1, "title": test_type.title() + " Analysis", "detail": "Agent-driven — use chat for this analysis."})
-                result["message"] = f"{test_type.title()} analysis requires agent chat."
+            elif test_type in ("survival", "regression", "roc", "factor", "cluster"):
+                return {
+                    "status": "ok", "test_type": test_type,
+                    "message": f"{test_type.title()} analysis is agent-driven. Type your request in the chat panel with this data.",
+                    "explanations": [{"step": 1, "title": "Agent Required", "detail": f"This analysis needs the AI agent. Open the chat panel and describe what you want to analyze."}]
+                }
 
             else:
-                return {"status": "error", "error": f"Test '{test_type}' not available"}
+                return _err(f"Unknown test: {test_type}")
 
+            # Finalize result
             if r.get("significant") is not None:
-                result["test_name"] = (r.get("test") or test_type).replace("Independent T-Test", "T-Test").replace("One-Way ANOVA", "ANOVA")
+                result["test_name"] = (r.get("test") or test_type)
                 result["sub_type"] = r.get("test") or test_type
-
-            # Merge metrics for display
             metrics = {}
-            for k in ("statistic", "p_value", "n", "required_n", "auc", "odds_ratio"):
+            for k in ("statistic", "p_value", "n", "auc", "odds_ratio"):
                 if k in r: metrics[k] = r[k]
             if metrics: result["metrics"] = metrics
-
             result["explanations"] = exp
+            result["data_check"] = {
+                "total_rows": total_rows,
+                "columns": columns,
+                "groups_found": group_cols,
+                "numeric_found": numeric_cols,
+            }
             return _to_json_safe(result)
+
         except Exception as e:
             return _to_json_safe({"status": "error", "error": str(e), "test_type": test_type})
 
