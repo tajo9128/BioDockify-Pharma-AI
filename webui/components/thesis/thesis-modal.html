@@ -435,17 +435,17 @@
     </div>
 
     <!-- Grant Writer -->
-    <div x-show="$store.academicWriter.activeTab === 'grant'" class="aw-options">
+    <div x-show="$store.academicWriter.activeTab === 'grant'" style="flex:1;overflow-y:auto;min-height:0">
       <x-component path="grant-writer/grant-writer.html"></x-component>
     </div>
 
     <!-- Regulatory -->
-    <div x-show="$store.academicWriter.activeTab === 'regulatory'" class="aw-options">
+    <div x-show="$store.academicWriter.activeTab === 'regulatory'" style="flex:1;overflow-y:auto;min-height:0">
       <x-component path="regulatory/regulatory.html"></x-component>
     </div>
 
     <!-- Citation Manager -->
-    <div x-show="$store.academicWriter.activeTab === 'citations'" class="aw-options">
+    <div x-show="$store.academicWriter.activeTab === 'citations'" style="flex:1;overflow-y:auto;min-height:0">
       <x-component path="citation-manager/citation-manager.html"></x-component>
     </div>
 
