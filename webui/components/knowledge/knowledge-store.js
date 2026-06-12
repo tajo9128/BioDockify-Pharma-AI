@@ -186,6 +186,17 @@ export const store = createStore("knowledgeModal", {
     return this.entries;
   },
 
+  get recentEntries() {
+    return [...this.entries]
+      .filter(e => e.createdAt || e.id)
+      .sort((a, b) => {
+        const da = a.createdAt || new Date(a.id || 0).toISOString();
+        const db = b.createdAt || new Date(b.id || 0).toISOString();
+        return db.localeCompare(da);
+      })
+      .slice(0, 50);
+  },
+
   get favoriteEntries() {
     return this.entries.filter(e => this.favorites.includes(e.id));
   },

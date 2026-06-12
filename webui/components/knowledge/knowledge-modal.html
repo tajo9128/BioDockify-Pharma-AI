@@ -29,10 +29,45 @@
     <!-- Tabs -->
     <div class="nb-tabs">
       <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='notebook'}" @click="$store.knowledgeModal.activeTab='notebook'"><span class="material-symbols-outlined" style="font-size:14px">edit_note</span> Notebook</button>
+      <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='recent'}" @click="$store.knowledgeModal.activeTab='recent'"><span class="material-symbols-outlined" style="font-size:14px">schedule</span> Recent</button>
       <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='chat'}" @click="$store.knowledgeModal.activeTab='chat'"><span class="material-symbols-outlined" style="font-size:14px">chat</span> Chat</button>
       <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='library'}" @click="$store.knowledgeModal.activeTab='library'"><span class="material-symbols-outlined" style="font-size:14px">local_library</span> Library</button>
       <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='podcast'}" @click="$store.knowledgeModal.activeTab='podcast'"><span class="material-symbols-outlined" style="font-size:14px">podcasts</span> Podcast</button>
       <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='notes'}" @click="$store.knowledgeModal.activeTab='notes'"><span class="material-symbols-outlined" style="font-size:14px">edit_note</span> Notes</button>
+    </div>
+
+    <!-- Recent Tab -->
+    <div x-show="$store.knowledgeModal.activeTab === 'recent'" style="flex:1;overflow-y:auto;min-height:0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:0.62rem;font-weight:600;color:var(--color-text)" x-text="'Recently Added (' + $store.knowledgeModal.recentEntries.length + ')'"></span>
+        <button class="nb-btn-sm" @click="$store.knowledgeModal.loadLibraryFromKB()"><span class="material-symbols-outlined" style="font-size:14px">refresh</span></button>
+      </div>
+      <template x-if="$store.knowledgeModal.recentEntries.length">
+        <div>
+          <template x-for="(entry, idx) in $store.knowledgeModal.recentEntries" :key="entry.id">
+            <div class="nb-entry-card" :class="{saved: $store.knowledgeModal.favorites.includes(entry.id)}">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:0.6rem;font-weight:700;color:var(--color-primary);min-width:18px" x-text="(idx + 1)"></span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:0.64rem;font-weight:600;color:var(--color-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" x-text="entry.question || 'Untitled'"></div>
+                  <div style="display:flex;gap:6px;margin-top:2px;flex-wrap:wrap">
+                    <template x-for="tag in (entry.tags || [])" :key="tag">
+                      <span style="font-size:0.5rem;padding:1px 5px;background:color-mix(in srgb,var(--color-primary)8%,transparent);border-radius:3px;color:var(--color-primary)" x-text="'#'+tag"></span>
+                    </template>
+                    <span x-show="entry.source" style="font-size:0.5rem;color:var(--color-text-muted)" x-text="entry.source"></span>
+                    <span style="font-size:0.5rem;color:var(--color-text-muted)" x-text="entry.createdAt?.substring(0, 10) || new Date(entry.id).toISOString().substring(0,10)"></span>
+                  </div>
+                </div>
+                <button style="padding:2px 6px;background:transparent;border:1px solid var(--color-border);border-radius:3px;font-size:0.54rem;color:var(--color-text-muted);cursor:pointer" @click="$store.knowledgeModal.openInWriter(entry)">Open</button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+      <div x-show="!$store.knowledgeModal.recentEntries.length && !$store.knowledgeModal.loading" style="text-align:center;padding:30px;color:var(--color-text-muted);font-size:0.62rem">
+        <span class="material-symbols-outlined" style="font-size:28px;opacity:0.2;display:block;margin-bottom:4px">schedule</span>
+        No documents yet. Upload files or save from Literature search.
+      </div>
     </div>
 
     <!-- Search -->
