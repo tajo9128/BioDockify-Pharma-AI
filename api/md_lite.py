@@ -23,7 +23,8 @@ class MDLite(ApiHandler):
         if action == "results":       return self._results(input)
         if action == "download":      return self._download(input)
         if action == "import_docking": return self._import_docking(input)
-        return {"actions": ["health","prepare","run","status","stop","results","download","import_docking"],
+        if action == "mmpbsa":        return self._mmpbsa(input)
+        return {"actions": ["health","prepare","run","status","stop","results","download","import_docking","mmpbsa"],
                 "hint": "1. prepare (upload PDB) → 2. run (start MD) → 3. status (poll) → 4. results (analysis)"}
 
     def _health(self):
@@ -160,6 +161,15 @@ class MDLite(ApiHandler):
             mimetype="application/zip",
             headers={"Content-Disposition": f"attachment; filename=md_lite_{job_id}.zip"}
         )
+
+    def _mmpbsa(self, input):
+        """Run MM-PBSA binding free energy calculation on completed MD trajectory."""
+        job_id = input["job_id"]
+        job_dir = os.path.join(WORKDIR, job_id)
+        traj = os.path.join(job_dir, "trajectory.dcd")
+        top = os.path.join(job_dir, "complex.pdb") or os.path.join(job_dir, "protein.pdb")
+        from modules.md_lite.mmpbsa import calculate_mmpbsa
+        return {"status": "ok", "job_id": job_id, "mmpbsa": calculate_mmpbsa(traj, top, job_dir)}
 
     def _import_docking(self, input):
         job_id = input.get("docking_job_id", "")

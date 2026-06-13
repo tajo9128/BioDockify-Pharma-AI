@@ -122,6 +122,15 @@ RUN /opt/venv/bin/python -m pip install --no-cache-dir \
     && echo "MD Lite installed (execution)" || \
     echo "MD Lite install failed (execution)"
 
+# Install PDBFixer for protein preparation
+RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir pdbfixer>=1.9 \
+    && echo "PDBFixer installed (framework)" || \
+    echo "PDBFixer install failed (framework)"
+
+RUN /opt/venv/bin/python -m pip install --no-cache-dir pdbfixer>=1.9 \
+    && echo "PDBFixer installed (execution)" || \
+    echo "PDBFixer install failed (execution)"
+
 EXPOSE 50001
 
 HEALTHCHECK --interval=30s --timeout=15s --retries=3 CMD \

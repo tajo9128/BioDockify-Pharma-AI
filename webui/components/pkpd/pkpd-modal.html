@@ -1,0 +1,97 @@
+<html>
+<head><script type="module" src="/components/pkpd/pkpd-store.js"></script></head>
+<body>
+  <div x-data="pkpdModal" class="pp">
+    <div class="ph">
+      <span class="material-symbols-outlined" style="font-size:22px;color:var(--color-primary)">monitoring</span>
+      <div><h2>PK/PD Analysis</h2><p class="phs">Pharmacokinetics · Compartmental · PD Response</p></div>
+    </div>
+
+    <div class="pt">
+      <button class="ptb":class="{on:activeTab==='nca'}" @click="activeTab='nca'">NCA</button>
+      <button class="ptb":class="{on:activeTab==='compartmental'}" @click="activeTab='compartmental'">Compartmental</button>
+      <button class="ptb":class="{on:activeTab==='pd'}" @click="activeTab='pd'">PD Response</button>
+    </div>
+
+    <div x-show="errorMessage" class="pe" x-text="errorMessage" @click="errorMessage=''"></div>
+
+    <div class="pb">
+      <!-- Upload -->
+      <div x-show="!fileName" class="pu" @click="openFilePicker()">
+        <span class="material-symbols-outlined" style="font-size:36px;opacity:0.6">upload_file</span>
+        <span>Click to upload PK data (.csv)</span>
+        <small>Concentration-time profiles · One subject per file recommended</small>
+      </div>
+
+      <template x-if="fileName">
+        <div>
+          <div class="pi"><span class="material-symbols-outlined" style="font-size:14px;color:#22c55e">check_circle</span><b x-text="fileName"></b><small x-text="rowCount+' rows · '+columns.length+' cols'"></small><button class="pl" @click="resetData()">Change</button></div>
+
+          <!-- NCA Tab -->
+          <div x-show="activeTab==='nca'">
+            <div class="pc"><h4>Non-Compartmental Analysis</h4>
+              <div class="pr"><label>Time <select x-model="timeCol" class="ps"><template x-for="c in columns"><option x-text="c"></option></template></select></label>
+              <label>Conc <select x-model="concCol" class="ps"><template x-for="c in columns"><option x-text="c"></option></template></select></label></div>
+              <div style="display:flex;gap:4px">
+                <button class="prn" style="flex:1" @click="run('nca')" :disabled="loading">NCA Analysis</button>
+                <button class="prn" style="flex:1;background:#8b5cf6" @click="run('half_life')">Half-Life</button>
+                <button class="prn" style="flex:1;background:#f59e0b" @click="run('auc')">AUC</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Compartmental Tab -->
+          <div x-show="activeTab==='compartmental'">
+            <div class="pc"><h4>Compartmental Modeling</h4>
+              <div class="pr"><label>Dose <input type="number" x-model="dose" class="ps" style="width:70px"> mg</label>
+              <label>Compartments <select x-model="compartments" class="ps"><option :value="1">1</option><option :value="2">2</option><option :value="3">3</option></select></label></div>
+              <button class="prn" @click="run('compartmental')" :disabled="loading">Fit Model</button>
+            </div>
+          </div>
+
+          <!-- PD Tab -->
+          <div x-show="activeTab==='pd'">
+            <div class="pc"><h4>Dose-Response Analysis</h4>
+              <div class="pr"><label>Dose <select x-model="pdDoseCol" class="ps"><template x-for="c in columns"><option x-text="c"></option></template></select></label>
+              <label>Response <select x-model="pdRespCol" class="ps"><template x-for="c in columns"><option x-text="c"></option></template></select></label></div>
+              <button class="prn" @click="run('pd_response')" :disabled="loading">Model PD Response</button>
+            </div>
+          </div>
+
+          <!-- Results -->
+          <template x-if="result">
+            <div class="pc">
+              <h4>Results</h4>
+              <div class="prm"><template x-for="(v,k) in result"><div class="pmi"><small x-text="k"></small><b x-text="typeof v==='number'?v.toFixed(4):v"></b></div></template></div>
+              <button class="prn" style="margin-top:6px;background:#6366f1" @click="saveToKB()">Save to KB</button>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+
+    <style>
+      .pp{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background)}
+      .ph{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--color-border)}
+      .ph h2{font-size:0.85rem;margin:0;color:var(--color-text)}.phs{font-size:0.5rem;color:var(--color-text-muted);margin:0}
+      .pt{display:flex;gap:1px;border-bottom:1px solid var(--color-border);padding:0 14px}
+      .ptb{padding:6px 12px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--color-text-muted);cursor:pointer;font-size:0.58rem;font-weight:500}
+      .ptb:hover{color:var(--color-text)}.ptb.on{color:var(--color-primary);border-bottom-color:var(--color-primary)}
+      .pe{padding:4px 14px;font-size:0.55rem;color:var(--color-error-text);background:rgba(255,107,107,.05);cursor:pointer}
+      .pb{flex:1;overflow-y:auto;padding:12px 14px}
+      .pu{display:flex;flex-direction:column;align-items:center;padding:40px;border:2px dashed var(--color-border);border-radius:10px;cursor:pointer;color:var(--color-text-muted);font-size:0.62rem;gap:4px}
+      .pu:hover{border-color:var(--color-primary)}.pu small{font-size:0.5rem}
+      .pi{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;margin-bottom:8px;font-size:0.62rem}
+      .pl{padding:2px 6px;background:transparent;border:1px solid var(--color-border);border-radius:3px;color:var(--color-text-muted);cursor:pointer;font-size:0.52rem;margin-left:auto}
+      .pc{padding:10px 12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:8px}
+      .pc h4{font-size:0.62rem;font-weight:700;color:var(--color-text);margin:0 0 6px}
+      .pr{display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;font-size:0.54rem;color:var(--color-text-muted);align-items:center}
+      .ps{padding:4px 6px;border:1px solid var(--color-border);border-radius:4px;background:var(--color-background);color:var(--color-text);font-size:0.54rem}
+      .prn{display:flex;align-items:center;justify-content:center;gap:4px;padding:7px 12px;background:var(--color-primary);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.6rem;font-weight:600;transition:.15s}
+      .prn:disabled{opacity:.4;cursor:default}
+      .prm{display:flex;gap:4px;flex-wrap:wrap}.pmi{display:flex;flex-direction:column;align-items:center;padding:5px 8px;background:var(--color-background);border-radius:5px;min-width:60px}
+      .pmi small{font-size:0.42rem;color:var(--color-text-muted);text-transform:uppercase}.pmi b{font-size:0.62rem;color:var(--color-text)}
+    </style>
+  </div>
+</body>
+</html>

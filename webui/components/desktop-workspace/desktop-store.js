@@ -22,6 +22,7 @@ const defaultModules = [
   { id: "backup", title: "Backup & Recovery", icon: "backup", component: "/components/backup-recovery/recovery-panel.html", order: 13, defaultWidth: 650, defaultHeight: 450 },
   { id: "system-health", title: "System Health", icon: "monitoring", component: "/components/system-health/system-health.html", order: 14, defaultWidth: 500, defaultHeight: 500 },
   { id: "md-lite", title: "MD Lite", icon: "experiment", component: "/components/md-lite/md-lite.html", order: 4.5, defaultWidth: 700, defaultHeight: 600 },
+  { id: "pkpd", title: "PK/PD", icon: "monitoring", component: "/components/pkpd/pkpd-modal.html", order: 6.5, defaultWidth: 650, defaultHeight: 500 },
 ];
 
 const model = {
