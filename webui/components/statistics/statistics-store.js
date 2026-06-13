@@ -53,7 +53,6 @@ Alpine.data("statisticsModal", () => ({
 
   // ============== PHASE 1: Editable Table ==============
   toggleTable() { this.showTable = !this.showTable; },
-  updateCell(ri, ci, val) { this.isDirty = true; },
   addRow() { this.dataRows.push(this.columns.map(() => "")); this.isDirty = true; },
   deleteRow(ri) { this.dataRows.splice(ri, 1); this.rowCount = this.dataRows.length; this.isDirty = true; if (this.currentPage > this.totalPages) this.currentPage = this.totalPages; },
   async reAnalyze() {
@@ -91,7 +90,7 @@ Alpine.data("statisticsModal", () => ({
   // ============== PHASE 3: Live Update ==============
   debouncedRun() {
     clearTimeout(this._timer);
-    if (!this.liveMode || this.step !== 2) return;
+    if (!this.liveMode || this.step !== 2 || this.loading) return;
     if (this.isTestReady() && this.testType) {
       this._timer = setTimeout(() => this.runSelectedTest(), 300);
     }
@@ -147,7 +146,7 @@ Alpine.data("statisticsModal", () => ({
         const r = new FileReader();
         r.onload = () => {
           const b = new Uint8Array(r.result); let s = "";
-          for (let i = 0; i < b.length; i += 8192) s += String.fromCharCode.apply(null, b.subarray(i, Math.min(i + 8192, b.length)));
+          for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
           resolve({ content: btoa(s), isBinary: true });
         };
         r.onerror = () => reject(new Error("Read failed"));

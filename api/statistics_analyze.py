@@ -139,7 +139,11 @@ def _ai_interpret(test_type, result, params=None):
         n1, n2 = g1.get("n", 0), g2.get("n", 0)
         m1, m2 = g1.get("mean", 0), g2.get("mean", 0)
         t = result.get("statistic", 0)
-        d = abs(m1 - m2) / max(max(g1.get("std", 1), g2.get("std", 1)), 0.001)
+        # Cohen's d with pooled SD (correct formula)
+        s1 = float(g1.get("std", 1) or 1); s2 = float(g2.get("std", 1) or 1)
+        n1 = max(int(g1.get("n", 1) or 1), 1); n2 = max(int(g2.get("n", 1) or 1), 1)
+        pooled_sd = (((n1-1)*s1**2 + (n2-1)*s2**2) / max(n1+n2-2, 1)) ** 0.5
+        d = abs(m1 - m2) / max(pooled_sd, 0.001)
         eff = _effect_interpretation(d)
         return f"The {g1.get('name','Group 1')} group (n={n1}, M={_fmt(m1)}) showed significantly different values compared to {g2.get('name','Group 2')} (n={n2}, M={_fmt(m2)}), t≈{_fmt(t)}, p={_p_str(p)}. Cohen's d ≈ {_fmt(d,2)} indicates a {eff} effect size." if sig else f"No significant difference between {g1.get('name','Group 1')} (n={n1}, M={_fmt(m1)}) and {g2.get('name','Group 2')} (n={n2}, M={_fmt(m2)}), t≈{_fmt(t)}, p={_p_str(p)}."
 
@@ -230,7 +234,7 @@ class StatisticsAnalyze(ApiHandler):
         af = slots.get("after") or (numeric_cols[1] if len(numeric_cols) > 1 else "")
         fc = slots.get("cols") or ""
         rc = slots.get("rows") or (group_cols[0] if group_cols else (categorical_cols[0] if categorical_cols else ""))
-        cc = slots.get("cols") or (group_cols[1] if len(group_cols) > 1 else (categorical_cols[1] if len(categorical_cols) > 1 else ""))
+        cc = slots.get("column") or (group_cols[1] if len(group_cols) > 1 else (categorical_cols[1] if len(categorical_cols) > 1 else ""))
 
         def _err(msg, hint=""):
             return {"status": "error", "test_type": test_type, "error": msg, "hint": hint}
@@ -459,8 +463,8 @@ class StatisticsAnalyze(ApiHandler):
             return {"title":"Normality Tests","tables":[]}
         # Generic fallback for any test
         rows = []
-        if r.get("p_value"): rows.append(["p-value", _p_str(p)])
-        if r.get("statistic"): rows.append(["Statistic", _fmt(r["statistic"],4)])
+        if "p_value" in r: rows.append(["p-value", _p_str(p)])
+        if "statistic" in r: rows.append(["Statistic", _fmt(r["statistic"],4)])
         return {"title": r.get("test", test_type.title()), "tables": [_apa_table("Results", ["Metric","Value"], rows)] if rows else []}
 
     def _render_chart(self, test_type, r, input_data=None):
