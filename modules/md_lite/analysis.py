@@ -99,5 +99,56 @@ def analyze(traj_path, top_path, workdir):
         except Exception as e:
             results["energy"] = {"error": str(e)}
 
+    # Gyration Radius
+    try:
+        rg = md.compute_rg(traj)
+        results["gyration"] = {"mean_nm": round(float(np.mean(rg)), 4), "final_nm": round(float(rg[-1]), 4)}
+        _style_dark()
+        fig, ax = plt.subplots(figsize=(6, 3))
+        ax.plot(rg, color="#8b5cf6", linewidth=1)
+        ax.set_title("Radius of Gyration", fontsize=12, fontweight="bold", color="#8b5cf6")
+        ax.set_xlabel("Frame"); ax.set_ylabel("Rg (nm)")
+        ax.grid(axis="y", alpha=0.3)
+        results["gyration_plot"] = _fig_to_b64(fig); plt.close(fig)
+    except Exception as e:
+        results["gyration"] = {"error": str(e)}
+
+    # SASA
+    try:
+        sasa = md.shrake_rupley(traj)
+        results["sasa"] = {"mean_nm2": round(float(np.mean(sasa)), 2), "final_nm2": round(float(sasa[-1]), 2)}
+        _style_dark()
+        fig, ax = plt.subplots(figsize=(6, 3))
+        ax.plot(sasa, color="#22c55e", linewidth=1)
+        ax.set_title("Solvent Accessible Surface Area", fontsize=12, fontweight="bold", color="#22c55e")
+        ax.set_xlabel("Frame"); ax.set_ylabel("SASA (nm²)")
+        ax.grid(axis="y", alpha=0.3)
+        results["sasa_plot"] = _fig_to_b64(fig); plt.close(fig)
+    except Exception as e:
+        results["sasa"] = {"error": str(e)}
+
+    # H-Bonds
+    try:
+        hb = md.baker_hubbard(traj, periodic=False)
+        hb_count = len(hb)
+        hb_labels = [f"D{hb[i][0]}-A{hb[i][2]}" for i in range(min(hb_count, 10))]
+        results["hbonds"] = {"count": hb_count, "top_donor_acceptor": hb_labels}
+        _style_dark()
+        fig, ax = plt.subplots(figsize=(6, 3))
+        # Compute per-frame H-bond count
+        hb_per_frame = []
+        for i in range(traj.n_frames):
+            f = traj[i]
+            hbf = md.baker_hubbard(f, periodic=False)
+            hb_per_frame.append(len(hbf))
+        ax.plot(hb_per_frame, color="#f59e0b", linewidth=1)
+        ax.set_title("Hydrogen Bonds per Frame", fontsize=12, fontweight="bold", color="#f59e0b")
+        ax.set_xlabel("Frame"); ax.set_ylabel("Count")
+        ax.grid(axis="y", alpha=0.3)
+        results["hbonds_plot"] = _fig_to_b64(fig); plt.close(fig)
+        results["hbonds"]["avg_per_frame"] = round(float(np.mean(hb_per_frame)), 1)
+    except Exception as e:
+        results["hbonds"] = {"error": str(e)}
+
     results["status"] = "ok"
     return results

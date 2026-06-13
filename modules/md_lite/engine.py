@@ -20,6 +20,7 @@ class MDEngine:
         self._total_steps = 0
         self._chunks_total = 0
         self._chunks_done = 0
+        self._start_time = 0
         self.status_file = os.path.join(workdir, "status.json")
 
     def detect_platform(self):
@@ -89,11 +90,22 @@ class MDEngine:
     def _update_status(self, status, extra=None):
         data = {"status": status, "timestamp": time.time(),
                 "progress_ns": self.progress_ns, "progress_pct": self.progress_pct,
-                "total_steps_done": self._steps_done, "total_steps_planned": self._total_steps}
+                "total_steps_done": self._steps_done, "total_steps_planned": self._total_steps,
+                "chunk": f"{self._chunks_done}/{self._chunks_total}" if self._chunks_total else "",
+                "eta_minutes": self._eta_minutes() if self._chunks_total and self._chunks_done > 0 else 0}
         if extra: data.update(extra)
         os.makedirs(self.workdir, exist_ok=True)
         with open(self.status_file, "w") as f:
             json.dump(data, f)
+
+    def _eta_minutes(self):
+        if self._chunks_done <= 0 or self._chunks_total <= 0:
+            return 0
+        elapsed = time.time() - (self._start_time or time.time())
+        if elapsed <= 0: return 0
+        remaining_chunks = self._chunks_total - self._chunks_done
+        avg_per_chunk = elapsed / self._chunks_done
+        return round((remaining_chunks * avg_per_chunk) / 60.0)
 
     def run_for_ns(self, total_ns, checkpoint_interval_ns=0.5):
         steps_per_ns = 500000
@@ -102,6 +114,7 @@ class MDEngine:
         self._total_steps = total_steps
         self._chunks_total = max(1, total_steps // chunk_steps)
         self._chunks_done = 0
+        self._start_time = time.time()
         self._update_status("running")
         while self._steps_done < total_steps:
             remaining = total_steps - self._steps_done
