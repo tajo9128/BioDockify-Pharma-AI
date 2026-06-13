@@ -23,12 +23,18 @@ class MDEngine:
         self.status_file = os.path.join(workdir, "status.json")
 
     def detect_platform(self):
+        """Auto-detect best platform: GPU first (CUDA > OpenCL), fallback CPU."""
+        platforms = []
         for i in range(mm.Platform.getNumPlatforms()):
             p = mm.Platform.getPlatform(i)
-            if self.platform_name == "CUDA" and "CUDA" in p.getName():
-                return p
-            if self.platform_name == "OpenCL" and "OpenCL" in p.getName():
-                return p
+            platforms.append(p.getName())
+        # GPU preference order
+        for pref in ["CUDA", "OpenCL"]:
+            for pn in platforms:
+                if pref in pn:
+                    log.info(f"Using GPU platform: {pn}")
+                    return mm.Platform.getPlatformByName(pn)
+        log.warning("No GPU detected — falling back to CPU")
         return mm.Platform.getPlatformByName("CPU")
 
     def load_system(self, pdb_path):
@@ -51,6 +57,10 @@ class MDEngine:
         self.simulation = app.Simulation(self.modeller.topology, self.system,
             self.integrator, platform)
         self.simulation.context.setPositions(self.modeller.positions)
+        # Auto-resume from checkpoint if available
+        had_checkpoint = self.load_checkpoint()
+        if had_checkpoint:
+            log.info(f"Resumed from checkpoint at {self.progress_ns} ns")
         return self
 
     def minimize(self, max_iterations=0):
@@ -68,7 +78,8 @@ class MDEngine:
 
     def _update_status(self, status, extra=None):
         data = {"status": status, "timestamp": time.time(),
-                "progress_ns": self.progress_ns, "progress_pct": self.progress_pct}
+                "progress_ns": self.progress_ns, "progress_pct": self.progress_pct,
+                "total_steps_done": self._steps_done, "total_steps_planned": self._total_steps}
         if extra: data.update(extra)
         os.makedirs(self.workdir, exist_ok=True)
         with open(self.status_file, "w") as f:
@@ -102,11 +113,23 @@ class MDEngine:
             log.warning(f"Checkpoint save failed: {e}")
 
     def load_checkpoint(self):
+        """Restore simulation state from checkpoint file."""
         path = os.path.join(self.workdir, "checkpoint.xml")
         if os.path.exists(path):
-            with open(path) as f:
-                self.simulation.context.setState(mm.XmlSerializer.deserialize(f.read()))
-            return True
+            try:
+                with open(path) as f:
+                    self.simulation.context.setState(mm.XmlSerializer.deserialize(f.read()))
+                # Restore step count from status file
+                import json
+                sf = os.path.join(self.workdir, "status.json")
+                if os.path.exists(sf):
+                    with open(sf) as f:
+                        data = json.load(f)
+                        self._steps_done = int(data.get("total_steps_done", 0))
+                        self._total_steps = int(data.get("total_steps_planned", self._steps_done))
+                return True
+            except Exception as e:
+                log.warning(f"Checkpoint load failed: {e}")
         return False
 
     @property

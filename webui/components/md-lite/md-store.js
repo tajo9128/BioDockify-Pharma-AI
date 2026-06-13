@@ -7,6 +7,7 @@ Alpine.data("mdLite", () => ({
   // Settings
   inputMethod: "complex",  // complex | separate | docking
   settings: { total_ns: 5, platform: "CUDA", forcefield: "amber14", temperature: 300, pressure: 1.0 },
+  gpuAvailable: false,
   dockingJob: "",
 
   init() {
@@ -17,9 +18,18 @@ Alpine.data("mdLite", () => ({
     try {
       const r = await callJsonApi("md_lite", { action: "health" });
       this.health = r;
-      if (r.gpu) this.settings.platform = "CUDA";
-      else if (r.platforms?.some(p => p.name.includes("OpenCL"))) this.settings.platform = "OpenCL";
-      else this.settings.platform = "CPU";
+      // Auto-detect best platform: GPU first preference
+      const platforms = r.platforms || [];
+      if (platforms.some(p => p.name.includes("CUDA"))) {
+        this.settings.platform = "CUDA";
+        this.gpuAvailable = true;
+      } else if (platforms.some(p => p.name.includes("OpenCL"))) {
+        this.settings.platform = "OpenCL";
+        this.gpuAvailable = true;
+      } else {
+        this.settings.platform = "CPU";
+        this.gpuAvailable = false;
+      }
     } catch {}
   },
 

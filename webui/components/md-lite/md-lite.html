@@ -95,7 +95,7 @@
       </div>
 
       <div class="mc">
-        <h4>Engine</h4>
+        <h4>Engine <span x-show="gpuAvailable" style="font-size:0.5rem;padding:1px 6px;background:#22c55e22;color:#22c55e;border:1px solid #22c55e44;border-radius:6px;margin-left:6px">GPU Detected</span><span x-show="!gpuAvailable" style="font-size:0.5rem;padding:1px 6px;background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b44;border-radius:6px;margin-left:6px">CPU Only</span></h4>
         <div class="mrl">
           <label class="mr" :class="{on:settings.platform==='CUDA'}">
             <input type="radio" value="CUDA" x-model="settings.platform" hidden>
@@ -124,6 +124,7 @@
       <button class="mrn" @click="runMD()" :disabled="loading">
         <span class="material-symbols-outlined">play_arrow</span> Run Simulation
       </button>
+      <p style="font-size:0.48rem;color:var(--color-text-muted);text-align:center;margin:6px 0 0">Simulation runs in background and auto-resumes from checkpoint if interrupted. Safe for long 24-48 hour runs.</p>
     </div>
 
     <!-- ===== STEP 3: Monitor ===== -->
