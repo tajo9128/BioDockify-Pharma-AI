@@ -48,9 +48,9 @@
             <thead><tr><th>#</th><template x-for="c in columns"><th x-text="c"></th></template><th></th></tr></thead>
             <tbody>
               <template x-for="(row,ri) in visibleRows"><tr>
-                <td class="stn" x-text="ri+1"></td>
-                <template x-for="(val,ci) in row"><td><input x-model="dataRows[ri][ci]" @input="isDirty=true"></td></template>
-                <td><button style="background:none;border:none;color:var(--color-error-text);cursor:pointer;font-size:0.7rem" @click="deleteRow(ri)">×</button></td>
+                <td class="stn" x-text="(currentPage-1)*pageSize + ri + 1"></td>
+                <template x-for="(val,ci) in row"><td><input x-model="dataRows[(currentPage-1)*pageSize + ri][ci]" @input="isDirty=true"></td></template>
+                <td><button style="background:none;border:none;color:var(--color-error-text);cursor:pointer;font-size:0.7rem" @click="deleteRow((currentPage-1)*pageSize + ri)">×</button></td>
               </tr></template>
             </tbody>
           </table>
@@ -278,8 +278,6 @@
       .jo{border-left:3px solid var(--color-primary);padding-left:8px}
       .jtab tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
       .sr1{transition:all .15s}.sr1:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.2)}
-      .skel{background:linear-gradient(90deg,var(--color-border) 25%,var(--color-panel) 50%,var(--color-border) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:4px;height:12px;margin:4px 0}
-      @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
     </style>
   </div>
 </body>

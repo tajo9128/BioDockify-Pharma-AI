@@ -55,7 +55,7 @@ Alpine.data("statisticsModal", () => ({
   toggleTable() { this.showTable = !this.showTable; },
   updateCell(ri, ci, val) { this.isDirty = true; },
   addRow() { this.dataRows.push(this.columns.map(() => "")); this.isDirty = true; },
-  deleteRow(ri) { this.dataRows.splice(ri, 1); this.rowCount = this.dataRows.length; this.isDirty = true; },
+  deleteRow(ri) { this.dataRows.splice(ri, 1); this.rowCount = this.dataRows.length; this.isDirty = true; if (this.currentPage > this.totalPages) this.currentPage = this.totalPages; },
   async reAnalyze() {
     this.loading = true; this.errorMessage = ""; this.isDirty = false;
     try {
@@ -118,7 +118,7 @@ Alpine.data("statisticsModal", () => ({
         this.rowCount = r.data_summary?.total_rows || 0;
         // Phase 1: Store raw data for editable table
         this.dataRows = this._parseRawRows(content, r.data_summary?.column_names || []);
-        this.isDirty = false; this.showTable = false;
+        this.isDirty = false; this.showTable = false; this.currentPage = 1;
         this.step = 2; this.testType = r.recommended_test || "";
       } else { this.errorMessage = r.error || "Upload failed"; }
     } catch (e) { this.errorMessage = "Upload error: " + (e.message || "API unavailable"); }
@@ -186,7 +186,7 @@ Alpine.data("statisticsModal", () => ({
   resetData() {
     this.step = 1; this.fileName = ""; this.columns = []; this.rowCount = 0;
     this.summary = null; this.testType = ""; this.result = null; this.errorMessage = "";
-    this.dataRows = []; this.isDirty = false; this.showTable = false;
+    this.dataRows = []; this.isDirty = false; this.showTable = false; this.currentPage = 1;
     this.slots = { value:"", group:"", before:"", after:"", rows:"", cols:"", labels:"", scores:"" };
     this.activeSlot = null; this.history = [];
   },

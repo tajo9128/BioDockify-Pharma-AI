@@ -377,7 +377,8 @@ class StatisticsAnalyze(ApiHandler):
             try:
                 chart = self._render_chart(test_type, r)
                 if chart: result["apa_output"]["chart"] = {"base64": chart}
-            except: pass
+            except Exception:
+                pass
             return _to_json_safe(result)
 
         except Exception as e:
@@ -462,30 +463,38 @@ class StatisticsAnalyze(ApiHandler):
         if r.get("statistic"): rows.append(["Statistic", _fmt(r["statistic"],4)])
         return {"title": r.get("test", test_type.title()), "tables": [_apa_table("Results", ["Metric","Value"], rows)] if rows else []}
 
-    def _render_chart(self, test_type, r):
+    def _render_chart(self, test_type, r, input_data=None):
         """Generate inline chart for publication output."""
         try:
             from api.statistics_charts import (
                 generate_boxplot, generate_scatter, generate_histogram,
-                generate_bar_chart, generate_correlation_heatmap, generate_qq_plot
+                generate_bar_chart, generate_correlation_heatmap
             )
-        except: return None
-        if test_type in ("ttest", "mannwhitney"):
-            g1 = r.get("group1", {}); g2 = r.get("group2", {})
-            return generate_boxplot({g1.get("name","G1"): [], g2.get("name","G2"): []})
-        if test_type in ("anova", "kruskalwallis"):
-            grps = r.get("groups", [])
-            gd = {g.get("name", f"G{i}"): [] for i, g in enumerate(grps[:8])}
-            return generate_boxplot(gd) if gd else None
-        if test_type == "correlation":
-            mat = r.get("correlation_matrix", [[]])
-            cols = r.get("columns", [])
-            return generate_correlation_heatmap(mat, cols) if mat else None
-        if test_type in ("descriptive", "normality"):
-            return generate_histogram([], title=test_type.title())
-        if test_type == "chisquare":
-            return generate_bar_chart([], [], title="Chi-Square")
-        return None
+        except Exception as e:
+            log.warning(f"Chart import failed: {e}")
+            return None
+        try:
+            if test_type in ("ttest", "mannwhitney"):
+                g1 = r.get("group1", {}); g2 = r.get("group2", {})
+                gd = {g1.get("name","G1"): [], g2.get("name","G2"): []}
+                return generate_boxplot(gd)
+            if test_type in ("anova", "kruskalwallis"):
+                grps = r.get("groups", [])
+                gd = {g.get("name", f"G{i}"): [] for i, g in enumerate(grps[:8])}
+                return generate_boxplot(gd) if gd else None
+            if test_type == "correlation":
+                mat = r.get("correlation_matrix", [[]])
+                cols = r.get("columns", [])
+                if mat and cols:
+                    import numpy as np
+                    return generate_correlation_heatmap(np.array(mat), cols)
+                return None
+            if test_type == "descriptive" or test_type == "normality":
+                return generate_histogram([], title=test_type.title())
+            return None
+        except Exception as e:
+            log.debug(f"Chart render skipped for {test_type}: {e}")
+            return None
 
     def _descriptive(self, input: dict) -> dict:
         data = input.get("data", [])
