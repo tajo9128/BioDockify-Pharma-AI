@@ -47,7 +47,7 @@
           <table class="stt">
             <thead><tr><th>#</th><template x-for="c in columns"><th x-text="c"></th></template><th></th></tr></thead>
             <tbody>
-              <template x-for="(row,ri) in dataRows.slice(0,25)"><tr>
+              <template x-for="(row,ri) in visibleRows"><tr>
                 <td class="stn" x-text="ri+1"></td>
                 <template x-for="(val,ci) in row"><td><input x-model="dataRows[ri][ci]" @input="isDirty=true"></td></template>
                 <td><button style="background:none;border:none;color:var(--color-error-text);cursor:pointer;font-size:0.7rem" @click="deleteRow(ri)">×</button></td>
@@ -57,6 +57,11 @@
         </div>
         <div style="display:flex;gap:6px;margin-top:4px">
           <button class="sl" @click="addRow()">+ Add Row</button>
+          <span style="font-size:0.5rem;color:var(--color-text-muted);margin-left:auto" x-show="totalPages>1">
+            <button class="sl" @click="prevPage()" :disabled="currentPage<=1">◀</button>
+            <span x-text="'Page '+currentPage+'/'+totalPages+' ('+dataRows.length+' rows)'" style="margin:0 4px"></span>
+            <button class="sl" @click="nextPage()" :disabled="currentPage>=totalPages">▶</button>
+          </span>
           <button x-show="isDirty" class="sr2" @click="reAnalyze()">Re-Analyze</button>
         </div>
       </div>
@@ -265,6 +270,16 @@
       /* Spinner */
       .spin{width:12px;height:12px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin .8s linear infinite;display:inline-block;margin-right:4px;vertical-align:middle}
       @keyframes spin{to{transform:rotate(360deg)}}
+
+      /* Gap 3: UI Polish */
+      .sb{animation:fadeIn .2s ease}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+      .stc{transition:all .12s}.stc:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.15)}
+      .sva.active{animation:pulse 2s infinite}@keyframes pulse{0%{border-color:var(--color-primary)}50%{border-color:color-mix(in srgb,var(--color-primary)30%,transparent)}100%{border-color:var(--color-primary)}}
+      .jo{border-left:3px solid var(--color-primary);padding-left:8px}
+      .jtab tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
+      .sr1{transition:all .15s}.sr1:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.2)}
+      .skel{background:linear-gradient(90deg,var(--color-border) 25%,var(--color-panel) 50%,var(--color-border) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:4px;height:12px;margin:4px 0}
+      @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
     </style>
   </div>
 </body>

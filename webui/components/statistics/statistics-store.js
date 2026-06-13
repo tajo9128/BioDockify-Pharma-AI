@@ -28,6 +28,11 @@ Alpine.data("statisticsModal", () => ({
 
   // Phase 1: Editable data table
   dataRows: [], isDirty: false, showTable: false,
+  pageSize: 50, currentPage: 1,
+  get visibleRows() { return this.dataRows.slice((this.currentPage-1)*this.pageSize, this.currentPage*this.pageSize); },
+  get totalPages() { return Math.max(1, Math.ceil(this.dataRows.length / this.pageSize)); },
+  nextPage() { if (this.currentPage < this.totalPages) this.currentPage++; },
+  prevPage() { if (this.currentPage > 1) this.currentPage--; },
 
   // Phase 2: Variable assignment
   slots: { value: "", group: "", before: "", after: "", rows: "", cols: "", labels: "", scores: "" },
