@@ -216,6 +216,10 @@ class StatisticsAnalyze(ApiHandler):
             return self._survival(input)
         return {"error": f"Unknown action: {action}"}
 
+    def _survival(self, input: dict) -> dict:
+        """Survival analysis stub — agent-driven."""
+        return {"status": "ok", "action": "survival", "message": "Survival analysis uses agent chat. Type your request with the data attached."}
+
     def _auto_decide(self, input: dict):
         """Step 3-6: AI decides sub-type, runs test, returns results with explanations."""
         test_type = input.get("test_type", "descriptive")
@@ -441,7 +445,7 @@ class StatisticsAnalyze(ApiHandler):
                 }
             return {"title": "Correlation", "tables": []}
         if test_type == "descriptive":
-            desc = r.get("descriptive", {}) or r
+            desc = r.get("columns", r.get("descriptive", {})) or r
             if isinstance(desc, dict):
                 cols = [k for k in desc if isinstance(desc[k], dict) and "mean" in desc[k]]
                 if cols:
@@ -456,7 +460,7 @@ class StatisticsAnalyze(ApiHandler):
                     return {"title":"Descriptive Statistics","tables":[_apa_table("Table 1. Summary Statistics",[""]+cols,rows,note=f"Note. N={max([desc[c].get('n',0) for c in cols]) if cols else 'N/A'}.")]}
             return {"title":"Descriptive Statistics","tables":[]}
         if test_type == "normality":
-            nc = r.get("normality", {}) or r
+            nc = r.get("results", r.get("normality", {})) or r
             if isinstance(nc, dict):
                 rows = [[c, v.get("test","Shapiro-Wilk"), _fmt(v.get("statistic",0),4), _p_str(v.get("p_value",0)), "✓ Normal" if v.get("normal") else "× Not Normal"] for c,v in nc.items() if isinstance(v,dict) and "p_value" in v]
                 return {"title":"Normality Tests (Shapiro-Wilk)","tables":[_apa_table("Table 1. Normality Tests",["Column","Test","W","p","Result"],rows,note="Note. p\u2265.05 indicates normal distribution.")]}
