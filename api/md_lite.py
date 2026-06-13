@@ -4,6 +4,8 @@ from helpers import files
 import os, json, uuid, threading, logging, shutil, base64
 
 log = logging.getLogger("md_lite")
+
+log = logging.getLogger("md_lite")
 WORKDIR = files.get_abs_path("usr/md-lite")
 os.makedirs(WORKDIR, exist_ok=True)
 
@@ -36,29 +38,32 @@ class MDLite(ApiHandler):
         job_dir = os.path.join(WORKDIR, job_id)
         os.makedirs(job_dir, exist_ok=True)
 
-        complex_content = input.get("complex_pdb", "")
-        protein_content = input.get("protein_pdb", "")
-        ligand_content = input.get("ligand_sdf", "")
+        # Safely extract string content — strip BOM and whitespace
+        complex_content = str(input.get("complex_pdb", "") or "").strip()
+        protein_content = str(input.get("protein_pdb", "") or "").strip()
+        ligand_content = str(input.get("ligand_sdf", "") or "").strip()
 
-        if complex_content:
-            with open(os.path.join(job_dir, "complex.pdb"), "w") as f:
-                f.write(complex_content)
+        pdb_path = None
+        if complex_content and len(complex_content) > 50 and ("ATOM" in complex_content or "HETATM" in complex_content):
             pdb_path = os.path.join(job_dir, "complex.pdb")
-        elif protein_content:
-            with open(os.path.join(job_dir, "protein.pdb"), "w") as f:
-                f.write(protein_content)
+            with open(pdb_path, "w", encoding="utf-8") as f:
+                f.write(complex_content)
+        elif protein_content and len(protein_content) > 50 and ("ATOM" in protein_content or "HETATM" in protein_content):
             pdb_path = os.path.join(job_dir, "protein.pdb")
-            if ligand_content:
-                with open(os.path.join(job_dir, "ligand.sdf"), "w") as f:
+            with open(pdb_path, "w", encoding="utf-8") as f:
+                f.write(protein_content)
+            if ligand_content and len(ligand_content) > 10:
+                with open(os.path.join(job_dir, "ligand.sdf"), "w", encoding="utf-8") as f:
                     f.write(ligand_content)
-        else:
-            return {"status": "error", "error": "No PDB content provided. Send complex_pdb or protein_pdb."}
+
+        if not pdb_path:
+            return {"status": "error", "error": "No valid PDB file detected. Upload a .pdb file containing ATOM/HETATM lines."}
 
         try:
             from modules.md_lite.engine import MDEngine
             ff = input.get("forcefield", "amber14")
             temp = float(input.get("temperature", 300))
-            plat = input.get("platform", "CUDA")
+            plat = str(input.get("platform", "CUDA"))
             eng = MDEngine(job_dir, ff, temp, platform=plat)
             eng.load_system(pdb_path).build_simulation()
             energy = eng.minimize()
@@ -66,8 +71,19 @@ class MDLite(ApiHandler):
             eng._update_status("prepared", {"min_energy_kjmol": round(energy, 1)})
             return {"status": "ok", "job_id": job_id, "prepared": True,
                     "min_energy_kjmol": round(energy, 1)}
+        except FileNotFoundError as e:
+            return {"status": "error", "error": f"PDB file not found: {e}"}
+        except ImportError as e:
+            return {"status": "error", "error": f"Missing dependency: {e}. Install OpenMM: pip install openmm mdtraj"}
         except Exception as e:
-            return {"status": "error", "error": str(e)}
+            log.exception("Prepare failed")
+            # Return a clean error message — strip technical traceback info
+            msg = str(e)
+            if "invalid literal for int()" in msg:
+                msg = "PDB file format error. Ensure the file is a valid PDB with proper ATOM/HETATM records."
+            elif "Could not locate" in msg:
+                msg = f"OpenMM forcefield not found: {msg}. The amber14-all.xml file should be installed with OpenMM."
+            return {"status": "error", "error": msg}
 
     def _run(self, input):
         job_id = input["job_id"]
