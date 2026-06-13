@@ -109,6 +109,19 @@ RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
     && echo "Vector store packages installed" || \
     echo "Vector store packages install failed"
 
+# Install MD Lite dependencies (OpenMM + MDTraj) for BOTH runtimes
+RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
+    openmm>=8.1.0 \
+    mdtraj>=1.9.9 \
+    && echo "MD Lite installed (framework)" || \
+    echo "MD Lite install failed (framework)"
+
+RUN /opt/venv/bin/python -m pip install --no-cache-dir \
+    openmm>=8.1.0 \
+    mdtraj>=1.9.9 \
+    && echo "MD Lite installed (execution)" || \
+    echo "MD Lite install failed (execution)"
+
 EXPOSE 50001
 
 HEALTHCHECK --interval=30s --timeout=15s --retries=3 CMD \

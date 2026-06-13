@@ -1,0 +1,206 @@
+<html>
+<head>
+  <script type="module" src="/components/md-lite/md-store.js"></script>
+</head>
+<body>
+  <div x-data="mdLite" class="mp" x-init="init()">
+    <!-- Header -->
+    <div class="mh">
+      <span class="material-symbols-outlined">biotech</span>
+      <div><h2>MD Lite</h2><p class="mhs">OpenMM Molecular Dynamics &#8212; Minimize &#8594; Equilibrate &#8594; Production MD</p></div>
+      <div class="mss">
+        <span class="ms":class="{on:step>=1}">1<small>Input</small></span>
+        <span class="mb":class="{on:step>=2}"></span>
+        <span class="ms":class="{on:step>=2}">2<small>Settings</small></span>
+        <span class="mb":class="{on:step>=3}"></span>
+        <span class="ms":class="{on:step>=3}">3<small>Monitor</small></span>
+      </div>
+    </div>
+
+    <div x-show="errorMessage" class="me" x-text="errorMessage" @click="errorMessage=''"></div>
+
+    <!-- ===== STEP 1: Input ===== -->
+    <div x-show="step === 1" class="mbdy">
+      <div class="mc">
+        <h4>Select Input Method</h4>
+        <div class="mrl">
+          <label class="mr" :class="{on:inputMethod==='complex'}" @click="inputMethod='complex'">
+            <input type="radio" value="complex" x-model="inputMethod" hidden>
+            <span>Upload Complex PDB</span><small>Protein + ligand in one file</small>
+          </label>
+          <label class="mr" :class="{on:inputMethod==='separate'}" @click="inputMethod='separate'">
+            <input type="radio" value="separate" x-model="inputMethod" hidden>
+            <span>Upload Protein + Ligand</span><small>Separate files</small>
+          </label>
+          <label class="mr" :class="{on:inputMethod==='docking'}" @click="inputMethod='docking'">
+            <input type="radio" value="docking" x-model="inputMethod" hidden>
+            <span>Import from Docking</span><small>Use docking job results</small>
+          </label>
+        </div>
+      </div>
+
+      <template x-if="inputMethod==='complex'">
+        <div class="mc">
+          <h4>Complex PDB File</h4>
+          <div class="mup" @click="pickFile('_complexContent')">
+            <span class="material-symbols-outlined" style="font-size:36px;opacity:0.6">upload_file</span>
+            <span x-text="_complexContentName || 'Click to upload complex.pdb'"></span>
+          </div>
+        </div>
+      </template>
+      <template x-if="inputMethod==='separate'">
+        <div class="mc">
+          <h4>Protein + Ligand Files</h4>
+          <div class="mup" @click="pickFile('_proteinContent')" style="margin-bottom:6px">
+            <span class="material-symbols-outlined" style="font-size:28px;opacity:0.6">upload_file</span>
+            <span x-text="_proteinContentName || 'Click to upload protein.pdb'"></span>
+          </div>
+          <div class="mup" @click="pickFile('_ligandContent')">
+            <span class="material-symbols-outlined" style="font-size:28px;opacity:0.6">upload_file</span>
+            <span x-text="_ligandContentName || 'Click to upload ligand.pdb/sdf'"></span>
+          </div>
+        </div>
+      </template>
+      <template x-if="inputMethod==='docking'">
+        <div class="mc">
+          <h4>Import Docking Result</h4>
+          <input type="text" x-model="dockingJob" placeholder="Paste docking job ID..." class="mi">
+        </div>
+      </template>
+
+      <button class="mrn" @click="prepare()" :disabled="loading">
+        <span x-show="!loading"><span class="material-symbols-outlined">science</span> Prepare System</span>
+        <span x-show="loading"><span class="spin"></span> Preparing...</span>
+      </button>
+    </div>
+
+    <!-- ===== STEP 2: Settings ===== -->
+    <div x-show="step === 2" class="mbdy">
+      <div class="mc">
+        <h4>Simulation Length</h4>
+        <div class="mrl">
+          <label class="mr" :class="{on:settings.total_ns===1}">
+            <input type="radio" x-model="settings.total_ns" :value="1" hidden>
+            <span>1 ns</span><small>Quick test (~30 min)</small>
+          </label>
+          <label class="mr" :class="{on:settings.total_ns===5}">
+            <input type="radio" x-model="settings.total_ns" :value="5" hidden>
+            <span>5 ns</span><small>Equilibration check (~2 hr)</small>
+          </label>
+          <label class="mr" :class="{on:settings.total_ns===10}">
+            <input type="radio" x-model="settings.total_ns" :value="10" hidden>
+            <span>10 ns</span><small>Publication standard (~4 hr)</small>
+          </label>
+        </div>
+      </div>
+
+      <div class="mc">
+        <h4>Engine</h4>
+        <div class="mrl">
+          <label class="mr" :class="{on:settings.platform==='CUDA'}">
+            <input type="radio" value="CUDA" x-model="settings.platform" hidden>
+            <span>GPU CUDA</span><small>10-50x faster, NVIDIA</small>
+          </label>
+          <label class="mr" :class="{on:settings.platform==='CPU'}">
+            <input type="radio" value="CPU" x-model="settings.platform" hidden>
+            <span>CPU</span><small>Works anywhere, slower</small>
+          </label>
+        </div>
+      </div>
+
+      <div class="mc">
+        <h4>Parameters</h4>
+        <div class="mpr">
+          <label>T (K) <input type="number" x-model="settings.temperature" class="mi" style="width:60px"></label>
+          <label>P (bar) <input type="number" x-model="settings.pressure" step="0.1" class="mi" style="width:60px"></label>
+          <label>FF <select x-model="settings.forcefield" class="mi" style="width:100px">
+            <option value="amber14">AMBER14</option>
+            <option value="amber99sb">AMBER99SB</option>
+            <option value="charmm36">CHARMM36</option>
+          </select></label>
+        </div>
+      </div>
+
+      <button class="mrn" @click="runMD()" :disabled="loading">
+        <span class="material-symbols-outlined">play_arrow</span> Run Simulation
+      </button>
+    </div>
+
+    <!-- ===== STEP 3: Monitor ===== -->
+    <div x-show="step === 3" class="mbdy">
+      <div class="mc" style="text-align:center">
+        <h4 x-text="status?.status || 'Running'"></h4>
+        <div class="mpb"><div class="mpbf" :style="'width:'+(status?.progress_pct||0)+'%'"></div></div>
+        <div class="mps">
+          <span x-text="(status?.progress_ns||0) + ' ns'"></span>
+          <span x-text="(status?.progress_pct||0) + '%'"></span>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:6px;justify-content:center" x-show="status?.status==='running'">
+          <button class="ml" @click="stopMD()">Stop</button>
+          <button class="ml" @click="resetAll()">Back</button>
+        </div>
+      </div>
+
+      <template x-if="result">
+        <div>
+          <div class="mc"><h4>RMSD</h4>
+            <img x-show="result.rmsd_plot" :src="'data:image/png;base64,'+result.rmsd_plot" style="max-width:100%">
+            <small style="color:var(--color-text-muted)" x-show="result.rmsd">
+              Mean: <b x-text="result.rmsd?.mean_nm"></b> nm | Final: <b x-text="result.rmsd?.final_nm"></b> nm
+            </small>
+          </div>
+          <div class="mc"><h4>RMSF</h4>
+            <img x-show="result.rmsf_plot" :src="'data:image/png;base64,'+result.rmsf_plot" style="max-width:100%">
+            <small style="color:var(--color-text-muted)" x-show="result.rmsf">
+              Mean: <b x-text="result.rmsf?.mean_nm"></b> nm | Max: <b x-text="result.rmsf?.max_nm"></b> nm
+            </small>
+          </div>
+          <div class="mc"><h4>Energy</h4>
+            <img x-show="result.energy_plot" :src="'data:image/png;base64,'+result.energy_plot" style="max-width:100%">
+            <small style="color:var(--color-text-muted)" x-show="result.energy">
+              Min: <b x-text="result.energy?.min"></b> | Max: <b x-text="result.energy?.max"></b> | Mean: <b x-text="result.energy?.mean"></b> kJ/mol
+            </small>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <button class="mrn" style="flex:1" @click="download()">Download Package</button>
+            <button class="ml" @click="saveToKB()">Save to KB</button>
+            <button class="ml" @click="resetAll()">New</button>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <style>
+      .mp{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background)}
+      .mh{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--color-border);flex-shrink:0}
+      .mh h2{font-size:0.85rem;margin:0;font-weight:700;color:var(--color-text)}.mhs{font-size:0.52rem;color:var(--color-text-muted);margin:0}
+      .mh .material-symbols-outlined{font-size:22px;color:var(--color-primary)}
+      .mss{display:flex;align-items:center;gap:3px;margin-left:auto}
+      .ms{display:flex;align-items:center;gap:2px;font-size:0.58rem;color:var(--color-border);opacity:0.35;font-weight:700}
+      .ms.on{color:var(--color-primary);opacity:1}.ms small{font-weight:400;font-size:0.48rem}
+      .mb{width:14px;height:2px;background:var(--color-border)}.mb.on{background:var(--color-primary)}
+      .me{padding:5px 12px;margin:6px 14px 0;background:rgba(255,107,107,.06);border:1px solid rgba(255,107,107,.2);border-radius:5px;color:var(--color-error-text);font-size:0.58rem;cursor:pointer}
+      .mbdy{flex:1;overflow-y:auto;padding:14px}
+      .mc{padding:10px 12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:8px}
+      .mc h4{font-size:0.64rem;font-weight:700;color:var(--color-text);margin:0 0 6px}
+      .mrl{display:flex;gap:6px}.mr{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border:2px solid var(--color-border);border-radius:8px;cursor:pointer;text-align:center;transition:.15s}
+      .mr:hover{border-color:var(--color-primary)}.mr.on{border-color:var(--color-primary);background:color-mix(in srgb,var(--color-primary)8%,var(--color-panel))}
+      .mr span{font-size:0.64rem;font-weight:700;color:var(--color-text)}.mr small{font-size:0.48rem;color:var(--color-text-muted)}
+      .mup{display:flex;align-items:center;gap:8px;padding:14px;border:2px dashed var(--color-border);border-radius:8px;cursor:pointer;font-size:0.62rem;color:var(--color-text-muted);transition:.15s}
+      .mup:hover{border-color:var(--color-primary)}
+      .mi{padding:6px 8px;border:1px solid var(--color-border);border-radius:5px;background:var(--color-panel);color:var(--color-text);font-size:0.6rem;box-sizing:border-box;width:100%}
+      .mi:focus{outline:none;border-color:var(--color-primary)}
+      .mrn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:10px;background:var(--color-primary);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.72rem;font-weight:600;transition:.15s}
+      .mrn:disabled{opacity:.4;cursor:default}.mrn:hover:not(:disabled){opacity:.9}
+      .ml{padding:5px 10px;background:transparent;border:1px solid var(--color-border);border-radius:5px;color:var(--color-text-muted);cursor:pointer;font-size:0.56rem}
+      .ml:hover{border-color:var(--color-primary);color:var(--color-primary)}
+      .mpr{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;font-size:0.56rem;color:var(--color-text-muted)}
+      .mpb{height:8px;background:var(--color-border);border-radius:4px;overflow:hidden;margin:8px 0}
+      .mpbf{height:100%;background:var(--color-primary);border-radius:4px;transition:width .5s}
+      .mps{display:flex;justify-content:space-between;font-size:0.56rem;color:var(--color-text-muted)}
+      .spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top:2px solid #fff;border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
+      @keyframes spin{to{transform:rotate(360deg)}}
+    </style>
+  </div>
+</body>
+</html>
