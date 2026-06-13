@@ -1,14 +1,13 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
 User-agent: *
 Allow: /
+Allow: /pricing
+Allow: /md-simulation
+Disallow: /dashboard
+Disallow: /api/
+Disallow: /auth/
+Disallow: /user/
+Disallow: /jobs/
+Disallow: /admin/
+Disallow: /agent-zero
+
+Sitemap: https://www.biodockify.com/sitemap.xml
