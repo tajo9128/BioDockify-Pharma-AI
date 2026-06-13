@@ -1,6 +1,8 @@
 """MD Workflow — Minimize → NVT Equilibrate → NPT Equilibrate → Production MD."""
 from .engine import MDEngine
 import os, logging
+import openmm
+import openmm.unit as unit
 
 log = logging.getLogger("md_lite_workflow")
 
@@ -15,11 +17,6 @@ class MDWorkflow:
         eng = self.engine or MDEngine(self.workdir, forcefield, temperature,
                                        pressure, platform)
         eng.load_system(pdb_path).build_simulation()
-        eng.add_reporters(
-            os.path.join(self.workdir, "trajectory.dcd"),
-            os.path.join(self.workdir, "md.log"))
-
-        # Load checkpoint if exists
         had_checkpoint = eng.load_checkpoint()
         if had_checkpoint:
             log.info(f"Resumed from checkpoint at {eng.progress_ns} ns")
@@ -30,14 +27,12 @@ class MDWorkflow:
             log.info(f"Minimization: {energy:.1f} kJ/mol")
 
             eng._update_status("equilibrating")
-            eng.simulation.step(25000)  # 50 ps NVT
-            eng.system.addForce(openmm.MonteCarloBarostat(
-                pressure * 0.0083144621, temperature * 0.0083144621, 25))
-            try:
-                eng.simulation.context.reinitialize(preserveState=True)
-            except:
-                pass
-            eng.simulation.step(25000)  # 50 ps NPT
+            eng.simulation.step(50000)  # 100 ps NVT at 2 fs
+            barostat = openmm.MonteCarloBarostat(
+                pressure * unit.bar, temperature * unit.kelvin, 25)
+            eng.system.addForce(barostat)
+            eng.simulation.context.reinitialize(preserveState=True)
+            eng.simulation.step(50000)  # 100 ps NPT at 2 fs
 
         prod_ns = max(0.5, total_ns - eng.progress_ns)
         if prod_ns <= 0:

@@ -53,8 +53,10 @@ class MDEngine:
         if not os.path.exists(pdb_path):
             raise FileNotFoundError(f"PDB not found: {pdb_path}")
         self.pdb = app.PDBFile(pdb_path)
-        ff = app.ForceField(f"{self.forcefield}.xml", "tip3p.xml")
+        # Load standard AMBER forcefields + TIP3P water
+        ff = app.ForceField("amber14-all.xml", "amber14/tip3p_standard.xml")
         self.modeller = app.Modeller(self.pdb.topology, self.pdb.positions)
+        self.modeller.addSolvent(ff, model='tip3p', padding=1.0*unit.nanometers)
         self.modeller.addSolvent(ff, model='tip3p', padding=1.0*unit.nanometers)
         self.system = ff.createSystem(self.modeller.topology,
             nonbondedMethod=app.PME, nonbondedCutoff=1.0*unit.nanometers,
@@ -69,10 +71,6 @@ class MDEngine:
         self.simulation = app.Simulation(self.modeller.topology, self.system,
             self.integrator, platform)
         self.simulation.context.setPositions(self.modeller.positions)
-        # Auto-resume from checkpoint if available
-        had_checkpoint = self.load_checkpoint()
-        if had_checkpoint:
-            log.info(f"Resumed from checkpoint at {self.progress_ns} ns")
         return self
 
     def minimize(self, max_iterations=0):
