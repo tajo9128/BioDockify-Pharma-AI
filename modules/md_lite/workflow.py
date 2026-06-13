@@ -17,6 +17,9 @@ class MDWorkflow:
         eng = self.engine or MDEngine(self.workdir, forcefield, temperature,
                                        pressure, platform)
         eng.load_system(pdb_path).build_simulation()
+        eng.add_reporters(
+            os.path.join(self.workdir, "trajectory.dcd"),
+            os.path.join(self.workdir, "md.log"))
         had_checkpoint = eng.load_checkpoint()
         if had_checkpoint:
             log.info(f"Resumed from checkpoint at {eng.progress_ns} ns")
