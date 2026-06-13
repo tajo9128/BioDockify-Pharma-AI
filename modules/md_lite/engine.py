@@ -23,17 +23,29 @@ class MDEngine:
         self.status_file = os.path.join(workdir, "status.json")
 
     def detect_platform(self):
-        """Auto-detect best platform: GPU first (CUDA > OpenCL), fallback CPU."""
-        platforms = []
+        """Auto-detect best platform: GPU first (CUDA > OpenCL), fallback CPU.
+        Honors user preference if specified, otherwise auto-detects fastest."""
+        all_platforms = []
         for i in range(mm.Platform.getNumPlatforms()):
             p = mm.Platform.getPlatform(i)
-            platforms.append(p.getName())
-        # GPU preference order
+            all_platforms.append((p.getName(), p.getSpeed()))
+
+        # If user specified platform, try to use it
+        if self.platform_name in ("CUDA", "OpenCL"):
+            matched = [p for p, s in all_platforms if self.platform_name in p]
+            if matched:
+                best = max(matched, key=lambda n: next(s for pn, s in all_platforms if pn == n))
+                log.info(f"Using {self.platform_name}: {best}")
+                return mm.Platform.getPlatformByName(best)
+
+        # Auto-detect: GPU first by speed, then CPU
         for pref in ["CUDA", "OpenCL"]:
-            for pn in platforms:
-                if pref in pn:
-                    log.info(f"Using GPU platform: {pn}")
-                    return mm.Platform.getPlatformByName(pn)
+            matched = [(p, s) for p, s in all_platforms if pref in p]
+            if matched:
+                best = max(matched, key=lambda x: x[1])[0]
+                log.info(f"Auto-detected GPU: {best}")
+                return mm.Platform.getPlatformByName(best)
+
         log.warning("No GPU detected — falling back to CPU")
         return mm.Platform.getPlatformByName("CPU")
 
@@ -120,13 +132,14 @@ class MDEngine:
                 with open(path) as f:
                     self.simulation.context.setState(mm.XmlSerializer.deserialize(f.read()))
                 # Restore step count from status file
-                import json
                 sf = os.path.join(self.workdir, "status.json")
                 if os.path.exists(sf):
                     with open(sf) as f:
                         data = json.load(f)
                         self._steps_done = int(data.get("total_steps_done", 0))
                         self._total_steps = int(data.get("total_steps_planned", self._steps_done))
+                else:
+                    log.warning("Checkpoint found but status.json missing — starting progress from 0")
                 return True
             except Exception as e:
                 log.warning(f"Checkpoint load failed: {e}")

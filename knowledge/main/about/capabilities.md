@@ -79,6 +79,16 @@ An external REST API is available for programmatic task submission. Agent-to-Age
 - **No GUI interaction** outside built-in browser tooling or configured computer-use integrations.
 - **Container boundary**: the agent cannot affect systems outside the Docker container unless network access or volume mounts are configured.
 
+## MD Lite — Molecular Dynamics
+
+The agent can manage long-running OpenMM molecular dynamics simulations via the MD Lite module:
+
+- **24-48 hour background runs**: Simulations execute in background threads with automatic checkpoint/resume. Container can restart, PC can sleep — simulation continues from last checkpoint.
+- **Auto-monitoring**: Agent periodically checks simulation progress (ns completed, percentage, GPU status) and alerts user on completion.
+- **Result gathering**: On completion, agent automatically collects RMSD/RMSF/Energy plots and values, generates scientific interpretation, and saves to Knowledge Base.
+- **GPU-first architecture**: Auto-detects CUDA GPU (10-50x faster), falls back to OpenCL, then CPU. User can override.
+- **Import from docking**: MD simulations can use protein-ligand complexes from the Molecular Toolkit docking module.
+
 ## Pre-Installed Python Environment
 
 The following statistical and scientific packages are pre-installed and ready to use — NEVER run `pip install` for them:

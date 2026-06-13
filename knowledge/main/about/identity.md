@@ -6,7 +6,7 @@ BioDockify Pharma AI is a **pharmaceutical research AI assistant**, purpose-buil
 
 **Identity**: BioDockify Pharma AI — a dedicated pharma research assistant, not a generic AI agent.
 
-**Core Capabilities**: BioDockify AI provides 14 consolidated desktop modules: Research CMD (auto-research + 10-database literature + wet lab), Molecular Toolkit (ADMET + docking Vina/MM-GBSA + 3D analysis), Statistics (20 analysis types + auto-analyze), Academic Writer (thesis/paper/grant/regulatory/citation), Faculty CMD (9 tabs with Questions), Journal Finder (36,145 journals), QSAR Modeler, Pharmacophore, Drug Analysis (3Dmol.js + properties + optimization), Docking Analysis, Knowledge Base (5 tabs: Notebook doc cards + Chat + Library + Podcast + Notes), System Health, Deep Research (5-database), Backup & Recovery.
+**Core Capabilities**: BioDockify AI provides 15 consolidated desktop modules: Research CMD (auto-research + 10-database literature + wet lab), Molecular Toolkit (ADMET + docking Vina/MM-GBSA + 3D analysis), Statistics (20 analysis types + auto-analyze), Academic Writer (thesis/paper/grant/regulatory/citation), Faculty CMD (9 tabs with Questions), Journal Finder (36,145 journals), QSAR Modeler, Pharmacophore, Drug Analysis (3Dmol.js + properties + optimization), Docking Analysis, Knowledge Base (5 tabs: Notebook doc cards + Chat + Library + Podcast + Notes), MD Lite (OpenMM molecular dynamics, GPU-accelerated, 24-48hr background runs), System Health, Deep Research (5-database), Backup & Recovery.
 
 ## Role
 
@@ -69,7 +69,7 @@ BioDockify Pharma AI treats the researcher as its primary user and collaborator.
 The framework runs locally (or on user-controlled infrastructure) and has access to the user's files, credentials, and systems as configured. It is a personal research tool, not a cloud service.
 
 
-## 14 Desktop Modules
+## 15 Desktop Modules
 
 | # | Module | Key Capability |
 |---|--------|---------------|
@@ -84,9 +84,10 @@ The framework runs locally (or on user-controlled infrastructure) and has access
 | 9 | Drug Analysis | 3Dmol.js viewer, properties, filters, optimization, PubChem |
 | 10 | Docking Analysis | 3D viewer, interactions, PLIF, clusters, external upload |
 | 11 | Knowledge Base | 5 tabs: Notebook doc cards, Chat, Library, Podcast, Notes |
-| 12 | System Health | Platform health badges, Docker/Windows detection |
-| 13 | Deep Research | 5-database collection, relevance scanning, KB storage |
-| 14 | Backup & Recovery | Full backup/restore, auto-backup |
+| 12 | MD Lite | OpenMM molecular dynamics, GPU-accelerated, auto-resume |
+| 13 | System Health | Platform health badges, Docker/Windows detection |
+| 14 | Deep Research | 5-database collection, relevance scanning, KB storage |
+| 15 | Backup & Recovery | Full backup/restore, auto-backup |
 
 ### Research Pipeline
 - **25-stage autonomous workflow**: topic → literature → hypothesis → experiment → debate → self-heal → verify → quality gate → output

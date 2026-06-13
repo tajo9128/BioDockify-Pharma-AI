@@ -1,6 +1,19 @@
 ﻿# BioDockify AI - AGENTS.md
 
-**Last updated: 2026-06-11 | Version: v6.9.5**
+**Last updated: 2026-06-13 | Version: v6.9.11**
+
+## Today's Additions (2026-06-13) — v6.9.11 Release
+
+### MD Lite Module (#16)
+- **OpenMM molecular dynamics**: GPU-accelerated (CUDA/OpenCL), CPU fallback, auto-detects best platform
+- **3-step wizard**: Input (complex PDB / protein+ligand / import from docking) → Settings (1/5/10 ns, temperature/pressure) → Monitor (live progress, RMSD/RMSF/Energy plots)
+- **Background safety**: Auto-resumes from checkpoint after PC sleep or container restart. Safe for 24-48 hour runs.
+- **Agent monitoring**: Agent polls status, auto-gathers results on completion, generates scientific interpretation
+- **Import from docking**: Pulls protein.pdb + docked ligand from Molecular Toolkit
+
+### Module Count Update
+- **15 consolidated desktop modules**: MD Lite added as module #15
+- All documentation updated: README, AGENTS.md, agent knowledge files
 
 ## Today's Additions (2026-06-11) — Statistics Module Production Release
 
@@ -24,7 +37,7 @@
 - **Statistics**: auto-analyze mode, fixed file upload, fixed runTransform
 
 ### Module Count Cleanup
-- **All references updated to 14 modules** in README, agent knowledge, and AGENTS.md
+- **All references updated to 15 modules** in README, agent knowledge, and AGENTS.md
 - **Docker section**: simplified to clean copy-paste format with `80:80` port mapping and backup folder mount
 
 ### Previous Additions (2026-06-02) — v6.9.2 Release
