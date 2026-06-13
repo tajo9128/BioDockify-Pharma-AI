@@ -4,6 +4,7 @@
 
 | Version | Date | Key Features |
 |---------|------|--------------|
+| v6.9.12 | 2026-06-13 | MD Lite (OpenMM MD), statistics jamovi parity, 32+ OCR bug fixes, Knowledge Base recent tab |
 | v6.9.5 | 2026-06-10 | 15-module audit, NotebookLM doc cards, Notebook AI, Faculty Questions tab, stats auto-analyze, Docker port 80 |
 | v6.9.2 | 2026-06-02 | Research management (5 depts), Faculty CMD (8 tabs), KB 18 categories, doc chunking, knowledge graph |
 | v6.8.7 | 2026-05-31 | MM-GBSA free energy scoring, external docking upload, Drug Analysis rename, crash fixes, Docker updates |

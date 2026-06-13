@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://hub.docker.com/r/tajo9128/biodockify-pharma-ai"><img src="https://img.shields.io/badge/docker-tajo9128%2Fbiodockify--pharma--ai-blue.svg" alt="Docker"/></a>
-  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v6.9.5-green.svg" alt="Version"/></a>
+  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v6.9.12-green.svg" alt="Version"/></a>
   <a href="https://github.com/tajo9128/BioDockify-Pharma-AI"><img src="https://img.shields.io/badge/GitHub-BioDockify--Pharma--AI-181717?style=flat&logo=github" alt="GitHub"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"/></a>
   <a href="docs/user-guide/README.md"><img src="https://img.shields.io/badge/docs-user%20guide-lightgrey.svg" alt="Documentation"/></a>
@@ -16,7 +16,7 @@
   <img src="assets/screenshot.png" alt="BioDockify Pharma AI Screenshot" width="800">
 </p>
 
-**BioDockify Pharma AI** is a pharmaceutical research platform with 15 integrated modules. It features AutoDock Vina molecular docking with MM-GBSA free energy scoring, SPSS-level biostatistics (20 analysis types + auto-analyze), a 25-stage autonomous research pipeline, literature search across 10 databases, QSAR modeling, pharmacophore screening, a 36,145-journal recommender, Drug Analysis with 3Dmol.js viewer, a NotebookLM-style document reader with podcast generation, 4 AI sub-agents, faculty command center with question bank generator, and a ChromaDB knowledge base supporting PDF/DOCX/XLSX/audio/video.
+**BioDockify Pharma AI** is a pharmaceutical research platform with 15 integrated modules. It features AutoDock Vina molecular docking with MM-GBSA free energy scoring, OpenMM molecular dynamics (MD Lite), SPSS-level biostatistics (20 analysis types + auto-analyze), a 25-stage autonomous research pipeline, literature search across 10 databases, QSAR modeling, pharmacophore screening, a 36,145-journal recommender, Drug Analysis with 3Dmol.js viewer, a NotebookLM-style document reader with podcast generation, 4 AI sub-agents, faculty command center with question bank generator, and a ChromaDB knowledge base supporting PDF/DOCX/XLSX/audio/video.
 
 ---
 
@@ -128,6 +128,14 @@ Agent0 (Main Orchestrator)
 ```
 
 ---
+
+## What's New in v6.9.12
+
+- **MD Lite module (#15)** — OpenMM molecular dynamics, GPU-accelerated (CUDA/OpenCL), 24-48hr background runs with auto-resume from checkpoint
+- **Statistics**: jamovi-level UX — editable table (50 rows), chip assignment, live update, APA tables, inline plots, Python syntax output
+- **15-module desktop** — MD Lite slotted below Molecular Toolkit
+- **Knowledge Base**: Recent documents tab showing 50 newest entries
+- **32+ bug fixes**: pagination index, Cohen's d, numpy serialization, slot conflicts, bare except, chart data flow
 
 ## What's New in v6.9.5
 
