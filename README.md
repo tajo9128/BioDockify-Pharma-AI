@@ -16,7 +16,7 @@
   <img src="assets/screenshot.png" alt="BioDockify Pharma AI Screenshot" width="800">
 </p>
 
-**BioDockify Pharma AI** is a pharmaceutical research platform with 14 integrated modules. It features AutoDock Vina molecular docking with MM-GBSA free energy scoring, SPSS-level biostatistics (20 analysis types + auto-analyze), a 25-stage autonomous research pipeline, literature search across 10 databases, QSAR modeling, pharmacophore screening, a 36,145-journal recommender, Drug Analysis with 3Dmol.js viewer, a NotebookLM-style document reader with podcast generation, 4 AI sub-agents, faculty command center with question bank generator, and a ChromaDB knowledge base supporting PDF/DOCX/XLSX/audio/video.
+**BioDockify Pharma AI** is a pharmaceutical research platform with 15 integrated modules. It features AutoDock Vina molecular docking with MM-GBSA free energy scoring, SPSS-level biostatistics (20 analysis types + auto-analyze), a 25-stage autonomous research pipeline, literature search across 10 databases, QSAR modeling, pharmacophore screening, a 36,145-journal recommender, Drug Analysis with 3Dmol.js viewer, a NotebookLM-style document reader with podcast generation, 4 AI sub-agents, faculty command center with question bank generator, and a ChromaDB knowledge base supporting PDF/DOCX/XLSX/audio/video.
 
 ---
 
@@ -32,7 +32,7 @@
 
 ## Features
 
-### 14 Consolidated Research Modules
+### 15 Consolidated Research Modules
 
 | # | Module | Function | Backend |
 |---|--------|----------|---------|
@@ -47,10 +47,11 @@
 | 9 | **Drug Analysis** | 3Dmol.js viewer + Properties (hERG/AMES/pKa/BBB) + Filters + Optimization + PubChem | RDKit + PubChem |
 | 10 | **Docking Analysis** | 3D receptor+ligand viewer, interactions, PLIF, clusters, external file upload | 3Dmol.js + RDKit |
 | 11 | **Knowledge Base** | 5 tabs: Notebook (doc cards + full reader), Chat with KB, Library, Podcast (TTS), Notes | ChromaDB + TTS |
-| 12 | **System Health** | Platform-aware health badges (Vina/MM-GBSA/RDKit/Meeko), Docker vs Windows | health.py |
-| 13 | **Deep Research** | 5-database collection (PubMed, S2, Crossref, OpenAlex, arXiv), relevance scanning | 5 live APIs |
-| 14 | **Backup & Recovery** | Full system backup/restore with preview + auto-backup | backup APIs |
-| — | **All Tools** | Quick-launch grid for all 14 consolidated modules | N/A |
+| 12 | **MD Lite** | OpenMM molecular dynamics, GPU-accelerated (CUDA/OpenCL), 24-48hr background runs with auto-resume | OpenMM + MDTraj |
+| 13 | **System Health** | Platform-aware health badges (Vina/MM-GBSA/RDKit/Meeko), Docker vs Windows | health.py |
+| 14 | **Deep Research** | 5-database collection (PubMed, S2, Crossref, OpenAlex, arXiv), relevance scanning | 5 live APIs |
+| 15 | **Backup & Recovery** | Full system backup/restore with preview + auto-backup | backup APIs |
+| — | **All Tools** | Quick-launch grid for all 15 consolidated modules | N/A |
 
 ### Merged Modules (Accessible via Parent Dashboards)
 
