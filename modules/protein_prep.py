@@ -1,5 +1,5 @@
 """Protein Preparation — fix PDB structures using pdbfixer (OpenMM ecosystem)."""
-import os, logging
+import os, logging, tempfile, uuid
 
 log = logging.getLogger("protein_prep")
 
@@ -11,38 +11,56 @@ except ImportError:
     HAS_PDBFIXER = False
 
 
-def prepare_protein(pdb_path, output_path=None, add_hydrogens=True, ph=7.4,
-                    replace_nonstandard=True, add_missing_residues=True,
-                    remove_water=True):
+def prepare_protein(pdb_input, output_path=None, ph=7.4):
+    """
+    Prepare protein structure using pdbfixer.
+    pdb_input: file path (str) OR raw PDB content (str)
+    Returns validated structure with hydrogens, missing atoms filled.
+    """
     if not HAS_PDBFIXER:
         return {"status": "error", "error": "pdbfixer not installed. Run: pip install pdbfixer"}
-    if not os.path.exists(pdb_path):
-        return {"status": "error", "error": f"PDB file not found: {pdb_path}"}
 
+    tmpdir = tempfile.mkdtemp(prefix="protein_prep_")
+    tmp_input = os.path.join(tmpdir, "input.pdb")
     try:
-        fixer = PDBFixer(filename=pdb_path)
+        # Accept both file paths and raw PDB content strings
+        if os.path.exists(str(pdb_input)):
+            tmp_input = pdb_input
+        else:
+            with open(tmp_input, "w") as f:
+                f.write(str(pdb_input))
 
-        if remove_water:
-            fixer.removeHeterogens(keepWater=False)
+        fixer = PDBFixer(filename=tmp_input)
 
-        if replace_nonstandard:
-            fixer.findNonstandardResidues()
-            fixer.replaceNonstandardResidues()
+        # Remove water molecules
+        fixer.removeHeterogens(keepWater=False)
 
-        if add_missing_residues:
-            fixer.findMissingResidues()
-            fixer.missingResidues = {}
+        # Replace non-standard residues (e.g. MSE → MET, HIP → HIS)
+        fixer.findNonstandardResidues()
+        fixer.replaceNonstandardResidues()
 
-        if add_hydrogens:
-            fixer.findMissingAtoms()
-            fixer.addMissingAtoms()
-            fixer.addMissingHydrogens(ph)
+        # Clear missing residue flags (pdbfixer fills gaps)
+        fixer.findMissingResidues()
+        fixer.missingResidues = {}
 
-        output = output_path or pdb_path.replace(".pdb", "_prepared.pdb")
+        # Add missing heavy atoms and hydrogens
+        fixer.findMissingAtoms()
+        fixer.addMissingAtoms()
+        fixer.addMissingHydrogens(ph)
+
+        output = output_path or os.path.join(tmpdir, "prepared.pdb")
         with open(output, "w") as f:
             PDBFile.writeFile(fixer.topology, fixer.positions, f)
 
-        return {"status": "ok", "output_path": output, "ph": ph}
+        with open(output) as f:
+            output_content = f.read()
+
+        return {"status": "ok", "output_path": output, "ph": ph, "output_pdb": output_content}
     except Exception as e:
         log.exception("PDBFixer failed")
         return {"status": "error", "error": str(e)}
+    finally:
+        if os.path.exists(tmp_input) and tmp_input != pdb_input:
+            os.remove(tmp_input)
+        if os.path.exists(output) and output != tmp_input:
+            pass  # keep output for caller

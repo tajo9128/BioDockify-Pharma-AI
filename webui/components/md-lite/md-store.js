@@ -19,6 +19,7 @@ Alpine.data("mdLite", () => ({
 
   // Live monitor
   liveLog: [],
+  mmpbsaLoading: false, mmpbsaResult: null,
 
   init() {
     this.checkHealth();
@@ -144,9 +145,20 @@ Alpine.data("mdLite", () => ({
     }
   },
 
+  async runMMPBSA() {
+    this.mmpbsaLoading = true; this.mmpbsaResult = null; this.errorMessage = "";
+    try {
+      const r = await callJsonApi("md_lite", { action: "mmpbsa", job_id: this.jobId });
+      if (r.status === "ok" && r.mmpbsa) this.mmpbsaResult = r.mmpbsa;
+      else this.errorMessage = r.mmpbsa?.error || r.error || "MM-PBSA failed";
+    } catch (e) { this.errorMessage = "MM-PBSA: " + (e.message || "API unavailable"); }
+    this.mmpbsaLoading = false;
+  },
+
   resetAll() {
     clearInterval(this._pollTimer); this.step = 1; this.jobId = null;
     this.result = null; this.status = null; this.errorMessage = ""; this.liveLog = [];
+    this.mmpbsaResult = null; this.mmpbsaLoading = false;
     this._complexContent = null; this._proteinContent = null; this._ligandContent = null;
     this._complexName = ""; this._proteinName = ""; this._ligandName = "";
   },

@@ -186,7 +186,22 @@
           <div style="display:flex;gap:6px;margin-top:8px">
             <button class="mrn" style="flex:1" @click="download()">📦 Download Package</button>
             <button class="ml" @click="saveToKB()">💾 Save to KB</button>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <button class="ml" style="flex:1;border-color:#8b5cf6;color:#8b5cf6" @click="runMMPBSA()" :disabled="mmpbsaLoading" x-text="mmpbsaLoading?'Calculating...':'🧬 Run MM-PBSA'"></button>
             <button class="ml" @click="resetAll()">New</button>
+          </div>
+
+          <!-- MM-PBSA Results -->
+          <div x-show="mmpbsaResult" class="mc" style="margin-top:8px;border-left:3px solid #8b5cf6">
+            <h4 style="display:flex;align-items:center;gap:6px"><span class="material-symbols-outlined" style="font-size:14px;color:#8b5cf6">biotech</span>MM-PBSA Binding Free Energy</h4>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+              <div class="mmet"><small>ΔG_bind</small><b style="font-size:0.8rem" x-text="mmpbsaResult.binding_energy_kcal+' kcal/mol'"></b></div>
+              <div class="mmet"><small>SASA Term</small><b x-text="mmpbsaResult.sasa_term_kcal+' kcal/mol'"></b></div>
+              <div class="mmet"><small>Potential</small><b x-text="mmpbsaResult.potential_energy_kj+' kJ'"></b></div>
+              <div class="mmet"><small>Frames</small><b x-text="(mmpbsaResult.frames_analyzed||0)+' / '+(mmpbsaResult.total_frames||0)"></b></div>
+            </div>
+            <div x-show="mmpbsaResult.interpretation" style="font-size:0.56rem;color:#a78bfa;padding:4px 8px;background:rgba(139,92,246,.06);border-radius:4px" x-text="mmpbsaResult.interpretation"></div>
           </div>
         </div>
       </template>
