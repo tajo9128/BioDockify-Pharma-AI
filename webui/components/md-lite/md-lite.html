@@ -25,15 +25,12 @@
         <h4>Select Input Method</h4>
         <div class="mrl">
           <label class="mr" :class="{on:inputMethod==='complex'}" @click="inputMethod='complex'">
-            <input type="radio" value="complex" x-model="inputMethod" hidden>
             <span>Upload Complex PDB</span><small>Protein + ligand in one file</small>
           </label>
           <label class="mr" :class="{on:inputMethod==='separate'}" @click="inputMethod='separate'">
-            <input type="radio" value="separate" x-model="inputMethod" hidden>
             <span>Upload Protein + Ligand</span><small>Separate files</small>
           </label>
           <label class="mr" :class="{on:inputMethod==='docking'}" @click="inputMethod='docking'">
-            <input type="radio" value="docking" x-model="inputMethod" hidden>
             <span>Import from Docking</span><small>Use docking job results</small>
           </label>
         </div>
@@ -79,16 +76,13 @@
       <div class="mc">
         <h4>Simulation Length</h4>
         <div class="mrl">
-          <label class="mr" :class="{on:settings.total_ns===1}">
-            <input type="radio" x-model="settings.total_ns" :value="1" hidden>
+          <label class="mr" :class="{on:settings.total_ns===1}" @click="settings.total_ns=1">
             <span>1 ns</span><small>Quick test (~30 min)</small>
           </label>
-          <label class="mr" :class="{on:settings.total_ns===5}">
-            <input type="radio" x-model="settings.total_ns" :value="5" hidden>
+          <label class="mr" :class="{on:settings.total_ns===5}" @click="settings.total_ns=5">
             <span>5 ns</span><small>Equilibration check (~2 hr)</small>
           </label>
-          <label class="mr" :class="{on:settings.total_ns===10}">
-            <input type="radio" x-model="settings.total_ns" :value="10" hidden>
+          <label class="mr" :class="{on:settings.total_ns===10}" @click="settings.total_ns=10">
             <span>10 ns</span><small>Publication standard (~4 hr)</small>
           </label>
         </div>
@@ -97,12 +91,10 @@
       <div class="mc">
         <h4>Engine <span x-show="gpuAvailable" style="font-size:0.5rem;padding:1px 6px;background:#22c55e22;color:#22c55e;border:1px solid #22c55e44;border-radius:6px;margin-left:6px">GPU Detected</span><span x-show="!gpuAvailable" style="font-size:0.5rem;padding:1px 6px;background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b44;border-radius:6px;margin-left:6px">CPU Only</span></h4>
         <div class="mrl">
-          <label class="mr" :class="{on:settings.platform==='CUDA'}">
-            <input type="radio" value="CUDA" x-model="settings.platform" hidden>
+          <label class="mr" :class="{on:settings.platform==='CUDA'}" @click="settings.platform='CUDA'">
             <span>GPU CUDA</span><small>10-50x faster, NVIDIA</small>
           </label>
-          <label class="mr" :class="{on:settings.platform==='CPU'}">
-            <input type="radio" value="CPU" x-model="settings.platform" hidden>
+          <label class="mr" :class="{on:settings.platform==='CPU'}" @click="settings.platform='CPU'">
             <span>CPU</span><small>Works anywhere, slower</small>
           </label>
         </div>
