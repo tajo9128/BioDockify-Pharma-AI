@@ -37,7 +37,7 @@ Alpine.data("proteinPrep", () => ({
 
   download() {
     if (!this.result?.output_path) return;
-    const blob = new Blob([this.pdbContent], { type: "chemical/x-pdb" });
+    const blob = new Blob([this.result.output_pdb || this.pdbContent], { type: "chemical/x-pdb" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = this.result.output_path; a.click();
     URL.revokeObjectURL(url);

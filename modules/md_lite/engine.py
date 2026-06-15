@@ -58,7 +58,6 @@ class MDEngine:
         ff = app.ForceField("amber14-all.xml", "amber14/tip3p_standard.xml")
         self.modeller = app.Modeller(self.pdb.topology, self.pdb.positions)
         self.modeller.addSolvent(ff, model='tip3p', padding=1.0*unit.nanometers)
-        self.modeller.addSolvent(ff, model='tip3p', padding=1.0*unit.nanometers)
         self.system = ff.createSystem(self.modeller.topology,
             nonbondedMethod=app.PME, nonbondedCutoff=1.0*unit.nanometers,
             constraints=app.HBonds)
