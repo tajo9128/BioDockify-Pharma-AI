@@ -110,6 +110,13 @@ RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
     && echo "Vector store packages installed" || \
     echo "Vector store packages install failed"
 
+# Pre-cache sentence-transformers model (prevents HuggingFace download at runtime)
+ENV SENTENCE_TRANSFORMERS_HOME=/a0/.cache/sentence-transformers
+RUN mkdir -p /a0/.cache/sentence-transformers && \
+    /opt/venv-a0/bin/python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2', cache_folder='/a0/.cache/sentence-transformers')" 2>/dev/null && \
+    echo "sentence-transformers model cached" || \
+    echo "sentence-transformers model cache failed — will try HuggingFace at runtime"
+
 # Install MD Lite dependencies (OpenMM + MDTraj) for BOTH runtimes
 RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
     openmm>=8.1.0 \

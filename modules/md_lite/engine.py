@@ -105,6 +105,20 @@ class MDEngine:
         self.pdb = app.PDBFile(pdb_path)
         ff = self._load_forcefield()
         self.modeller = app.Modeller(self.pdb.topology, self.pdb.positions)
+        # Remove crystallographic waters — we add TIP3P solvent below
+        try:
+            self.modeller.deleteWater()
+        except Exception:
+            pass
+        # Add protein hydrogens matching forcefield templates (fixes PRO/NPRO mismatch)
+        try:
+            self.modeller.addHydrogens(ff)
+        except Exception as e:
+            log.warning(f"addHydrogens failed: {e} — trying variant=HydrogenVariant")
+            try:
+                self.modeller.addHydrogens(ff, variants=[app.HydrogenVariant.Neutral])
+            except Exception:
+                pass
         self.modeller.addSolvent(ff, model='tip3p', padding=1.0*unit.nanometers)
         self.system = ff.createSystem(self.modeller.topology,
             nonbondedMethod=app.PME, nonbondedCutoff=1.0*unit.nanometers,

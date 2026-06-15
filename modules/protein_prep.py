@@ -27,14 +27,21 @@ def _ensure_pdbfixer():
         HAS_PDBFIXER = True
         log.info("pdbfixer auto-installed successfully")
         return True
+    except subprocess.TimeoutExpired:
+        log.error("pdbfixer auto-install timed out (no internet?)")
+        return False
     except Exception as e:
-        log.error(f"pdbfixer auto-install failed: {e}")
+        err = str(e).lower()
+        if "name" in err or "resolve" in err or "temporary failure" in err:
+            log.error(f"pdbfixer auto-install failed: DNS/network unavailable — rebuild Docker image")
+        else:
+            log.error(f"pdbfixer auto-install failed: {e}")
         return False
 
 
 def prepare_protein(pdb_input, output_path=None, ph=7.4):
     if not _ensure_pdbfixer():
-        return {"status": "error", "error": "pdbfixer not installed and auto-install failed. Run: pip install pdbfixer"}
+        return {"status": "error", "error": "pdbfixer not installed and auto-install failed (no internet in container). Rebuild Docker image: docker build -f Dockerfile.release -t your-image ."}
 
     from openmm.app import PDBFixer, PDBFile
 
