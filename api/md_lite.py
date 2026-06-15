@@ -4,8 +4,6 @@ from helpers import files
 import os, json, uuid, threading, logging, shutil, base64
 
 log = logging.getLogger("md_lite")
-
-log = logging.getLogger("md_lite")
 WORKDIR = files.get_abs_path("usr/md-lite")
 os.makedirs(WORKDIR, exist_ok=True)
 
@@ -78,12 +76,13 @@ class MDLite(ApiHandler):
             return {"status": "error", "error": f"Missing dependency: {e}. Install OpenMM: pip install openmm mdtraj"}
         except Exception as e:
             log.exception("Prepare failed")
-            # Return a clean error message — strip technical traceback info
             msg = str(e)
-            if "invalid literal for int()" in msg:
-                msg = "PDB file format error. Ensure the file is a valid PDB with proper ATOM/HETATM records."
-            elif "Could not locate" in msg:
-                msg = f"OpenMM forcefield not found: {msg}. The amber14-all.xml file should be installed with OpenMM."
+            if "invalid literal for int()" in msg or "PdbStructure" in msg:
+                msg = "PDB file format error. The file contains malformed ATOM/HETATM records. Upload a clean .pdb file from RCSB PDB or your docking software."
+            elif "Could not locate" in msg or "forcefield" in msg.lower():
+                msg = f"OpenMM forcefield files missing: {msg}. Rebuild Docker image to install forcefields."
+            elif "No valid ATOM" in msg:
+                msg = "PDB file is empty or contains no valid atomic coordinates. Upload a valid protein structure."
             return {"status": "error", "error": msg}
 
     def _run(self, input):

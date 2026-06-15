@@ -1,10 +1,46 @@
 """OpenMM MD Engine — setup, force field, integrator, simulation runners."""
-import os, json, time, logging
+import os, json, time, logging, io
 import openmm as mm
 import openmm.app as app
 import openmm.unit as unit
 
 log = logging.getLogger("md_lite")
+
+FORCEFIELD_CHAINS = [
+    ("amber14-all.xml", "amber14/tip3p_standard.xml"),
+    ("amber14-all.xml", "amber14/tip3p.xml"),
+    ("amber14-all.xml", "tip3p.xml"),
+    ("amber99sb.xml", "tip3p.xml"),
+    ("amber99sbildn.xml", "tip3p.xml"),
+]
+
+
+def _sanitize_pdb(pdb_path):
+    """Strip malformed PDB lines that crash OpenMM's PdbStructure parser."""
+    clean_lines = []
+    with open(pdb_path, "r", encoding="utf-8", errors="replace") as f:
+        for line in f:
+            rec = line[:6].strip()
+            if rec in ("ATOM", "HETATM"):
+                if len(line) < 54:
+                    continue
+                try:
+                    int(line[22:26])
+                    float(line[30:38])
+                    float(line[38:46])
+                    float(line[46:54])
+                except (ValueError, IndexError):
+                    continue
+                clean_lines.append(line)
+            elif rec in ("TER", "END", "MODEL", "ENDMDL", "CONECT"):
+                clean_lines.append(line)
+    if not clean_lines:
+        raise ValueError("PDB file contains no valid ATOM/HETATM records after sanitization")
+    with open(pdb_path, "w", encoding="utf-8") as f:
+        f.writelines(clean_lines)
+        if not any(l.startswith("END") for l in clean_lines):
+            f.write("END\n")
+
 
 class MDEngine:
     def __init__(self, workdir, forcefield="amber14", temperature=300, pressure=1.0,
@@ -24,14 +60,12 @@ class MDEngine:
         self.status_file = os.path.join(workdir, "status.json")
 
     def detect_platform(self):
-        """Auto-detect best platform: GPU first (CUDA > OpenCL), fallback CPU.
-        Honors user preference if specified, otherwise auto-detects fastest."""
+        """Auto-detect best platform: GPU first (CUDA > OpenCL), fallback CPU."""
         all_platforms = []
         for i in range(mm.Platform.getNumPlatforms()):
             p = mm.Platform.getPlatform(i)
             all_platforms.append((p.getName(), p.getSpeed()))
 
-        # If user specified platform, try to use it
         if self.platform_name in ("CUDA", "OpenCL"):
             matched = [p for p, s in all_platforms if self.platform_name in p]
             if matched:
@@ -39,7 +73,6 @@ class MDEngine:
                 log.info(f"Using {self.platform_name}: {best}")
                 return mm.Platform.getPlatformByName(best)
 
-        # Auto-detect: GPU first by speed, then CPU
         for pref in ["CUDA", "OpenCL"]:
             matched = [(p, s) for p, s in all_platforms if pref in p]
             if matched:
@@ -50,12 +83,27 @@ class MDEngine:
         log.warning("No GPU detected — falling back to CPU")
         return mm.Platform.getPlatformByName("CPU")
 
+    def _load_forcefield(self):
+        """Try multiple forcefield combinations, return first that works."""
+        for ff_protein, ff_water in FORCEFIELD_CHAINS:
+            try:
+                ff = app.ForceField(ff_protein, ff_water)
+                log.info(f"Loaded forcefield: {ff_protein} + {ff_water}")
+                return ff
+            except Exception:
+                continue
+        raise RuntimeError(
+            "No OpenMM forcefield files found. Tried: "
+            + ", ".join(f"{p}+{w}" for p, w in FORCEFIELD_CHAINS)
+            + ". Rebuild Docker image to install OpenMM forcefields."
+        )
+
     def load_system(self, pdb_path):
         if not os.path.exists(pdb_path):
             raise FileNotFoundError(f"PDB not found: {pdb_path}")
+        _sanitize_pdb(pdb_path)
         self.pdb = app.PDBFile(pdb_path)
-        # Load standard AMBER forcefields + TIP3P water
-        ff = app.ForceField("amber14-all.xml", "amber14/tip3p_standard.xml")
+        ff = self._load_forcefield()
         self.modeller = app.Modeller(self.pdb.topology, self.pdb.positions)
         self.modeller.addSolvent(ff, model='tip3p', padding=1.0*unit.nanometers)
         self.system = ff.createSystem(self.modeller.topology,
