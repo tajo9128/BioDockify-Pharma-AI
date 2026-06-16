@@ -1,6 +1,20 @@
 ﻿# BioDockify AI - AGENTS.md
 
-**Last updated: 2026-06-13 | Version: v6.9.11**
+**Last updated: 2026-06-15 | Version: v6.9.15**
+
+## Today's Additions (2026-06-15) — v6.9.15 Release
+
+### Bug Fixes (7 total)
+- **MD Lite**: Forcefield fallback chain (5 combos: amber14/tip3p_standard → tip3p → amber99sb), PDB sanitization (malformed ATOM/HETATM), PRO/NPRO template mismatch (pH=7.0 aware hydrogen addition with 3-attempt retry), double addSolvent() removed
+- **PK/PD**: Complete API rewrite — correct PKPDAnalysis(data, dose, route) constructor + DataFrame builder + method mapping
+- **Protein Prep**: Download fix (output_pdb not pdbContent)
+- **Dockerfile**: statsmodels added to framework runtime, sentence-transformers model pre-cached at build time
+
+### Module Removal
+- **Standalone Protein Prep removed** — redundant with docking's built-in protein preparation. pdbfixer auto-install failing offline in container. 4 files deleted (api, module, frontend HTML + store), Dockerfile pdbfixer block removed.
+
+### Module Count
+- **16 consolidated desktop modules**: Protein Prep removed (17 → 16)
 
 ## Today's Additions (2026-06-13) — v6.9.11 Release
 

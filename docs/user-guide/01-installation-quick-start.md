@@ -137,7 +137,7 @@ Open your browser and navigate to:
 http://localhost
 ```
 
-You should see the BioDockify chat interface. Click the **All Tools** button in the sidebar to see all 15 modules.
+You should see the BioDockify chat interface. Click the **All Tools** button in the sidebar to see all 16 modules.
 
 ### Health Check
 

@@ -23,7 +23,7 @@ Full windowed environment. Open multiple modules as draggable, resizable windows
 
 ## 2.2 The Toolbar
 
-The left sidebar contains 15 module icons:
+The left sidebar contains 16 module icons:
 
 | Icon | Module | Description |
 |------|--------|-------------|
@@ -46,7 +46,7 @@ Click any icon to open that module. In Split/Desktop mode, it opens as a window.
 
 ## 2.3 The All Tools Grid
 
-Click **All Tools** (grid icon) to see all 15 modules as cards with subtask labels:
+Click **All Tools** (grid icon) to see all 16 modules as cards with subtask labels:
 
 ```
 Research CMD          Molecular Toolkit       Molecule Editor
