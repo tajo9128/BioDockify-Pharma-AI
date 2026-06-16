@@ -23,7 +23,6 @@ const defaultModules = [
   { id: "system-health", title: "System Health", icon: "monitoring", component: "/components/system-health/system-health.html", order: 14, defaultWidth: 500, defaultHeight: 500 },
   { id: "md-lite", title: "MD Lite", icon: "experiment", component: "/components/md-lite/md-lite.html", order: 4.5, defaultWidth: 700, defaultHeight: 600 },
   { id: "pkpd", title: "PK/PD", icon: "monitoring", component: "/components/pkpd/pkpd-modal.html", order: 6.5, defaultWidth: 650, defaultHeight: 500 },
-  { id: "protein-prep", title: "Protein Prep", icon: "cleaning_services", component: "/components/protein-prep/protein-prep-modal.html", order: 3.5, defaultWidth: 550, defaultHeight: 450 },
 ];
 
 const model = {
