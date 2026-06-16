@@ -1,5 +1,5 @@
 """OpenMM MD Engine — setup, force field, integrator, simulation runners."""
-import os, json, time, logging, io
+import os, json, time, logging
 import openmm as mm
 import openmm.app as app
 import openmm.unit as unit
@@ -104,25 +104,49 @@ class MDEngine:
         _sanitize_pdb(pdb_path)
         self.pdb = app.PDBFile(pdb_path)
         ff = self._load_forcefield()
-        self.modeller = app.Modeller(self.pdb.topology, self.pdb.positions)
-        # Remove crystallographic waters — we add TIP3P solvent below
-        try:
-            self.modeller.deleteWater()
-        except Exception:
-            pass
-        # Add protein hydrogens matching forcefield templates (fixes PRO/NPRO mismatch)
-        try:
-            self.modeller.addHydrogens(ff)
-        except Exception as e:
-            log.warning(f"addHydrogens failed: {e} — trying variant=HydrogenVariant")
+
+        def _setup_modeller():
+            m = app.Modeller(self.pdb.topology, self.pdb.positions)
             try:
-                self.modeller.addHydrogens(ff, variants=[app.HydrogenVariant.Neutral])
+                m.deleteWater()
             except Exception:
                 pass
-        self.modeller.addSolvent(ff, model='tip3p', padding=1.0*unit.nanometers)
-        self.system = ff.createSystem(self.modeller.topology,
-            nonbondedMethod=app.PME, nonbondedCutoff=1.0*unit.nanometers,
-            constraints=app.HBonds)
+            m.addSolvent(ff, model='tip3p', padding=1.0*unit.nanometers)
+            return m
+
+        # Build system — try pH-aware hydrogens, catch template mismatches
+        built = False
+        last_error = None
+        for attempt, (hydro_args, label) in enumerate([
+            ({"pH": 7.0}, "pH=7.0"),
+            ({}, "standard"),
+            ({"variants": None}, "all variants"),
+        ]):
+            try:
+                self.modeller = _setup_modeller()
+                try:
+                    self.modeller.addHydrogens(ff, **hydro_args)
+                except Exception as e:
+                    log.warning(f"addHydrogens({label}) failed for some residues: {e}")
+                self.system = ff.createSystem(self.modeller.topology,
+                    nonbondedMethod=app.PME, nonbondedCutoff=1.0*unit.nanometers,
+                    constraints=app.HBonds)
+                built = True
+                break
+            except Exception as e:
+                last_error = e
+                if "No template found" not in str(e) and "missing" not in str(e).lower():
+                    raise
+                log.warning(f"Forcefield template mismatch (attempt {attempt+1}/3): {e}")
+
+        if not built:
+            raise RuntimeError(
+                f"Forcefield cannot parameterize this protein. "
+                f"The PDB contains residues with no matching forcefield template. "
+                f"Download a clean PDB from RCSB PDB and try again. "
+                f"Details: {last_error}"
+            )
+
         self.integrator = mm.LangevinMiddleIntegrator(
             self.temperature, 1.0/unit.picosecond, 0.002*unit.picoseconds)
         self.integrator.setConstraintTolerance(0.00001)
