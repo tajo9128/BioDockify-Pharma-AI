@@ -76,10 +76,21 @@
       get branches() {
         return [
           { id: "general", label: "General Pharma" },
-          { id: "clinical", label: "Clinical Pharmacy" },
           { id: "pharmacology", label: "Pharmacology" },
-          { id: "medicinal", label: "Medicinal Chemistry" },
-          { id: "pharmacy", label: "Pharmacy Practice" },
+          { id: "pharmaceutics", label: "Pharmaceutics" },
+          { id: "pharmacognosy", label: "Pharmacognosy" },
+          { id: "pharma_chemistry", label: "Pharma Chemistry" },
+          { id: "clinical", label: "Clinical Pharmacy" },
+          { id: "regulatory", label: "Regulatory" },
+          { id: "pharma_analysis", label: "Pharma Analysis" },
+        ];
+      },
+      get degrees() {
+        return [
+          { id: "phd", label: "PhD" },
+          { id: "m_pharm", label: "M.Pharm" },
+          { id: "b_pharm", label: "B.Pharm" },
+          { id: "pharm_d", label: "Pharm.D" },
         ];
       },
       get chapters() {
@@ -209,15 +220,21 @@
       },
 
       _genViaAgent() {
+        const branch = this.branches.find(b => b.id === this.thesisBranch);
+        const branchLabel = branch ? branch.label : "General Pharma";
+        const degree = this.degrees.find(d => d.id === this.thesisDegree);
+        const degreeLabel = degree ? degree.label : "PhD";
+        const dept = `Department: ${branchLabel} | Level: ${degreeLabel}`;
+
         const prompts = {
-          literature: `Write a comprehensive ${this.litScope} literature review on "${this.topic}". Cover publications from ${this.litYearStart}-${this.litYearEnd}. Include sections: ${this.litSections.join(', ')}. Format with headings, subheadings, and cite key references with author names and years.`,
-          research: `Write a ${this.resType} article on "${this.topic}". Target ~${this.resWordCount} words. Include: 1) Abstract, 2) Introduction & Background, 3) Current State of Knowledge, 4) Critical Analysis, 5) Future Perspectives, 6) References. Use ${this.resFormat} citation format. Make it ready for journal submission.`,
-          thesis: `Write the "${this.thesisChapterId}" chapter for a ${this.thesisDegree} thesis in ${this.thesisBranch} on "${this.topic}". Include proper academic structure, subheadings, and citations.`,
-          lecture: `Create a ${this.lectureDuration}-minute lecture for ${this.lectureLevel} students on "${this.topic}". Include: 1) Learning Objectives, 2) Lecture Sections with timestamps, 3) Key Concepts, 4) Summary, 5) 3 Homework Questions, 6) Lab/Practical if applicable.`,
-          slides: `Create a ${this.slideCount}-slide presentation on "${this.topic}" in ${this.slideStyle} style. For each slide provide: slide number, title, bullet points, and speaker notes.${this.slideSources.length ? `\n\nSource materials to include:\n${this.slideSources.map(s => `- ${s.title || s}`).join('\n')}` : ''}`,
-          "lit-matrix": `Create a structured literature comparison matrix on "${this.topic}". Format as a table with columns: Author, Year, Objective, Methods, Key Findings, Limitations. Include 8-12 key studies. After the table, write a brief synthesis paragraph.`,
-          prisma: `Create a PRISMA 2020-style systematic review workflow for "${this.topic}". Include: 1) Search strategy with databases and terms used, 2) Inclusion/exclusion criteria, 3) PRISMA flowchart data (Identification → Screening → Eligibility → Inclusion with approximate n values), 4) Brief summary of how many studies would be at each stage.`,
-          gaps: `Analyze research gaps in "${this.topic}". Based on current literature: 1) What is already well-studied? 2) What is under-explored? 3) What are 3-5 novel research directions with high impact potential? 4) What methodological gaps exist? Format with clear headings and bullet points.`,
+          literature: `Write a comprehensive ${this.litScope} literature review on "${this.topic}". ${dept}. Cover publications from ${this.litYearStart}-${this.litYearEnd}. Include sections: ${this.litSections.join(', ')}. Format with headings, subheadings, and cite key references with author names and years.`,
+          research: `Write a ${this.resType} article on "${this.topic}". ${dept}. Target ~${this.resWordCount} words. Include: 1) Abstract, 2) Introduction & Background (with ${branchLabel} focus), 3) Current State of Knowledge, 4) Critical Analysis, 5) Future Perspectives, 6) References. Use ${this.resFormat} citation format. Make it ready for journal submission.`,
+          thesis: `Write the "${this.thesisChapterId === 'introduction' ? 'Introduction' : this.thesisChapterId === 'literature_review' ? 'Literature Review' : this.thesisChapterId === 'methodology' ? 'Research Methodology' : this.thesisChapterId === 'results' ? 'Results & Analysis' : this.thesisChapterId === 'discussion' ? 'Discussion' : 'Conclusion'}" chapter for a ${degreeLabel} thesis in ${branchLabel} on "${this.topic}". Include proper academic structure, subheadings, and citations. Follow ${branchLabel} department conventions for writing style and methodology reporting.`,
+          lecture: `Create a ${this.lectureDuration}-minute lecture for ${this.lectureLevel} students on "${this.topic}". ${dept}. Include: 1) Learning Objectives, 2) Lecture Sections with timestamps, 3) Key Concepts, 4) Summary, 5) 3 Homework Questions, 6) Lab/Practical if applicable.`,
+          slides: `Create a ${this.slideCount}-slide presentation on "${this.topic}" in ${this.slideStyle} style. ${dept}. For each slide provide: slide number, title, bullet points, and speaker notes.${this.slideSources.length ? `\n\nSource materials to include:\n${this.slideSources.map(s => `- ${s.title || s}`).join('\n')}` : ''}`,
+          "lit-matrix": `Create a structured literature comparison matrix on "${this.topic}". ${dept}. Format as a table with columns: Author, Year, Objective, Methods, Key Findings, Limitations. Include 8-12 key studies from ${branchLabel} research. After the table, write a brief synthesis paragraph.`,
+          prisma: `Create a PRISMA 2020-style systematic review workflow for "${this.topic}". ${dept}. Include: 1) Search strategy with databases and terms used, 2) Inclusion/exclusion criteria, 3) PRISMA flowchart data (Identification → Screening → Eligibility → Inclusion with approximate n values), 4) Brief summary of how many studies would be at each stage.`,
+          gaps: `Analyze research gaps in "${this.topic}" from a ${branchLabel} perspective. ${dept}. Based on current literature: 1) What is already well-studied in this department's field? 2) What is under-explored? 3) What are 3-5 novel research directions with high impact potential? 4) What methodological gaps exist? Format with clear headings and bullet points.`,
         };
         const p = prompts[this.activeTab] || prompts.literature;
         this.sendToAgent(p);

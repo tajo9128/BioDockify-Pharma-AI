@@ -183,37 +183,68 @@ class ThesisEngine:
         profile: Dict,
         context: Dict[str, Any]
     ) -> str:
+        # Build degree-aware structural requirements
+        degree_requirements = {
+            DegreeType.PHD: {"word_scale": 1.0, "citation_min": 30, "depth": "original contribution, extensive critical analysis"},
+            DegreeType.M_PHARM: {"word_scale": 0.7, "citation_min": 20, "depth": "thorough review with experimental validation"},
+            DegreeType.B_PHARM: {"word_scale": 0.5, "citation_min": 10, "depth": "literature-based acceptable, clear explanation"},
+            DegreeType.PHARM_D: {"word_scale": 0.8, "citation_min": 15, "depth": "clinical focus, patient outcomes, evidence-based practice"},
+        }
+        dreq = degree_requirements.get(degree, degree_requirements[DegreeType.PHD])
+
         content = [f"# {template.title}\n"]
         if branch != PharmaBranch.GENERAL:
             content.append(f"> **Specialization**: {branch.value} ({degree.value})\n")
-        
+
         for section in template.sections:
             section_context = context.get("section_contexts", {}).get(section.title, [])
             context_text = "\n".join(section_context) if section_context else "No specific context."
-            
-            # Incorporate Global Rules and Branch Focus into Prompt
             rules_text = "\n".join([f"- {r}" for r in template.global_rules])
-            
-            prompt = f"""Write the "{section.title}" section for a {degree.value} thesis chapter on "{template.title}".
+            word_limit = int((section.word_limit or 500) * dreq["word_scale"])
+
+            # Branch-specific field injection
+            branch_instructions = ""
+            if template.id == ChapterId.INTRODUCTION:
+                branch_instructions = f"BRANCH FOCUS: {profile.get('intro_focus', 'General pharmaceutical research')}"
+            elif template.id == ChapterId.MATERIALS_METHODS:
+                branch_instructions = f"MANDATORY METHODS: {profile.get('methods_mandatory', 'Standard protocols')}"
+            elif template.id == ChapterId.RESULTS:
+                branch_instructions = f"EXPECTED DATA TYPES: {profile.get('results_data', 'Quantitative and qualitative')}"
+            elif template.id == ChapterId.DISCUSSION:
+                branch_instructions = f"DISCUSSION FOCUS: {profile.get('discussion_mechanism', 'Compare with prior literature')}"
+
+            # PHARM.D specific rules
+            pharm_d_rules = ""
+            if degree == DegreeType.PHARM_D:
+                pharm_d_rules = (
+                    "- Focus strictly on patient outcomes and clinical data.\n"
+                    "- No mechanistic, molecular, or synthetic chemistry claims allowed.\n"
+                )
+
+            # Degree-level depth instruction
+            depth_note = f"DEGREE LEVEL: {degree.value}. Expected depth: {dreq['depth']}. Minimum citations for chapter: {dreq['citation_min']}."
+
+            prompt = f"""{PHD_THESIS_WRITER_PROMPT}
+
+Write the "{section.title}" section for a {degree.value} thesis chapter on "{template.title}".
 
 BRANCH: {branch.value}
 TOPIC: {topic}
 SECTION FOCUS: {section.description}
-BRANCH REQUIREMENT: {profile.get('intro_focus') if template.id == ChapterId.INTRODUCTION else ''}
+{branch_instructions}
+{depth_note}
 
 STRICT RULES:
 {rules_text}
-{'- Focus strictly on patient outcomes and clinical data.' if degree == DegreeType.PHARM_D else ''}
-{'- No mechanistic, molecular, or synthetic chemistry claims allowed.' if degree == DegreeType.PHARM_D else ''}
-
+{pharm_d_rules}
 CONTEXT:
 {context_text}
 
 INSTRUCTIONS:
 - Write in formal, past-tense academic pharma English.
-- Ensure branch-specific terminology is used correctly.
-- Mention specific data types: {profile.get('results_data', 'patient outcomes') if degree == DegreeType.PHARM_D else profile.get('results_data', 'standard metrics')} if applicable.
-- Word limit for this section: {section.word_limit or '400-600'} words.
+- Use branch-specific terminology for {branch.value}.
+- Mention expected data types: {profile.get('results_data', 'standard metrics')}.
+- Word limit: {word_limit} words.
 
 Write the section:"""
 
@@ -221,7 +252,7 @@ Write the section:"""
             content.append(f"## {section.title}")
             content.append(section_content if section_content else f"*{section.description}*")
             content.append("")
-        
+
         return "\n".join(content)
 
     def _generate_template(self, template: ChapterTemplate, topic: str, branch: PharmaBranch, degree: DegreeType, profile: Dict, context: Dict[str, Any]) -> str:

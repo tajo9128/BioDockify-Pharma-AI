@@ -23,8 +23,8 @@ router = APIRouter(prefix="/api/thesis", tags=["Thesis"])
 class GenerateChapterRequest(BaseModel):
     chapter_id: str = Field(..., description="Chapter ID (e.g., 'introduction', 'methods', 'results')")
     topic: str = Field(..., description="Research topic")
-    branch: str = Field(default="general", description="Pharma branch: general, clinical, pharmacology, pharmaceutical, medicinal, pharmacy")
-    degree: str = Field(default="phd", description="Degree type: phd, pharm_d, msc, bsc")
+    branch: str = Field(default="general", description="Pharma branch: general, clinical, pharmacology, pharmaceutics, pharmacognosy, pharma_chemistry, regulatory, pharma_analysis")
+    degree: str = Field(default="phd", description="Degree type: phd, m_pharm, b_pharm, pharm_d")
     agent_mode: bool = Field(default=False, description="Use agent for generation (requires API key)")
 
 
@@ -32,6 +32,25 @@ class ChapterInfo(BaseModel):
     chapter_id: str
     title: str
     section_count: int
+
+
+# ── Branch/Degree Map (matches UI values → real enums) ──
+BRANCH_MAP = {
+    "general": PharmaBranch.GENERAL,
+    "clinical": PharmaBranch.CLINICAL_PHARMACY,
+    "pharmacology": PharmaBranch.PHARMACOLOGY,
+    "pharmaceutics": PharmaBranch.PHARMACEUTICS,
+    "pharmacognosy": PharmaBranch.PHARMACOGNOSY,
+    "pharma_chemistry": PharmaBranch.PHARMA_CHEMISTRY,
+    "regulatory": PharmaBranch.REGULATORY,
+    "pharma_analysis": PharmaBranch.PHARMA_ANALYSIS,
+}
+DEGREE_MAP = {
+    "phd": DegreeType.PHD,
+    "m_pharm": DegreeType.M_PHARM,
+    "b_pharm": DegreeType.B_PHARM,
+    "pharm_d": DegreeType.PHARM_D,
+}
 
 
 @router.get("/health")
@@ -54,26 +73,22 @@ async def get_chapters():
 
 @router.post("/generate")
 async def generate_chapter(request: GenerateChapterRequest):
-    """Generate a thesis chapter."""
+    """Generate a thesis chapter (primary endpoint)."""
+    return await _do_generate(request)
+
+
+@router.post("/generate-chapter")
+async def generate_chapter_alias(request: GenerateChapterRequest):
+    """Generate a thesis chapter (alias — matches UI call)."""
+    return await _do_generate(request)
+
+
+async def _do_generate(request: GenerateChapterRequest):
+    """Shared generation logic."""
     try:
         engine = get_thesis_engine()
-
-        branch_map = {
-            "clinical": PharmaBranch.CLINICAL,
-            "pharmacology": PharmaBranch.PHARMACOLOGY,
-            "pharmaceutical": PharmaBranch.PHARMACEUTICAL,
-            "medicinal": PharmaBranch.MEDICINAL,
-            "pharmacy": PharmaBranch.PHARMACY,
-        }
-        degree_map = {
-            "phd": DegreeType.PHD,
-            "pharm_d": DegreeType.PHARM_D,
-            "msc": DegreeType.MSC,
-            "bsc": DegreeType.BSC,
-        }
-
-        branch = branch_map.get(request.branch.lower(), PharmaBranch.GENERAL)
-        degree = degree_map.get(request.degree.lower(), DegreeType.PHD)
+        branch = BRANCH_MAP.get(request.branch.lower(), PharmaBranch.GENERAL)
+        degree = DEGREE_MAP.get(request.degree.lower(), DegreeType.PHD)
 
         result = await engine.generate_chapter(
             chapter_id=request.chapter_id,
@@ -92,8 +107,8 @@ async def get_branches():
     """Get available pharma branches."""
     return {
         "branches": [
-            {"id": b.value, "name": b.value.capitalize()}
-            for b in PharmaBranch
+            {"id": k, "name": v.value}
+            for k, v in BRANCH_MAP.items()
         ]
     }
 
@@ -103,7 +118,7 @@ async def get_degrees():
     """Get available degree types."""
     return {
         "degrees": [
-            {"id": d.value, "name": d.value.replace("_", " ").upper()}
-            for d in DegreeType
+            {"id": k, "name": v.value}
+            for k, v in DEGREE_MAP.items()
         ]
     }
