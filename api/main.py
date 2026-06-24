@@ -198,6 +198,16 @@ except ImportError as e:
 
     logging.getLogger("biodockify_api").warning(f"Thesis routes not loaded: {e}")
 
+# Register Writing Tools Routes (LaTeX, Gap Analysis, Lit Matrix, PRISMA, Faculty Review)
+try:
+    from api.routes.writing_tools import router as writing_tools_router
+
+    app.include_router(writing_tools_router)
+except ImportError as e:
+    import logging
+
+    logging.getLogger("biodockify_api").warning(f"Writing tools routes not loaded: {e}")
+
 # Register Batch Docking Routes
 # Removed - not part of BioDockify base project
 # try:

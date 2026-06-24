@@ -61,7 +61,10 @@
       get tabs() {
         return [
           { id: "literature", label: "Lit Review", icon: "menu_book" },
+          { id: "lit-matrix", label: "Lit Matrix", icon: "table_chart" },
           { id: "research", label: "Paper", icon: "description" },
+          { id: "prisma", label: "PRISMA", icon: "account_tree" },
+          { id: "gaps", label: "Gap Analysis", icon: "explore" },
           { id: "thesis", label: "Thesis", icon: "school" },
           { id: "grant", label: "Grant", icon: "payments" },
           { id: "regulatory", label: "Regulatory", icon: "gavel" },
@@ -110,6 +113,9 @@
             case "thesis": await this._genThesis(); break;
             case "lecture": await this._genLecture(); break;
             case "slides": await this._genSlides(); break;
+            case "lit-matrix": await this._genLitMatrix(); break;
+            case "prisma": await this._genPrisma(); break;
+            case "gaps": await this._genGapAnalysis(); break;
             case "literature": case "research": this._genViaAgent(); break;
           }
         } catch (e) { this.error = e.message; }
@@ -171,6 +177,37 @@
         } catch { this._genViaAgent(); }
       },
 
+      async _genLitMatrix() {
+        try {
+          const r = await callJsonApi("writing", { action: "literature-matrix", topic: this.topic });
+          if (r.status === "ok" && r.matrix) {
+            this.result = { type: "lit-matrix", title: this.topic, content: r.matrix.markdown_table || "", _matrix: r.matrix };
+          } else { this._genViaAgent(); }
+        } catch { this._genViaAgent(); }
+      },
+
+      async _genPrisma() {
+        try {
+          const r = await callJsonApi("writing", { action: "prisma-flowchart", topic: this.topic });
+          if (r.status === "ok" && r.prisma) {
+            this.result = { type: "prisma", title: this.topic, content: r.prisma.mermaid || "", _prisma: r.prisma };
+          } else { this._genViaAgent(); }
+        } catch { this._genViaAgent(); }
+      },
+
+      async _genGapAnalysis() {
+        try {
+          const r = await callJsonApi("writing", { action: "gap-analysis", topic: this.topic });
+          if (r.status === "ok") {
+            const gaps = r.gaps || [];
+            const text = gaps.length
+              ? gaps.map((g,i) => `${i+1}. ${g.description || g.title || 'Gap'}: ${g.novelty ? 'Novelty: '+(g.novelty*100).toFixed(0)+'%' : ''}`).join('\n')
+              : r.report?.recommendations?.join('\n') || "No gaps detected.";
+            this.result = { type: "gaps", title: this.topic, content: text, _gaps: gaps, _report: r.report };
+          } else { this._genViaAgent(); }
+        } catch { this._genViaAgent(); }
+      },
+
       _genViaAgent() {
         const prompts = {
           literature: `Write a comprehensive ${this.litScope} literature review on "${this.topic}". Cover publications from ${this.litYearStart}-${this.litYearEnd}. Include sections: ${this.litSections.join(', ')}. Format with headings, subheadings, and cite key references with author names and years.`,
@@ -178,6 +215,9 @@
           thesis: `Write the "${this.thesisChapterId}" chapter for a ${this.thesisDegree} thesis in ${this.thesisBranch} on "${this.topic}". Include proper academic structure, subheadings, and citations.`,
           lecture: `Create a ${this.lectureDuration}-minute lecture for ${this.lectureLevel} students on "${this.topic}". Include: 1) Learning Objectives, 2) Lecture Sections with timestamps, 3) Key Concepts, 4) Summary, 5) 3 Homework Questions, 6) Lab/Practical if applicable.`,
           slides: `Create a ${this.slideCount}-slide presentation on "${this.topic}" in ${this.slideStyle} style. For each slide provide: slide number, title, bullet points, and speaker notes.${this.slideSources.length ? `\n\nSource materials to include:\n${this.slideSources.map(s => `- ${s.title || s}`).join('\n')}` : ''}`,
+          "lit-matrix": `Create a structured literature comparison matrix on "${this.topic}". Format as a table with columns: Author, Year, Objective, Methods, Key Findings, Limitations. Include 8-12 key studies. After the table, write a brief synthesis paragraph.`,
+          prisma: `Create a PRISMA 2020-style systematic review workflow for "${this.topic}". Include: 1) Search strategy with databases and terms used, 2) Inclusion/exclusion criteria, 3) PRISMA flowchart data (Identification → Screening → Eligibility → Inclusion with approximate n values), 4) Brief summary of how many studies would be at each stage.`,
+          gaps: `Analyze research gaps in "${this.topic}". Based on current literature: 1) What is already well-studied? 2) What is under-explored? 3) What are 3-5 novel research directions with high impact potential? 4) What methodological gaps exist? Format with clear headings and bullet points.`,
         };
         const p = prompts[this.activeTab] || prompts.literature;
         this.sendToAgent(p);
@@ -262,6 +302,90 @@
         const p = `Please refine and improve this text. Add more key references, fix any inaccuracies, and polish the academic language:\n\n${text}...`;
         this.sendToAgent(p);
       },
+
+      // ── Phase 1 New Features ──
+
+      async downloadLatex() {
+        const content = this.result?.content || "";
+        if (!content && !this.topic) return;
+        try {
+          this.loading = true;
+          const sections = [{ heading: this.topic || "Manuscript", content: content.substring(0, 8000) }];
+          const r = await callJsonApi("writing", { action: "export-latex", title: this.topic, sections: sections });
+          if (r.status === "ok" && r.latex) {
+            const blob = new Blob([r.latex], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${(this.topic||"manuscript").replace(/\s+/g,'_').substring(0,40)}.tex`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }
+        } catch (e) { this.error = "LaTeX export: " + (e.message || "failed"); }
+        this.loading = false;
+      },
+
+      async downloadDocx() {
+        const content = this.result?.content || "";
+        if (!content) return;
+        try {
+          this.loading = true;
+          const r = await callJsonApi("writing", { action: "export-docx", title: this.topic || "Manuscript", content: content.substring(0, 8000) });
+          if (r.status === "ok" && r.docx_base64) {
+            const bytes = Uint8Array.from(atob(r.docx_base64), c => c.charCodeAt(0));
+            const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${(this.topic||"manuscript").replace(/\s+/g,'_').substring(0,40)}.docx`;
+            a.click();
+            URL.revokeObjectURL(url);
+          } else {
+            this.result._review = { score: 0, level: "Not Available", verdict: "DOCX export requires python-docx. Install: pip install python-docx" };
+          }
+        } catch (e) { this.error = "DOCX export: " + (e.message || "failed"); }
+        this.loading = false;
+      },
+
+      async verifyCitations() {
+        const content = this.result?.content || "";
+        if (!content) return;
+        try {
+          this.loading = true;
+          const r = await callJsonApi("writing", { action: "verify-citations", text: content.substring(0, 5000) });
+          if (r.status === "ok") {
+            this.result._citeCheck = { confidence: r.confidence, verified: r.verified, total: r.total, results: r.results || [] };
+          }
+        } catch (e) { this.error = "Citation check: " + (e.message || "failed"); }
+        this.loading = false;
+      },
+
+      async suggestJournals() {
+        const content = this.result?.content || "";
+        if (!content && !this.topic) return;
+        try {
+          this.loading = true;
+          const abstract = content.substring(0, 1000);
+          const r = await callJsonApi("writing", { action: "suggest-journals", title: this.topic, abstract: abstract });
+          if (r.status === "ok") {
+            this.result._journals = r.journals || [];
+          }
+        } catch (e) { this.error = "Journal search: " + (e.message || "failed"); }
+        this.loading = false;
+      },
+
+      async facultyReview() {
+        const content = this.result?.content || "";
+        if (!content) return;
+        try {
+          this.loading = true;
+          const r = await callJsonApi("writing", { action: "faculty-review", title: this.topic, content: content.substring(0, 10000) });
+          if (r.status === "ok") {
+            this.result._review = r.review;
+          }
+        } catch (e) { this.error = "Review: " + (e.message || "failed"); }
+        this.loading = false;
+      },
     });
   </script>
 </head>
@@ -289,7 +413,7 @@
     <!-- Topic input (shared) -->
     <div class="aw-input-row">
       <input type="text" x-model="$store.academicWriter.topic"
-        :placeholder="$store.academicWriter.activeTab === 'literature' ? 'Literature review topic (e.g. mRNA vaccine delivery systems)...' : $store.academicWriter.activeTab === 'research' ? 'Research/review article topic...' : $store.academicWriter.activeTab === 'thesis' ? 'Thesis topic...' : $store.academicWriter.activeTab === 'lecture' ? 'Lecture topic...' : 'Presentation topic...'"
+        :placeholder="$store.academicWriter.activeTab === 'literature' ? 'Literature review topic (e.g. mRNA vaccine delivery systems)...' : $store.academicWriter.activeTab === 'lit-matrix' ? 'Topic for literature comparison matrix (e.g. curcumin nanoformulations)...' : $store.academicWriter.activeTab === 'prisma' ? 'Systematic review topic (e.g. metformin in cancer therapy)...' : $store.academicWriter.activeTab === 'gaps' ? 'Research area for gap analysis (e.g. AI in drug repurposing)...' : $store.academicWriter.activeTab === 'research' ? 'Research/review article topic...' : $store.academicWriter.activeTab === 'thesis' ? 'Thesis topic...' : $store.academicWriter.activeTab === 'lecture' ? 'Lecture topic...' : 'Presentation topic...'"
         class="aw-topic-input" @keyup.enter="$store.academicWriter.generate()" />
       <button class="aw-gen-btn" @click="$store.academicWriter.generate()" :disabled="$store.academicWriter.loading || !$store.academicWriter.topic">
         <span class="material-symbols-outlined">auto_awesome</span>
@@ -470,13 +594,29 @@
               <span class="material-symbols-outlined">download</span>
               TXT
             </button>
+            <button class="aw-act-btn" @click="$store.academicWriter.downloadLatex()">
+              <span class="material-symbols-outlined">description</span>
+              LaTeX
+            </button>
+            <button class="aw-act-btn" @click="$store.academicWriter.downloadDocx()">
+              <span class="material-symbols-outlined">article</span>
+              DOCX
+            </button>
+            <button class="aw-act-btn" @click="$store.academicWriter.verifyCitations()">
+              <span class="material-symbols-outlined">verified</span>
+              Verify
+            </button>
+            <button class="aw-act-btn" @click="$store.academicWriter.suggestJournals()">
+              <span class="material-symbols-outlined">library_books</span>
+              Journals
+            </button>
+            <button class="aw-act-btn" @click="$store.academicWriter.facultyReview()">
+              <span class="material-symbols-outlined">rate_review</span>
+              Review
+            </button>
             <button class="aw-act-btn" @click="$store.academicWriter.refineWithAgent()">
               <span class="material-symbols-outlined">psychology</span>
               Refine
-            </button>
-            <button class="aw-act-btn" @click="$store.academicWriter.sendToAgent('Convert this to LaTeX format for journal submission: ' + ($store.academicWriter.result?.content?.substring(0, 500) || $store.academicWriter.topic))">
-              <span class="material-symbols-outlined">description</span>
-              LaTeX
             </button>
             <button class="aw-act-btn" @click="$store.academicWriter.clear()">
               <span class="material-symbols-outlined">refresh</span>
@@ -534,6 +674,59 @@
         <div x-show="!$store.academicWriter.result.type || $store.academicWriter.result.type === 'literature' || $store.academicWriter.result.type === 'research' || $store.academicWriter.result.type === 'thesis'" class="aw-content-area">
           <div class="aw-content-text" x-text="$store.academicWriter.result.content"></div>
         </div>
+
+        <!-- Faculty Review Score -->
+        <template x-if="$store.academicWriter.result._review?.score !== undefined">
+          <div class="aw-review-card">
+            <div class="aw-review-header">
+              <span class="material-symbols-outlined" style="font-size:20px">rate_review</span>
+              <span>Publication Readiness</span>
+              <span class="aw-review-score" :class="$store.academicWriter.result._review.score >= 65 ? 'good' : 'needs-work'" x-text="$store.academicWriter.result._review.score + '/100'"></span>
+            </div>
+            <div class="aw-review-level" x-text="$store.academicWriter.result._review.level"></div>
+            <p class="aw-review-verdict" x-text="$store.academicWriter.result._review.verdict"></p>
+            <div x-show="$store.academicWriter.result._review.checks" class="aw-review-checks">
+              <template x-for="(v,k) in $store.academicWriter.result._review.checks">
+                <div class="aw-review-bar">
+                  <small x-text="k.replace(/_/g,' ')"></small>
+                  <div class="aw-bar-track"><div class="aw-bar-fill" :style="'width:'+(v.score/v.max*100)+'%'"></div></div>
+                  <small x-text="v.score+'/'+v.max"></small>
+                </div>
+              </template>
+            </div>
+            <template x-if="$store.academicWriter.result._review.issues?.length">
+              <div class="aw-review-issues">
+                <b style="font-size:0.58rem">Issues</b>
+                <template x-for="iss in $store.academicWriter.result._review.issues"><div class="aw-issue" x-text="iss.category+': '+iss.issue"></div></template>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- Citation Check -->
+        <template x-if="$store.academicWriter.result._citeCheck">
+          <div class="aw-cite-check">
+            <span class="material-symbols-outlined" style="font-size:16px;color:#4caf50">verified</span>
+            <b x-text="$store.academicWriter.result._citeCheck.verified+'/'+$store.academicWriter.result._citeCheck.total+' citations verified'"></b>
+            <span style="font-size:0.55rem;color:var(--color-text-muted)" x-text="'Confidence: '+Math.round($store.academicWriter.result._citeCheck.confidence*100)+'%'"></span>
+          </div>
+        </template>
+
+        <!-- Journal Suggestions -->
+        <template x-if="$store.academicWriter.result._journals?.length">
+          <div class="aw-journal-list">
+            <h4>Suggested Journals</h4>
+            <template x-for="j in $store.academicWriter.result._journals.slice(0,5)">
+              <div class="aw-journal-item">
+                <b x-text="j.name || j.title || ''"></b>
+                <span class="aw-journal-meta">
+                  <small x-text="(j.quartile||j.if?'Q'+j.quartile+' · IF '+j.if:'')+(j.issn?' · '+j.issn:'')"></small>
+                  <small x-text="j.scope||j.match||''"></small>
+                </span>
+              </div>
+            </template>
+          </div>
+        </template>
       </div>
     </template>
 
@@ -629,6 +822,30 @@
       .aw-quick-chips { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; }
       .aw-chip { padding: 5px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.66rem; color: var(--color-text); cursor: pointer; }
       .aw-chip:hover { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 5%, var(--color-panel)); }
+
+      /* ── Review, Citation, Journal panels ── */
+      .aw-review-card { padding: 10px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-top: 8px; }
+      .aw-review-header { display: flex; align-items: center; gap: 6px; font-size: 0.64rem; font-weight: 600; color: var(--color-text); margin-bottom: 4px; }
+      .aw-review-score { margin-left: auto; font-size: 0.9rem; font-weight: 800; padding: 2px 8px; border-radius: 4px; }
+      .aw-review-score.good { color: #22c55e; background: rgba(34,197,94,.08); }
+      .aw-review-score.needs-work { color: #f59e0b; background: rgba(245,158,11,.08); }
+      .aw-review-level { font-size: 0.62rem; font-weight: 700; color: var(--color-primary); margin-bottom: 2px; }
+      .aw-review-verdict { font-size: 0.55rem; color: var(--color-text-muted); margin: 0 0 6px; }
+      .aw-review-checks { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+      .aw-review-bar { display: flex; align-items: center; gap: 6px; font-size: 0.5rem; color: var(--color-text-muted); }
+      .aw-review-bar small:first-child { width: 85px; text-align: right; flex-shrink: 0; text-transform: capitalize; }
+      .aw-bar-track { flex: 1; height: 5px; background: var(--color-border); border-radius: 3px; overflow: hidden; }
+      .aw-bar-fill { height: 100%; background: var(--color-primary); border-radius: 3px; min-width: 2px; }
+      .aw-review-issues { margin-top: 6px; }
+      .aw-issue { font-size: 0.5rem; color: #ef4444; padding: 2px 0; line-height: 1.3; }
+      .aw-cite-check { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: rgba(76,175,80,.06); border: 1px solid rgba(76,175,80,.15); border-radius: 6px; margin-top: 8px; font-size: 0.6rem; }
+      .aw-journal-list { padding: 8px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-top: 8px; }
+      .aw-journal-list h4 { font-size: 0.62rem; font-weight: 600; color: var(--color-text); margin: 0 0 4px; }
+      .aw-journal-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--color-border); font-size: 0.58rem; }
+      .aw-journal-item:last-child { border-bottom: none; }
+      .aw-journal-item b { color: var(--color-text); }
+      .aw-journal-meta { display: flex; gap: 8px; font-size: 0.48rem; }
+      .aw-journal-meta small { color: var(--color-text-muted); }
     </style>
   </div>
 </body>
