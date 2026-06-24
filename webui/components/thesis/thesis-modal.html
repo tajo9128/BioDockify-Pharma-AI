@@ -5,74 +5,37 @@
     import { callJsonApi } from "/js/api.js";
 
     export const store = createStore("academicWriter", {
-      // Tab state
-      activeTab: "literature",
-
-      // Shared
+      activeTab: "research_paper",
       topic: "",
       loading: false,
       result: null,
       error: "",
 
-      // TTS
-      playing: false,
-      synth: null,
-      utterance: null,
+      // ── WHAT ──
+      docType: "research_paper",
 
-      // Literature Writing
-      litScope: "comprehensive",
-      litYearStart: "2020",
-      litYearEnd: "2026",
-      litSections: ["introduction", "current-state", "key-findings", "gaps", "future"],
-
-      // Research / Review
-      resType: "review",
-      resFormat: "apa",
-      resWordCount: "5000",
-
-      // Thesis
-      thesisChapterId: "introduction",
-      thesisBranch: "general",
-      thesisDegree: "phd",
-
-      // Lecture
-      lectureDuration: "60",
-      lectureLevel: "undergraduate",
-
-      // Slides
-      slideStyle: "academic",
-      slideCount: 10,
-      slideCitations: true,
-      slideSources: [],
-      _restored: false,
-
-      persist() {
-        try { localStorage.setItem("biodockify.academic", JSON.stringify({ topic: this.topic, activeTab: this.activeTab })); } catch {}
-      },
-      restore() {
-        if (this._restored) return; this._restored = true;
-        try {
-          const s = JSON.parse(localStorage.getItem("biodockify.academic") || "{}");
-          if (s.topic) this.topic = s.topic;
-          if (s.activeTab) this.activeTab = s.activeTab;
-        } catch {}
-      },
-
-      get tabs() {
+      get docTypes() {
         return [
-          { id: "literature", label: "Lit Review", icon: "menu_book" },
-          { id: "lit-matrix", label: "Lit Matrix", icon: "table_chart" },
-          { id: "research", label: "Paper", icon: "description" },
-          { id: "prisma", label: "PRISMA", icon: "account_tree" },
-          { id: "gaps", label: "Gap Analysis", icon: "explore" },
-          { id: "thesis", label: "Thesis", icon: "school" },
-          { id: "grant", label: "Grant", icon: "payments" },
-          { id: "regulatory", label: "Regulatory", icon: "gavel" },
-          { id: "citations", label: "Citations", icon: "format_quote" },
-          { id: "lecture", label: "Lecture", icon: "cast" },
-          { id: "slides", label: "Slides", icon: "slideshow" },
+          { id: "phd_thesis", label: "PhD Thesis", icon: "school", desc: "40K-60K words · 7 chapters · Original contribution", group: "thesis" },
+          { id: "mpharm_thesis", label: "M.Pharm Thesis", icon: "menu_book", desc: "25K-35K words · 6 chapters · Experimental focus", group: "thesis" },
+          { id: "bpharm_thesis", label: "B.Pharm Thesis", icon: "book", desc: "10K-15K words · 5 chapters · Literature-based OK", group: "thesis" },
+          { id: "pharmd_thesis", label: "Pharm.D Thesis", icon: "local_hospital", desc: "20K-30K words · Clinical focus · Patient outcomes", group: "thesis" },
+          { id: "review_article", label: "Review Article", icon: "reviews", desc: "5K-8K words · Thematic · Critical analysis", group: "article" },
+          { id: "research_paper", label: "Research Paper", icon: "biotech", desc: "4K-6K words · IMRaD · Original research", group: "article" },
+          { id: "meta_analysis", label: "Meta-Analysis", icon: "analytics", desc: "PRISMA-based · Statistical synthesis", group: "article" },
+          { id: "lit_review", label: "Lit Review", icon: "library_books", desc: "Narrative/Systematic · Year range · Sections", group: "review" },
+          { id: "lit_matrix", label: "Lit Matrix", icon: "table_chart", desc: "Comparison table · Author/Year/Findings", group: "review" },
+          { id: "prisma", label: "PRISMA Chart", icon: "account_tree", desc: "Flow diagram · Screening stages", group: "review" },
+          { id: "gaps", label: "Gap Analysis", icon: "explore", desc: "Under-explored areas · Novelty scoring", group: "review" },
+          { id: "lecture", label: "Lecture", icon: "cast", desc: "30-120 min · Objectives · Homework", group: "teaching" },
+          { id: "slides", label: "Slides", icon: "slideshow", desc: "3-30 slides · Academic/Clinical style", group: "teaching" },
         ];
       },
+
+      // ── FOR WHOM ──
+      branch: "general",
+      degree: "phd",
+
       get branches() {
         return [
           { id: "general", label: "General Pharma" },
@@ -93,6 +56,18 @@
           { id: "pharm_d", label: "Pharm.D" },
         ];
       },
+      get isThesis() {
+        return ["phd_thesis","mpharm_thesis","bpharm_thesis","pharmd_thesis"].includes(this.docType);
+      },
+      get hasDegree() {
+        return this.isThesis || ["review_article","research_paper","meta_analysis"].includes(this.docType);
+      },
+
+      // ── Options ──
+      litScope: "comprehensive", litYearStart: "2020", litYearEnd: "2026",
+      litSections: ["introduction","current-state","key-findings","gaps","future"],
+      resType: "review", resFormat: "apa", resWordCount: "5000",
+      thesisChapterId: "introduction",
       get chapters() {
         return [
           { id: "introduction", label: "Introduction & Background" },
@@ -103,32 +78,39 @@
           { id: "conclusion", label: "Conclusion & Future Work" },
         ];
       },
+      lectureDuration: "60", lectureLevel: "undergraduate",
+      slideStyle: "academic", slideCount: 10, slideCitations: true, slideSources: [],
 
-      switchTab(tab) {
-        this.activeTab = tab;
-        this.result = null;
-        this.error = "";
+      playing: false, synth: null, utterance: null,
+      _restored: false,
+
+      restore() {
+        if (this._restored) return; this._restored = true;
+        try {
+          const s = JSON.parse(localStorage.getItem("biodockify.academic") || "{}");
+          if (s.docType) this.docType = s.docType;
+          if (s.branch) this.branch = s.branch;
+          if (s.degree) this.degree = s.degree;
+        } catch {}
+      },
+      selectDocType(id) {
+        this.docType = id; this.activeTab = id; this.result = null; this.error = "";
         this.stopSpeech();
-        this.persist();
+        try { localStorage.setItem("biodockify.academic", JSON.stringify({ docType: id, branch: this.branch, degree: this.degree })); } catch {}
       },
 
+      // ── Generate ──
       async generate() {
         if (!this.topic.trim()) { this.error = "Please enter a topic"; return; }
-        this.loading = true;
-        this.error = "";
-        this.result = null;
-        this.persist();
-
+        this.loading = true; this.error = ""; this.result = null;
         try {
-          switch (this.activeTab) {
-            case "thesis": await this._genThesis(); break;
-            case "lecture": await this._genLecture(); break;
-            case "slides": await this._genSlides(); break;
-            case "lit-matrix": await this._genLitMatrix(); break;
-            case "prisma": await this._genPrisma(); break;
-            case "gaps": await this._genGapAnalysis(); break;
-            case "literature": case "research": this._genViaAgent(); break;
-          }
+          if (this.isThesis) await this._genThesis();
+          else if (this.docType === "lecture") await this._genLecture();
+          else if (this.docType === "slides") await this._genSlides();
+          else if (this.docType === "lit_matrix") await this._genLitMatrix();
+          else if (this.docType === "prisma") await this._genPrisma();
+          else if (this.docType === "gaps") await this._genGapAnalysis();
+          else this._genViaAgent();
         } catch (e) { this.error = e.message; }
         this.loading = false;
       },
@@ -136,272 +118,175 @@
       async _genThesis() {
         try {
           const resp = await callJsonApi("thesis/generate-chapter", {
-            chapter_id: this.thesisChapterId,
-            topic: this.topic,
-            branch: this.thesisBranch,
-            degree: this.thesisDegree,
-            agent_mode: true,
+            chapter_id: this.thesisChapterId || "introduction",
+            topic: this.topic, branch: this.branch, degree: this.degree, agent_mode: true,
           });
           if (resp.error && !resp.chapter) { this.error = resp.error; return; }
-          this.result = {
-            type: "thesis",
-            title: resp.chapter?.title || this.topic,
-            content: resp.chapter?.content || resp.content || resp.text || JSON.stringify(resp, null, 2),
-            sections: resp.chapter?.sections || [],
-            citations: resp.citations || [],
-          };
+          this.result = { type: "thesis", title: resp.chapter?.title || this.topic,
+            content: resp.chapter?.content || resp.content || resp.text || JSON.stringify(resp,null,2),
+            sections: resp.chapter?.sections || [], citations: resp.citations || [] };
         } catch { this._genViaAgent(); }
       },
-
       async _genLecture() {
         try {
-          const resp = await callJsonApi("lecture_generate", {
-            topic: this.topic,
-            duration: this.lectureDuration,
-            level: this.lectureLevel,
-          });
+          const resp = await callJsonApi("lecture_generate", { topic: this.topic, duration: this.lectureDuration, level: this.lectureLevel });
           if (resp.error && !resp.lecture) { this.error = resp.error; return; }
           this.result = { type: "lecture", ...resp };
         } catch { this._genViaAgent(); }
       },
-
       async _genSlides() {
         try {
-          const payload = {
-            topic: this.topic,
-            style: this.slideStyle,
-            num_slides: this.slideCount,
-            include_citations: this.slideCitations,
-          };
-          if (this.slideSources.length) {
-            payload.slide_contents = this.slideSources.map(s => ({
-              title: s.title || s,
-              content: s.abstract || s.content || "",
-              type: "research",
-              notes: s.authors ? `Authors: ${s.authors}` : "",
-            }));
-          }
-          const endpoint = this.slideSources.length ? "slides/assemble-slides" : "slides/generate-from-kb";
-          const resp = await callJsonApi(endpoint, payload);
-          if (resp.error && !resp.slides && !resp.presentation) { this.error = resp.error; return; }
-          this.result = { type: "slides", topic: this.topic, slides: resp.slides || resp.presentation?.slides || [], ...resp };
+          const p = { topic: this.topic, style: this.slideStyle, num_slides: this.slideCount, include_citations: this.slideCitations };
+          const r = await callJsonApi("slides/generate-from-kb", p);
+          if (r.error && !r.slides && !r.presentation) { this.error = r.error; return; }
+          this.result = { type: "slides", topic: this.topic, slides: r.slides || r.presentation?.slides || [], ...r };
         } catch { this._genViaAgent(); }
       },
-
       async _genLitMatrix() {
         try {
           const r = await callJsonApi("writing", { action: "literature-matrix", topic: this.topic });
-          if (r.status === "ok" && r.matrix) {
-            this.result = { type: "lit-matrix", title: this.topic, content: r.matrix.markdown_table || "", _matrix: r.matrix };
-          } else { this._genViaAgent(); }
+          if (r.status==="ok" && r.matrix) this.result = { type: "lit-matrix", title: this.topic, content: r.matrix.markdown_table||"", _matrix: r.matrix };
+          else this._genViaAgent();
         } catch { this._genViaAgent(); }
       },
-
       async _genPrisma() {
         try {
           const r = await callJsonApi("writing", { action: "prisma-flowchart", topic: this.topic });
-          if (r.status === "ok" && r.prisma) {
-            this.result = { type: "prisma", title: this.topic, content: r.prisma.mermaid || "", _prisma: r.prisma };
-          } else { this._genViaAgent(); }
+          if (r.status==="ok" && r.prisma) this.result = { type: "prisma", title: this.topic, content: r.prisma.mermaid||"", _prisma: r.prisma };
+          else this._genViaAgent();
         } catch { this._genViaAgent(); }
       },
-
       async _genGapAnalysis() {
         try {
           const r = await callJsonApi("writing", { action: "gap-analysis", topic: this.topic });
-          if (r.status === "ok") {
+          if (r.status==="ok") {
             const gaps = r.gaps || [];
-            const text = gaps.length
-              ? gaps.map((g,i) => `${i+1}. ${g.description || g.title || 'Gap'}: ${g.novelty ? 'Novelty: '+(g.novelty*100).toFixed(0)+'%' : ''}`).join('\n')
-              : r.report?.recommendations?.join('\n') || "No gaps detected.";
-            this.result = { type: "gaps", title: this.topic, content: text, _gaps: gaps, _report: r.report };
-          } else { this._genViaAgent(); }
+            const txt = gaps.length ? gaps.map((g,i)=>`${i+1}. ${g.description||g.title||'Gap'}: ${g.novelty?'Novelty: '+(g.novelty*100).toFixed(0)+'%':''}`).join('\n') : (r.report?.recommendations?.join('\n')||"No gaps detected.");
+            this.result = { type: "gaps", title: this.topic, content: txt, _gaps: gaps, _report: r.report };
+          } else this._genViaAgent();
         } catch { this._genViaAgent(); }
       },
 
       _genViaAgent() {
-        const branch = this.branches.find(b => b.id === this.thesisBranch);
-        const branchLabel = branch ? branch.label : "General Pharma";
-        const degree = this.degrees.find(d => d.id === this.thesisDegree);
-        const degreeLabel = degree ? degree.label : "PhD";
+        const branchObj = this.branches.find(b => b.id === this.branch);
+        const branchLabel = branchObj ? branchObj.label : "General Pharma";
+        const degreeObj = this.degrees.find(d => d.id === this.degree);
+        const degreeLabel = degreeObj ? degreeObj.label : "PhD";
         const dept = `Department: ${branchLabel} | Level: ${degreeLabel}`;
+        const dt = this.docTypes.find(t => t.id === this.docType);
 
         const prompts = {
-          literature: `Write a comprehensive ${this.litScope} literature review on "${this.topic}". ${dept}. Cover publications from ${this.litYearStart}-${this.litYearEnd}. Include sections: ${this.litSections.join(', ')}. Format with headings, subheadings, and cite key references with author names and years.`,
-          research: `Write a ${this.resType} article on "${this.topic}". ${dept}. Target ~${this.resWordCount} words. Include: 1) Abstract, 2) Introduction & Background (with ${branchLabel} focus), 3) Current State of Knowledge, 4) Critical Analysis, 5) Future Perspectives, 6) References. Use ${this.resFormat} citation format. Make it ready for journal submission.`,
-          thesis: `Write the "${this.thesisChapterId === 'introduction' ? 'Introduction' : this.thesisChapterId === 'literature_review' ? 'Literature Review' : this.thesisChapterId === 'methodology' ? 'Research Methodology' : this.thesisChapterId === 'results' ? 'Results & Analysis' : this.thesisChapterId === 'discussion' ? 'Discussion' : 'Conclusion'}" chapter for a ${degreeLabel} thesis in ${branchLabel} on "${this.topic}". Include proper academic structure, subheadings, and citations. Follow ${branchLabel} department conventions for writing style and methodology reporting.`,
-          lecture: `Create a ${this.lectureDuration}-minute lecture for ${this.lectureLevel} students on "${this.topic}". ${dept}. Include: 1) Learning Objectives, 2) Lecture Sections with timestamps, 3) Key Concepts, 4) Summary, 5) 3 Homework Questions, 6) Lab/Practical if applicable.`,
-          slides: `Create a ${this.slideCount}-slide presentation on "${this.topic}" in ${this.slideStyle} style. ${dept}. For each slide provide: slide number, title, bullet points, and speaker notes.${this.slideSources.length ? `\n\nSource materials to include:\n${this.slideSources.map(s => `- ${s.title || s}`).join('\n')}` : ''}`,
-          "lit-matrix": `Create a structured literature comparison matrix on "${this.topic}". ${dept}. Format as a table with columns: Author, Year, Objective, Methods, Key Findings, Limitations. Include 8-12 key studies from ${branchLabel} research. After the table, write a brief synthesis paragraph.`,
-          prisma: `Create a PRISMA 2020-style systematic review workflow for "${this.topic}". ${dept}. Include: 1) Search strategy with databases and terms used, 2) Inclusion/exclusion criteria, 3) PRISMA flowchart data (Identification → Screening → Eligibility → Inclusion with approximate n values), 4) Brief summary of how many studies would be at each stage.`,
-          gaps: `Analyze research gaps in "${this.topic}" from a ${branchLabel} perspective. ${dept}. Based on current literature: 1) What is already well-studied in this department's field? 2) What is under-explored? 3) What are 3-5 novel research directions with high impact potential? 4) What methodological gaps exist? Format with clear headings and bullet points.`,
+          lit_review: `Write a comprehensive ${this.litScope} literature review on "${this.topic}". ${dept}. Cover publications ${this.litYearStart}-${this.litYearEnd}. Sections: ${this.litSections.join(', ')}. Format with headings and cite references with author names and years.`,
+          review_article: `Write a review article on "${this.topic}". ${dept}. Target ~5000 words. Include: Abstract, Introduction & Background (${branchLabel} focus), Thematic Review Sections, Critical Analysis & Gaps, Future Perspectives, References. Use ${this.resFormat} format.`,
+          research_paper: `Write a research paper on "${this.topic}". ${dept}. Target ~${this.resWordCount} words. IMRaD format: Abstract, Introduction, Methods, Results, Discussion, Conclusion, References. Use ${this.resFormat} citations.`,
+          meta_analysis: `Write a meta-analysis on "${this.topic}". ${dept}. PRISMA-based: Abstract, Introduction, Methods (search strategy, inclusion/exclusion), Results (forest plot), Discussion, Conclusion. Use ${this.resFormat} format.`,
+          thesis: `Write the "${this.thesisChapterId}" chapter for a ${degreeLabel} thesis in ${branchLabel} on "${this.topic}". Follow ${branchLabel} department conventions for methodology and citation style.`,
+          lecture: `Create a ${this.lectureDuration}-minute lecture for ${this.lectureLevel} students on "${this.topic}". ${dept}. Include Learning Objectives, Lecture Sections with timestamps, Key Concepts, Summary, 3 Homework Questions.`,
+          slides: `Create ${this.slideCount} slides on "${this.topic}" in ${this.slideStyle} style. ${dept}. Each slide: number, title, bullet points, speaker notes.`,
+          lit_matrix: `Create a literature comparison matrix on "${this.topic}". ${dept}. Columns: Author, Year, Objective, Methods, Key Findings, Limitations. 8-12 key studies from ${branchLabel} research.`,
+          prisma: `Create a PRISMA 2020 systematic review workflow for "${this.topic}". ${dept}. Include search strategy, inclusion/exclusion criteria, flowchart data for Identification→Screening→Eligibility→Inclusion.`,
+          gaps: `Analyze research gaps in "${this.topic}" from a ${branchLabel} perspective. ${dept}. What is well-studied? What is under-explored? 3-5 novel high-impact directions? Methodological gaps?`,
         };
-        const p = prompts[this.activeTab] || prompts.literature;
+        const p = prompts[this.docType] || prompts.research_paper;
         this.sendToAgent(p);
       },
 
       sendToAgent(prompt) {
         const input = document.getElementById("chat-input");
         if (input) {
-          input.value = prompt;
-          input.dispatchEvent(new Event("input", { bubbles: true }));
-          input.focus();
-          this.result = {
-            type: this.activeTab,
-            title: this.topic,
-            content: `Agent task sent to chat. The agent will compose your ${this.tabs.find(t => t.id === this.activeTab)?.label || 'document'} on "${this.topic}".`,
-          };
-        } else { this.error = "Chat input not found. Type your request in chat."; }
+          input.value = prompt; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus();
+          this.result = { type: this.docType, title: this.topic, content: `Agent task sent. Composing ${this.docTypes.find(t=>t.id===this.docType)?.label||'document'} on "${this.topic}" (${this.branches.find(b=>b.id===this.branch)?.label||'General'}).` };
+        } else { this.error = "Chat input not found."; }
       },
 
+      // ── TTS ──
       toggleSpeech() {
         if (this.playing) { this.stopSpeech(); return; }
-        const text = this.result?.content || "";
-        if (!text) return;
-
-        // Try Kokoro/Edge-TTS backend first
+        const text = this.result?.content || ""; if (!text) return;
         this._ttsViaBackend(text);
       },
-
       async _ttsViaBackend(text) {
         try {
-          const resp = await callJsonApi("kokoro_tts", { text: text.substring(0, 3000), voice: "en-us", speed: 1.0 });
+          const resp = await callJsonApi("kokoro_tts", { text: text.substring(0,3000), voice:"en-us", speed:1.0 });
           if (resp.audio) {
             this.playing = true;
-            const binary = atob(resp.audio);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-            const blob = new Blob([bytes], { type: resp.format === "mp3" ? "audio/mpeg" : "audio/wav" });
-            const url = URL.createObjectURL(blob);
-            const audio = new Audio(url);
-            audio.onended = () => { this.playing = false; URL.revokeObjectURL(url); };
-            audio.onerror = () => { this.playing = false; this._ttsBrowser(text); };
-            audio.play();
-            return;
+            const b = atob(resp.audio); const bytes = new Uint8Array(b.length);
+            for (let i=0;i<b.length;i++) bytes[i]=b.charCodeAt(i);
+            const blob = new Blob([bytes],{type:resp.format==="mp3"?"audio/mpeg":"audio/wav"});
+            const url = URL.createObjectURL(blob); const a = new Audio(url);
+            a.onended = () => { this.playing = false; URL.revokeObjectURL(url); };
+            a.onerror = () => { this.playing = false; this._ttsBrowser(text); };
+            a.play(); return;
           }
         } catch {}
-        // Fallback to browser TTS
         this._ttsBrowser(text);
       },
-
       _ttsBrowser(text) {
         if (!('speechSynthesis' in window)) return;
         this.synth = window.speechSynthesis;
-        this.utterance = new SpeechSynthesisUtterance(text.substring(0, 5000));
-        this.utterance.rate = 0.9;
-        this.utterance.pitch = 1;
+        this.utterance = new SpeechSynthesisUtterance(text.substring(0,5000));
+        this.utterance.rate=0.9; this.utterance.pitch=1;
         this.utterance.onend = () => { this.playing = false; };
         this.utterance.onerror = () => { this.playing = false; };
-        this.synth.speak(this.utterance);
-        this.playing = true;
+        this.synth.speak(this.utterance); this.playing = true;
       },
-      stopSpeech() {
-        if (this.synth) { this.synth.cancel(); this.playing = false; }
-      },
+      stopSpeech() { if (this.synth) { this.synth.cancel(); this.playing = false; } },
+
+      // ── Results actions ──
       downloadText() {
         if (!this.result?.content) return;
-        const blob = new Blob([this.result.content], { type: "text/plain" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${this.topic.replace(/\s+/g,'_').substring(0,50)}.txt`;
-        a.click();
-        URL.revokeObjectURL(url);
+        const b = new Blob([this.result.content],{type:"text/plain"});
+        const u = URL.createObjectURL(b); const a = document.createElement("a");
+        a.href=u; a.download=`${(this.topic||"doc").replace(/\s+/g,'_').substring(0,40)}.txt`; a.click(); URL.revokeObjectURL(u);
       },
-      clear() {
-        this.topic = "";
-        this.result = null;
-        this.error = "";
-        this.stopSpeech();
-      },
+      clear() { this.topic=""; this.result=null; this.error=""; this.stopSpeech(); },
       refineWithAgent() {
-        const text = this.result?.content?.substring(0, 1000) || "";
-        const p = `Please refine and improve this text. Add more key references, fix any inaccuracies, and polish the academic language:\n\n${text}...`;
-        this.sendToAgent(p);
+        const t = this.result?.content?.substring(0,1000)||"";
+        this.sendToAgent(`Please refine and improve this text. Add key references, fix inaccuracies, polish academic language:\n\n${t}...`);
       },
-
-      // ── Phase 1 New Features ──
 
       async downloadLatex() {
-        const content = this.result?.content || "";
-        if (!content && !this.topic) return;
-        try {
-          this.loading = true;
-          const sections = [{ heading: this.topic || "Manuscript", content: content.substring(0, 8000) }];
-          const r = await callJsonApi("writing", { action: "export-latex", title: this.topic, sections: sections });
-          if (r.status === "ok" && r.latex) {
-            const blob = new Blob([r.latex], { type: "text/plain" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `${(this.topic||"manuscript").replace(/\s+/g,'_').substring(0,40)}.tex`;
-            a.click();
-            URL.revokeObjectURL(url);
+        const c = this.result?.content||""; if (!c&&!this.topic) return;
+        try { this.loading=true;
+          const r = await callJsonApi("writing",{action:"export-latex",title:this.topic,sections:[{heading:this.topic,content:c.substring(0,8000)}]});
+          if (r.status==="ok"&&r.latex) {
+            const b=new Blob([r.latex],{type:"text/plain"}); const u=URL.createObjectURL(b);
+            const a=document.createElement("a"); a.href=u; a.download=`${(this.topic||"manuscript").replace(/\s+/g,'_').substring(0,40)}.tex`; a.click(); URL.revokeObjectURL(u);
           }
-        } catch (e) { this.error = "LaTeX export: " + (e.message || "failed"); }
-        this.loading = false;
+        } catch(e) { this.error="LaTeX: "+(e.message||"failed"); } this.loading=false;
       },
-
       async downloadDocx() {
-        const content = this.result?.content || "";
-        if (!content) return;
-        try {
-          this.loading = true;
-          const r = await callJsonApi("writing", { action: "export-docx", title: this.topic || "Manuscript", content: content.substring(0, 8000) });
-          if (r.status === "ok" && r.docx_base64) {
-            const bytes = Uint8Array.from(atob(r.docx_base64), c => c.charCodeAt(0));
-            const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `${(this.topic||"manuscript").replace(/\s+/g,'_').substring(0,40)}.docx`;
-            a.click();
-            URL.revokeObjectURL(url);
-          } else {
-            this.result._review = { score: 0, level: "Not Available", verdict: "DOCX export requires python-docx. Install: pip install python-docx" };
+        const c=this.result?.content||""; if(!c) return;
+        try { this.loading=true;
+          const r=await callJsonApi("writing",{action:"export-docx",title:this.topic||"Manuscript",content:c.substring(0,8000)});
+          if(r.status==="ok"&&r.docx_base64){
+            const bytes=Uint8Array.from(atob(r.docx_base64),c=>c.charCodeAt(0));
+            const b=new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+            const u=URL.createObjectURL(b); const a=document.createElement("a");
+            a.href=u; a.download=`${(this.topic||"manuscript").replace(/\s+/g,'_').substring(0,40)}.docx`; a.click(); URL.revokeObjectURL(u);
           }
-        } catch (e) { this.error = "DOCX export: " + (e.message || "failed"); }
-        this.loading = false;
+        } catch(e) { this.error="DOCX: "+(e.message||"failed"); } this.loading=false;
       },
-
       async verifyCitations() {
-        const content = this.result?.content || "";
-        if (!content) return;
-        try {
-          this.loading = true;
-          const r = await callJsonApi("writing", { action: "verify-citations", text: content.substring(0, 5000) });
-          if (r.status === "ok") {
-            this.result._citeCheck = { confidence: r.confidence, verified: r.verified, total: r.total, results: r.results || [] };
-          }
-        } catch (e) { this.error = "Citation check: " + (e.message || "failed"); }
-        this.loading = false;
+        const c=this.result?.content||""; if(!c) return;
+        try { this.loading=true;
+          const r=await callJsonApi("writing",{action:"verify-citations",text:c.substring(0,5000)});
+          if(r.status==="ok") this.result._citeCheck={ confidence:r.confidence, verified:r.verified, total:r.total, results:r.results||[] };
+        } catch(e) { this.error="Verify: "+(e.message||"failed"); } this.loading=false;
       },
-
       async suggestJournals() {
-        const content = this.result?.content || "";
-        if (!content && !this.topic) return;
-        try {
-          this.loading = true;
-          const abstract = content.substring(0, 1000);
-          const r = await callJsonApi("writing", { action: "suggest-journals", title: this.topic, abstract: abstract });
-          if (r.status === "ok") {
-            this.result._journals = r.journals || [];
-          }
-        } catch (e) { this.error = "Journal search: " + (e.message || "failed"); }
-        this.loading = false;
+        const c=this.result?.content||""; if(!c&&!this.topic) return;
+        try { this.loading=true;
+          const r=await callJsonApi("writing",{action:"suggest-journals",title:this.topic,abstract:c.substring(0,1000)});
+          if(r.status==="ok") this.result._journals=r.journals||[];
+        } catch(e) { this.error="Journals: "+(e.message||"failed"); } this.loading=false;
       },
-
       async facultyReview() {
-        const content = this.result?.content || "";
-        if (!content) return;
-        try {
-          this.loading = true;
-          const r = await callJsonApi("writing", { action: "faculty-review", title: this.topic, content: content.substring(0, 10000) });
-          if (r.status === "ok") {
-            this.result._review = r.review;
-          }
-        } catch (e) { this.error = "Review: " + (e.message || "failed"); }
-        this.loading = false;
+        const c=this.result?.content||""; if(!c) return;
+        try { this.loading=true;
+          const r=await callJsonApi("writing",{action:"faculty-review",title:this.topic,content:c.substring(0,10000)});
+          if(r.status==="ok") this.result._review=r.review;
+        } catch(e) { this.error="Review: "+(e.message||"failed"); } this.loading=false;
       },
     });
   </script>
@@ -413,24 +298,90 @@
       <span class="material-symbols-outlined aw-icon">description</span>
       <div>
         <h2>Academic Writer</h2>
-        <p class="aw-subtitle">Literature reviews · Research papers · Thesis · Lectures · Slides</p>
+        <p class="aw-subtitle">Write PhD thesis, M.Pharm thesis, research papers, review articles — for any pharmacy department</p>
       </div>
     </div>
 
-    <!-- Tabs -->
-    <div class="aw-tabs">
-      <template x-for="tab in $store.academicWriter.tabs" :key="tab.id">
-        <button class="aw-tab" :class="{ active: $store.academicWriter.activeTab === tab.id }" @click="$store.academicWriter.switchTab(tab.id)">
-          <span class="material-symbols-outlined" x-text="tab.icon"></span>
-          <span x-text="tab.label"></span>
-        </button>
+    <!-- ═══ STEP 1: WHAT to write ═══ -->
+    <div class="aw-section-label"><span class="material-symbols-outlined">edit_note</span> What do you want to write?</div>
+    <div class="aw-doc-grid">
+      <template x-for="dt in $store.academicWriter.docTypes" :key="dt.id">
+        <div class="aw-doc-card" :class="{selected: $store.academicWriter.docType === dt.id}"
+             @click="$store.academicWriter.selectDocType(dt.id)">
+          <span class="material-symbols-outlined aw-doc-icon" x-text="dt.icon"></span>
+          <div class="aw-doc-info">
+            <b x-text="dt.label"></b>
+            <small x-text="dt.desc"></small>
+          </div>
+        </div>
       </template>
     </div>
 
-    <!-- Topic input (shared) -->
+    <!-- ═══ STEP 2: For WHOM ═══ -->
+    <div class="aw-section-label"><span class="material-symbols-outlined">group</span> Who is this for?</div>
+    <div class="aw-for-row">
+      <div class="aw-for-group">
+        <label class="aw-for-label">Department</label>
+        <select x-model="$store.academicWriter.branch" class="aw-for-select">
+          <template x-for="b in $store.academicWriter.branches" :key="b.id">
+            <option :value="b.id" x-text="b.label"></option>
+          </template>
+        </select>
+      </div>
+      <div class="aw-for-group" x-show="$store.academicWriter.hasDegree">
+        <label class="aw-for-label">Degree / Level</label>
+        <select x-model="$store.academicWriter.degree" class="aw-for-select">
+          <template x-for="d in $store.academicWriter.degrees" :key="d.id">
+            <option :value="d.id" x-text="d.label"></option>
+          </template>
+        </select>
+      </div>
+    </div>
+
+    <!-- ═══ Options: Thesis chapter ═══ -->
+    <div x-show="$store.academicWriter.isThesis" class="aw-for-row">
+      <div class="aw-for-group">
+        <label class="aw-for-label">Chapter</label>
+        <select x-model="$store.academicWriter.thesisChapterId" class="aw-for-select">
+          <template x-for="ch in $store.academicWriter.chapters" :key="ch.id">
+            <option :value="ch.id" x-text="ch.label"></option>
+          </template>
+        </select>
+      </div>
+    </div>
+
+    <!-- ═══ Options: Research/Review ═══ -->
+    <div x-show="$store.academicWriter.docType==='review_article'||$store.academicWriter.docType==='research_paper'||$store.academicWriter.docType==='meta_analysis'" class="aw-for-row">
+      <div class="aw-for-group">
+        <label class="aw-for-label">Format</label>
+        <select x-model="$store.academicWriter.resFormat" class="aw-for-select">
+          <option value="apa">APA 7th</option>
+          <option value="vancouver">Vancouver</option>
+          <option value="harvard">Harvard</option>
+        </select>
+      </div>
+      <div class="aw-for-group">
+        <label class="aw-for-label">Length</label>
+        <select x-model="$store.academicWriter.resWordCount" class="aw-for-select">
+          <option value="3000">~3,000 words</option>
+          <option value="5000">~5,000 words</option>
+          <option value="8000">~8,000 words</option>
+          <option value="12000">~12,000 words</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ═══ Options: Lit Review ═══ -->
+    <div x-show="$store.academicWriter.docType==='lit_review'" class="aw-for-row">
+      <div class="aw-for-group"><label class="aw-for-label">Scope</label><select x-model="$store.academicWriter.litScope" class="aw-for-select"><option value="comprehensive">Comprehensive</option><option value="systematic">Systematic</option><option value="narrative">Narrative</option></select></div>
+      <div class="aw-for-group"><label class="aw-for-label">Year</label><div style="display:flex;gap:4px;align-items:center"><input type="number" x-model="$store.academicWriter.litYearStart" class="aw-year-inp"> <span style="font-size:0.6rem;color:var(--color-text-muted)">-</span> <input type="number" x-model="$store.academicWriter.litYearEnd" class="aw-year-inp"></div></div>
+    </div>
+
+    <!-- ═══ STEP 3: Topic + Generate ═══ -->
+    <div class="aw-section-label"><span class="material-symbols-outlined">title</span> What is the topic?</div>
     <div class="aw-input-row">
       <input type="text" x-model="$store.academicWriter.topic"
-        :placeholder="$store.academicWriter.activeTab === 'literature' ? 'Literature review topic (e.g. mRNA vaccine delivery systems)...' : $store.academicWriter.activeTab === 'lit-matrix' ? 'Topic for literature comparison matrix (e.g. curcumin nanoformulations)...' : $store.academicWriter.activeTab === 'prisma' ? 'Systematic review topic (e.g. metformin in cancer therapy)...' : $store.academicWriter.activeTab === 'gaps' ? 'Research area for gap analysis (e.g. AI in drug repurposing)...' : $store.academicWriter.activeTab === 'research' ? 'Research/review article topic...' : $store.academicWriter.activeTab === 'thesis' ? 'Thesis topic...' : $store.academicWriter.activeTab === 'lecture' ? 'Lecture topic...' : 'Presentation topic...'"
+        :placeholder="$store.academicWriter.docTypes.find(d=>d.id===$store.academicWriter.docType)?.label + ' topic (e.g. curcumin nanoformulations for brain delivery)...'"
         class="aw-topic-input" @keyup.enter="$store.academicWriter.generate()" />
       <button class="aw-gen-btn" @click="$store.academicWriter.generate()" :disabled="$store.academicWriter.loading || !$store.academicWriter.topic">
         <span class="material-symbols-outlined">auto_awesome</span>
@@ -438,431 +389,125 @@
       </button>
     </div>
 
-    <!-- Tab-specific options -->
-    <!-- Literature options -->
-    <div x-show="$store.academicWriter.activeTab === 'literature'" class="aw-options">
-      <div class="opt-group">
-        <label class="opt-label">Scope</label>
-        <select x-model="$store.academicWriter.litScope" class="opt-select">
-          <option value="comprehensive">Comprehensive</option>
-          <option value="systematic">Systematic</option>
-          <option value="narrative">Narrative</option>
-          <option value="scoping">Scoping</option>
-        </select>
-      </div>
-      <div class="opt-group">
-        <label class="opt-label">Year Range</label>
-        <div class="opt-row">
-          <input type="number" x-model="$store.academicWriter.litYearStart" class="opt-input-sm" />
-          <span class="opt-sep">—</span>
-          <input type="number" x-model="$store.academicWriter.litYearEnd" class="opt-input-sm" />
-        </div>
-      </div>
-      <div class="opt-group">
-        <label class="opt-label">Sections</label>
-        <div class="opt-chips">
-          <label class="chip-check" :class="{on: $store.academicWriter.litSections.includes('introduction')}"><input type="checkbox" value="introduction" x-model="$store.academicWriter.litSections" style="display:none"><span>Intro</span></label>
-          <label class="chip-check" :class="{on: $store.academicWriter.litSections.includes('current-state')}"><input type="checkbox" value="current-state" x-model="$store.academicWriter.litSections" style="display:none"><span>Current State</span></label>
-          <label class="chip-check" :class="{on: $store.academicWriter.litSections.includes('key-findings')}"><input type="checkbox" value="key-findings" x-model="$store.academicWriter.litSections" style="display:none"><span>Key Findings</span></label>
-          <label class="chip-check" :class="{on: $store.academicWriter.litSections.includes('gaps')}"><input type="checkbox" value="gaps" x-model="$store.academicWriter.litSections" style="display:none"><span>Gaps</span></label>
-          <label class="chip-check" :class="{on: $store.academicWriter.litSections.includes('future')}"><input type="checkbox" value="future" x-model="$store.academicWriter.litSections" style="display:none"><span>Future</span></label>
-        </div>
-      </div>
-    </div>
-
-    <!-- Research options -->
-    <div x-show="$store.academicWriter.activeTab === 'research'" class="aw-options">
-      <div class="opt-group">
-        <label class="opt-label">Type</label>
-        <select x-model="$store.academicWriter.resType" class="opt-select">
-          <option value="review">Review Article</option>
-          <option value="research">Research Paper</option>
-          <option value="perspective">Perspective</option>
-          <option value="case-study">Case Study</option>
-          <option value="meta-analysis">Meta-Analysis</option>
-        </select>
-      </div>
-      <div class="opt-group">
-        <label class="opt-label">Citation Format</label>
-        <select x-model="$store.academicWriter.resFormat" class="opt-select">
-          <option value="apa">APA 7th</option>
-          <option value="vancouver">Vancouver</option>
-          <option value="harvard">Harvard</option>
-        </select>
-      </div>
-      <div class="opt-group">
-        <label class="opt-label">Target Length</label>
-        <select x-model="$store.academicWriter.resWordCount" class="opt-select">
-          <option value="3000">~3000 words</option>
-          <option value="5000">~5000 words</option>
-          <option value="8000">~8000 words</option>
-          <option value="12000">~12000 words</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Thesis options -->
-    <div x-show="$store.academicWriter.activeTab === 'thesis'" class="aw-options">
-      <div class="opt-group">
-        <label class="opt-label">Chapter</label>
-        <select x-model="$store.academicWriter.thesisChapterId" class="opt-select">
-          <template x-for="ch in $store.academicWriter.chapters" :key="ch.id">
-            <option :value="ch.id" x-text="ch.label"></option>
-          </template>
-        </select>
-      </div>
-      <div class="opt-group">
-        <label class="opt-label">Branch</label>
-        <select x-model="$store.academicWriter.thesisBranch" class="opt-select">
-          <template x-for="b in $store.academicWriter.branches" :key="b.id">
-            <option :value="b.id" x-text="b.label"></option>
-          </template>
-        </select>
-      </div>
-      <div class="opt-group">
-        <label class="opt-label">Degree</label>
-        <select x-model="$store.academicWriter.thesisDegree" class="opt-select">
-          <option value="phd">PhD</option>
-          <option value="pharm_d">Pharm.D</option>
-          <option value="msc">MSc</option>
-          <option value="bsc">BSc</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Lecture options -->
-    <div x-show="$store.academicWriter.activeTab === 'lecture'" class="aw-options">
-      <div class="opt-group">
-        <label class="opt-label">Duration</label>
-        <select x-model="$store.academicWriter.lectureDuration" class="opt-select">
-          <option value="30">30 min</option>
-          <option value="60">60 min</option>
-          <option value="90">90 min</option>
-          <option value="120">120 min</option>
-        </select>
-      </div>
-      <div class="opt-group">
-        <label class="opt-label">Level</label>
-        <select x-model="$store.academicWriter.lectureLevel" class="opt-select">
-          <option value="undergraduate">Undergraduate</option>
-          <option value="graduate">Graduate</option>
-          <option value="pharmd">Pharm.D</option>
-          <option value="phd">PhD / PG</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Slides options -->
-    <div x-show="$store.academicWriter.activeTab === 'slides'" class="aw-options">
-      <div class="opt-group">
-        <label class="opt-label">Style</label>
-        <select x-model="$store.academicWriter.slideStyle" class="opt-select">
-          <option value="academic">Academic</option>
-          <option value="clinical">Clinical</option>
-          <option value="corporate">Corporate</option>
-          <option value="minimal">Minimal</option>
-        </select>
-      </div>
-      <div class="opt-group">
-        <label class="opt-label">Slides</label>
-        <input type="number" x-model="$store.academicWriter.slideCount" min="3" max="30" class="opt-input-sm" />
-      </div>
-      <div class="opt-group check-group">
-        <label class="opt-check-label">
-          <input type="checkbox" x-model="$store.academicWriter.slideCitations" />
-          <span>Include citations</span>
-        </label>
-      </div>
-    </div>
-
-    <!-- Grant Writer -->
-    <div x-show="$store.academicWriter.activeTab === 'grant'" style="flex:1;overflow-y:auto;min-height:0">
-      <x-component path="grant-writer/grant-writer.html"></x-component>
-    </div>
-
-    <!-- Regulatory -->
-    <div x-show="$store.academicWriter.activeTab === 'regulatory'" style="flex:1;overflow-y:auto;min-height:0">
-      <x-component path="regulatory/regulatory.html"></x-component>
-    </div>
-
-    <!-- Citation Manager -->
-    <div x-show="$store.academicWriter.activeTab === 'citations'" style="flex:1;overflow-y:auto;min-height:0">
-      <x-component path="citation-manager/citation-manager.html"></x-component>
-    </div>
-
-    <!-- Status -->
+    <!-- ═══ Status ═══ -->
     <div x-show="$store.academicWriter.error" class="aw-error" x-text="$store.academicWriter.error"></div>
     <div x-show="$store.academicWriter.loading" class="aw-loading">
       <div class="loading-spinner"></div>
-      <span x-text="'Generating ' + ($store.academicWriter.tabs.find(t=>t.id===$store.academicWriter.activeTab)?.label || 'content') + '...'"></span>
+      <span x-text="'Generating ' + ($store.academicWriter.docTypes.find(t=>t.id===$store.academicWriter.docType)?.label || 'content') + ' for ' + ($store.academicWriter.branches.find(b=>b.id===$store.academicWriter.branch)?.label || 'General') + '...'"></span>
     </div>
 
-    <!-- Results -->
+    <!-- ═══ RESULTS ═══ -->
     <template x-if="$store.academicWriter.result">
       <div class="aw-results">
         <div class="aw-results-toolbar">
           <h3 x-text="$store.academicWriter.result.title || $store.academicWriter.topic" class="aw-result-title"></h3>
           <div class="aw-result-actions">
-            <button class="aw-act-btn" :class="{playing: $store.academicWriter.playing}" @click="$store.academicWriter.toggleSpeech()">
-              <span class="material-symbols-outlined" x-text="$store.academicWriter.playing ? 'stop' : 'volume_up'"></span>
-              Read
-            </button>
-            <button class="aw-act-btn" @click="$store.academicWriter.downloadText()">
-              <span class="material-symbols-outlined">download</span>
-              TXT
-            </button>
-            <button class="aw-act-btn" @click="$store.academicWriter.downloadLatex()">
-              <span class="material-symbols-outlined">description</span>
-              LaTeX
-            </button>
-            <button class="aw-act-btn" @click="$store.academicWriter.downloadDocx()">
-              <span class="material-symbols-outlined">article</span>
-              DOCX
-            </button>
-            <button class="aw-act-btn" @click="$store.academicWriter.verifyCitations()">
-              <span class="material-symbols-outlined">verified</span>
-              Verify
-            </button>
-            <button class="aw-act-btn" @click="$store.academicWriter.suggestJournals()">
-              <span class="material-symbols-outlined">library_books</span>
-              Journals
-            </button>
-            <button class="aw-act-btn" @click="$store.academicWriter.facultyReview()">
-              <span class="material-symbols-outlined">rate_review</span>
-              Review
-            </button>
-            <button class="aw-act-btn" @click="$store.academicWriter.refineWithAgent()">
-              <span class="material-symbols-outlined">psychology</span>
-              Refine
-            </button>
-            <button class="aw-act-btn" @click="$store.academicWriter.clear()">
-              <span class="material-symbols-outlined">refresh</span>
-              New
-            </button>
+            <button class="aw-act-btn" @click="$store.academicWriter.toggleSpeech()"><span class="material-symbols-outlined" x-text="$store.academicWriter.playing?'stop':'volume_up'"></span> Read</button>
+            <button class="aw-act-btn" @click="$store.academicWriter.downloadText()"><span class="material-symbols-outlined">download</span> TXT</button>
+            <button class="aw-act-btn" @click="$store.academicWriter.downloadLatex()"><span class="material-symbols-outlined">description</span> LaTeX</button>
+            <button class="aw-act-btn" @click="$store.academicWriter.downloadDocx()"><span class="material-symbols-outlined">article</span> DOCX</button>
+            <button class="aw-act-btn" @click="$store.academicWriter.verifyCitations()"><span class="material-symbols-outlined">verified</span> Verify</button>
+            <button class="aw-act-btn" @click="$store.academicWriter.suggestJournals()"><span class="material-symbols-outlined">library_books</span> Journals</button>
+            <button class="aw-act-btn" @click="$store.academicWriter.facultyReview()"><span class="material-symbols-outlined">rate_review</span> Review</button>
+            <button class="aw-act-btn" @click="$store.academicWriter.refineWithAgent()"><span class="material-symbols-outlined">psychology</span> Refine</button>
+            <button class="aw-act-btn" @click="$store.academicWriter.clear()"><span class="material-symbols-outlined">refresh</span> New</button>
           </div>
         </div>
+        <div class="aw-content-area" style="flex:1"><div class="aw-content-text" x-text="$store.academicWriter.result.content"></div></div>
 
-        <!-- Lecture-specific: learning objectives, sections, homework -->
-        <template x-if="$store.academicWriter.result.type === 'lecture'">
-          <div>
-            <div x-show="$store.academicWriter.result.lecture?.learning_objectives?.length" class="aw-section">
-              <h4>Learning Objectives</h4>
-              <ul><template x-for="obj in $store.academicWriter.result.lecture.learning_objectives"><li x-text="obj"></li></template></ul>
-            </div>
-            <div x-show="$store.academicWriter.result.lecture?.sections" class="aw-sections">
-              <template x-for="sec in $store.academicWriter.result.lecture.sections">
-                <div class="aw-section"><h4 x-text="sec.title"></h4><p x-text="sec.content || ''"></p></div>
-              </template>
-            </div>
-            <div x-show="$store.academicWriter.result.lecture?.summary" class="aw-section summary">
-              <h4>Summary</h4><p x-text="$store.academicWriter.result.lecture.summary"></p>
-            </div>
-            <div x-show="$store.academicWriter.result.homework?.length" class="aw-section">
-              <h4>Homework</h4>
-              <ul><template x-for="hw in $store.academicWriter.result.homework"><li x-text="hw"></li></template></ul>
-            </div>
-          </div>
-        </template>
-
-        <!-- Slides-specific -->
-        <template x-if="$store.academicWriter.result.type === 'slides' && $store.academicWriter.result.slides?.length">
-          <div class="aw-slides">
-            <template x-for="(slide, i) in $store.academicWriter.result.slides">
-              <div class="aw-slide-card">
-                <span class="aw-slide-num" x-text="'#' + (i + 1)"></span>
-                <div class="aw-slide-body">
-                  <div class="aw-slide-title" x-text="slide.title || slide.heading || ''"></div>
-                  <div class="aw-slide-text" x-text="slide.content || slide.body || ''"></div>
-                </div>
-              </div>
-            </template>
-          </div>
-        </template>
-
-        <!-- Citations -->
-        <div x-show="$store.academicWriter.result.citations?.length" class="aw-citations">
-          <h4>References (<span x-text="$store.academicWriter.result.citations.length"></span>)</h4>
-          <template x-for="cite in $store.academicWriter.result.citations">
-            <div class="aw-cite" x-text="typeof cite === 'string' ? cite : (cite.title || cite.text || '')"></div>
-          </template>
-        </div>
-
-        <!-- Default: raw content -->
-        <div x-show="!$store.academicWriter.result.type || $store.academicWriter.result.type === 'literature' || $store.academicWriter.result.type === 'research' || $store.academicWriter.result.type === 'thesis'" class="aw-content-area">
-          <div class="aw-content-text" x-text="$store.academicWriter.result.content"></div>
-        </div>
-
-        <!-- Faculty Review Score -->
+        <!-- Faculty Review -->
         <template x-if="$store.academicWriter.result._review?.score !== undefined">
-          <div class="aw-review-card">
-            <div class="aw-review-header">
-              <span class="material-symbols-outlined" style="font-size:20px">rate_review</span>
-              <span>Publication Readiness</span>
-              <span class="aw-review-score" :class="$store.academicWriter.result._review.score >= 65 ? 'good' : 'needs-work'" x-text="$store.academicWriter.result._review.score + '/100'"></span>
-            </div>
-            <div class="aw-review-level" x-text="$store.academicWriter.result._review.level"></div>
-            <p class="aw-review-verdict" x-text="$store.academicWriter.result._review.verdict"></p>
-            <div x-show="$store.academicWriter.result._review.checks" class="aw-review-checks">
-              <template x-for="(v,k) in $store.academicWriter.result._review.checks">
-                <div class="aw-review-bar">
-                  <small x-text="k.replace(/_/g,' ')"></small>
-                  <div class="aw-bar-track"><div class="aw-bar-fill" :style="'width:'+(v.score/v.max*100)+'%'"></div></div>
-                  <small x-text="v.score+'/'+v.max"></small>
-                </div>
-              </template>
-            </div>
-            <template x-if="$store.academicWriter.result._review.issues?.length">
-              <div class="aw-review-issues">
-                <b style="font-size:0.58rem">Issues</b>
-                <template x-for="iss in $store.academicWriter.result._review.issues"><div class="aw-issue" x-text="iss.category+': '+iss.issue"></div></template>
-              </div>
-            </template>
-          </div>
+          <div class="aw-review-card"><div class="aw-review-header"><span class="material-symbols-outlined" style="font-size:20px">rate_review</span><span>Publication Readiness</span><span class="aw-review-score" :class="$store.academicWriter.result._review.score>=65?'good':'needs-work'" x-text="$store.academicWriter.result._review.score+'/100'"></span></div><div class="aw-review-level" x-text="$store.academicWriter.result._review.level"></div><p class="aw-review-verdict" x-text="$store.academicWriter.result._review.verdict"></p></div>
         </template>
-
         <!-- Citation Check -->
         <template x-if="$store.academicWriter.result._citeCheck">
-          <div class="aw-cite-check">
-            <span class="material-symbols-outlined" style="font-size:16px;color:#4caf50">verified</span>
-            <b x-text="$store.academicWriter.result._citeCheck.verified+'/'+$store.academicWriter.result._citeCheck.total+' citations verified'"></b>
-            <span style="font-size:0.55rem;color:var(--color-text-muted)" x-text="'Confidence: '+Math.round($store.academicWriter.result._citeCheck.confidence*100)+'%'"></span>
-          </div>
+          <div class="aw-cite-check"><span class="material-symbols-outlined" style="font-size:16px;color:#4caf50">verified</span><b x-text="$store.academicWriter.result._citeCheck.verified+'/'+$store.academicWriter.result._citeCheck.total+' verified'"></b><span style="font-size:0.55rem;color:var(--color-text-muted)" x-text="'Confidence: '+Math.round($store.academicWriter.result._citeCheck.confidence*100)+'%'"></span></div>
         </template>
-
-        <!-- Journal Suggestions -->
+        <!-- Journals -->
         <template x-if="$store.academicWriter.result._journals?.length">
-          <div class="aw-journal-list">
-            <h4>Suggested Journals</h4>
-            <template x-for="j in $store.academicWriter.result._journals.slice(0,5)">
-              <div class="aw-journal-item">
-                <b x-text="j.name || j.title || ''"></b>
-                <span class="aw-journal-meta">
-                  <small x-text="(j.quartile||j.if?'Q'+j.quartile+' · IF '+j.if:'')+(j.issn?' · '+j.issn:'')"></small>
-                  <small x-text="j.scope||j.match||''"></small>
-                </span>
-              </div>
-            </template>
-          </div>
+          <div class="aw-journal-list"><h4>Suggested Journals</h4><template x-for="j in $store.academicWriter.result._journals.slice(0,5)"><div class="aw-journal-item"><b x-text="j.name||j.title||''"></b><span class="aw-journal-meta"><small x-text="(j.quartile||j.if?'Q'+j.quartile+' · IF '+j.if:'')+(j.issn?' · '+j.issn:'')"></small></span></div></template></div>
         </template>
       </div>
     </template>
 
-    <!-- Empty state -->
-    <div x-show="!$store.academicWriter.result && !$store.academicWriter.loading" class="aw-empty">
-      <span class="material-symbols-outlined aw-empty-icon">auto_awesome</span>
-      <p>Enter a topic and generate</p>
-      <div class="aw-quick-chips">
-        <button class="aw-chip" @click="$store.academicWriter.topic='AI-driven drug discovery: current approaches and future directions'; $store.academicWriter.activeTab='literature'; $store.academicWriter.generate()">Lit: AI drug discovery</button>
-        <button class="aw-chip" @click="$store.academicWriter.topic='Pharmacokinetics of novel tyrosine kinase inhibitors'; $store.academicWriter.activeTab='research'; $store.academicWriter.generate()">Paper: PK of TKIs</button>
-        <button class="aw-chip" @click="$store.academicWriter.topic='Computational approaches in pharmaceutical R&D'; $store.academicWriter.activeTab='thesis'; $store.academicWriter.thesisChapterId='introduction'; $store.academicWriter.generate()">Thesis: Computational pharma</button>
-        <button class="aw-chip" @click="$store.academicWriter.topic='Drug-receptor interactions and signal transduction pathways'; $store.academicWriter.activeTab='lecture'; $store.academicWriter.generate()">Lecture: Drug receptors</button>
-        <button class="aw-chip" @click="$store.academicWriter.topic='Advances in CRISPR-based gene therapy'; $store.academicWriter.activeTab='slides'; $store.academicWriter.slideStyle='academic'; $store.academicWriter.generate()">Slides: CRISPR</button>
-      </div>
+    <!-- Empty -->
+    <div x-show="!$store.academicWriter.result && !$store.academicWriter.loading" class="aw-empty-guide">
+      <span class="material-symbols-outlined" style="font-size:34px;color:var(--color-border)">edit_note</span>
+      <p style="color:var(--color-text-muted);font-size:0.7rem;margin:6px 0">Select what to write ⬆, choose department ⬆, enter topic ⬆, click Generate</p>
     </div>
 
     <style>
-      .academic-writer { display: flex; flex-direction: column; height: 100%; overflow: hidden; padding: 14px 18px; background: var(--color-background); }
-      .aw-tabs { flex-shrink: 0; }
-      .aw-input-row { flex-shrink: 0; }
-      .aw-options { flex-shrink: 0; display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; padding: 8px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; align-items: flex-end; }
-      .aw-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-shrink: 0; }
-      .aw-icon { font-size: 26px; color: var(--color-primary); }
-      .aw-header h2 { color: var(--color-primary); font-size: 1rem; margin: 0; font-weight: 700; }
-      .aw-subtitle { color: var(--color-text-muted); font-size: 0.65rem; margin: 0; }
-      .aw-tabs { display: flex; gap: 2px; margin-bottom: 12px; border-bottom: 1px solid var(--color-border); padding-bottom: 0; overflow-x: auto; scrollbar-width: none; }
-      .aw-tabs::-webkit-scrollbar { display: none; }
-      .aw-tab { display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--color-text-muted); cursor: pointer; font-size: 0.68rem; font-weight: 500; white-space: nowrap; transition: all 0.15s; }
-      .aw-tab:hover { color: var(--color-text); }
-      .aw-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
-      .aw-tab .material-symbols-outlined { font-size: 15px; }
+      .academic-writer { display: flex; flex-direction: column; height: 100%; overflow: hidden; padding: 12px 16px; background: var(--color-background); }
+      .aw-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-shrink: 0; }
+      .aw-icon { font-size: 24px; color: var(--color-primary); }
+      .aw-header h2 { color: var(--color-primary); font-size: 0.92rem; margin: 0; font-weight: 700; }
+      .aw-subtitle { color: var(--color-text-muted); font-size: 0.58rem; margin: 0; }
 
-      .aw-input-row { display: flex; gap: 6px; margin-bottom: 8px; }
-      .aw-topic-input { flex: 1; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-panel); color: var(--color-text); font-size: 0.76rem; }
+      .aw-section-label { display: flex; align-items: center; gap: 5px; font-size: 0.62rem; font-weight: 700; color: var(--color-text); margin: 8px 0 4px; text-transform: uppercase; letter-spacing: 0.4px; flex-shrink: 0; }
+      .aw-section-label .material-symbols-outlined { font-size: 15px; color: var(--color-primary); }
+
+      /* Document type cards */
+      .aw-doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 5px; flex-shrink: 0; }
+      .aw-doc-card { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1.5px solid var(--color-border); border-radius: 8px; cursor: pointer; transition: all .12s; }
+      .aw-doc-card:hover { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 4%, var(--color-panel)); }
+      .aw-doc-card.selected { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 8%, var(--color-panel)); }
+      .aw-doc-icon { font-size: 22px; color: var(--color-primary); flex-shrink: 0; }
+      .aw-doc-info { display: flex; flex-direction: column; min-width: 0; }
+      .aw-doc-info b { font-size: 0.68rem; color: var(--color-text); line-height: 1.2; }
+      .aw-doc-info small { font-size: 0.48rem; color: var(--color-text-muted); line-height: 1.2; }
+
+      /* For whom */
+      .aw-for-row { display: flex; gap: 8px; flex-shrink: 0; margin-bottom: 6px; flex-wrap: wrap; }
+      .aw-for-group { min-width: 130px; flex: 1; }
+      .aw-for-label { display: block; font-size: 0.56rem; font-weight: 600; color: var(--color-text-muted); margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.3px; }
+      .aw-for-select { width: 100%; padding: 5px 7px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-panel); color: var(--color-text); font-size: 0.66rem; }
+      .aw-for-select:focus { outline: none; border-color: var(--color-primary); }
+      .aw-year-inp { width: 55px; padding: 4px 6px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-background); color: var(--color-text); font-size: 0.64rem; text-align: center; }
+      .aw-year-inp:focus { outline: none; border-color: var(--color-primary); }
+
+      /* Topic */
+      .aw-input-row { display: flex; gap: 6px; flex-shrink: 0; margin-bottom: 6px; }
+      .aw-topic-input { flex: 1; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-panel); color: var(--color-text); font-size: 0.74rem; }
       .aw-topic-input:focus { outline: none; border-color: var(--color-primary); }
-      .aw-topic-input::placeholder { color: var(--color-text-muted); font-size: 0.68rem; }
-      .aw-gen-btn { display: flex; align-items: center; gap: 4px; padding: 8px 14px; background: var(--color-primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 0.72rem; font-weight: 600; white-space: nowrap; transition: all 0.15s; }
-      .aw-gen-btn:hover:not(:disabled) { opacity: 0.9; }
-      .aw-gen-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      .aw-topic-input::placeholder { color: var(--color-text-muted); font-size: 0.65rem; }
+      .aw-gen-btn { display: flex; align-items: center; gap: 4px; padding: 8px 16px; background: var(--color-primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
+      .aw-gen-btn:hover:not(:disabled) { opacity: .9; }
+      .aw-gen-btn:disabled { opacity: .5; cursor: not-allowed; }
 
-      .opt-group { flex: 1; min-width: 100px; }
-      .opt-label { display: block; font-size: 0.6rem; font-weight: 600; color: var(--color-text-muted); margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.3px; }
-      .opt-select { width: 100%; padding: 4px 6px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-background); color: var(--color-text); font-size: 0.66rem; }
-      .opt-select:focus { outline: none; border-color: var(--color-primary); }
-      .opt-input-sm { width: 60px; padding: 4px 6px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-background); color: var(--color-text); font-size: 0.66rem; }
-      .opt-input-sm:focus { outline: none; border-color: var(--color-primary); }
-      .opt-row { display: flex; align-items: center; gap: 4px; }
-      .opt-sep { color: var(--color-text-muted); font-size: 0.6rem; }
-      .opt-chips { display: flex; gap: 3px; flex-wrap: wrap; }
-      .chip-check { padding: 3px 7px; border: 1px solid var(--color-border); border-radius: 4px; font-size: 0.6rem; cursor: pointer; color: var(--color-text-muted); transition: all 0.1s; }
-      .chip-check.on { background: color-mix(in srgb, var(--color-primary) 12%, transparent); border-color: var(--color-primary); color: var(--color-primary); }
-      .check-group { display: flex; align-items: flex-end; padding-bottom: 2px; }
-      .opt-check-label { display: flex; align-items: center; gap: 4px; font-size: 0.65rem; color: var(--color-text); cursor: pointer; }
-      .opt-check-label input { accent-color: var(--color-primary); }
-
-      .aw-error { padding: 6px 10px; background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.3); border-radius: 6px; color: var(--color-error-text); font-size: 0.68rem; margin-bottom: 8px; }
-      .aw-loading { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 0.7rem; color: var(--color-text-muted); }
-      .loading-spinner { width: 14px; height: 14px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+      /* Status */
+      .aw-error { padding: 5px 10px; background: rgba(255,107,107,.1); border: 1px solid rgba(255,107,107,.3); border-radius: 6px; color: var(--color-error-text); font-size: 0.64rem; margin-bottom: 6px; flex-shrink: 0; }
+      .aw-loading { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 0.66rem; color: var(--color-text-muted); flex-shrink: 0; }
+      .loading-spinner { width: 14px; height: 14px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin .8s linear infinite; }
       @keyframes spin { to { transform: rotate(360deg); } }
 
+      /* Results */
       .aw-results { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
-      .aw-results-toolbar { display: flex; align-items: center; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--color-border); margin-bottom: 8px; flex-wrap: wrap; flex-shrink: 0; }
-      .aw-result-title { font-size: 0.78rem; font-weight: 700; color: var(--color-text); margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .aw-result-actions { display: flex; gap: 3px; flex-shrink: 0; }
-      .aw-act-btn { display: flex; align-items: center; gap: 2px; padding: 4px 7px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 5px; color: var(--color-text); cursor: pointer; font-size: 0.6rem; white-space: nowrap; transition: all 0.1s; }
+      .aw-results-toolbar { display: flex; align-items: center; gap: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--color-border); margin-bottom: 6px; flex-wrap: wrap; flex-shrink: 0; }
+      .aw-result-title { font-size: 0.72rem; font-weight: 700; color: var(--color-text); margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .aw-result-actions { display: flex; gap: 2px; flex-shrink: 0; flex-wrap: wrap; }
+      .aw-act-btn { display: flex; align-items: center; gap: 1px; padding: 3px 6px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 5px; color: var(--color-text); cursor: pointer; font-size: 0.56rem; white-space: nowrap; }
       .aw-act-btn:hover { border-color: var(--color-primary); }
-      .aw-act-btn.playing { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-      .aw-act-btn .material-symbols-outlined { font-size: 14px; }
+      .aw-act-btn .material-symbols-outlined { font-size: 13px; }
+      .aw-content-area { flex: 1; padding: 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; overflow-y: auto; min-height: 100px; }
+      .aw-content-text { white-space: pre-wrap; font-size: 0.7rem; line-height: 1.6; color: var(--color-text); }
 
-      .aw-section { padding: 8px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 7px; margin-bottom: 6px; }
-      .aw-section h4 { font-size: 0.68rem; font-weight: 600; color: var(--color-primary); margin: 0 0 4px 0; }
-      .aw-section p, .aw-section li { font-size: 0.66rem; color: var(--color-text-muted); line-height: 1.4; margin: 1px 0; }
-      .aw-section ul { margin: 0; padding-left: 16px; }
-      .aw-section.summary { background: color-mix(in srgb, var(--color-primary) 5%, var(--color-panel)); border-color: color-mix(in srgb, var(--color-primary) 15%, var(--color-border)); }
-      .aw-sections { display: flex; flex-direction: column; gap: 5px; margin-bottom: 6px; }
-
-      .aw-slides { display: flex; flex-direction: column; gap: 5px; }
-      .aw-slide-card { display: flex; gap: 8px; padding: 8px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 7px; border-left: 3px solid var(--color-primary); }
-      .aw-slide-num { font-size: 0.62rem; font-weight: 700; color: var(--color-primary); white-space: nowrap; padding-top: 1px; }
-      .aw-slide-title { font-size: 0.7rem; font-weight: 600; color: var(--color-text); margin-bottom: 2px; }
-      .aw-slide-text { font-size: 0.64rem; color: var(--color-text-muted); line-height: 1.4; }
-
-      .aw-citations { padding: 8px 12px; background: color-mix(in srgb, var(--color-primary) 3%, var(--color-panel)); border: 1px solid color-mix(in srgb, var(--color-primary) 10%, var(--color-border)); border-radius: 7px; margin-bottom: 8px; }
-      .aw-citations h4 { font-size: 0.65rem; font-weight: 600; color: var(--color-primary); margin: 0 0 4px 0; }
-      .aw-cite { font-size: 0.62rem; color: var(--color-text-muted); line-height: 1.4; margin-bottom: 2px; }
-
-      .aw-content-area { flex: 1; padding: 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; overflow-y: auto; min-height: 180px; }
-      .aw-content-text { white-space: pre-wrap; font-size: 0.72rem; line-height: 1.65; color: var(--color-text); }
-
-      .aw-empty { display: flex; flex-direction: column; align-items: center; padding: 32px 16px; text-align: center; }
-      .aw-empty-icon { font-size: 38px; color: var(--color-border); margin-bottom: 8px; }
-      .aw-empty p { color: var(--color-text-muted); font-size: 0.72rem; margin: 0 0 10px 0; }
-      .aw-quick-chips { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; }
-      .aw-chip { padding: 5px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.66rem; color: var(--color-text); cursor: pointer; }
-      .aw-chip:hover { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 5%, var(--color-panel)); }
-
-      /* ── Review, Citation, Journal panels ── */
-      .aw-review-card { padding: 10px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-top: 8px; }
-      .aw-review-header { display: flex; align-items: center; gap: 6px; font-size: 0.64rem; font-weight: 600; color: var(--color-text); margin-bottom: 4px; }
-      .aw-review-score { margin-left: auto; font-size: 0.9rem; font-weight: 800; padding: 2px 8px; border-radius: 4px; }
+      .aw-review-card { padding: 8px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-top: 6px; }
+      .aw-review-header { display: flex; align-items: center; gap: 6px; font-size: 0.62rem; font-weight: 600; color: var(--color-text); margin-bottom: 3px; }
+      .aw-review-score { margin-left: auto; font-size: 0.85rem; font-weight: 800; padding: 2px 7px; border-radius: 4px; }
       .aw-review-score.good { color: #22c55e; background: rgba(34,197,94,.08); }
       .aw-review-score.needs-work { color: #f59e0b; background: rgba(245,158,11,.08); }
-      .aw-review-level { font-size: 0.62rem; font-weight: 700; color: var(--color-primary); margin-bottom: 2px; }
-      .aw-review-verdict { font-size: 0.55rem; color: var(--color-text-muted); margin: 0 0 6px; }
-      .aw-review-checks { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
-      .aw-review-bar { display: flex; align-items: center; gap: 6px; font-size: 0.5rem; color: var(--color-text-muted); }
-      .aw-review-bar small:first-child { width: 85px; text-align: right; flex-shrink: 0; text-transform: capitalize; }
-      .aw-bar-track { flex: 1; height: 5px; background: var(--color-border); border-radius: 3px; overflow: hidden; }
-      .aw-bar-fill { height: 100%; background: var(--color-primary); border-radius: 3px; min-width: 2px; }
-      .aw-review-issues { margin-top: 6px; }
-      .aw-issue { font-size: 0.5rem; color: #ef4444; padding: 2px 0; line-height: 1.3; }
-      .aw-cite-check { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: rgba(76,175,80,.06); border: 1px solid rgba(76,175,80,.15); border-radius: 6px; margin-top: 8px; font-size: 0.6rem; }
-      .aw-journal-list { padding: 8px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-top: 8px; }
-      .aw-journal-list h4 { font-size: 0.62rem; font-weight: 600; color: var(--color-text); margin: 0 0 4px; }
-      .aw-journal-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--color-border); font-size: 0.58rem; }
+      .aw-review-level { font-size: 0.58rem; font-weight: 700; color: var(--color-primary); margin-bottom: 1px; }
+      .aw-review-verdict { font-size: 0.53rem; color: var(--color-text-muted); margin: 0; }
+      .aw-cite-check { display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: rgba(76,175,80,.06); border: 1px solid rgba(76,175,80,.15); border-radius: 6px; margin-top: 6px; font-size: 0.58rem; }
+      .aw-journal-list { padding: 6px 8px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-top: 6px; }
+      .aw-journal-list h4 { font-size: 0.58rem; font-weight: 600; color: var(--color-text); margin: 0 0 3px; }
+      .aw-journal-item { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; border-bottom: 1px solid var(--color-border); font-size: 0.56rem; }
       .aw-journal-item:last-child { border-bottom: none; }
       .aw-journal-item b { color: var(--color-text); }
-      .aw-journal-meta { display: flex; gap: 8px; font-size: 0.48rem; }
+      .aw-journal-meta { display: flex; gap: 6px; font-size: 0.46rem; }
       .aw-journal-meta small { color: var(--color-text-muted); }
+
+      .aw-empty-guide { display: flex; flex-direction: column; align-items: center; padding: 20px; text-align: center; flex-shrink: 0; }
     </style>
   </div>
 </body>
