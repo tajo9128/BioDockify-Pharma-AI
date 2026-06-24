@@ -101,7 +101,7 @@ RUN /opt/venv/bin/python -m pip install --no-cache-dir \
     && echo "Scientific packages installed (execution)" || \
     echo "Scientific packages install failed"
 
-# Pin NumPy <2.5 — required by numba (whisper dependency)
+# Pin NumPy <2.5 — required by numba (whisper dependency). Fixes ImportError: Numba needs NumPy 2.4 or less
 RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir "numpy>=1.24,<2.5" \
     && echo "NumPy pinned <2.5 (framework)" || \
     echo "NumPy pin failed (framework)"
