@@ -132,6 +132,8 @@ RUN /opt/venv/bin/python -m pip install --no-cache-dir \
 
 EXPOSE 50001
 
+VOLUME ["/a0/usr"]
+
 HEALTHCHECK --interval=30s --timeout=15s --retries=3 CMD \
   curl -sf http://localhost:80/api/health || exit 1
 

@@ -178,7 +178,7 @@ docker run -d \
   --name biodockify-pharma \
   -p 80:80 \
   -v biodockify_pharma_usr:/a0/usr \
-  -v ~/biodockify-backups:/app/data \
+  -v ~/biodockify-backups:/a0/usr/backups \
   tajo9128/biodockify-pharma-ai:latest
 
 # Visit http://localhost
@@ -201,7 +201,7 @@ services:
       - "80:80"
     volumes:
       - biodockify_usr:/a0/usr
-      - ./backup-data:/app/data
+      - ./backup-data:/a0/usr/backups
     restart: unless-stopped
 
 volumes:

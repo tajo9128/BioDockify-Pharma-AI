@@ -95,7 +95,7 @@ jobs:
             ### Docker
             ```bash
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
-            docker run -d -p 80:80 -v biodockify_usr:/usr --name biodockify ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            docker run -d -p 80:80 -v biodockify_usr:/a0/usr -v ~/biodockify-backups:/a0/usr/backups --name biodockify ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
