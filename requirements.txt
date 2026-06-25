@@ -70,3 +70,10 @@ h11>=0.16.0  # security floor: HTTP request smuggling CWE-444
 urllib3>=2.6.0  # security floor: resource exhaustion CWE-770, data amplification CWE-409
 cryptography>=46.0.0  # security floor: insufficient data authenticity CWE-345
 werkzeug>=3.0.3  # security floor: RCE CWE-94
+# v2.0 core pins (Agent Zero v2.0 — LiteLLM transport + security fixes)
+# The fork used these transitively without pinning; v2.0 pins them explicitly.
+litellm==1.88.1  # CVE-2026-42271 fix: patched floor is 1.83.7
+openai==2.41.1
+starlette==1.0.1  # security fix: Host header validation bypass GHSA-86qp-5c8j-p5mr
+chardet<6  # unstructured may pull chardet; requests warns when chardet>=6 is present
+liteparse==2.0.3  # v2.0 new dependency
