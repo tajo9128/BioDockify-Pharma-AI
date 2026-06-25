@@ -37,7 +37,7 @@ class Paper:
 class LiteratureDiscovery:
     def __init__(self):
         # Configure Entrez
-        Entrez.email = "agent.zero@biodockify.ai"
+        Entrez.email = "agent.zero@biodockify-ai.org"
         
         # Semantic Scholar Client
         self.sch = SemanticScholar(timeout=10)

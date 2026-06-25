@@ -13,7 +13,7 @@ from helpers import git, yaml
 
 
 OFFICIAL_REPO_AUTHOR = "agent0ai"
-OFFICIAL_REPO_NAME = "biodockify.ai"
+OFFICIAL_REPO_NAME = "BioDockify-Pharma-AI"
 BRANCH_OPTIONS = [
     {"value": "main", "label": "main"},
     {"value": "ready", "label": "ready"},

@@ -25,12 +25,12 @@ class BackupService:
     """
 
     def __init__(self):
-        self.biodockify.ai_version = self._get_biodockify.ai_version()
-        self.biodockify.ai_root = files.get_abs_path("")  # Resolved BioDockify AI root
+        self.biodockify_ai_version = self._get_biodockify_ai_version()
+        self.biodockify_ai_root = files.get_abs_path("")  # Resolved BioDockify AI root
 
         # Build base paths map for pattern resolution
         self.base_paths = {
-            self.biodockify.ai_root: self.biodockify.ai_root,
+            self.biodockify_ai_root: self.biodockify_ai_root,
         }
 
     def get_default_backup_metadata(self) -> Dict[str, Any]:
@@ -41,7 +41,7 @@ class BackupService:
         include_patterns, exclude_patterns = self._parse_patterns(default_patterns)
 
         return {
-            "backup_name": f"biodockify.ai-backup-{timestamp[:10]}",
+            "backup_name": f"biodockify-ai-backup-{timestamp[:10]}",
             "include_hidden": True,
             "include_patterns": include_patterns,
             "exclude_patterns": exclude_patterns,
@@ -57,14 +57,14 @@ class BackupService:
         Only includes BioDockify AI project directory patterns.
         """
         # Ensure paths don't have double slashes
-        agent_root = self.biodockify.ai_root.rstrip('/')
+        agent_root = self.biodockify_ai_root.rstrip('/')
 
         return f"""# User data
 # All persistent user data is now centralized in /usr for easier backup and restore
 {agent_root}/usr/**
 """
 
-    def _get_biodockify.ai_version(self) -> str:
+    def _get_biodockify_ai_version(self) -> str:
         """Get current BioDockify AI version"""
         try:
             # Get version from git info (same as run_ui.py)
@@ -146,7 +146,7 @@ class BackupService:
                 "path": os.environ.get("PATH", "")[:200] + "..." if len(os.environ.get("PATH", "")) > 200 else os.environ.get("PATH", ""),
                 "timezone": str(datetime.datetime.now().astimezone().tzinfo),
                 "working_directory": os.getcwd(),
-                "biodockify.ai_root": files.get_abs_path(""),
+                "biodockify_ai_root": files.get_abs_path(""),
                 "runtime_mode": "development" if runtime.is_development() else "production"
             }
         except Exception as e:
@@ -202,17 +202,17 @@ class BackupService:
 
         Args:
             patterns: List of patterns from the backed up system
-            backup_metadata: Backup metadata containing the original biodockify.ai_root
+            backup_metadata: Backup metadata containing the original biodockify_ai_root
 
         Returns:
             List of translated patterns for the current system
         """
         # Get the backed up BioDockify AI root path from metadata
         environment_info = backup_metadata.get("environment_info", {})
-        backed_up_agent_root = environment_info.get("biodockify.ai_root", "")
+        backed_up_agent_root = environment_info.get("biodockify_ai_root", "")
 
         # Get current BioDockify AI root path
-        current_agent_root = self.biodockify.ai_root
+        current_agent_root = self.biodockify_ai_root
 
         # If we don't have the backed up root path, return patterns as-is
         if not backed_up_agent_root:
@@ -329,7 +329,7 @@ class BackupService:
         include_patterns: List[str],
         exclude_patterns: List[str],
         include_hidden: bool = True,
-        backup_name: str = "biodockify.ai-backup"
+        backup_name: str = "biodockify-ai-backup"
     ) -> str:
         """Create backup archive and return path to created file"""
 
@@ -355,7 +355,7 @@ class BackupService:
                 # Add comprehensive metadata
                 metadata = {
                     # Basic backup information
-                    "biodockify.ai_version": self.biodockify.ai_version,
+                    "biodockify_ai_version": self.biodockify_ai_version,
                     "timestamp": datetime.datetime.now().isoformat(),
                     "backup_name": backup_name,
                     "include_hidden": include_hidden,
@@ -757,17 +757,17 @@ class BackupService:
 
         Args:
             archive_path: Original file path from the archive
-            backup_metadata: Backup metadata containing the original biodockify.ai_root
+            backup_metadata: Backup metadata containing the original biodockify_ai_root
 
         Returns:
             Translated path for the current system
         """
         # Get the backed up BioDockify AI root path from metadata
         environment_info = backup_metadata.get("environment_info", {})
-        backed_up_agent_root = environment_info.get("biodockify.ai_root", "")
+        backed_up_agent_root = environment_info.get("biodockify_ai_root", "")
 
         # Get current BioDockify AI root path
-        current_agent_root = self.biodockify.ai_root
+        current_agent_root = self.biodockify_ai_root
 
         # If we don't have the backed up root path, use original path with leading slash
         if not backed_up_agent_root:

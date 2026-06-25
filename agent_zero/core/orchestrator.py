@@ -183,7 +183,7 @@ class BioDockifyAI:
         self._circuit_threshold = 5
         
         # Auto-load email from storage if available
-        self._user_email = "user@biodockify.ai"  # License disabled - unlimited user
+        self._user_email = "user@biodockify_ai"  # License disabled - unlimited user
 
     async def execute_goal(
         self,
@@ -223,7 +223,7 @@ class BioDockifyAI:
             # 0. Security: License Check (monthly check against Supabase)
             # Ensure we have email
             if not self._user_email:
-                self._user_email = "user@biodockify.ai"  # License disabled - unlimited user
+                self._user_email = "user@biodockify_ai"  # License disabled - unlimited user
                 
             if not self._user_email:
                  logger.warning("License check failed: No user email found")

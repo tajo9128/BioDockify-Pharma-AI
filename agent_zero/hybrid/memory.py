@@ -67,7 +67,7 @@ class HybridMemory:
             content=content,
             memory_type=area.to_memory_type(),
             importance=importance,
-            source="biodockify.ai_hybrid",
+            source="biodockify_ai_hybrid",
             metadata=metadata
         )
         

@@ -51,7 +51,7 @@ async def test_queue_limit():
 async def test_url_validation():
     print("[3] Testing URL validation...")
     surfsense = SurfSense()
-    valid_url = "https://biodockify.ai/research"
+    valid_url = "https://biodockify-ai.org/research"
     invalid_url = "not-a-url"
     javascript_url = "javascript:alert(1)"
     

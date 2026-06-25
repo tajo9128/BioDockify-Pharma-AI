@@ -87,7 +87,7 @@ def get_system_prompt() -> str:
     base_prompt = f"{SYSTEM_ROLE}\n\n{SYSTEM_SOLVING}"
 
     # Attempt to load formal identity from workspace
-    identity_path = Path("data/workspace/biodockify.ai/HYBRID_IDENTITY.md")
+    identity_path = Path("data/workspace/agent_zero/HYBRID_IDENTITY.md")
     if identity_path.exists():
         try:
             with open(identity_path, "r", encoding="utf-8") as f:

@@ -5,7 +5,7 @@ from typing import List, Dict, Any
 import logging
 import asyncio
 from dataclasses import asdict
-from biodockify.ai.web_research.surfsense import SurfSense, CrawlConfig, ExtractionRules
+from agent_zero.web_research.surfsense import SurfSense, CrawlConfig, ExtractionRules
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class WebCrawlerConnector:
         
         logger.info(f"Starting crawl for {len(urls)} URLs")
         
-        from biodockify.ai.web_research.executor import Executor
+        from agent_zero.web_research.executor import Executor
         executor = Executor()
         
         try:

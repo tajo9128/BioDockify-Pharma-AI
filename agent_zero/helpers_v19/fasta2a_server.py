@@ -238,7 +238,7 @@ class DynamicA2AProxy:
 
             provider: AgentProvider = {  # type: ignore
                 "organization": "BioDockify AI",
-                "url": "https://github.com/frdel/biodockify.ai"
+                "url": "https://github.com/tajo9128/BioDockify-Pharma-AI"
             }
 
             # Create new FastA2A app with proper thread safety

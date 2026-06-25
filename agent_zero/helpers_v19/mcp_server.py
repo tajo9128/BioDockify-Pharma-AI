@@ -68,7 +68,7 @@ This tool is used to send a message to the remote BioDockify AI Instance connect
     name="send_message",
     description=SEND_MESSAGE_DESCRIPTION,
     tags={
-        "biodockify.ai",
+        "BioDockify-Pharma-AI",
         "chat",
         "remote",
         "communication",
@@ -196,7 +196,7 @@ Always use this tool to finish persistent chat conversations with remote BioDock
     name="finish_chat",
     description=FINISH_CHAT_DESCRIPTION,
     tags={
-        "biodockify.ai",
+        "BioDockify-Pharma-AI",
         "chat",
         "remote",
         "communication",

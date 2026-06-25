@@ -14,7 +14,7 @@ PATHS_CACHE_AREA = "subagent_paths(plugins)"
 
 cache.toggle_area(PATHS_CACHE_AREA, False)
 
-type Origin = Literal["default", "user", "project", "plugin"]
+Origin = Literal["default", "user", "project", "plugin"]
 
 if TYPE_CHECKING:
     from agent import Agent

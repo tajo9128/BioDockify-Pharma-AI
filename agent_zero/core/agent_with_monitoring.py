@@ -12,8 +12,8 @@ except ImportError:
 from typing import Dict, Any, Optional
 from prometheus_client import Counter, Histogram
 
-from biodockify.ai.hybrid.agent import HybridAgent
-from biodockify.ai.hybrid.context import AgentConfig
+from agent_zero.hybrid.agent import HybridAgent
+from agent_zero.hybrid.context import AgentConfig
 from orchestration.planner.orchestrator import OrchestratorConfig
 # We assume SelfRepairSkill is a standard skill accessible via the agent or separately
 # For monitoring, we wrap the execute calls.
@@ -40,38 +40,38 @@ class MonitoredBioDockifyAI:
         try:
             # Total executions by status (success/failed) and mode
             self.execution_counter = Counter(
-                'biodockify.ai_executions_total',
+                'biodockify_ai_executions_total',
                 'Total agent executions',
                 ['status', 'mode']
             )
             
             # Duration of executions
             self.execution_duration = Histogram(
-                'biodockify.ai_execution_duration_seconds',
+                'biodockify_ai_execution_duration_seconds',
                 'Agent execution duration',
                 ['mode', 'self_repair_used']
             )
             
             # Self-repair attempts and success
             self.repair_counter = Counter(
-                'biodockify.ai_self_repairs_total',
+                'biodockify_ai_self_repairs_total',
                 'Total self-repair attempts',
                 ['success', 'repair_type']
             )
             
             # Error diagnoses
             self.diagnosis_counter = Counter(
-                'biodockify.ai_diagnoses_total',
+                'biodockify_ai_diagnoses_total',
                 'Total error diagnoses',
                 ['error_type']
             )
         except ValueError:
              # Metrics already registered
             from prometheus_client import REGISTRY
-            self.execution_counter = REGISTRY._names_to_collectors['biodockify.ai_executions_total']
-            self.execution_duration = REGISTRY._names_to_collectors['biodockify.ai_execution_duration_seconds']
-            self.repair_counter = REGISTRY._names_to_collectors['biodockify.ai_self_repairs_total']
-            self.diagnosis_counter = REGISTRY._names_to_collectors['biodockify.ai_diagnoses_total']
+            self.execution_counter = REGISTRY._names_to_collectors['biodockify_ai_executions_total']
+            self.execution_duration = REGISTRY._names_to_collectors['biodockify_ai_execution_duration_seconds']
+            self.repair_counter = REGISTRY._names_to_collectors['biodockify_ai_self_repairs_total']
+            self.diagnosis_counter = REGISTRY._names_to_collectors['biodockify_ai_diagnoses_total']
 
     async def execute(self, task: str, mode: str = 'standard') -> Dict[str, Any]:
         """
@@ -81,7 +81,7 @@ class MonitoredBioDockifyAI:
         
         if sentry_sdk:
             sentry_sdk.add_breadcrumb(
-                category='biodockify.ai',
+                category='biodockify_ai',
                 message=f"Executing task: {task[:100]}",
                 level='info'
             )

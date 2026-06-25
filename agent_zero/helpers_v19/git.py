@@ -400,8 +400,8 @@ def get_version():
         return "unknown"
 
 
-def is_official_biodockify.ai_repo() -> bool:
-    """Return True when origin points to agent0ai/biodockify.ai."""
+def is_official_biodockify_ai_repo() -> bool:
+    """Return True when origin points to agent0ai/agent-zero."""
     try:
         repo = Repo(files.get_base_dir())
         if not repo.remotes:
@@ -413,8 +413,8 @@ def is_official_biodockify.ai_repo() -> bool:
             remote_url = remote_url[:-4]
 
         allowed_repos = [
-            "agent0ai/biodockify.ai",
-            "frdel/biodockify.ai",
+            "agent0ai/agent-zero",
+            "frdel/agent-zero",
         ]
         return any(
             remote_url.endswith(f"github.com/{repo_name}")
