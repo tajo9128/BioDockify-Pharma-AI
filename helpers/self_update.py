@@ -1,19 +1,20 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 import re
 import subprocess
 import tempfile
 import time
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, TypedDict
 
 from helpers import git, yaml
+from helpers.localization import Localization
 
 
 OFFICIAL_REPO_AUTHOR = "agent0ai"
-OFFICIAL_REPO_NAME = "BioDockify-AI"
+OFFICIAL_REPO_NAME = "agent-zero"
 BRANCH_OPTIONS = [
     {"value": "main", "label": "main"},
     {"value": "ready", "label": "ready"},
@@ -26,9 +27,9 @@ MIN_SELECTOR_VERSION = (1, 0)
 REMOTE_BRANCH_TAG_CACHE_TTL_SECONDS = 60.0
 REMOTE_BRANCH_LIST_CACHE_TTL_SECONDS = 60.0
 
-UPDATE_FILE_PATH = Path("/exe/bio-self-update.yaml")
-STATUS_FILE_PATH = Path("/exe/bio-self-update-status.yaml")
-LOG_FILE_PATH = Path("/exe/bio-self-update.log")
+UPDATE_FILE_PATH = Path("/exe/a0-self-update.yaml")
+STATUS_FILE_PATH = Path("/exe/a0-self-update-status.yaml")
+LOG_FILE_PATH = Path("/exe/a0-self-update.log")
 DURABLE_EXE_DIR = UPDATE_FILE_PATH.parent
 
 _remote_branch_tag_cache: dict[str, tuple[float, set[str]]] = {}
@@ -73,7 +74,7 @@ class SelectorTagOption(TypedDict):
 
 
 def _now_iso() -> str:
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    return Localization.get().now_iso()
 
 
 def get_update_file_path() -> Path:
@@ -197,7 +198,10 @@ def _get_tag_release_time_in_repo(
         timestamp = _run_git(repo_dir, "log", "-1", "--format=%ct", normalized_tag)
         if not timestamp:
             return ""
-        return datetime.fromtimestamp(int(timestamp)).strftime("%Y-%m-%d %H:%M:%S")
+        return datetime.fromtimestamp(
+            int(timestamp),
+            tz=Localization.get().get_tzinfo(),
+        ).strftime("%Y-%m-%d %H:%M:%S %Z")
     except Exception:
         return ""
 
@@ -242,7 +246,7 @@ def build_default_backup_name(
     current_version: str,
     target_tag: str | None = None,
 ) -> str:
-    timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+    timestamp = Localization.get().now().strftime("%Y%m%d-%H%M%S")
     return f"usr-{timestamp}.zip"
 
 
@@ -397,7 +401,7 @@ def _get_remote_branch_merged_tags(branch: str) -> set[str]:
     if cached and now - cached[0] <= REMOTE_BRANCH_TAG_CACHE_TTL_SECONDS:
         return set(cached[1])
 
-    with tempfile.TemporaryDirectory(prefix="bio-self-update-tags-") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="a0-self-update-tags-") as temp_dir:
         repository = Path(temp_dir)
         _run_git(repository, "init", "--bare")
         _run_git(
@@ -427,7 +431,7 @@ def _get_remote_branch_head_info(branch: str) -> dict[str, str]:
     if cached and now - cached[0] <= REMOTE_BRANCH_TAG_CACHE_TTL_SECONDS:
         return dict(cached[1])
 
-    with tempfile.TemporaryDirectory(prefix="bio-self-update-head-") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="a0-self-update-head-") as temp_dir:
         repository = Path(temp_dir)
         _run_git(repository, "init", "--bare")
         _run_git(
@@ -931,4 +935,3 @@ def schedule_update(
 
     _write_yaml(get_update_file_path(), payload)
     return payload
-

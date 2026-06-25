@@ -39,6 +39,35 @@ HOP_BY_HOP_HEADERS = {
 }
 
 
+XPRA_MENU_CUSTOM_PATCH = b"""
+;(function () {
+  function a0DesktopElement(selector) {
+    return document.querySelector(selector);
+  }
+
+  window.noWindowList = function noWindowList() {
+    const openWindows = a0DesktopElement("#open_windows");
+    if (openWindows) openWindows.remove();
+  };
+
+  const originalAddWindowListItem = window.addWindowListItem;
+  if (typeof originalAddWindowListItem === "function" && !originalAddWindowListItem.__a0SafeWindowList) {
+    const safeAddWindowListItem = function addWindowListItem(...args) {
+      if (!a0DesktopElement("#open_windows_list")) return undefined;
+      return originalAddWindowListItem.apply(this, args);
+    };
+    safeAddWindowListItem.__a0SafeWindowList = true;
+    window.addWindowListItem = safeAddWindowListItem;
+  }
+}());
+"""
+
+XPRA_WINDOW_OFFSET_WARNING = b'&&this.warn("window does not fit in canvas, offsets: ",x,y)'
+XPRA_WINDOW_OFFSET_WARNING_PATCH = b'&&false&&this.warn("window does not fit in canvas, offsets: ",x,y)'
+XPRA_WINDOW_SCRIPT = b'src="js/Window.js"'
+XPRA_WINDOW_SCRIPT_PATCH = b'src="js/Window.js?a0_desktop_patch=20260506"'
+
+
 class VirtualDesktopGateway:
     def __init__(self, flask_app=None, mount_path: str = "/desktop") -> None:
         self.flask_app = flask_app
@@ -120,6 +149,7 @@ class VirtualDesktopGateway:
                 self.proxy_request_headers(scope),
                 body,
             )
+            content = self.proxy_response_content(upstream_path, content)
             await Response(
                 content,
                 status_code=status,
@@ -311,6 +341,15 @@ class VirtualDesktopGateway:
             response_headers[name] = str(value)
         return response_headers
 
+    def proxy_response_content(self, upstream_path: str, content: bytes) -> bytes:
+        if upstream_path.endswith("/index.html") and XPRA_WINDOW_SCRIPT in content:
+            content = content.replace(XPRA_WINDOW_SCRIPT, XPRA_WINDOW_SCRIPT_PATCH)
+        if upstream_path.endswith("/js/MenuCustom.js") and XPRA_MENU_CUSTOM_PATCH not in content:
+            return content + XPRA_MENU_CUSTOM_PATCH
+        if upstream_path.endswith("/js/Window.js") and XPRA_WINDOW_OFFSET_WARNING in content:
+            return content.replace(XPRA_WINDOW_OFFSET_WARNING, XPRA_WINDOW_OFFSET_WARNING_PATCH)
+        return content
+
     def rewrite_location(self, location: str, token: str) -> str:
         quoted_token = quote(str(token), safe="")
         prefix = f"{self.mount_path}/session/{quoted_token}"
@@ -360,7 +399,7 @@ class VirtualDesktopGateway:
 def install_route_hooks() -> None:
     from helpers.ui_server import UiServerRuntime
 
-    if getattr(UiServerRuntime, "_bio_virtual_desktop_route_hooks_installed", False):
+    if getattr(UiServerRuntime, "_a0_virtual_desktop_route_hooks_installed", False):
         return
 
     original_build_asgi_app = UiServerRuntime.build_asgi_app
@@ -397,11 +436,11 @@ def install_route_hooks() -> None:
             return ASGIApp(self.socketio_server, other_asgi_app=starlette_app)
 
     UiServerRuntime.build_asgi_app = build_asgi_app
-    UiServerRuntime._bio_virtual_desktop_route_hooks_installed = True
-    UiServerRuntime._bio_virtual_desktop_original_build_asgi_app = original_build_asgi_app
+    UiServerRuntime._a0_virtual_desktop_route_hooks_installed = True
+    UiServerRuntime._a0_virtual_desktop_original_build_asgi_app = original_build_asgi_app
 
 
 def is_installed() -> bool:
     from helpers.ui_server import UiServerRuntime
 
-    return bool(getattr(UiServerRuntime, "_bio_virtual_desktop_route_hooks_installed", False))
+    return bool(getattr(UiServerRuntime, "_a0_virtual_desktop_route_hooks_installed", False))

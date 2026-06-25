@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Skills CLI - Easy skill management for BioDockify AI
+Skills CLI - Easy skill management for Agent Zero
 
 Usage:
     python -m helpers.skills_cli list              List all skills
@@ -263,7 +263,7 @@ def print_skill_table(skills: List[Skill]):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="BioDockify AI Skills CLI",
+        description="Agent Zero Skills CLI",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

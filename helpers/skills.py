@@ -21,8 +21,10 @@ except Exception:  # pragma: no cover
 MAX_ACTIVE_SKILLS = 20
 ACTIVE_SKILLS_PLUGIN_NAME = "_skills"
 AGENT_DATA_NAME_LOADED_SKILLS = "loaded_skills"
+CONTEXT_DATA_NAME_LOADED_SKILLS = AGENT_DATA_NAME_LOADED_SKILLS
 CONTEXT_DATA_NAME_CHAT_ACTIVE_SKILLS = "skills_chat_active"
 CONTEXT_DATA_NAME_CHAT_DISABLED_SKILLS = "skills_chat_disabled"
+CONTEXT_DATA_NAME_CHAT_VISIBLE_SKILLS = "skills_chat_visible"
 
 
 class ActiveSkillEntry(TypedDict, total=False):
@@ -35,6 +37,7 @@ class CatalogSkill(TypedDict):
     description: str
     path: str
     origin: str
+    hidden: bool
 
 
 @dataclass(slots=True)
@@ -236,8 +239,9 @@ def parse_frontmatter(frontmatter_text: str) -> Tuple[Dict[str, Any], List[str]]
     if yaml is not None:
         try:
             parsed = yaml.safe_load(frontmatter_text)  # type: ignore[attr-defined]
-        except Exception:
-            parsed = None
+        except Exception as exc:
+            errors.append(f"Invalid YAML frontmatter: {exc}")
+            return {}, errors
         if parsed is not None:
             if not isinstance(parsed, dict):
                 errors.append("Frontmatter must be a mapping")
@@ -264,7 +268,7 @@ def skill_from_markdown(
     fm, body, fm_errors = split_frontmatter(text)
     if fm_errors:
         return None
-    skill_dir = Path(files.normalize_bio_path(str(skill_md_path.parent)))
+    skill_dir = Path(files.normalize_a0_path(str(skill_md_path.parent)))
 
     name = str(fm.get("name") or fm.get("skill") or "").strip()
     description = str(
@@ -321,6 +325,7 @@ def skill_from_markdown(
 def list_skills(
     agent:Agent|None=None,
     include_content: bool = False,
+    include_hidden: bool = False,
 ) -> List[Skill]:
     """List skills, optionally filtered by agent scope."""
     skills: List[Skill] = []
@@ -344,7 +349,10 @@ def list_skills(
         if key and key not in by_name:
             by_name[key] = s
     
-    return list(by_name.values())
+    result = list(by_name.values())
+    if include_hidden:
+        return result
+    return _filter_hidden_skills(agent, result)
 
 
 def delete_skill(
@@ -355,6 +363,10 @@ def delete_skill(
     skill_path = files.get_abs_path(skill_path)
     if runtime.is_development():
         skill_path = files.fix_dev_path(skill_path)
+
+    normalized_path = files.normalize_a0_path(skill_path)
+    if "/plugins/" in normalized_path and "/usr/plugins/" not in normalized_path:
+        raise PermissionError("Built-in plugin skills cannot be deleted")
 
     allowed_roots = get_skill_roots()
     for root in allowed_roots:
@@ -375,6 +387,7 @@ def find_skill(
     skill_name: str,
     agent:Agent|None=None,
     include_content: bool = False,
+    include_hidden: bool = False,
 ) -> Optional[Skill]:
     target = _normalize_name(skill_name)
     if not target:
@@ -388,6 +401,8 @@ def find_skill(
             if not s:
                 continue
             if _normalize_name(s.name) == target or _normalize_name(s.path.name) == target:
+                if not include_hidden and _skill_is_hidden_for_agent(agent, s):
+                    continue
                 return s
     return None
 
@@ -403,7 +418,7 @@ def load_skill_for_agent(
     # Get runtime path
     runtime_path = str(skill.path)
     if runtime.is_development():
-        runtime_path = files.normalize_bio_path(str(skill.path))
+        runtime_path = files.normalize_a0_path(str(skill.path))
 
     lines = [f"Skill: {skill.name}", f"Path: {runtime_path}"]
 
@@ -429,12 +444,26 @@ def load_skill_for_agent(
     files_tree = _get_skill_files(skill.path)
     lines.append("")
     if files_tree:
-        lines.append("Files (use skills_tool method=read_file to open):")
+        lines.append("Files (use skills_tool action=read_file to open):")
         lines.append(files_tree)
     else:
         lines.append("No additional files found.")
 
     return "\n".join(lines)
+
+
+def skill_instruction_name(message: Any) -> str:
+    match message:
+        case {
+            "content": {
+                "skill_instructions": {
+                    "content_included": included,
+                    "name": name,
+                }
+            }
+        } if included:
+            return str(name or "").strip()
+    return ""
 
 
 def _get_skill_files(skill_dir: Path) -> str:
@@ -456,7 +485,7 @@ def _get_skill_files(skill_dir: Path) -> str:
     )
 
     if tree and runtime.is_development():
-        runtime_path = files.normalize_bio_path(str(skill_dir))
+        runtime_path = files.normalize_a0_path(str(skill_dir))
         tree = tree.replace(str(skill_dir), runtime_path)
 
     return str(tree)
@@ -465,6 +494,7 @@ def search_skills(
     query: str,
     limit: int = 25,
     agent: Agent|None=None,
+    include_hidden: bool = False,
 ) -> List[Skill]:
     q = (query or "").strip().lower()
     if not q:
@@ -475,7 +505,7 @@ def search_skills(
         t for t in raw_terms
         if len(t) >= 3 or any(ch.isdigit() for ch in t)
     ] or raw_terms
-    candidates = list_skills(agent)
+    candidates = list_skills(agent, include_hidden=include_hidden)
 
     scored: List[Tuple[int, Skill]] = []
     for s in candidates:
@@ -566,19 +596,73 @@ def validate_skill_md(skill_md_path: Path) -> List[str]:
     return validate_skill(skill)
 
 
-def get_max_active_skills() -> int:
-    return MAX_ACTIVE_SKILLS
+def _normalize_max_active_skills(value: Any) -> int:
+    if isinstance(value, bool):
+        return MAX_ACTIVE_SKILLS
+
+    try:
+        normalized = int(value)
+    except (TypeError, ValueError):
+        return MAX_ACTIVE_SKILLS
+
+    return normalized if normalized >= 1 else MAX_ACTIVE_SKILLS
+
+
+def get_max_active_skills(
+    agent: Agent | None = None,
+    project_name: str | None = None,
+) -> int:
+    if agent is None and project_name is None:
+        return MAX_ACTIVE_SKILLS
+
+    config = (
+        plugin_helpers.get_plugin_config(
+            ACTIVE_SKILLS_PLUGIN_NAME,
+            agent=agent,
+            project_name=project_name or "",
+            agent_profile="",
+        )
+        or {}
+    )
+    return _normalize_max_active_skills(config.get("max_active_skills"))
 
 
 def normalize_skills_config(config: dict[str, Any] | None) -> dict[str, Any]:
     normalized = dict(config or {})
+    max_active_skills = _normalize_max_active_skills(
+        normalized.get("max_active_skills")
+    )
+    normalized["max_active_skills"] = max_active_skills
     normalized["active_skills"] = normalize_active_skills(
-        normalized.get("active_skills")
+        normalized.get("active_skills"),
+        limit=max_active_skills,
+    )
+    normalized["hidden_skills"] = normalize_hidden_skills(
+        normalized.get("hidden_skills")
     )
     return normalized
 
 
-def normalize_active_skills(raw: Any) -> list[ActiveSkillEntry]:
+def normalize_active_skills(
+    raw: Any,
+    *,
+    limit: int | None = None,
+) -> list[ActiveSkillEntry]:
+    return normalize_skill_entries(
+        raw,
+        limit=get_max_active_skills() if limit is None else limit,
+    )
+
+
+def normalize_hidden_skills(raw: Any) -> list[ActiveSkillEntry]:
+    return normalize_skill_entries(raw, limit=None)
+
+
+def normalize_skill_entries(
+    raw: Any,
+    *,
+    limit: int | None = None,
+) -> list[ActiveSkillEntry]:
     if not isinstance(raw, list):
         return []
 
@@ -596,7 +680,7 @@ def normalize_active_skills(raw: Any) -> list[ActiveSkillEntry]:
 
         seen.add(key)
         normalized.append(entry)
-        if len(normalized) >= get_max_active_skills():
+        if limit is not None and len(normalized) >= limit:
             break
 
     return normalized
@@ -611,6 +695,7 @@ def list_skill_catalog(
 
     catalog: list[CatalogSkill] = []
     seen_paths: set[str] = set()
+    hidden_entries = get_hidden_skills(agent) if agent else []
 
     for root in _get_catalog_roots(project_name=project_name, agent=agent):
         root_path = Path(root)
@@ -619,7 +704,7 @@ def list_skill_catalog(
             if not skill:
                 continue
 
-            runtime_path = files.normalize_bio_path(str(skill.path))
+            runtime_path = files.normalize_a0_path(str(skill.path))
             if runtime_path in seen_paths:
                 continue
 
@@ -633,6 +718,7 @@ def list_skill_catalog(
                         runtime_path,
                         project_name=project_name,
                     ),
+                    "hidden": _skill_matches_entries(skill, hidden_entries),
                 }
             )
 
@@ -654,20 +740,64 @@ def get_scope_active_skills(agent: Agent | None) -> list[ActiveSkillEntry]:
         )
         or {}
     )
-    return normalize_active_skills(config.get("active_skills"))
+    return normalize_active_skills(
+        config.get("active_skills"),
+        limit=get_max_active_skills(agent=agent, project_name=project_name),
+    )
+
+
+def get_scope_hidden_skills(agent: Agent | None) -> list[ActiveSkillEntry]:
+    if not agent:
+        return []
+
+    project_name = _get_agent_project_name(agent)
+    config = (
+        plugin_helpers.get_plugin_config(
+            ACTIVE_SKILLS_PLUGIN_NAME,
+            agent=agent,
+            project_name=project_name,
+            agent_profile="",
+        )
+        or {}
+    )
+    return normalize_hidden_skills(config.get("hidden_skills"))
 
 
 def get_chat_active_skills(context: Any | None) -> list[ActiveSkillEntry]:
     if not context:
         return []
-    return normalize_active_skills(context.get_data(CONTEXT_DATA_NAME_CHAT_ACTIVE_SKILLS))
+    agent = context.get_agent() if hasattr(context, "get_agent") else None
+    return normalize_active_skills(
+        context.get_data(CONTEXT_DATA_NAME_CHAT_ACTIVE_SKILLS),
+        limit=get_max_active_skills(agent=agent),
+    )
 
 
 def get_chat_disabled_skills(context: Any | None) -> list[ActiveSkillEntry]:
     if not context:
         return []
-    return normalize_active_skills(
+    return normalize_hidden_skills(
         context.get_data(CONTEXT_DATA_NAME_CHAT_DISABLED_SKILLS)
+    )
+
+
+def get_chat_visible_skills(context: Any | None) -> list[ActiveSkillEntry]:
+    if not context:
+        return []
+    return normalize_hidden_skills(
+        context.get_data(CONTEXT_DATA_NAME_CHAT_VISIBLE_SKILLS)
+    )
+
+
+def get_hidden_skills(agent: Agent | None) -> list[ActiveSkillEntry]:
+    if not agent:
+        return []
+
+    context = getattr(agent, "context", None)
+    return _merge_hidden_skill_entries(
+        get_scope_hidden_skills(agent),
+        get_chat_disabled_skills(context),
+        get_chat_visible_skills(context),
     )
 
 
@@ -675,48 +805,117 @@ def _build_active_skills(
     agent: Agent | None,
     *,
     chat_entries: list[ActiveSkillEntry] | None = None,
-    disabled_entries: list[ActiveSkillEntry] | None = None,
+    hidden_entries: list[ActiveSkillEntry] | None = None,
+    visible_entries: list[ActiveSkillEntry] | None = None,
     limit: int | None = None,
 ) -> list[ActiveSkillEntry]:
     if not agent:
         return []
 
     context = getattr(agent, "context", None)
-    effective_limit = get_max_active_skills() if limit is None else limit
+    effective_limit = get_max_active_skills(agent=agent) if limit is None else limit
     scope_entries = get_scope_active_skills(agent)
     current_chat_entries = list(
         chat_entries if chat_entries is not None else get_chat_active_skills(context)
     )
-    current_disabled_entries = list(
-        disabled_entries
-        if disabled_entries is not None
+    current_hidden_entries = list(
+        hidden_entries
+        if hidden_entries is not None
         else get_chat_disabled_skills(context)
+    )
+    current_visible_entries = list(
+        visible_entries
+        if visible_entries is not None
+        else get_chat_visible_skills(context)
+    )
+    effective_hidden_entries = _merge_hidden_skill_entries(
+        get_scope_hidden_skills(agent),
+        current_hidden_entries,
+        current_visible_entries,
     )
     return _merge_active_skill_entries(
         scope_entries,
         current_chat_entries,
-        current_disabled_entries,
+        effective_hidden_entries,
         limit=effective_limit,
     )
 
 
 def get_active_skills(agent: Agent | None) -> list[ActiveSkillEntry]:
-    return _build_active_skills(agent, limit=get_max_active_skills())
+    return _build_active_skills(agent, limit=get_max_active_skills(agent=agent))
 
 
-def get_loaded_skill_entries(agent: Agent | None) -> list[ActiveSkillEntry]:
+def _normalize_loaded_skill_names(raw: Any) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+
+    names: list[str] = []
+    for value in raw:
+        name = str(value or "").strip()
+        if name and name not in names:
+            names.append(name)
+    return names
+
+
+def get_loaded_skill_names(agent: Agent | None) -> list[str]:
     if not agent:
         return []
 
-    loaded = getattr(agent, "data", {}).get(AGENT_DATA_NAME_LOADED_SKILLS)
-    if not isinstance(loaded, list):
-        return []
+    context = getattr(agent, "context", None)
+    if context and hasattr(context, "get_data"):
+        names = _normalize_loaded_skill_names(
+            context.get_data(CONTEXT_DATA_NAME_LOADED_SKILLS)
+        )
+        if names:
+            data = getattr(agent, "data", None)
+            if isinstance(data, dict):
+                data.pop(AGENT_DATA_NAME_LOADED_SKILLS, None)
+            return names
 
-    return [
-        {"name": str(skill_name).strip()}
-        for skill_name in loaded
-        if str(skill_name).strip()
-    ]
+    legacy_names = _normalize_loaded_skill_names(
+        getattr(agent, "data", {}).get(AGENT_DATA_NAME_LOADED_SKILLS)
+    )
+    if legacy_names:
+        set_loaded_skill_names(agent, legacy_names)
+    return legacy_names
+
+
+def set_loaded_skill_names(agent: Agent | None, skill_names: Any) -> list[str]:
+    names = _normalize_loaded_skill_names(skill_names)[-MAX_ACTIVE_SKILLS:]
+    if not agent:
+        return names
+
+    context = getattr(agent, "context", None)
+    if context and hasattr(context, "set_data"):
+        context.set_data(CONTEXT_DATA_NAME_LOADED_SKILLS, names or None)
+        data = getattr(agent, "data", None)
+        if isinstance(data, dict):
+            data.pop(AGENT_DATA_NAME_LOADED_SKILLS, None)
+        return names
+
+    data = getattr(agent, "data", None)
+    if isinstance(data, dict):
+        data[AGENT_DATA_NAME_LOADED_SKILLS] = names
+    return names
+
+
+def add_loaded_skill_name(
+    agent: Agent | None,
+    skill_name: str,
+    *,
+    limit: int | None = None,
+) -> list[str]:
+    name = str(skill_name or "").strip()
+    if not name:
+        return get_loaded_skill_names(agent)
+
+    names = [loaded for loaded in get_loaded_skill_names(agent) if loaded != name]
+    names.append(name)
+    return set_loaded_skill_names(agent, names[-(limit or MAX_ACTIVE_SKILLS):])
+
+
+def get_loaded_skill_entries(agent: Agent | None) -> list[ActiveSkillEntry]:
+    return [{"name": skill_name} for skill_name in get_loaded_skill_names(agent)]
 
 
 def unload_agent_skill(agent: Agent | None, entry: Any) -> bool:
@@ -724,17 +923,9 @@ def unload_agent_skill(agent: Agent | None, entry: Any) -> bool:
     if not agent or not normalized:
         return False
 
-    data = getattr(agent, "data", None)
-    if not isinstance(data, dict):
-        return False
-
-    loaded = data.get(AGENT_DATA_NAME_LOADED_SKILLS)
-    if not isinstance(loaded, list):
-        return False
-
     next_loaded: list[str] = []
     removed = False
-    for skill_name in loaded:
+    for skill_name in get_loaded_skill_names(agent):
         loaded_entry = _normalize_active_skill_entry(str(skill_name))
         if loaded_entry and _entries_match(loaded_entry, normalized):
             removed = True
@@ -742,7 +933,7 @@ def unload_agent_skill(agent: Agent | None, entry: Any) -> bool:
         next_loaded.append(skill_name)
 
     if removed:
-        data[AGENT_DATA_NAME_LOADED_SKILLS] = next_loaded
+        set_loaded_skill_names(agent, next_loaded)
     return removed
 
 
@@ -761,24 +952,33 @@ def activate_chat_skill(agent: Agent, entry: Any) -> list[ActiveSkillEntry]:
         for item in get_chat_active_skills(context)
         if not _entries_match(item, normalized)
     ]
-    disabled_entries = [
+    hidden_entries = [
         item
         for item in get_chat_disabled_skills(context)
+        if not _entries_match(item, normalized)
+    ]
+    visible_entries = [
+        item
+        for item in get_chat_visible_skills(context)
         if not _entries_match(item, normalized)
     ]
 
     if not any(_entries_match(item, normalized) for item in scope_entries):
         chat_entries.append(normalized)
+    if _entry_matches_any(normalized, get_scope_hidden_skills(agent)):
+        visible_entries.append(normalized)
 
     merged_entries = _build_active_skills(
         agent,
         chat_entries=chat_entries,
-        disabled_entries=disabled_entries,
+        hidden_entries=hidden_entries,
+        visible_entries=visible_entries,
         limit=-1,
     )
-    if len(merged_entries) > get_max_active_skills():
+    max_active_skills = get_max_active_skills(agent=agent)
+    if len(merged_entries) > max_active_skills:
         raise ValueError(
-            f"You can activate at most {get_max_active_skills()} skills."
+            f"You can activate at most {max_active_skills} skills."
         )
 
     _store_context_active_skill_entries(
@@ -786,10 +986,15 @@ def activate_chat_skill(agent: Agent, entry: Any) -> list[ActiveSkillEntry]:
         CONTEXT_DATA_NAME_CHAT_ACTIVE_SKILLS,
         chat_entries,
     )
-    _store_context_active_skill_entries(
+    _store_context_hidden_skill_entries(
         context,
         CONTEXT_DATA_NAME_CHAT_DISABLED_SKILLS,
-        disabled_entries,
+        hidden_entries,
+    )
+    _store_context_hidden_skill_entries(
+        context,
+        CONTEXT_DATA_NAME_CHAT_VISIBLE_SKILLS,
+        visible_entries,
     )
     return get_active_skills(agent)
 
@@ -808,9 +1013,14 @@ def deactivate_chat_skill(agent: Agent, entry: Any) -> list[ActiveSkillEntry]:
         for item in get_chat_active_skills(context)
         if not _entries_match(item, normalized)
     ]
-    disabled_entries = [
+    hidden_entries = [
         item
         for item in get_chat_disabled_skills(context)
+        if not _entries_match(item, normalized)
+    ]
+    visible_entries = [
+        item
+        for item in get_chat_visible_skills(context)
         if not _entries_match(item, normalized)
     ]
 
@@ -818,19 +1028,104 @@ def deactivate_chat_skill(agent: Agent, entry: Any) -> list[ActiveSkillEntry]:
         _entries_match(item, normalized) for item in get_scope_active_skills(agent)
     )
     if is_scope_default:
-        disabled_entries.append(normalized)
+        hidden_entries.append(normalized)
 
     _store_context_active_skill_entries(
         context,
         CONTEXT_DATA_NAME_CHAT_ACTIVE_SKILLS,
         chat_entries,
     )
-    _store_context_active_skill_entries(
+    _store_context_hidden_skill_entries(
         context,
         CONTEXT_DATA_NAME_CHAT_DISABLED_SKILLS,
-        disabled_entries,
+        hidden_entries,
+    )
+    _store_context_hidden_skill_entries(
+        context,
+        CONTEXT_DATA_NAME_CHAT_VISIBLE_SKILLS,
+        visible_entries,
     )
     return get_active_skills(agent)
+
+
+def hide_chat_skill(agent: Agent, entry: Any) -> list[ActiveSkillEntry]:
+    normalized = _normalize_active_skill_entry(entry)
+    if not normalized:
+        raise ValueError("A skill name or path is required.")
+
+    context = getattr(agent, "context", None)
+    if not context:
+        raise ValueError("A chat context is required.")
+
+    chat_entries = [
+        item
+        for item in get_chat_active_skills(context)
+        if not _entries_match(item, normalized)
+    ]
+    hidden_entries = [
+        item
+        for item in get_chat_disabled_skills(context)
+        if not _entries_match(item, normalized)
+    ]
+    hidden_entries.append(normalized)
+    visible_entries = [
+        item
+        for item in get_chat_visible_skills(context)
+        if not _entries_match(item, normalized)
+    ]
+
+    _store_context_active_skill_entries(
+        context,
+        CONTEXT_DATA_NAME_CHAT_ACTIVE_SKILLS,
+        chat_entries,
+    )
+    _store_context_hidden_skill_entries(
+        context,
+        CONTEXT_DATA_NAME_CHAT_DISABLED_SKILLS,
+        hidden_entries,
+    )
+    _store_context_hidden_skill_entries(
+        context,
+        CONTEXT_DATA_NAME_CHAT_VISIBLE_SKILLS,
+        visible_entries,
+    )
+    unload_agent_skill(agent, normalized)
+    return get_hidden_skills(agent)
+
+
+def show_chat_skill(agent: Agent, entry: Any) -> list[ActiveSkillEntry]:
+    normalized = _normalize_active_skill_entry(entry)
+    if not normalized:
+        raise ValueError("A skill name or path is required.")
+
+    context = getattr(agent, "context", None)
+    if not context:
+        raise ValueError("A chat context is required.")
+
+    hidden_entries = [
+        item
+        for item in get_chat_disabled_skills(context)
+        if not _entries_match(item, normalized)
+    ]
+    visible_entries = [
+        item
+        for item in get_chat_visible_skills(context)
+        if not _entries_match(item, normalized)
+    ]
+    if _entry_matches_any(normalized, get_scope_hidden_skills(agent)):
+        visible_entries.append(normalized)
+
+    _store_context_hidden_skill_entries(
+        context,
+        CONTEXT_DATA_NAME_CHAT_DISABLED_SKILLS,
+        hidden_entries,
+    )
+    _store_context_hidden_skill_entries(
+        context,
+        CONTEXT_DATA_NAME_CHAT_VISIBLE_SKILLS,
+        visible_entries,
+    )
+    return get_hidden_skills(agent)
 
 
 def clear_chat_skill_overrides(agent: Agent) -> list[ActiveSkillEntry]:
@@ -839,7 +1134,8 @@ def clear_chat_skill_overrides(agent: Agent) -> list[ActiveSkillEntry]:
         raise ValueError("A chat context is required.")
 
     _store_context_active_skill_entries(context, CONTEXT_DATA_NAME_CHAT_ACTIVE_SKILLS, [])
-    _store_context_active_skill_entries(context, CONTEXT_DATA_NAME_CHAT_DISABLED_SKILLS, [])
+    _store_context_hidden_skill_entries(context, CONTEXT_DATA_NAME_CHAT_DISABLED_SKILLS, [])
+    _store_context_hidden_skill_entries(context, CONTEXT_DATA_NAME_CHAT_VISIBLE_SKILLS, [])
     return get_active_skills(agent)
 
 
@@ -851,7 +1147,7 @@ def build_active_skills_prompt(agent: Agent | None) -> str:
 def _format_skill_prompt(skill: Skill) -> str:
     lines = [
         f"Skill: {skill.name or skill.path.name}",
-        f"Path: {files.normalize_bio_path(str(skill.path))}",
+        f"Path: {files.normalize_a0_path(str(skill.path))}",
     ]
 
     if skill.description:
@@ -873,7 +1169,7 @@ def _get_skill_origin(skill_path: str, project_name: str = "") -> str:
     if files.exists(user_root) and files.is_in_dir(abs_path, user_root):
         return "User"
 
-    normalized_path = files.normalize_bio_path(abs_path)
+    normalized_path = files.normalize_a0_path(abs_path)
     if "/usr/plugins/" in normalized_path:
         return "Community plugin"
     if "/plugins/" in normalized_path:
@@ -911,11 +1207,11 @@ def _normalize_active_skill_entry(item: Any) -> ActiveSkillEntry | None:
 
 def _normalize_active_skill_path(path: str) -> str:
     fixed = path.strip().replace("\\", "/")
-    if fixed.startswith("/bio/"):
+    if fixed.startswith("/a0/"):
         return fixed.rstrip("/")
     if fixed.startswith("/"):
-        return files.normalize_bio_path(fixed).rstrip("/")
-    return files.normalize_bio_path(files.get_abs_path(fixed)).rstrip("/")
+        return files.normalize_a0_path(fixed).rstrip("/")
+    return files.normalize_a0_path(files.get_abs_path(fixed)).rstrip("/")
 
 
 def _entry_key(entry: ActiveSkillEntry) -> str:
@@ -933,6 +1229,13 @@ def _entry_keys(entry: ActiveSkillEntry) -> set[str]:
 
 def _entries_match(left: ActiveSkillEntry, right: ActiveSkillEntry) -> bool:
     return bool(_entry_keys(left) & _entry_keys(right))
+
+
+def _entry_matches_any(
+    entry: ActiveSkillEntry,
+    entries: list[ActiveSkillEntry],
+) -> bool:
+    return any(_entries_match(item, entry) for item in entries)
 
 
 def _get_agent_project_name(agent: Agent | None) -> str:
@@ -1001,12 +1304,47 @@ def _merge_active_skill_entries(
     return merged
 
 
+def _merge_hidden_skill_entries(
+    scope_entries: list[ActiveSkillEntry],
+    chat_hidden_entries: list[ActiveSkillEntry],
+    chat_visible_entries: list[ActiveSkillEntry],
+) -> list[ActiveSkillEntry]:
+    merged: list[ActiveSkillEntry] = []
+    seen: set[str] = set()
+    visible_keys = {
+        key for entry in chat_visible_entries for key in _entry_keys(entry)
+    }
+
+    for entry in [*scope_entries, *chat_hidden_entries]:
+        keys = _entry_keys(entry)
+        key = _entry_key(entry)
+        if not key or keys & seen or keys & visible_keys:
+            continue
+        seen.update(keys)
+        merged.append(entry)
+
+    return merged
+
+
 def _store_context_active_skill_entries(
     context: Any,
     key: str,
     entries: list[ActiveSkillEntry],
 ) -> None:
-    normalized_entries = normalize_active_skills(entries)
+    agent = context.get_agent() if hasattr(context, "get_agent") else None
+    normalized_entries = normalize_active_skills(
+        entries,
+        limit=get_max_active_skills(agent=agent),
+    )
+    context.set_data(key, normalized_entries or None)
+
+
+def _store_context_hidden_skill_entries(
+    context: Any,
+    key: str,
+    entries: list[ActiveSkillEntry],
+) -> None:
+    normalized_entries = normalize_hidden_skills(entries)
     context.set_data(key, normalized_entries or None)
 
 
@@ -1026,7 +1364,7 @@ def _resolve_active_skill_entries(
         if not skill:
             continue
 
-        runtime_path = files.normalize_bio_path(str(skill.path))
+        runtime_path = files.normalize_a0_path(str(skill.path))
         if runtime_path in seen_paths:
             continue
 
@@ -1085,3 +1423,39 @@ def _load_skill_from_runtime_path(
         return None
 
     return skill_from_markdown(skill_md, include_content=True)
+
+
+def _skill_entry(skill: Skill) -> ActiveSkillEntry:
+    return {
+        "name": skill.name or skill.path.name,
+        "path": files.normalize_a0_path(str(skill.path)),
+    }
+
+
+def _skill_matches_entries(
+    skill: Skill,
+    entries: list[ActiveSkillEntry],
+) -> bool:
+    skill_entry = _skill_entry(skill)
+    return any(_entries_match(skill_entry, entry) for entry in entries)
+
+
+def _skill_is_hidden_for_agent(agent: Agent | None, skill: Skill) -> bool:
+    if not agent:
+        return False
+    return _skill_matches_entries(skill, get_hidden_skills(agent))
+
+
+def _filter_hidden_skills(
+    agent: Agent | None,
+    skills: list[Skill],
+) -> list[Skill]:
+    if not agent:
+        return skills
+
+    hidden_entries = get_hidden_skills(agent)
+    if not hidden_entries:
+        return skills
+    return [
+        skill for skill in skills if not _skill_matches_entries(skill, hidden_entries)
+    ]

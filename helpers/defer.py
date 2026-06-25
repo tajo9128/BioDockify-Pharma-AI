@@ -1,7 +1,7 @@
 import asyncio
 from dataclasses import dataclass
 import threading
-from concurrent.futures import Future
+from concurrent.futures import Future, InvalidStateError
 from typing import Any, Callable, Optional, Coroutine, TypeVar, Awaitable
 
 T = TypeVar("T")
@@ -194,6 +194,18 @@ class DeferredTask:
 
         future: Future = Future()
 
+        def set_result(result: Any) -> None:
+            try:
+                future.set_result(result)
+            except InvalidStateError:
+                pass
+
+        def set_exception(exception: BaseException) -> None:
+            try:
+                future.set_exception(exception)
+            except InvalidStateError:
+                pass
+
         async def wrapped():
             if not self.event_loop_thread.loop:
                 raise RuntimeError("Event loop is not initialized")
@@ -203,11 +215,11 @@ class DeferredTask:
                 while isinstance(result, Awaitable):
                     result = await result
                 self.event_loop_thread.loop.call_soon_threadsafe(
-                    future.set_result, result
+                    set_result, result
                 )
             except Exception as e:
                 self.event_loop_thread.loop.call_soon_threadsafe(
-                    future.set_exception, e
+                    set_exception, e
                 )
 
         asyncio.run_coroutine_threadsafe(wrapped(), self.event_loop_thread.loop)

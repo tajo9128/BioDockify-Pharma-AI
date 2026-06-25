@@ -15,6 +15,8 @@ from typing import (
     TypedDict,
 )
 
+from regex import W
+
 from helpers import (
     files,
     git,
@@ -41,7 +43,8 @@ _META_TARGET_RE = re.compile(
     re.IGNORECASE,
 )
 
-ToggleState = Literal["enabled", "disabled", "advanced"]
+
+ToggleState = Literal["enabled", "disabled"]
 
 
 class PluginAssetFile(TypedDict):
@@ -284,7 +287,7 @@ def get_enhanced_plugins_list(
                 results.append(
                     PluginListItem(
                         name=d.name,
-                        path=files.normalize_bio_path(str(d)),
+                        path=files.normalize_a0_path(str(d)),
                         display_name=meta.title or d.name,
                         description=meta.description,
                         version=meta.version,
@@ -514,29 +517,14 @@ def get_toggle_state(plugin_name: str) -> ToggleState:
     if meta.always_enabled:
         return "enabled"
 
-    # root plugin paths
+    # List-level activation is the global/root state. Scoped project/profile
+    # overrides are managed inside the plugin config modal.
     plugin_paths = get_plugin_roots(plugin_name)
-    state = (
+    return (
         "enabled"
         if determined_toggle_from_paths(True, reversed(plugin_paths))
         else "disabled"
     )
-
-    # additional toggles in project/agent directories, return advanced
-    if meta.per_agent_config or meta.per_project_config:
-        configs = find_plugin_assets(
-            TOGGLE_FILE_PATTERN,
-            plugin_name=plugin_name,
-            project_name="*" if meta.per_project_config else "",
-            agent_profile="*" if meta.per_agent_config else "",
-            only_first=False,
-        )
-
-        # Advanced if there are specific overrides (project or agent specific)
-        if any(c.get("project_name") or c.get("agent_profile") for c in configs):
-            state = "advanced"
-
-    return state
 
 
 @extension.extensible

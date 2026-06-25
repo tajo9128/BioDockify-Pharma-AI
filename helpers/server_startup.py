@@ -372,7 +372,7 @@ def wait_for_health(host: str, port: int, startup_monitor: StartupMonitor) -> No
             with urllib.request.urlopen(url, timeout=2) as resp:
                 if resp.status == 200:
                     startup_monitor.mark_ready("health_probe")
-                    PrintStyle().print("BioDockify AI is running.")
+                    PrintStyle().print("Agent Zero is running.")
                     return
         except Exception:
             pass

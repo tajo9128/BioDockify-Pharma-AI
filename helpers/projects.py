@@ -1,7 +1,7 @@
 import os
-from typing import Literal, TypedDict, TYPE_CHECKING, cast
+from typing import Literal, NotRequired, TypedDict, TYPE_CHECKING, cast
 
-from helpers import files, dirty_json, persist_chat, file_tree
+from helpers import files, dirty_json, persist_chat, file_tree, extension
 from helpers.print_style import PrintStyle
 
 
@@ -12,7 +12,11 @@ PROJECTS_PARENT_DIR = "usr/projects"
 PROJECT_META_DIR = ".a0proj"
 PROJECT_INSTRUCTIONS_DIR = "instructions"
 PROJECT_KNOWLEDGE_DIR = "knowledge"
+PROJECT_SKILLS_DIR = "skills"
 PROJECT_HEADER_FILE = "project.json"
+PROJECT_MCP_SERVERS_FILE = "mcp_servers.json"
+PROJECT_AGENTS_MD_FILES = ("AGENTS.md", "Agents.md", "agents.md")
+DEFAULT_MCP_SERVERS_CONFIG = '{\n    "mcpServers": {}\n}'
 
 CONTEXT_DATA_KEY_PROJECT = "project"
 
@@ -32,6 +36,8 @@ class BasicProjectData(TypedDict):
     title: str
     description: str
     instructions: str
+    include_agents_md: NotRequired[bool]
+    mcp_servers: NotRequired[str]
     color: str
     git_url: str
     file_structure: FileStructureInjectionSettings
@@ -51,9 +57,16 @@ class EditProjectData(BasicProjectData):
     knowledge_files_count: int
     variables: str
     secrets: str
+    mcp_servers: str
     subagents: dict[str, SubAgentSettings]
     git_status: GitStatusData
 
+
+ProjectExtendedData = dict[str, object]
+_PROJECT_CORE_EDIT_KEYS = frozenset(BasicProjectData.__annotations__) | frozenset(
+    EditProjectData.__annotations__
+)
+_PROJECT_TRANSIENT_INPUT_KEYS = frozenset({"git_token"})
 
 
 def get_projects_parent_folder():
@@ -68,6 +81,17 @@ def get_project_meta(name: str, *sub_dirs: str):
     return files.get_abs_path(get_project_folder(name), PROJECT_META_DIR, *sub_dirs)
 
 
+def validate_project_name(name: str | None) -> str:
+    candidate = str(name or "").strip()
+    if (
+        not candidate
+        or candidate in {".", ".."}
+        or os.path.basename(candidate) != candidate
+    ):
+        raise ValueError("Invalid project name")
+    return candidate
+
+
 def delete_project(name: str):
     abs_path = files.get_abs_path(PROJECTS_PARENT_DIR, name)
     files.delete_dir(abs_path)
@@ -76,14 +100,16 @@ def delete_project(name: str):
 
 
 def create_project(name: str, data: BasicProjectData):
-    llm_data = data.get("llm") if isinstance(data, dict) else None
+    extended_data = _project_extended_data_for_save(data)
+    mcp_servers = data.get("mcp_servers") if isinstance(data, dict) else None
     abs_path = files.create_dir_safe(
         files.get_abs_path(PROJECTS_PARENT_DIR, name), rename_format="{name}_{number}"
     )
     create_project_meta_folders(name)
     data = _normalizeBasicData(data)
     save_project_header(name, data)
-    save_project_llm_settings(name, llm_data)
+    save_project_mcp_servers(name, mcp_servers or DEFAULT_MCP_SERVERS_CONFIG)
+    save_project_extended_data(name, extended_data)
     return name
 
 
@@ -91,7 +117,8 @@ def clone_git_project(name: str, git_url: str, git_token: str, data: BasicProjec
     """Clone a git repository as a new A0 project. Token is used only for cloning via http header."""
     from helpers import git
 
-    llm_data = data.get("llm") if isinstance(data, dict) else None
+    extended_data = _project_extended_data_for_save(data)
+    mcp_servers = data.get("mcp_servers") if isinstance(data, dict) else None
     
     abs_path = files.create_dir_safe(
         files.get_abs_path(PROJECTS_PARENT_DIR, name), rename_format="{name}_{number}"
@@ -119,7 +146,9 @@ def clone_git_project(name: str, git_url: str, git_token: str, data: BasicProjec
             data["git_url"] = clean_url
             save_project_header(actual_name, data)
 
-        save_project_llm_settings(actual_name, llm_data)
+        if mcp_servers:
+            save_project_mcp_servers(actual_name, mcp_servers)
+        save_project_extended_data(actual_name, extended_data)
         
         return actual_name
     except Exception as e:
@@ -159,6 +188,9 @@ def _normalizeBasicData(data: BasicProjectData) -> BasicProjectData:
         "title": data.get("title", ""),
         "description": data.get("description", ""),
         "instructions": data.get("instructions", ""),
+        "include_agents_md": _normalize_include_agents_md(
+            data.get("include_agents_md", True)
+        ),
         "color": data.get("color", ""),
         "git_url": data.get("git_url", ""),
         "file_structure": data.get(
@@ -174,7 +206,11 @@ def _normalizeEditData(data: EditProjectData) -> EditProjectData:
         "title": data.get("title", ""),
         "description": data.get("description", ""),
         "instructions": data.get("instructions", ""),
+        "include_agents_md": _normalize_include_agents_md(
+            data.get("include_agents_md", True)
+        ),
         "variables": data.get("variables", ""),
+        "mcp_servers": data.get("mcp_servers", DEFAULT_MCP_SERVERS_CONFIG),
         "color": data.get("color", ""),
         "git_url": data.get("git_url", ""),
         "git_status": data.get("git_status", {"is_git_repo": False}),
@@ -212,7 +248,7 @@ def _basic_data_to_edit_data(data: BasicProjectData) -> EditProjectData:
 
 
 def update_project(name: str, data: EditProjectData):
-    llm_data = data.get("llm") if isinstance(data, dict) else None
+    extended_data = _project_extended_data_for_save(data)
 
     # merge with current state
     current = load_edit_project_data(name)
@@ -226,8 +262,9 @@ def update_project(name: str, data: EditProjectData):
     # save secrets
     save_project_variables(name, current["variables"])
     save_project_secrets(name, current["secrets"])
+    save_project_mcp_servers(name, current["mcp_servers"])
     save_project_subagents(name, current["subagents"])
-    save_project_llm_settings(name, llm_data)
+    save_project_extended_data(name, extended_data)
 
     reactivate_project_in_chats(name)
     return name
@@ -243,8 +280,10 @@ def load_edit_project_data(name: str) -> EditProjectData:
     from helpers import git
     
     data = load_basic_project_data(name)
+    create_project_meta_folders(name)
     additional_instructions = get_additional_instructions_files(name)
     variables = load_project_variables(name)
+    mcp_servers = load_project_mcp_servers(name)
     secrets = load_project_secrets_masked(name)
     subagents = load_project_subagents(name)
     knowledge_files_count = get_knowledge_files_count(name)
@@ -258,19 +297,20 @@ def load_edit_project_data(name: str) -> EditProjectData:
             "instruction_files_count": len(additional_instructions),
             "knowledge_files_count": knowledge_files_count,
             "variables": variables,
+            "mcp_servers": mcp_servers,
             "secrets": secrets,
             "subagents": subagents,
             "git_status": git_status,
         },
     )
     data = _normalizeEditData(data)
-    data["llm"] = load_project_llm_data(name)  # type: ignore[typeddict-unknown-key]
+    _merge_project_extended_data(data, load_project_extended_data(name))
     return data
 
 
 def save_project_header(name: str, data: BasicProjectData):
     # save project header file
-    header = dirty_json.stringify(data)
+    header = dirty_json.stringify(_project_header_for_save(data))
     abs_path = files.get_abs_path(
         PROJECTS_PARENT_DIR, name, PROJECT_META_DIR, PROJECT_HEADER_FILE
     )
@@ -278,53 +318,56 @@ def save_project_header(name: str, data: BasicProjectData):
     files.write_file(abs_path, header)
 
 
-def load_project_llm_data(name: str) -> dict:
-    from plugins._model_config.helpers import model_config
+@extension.extensible
+def load_project_extended_data(name: str) -> ProjectExtendedData:
+    return {}
 
-    config = model_config.normalize_config_for_save(
-        model_config.get_config(project_name=name) or {}
-    )
+
+@extension.extensible
+def save_project_extended_data(name: str, project_data: ProjectExtendedData):
+    return None
+
+
+def _project_extended_data_for_save(data: object) -> ProjectExtendedData:
+    if not isinstance(data, dict):
+        return {}
     return {
-        "config": config,
-        "selected_preset": {
-            "scope": "current",
-            "project_name": name,
-            "name": "Current config",
-        },
-        "presets": model_config.get_combined_presets(name),
-        "global_presets": model_config.get_presets(),
-        "project_presets": model_config.get_project_presets(name),
+        str(key): value
+        for key, value in data.items()
+        if str(key) not in _PROJECT_CORE_EDIT_KEYS
+        and str(key) not in _PROJECT_TRANSIENT_INPUT_KEYS
     }
 
 
-def save_project_llm_settings(name: str, llm_data: object):
-    if not isinstance(llm_data, dict):
+def _merge_project_extended_data(
+    data: EditProjectData,
+    extended_data: object,
+) -> None:
+    if not isinstance(extended_data, dict):
         return
 
-    from helpers import plugins
-    from plugins._model_config.helpers import model_config
+    conflicts = sorted(str(key) for key in extended_data if key in _PROJECT_CORE_EDIT_KEYS)
+    if conflicts:
+        raise ValueError(
+            "Project extension data cannot overwrite core project fields: "
+            + ", ".join(conflicts)
+        )
 
-    project_presets = llm_data.get("project_presets")
-    if isinstance(project_presets, list):
-        model_config.save_presets(project_presets, project_name=name)
+    data.update(extended_data)  # type: ignore[typeddict-item]
 
-    config_to_save = None
-    selected_preset = llm_data.get("selected_preset")
-    if isinstance(selected_preset, dict) and selected_preset.get("scope") in {
-        "global",
-        "project",
-    }:
-        preset = model_config.resolve_preset_selection(selected_preset, project_name=name)
-        if preset:
-            base_config = model_config.get_config(project_name=name) or {}
-            config_to_save = model_config.build_config_from_preset(preset, base_config)
 
-    config = llm_data.get("config")
-    if config_to_save is None and isinstance(config, dict):
-        config_to_save = model_config.normalize_config_for_save(config)
+def load_project_mcp_servers(name: str) -> str:
+    project_name = validate_project_name(name)
+    try:
+        return files.read_file(get_project_meta(project_name, PROJECT_MCP_SERVERS_FILE))
+    except Exception:
+        return DEFAULT_MCP_SERVERS_CONFIG
 
-    if config_to_save is not None:
-        plugins.save_plugin_config("_model_config", name, "", config_to_save)
+
+def save_project_mcp_servers(name: str, mcp_servers: str):
+    project_name = validate_project_name(name)
+    content = mcp_servers if isinstance(mcp_servers, str) else DEFAULT_MCP_SERVERS_CONFIG
+    files.write_file(get_project_meta(project_name, PROJECT_MCP_SERVERS_FILE), content)
 
 
 def get_active_projects_list():
@@ -423,18 +466,22 @@ def deactivate_project_in_chats(name: str):
 def build_system_prompt_vars(name: str):
     project_data = load_basic_project_data(name)
     main_instructions = project_data.get("instructions", "") or ""
-    additional_instructions = get_additional_instructions_files(name)
-    complete_instructions = (
-        main_instructions
-        + "\n\n".join(
-            additional_instructions[k] for k in sorted(additional_instructions)
-        )
+    instruction_files = get_project_instruction_files(
+        name,
+        include_agents_md=project_data.get("include_agents_md", True),
+    )
+    instruction_parts = [
+        main_instructions,
+        _format_project_instruction_files(instruction_files),
+    ]
+    complete_instructions = "\n\n".join(
+        part.strip() for part in instruction_parts if part.strip()
     ).strip()
     return {
         "project_name": project_data.get("title", ""),
         "project_description": project_data.get("description", ""),
         "project_instructions": complete_instructions or "",
-        "project_path": files.normalize_bio_path(get_project_folder(name)),
+        "project_path": files.normalize_a0_path(get_project_folder(name)),
         "project_git_url": project_data.get("git_url", ""),
     }
 
@@ -444,6 +491,71 @@ def get_additional_instructions_files(name: str):
         get_project_folder(name), PROJECT_META_DIR, PROJECT_INSTRUCTIONS_DIR
     )
     return files.read_text_files_in_dir(instructions_folder)
+
+
+def get_project_instruction_files(
+    name: str,
+    include_agents_md: bool = True,
+) -> list[tuple[str, str]]:
+    project_folder = get_project_folder(name)
+    result: list[tuple[str, str]] = []
+
+    if include_agents_md:
+        agents_md = get_project_agents_md_instruction_file(name)
+        if agents_md:
+            result.append(agents_md)
+
+    additional_instructions = get_additional_instructions_files(name)
+    for filename in sorted(additional_instructions):
+        path = files.get_abs_path(
+            project_folder,
+            PROJECT_META_DIR,
+            PROJECT_INSTRUCTIONS_DIR,
+            filename,
+        )
+        result.append(
+            (files.normalize_a0_path(path), additional_instructions[filename])
+        )
+
+    return result
+
+
+def get_project_agents_md_instruction_file(name: str) -> tuple[str, str] | None:
+    project_folder = get_project_folder(name)
+    for filename in PROJECT_AGENTS_MD_FILES:
+        matches = files.read_text_files_in_dir(project_folder, pattern=filename)
+        if filename in matches:
+            path = files.get_abs_path(project_folder, filename)
+            return (files.normalize_a0_path(path), matches[filename])
+    return None
+
+
+def _format_project_instruction_files(instruction_files: list[tuple[str, str]]) -> str:
+    if not instruction_files:
+        return ""
+
+    parts = ["## project instruction files"]
+    for path, content in instruction_files:
+        parts.append(f"### path: {path}\n\n{content}")
+    return "\n\n".join(parts)
+
+
+def _normalize_include_agents_md(value: object) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() not in {"0", "false", "no", "off"}
+    return bool(value)
+
+
+def _project_header_for_save(data: BasicProjectData) -> dict:
+    header = dict(data)
+    header["include_agents_md"] = _normalize_include_agents_md(
+        header.get("include_agents_md", True)
+    )
+    return header
 
 
 def get_context_project_name(context: "AgentContext") -> str | None:
@@ -523,6 +635,9 @@ def create_project_meta_folders(name: str):
 
     # create knowledge folders (plugins create their own subdirs lazily)
     files.create_dir(get_project_meta(name, PROJECT_KNOWLEDGE_DIR))
+
+    # create project skills folder for Project Settings > Skills > Open Folder
+    files.create_dir(get_project_meta(name, PROJECT_SKILLS_DIR))
 
 
 def get_knowledge_files_count(name: str):

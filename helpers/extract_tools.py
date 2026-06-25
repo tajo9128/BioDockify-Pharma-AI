@@ -33,6 +33,15 @@ def normalize_tool_request(tool_request: Any) -> tuple[str, dict]:
         tool_args = tool_request.get("args")
     if not isinstance(tool_args, dict):
         raise ValueError("Tool request must have a tool_args (type dictionary) field")
+    tool_args = dict(tool_args)
+    if ":" in tool_name:
+        tool_name, action = tool_name.split(":", 1)
+        if not tool_name or not action:
+            raise ValueError("tool_name method suffix must include tool and action")
+        tool_args.setdefault("action", action)
+    method = tool_args.get("method")
+    if "action" not in tool_args and isinstance(method, str) and method:
+        tool_args["action"] = method
     return tool_name, tool_args
 
 
