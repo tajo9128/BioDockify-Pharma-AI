@@ -204,6 +204,56 @@ class MDEngine:
                 f"Last error: {last_h_error}"
             )
 
+        # STEP 2b: Remove HETATM residues the protein forcefield can't parameterize.
+        # Common offenders: chloride/sodium ions (CL, NA), calcium (CA), zinc (ZN),
+        # ligands, cofactors, glycosylation. AMBER protein FFs only know the 20
+        # amino acids + a few common modified residues. Leaving these in crashes
+        # createSystem with 'No template found for residue N (XXX)'.
+        # Standard residues recognized by AMBER (3-letter codes).
+        _STANDARD_RESIDUES = {
+            # amino acids
+            "ALA","ARG","ASN","ASP","CYS","GLN","GLU","GLY","HIS","ILE","LEU",
+            "LYS","MET","PHE","PRO","SER","THR","TRP","TYR","VAL",
+            # common protonation/modified forms AMBER knows
+            "HID","HIE","HIP","HSD","HSE","HSP","CYX","CYM","ASH","GLH","LYN",
+            # common termini
+            "NTER","CTER","NH2","ACE","NME",
+            # nucleotides (in case of DNA/RNA-protein complexes)
+            "DA","DC","DG","DT","DI","A","C","G","U","I","DA3","DG3","DC3","DT3",
+            "DA5","DG5","DC5","DT5","RA","RC","RG","RU",
+        }
+        _KEEP_HETATM = {"HOH", "WAT"}  # water (deleted separately by deleteWater)
+        kept_chains = []
+        for chain in protein_modeller.topology.chains():
+            kept_res = []
+            for res in chain.residues():
+                name = res.name.strip().upper()
+                is_std = name in _STANDARD_RESIDUES
+                # res.id: HETATM residues carry a leading 'H' flag in OpenMM's
+                # Topology via the insertion-code/segment; check atoms' record.
+                is_hetatm = any(a.name and res.name not in _STANDARD_RESIDUES
+                                for a in res.atoms())
+                if name in _STANDARD_RESIDUES or name in _KEEP_HETATM:
+                    kept_res.append(res)
+                else:
+                    log.info(f"Removing non-parameterizable residue: {name} "
+                             f"(chain {chain.id}) — not in protein forcefield.")
+            if kept_res:
+                kept_chains.append(chain)
+        # Modeller.delete() accepts a list of residues to remove.
+        to_remove = []
+        for chain in protein_modeller.topology.chains():
+            for res in chain.residues():
+                name = res.name.strip().upper()
+                if name not in _STANDARD_RESIDUES and name not in _KEEP_HETATM:
+                    to_remove.append(res)
+        if to_remove:
+            try:
+                protein_modeller.delete(to_remove)
+                log.info(f"Removed {len(to_remove)} non-protein residue(s) before parameterization.")
+            except Exception as e:
+                log.warning(f"Could not remove all non-protein residues: {e}")
+
         # STEP 3: Build the OpenMM system on the hydrogen-complete protein.
         # The protein-only topology has NO periodic box yet (no solvent), so we
         # cannot use app.PME here — use NoCutoff just to validate that the
