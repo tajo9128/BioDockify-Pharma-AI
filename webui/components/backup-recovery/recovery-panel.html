@@ -1,4 +1,8 @@
-<html><body><div x-data class="recovery-panel" x-init="$store.backupRecovery.loadBackups(); $store.backupRecovery.loadAutoBackupStatus()">
+<html><head>
+  <script type="module">
+    import { store } from "/components/backup-recovery/recovery-store.js";
+  </script>
+</head><body><div x-data class="recovery-panel" x-init="$store.backupRecovery.loadBackups(); $store.backupRecovery.loadAutoBackupStatus()">
   <div class="panel-header"><span class="material-symbols-outlined panel-icon">backup</span><h2>Backup & Recovery</h2></div>
   <p class="desc">Backups stored at <code>usr/backups/</code> (Docker volume) — survive container deletion.</p>
 
