@@ -98,6 +98,8 @@ RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
     pandas>=2.0.0 \
     matplotlib>=3.7.0 \
     statsmodels>=0.14.0 \
+    seaborn>=0.12.0 \
+    arxiv>=2.1.0 \
     && echo "Scientific packages installed (framework)" || \
     echo "Scientific packages install failed"
 
@@ -108,6 +110,8 @@ RUN /opt/venv/bin/python -m pip install --no-cache-dir \
     pandas>=2.0.0 \
     matplotlib>=3.7.0 \
     statsmodels>=0.14.0 \
+    seaborn>=0.12.0 \
+    arxiv>=2.1.0 \
     && echo "Scientific packages installed (execution)" || \
     echo "Scientific packages install failed"
 
