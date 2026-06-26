@@ -7,11 +7,14 @@ import openmm.unit as unit
 log = logging.getLogger("md_lite")
 
 FORCEFIELD_CHAINS = [
+    # AMBER14 protein forcefield — works with the bundled tip3p water file
+    # (amber14/tip3p_standard.xml is often not shipped; tip3p.xml is the fallback)
     ("amber14-all.xml", "amber14/tip3p_standard.xml"),
-    ("amber14-all.xml", "amber14/tip3p.xml"),
     ("amber14-all.xml", "tip3p.xml"),
-    ("amber99sb.xml", "tip3p.xml"),
+    ("amber14/protein.ff14SB.xml", "tip3p.xml"),
+    # AMBER99 — reliable fallbacks shipped with every OpenMM install
     ("amber99sbildn.xml", "tip3p.xml"),
+    ("amber99sb.xml", "tip3p.xml"),
 ]
 
 
@@ -143,20 +146,23 @@ class MDEngine:
             )
 
         # STEP 3: Build the OpenMM system on the hydrogen-complete protein.
-        # Try the chain of forcefields for template compatibility.
+        # The protein-only topology has NO periodic box yet (no solvent), so we
+        # cannot use app.PME here — use NoCutoff just to validate that the
+        # forcefield can parameterize every residue + that hydrogens are complete.
         built = False
         last_error = None
         for ff_protein, ff_water in FORCEFIELD_CHAINS:
             try:
                 ff_try = app.ForceField(ff_protein, ff_water)
-                self.system = ff_try.createSystem(
+                # Validate parameterization without requiring a periodic box.
+                _ = ff_try.createSystem(
                     protein_modeller.topology,
-                    nonbondedMethod=app.PME, nonbondedCutoff=1.0*unit.nanometers,
+                    nonbondedMethod=app.NoCutoff,
                     constraints=app.HBonds,
                 )
                 ff = ff_try  # lock in the working forcefield for solvent step
                 built = True
-                log.info(f"System built with forcefield: {ff_protein} + {ff_water}")
+                log.info(f"Protein parameterized with forcefield: {ff_protein} + {ff_water}")
                 break
             except Exception as e:
                 last_error = e
