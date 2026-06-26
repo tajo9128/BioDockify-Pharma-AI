@@ -18,11 +18,13 @@ from .enhanced_engine import EnhancedStatisticalEngine
 from .statistical_tools import AdditionalStatisticalTools
 from .surfsense_bridge import SurfSenseStatisticsBridge
 from .orchestrator import StatisticsOrchestrator
+from .bayesian import BayesianStats
 
 __all__ = [
     'DataImporter',
     'EnhancedStatisticalEngine',
     'AdditionalStatisticalTools',
     'SurfSenseStatisticsBridge',
-    'StatisticsOrchestrator'
+    'StatisticsOrchestrator',
+    'BayesianStats'
 ]

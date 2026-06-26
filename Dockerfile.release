@@ -104,6 +104,8 @@ RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
     lifelines>=0.27.0 \
     semanticscholar>=0.6.0 \
     tabulate>=0.9.0 \
+    pingouin>=0.5.4 \
+    arviz>=0.18.0 \
     && echo "Scientific packages installed (framework)" || \
     echo "Scientific packages install failed"
 
@@ -120,6 +122,8 @@ RUN /opt/venv/bin/python -m pip install --no-cache-dir \
     lifelines>=0.27.0 \
     semanticscholar>=0.6.0 \
     tabulate>=0.9.0 \
+    pingouin>=0.5.4 \
+    arviz>=0.18.0 \
     && echo "Scientific packages installed (execution)" || \
     echo "Scientific packages install failed"
 

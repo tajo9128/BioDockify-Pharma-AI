@@ -44,6 +44,7 @@ from modules.statistics.diagnostic_tests import DiagnosticTests
 from modules.statistics.advanced_biostatistics import AdvancedBiostatistics
 from modules.statistics.pkpd_analysis import PKPDAnalysis
 from modules.statistics.multiplicity_control import MultiplicityControl
+from modules.statistics.bayesian import BayesianStats
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -6712,3 +6713,170 @@ async def auto_analyze(request: AutoAnalyzeRequest, data: Dict[str, Any]):
     except Exception as e:
         logger.error(f"Auto-analysis failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+
+# =============================================================================
+# BAYESIAN STATISTICS ENDPOINTS (jamovi-parity add-on)
+# =============================================================================
+# These close the gap with jamovi's Bayesian suite — critical for FDA/EMA
+# adaptive trial designs, interim analyses, and evidence-for-the-null claims.
+# All endpoints are ADD-ONS; no existing route is modified.
+
+_bayesian_engine: Optional[BayesianStats] = None
+
+
+def get_bayesian_engine() -> BayesianStats:
+    global _bayesian_engine
+    if _bayesian_engine is None:
+        _bayesian_engine = BayesianStats()
+    return _bayesian_engine
+
+
+class BayesianTTestRequest(BaseModel):
+    """Bayesian t-test (independent or paired). Returns BF10/BF01."""
+    data: List[Dict[str, Any]] = Field(..., description="Rows of the dataset")
+    dv: str = Field(..., description="Dependent variable column")
+    between: Optional[str] = Field(None, description="Grouping column (independent t-test)")
+    paired: bool = Field(default=False, description="Paired-samples test")
+    subject: Optional[str] = Field(None, description="Subject id (required for paired)")
+    prior_width: float = Field(default=0.707, description="Cauchy prior scale (jamovi default)")
+
+
+class BayesianAnovaRequest(BaseModel):
+    """Bayesian one-way ANOVA. Returns BF10 (model vs null)."""
+    data: List[Dict[str, Any]] = Field(..., description="Rows of the dataset")
+    dv: str = Field(..., description="Dependent variable column")
+    between: str = Field(..., description="Grouping factor column")
+    prior_width: float = Field(default=0.5, description="r-scale fixed effects (jamovi default)")
+
+
+class BayesianCorrelationRequest(BaseModel):
+    """Bayesian correlation test. Returns BF10 for r != 0."""
+    data: List[Dict[str, Any]] = Field(..., description="Rows of the dataset")
+    x: str = Field(..., description="First variable column")
+    y: str = Field(..., description="Second variable column")
+    method: str = Field(default="pearson", description="'pearson' or 'spearman'")
+    prior_width: float = Field(default=1.0, description="Beta prior scale (jamovi default)")
+
+
+class BayesianRegressionRequest(BaseModel):
+    """Bayesian linear regression. Returns BF10 (model vs intercept-only)."""
+    data: List[Dict[str, Any]] = Field(..., description="Rows of the dataset")
+    y: str = Field(..., description="Outcome variable column")
+    predictors: List[str] = Field(..., description="Predictor column names")
+    prior_width: float = Field(default=0.354, description="r-scale (jamovi default)")
+
+
+class BayesianBinomialRequest(BaseModel):
+    """Bayesian binomial test (response rates, AE proportions, Phase II)."""
+    successes: int = Field(..., description="Number of successes/responses")
+    trials: int = Field(..., description="Total number of trials")
+    p0: float = Field(default=0.5, description="Null hypothesis proportion")
+    prior_a: float = Field(default=1.0, description="Beta prior alpha (1,1 = uniform)")
+    prior_b: float = Field(default=1.0, description="Beta prior beta")
+
+
+@router.post("/bayesian/t-test")
+async def bayesian_ttest_endpoint(request: BayesianTTestRequest):
+    """Bayesian t-test — quantifies evidence for OR against a difference."""
+    try:
+        df = pd.DataFrame(request.data)
+        result = get_bayesian_engine().bayesian_ttest(
+            data=df, dv=request.dv, between=request.between,
+            paired=request.paired, subject=request.subject,
+            prior_width=request.prior_width,
+        )
+        return {"status": "success", **result.to_dict()}
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        logger.error(f"Bayesian t-test failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/bayesian/anova")
+async def bayesian_anova_endpoint(request: BayesianAnovaRequest):
+    """Bayesian one-way ANOVA — evidence for a group effect."""
+    try:
+        df = pd.DataFrame(request.data)
+        result = get_bayesian_engine().bayesian_anova(
+            data=df, dv=request.dv, between=request.between,
+            prior_width=request.prior_width,
+        )
+        return {"status": "success", **result.to_dict()}
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        logger.error(f"Bayesian ANOVA failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/bayesian/correlation")
+async def bayesian_correlation_endpoint(request: BayesianCorrelationRequest):
+    """Bayesian correlation — evidence for/against an association."""
+    try:
+        df = pd.DataFrame(request.data)
+        result = get_bayesian_engine().bayesian_correlation(
+            x=request.x, y=request.y, data=df,
+            method=request.method, prior_width=request.prior_width,
+        )
+        return {"status": "success", **result.to_dict()}
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        logger.error(f"Bayesian correlation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/bayesian/regression")
+async def bayesian_regression_endpoint(request: BayesianRegressionRequest):
+    """Bayesian linear regression — evidence for the predictive model."""
+    try:
+        df = pd.DataFrame(request.data)
+        result = get_bayesian_engine().bayesian_linear_regression(
+            data=df, y=request.y, predictors=request.predictors,
+            prior_width=request.prior_width,
+        )
+        return {"status": "success", **result.to_dict()}
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        logger.error(f"Bayesian regression failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/bayesian/binomial")
+async def bayesian_binomial_endpoint(request: BayesianBinomialRequest):
+    """Bayesian binomial test — response rates, AE proportions (Phase II trials).
+
+    Works without pingouin (uses scipy Beta-Binomial conjugacy).
+    """
+    try:
+        result = get_bayesian_engine().bayesian_binomial(
+            successes=request.successes, trials=request.trials,
+            p0=request.p0, prior_a=request.prior_a, prior_b=request.prior_b,
+        )
+        return {"status": "success", **result}
+    except Exception as e:
+        logger.error(f"Bayesian binomial failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/bayesian/availability")
+async def bayesian_availability():
+    """Check whether the full Bayesian suite (pingouin) is available."""
+    return {
+        "status": "ok",
+        "full_suite_available": PINGOUIN_AVAILABLE,
+        "binomial_available": True,  # scipy-based, always works
+        "posterior_summaries_available": ARVIZ_AVAILABLE,
+        "endpoints": [
+            "/api/statistics/bayesian/t-test",
+            "/api/statistics/bayesian/anova",
+            "/api/statistics/bayesian/correlation",
+            "/api/statistics/bayesian/regression",
+            "/api/statistics/bayesian/binomial",
+        ],
+        "note": ("Install 'pingouin' for full Bayes-factor suite "
+                 "(t-test, ANOVA, correlation, regression)."),
+    }
