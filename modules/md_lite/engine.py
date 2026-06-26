@@ -105,39 +105,62 @@ class MDEngine:
         self.pdb = app.PDBFile(pdb_path)
         ff = self._load_forcefield()
 
-        def _setup_modeller():
-            m = app.Modeller(self.pdb.topology, self.pdb.positions)
-            try:
-                m.deleteWater()
-            except Exception:
-                pass
-            m.addSolvent(ff, model='tip3p', padding=1.0*unit.nanometers)
-            return m
+        # STEP 1: Build a protein-only modeller (NO solvent yet).
+        # Hydrogens must be added to the bare protein so the forcefield can
+        # match residue templates. Adding solvent first (as before) disrupted
+        # hydrogen placement and left residues missing H atoms, which crashed
+        # createSystem with 'No template found for residue N (XXX)'.
+        protein_modeller = app.Modeller(self.pdb.topology, self.pdb.positions)
+        try:
+            protein_modeller.deleteWater()
+        except Exception:
+            pass
 
-        # Build system — try pH-aware hydrogens, catch template mismatches
-        built = False
-        last_error = None
-        for attempt, (hydro_args, label) in enumerate([
+        # STEP 2: Add hydrogens to the protein BEFORE solvent.
+        # Try progressively: pH-aware, then standard, then forcefield-only.
+        # This resolves 'missing 1 H atom' errors (e.g. NPRO/PRO terminal).
+        hydrogens_ok = False
+        last_h_error = None
+        for hydro_args, label in [
             ({"pH": 7.0}, "pH=7.0"),
             ({}, "standard"),
-            ({"variants": None}, "all variants"),
-        ]):
+        ]:
             try:
-                self.modeller = _setup_modeller()
-                try:
-                    self.modeller.addHydrogens(ff, **hydro_args)
-                except Exception as e:
-                    log.warning(f"addHydrogens({label}) failed for some residues: {e}")
-                self.system = ff.createSystem(self.modeller.topology,
+                protein_modeller.addHydrogens(ff, **hydro_args)
+                hydrogens_ok = True
+                log.info(f"addHydrogens({label}) succeeded.")
+                break
+            except Exception as e:
+                last_h_error = e
+                log.warning(f"addHydrogens({label}) failed: {e}")
+
+        if not hydrogens_ok:
+            # Last resort: let createSystem try with whatever hydrogens exist.
+            # Many PDBs are usable even if addHydrogens can't resolve all variants.
+            log.warning(
+                "Could not fully add hydrogens via Modeller; continuing. "
+                f"Last error: {last_h_error}"
+            )
+
+        # STEP 3: Build the OpenMM system on the hydrogen-complete protein.
+        # Try the chain of forcefields for template compatibility.
+        built = False
+        last_error = None
+        for ff_protein, ff_water in FORCEFIELD_CHAINS:
+            try:
+                ff_try = app.ForceField(ff_protein, ff_water)
+                self.system = ff_try.createSystem(
+                    protein_modeller.topology,
                     nonbondedMethod=app.PME, nonbondedCutoff=1.0*unit.nanometers,
-                    constraints=app.HBonds)
+                    constraints=app.HBonds,
+                )
+                ff = ff_try  # lock in the working forcefield for solvent step
                 built = True
+                log.info(f"System built with forcefield: {ff_protein} + {ff_water}")
                 break
             except Exception as e:
                 last_error = e
-                if "No template found" not in str(e) and "missing" not in str(e).lower():
-                    raise
-                log.warning(f"Forcefield template mismatch (attempt {attempt+1}/3): {e}")
+                log.warning(f"createSystem failed for {ff_protein}+{ff_water}: {e}")
 
         if not built:
             raise RuntimeError(
@@ -146,6 +169,24 @@ class MDEngine:
                 f"Download a clean PDB from RCSB PDB and try again. "
                 f"Details: {last_error}"
             )
+
+        # STEP 4: NOW add solvent to the parameterized protein.
+        self.modeller = protein_modeller
+        try:
+            self.modeller.addSolvent(ff, model='tip3p', padding=1.0*unit.nanometers)
+        except Exception as e:
+            log.warning(f"addSolvent failed (continuing without solvent box): {e}")
+
+        # Rebuild the system on the solvated topology for the simulation.
+        try:
+            self.system = ff.createSystem(
+                self.modeller.topology,
+                nonbondedMethod=app.PME, nonbondedCutoff=1.0*unit.nanometers,
+                constraints=app.HBonds,
+            )
+        except Exception:
+            # Keep the protein-only system if solvated topology fails.
+            log.warning("Could not rebuild system on solvated topology; using protein-only system.")
 
         self.integrator = mm.LangevinMiddleIntegrator(
             self.temperature, 1.0/unit.picosecond, 0.002*unit.picoseconds)
