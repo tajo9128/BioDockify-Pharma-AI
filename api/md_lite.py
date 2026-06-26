@@ -77,12 +77,16 @@ class MDLite(ApiHandler):
         except Exception as e:
             log.exception("Prepare failed")
             msg = str(e)
-            if "invalid literal for int()" in msg or "PdbStructure" in msg:
-                msg = "PDB file format error. The file contains malformed ATOM/HETATM records. Upload a clean .pdb file from RCSB PDB or your docking software."
+            if "No valid ATOM" in msg or "no valid ATOM" in msg:
+                msg = "PDB file is empty or contains no valid atomic coordinates. Upload a valid protein structure."
+            elif "invalid literal for int()" in msg or "PdbStructure" in msg:
+                msg = ("PDB file format error. The file contains malformed ATOM/HETATM records. "
+                       "Upload a clean .pdb file from RCSB PDB or your docking software.")
             elif "Could not locate" in msg or "forcefield" in msg.lower():
                 msg = f"OpenMM forcefield files missing: {msg}. Rebuild Docker image to install forcefields."
-            elif "No valid ATOM" in msg:
-                msg = "PDB file is empty or contains no valid atomic coordinates. Upload a valid protein structure."
+            elif "No template found" in msg or "missing" in msg.lower() and "H atom" in msg:
+                msg = ("Could not add hydrogens to all residues. The PDB may have non-standard "
+                       f"residue termini. Details: {msg}")
             return {"status": "error", "error": msg}
 
     def _run(self, input):

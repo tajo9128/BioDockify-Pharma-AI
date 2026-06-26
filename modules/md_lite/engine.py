@@ -19,30 +19,89 @@ FORCEFIELD_CHAINS = [
 
 
 def _sanitize_pdb(pdb_path):
-    """Strip malformed PDB lines that crash OpenMM's PdbStructure parser."""
+    """Clean a PDB file so OpenMM's PdbStructure parser accepts it.
+
+    Strategy: keep all records OpenMM understands (ATOM/HETATM/TER/END/MODEL/
+    ENDMDL/CRYST1/SSBOND/LINK/HELIX/SHEET), and fix the common breakage that
+    docking software / non-standard exporters introduce:
+      - ATOM/HETATM lines shorter than the minimum 54 columns
+      - non-numeric residue sequence / coordinate fields
+      - missing final END
+    Critically, CRYST1 is PRESERVED — without it OpenMM has no periodic box
+    and addSolvent()+PME fails with 'no periodic box dimensions'.
+    """
+    # Records OpenMM's PDB reader uses. Anything else is dropped to avoid
+    # confusing the parser, but the structure-critical ones are kept.
+    KEEP_RECORDS = {
+        "ATOM", "HETATM", "TER", "END", "MODEL", "ENDMDL",
+        "CRYST1", "SSBOND", "LINK", "HELIX", "SHEET", "SEQRES", "DBREF",
+    }
     clean_lines = []
+    saw_atom = False
     with open(pdb_path, "r", encoding="utf-8", errors="replace") as f:
-        for line in f:
+        for raw in f:
+            line = raw.rstrip("\n").rstrip("\r")
+            if not line:
+                continue
             rec = line[:6].strip()
+
             if rec in ("ATOM", "HETATM"):
+                # Pad short lines to the minimum column width we parse.
                 if len(line) < 54:
-                    continue
+                    line = line.ljust(54)
+                # Validate the fixed-column numeric fields. If a single field
+                # is bad, skip that atom rather than aborting the whole file.
                 try:
-                    int(line[22:26])
-                    float(line[30:38])
-                    float(line[38:46])
-                    float(line[46:54])
+                    int(line[22:26])           # residue sequence number
+                    float(line[30:38])         # x
+                    float(line[38:46])         # y
+                    float(line[46:54])         # z
                 except (ValueError, IndexError):
                     continue
-                clean_lines.append(line)
-            elif rec in ("TER", "END", "MODEL", "ENDMDL", "CONECT"):
-                clean_lines.append(line)
-    if not clean_lines:
+                # Drop altLoc / segment noise that some exporters mangle by
+                # blanking the occupancy/tempFactor columns is NOT needed —
+                # OpenMM tolerates them. Keep the line as-is.
+                clean_lines.append(line + "\n")
+                saw_atom = True
+            elif rec in KEEP_RECORDS:
+                clean_lines.append(line + "\n")
+            # else: silently drop unsupported record types (ANISOU, REMARK,
+            # HEADER, TITLE, etc.) which OpenMM doesn't need and which can
+            # confuse older PdbStructure parsing in edge cases.
+
+    if not saw_atom:
         raise ValueError("PDB file contains no valid ATOM/HETATM records after sanitization")
+
+    # Ensure a CRYST1 record exists so PME/periodic boundaries can be set up.
+    # If the source PDB lacked one (common for docking output / bare protein),
+    # synthesize a simple cubic box larger than any coordinate span.
+    has_cryst = any(l.startswith("CRYST1") for l in clean_lines)
+    if not has_cryst:
+        xs = ys = zs = []
+        for l in clean_lines:
+            if l[:6].strip() in ("ATOM", "HETATM") and len(l) >= 54:
+                try:
+                    xs.append(float(l[30:38]))
+                    ys.append(float(l[38:46]))
+                    zs.append(float(l[46:54]))
+                except (ValueError, IndexError):
+                    pass
+        if xs:
+            # 1.0 nm padding on each side, in Angstroms (PDB units)
+            pad = 10.0
+            a = (max(xs) - min(xs)) + pad
+            b = (max(ys) - min(ys)) + pad
+            c = (max(zs) - min(zs)) + pad
+            cryst = (f"CRYST1{a:9.3f}{b:9.3f}{c:9.3f}"
+                     f"  90.00  90.00  90.00 P 1           1\n")
+            clean_lines.insert(0, cryst)
+
+    # Guarantee a terminating END record.
+    if not any(l.startswith("END") for l in clean_lines):
+        clean_lines.append("END\n")
+
     with open(pdb_path, "w", encoding="utf-8") as f:
         f.writelines(clean_lines)
-        if not any(l.startswith("END") for l in clean_lines):
-            f.write("END\n")
 
 
 class MDEngine:
