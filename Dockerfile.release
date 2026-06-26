@@ -21,6 +21,13 @@ COPY docs/ /a0/docs/
 COPY deployment/ /a0/deployment/
 COPY lib/ /a0/lib/
 
+# v2.0 core files (root-level) — updated Agent Zero core
+COPY agent.py /a0/agent.py
+COPY models.py /a0/models.py
+COPY initialize.py /a0/initialize.py
+COPY run_ui.py /a0/run_ui.py
+COPY preload.py /a0/preload.py
+
 COPY agent_zero/prompts_v19/ /a0/agent_zero/prompts_v19/
 COPY agent_zero/extensions_v19/ /a0/agent_zero/extensions_v19/
 
