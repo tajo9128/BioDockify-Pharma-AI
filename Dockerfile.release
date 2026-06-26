@@ -56,7 +56,10 @@ RUN find /a0/webui/ -maxdepth 1 -name "favicon*" -type f -delete 2>/dev/null || 
     sed -i 's|Agent Zero|BioDockify AI|g' /a0/agent_zero/prompts_v19/*.md 2>/dev/null || true; \
     sed -i 's|Agent Zero|BioDockify AI|g' /a0/agent_zero/extensions_v19/python/agent_init/*.py 2>/dev/null || true; \
     sed -i 's|Agent Zero|BioDockify AI|g' /a0/webui/index.html 2>/dev/null || true; \
-    sed -i 's|Agent Zero|BioDockify AI|g' /a0/webui/js/*.js 2>/dev/null || true
+    sed -i 's|Agent Zero|BioDockify AI|g' /a0/webui/js/*.js 2>/dev/null || true; \
+    sed -i 's|Agent Zero|BioDockify AI|g' /a0/helpers/*.py 2>/dev/null || true; \
+    sed -i 's|Agent Zero|BioDockify AI|g' /a0/agent.py 2>/dev/null || true; \
+    sed -i 's|Agent Zero|BioDockify AI|g' /a0/models.py 2>/dev/null || true
 
 # Install RDKit into framework venv
 RUN apt-get update -qq && apt-get install -y -qq python3-rdkit 2>/dev/null || true; \
