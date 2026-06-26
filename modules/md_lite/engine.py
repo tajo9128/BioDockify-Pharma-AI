@@ -237,21 +237,33 @@ class MDEngine:
 
         # STEP 4: NOW add solvent to the parameterized protein.
         self.modeller = protein_modeller
+        solvated = True
         try:
             self.modeller.addSolvent(ff, model='tip3p', padding=1.0*unit.nanometers)
         except Exception as e:
             log.warning(f"addSolvent failed (continuing without solvent box): {e}")
+            solvated = False
 
-        # Rebuild the system on the solvated topology for the simulation.
-        try:
+        # STEP 5: Build the FINAL system on the SAME topology we will simulate.
+        # This guarantees topology/positions/system all have matching atom counts.
+        # Use PME (periodic) when solvated, NoCutoff when running bare-protein.
+        if solvated:
+            try:
+                self.system = ff.createSystem(
+                    self.modeller.topology,
+                    nonbondedMethod=app.PME, nonbondedCutoff=1.0*unit.nanometers,
+                    constraints=app.HBonds,
+                )
+            except Exception as e:
+                log.warning(f"PME system build failed ({e}); retrying NoCutoff.")
+                solvated = False
+        if not solvated:
+            # Bare protein (no solvent / no periodic box) — must be consistent.
             self.system = ff.createSystem(
                 self.modeller.topology,
-                nonbondedMethod=app.PME, nonbondedCutoff=1.0*unit.nanometers,
+                nonbondedMethod=app.NoCutoff,
                 constraints=app.HBonds,
             )
-        except Exception:
-            # Keep the protein-only system if solvated topology fails.
-            log.warning("Could not rebuild system on solvated topology; using protein-only system.")
 
         self.integrator = mm.LangevinMiddleIntegrator(
             self.temperature, 1.0/unit.picosecond, 0.002*unit.picoseconds)
