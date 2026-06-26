@@ -1,7 +1,6 @@
 from abc import abstractmethod
 import json
 import threading
-from urllib.parse import urlsplit, unquote
 from functools import wraps
 from pathlib import Path
 from typing import Union, Dict, Any
@@ -17,6 +16,7 @@ from flask import (
     url_for,
 )
 from werkzeug.wrappers.response import Response as BaseResponse
+from agent import AgentContext
 from helpers.print_style import PrintStyle
 from helpers.errors import format_error
 from helpers import files, cache
@@ -94,51 +94,13 @@ class ApiHandler:
             PrintStyle.error(f"API error: {error}")
             return Response(response=error, status=500, mimetype="text/plain")
 
-    # get context to run agent zero in
+    # get context to run BioDockify AI in
     def use_context(self, ctxid: str, create_if_not_exists: bool = True):
         from helpers.context_utils import use_context as _use_context
         return _use_context(self.thread_lock, ctxid, create_if_not_exists)
 
 
 from helpers.network import is_loopback_address
-
-
-def is_safe_next_url(value: str | None) -> bool:
-    """Return True when value is a safe same-origin redirect target."""
-    if not value:
-        return False
-    if "\r" in value or "\n" in value:
-        return False
-    # Reject raw backslashes (browsers normalize `/\host` to `//host` -> external).
-    if "\\" in value:
-        return False
-
-    # Decode percent-escapes so encoded backslashes (e.g. `%5C`) are caught too.
-    decoded = unquote(value)
-    if "\\" in decoded:
-        return False
-
-    parsed = urlsplit(decoded)
-    if parsed.scheme or parsed.netloc:
-        return False
-
-    # Require an absolute path within this origin, but reject protocol-relative URLs.
-    return parsed.path.startswith("/") and not parsed.path.startswith("//")
-
-
-def get_safe_next_url(value: str | None, fallback: str | None = None) -> str | None:
-    """Return value if it is a safe next URL, otherwise return a safe fallback."""
-    if is_safe_next_url(value):
-        return value
-    if is_safe_next_url(fallback):
-        return fallback
-    return None
-
-
-def get_current_request_next_url() -> str:
-    """Return the current request path/query as a safe relative redirect target."""
-    next_url = request.full_path if request.query_string else request.path
-    return get_safe_next_url(next_url, url_for("serve_index")) or url_for("serve_index")
 
 
 def requires_api_key(f):
@@ -181,7 +143,7 @@ def requires_auth(f):
         if not user_pass_hash:
             return await f(*args, **kwargs)
         if session.get("authentication") != user_pass_hash:
-            return redirect(url_for("login_handler", next=get_current_request_next_url()))
+            return redirect(url_for("login_handler"))
         return await f(*args, **kwargs)
 
     return decorated
