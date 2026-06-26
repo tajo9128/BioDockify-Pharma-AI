@@ -254,10 +254,17 @@ class MDEngine:
             )
 
         # STEP 4: NOW add solvent to the parameterized protein.
+        # NOTE: do NOT add ions (positiveIon=None, negativeIon=None, ionicStrength=0).
+        # The AMBER protein forcefield lacks CL/NA ion templates, so default
+        # addSolvent (which adds counterions to neutralize) crashes createSystem
+        # with 'No template found for residue N (CL)'.
         self.modeller = protein_modeller
         solvated = True
         try:
-            self.modeller.addSolvent(ff, model='tip3p', padding=1.0*unit.nanometers)
+            self.modeller.addSolvent(
+                ff, model='tip3p', padding=1.0*unit.nanometers,
+                positiveIon=None, negativeIon=None, ionicStrength=0 * unit.molar,
+            )
         except Exception as e:
             log.warning(f"addSolvent failed (continuing without solvent box): {e}")
             solvated = False
