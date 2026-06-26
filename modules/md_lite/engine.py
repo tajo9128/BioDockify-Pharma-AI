@@ -18,7 +18,7 @@ FORCEFIELD_CHAINS = [
 ]
 
 
-def _sanitize_pdb(pdb_path):
+def _sanitize_pdb(pdb_path, keep_only_protein=True):
     """Clean a PDB file so OpenMM's PdbStructure parser accepts it.
 
     Strategy: keep all records OpenMM understands (ATOM/HETATM/TER/END/MODEL/
@@ -29,15 +29,30 @@ def _sanitize_pdb(pdb_path):
       - missing final END
     Critically, CRYST1 is PRESERVED — without it OpenMM has no periodic box
     and addSolvent()+PME fails with 'no periodic box dimensions'.
+
+    If keep_only_protein (default), HETATM records whose residue name is NOT a
+    standard amino acid / nucleotide / water are DROPPED. This removes the ions
+    (CL, NA, CA), metals, ligands and cofactors that AMBER protein forcefields
+    cannot parameterize (cause of 'No template found for residue N (XXX)').
     """
-    # Records OpenMM's PDB reader uses. Anything else is dropped to avoid
-    # confusing the parser, but the structure-critical ones are kept.
     KEEP_RECORDS = {
         "ATOM", "HETATM", "TER", "END", "MODEL", "ENDMDL",
         "CRYST1", "SSBOND", "LINK", "HELIX", "SHEET", "SEQRES", "DBREF",
     }
+    # Residue names the AMBER protein forcefield can parameterize.
+    _STANDARD_RESIDUES = {
+        "ALA","ARG","ASN","ASP","CYS","GLN","GLU","GLY","HIS","ILE","LEU",
+        "LYS","MET","PHE","PRO","SER","THR","TRP","TYR","VAL",
+        "HID","HIE","HIP","HSD","HSE","HSP","CYX","CYM","ASH","GLH","LYN",
+        "NTER","CTER","NH2","ACE","NME",
+        "DA","DC","DG","DT","DI","A","C","G","U","I","DA3","DG3","DC3","DT3",
+        "DA5","DG5","DC5","DT5","RA","RC","RG","RU",
+    }
+    _KEEP_HETATM = {"HOH", "WAT"}  # water — handled later by deleteWater()
+
     clean_lines = []
     saw_atom = False
+    dropped_hetatm = 0
     with open(pdb_path, "r", encoding="utf-8", errors="replace") as f:
         for raw in f:
             line = raw.rstrip("\n").rstrip("\r")
@@ -46,11 +61,20 @@ def _sanitize_pdb(pdb_path):
             rec = line[:6].strip()
 
             if rec in ("ATOM", "HETATM"):
+                # When stripping to protein-only, drop HETATM ions/ligands/etc.
+                res_name = ""
+                if len(line) >= 17:
+                    res_name = line[17:20].strip().upper()
+                if keep_only_protein and rec == "HETATM" \
+                        and res_name not in _STANDARD_RESIDUES \
+                        and res_name not in _KEEP_HETATM:
+                    dropped_hetatm += 1
+                    continue
                 # Pad short lines to the minimum column width we parse.
                 if len(line) < 54:
                     line = line.ljust(54)
-                # Validate the fixed-column numeric fields. If a single field
-                # is bad, skip that atom rather than aborting the whole file.
+                # Validate the fixed-column numeric fields. Skip a single bad
+                # atom rather than aborting the whole file.
                 try:
                     int(line[22:26])           # residue sequence number
                     float(line[30:38])         # x
@@ -58,23 +82,19 @@ def _sanitize_pdb(pdb_path):
                     float(line[46:54])         # z
                 except (ValueError, IndexError):
                     continue
-                # Drop altLoc / segment noise that some exporters mangle by
-                # blanking the occupancy/tempFactor columns is NOT needed —
-                # OpenMM tolerates them. Keep the line as-is.
                 clean_lines.append(line + "\n")
                 saw_atom = True
             elif rec in KEEP_RECORDS:
                 clean_lines.append(line + "\n")
-            # else: silently drop unsupported record types (ANISOU, REMARK,
-            # HEADER, TITLE, etc.) which OpenMM doesn't need and which can
-            # confuse older PdbStructure parsing in edge cases.
+
+    if dropped_hetatm:
+        log.info(f"_sanitize_pdb: dropped {dropped_hetatm} non-protein HETATM record(s) "
+                 f"(ions/ligands/cofactors not in the AMBER forcefield).")
 
     if not saw_atom:
         raise ValueError("PDB file contains no valid ATOM/HETATM records after sanitization")
 
     # Ensure a CRYST1 record exists so PME/periodic boundaries can be set up.
-    # If the source PDB lacked one (common for docking output / bare protein),
-    # synthesize a simple cubic box larger than any coordinate span.
     has_cryst = any(l.startswith("CRYST1") for l in clean_lines)
     if not has_cryst:
         xs = ys = zs = []
@@ -87,8 +107,7 @@ def _sanitize_pdb(pdb_path):
                 except (ValueError, IndexError):
                     pass
         if xs:
-            # 1.0 nm padding on each side, in Angstroms (PDB units)
-            pad = 10.0
+            pad = 10.0  # Angstroms
             a = (max(xs) - min(xs)) + pad
             b = (max(ys) - min(ys)) + pad
             c = (max(zs) - min(zs)) + pad
@@ -96,7 +115,6 @@ def _sanitize_pdb(pdb_path):
                      f"  90.00  90.00  90.00 P 1           1\n")
             clean_lines.insert(0, cryst)
 
-    # Guarantee a terminating END record.
     if not any(l.startswith("END") for l in clean_lines):
         clean_lines.append("END\n")
 
@@ -203,56 +221,6 @@ class MDEngine:
                 "Could not fully add hydrogens via Modeller; continuing. "
                 f"Last error: {last_h_error}"
             )
-
-        # STEP 2b: Remove HETATM residues the protein forcefield can't parameterize.
-        # Common offenders: chloride/sodium ions (CL, NA), calcium (CA), zinc (ZN),
-        # ligands, cofactors, glycosylation. AMBER protein FFs only know the 20
-        # amino acids + a few common modified residues. Leaving these in crashes
-        # createSystem with 'No template found for residue N (XXX)'.
-        # Standard residues recognized by AMBER (3-letter codes).
-        _STANDARD_RESIDUES = {
-            # amino acids
-            "ALA","ARG","ASN","ASP","CYS","GLN","GLU","GLY","HIS","ILE","LEU",
-            "LYS","MET","PHE","PRO","SER","THR","TRP","TYR","VAL",
-            # common protonation/modified forms AMBER knows
-            "HID","HIE","HIP","HSD","HSE","HSP","CYX","CYM","ASH","GLH","LYN",
-            # common termini
-            "NTER","CTER","NH2","ACE","NME",
-            # nucleotides (in case of DNA/RNA-protein complexes)
-            "DA","DC","DG","DT","DI","A","C","G","U","I","DA3","DG3","DC3","DT3",
-            "DA5","DG5","DC5","DT5","RA","RC","RG","RU",
-        }
-        _KEEP_HETATM = {"HOH", "WAT"}  # water (deleted separately by deleteWater)
-        kept_chains = []
-        for chain in protein_modeller.topology.chains():
-            kept_res = []
-            for res in chain.residues():
-                name = res.name.strip().upper()
-                is_std = name in _STANDARD_RESIDUES
-                # res.id: HETATM residues carry a leading 'H' flag in OpenMM's
-                # Topology via the insertion-code/segment; check atoms' record.
-                is_hetatm = any(a.name and res.name not in _STANDARD_RESIDUES
-                                for a in res.atoms())
-                if name in _STANDARD_RESIDUES or name in _KEEP_HETATM:
-                    kept_res.append(res)
-                else:
-                    log.info(f"Removing non-parameterizable residue: {name} "
-                             f"(chain {chain.id}) — not in protein forcefield.")
-            if kept_res:
-                kept_chains.append(chain)
-        # Modeller.delete() accepts a list of residues to remove.
-        to_remove = []
-        for chain in protein_modeller.topology.chains():
-            for res in chain.residues():
-                name = res.name.strip().upper()
-                if name not in _STANDARD_RESIDUES and name not in _KEEP_HETATM:
-                    to_remove.append(res)
-        if to_remove:
-            try:
-                protein_modeller.delete(to_remove)
-                log.info(f"Removed {len(to_remove)} non-protein residue(s) before parameterization.")
-            except Exception as e:
-                log.warning(f"Could not remove all non-protein residues: {e}")
 
         # STEP 3: Build the OpenMM system on the hydrogen-complete protein.
         # The protein-only topology has NO periodic box yet (no solvent), so we
