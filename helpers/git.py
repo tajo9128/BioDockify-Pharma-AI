@@ -405,7 +405,7 @@ def get_version():
 
 
 def is_official_agent_zero_repo() -> bool:
-    """Return True when origin points to agent0ai/agent-zero."""
+    """Return True when origin points to an official BioDockify Pharma AI repo."""
     try:
         repo = Repo(files.get_base_dir())
         if not repo.remotes:
@@ -417,6 +417,8 @@ def is_official_agent_zero_repo() -> bool:
             remote_url = remote_url[:-4]
 
         allowed_repos = [
+            "tajo9128/biodockify-pharma-ai",
+            "tajo9128/biodockify-pharma-r3",
             "agent0ai/agent-zero",
             "frdel/agent-zero",
         ]

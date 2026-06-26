@@ -13,8 +13,8 @@ from helpers import git, yaml
 from helpers.localization import Localization
 
 
-OFFICIAL_REPO_AUTHOR = "agent0ai"
-OFFICIAL_REPO_NAME = "agent-zero"
+OFFICIAL_REPO_AUTHOR = "tajo9128"
+OFFICIAL_REPO_NAME = "BioDockify-Pharma-AI"
 BRANCH_OPTIONS = [
     {"value": "main", "label": "main"},
     {"value": "ready", "label": "ready"},
