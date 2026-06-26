@@ -155,7 +155,7 @@ class MDEngine:
             try:
                 ff_try = app.ForceField(ff_protein, ff_water)
                 # Validate parameterization without requiring a periodic box.
-                _ = ff_try.createSystem(
+                self.system = ff_try.createSystem(
                     protein_modeller.topology,
                     nonbondedMethod=app.NoCutoff,
                     constraints=app.HBonds,
