@@ -19,6 +19,7 @@ from .statistical_tools import AdditionalStatisticalTools
 from .surfsense_bridge import SurfSenseStatisticsBridge
 from .orchestrator import StatisticsOrchestrator
 from .bayesian import BayesianStats
+from .pdf_report import generate_statistics_report
 
 __all__ = [
     'DataImporter',
@@ -26,5 +27,6 @@ __all__ = [
     'AdditionalStatisticalTools',
     'SurfSenseStatisticsBridge',
     'StatisticsOrchestrator',
-    'BayesianStats'
+    'BayesianStats',
+    'generate_statistics_report'
 ]

@@ -6880,3 +6880,57 @@ async def bayesian_availability():
         "note": ("Install 'pingouin' for full Bayes-factor suite "
                  "(t-test, ANOVA, correlation, regression)."),
     }
+
+
+# =============================================================================
+# PDF REPORT EXPORT (BioDockify letterhead)
+# =============================================================================
+from modules.statistics.pdf_report import generate_statistics_report
+from fastapi.responses import StreamingResponse
+
+
+class PDFReportRequest(BaseModel):
+    """Request for a BioDockify-letterhead PDF statistics report."""
+    title: str = Field(..., description="Report title")
+    analysis_type: str = Field(default="Statistical Analysis", description="Analysis tag")
+    results: Union[Dict[str, Any], List[Dict[str, Any]]] = Field(
+        ..., description="Results: dict (key/value table) or list of dicts (data table)")
+    interpretation: str = Field(default="", description="Plain-English interpretation")
+    methodology: str = Field(default="", description="Statistical methodology text")
+    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Extra parameters")
+    table_records: Optional[List[Dict[str, Any]]] = Field(
+        default=None, description="Explicit tabular rows (overrides results)")
+    table_columns: Optional[List[str]] = Field(default=None, description="Column order")
+    chart_path: Optional[str] = Field(default=None, description="Path to chart image to embed")
+
+
+@router.post("/report/pdf")
+async def statistics_pdf_report(request: PDFReportRequest):
+    """Generate a BioDockify-letterhead PDF report of statistics results.
+
+    Returns a PDF file download (Content-Disposition: attachment).
+    Results render as formatted tables with brand letterhead on every page.
+    """
+    try:
+        buf = generate_statistics_report(
+            title=request.title,
+            analysis_type=request.analysis_type,
+            results=request.results,
+            interpretation=request.interpretation,
+            methodology=request.methodology,
+            metadata=request.metadata,
+            table_records=request.table_records,
+            table_columns=request.table_columns,
+            chart_path=request.chart_path,
+        )
+        safe_title = "".join(c if c.isalnum() or c in "-_" else "_" for c in request.title)[:60]
+        return StreamingResponse(
+            buf,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="biodockify_{safe_title}.pdf"',
+            },
+        )
+    except Exception as e:
+        logger.error(f"PDF report generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
