@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://hub.docker.com/r/tajo9128/biodockify-pharma-ai"><img src="https://img.shields.io/badge/docker-tajo9128%2Fbiodockify--pharma--ai-blue.svg" alt="Docker"/></a>
-  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v6.9.15-green.svg" alt="Version"/></a>
+  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v6.3.0-green.svg" alt="Version"/></a>
   <a href="https://github.com/tajo9128/BioDockify-Pharma-AI"><img src="https://img.shields.io/badge/GitHub-BioDockify--Pharma--AI-181717?style=flat&logo=github" alt="GitHub"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"/></a>
   <a href="docs/user-guide/README.md"><img src="https://img.shields.io/badge/docs-user%20guide-lightgrey.svg" alt="Documentation"/></a>
@@ -16,7 +16,7 @@
   <img src="assets/screenshot.png" alt="BioDockify Pharma AI Screenshot" width="800">
 </p>
 
-**BioDockify Pharma AI** is a pharmaceutical research platform with 16 integrated modules. It features AutoDock Vina molecular docking with MM-GBSA free energy scoring, OpenMM molecular dynamics (MD Lite), SPSS-level biostatistics (20 analysis types + auto-analyze), a 25-stage autonomous research pipeline, literature search across 10 databases, QSAR modeling, pharmacophore screening, a 36,145-journal recommender, Drug Analysis with 3Dmol.js viewer, a NotebookLM-style document reader with podcast generation, 4 AI sub-agents, faculty command center with question bank generator, and a ChromaDB knowledge base supporting PDF/DOCX/XLSX/audio/video.
+**BioDockify Pharma AI** is a pharmaceutical research platform built on the **Agent Zero v2.0** core, with 16 integrated modules. It features AutoDock Vina molecular docking with MM-GBSA free energy scoring, OpenMM molecular dynamics (MD Lite), SPSS/jamovi-level biostatistics (20+ analysis types including a full **Bayesian suite** with Bayes factors, auto-analyze, and PDF report export), a 25-stage autonomous research pipeline, literature search across 10 databases, QSAR modeling, pharmacophore screening (16 actions), a 36,145-journal recommender, Drug Analysis with 3Dmol.js viewer, a NotebookLM-style document reader with podcast generation, 4 AI sub-agents, faculty command center with question bank generator, and a ChromaDB knowledge base supporting PDF/DOCX/XLSX/audio/video.
 
 ---
 
@@ -128,6 +128,30 @@ Agent0 (Main Orchestrator)
 ```
 
 ---
+
+## What's New in v6.3.0
+
+A major release: **Agent Zero v2.0 core** merged into BioDockify Pharma AI, plus jamovi-parity statistics and hardening across the pharma modules.
+
+### Agent Zero v2.0 Core
+- **LiteLLM transport layer** — broader provider compatibility, global config (`configure_litellm`, `set_litellm_params`, kwargs normalization/merge)
+- **Parallel tool calling** + **OpenAI Responses API** support in `agent.py`
+- **49 helpers updated** to v2.0 + **14 new helpers** (litellm_transport, parallel_tools, responses_tools, chat_media, ephemeral_images, media_artifacts, llm_result, tunnel helpers)
+- **Security-pinned dependencies**: `litellm==1.88.1` (CVE-2026-42271 fix), `starlette==1.0.1` (Host header validation fix)
+- Chat/storage layer version-matched (history metadata support)
+
+### Statistics — jamovi-parity (new)
+- **Bayesian suite** (`modules/statistics/bayesian.py`): Bayes factors (BF₁₀/BF₀₁) for t-test, ANOVA, correlation, regression; Bayesian binomial test (response rates, Phase II); posterior summaries with HDI; Lee & Wagenmakers evidence categories — the same engine jamovi uses (pingouin)
+- **PDF report export** (`modules/statistics/pdf_report.py`): BioDockify-letterhead PDFs with DNA-helix motif, formatted result tables, methodology + interpretation sections, GLP/GCP/FDA/EMA compliance footer. `POST /api/statistics/report/pdf`
+
+### Pharma Module Fixes
+- **MD Lite**: 4-bug fix — hydrogens added before solvent, protein-only NoCutoff validation, consistent topology/system atom counts, `neutralize=False` (resolves CL ion template errors), robust PDB sanitizer (CRYST1 synthesis, non-protein HETATM stripping)
+- **Pharmacophore**: all 16 actions verified passing; coordinate-format robustness (accepts both `[x,y,z]` list and `{x,y,z}` dict)
+
+### Rebrand & Hardening
+- **Rebrand corruption fixed** — zero `biodockify.ai` in any Python file (illegal dots in identifiers/imports/metric names repaired across 19 files)
+- **Update checker** points to BioDockify GitHub releases (not agent-zero server)
+- **Dockerfile.release**: copies v2.0 core files, extends rebrand sed to Python core, adds all pharma deps (biopython, lifelines, semanticscholar, pingouin, arviz, reportlab) to both venvs
 
 ## What's New in v6.9.15
 
