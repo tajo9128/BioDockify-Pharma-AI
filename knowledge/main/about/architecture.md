@@ -1,4 +1,4 @@
-# BioDockify Pharma AI v6.9.5 - Internal Architecture
+# BioDockify Pharma AI v7.0.0 - Internal Architecture
 
 ## The Agent Loop (Monologue Cycle)
 

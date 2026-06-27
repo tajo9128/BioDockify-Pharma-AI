@@ -1,4 +1,4 @@
-# BioDockify Pharma AI v6.9.5 - Configuration Reference
+# BioDockify Pharma AI v7.0.0 - Configuration Reference
 
 ## LLM Roles
 

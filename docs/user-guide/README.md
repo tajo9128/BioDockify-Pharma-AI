@@ -1,4 +1,4 @@
-# BioDockify Pharma AI v6.9.5 — User Guide
+# BioDockify Pharma AI v7.0.0 — User Guide
 
 ## Complete Documentation: 28 Chapters + 4 Appendices
 
@@ -82,8 +82,8 @@
 
 | Property | Value |
 |----------|-------|
-| Version | v6.9.5 |
-| Docker Image | `tajo9128/biodockify-pharma-ai:v6.9.5` |
+| Version | v7.0.0 |
+| Docker Image | `tajo9128/biodockify-pharma-ai:v7.0.0` |
 | Tech Stack | Python 3.12+ · Flask · Alpine.js · RDKit · AutoDock Vina · GNINA |
 | GitHub | https://github.com/tajo9128/BioDockify-Pharma-AI |
 | Modules | 15 consolidated |

@@ -1,8 +1,8 @@
 ﻿# BioDockify AI - AGENTS.md
 
-**Last updated: 2026-06-15 | Version: v6.9.15**
+**Last updated: 2026-06-15 | Version: v7.0.0**
 
-## Today's Additions (2026-06-15) — v6.9.15 Release
+## Today's Additions (2026-06-15) — v7.0.0 Release
 
 ### Bug Fixes (7 total)
 - **MD Lite**: Forcefield fallback chain (5 combos: amber14/tip3p_standard → tip3p → amber99sb), PDB sanitization (malformed ATOM/HETATM), PRO/NPRO template mismatch (pH=7.0 aware hydrogen addition with 3-attempt retry), double addSolvent() removed

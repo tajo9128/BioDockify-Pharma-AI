@@ -1,6 +1,6 @@
 # Installation Guide (Docker Edition)
 
-**BioDockify v6.9.5** is now a pure Docker-based application. This ensures maximum consistency across environments and simplifies the deployment of its heavy pharmaceutical research engines.
+**BioDockify v7.0.0** is now a pure Docker-based application. This ensures maximum consistency across environments and simplifies the deployment of its heavy pharmaceutical research engines.
 
 ## System Requirements
 

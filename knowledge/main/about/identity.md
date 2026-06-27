@@ -1,4 +1,4 @@
-# BioDockify Pharma AI v6.9.5 - Identity and Design Philosophy
+# BioDockify Pharma AI v7.0.0 - Identity and Design Philosophy
 
 ## What BioDockify AI Is
 
