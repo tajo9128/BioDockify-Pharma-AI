@@ -151,7 +151,11 @@ def _extract_protein_pharmacophore(pdb_content: str, center: dict = None, cutoff
 
     # Filter to binding site if center provided
     if center:
-        cx, cy, cz = center.get("x", 0), center.get("y", 0), center.get("z", 0)
+        # center may be a dict {x,y,z} or a list [x,y,z]
+        if isinstance(center, (list, tuple)):
+            cx, cy, cz = float(center[0]), float(center[1]), float(center[2])
+        else:
+            cx, cy, cz = center.get("x", 0), center.get("y", 0), center.get("z", 0)
         cen = np.array([cx, cy, cz])
         site_atoms = []
         for a in atoms:
@@ -608,8 +612,17 @@ class PharmacophoreHandler(ApiHandler):
 
             positions = np.array([a["pos"] for a in atoms])
             if ligand_center:
-                lc = np.array([ligand_center.get("x", 0), ligand_center.get("y", 0), ligand_center.get("z", 0)])
-                nearby = [a for a, p in zip(atoms, positions) if np.linalg.norm(p - lc) < cutoff]
+                # ligand_center may be a dict {x,y,z} (frontend) or a list [x,y,z]
+                if isinstance(ligand_center, (list, tuple)):
+                    lc = np.array([float(ligand_center[i]) for i in range(3)])
+                elif isinstance(ligand_center, dict):
+                    lc = np.array([ligand_center.get("x", 0), ligand_center.get("y", 0), ligand_center.get("z", 0)])
+                else:
+                    lc = None
+                if lc is not None:
+                    nearby = [a for a, p in zip(atoms, positions) if np.linalg.norm(p - lc) < cutoff]
+                else:
+                    nearby = atoms
             else:
                 nearby = atoms
 
