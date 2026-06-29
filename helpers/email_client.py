@@ -148,7 +148,7 @@
 #         Read messages based on filter criteria.
 
 #         Args:
-#             download_folder: Folder to save attachments (relative to /a0/)
+#             download_folder: Folder to save attachments (relative to /bio/)
 #             filter: Filter criteria dict with keys:
 #                 - unread: Boolean to filter unread messages (default: True)
 #                 - sender: Sender pattern with wildcards (e.g., "*@company.com")
@@ -456,7 +456,7 @@
 #         """
 #         Convert HTML to plain text with inline attachment references.
 
-#         Replaces inline images with [file:///a0/...] markers to maintain
+#         Replaces inline images with [file:///bio/...] markers to maintain
 #         positional context.
 #         """
 #         cid_map = cid_map or {}
@@ -498,7 +498,7 @@
 #         """
 #         Save attachment to disk and return absolute path.
 
-#         Uses Agent Zero's file helpers for path management.
+#         Uses BioDockify AI's file helpers for path management.
 #         """
 #         # Sanitize filename
 #         filename = files.safe_file_name(filename)
@@ -552,7 +552,7 @@
 #         port: Server port (default 993 for IMAP SSL)
 #         username: Email username
 #         password: Email password
-#         download_folder: Folder to save attachments (relative to /a0/)
+#         download_folder: Folder to save attachments (relative to /bio/)
 #         options: Optional configuration dict
 #         filter: Filter criteria dict
 

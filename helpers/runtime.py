@@ -3,7 +3,7 @@ import inspect
 import secrets
 from pathlib import Path
 from typing import TypeVar, Callable, Awaitable, Union, overload, cast
-from helpers import dotenv, rfc, files
+from helpers import dotenv, rfc, settings, files
 import asyncio
 import threading
 import queue
@@ -31,7 +31,7 @@ def initialize():
         "--cloudflare_tunnel",
         type=bool,
         default=False,
-        help="Use Cloudflare Tunnel for public URL",
+        help="Use cloudflare tunnel for public URL",
     )
     parser.add_argument(
         "--development", type=bool, default=False, help="Development mode"
@@ -78,10 +78,10 @@ def get_runtime_id() -> str:
 
 
 def get_persistent_id() -> str:
-    id = dotenv.get_dotenv_value("A0_PERSISTENT_RUNTIME_ID")
+    id = dotenv.get_dotenv_value("bio_PERSISTENT_RUNTIME_ID")
     if not id:
         id = secrets.token_hex(16)
-        dotenv.save_dotenv_value("A0_PERSISTENT_RUNTIME_ID", id)
+        dotenv.save_dotenv_value("bio_PERSISTENT_RUNTIME_ID", id)
     return id
 
 
@@ -134,8 +134,6 @@ def _get_rfc_password() -> str:
 
 
 def _get_rfc_url() -> str:
-    # Delay import to avoid a circular import with helpers.settings.
-    from helpers import settings
     set = settings.get_settings()
     url = set["rfc_url"]
     if not "://" in url:

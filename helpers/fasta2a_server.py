@@ -1,14 +1,12 @@
-# noqa: D401 (docstrings) – internal helper
+﻿# noqa: D401 (docstrings) – internal helper
 import asyncio
 import uuid
 import atexit
-import json
 from typing import Any, List
 import contextlib
 import threading
 
 from helpers import settings, projects
-from starlette.responses import Response as StarletteResponse
 from starlette.requests import Request
 
 # Local imports
@@ -63,36 +61,15 @@ except ImportError:  # pragma: no cover – library not installed
 _PRINTER = PrintStyle(italic=True, font_color="purple", padding=False)
 
 
-def _enable_streaming_capability(agent_card_body: bytes) -> bytes:
-    """Return an agent-card JSON body with A2A streaming enabled."""
-    agent_card = json.loads(agent_card_body)
-    capabilities = agent_card.get("capabilities")
-    if not isinstance(capabilities, dict):
-        capabilities = {}
-        agent_card["capabilities"] = capabilities
-    capabilities["streaming"] = True
-    return json.dumps(agent_card, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
-
-
-class AgentZeroFastA2A(FastA2A):  # type: ignore[misc]
-    """FastA2A app with Agent Zero defaults layered over library defaults."""
-
-    async def _agent_card_endpoint(self, request: Request) -> StarletteResponse:
-        response = await super()._agent_card_endpoint(request)
-        body = _enable_streaming_capability(response.body)
-        self._agent_card_json_schema = body
-        return StarletteResponse(content=body, media_type="application/json")
-
-
-class AgentZeroWorker(Worker):  # type: ignore[misc]
-    """Agent Zero implementation of FastA2A Worker."""
+class BioDockifyAIWorker(Worker):  # type: ignore[misc]
+    """BioDockify AI implementation of FastA2A Worker."""
 
     def __init__(self, broker, storage):
         super().__init__(broker=broker, storage=storage)
         self.storage = storage
 
     async def run_task(self, params: Any) -> None:  # params: TaskSendParams
-        """Execute a task by processing the message through Agent Zero."""
+        """Execute a task by processing the message through BioDockify AI."""
         context = None
         try:
             task_id = params['id']
@@ -100,7 +77,7 @@ class AgentZeroWorker(Worker):  # type: ignore[misc]
 
             _PRINTER.print(f"[A2A] Processing task {task_id} with new temporary context")
 
-            # Convert A2A message to Agent Zero format
+            # Convert A2A message to BioDockify AI format
             agent_message = self._convert_message(message)
 
             # Always create new temporary context for this A2A conversation
@@ -123,7 +100,7 @@ class AgentZeroWorker(Worker):  # type: ignore[misc]
                 kvps={"from": "A2A"},
             )
 
-            # Process message through Agent Zero (includes response)
+            # Process message through BioDockify AI (includes response)
             task = context.communicate(agent_message)
             result_text = await task.result()
 
@@ -179,7 +156,7 @@ class AgentZeroWorker(Worker):  # type: ignore[misc]
         return []
 
     def _convert_message(self, a2a_message: Message) -> UserMessage:  # type: ignore
-        """Convert A2A message to Agent Zero UserMessage."""
+        """Convert A2A message to BioDockify AI UserMessage."""
         # Extract text from message parts
         text_parts = [part.get('text', '') for part in a2a_message.get('parts', []) if part.get('kind') == 'text']
         message_text = '\n'.join(text_parts)
@@ -237,12 +214,12 @@ class DynamicA2AProxy:
                 _PRINTER.print("[A2A] Reconfiguration scheduled for next request")
 
     def _configure(self):
-        """Configure the FastA2A application with Agent Zero integration."""
+        """Configure the FastA2A application with BioDockify AI integration."""
         try:
             storage = InMemoryStorage()  # type: ignore[arg-type]
             broker = InMemoryBroker()  # type: ignore[arg-type]
 
-            # Define Agent Zero's skills
+            # Define BioDockify AI's skills
             skills: List[Skill] = [{  # type: ignore
                 "id": "general_assistance",
                 "name": "General AI Assistant",
@@ -260,15 +237,15 @@ class DynamicA2AProxy:
             }]
 
             provider: AgentProvider = {  # type: ignore
-                "organization": "Agent Zero",
-                "url": "https://github.com/frdel/agent-zero"
+                "organization": "BioDockify AI",
+                "url": "https://github.com/frdel/BioDockify-AI"
             }
 
             # Create new FastA2A app with proper thread safety
-            new_app = AgentZeroFastA2A(  # type: ignore
+            new_app = FastA2A(  # type: ignore
                 storage=storage,
                 broker=broker,
-                name="Agent Zero",
+                name="BioDockify AI",
                 description=(
                     "A general AI assistant that can execute code, manage files, browse the web, and "
                     "solve complex problems in an isolated Linux environment."
@@ -283,7 +260,7 @@ class DynamicA2AProxy:
             # Store for later lazy startup (needs active event-loop)
             self._storage = storage  # type: ignore[attr-defined]
             self._broker = broker  # type: ignore[attr-defined]
-            self._worker = AgentZeroWorker(broker=broker, storage=storage)  # type: ignore[attr-defined]
+            self._worker = BioDockifyAIWorker(broker=broker, storage=storage)  # type: ignore[attr-defined]
 
             # Atomic update of the app
             self.app = new_app
@@ -602,3 +579,4 @@ def is_available():
 def get_proxy():
     """Get the FastA2A proxy instance."""
     return DynamicA2AProxy.get_instance()
+

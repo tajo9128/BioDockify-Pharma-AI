@@ -1,10 +1,8 @@
 from dataclasses import dataclass
 import uuid
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import Enum
-
-from helpers.localization import Localization
 
 
 class NotificationType(Enum):
@@ -55,7 +53,7 @@ class NotificationItem:
             "title": self.title,
             "message": self.message,
             "detail": self.detail,
-            "timestamp": Localization.get().serialize_datetime(self.timestamp),
+            "timestamp": self.timestamp.isoformat(),
             "display_time": self.display_time,
             "read": self.read,
             "group": self.group,
@@ -108,7 +106,7 @@ class NotificationManager:
                 existing.title = title
                 existing.message = message
                 existing.detail = detail
-                existing.timestamp = Localization.get().now()
+                existing.timestamp = datetime.now(timezone.utc)
                 existing.display_time = display_time
                 existing.group = group
                 existing.read = False
@@ -124,7 +122,7 @@ class NotificationManager:
                     title=title,
                     message=message,
                     detail=detail,
-                    timestamp=Localization.get().now(),
+                    timestamp=datetime.now(timezone.utc),
                     display_time=display_time,
                     id=id,
                     group=group,
@@ -151,7 +149,7 @@ class NotificationManager:
                 self.updates = [no - to_remove for no in self.updates if no >= to_remove]
 
     def get_recent_notifications(self, seconds: int = 30) -> list[NotificationItem]:
-        cutoff = Localization.get().now() - timedelta(seconds=seconds)
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=seconds)
         with self._lock:
             return [n for n in self.notifications if n.timestamp >= cutoff]
 

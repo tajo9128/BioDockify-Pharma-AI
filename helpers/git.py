@@ -1,4 +1,4 @@
-from git import Git, Repo
+﻿from git import Git, Repo
 from giturlparse import parse
 from datetime import datetime
 from dataclasses import dataclass
@@ -8,7 +8,6 @@ import base64
 import re
 from urllib.parse import urlparse, urlunparse
 from helpers import files
-from helpers.localization import Localization
 
 
 def strip_auth_from_url(url: str) -> str:
@@ -99,10 +98,7 @@ class GitRepoReleaseInfo:
 
 
 def _format_git_timestamp(timestamp: int) -> str:
-    return datetime.fromtimestamp(
-        timestamp,
-        tz=Localization.get().get_tzinfo(),
-    ).strftime('%Y-%m-%d %H:%M:%S %Z')
+    return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
 
 def _split_describe_version(describe: str) -> tuple[str, int]:
@@ -405,7 +401,7 @@ def get_version():
 
 
 def is_official_agent_zero_repo() -> bool:
-    """Return True when origin points to an official BioDockify Pharma AI repo."""
+    """Return True when origin points to agent0ai/BioDockify-AI."""
     try:
         repo = Repo(files.get_base_dir())
         if not repo.remotes:
@@ -417,10 +413,8 @@ def is_official_agent_zero_repo() -> bool:
             remote_url = remote_url[:-4]
 
         allowed_repos = [
-            "tajo9128/biodockify-pharma-ai",
-            "tajo9128/biodockify-pharma-r3",
-            "agent0ai/agent-zero",
-            "frdel/agent-zero",
+            "agent0ai/BioDockify-AI",
+            "frdel/BioDockify-AI",
         ]
         return any(
             remote_url.endswith(f"github.com/{repo_name}")
@@ -478,7 +472,7 @@ def update_repo(repo_path: str) -> Repo:
 
 
 # Files to ignore when checking dirty status (A0 project metadata)
-A0_IGNORE_PATTERNS = {".a0proj", ".a0proj/"}
+bio_IGNORE_PATTERNS = {".a0proj", ".a0proj/"}
 
 
 def get_repo_status(repo_path: str) -> dict:
@@ -503,15 +497,15 @@ def get_repo_status(repo_path: str) -> dict:
             current_branch = "unknown"
         
         # Check dirty status, excluding A0 metadata
-        def is_a0_file(path: str) -> bool:
+        def is_bio_file(path: str) -> bool:
             return path.startswith(".a0proj") or path == ".a0proj"
         
         # Filter out A0 files from diff and untracked
         changed_files = [d.a_path for d in repo.index.diff(None)] + [d.a_path for d in repo.index.diff("HEAD")]
         untracked = repo.untracked_files
         
-        real_changes = [f for f in changed_files if not is_a0_file(f)]
-        real_untracked = [f for f in untracked if not is_a0_file(f)]
+        real_changes = [f for f in changed_files if not is_bio_file(f)]
+        real_untracked = [f for f in untracked if not is_bio_file(f)]
         
         is_dirty = len(real_changes) > 0 or len(real_untracked) > 0
         untracked_count = len(real_untracked)
@@ -523,10 +517,7 @@ def get_repo_status(repo_path: str) -> dict:
                 "hash": commit.hexsha[:7],
                 "message": str(commit.message).split("\n")[0][:80],
                 "author": str(commit.author),
-                "date": datetime.fromtimestamp(
-                    commit.committed_date,
-                    tz=Localization.get().get_tzinfo(),
-                ).strftime('%Y-%m-%d %H:%M %Z')
+                "date": datetime.fromtimestamp(commit.committed_date).strftime('%Y-%m-%d %H:%M')
             }
         except Exception:
             pass
@@ -541,3 +532,4 @@ def get_repo_status(repo_path: str) -> dict:
         }
     except Exception as e:
         return {"is_git_repo": False, "error": str(e)}
+
