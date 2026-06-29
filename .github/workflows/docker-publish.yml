@@ -34,20 +34,21 @@ jobs:
           if [ -n "${{ github.event.inputs.force_version }}" ]; then
             VERSION="${{ github.event.inputs.force_version }}"
           else
-            # Get latest tag
-            git fetch --tags --force origin
-            LAST_TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+' | head -1 | sed 's/^v//')
-            if [ -z "$LAST_TAG" ]; then
-              LAST_TAG="0.0"
+            # Use the version from version_info.txt (single source of truth).
+            # This keeps GitHub tags, Docker Hub tags, and the in-app version identical.
+            RAW_VERSION=$(cat version_info.txt | tr -d '[:space:]')
+            if [ -z "$RAW_VERSION" ]; then
+              echo "ERROR: version_info.txt is empty"; exit 1
             fi
-            # Increment minor version
-            MAJOR=$(echo $LAST_TAG | cut -d. -f1)
-            MINOR=$(echo $LAST_TAG | cut -d. -f2)
-            MINOR=$((MINOR + 1))
-            VERSION="v$MAJOR.$MINOR"
+            # Ensure it starts with 'v'
+            if [[ "$RAW_VERSION" != v* ]]; then
+              VERSION="v$RAW_VERSION"
+            else
+              VERSION="$RAW_VERSION"
+            fi
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Creating version: $VERSION"
+          echo "Creating version: $VERSION (from version_info.txt)"
 
       - name: Create annotated tag
         run: |
@@ -90,7 +91,7 @@ jobs:
           body: |
             ## BioDockify AI ${{ steps.version.outputs.version }}
 
-            **Pharma research distribution of [BioDockify AI](https://github.com/agent0ai/biodockify.ai)**
+            **Pharmaceutical research distribution of [BioDockify Pharma AI](https://github.com/tajo9128/BioDockify-Pharma-AI)**
 
             ### Docker
             ```bash
