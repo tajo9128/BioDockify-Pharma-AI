@@ -4,10 +4,113 @@ import regex, re
 from helpers.modules import load_classes_from_file, load_classes_from_folder # keep here for backwards compatibility
 from typing import Any
 
+
+def _parse_dsml_tool_calls(text: str) -> dict[str, Any] | None:
+    """Convert DSML/XML-style tool calls (DeepSeek native format) to the
+    JSON dict the framework expects.
+
+    DeepSeek sometimes emits tool calls as XML-ish tags instead of JSON:
+        <｜｜DSML｜｜tool_calls>
+        <｜｜DSML｜｜invoke name="text_editor:read">
+        <｜｜DSML｜｜parameter name="path" string="true">/a0/file.md</｜｜DSML｜｜parameter>
+        <｜｜DSML｜｜parameter name="line_from" string="false">1</｜｜DSML｜｜parameter>
+        </｜｜DSML｜｜invoke>
+        </｜｜DSML｜｜tool_calls>
+
+    This also handles plain XML variants:
+        <tool_calls><invoke name="..."><parameter name="...">...</parameter></invoke></tool_calls>
+        <function_call>{"name":...,"arguments":...}</function_call>
+
+    Returns {"tool_name": ..., "tool_args": {...}} or None.
+    """
+    if not text or not isinstance(text, str):
+        return None
+
+    # --- Variant 1: DeepSeek DSML tags (｜｜DSML｜｜ with fullwidth pipes) ---
+    # Normalize the fullwidth pipe characters to regular ones for matching
+    norm = text.replace("\uff5c\uff5c", "||").replace("\uff5c", "|")
+    # Pattern: <||DSML||invoke name="TOOL"> ... params ... </||DSML||invoke>
+    dsml_invoke = re.search(
+        r'<\|\|DSML\|\|invoke\s+name=["\']([^"\']+)["\']\s*>(.*?)</\|\|DSML\|\|invoke>',
+        norm, re.DOTALL | re.IGNORECASE,
+    )
+    if dsml_invoke:
+        tool_name = dsml_invoke.group(1).strip()
+        body = dsml_invoke.group(2)
+        args: dict[str, Any] = {}
+        # Extract each parameter
+        for pm in re.finditer(
+            r'<\|\|DSML\|\|parameter\s+name=["\']([^"\']+)["\']\s*(?:string=["\'][^"\']*["\'])?\s*>(.*?)</\|\|DSML\|\|parameter>',
+            body, re.DOTALL | re.IGNORECASE,
+        ):
+            pname = pm.group(1).strip()
+            pval = pm.group(2).strip()
+            # Try to convert numeric/bool values
+            if pval.lower() in ("true", "false"):
+                args[pname] = pval.lower() == "true"
+            else:
+                try:
+                    args[pname] = int(pval)
+                except ValueError:
+                    try:
+                        args[pname] = float(pval)
+                    except ValueError:
+                        args[pname] = pval
+        return {"tool_name": tool_name, "tool_args": args}
+
+    # --- Variant 2: plain XML <invoke name="..."> tags ---
+    xml_invoke = re.search(
+        r'<invoke\s+name=["\']([^"\']+)["\']\s*>(.*?)</invoke>',
+        text, re.DOTALL | re.IGNORECASE,
+    )
+    if xml_invoke:
+        tool_name = xml_invoke.group(1).strip()
+        body = xml_invoke.group(2)
+        args = {}
+        for pm in re.finditer(
+            r'<parameter\s+name=["\']([^"\']+)["\']\s*>(.*?)</parameter>',
+            body, re.DOTALL | re.IGNORECASE,
+        ):
+            pname = pm.group(1).strip()
+            pval = pm.group(2).strip()
+            if pval.lower() in ("true", "false"):
+                args[pname] = pval.lower() == "true"
+            else:
+                try:
+                    args[pname] = int(pval)
+                except ValueError:
+                    try:
+                        args[pname] = float(pval)
+                    except ValueError:
+                        args[pname] = pval
+        return {"tool_name": tool_name, "tool_args": args}
+
+    # --- Variant 3: <function_call>{"name":...,"arguments":{...}}</function_call> ---
+    fc_match = re.search(
+        r'<function_call>\s*(\{.*?\})\s*</function_call>',
+        text, re.DOTALL | re.IGNORECASE,
+    )
+    if fc_match:
+        import json as _json
+        try:
+            data = _json.loads(fc_match.group(1))
+            name = data.get("name") or data.get("tool_name")
+            args_raw = data.get("arguments") or data.get("tool_args") or {}
+            if isinstance(args_raw, str):
+                args_raw = _json.loads(args_raw)
+            if name:
+                return {"tool_name": name, "tool_args": args_raw}
+        except Exception:
+            pass
+
+    return None
+
+
 def json_parse_dirty(json: str) -> dict[str, Any] | None:
     if not json or not isinstance(json, str):
         return None
 
+    # First, try the standard JSON extraction
     ext_json = extract_json_object_string(json.strip())
     if ext_json:
         try:
@@ -15,8 +118,14 @@ def json_parse_dirty(json: str) -> dict[str, Any] | None:
             if isinstance(data, dict):
                 return data
         except Exception:
-            # If parsing fails, return None instead of crashing
-            return None
+            pass  # fall through to DSML/XML parsing
+
+    # Fallback: parse DSML/XML-style tool calls (DeepSeek and other models
+    # that emit native XML tool-call formats instead of JSON)
+    dsml_result = _parse_dsml_tool_calls(json)
+    if dsml_result:
+        return dsml_result
+
     return None
 
 
