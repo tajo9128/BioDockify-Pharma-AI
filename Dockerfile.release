@@ -107,6 +107,7 @@ RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
     pingouin>=0.5.4 \
     arviz>=0.18.0 \
     reportlab>=4.0.0 \
+    fastapi>=0.110.0 \
     && echo "Scientific packages installed (framework)" || \
     echo "Scientific packages install failed"
 
