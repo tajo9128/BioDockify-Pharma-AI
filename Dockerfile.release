@@ -91,7 +91,9 @@ RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir meeko>=0.5.0 && \
     echo "Meeko installed" || \
     echo "Meeko install failed"
 
-# Install scientific packages for Statistics module (BOTH runtimes)
+# Install scientific + pharma packages in FRAMEWORK venv (/opt/venv-a0).
+# This is where the API handlers (statistics, pharmacophore, literature, etc.)
+# actually run. All pharma deps live here.
 RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
     scipy>=1.11.0 \
     scikit-learn>=1.3.0 \
@@ -105,13 +107,15 @@ RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
     semanticscholar>=0.6.0 \
     tabulate>=0.9.0 \
     pingouin>=0.5.4 \
-    arviz>=0.18.0 \
     reportlab>=4.0.0 \
     fastapi>=0.110.0 \
-    && echo "Scientific packages installed (framework)" || \
-    echo "Scientific packages install failed"
+    && echo "Pharma packages installed (framework)" || \
+    echo "Pharma packages install failed"
 
-# Install same packages for agent execution runtime
+# Install ONLY core scientific packages in EXECUTION venv (/opt/venv).
+# The agent runtime needs basic data science libs for code_execution_tool,
+# but NOT the heavy pharma stack (biopython, lifelines, pingouin, reportlab).
+# This saves ~1.5GB. arviz removed entirely (Bayesian HDI uses scipy fallback).
 RUN /opt/venv/bin/python -m pip install --no-cache-dir \
     scipy>=1.11.0 \
     scikit-learn>=1.3.0 \
@@ -119,15 +123,7 @@ RUN /opt/venv/bin/python -m pip install --no-cache-dir \
     matplotlib>=3.7.0 \
     statsmodels>=0.14.0 \
     seaborn>=0.12.0 \
-    arxiv>=2.1.0 \
-    biopython>=1.83 \
-    lifelines>=0.27.0 \
-    semanticscholar>=0.6.0 \
-    tabulate>=0.9.0 \
-    pingouin>=0.5.4 \
-    arviz>=0.18.0 \
-    reportlab>=4.0.0 \
-    && echo "Scientific packages installed (execution)" || \
+    && echo "Core scientific packages installed (execution)" || \
     echo "Scientific packages install failed"
 
 # Pin NumPy <2.5 — required by numba (whisper dependency). Fixes ImportError: Numba needs NumPy 2.4 or less
