@@ -169,18 +169,45 @@ def extract_json_root_string(content: str) -> str | None:
 
 
 def extract_json_object_string(content):
+    """Extract the first complete JSON object using brace-balanced matching.
+    
+    Correctly handles nested braces and string literals containing braces,
+    unlike the naive rfind('}') approach which grabs everything from first
+    '{' to last '}' — a common cause of parsing failures when the LLM
+    output contains braces in explanations or code snippets.
+    """
     start = content.find("{")
     if start == -1:
         return ""
 
-    # Find the first '{'
-    end = content.rfind("}")
-    if end == -1:
-        # If there's no closing '}', return from start to the end
-        return content[start:]
-    else:
-        # If there's a closing '}', return the substring from start to end
-        return content[start : end + 1]
+    depth = 0
+    in_string = False
+    escape = False
+
+    for i in range(start, len(content)):
+        char = content[i]
+
+        if escape:
+            escape = False
+            continue
+
+        if char == '\\' and in_string:
+            escape = True
+            continue
+
+        if char == '"':
+            in_string = not in_string
+            continue
+
+        if not in_string:
+            if char == '{':
+                depth += 1
+            elif char == '}':
+                depth -= 1
+                if depth == 0:
+                    return content[start:i + 1]
+
+    return content[start:]
 
 
 def extract_json_string(content):

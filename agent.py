@@ -1,4 +1,4 @@
-import asyncio, random, string, threading
+import asyncio, random, string, sys, threading
 
 from collections import OrderedDict
 from dataclasses import dataclass, field
@@ -32,6 +32,35 @@ from typing import Callable
 from helpers.localization import Localization
 from helpers import extension
 from helpers.errors import RepairableException, InterventionException, HandledException
+
+@dataclass
+class StuckState:
+    consecutive_fails: int = 0
+    last_tool_name: str = ""
+    last_tool_args_hash: int = 0
+    identical_call_count: int = 0
+    escalation_level: int = 0
+    start_iteration: int = 0
+
+    def record_failure(self, tool_name: str, args_hash: int):
+        self.consecutive_fails += 1
+        if tool_name == self.last_tool_name and args_hash == self.last_tool_args_hash:
+            self.identical_call_count += 1
+        else:
+            self.identical_call_count = 0
+        self.last_tool_name = tool_name
+        self.last_tool_args_hash = args_hash
+
+    def record_success(self):
+        self.consecutive_fails = 0
+        self.identical_call_count = 0
+
+    def reset(self):
+        self.consecutive_fails = 0
+        self.last_tool_name = ""
+        self.last_tool_args_hash = 0
+        self.identical_call_count = 0
+        self.escalation_level = 0
 
 class AgentContextType(Enum):
     USER = "user"
@@ -865,6 +894,11 @@ class Agent:
 
     @extension.extensible
     async def process_tools(self, msg: str):
+        from tools.unknown import Unknown
+
+        # Track consecutive misformat errors for self-repair escalation
+        consecutive_errors = getattr(self, "_consecutive_misformat", 0)
+
         # search for tool usage requests in agent message
         tool_request = extract_tools.json_parse_dirty(msg)
 
@@ -882,6 +916,7 @@ class Agent:
                 tool_request = None  # treat structural validation errors as misformat
 
         if tool_request is not None:
+            self._consecutive_misformat = 0  # reset counter on success
             tool_name = raw_tool_name  # Initialize tool_name with raw_tool_name
             tool_method = None  # Initialize tool_method
 
@@ -919,7 +954,20 @@ class Agent:
                     loop_data=self.loop_data,
                 )
 
-            if tool:
+            # === SELF-REPAIR: Tool not found — try to auto-create it ===
+            if isinstance(tool, Unknown):
+                auto_created = await self._attempt_tool_creation(tool_name, tool_args, msg)
+                if auto_created:
+                    # Re-acquire the tool after creation
+                    tool = self.get_tool(
+                        name=tool_name,
+                        method=tool_method,
+                        args=tool_args,
+                        message=msg,
+                        loop_data=self.loop_data,
+                    )
+
+            if tool and not isinstance(tool, Unknown):
                 self.loop_data.current_tool = tool  # type: ignore
                 try:
                     await self.handle_intervention()
@@ -954,16 +1002,34 @@ class Agent:
                         return response.message
                 finally:
                     self.loop_data.current_tool = None
-            else:
-                error_detail = (
-                    f"Tool '{raw_tool_name}' not found or could not be initialized."
-                )
-                wmsg = self.hist_add_warning(error_detail)
-                PrintStyle(font_color="red", padding=True).print(error_detail)
-                self.context.log.log(
-                    type="warning", content=f"{self.agent_name}: {error_detail}", id=wmsg.id
-                )
+                # Record success for stuck monitor
+                stuck: StuckState = self.data.setdefault("_stuck_state", StuckState())
+                stuck.record_success()
+                return  # tool executed, don't fall through to warning
+
+            # Tool still not found even after auto-creation attempt
+            error_detail = (
+                f"Tool '{raw_tool_name}' not found or could not be initialized."
+            )
+            wmsg = self.hist_add_warning(error_detail)
+            PrintStyle(font_color="red", padding=True).print(error_detail)
+            self.context.log.log(
+                type="warning", content=f"{self.agent_name}: {error_detail}", id=wmsg.id
+            )
+            # Stuck monitor: record tool-not-found failure
+            stuck: StuckState = self.data.setdefault("_stuck_state", StuckState())
+            args_hash = hash(str(sorted(tool_args.items()))) if tool_args else 0
+            stuck.record_failure(raw_tool_name, args_hash)
+            await self._check_stuck(stuck)
         else:
+            # === SELF-REPAIR: Message misformat — try recovery before warning ===
+            consecutive_errors += 1
+            self._consecutive_misformat = consecutive_errors
+
+            recovered = await self._attempt_misformat_recovery(msg, consecutive_errors)
+            if recovered is not None:
+                return recovered
+
             warning_msg_misformat = self.read_prompt("fw.msg_misformat.md")
             wmsg = self.hist_add_warning(warning_msg_misformat)
             PrintStyle(font_color="red", padding=True).print(warning_msg_misformat)
@@ -972,6 +1038,206 @@ class Agent:
                 content=f"{self.agent_name}: Message misformat, no valid tool request found.",
                 id=wmsg.id,
             )
+            # Stuck monitor: record misformat failure
+            stuck: StuckState = self.data.setdefault("_stuck_state", StuckState())
+            stuck.record_failure("__misformat__", 0)
+            await self._check_stuck(stuck)
+
+    async def _attempt_misformat_recovery(self, msg: str, consecutive: int) -> str | None:
+        """Self-repair: try to recover from a misformatted agent response.
+        
+        Returns a response string (to break the loop) or None (to continue).
+        Escalates recovery effort based on consecutive failure count.
+        """
+        # Level 1: Pure conversational response (no braces at all) — route as response
+        if consecutive >= 2 and "{" not in msg and "}" not in msg:
+            from tools.response import ResponseTool
+            tool = ResponseTool(
+                agent=self,
+                name="response",
+                method=None,
+                args={"text": msg},
+                message=msg,
+                loop_data=self.loop_data,
+            )
+            response = await tool.execute(text=msg)
+            if response.break_loop:
+                await tool.after_execution(response)
+                PrintStyle(font_color="green", padding=True).print(
+                    f"✓ Self-repair: routed conversational response"
+                )
+                return response.message
+
+        # Level 2: Check if message contains a tool_name-like keyword with JSON args
+        if consecutive >= 3:
+            import re as _re
+            match = _re.search(r'(tool_name|tool)\s*[:=]\s*["\']?(\w+)["\']?', msg)
+            if match:
+                extracted_name = match.group(2)
+                PrintStyle(font_color="yellow", padding=True).print(
+                    f"⟳ Self-repair: extracted tool name '{extracted_name}' from misformat, retrying..."
+                )
+                # Try to reconstruct valid tool request
+                msg_fixed = f'{{"tool_name":"{extracted_name}","tool_args":{{}}}}'
+                # Recursive call — but limit depth via consecutive counter
+                if consecutive < 5:
+                    return await self.process_tools(msg_fixed)
+
+        return None
+
+    async def _attempt_tool_creation(self, tool_name: str, tool_args: dict, msg: str) -> bool:
+        """Self-repair: try to auto-create a missing tool.
+        
+        Attempts:
+        1. Check if tool_name matches an installable Python package
+        2. Check if tool_name matches a system command
+        3. Create a stub tool file that delegates to shell execution
+        """
+        import os, shutil, textwrap
+
+        # Check if it's a system command available on PATH
+        if tool_name and shutil.which(tool_name.replace("_", "-")):
+            # Create a wrapper tool that executes the system command
+            usr_dir = self.get_data("usr_dir") or "usr"
+            tools_dir = os.path.join(usr_dir, "tools")
+            os.makedirs(tools_dir, exist_ok=True)
+            tool_path = os.path.join(tools_dir, f"{tool_name}.py")
+
+            if not os.path.exists(tool_path):
+                with open(tool_path, "w") as f:
+                    f.write(textwrap.dedent(f'''\
+                    from helpers.tool import Tool, Response
+                    import subprocess
+
+                    class {tool_name.title().replace("_", "")}Tool(Tool):
+                        async def execute(self, **kwargs):
+                            cmd = [r"{tool_name.replace('_', '-')}"]
+                            for k, v in kwargs.items():
+                                if k != "tool_args":
+                                    cmd.extend([str(k), str(v)])
+                            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                            return Response(
+                                message=result.stdout or result.stderr or "No output",
+                                break_loop=False,
+                            )
+                    '''))
+                PrintStyle(font_color="green", padding=True).print(
+                    f"✓ Self-repair: auto-created tool '{tool_name}' from system command"
+                )
+                return True
+
+        # Check if it's a known Python package that can be installed
+        known_packages = {
+            "nmap": "python-nmap",
+            "curl": "pycurl",
+            "git": "gitpython",
+            "docker": "docker",
+            "kali": "kali-tools",
+        }
+        pkg = known_packages.get(tool_name)
+        if not pkg:
+            # Try to find via pip
+            try:
+                import subprocess
+                result = subprocess.run(
+                    ["pip", "search", tool_name],
+                    capture_output=True, text=True, timeout=10
+                )
+                if result.returncode == 0 and tool_name in result.stdout:
+                    pkg = tool_name
+            except Exception:
+                pass
+
+        if pkg:
+            try:
+                import subprocess
+                PrintStyle(font_color="yellow", padding=True).print(
+                    f"⟳ Self-repair: installing package '{pkg}' for tool '{tool_name}'..."
+                )
+                subprocess.run(
+                    [sys.executable, "-m", "pip", "install", pkg],
+                    capture_output=True, text=True, timeout=120
+                )
+                PrintStyle(font_color="green", padding=True).print(
+                    f"✓ Self-repair: installed '{pkg}'"
+                )
+                return True
+            except Exception as e:
+                PrintStyle(font_color="red", padding=True).print(
+                    f"✗ Self-repair: failed to install '{pkg}': {e}"
+                )
+
+        return False
+
+    async def _check_stuck(self, stuck: StuckState) -> None:
+        if stuck.escalation_level >= 5:
+            return
+        fails = stuck.consecutive_fails
+        identical = stuck.identical_call_count
+        iters = getattr(self, "loop_data", None) and getattr(self.loop_data, "iteration", 0) or 0
+        if stuck.start_iteration == 0:
+            stuck.start_iteration = iters
+        total_iters = iters - stuck.start_iteration
+
+        new_level = 0
+        if fails >= 7 or total_iters >= 25:
+            new_level = 5
+        elif fails >= 5 or total_iters >= 15:
+            new_level = 4
+        elif fails >= 4 or identical >= 3 or total_iters >= 10:
+            new_level = 3
+        elif identical >= 2 or total_iters >= 6:
+            new_level = 2
+        elif fails >= 3:
+            new_level = 1
+
+        if new_level > stuck.escalation_level:
+            stuck.escalation_level = new_level
+            await self._repair_action(new_level, stuck)
+
+    async def _repair_action(self, level: int, stuck: StuckState) -> None:
+        from helpers.print_style import PrintStyle as PS
+        tool_name = stuck.last_tool_name or "unknown"
+        PS(font_color="yellow", padding=True).print(
+            f"🛠 Self-repair level {level}: initiating recovery..."
+        )
+        if level == 1:
+            msg = f"You seem stuck on tool '{tool_name}'. Try a different approach or retry with simplified input."
+            self.hist_add_warning(f"[Self-Repair L1] {msg}")
+        elif level == 2:
+            self.hist_add_warning(
+                f"[Self-Repair L2] Repeated identical tool call '{tool_name}'. "
+                f"Striping last failure and re-prompting."
+            )
+            self.data.pop("_stuck_state", None)
+        elif level == 3:
+            healer = self.read_prompt("fw.self_heal.md") or ""
+            healer += f"\n\nStuck on tool '{tool_name}' after {stuck.consecutive_fails} failures."
+            self.hist_add_ai_response(healer)
+        elif level == 4:
+            self.hist_add_warning(
+                f"[Self-Repair L4] Attempting auto-install for '{tool_name}'..."
+            )
+            await self._attempt_tool_creation(tool_name, {}, "")
+            self.hist_add_warning(f"[Self-Repair L4] Tool creation attempted.")
+        elif level == 5:
+            from tools.response import ResponseTool
+            self.hist_add_warning(
+                f"[Self-Repair L5] Agent stuck for {stuck.consecutive_fails} iterations. "
+                f"Breaking loop with user notification."
+            )
+            tool = ResponseTool(
+                agent=self, name="response", method=None,
+                args={}, message="", loop_data=getattr(self, "loop_data", None),
+            )
+            resp = await tool.execute(
+                text=f"I encountered persistent issues with the '{tool_name}' tool. "
+                     f"The system attempted {stuck.consecutive_fails} self-repairs. "
+                     f"Please try a different approach or describe what you need."
+            )
+            if resp.break_loop:
+                await tool.after_execution(resp)
+            stuck.reset()
 
     @extension.extensible
     async def validate_tool_request(self, tool_request: Any):

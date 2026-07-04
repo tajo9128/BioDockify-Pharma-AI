@@ -1,4 +1,4 @@
-import asyncio, random, string, threading
+import asyncio, random, string, sys, threading
 
 from collections import OrderedDict
 from dataclasses import dataclass, field
@@ -869,6 +869,11 @@ class Agent:
 
     @extension.extensible
     async def process_tools(self, msg: str):
+        from tools.unknown import Unknown
+
+        # Track consecutive misformat errors for self-repair escalation
+        consecutive_errors = getattr(self, "_consecutive_misformat", 0)
+
         # search for tool usage requests in agent message
         tool_request = extract_tools.json_parse_dirty(msg)
 
@@ -878,6 +883,7 @@ class Agent:
             await self.validate_tool_request(tool_request)
 
         if tool_request is not None:
+            self._consecutive_misformat = 0  # reset counter on success
             raw_tool_name = tool_request.get("tool_name", tool_request.get("tool",""))  # Get the raw tool name
             tool_args = tool_request.get("tool_args", tool_request.get("args", {}))
 
@@ -918,7 +924,19 @@ class Agent:
                     loop_data=self.loop_data,
                 )
 
-            if tool:
+            # === SELF-REPAIR: Tool not found — try to auto-create it ===
+            if isinstance(tool, Unknown):
+                auto_created = await self._attempt_tool_creation(tool_name, tool_args, msg)
+                if auto_created:
+                    tool = self.get_tool(
+                        name=tool_name,
+                        method=tool_method,
+                        args=tool_args,
+                        message=msg,
+                        loop_data=self.loop_data,
+                    )
+
+            if tool and not isinstance(tool, Unknown):
                 self.loop_data.current_tool = tool  # type: ignore
                 try:
                     await self.handle_intervention()
@@ -953,16 +971,26 @@ class Agent:
                         return response.message
                 finally:
                     self.loop_data.current_tool = None
-            else:
-                error_detail = (
-                    f"Tool '{raw_tool_name}' not found or could not be initialized."
-                )
-                wmsg = self.hist_add_warning(error_detail)
-                PrintStyle(font_color="red", padding=True).print(error_detail)
-                self.context.log.log(
-                    type="warning", content=f"{self.agent_name}: {error_detail}", id=wmsg.id
-                )
+                return  # tool executed, don't fall through to warning
+
+            # Tool still not found even after auto-creation attempt
+            error_detail = (
+                f"Tool '{raw_tool_name}' not found or could not be initialized."
+            )
+            wmsg = self.hist_add_warning(error_detail)
+            PrintStyle(font_color="red", padding=True).print(error_detail)
+            self.context.log.log(
+                type="warning", content=f"{self.agent_name}: {error_detail}", id=wmsg.id
+            )
         else:
+            # === SELF-REPAIR: Message misformat — try recovery before warning ===
+            consecutive_errors += 1
+            self._consecutive_misformat = consecutive_errors
+
+            recovered = await self._attempt_misformat_recovery(msg, consecutive_errors)
+            if recovered is not None:
+                return recovered
+
             warning_msg_misformat = self.read_prompt("fw.msg_misformat.md")
             wmsg = self.hist_add_warning(warning_msg_misformat)
             PrintStyle(font_color="red", padding=True).print(warning_msg_misformat)
@@ -971,6 +999,128 @@ class Agent:
                 content=f"{self.agent_name}: Message misformat, no valid tool request found.",
                 id=wmsg.id,
             )
+
+    async def _attempt_misformat_recovery(self, msg: str, consecutive: int) -> str | None:
+        """Self-repair: try to recover from a misformatted agent response.
+        
+        Returns a response string (to break the loop) or None (to continue).
+        Escalates recovery effort based on consecutive failure count.
+        """
+        # Level 1: Pure conversational response (no braces at all) — route as response
+        if consecutive >= 2 and "{" not in msg and "}" not in msg:
+            from tools.response import ResponseTool
+            tool = ResponseTool(
+                agent=self,
+                name="response",
+                method=None,
+                args={"text": msg},
+                message=msg,
+                loop_data=self.loop_data,
+            )
+            response = await tool.execute(text=msg)
+            if response.break_loop:
+                await tool.after_execution(response)
+                PrintStyle(font_color="green", padding=True).print(
+                    f"✓ Self-repair: routed conversational response"
+                )
+                return response.message
+
+        # Level 2: Check if message contains a tool_name-like keyword with JSON args
+        if consecutive >= 3:
+            import re as _re
+            match = _re.search(r'(tool_name|tool)\s*[:=]\s*["\']?(\w+)["\']?', msg)
+            if match:
+                extracted_name = match.group(2)
+                PrintStyle(font_color="yellow", padding=True).print(
+                    f"⟳ Self-repair: extracted tool name '{extracted_name}' from misformat, retrying..."
+                )
+                msg_fixed = f'{{"tool_name":"{extracted_name}","tool_args":{{}}}}'
+                if consecutive < 5:
+                    return await self.process_tools(msg_fixed)
+
+        return None
+
+    async def _attempt_tool_creation(self, tool_name: str, tool_args: dict, msg: str) -> bool:
+        """Self-repair: try to auto-create a missing tool.
+        
+        Attempts:
+        1. Check if tool_name matches an installable Python package
+        2. Check if tool_name matches a system command
+        3. Create a stub tool file that delegates to shell execution
+        """
+        import os, shutil, textwrap
+
+        # Check if it's a system command available on PATH
+        if tool_name and shutil.which(tool_name.replace("_", "-")):
+            usr_dir = self.get_data("usr_dir") or "usr"
+            tools_dir = os.path.join(usr_dir, "tools")
+            os.makedirs(tools_dir, exist_ok=True)
+            tool_path = os.path.join(tools_dir, f"{tool_name}.py")
+
+            if not os.path.exists(tool_path):
+                with open(tool_path, "w") as f:
+                    f.write(textwrap.dedent(f'''\
+                    from helpers.tool import Tool, Response
+                    import subprocess
+
+                    class {tool_name.title().replace("_", "")}Tool(Tool):
+                        async def execute(self, **kwargs):
+                            cmd = [r"{tool_name.replace('_', '-')}"]
+                            for k, v in kwargs.items():
+                                if k != "tool_args":
+                                    cmd.extend([str(k), str(v)])
+                            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                            return Response(
+                                message=result.stdout or result.stderr or "No output",
+                                break_loop=False,
+                            )
+                    '''))
+                PrintStyle(font_color="green", padding=True).print(
+                    f"✓ Self-repair: auto-created tool '{tool_name}' from system command"
+                )
+                return True
+
+        # Check if it's a known Python package that can be installed
+        known_packages = {
+            "nmap": "python-nmap",
+            "curl": "pycurl",
+            "git": "gitpython",
+            "docker": "docker",
+            "kali": "kali-tools",
+        }
+        pkg = known_packages.get(tool_name)
+        if not pkg:
+            try:
+                import subprocess
+                result = subprocess.run(
+                    ["pip", "search", tool_name],
+                    capture_output=True, text=True, timeout=10
+                )
+                if result.returncode == 0 and tool_name in result.stdout:
+                    pkg = tool_name
+            except Exception:
+                pass
+
+        if pkg:
+            try:
+                import subprocess
+                PrintStyle(font_color="yellow", padding=True).print(
+                    f"⟳ Self-repair: installing package '{pkg}' for tool '{tool_name}'..."
+                )
+                subprocess.run(
+                    [sys.executable, "-m", "pip", "install", pkg],
+                    capture_output=True, text=True, timeout=120
+                )
+                PrintStyle(font_color="green", padding=True).print(
+                    f"✓ Self-repair: installed '{pkg}'"
+                )
+                return True
+            except Exception as e:
+                PrintStyle(font_color="red", padding=True).print(
+                    f"✗ Self-repair: failed to install '{pkg}': {e}"
+                )
+
+        return False
 
     @extension.extensible
     async def validate_tool_request(self, tool_request: Any):
