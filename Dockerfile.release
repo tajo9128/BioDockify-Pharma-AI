@@ -1,4 +1,4 @@
-FROM agent0ai/agent-zero:latest
+FROM tajo9128/biodockify-pharma-ai:v7.0.7
 
 COPY . /a0/
 
