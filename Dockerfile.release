@@ -1,63 +1,18 @@
-FROM tajo9128/biodockify-pharma-ai:latest
+FROM agent0ai/agent-zero:latest
 
-COPY webui/ /a0/webui/
-COPY plugins/ /a0/plugins/
-COPY public/ /a0/webui/public/
-COPY prompts/ /a0/prompts/
-COPY agents/ /a0/agents/
-COPY knowledge/ /a0/knowledge/
-COPY skills/ /a0/skills/
-COPY identity.md /a0/
+COPY . /a0/
 
-COPY helpers/ /a0/helpers/
-COPY modules/ /a0/modules/
-COPY api/ /a0/api/
-COPY extensions/ /a0/extensions/
-COPY tools/ /a0/tools/
-COPY runtime/ /a0/runtime/
-COPY services/ /a0/services/
-COPY conf/ /a0/conf/
-COPY docs/ /a0/docs/
-COPY deployment/ /a0/deployment/
-COPY lib/ /a0/lib/
-
-# v2.0 core files (root-level) — updated Agent Zero core
-COPY agent.py /a0/agent.py
-COPY models.py /a0/models.py
-COPY initialize.py /a0/initialize.py
-COPY run_ui.py /a0/run_ui.py
-COPY preload.py /a0/preload.py
-
-COPY agent_zero/prompts_v19/ /a0/agent_zero/prompts_v19/
-COPY agent_zero/extensions_v19/ /a0/agent_zero/extensions_v19/
-
-RUN find /a0/webui/ -maxdepth 1 -name "favicon*" -type f -delete 2>/dev/null || true; \
-    find /a0/webui/ -maxdepth 1 -name "*.ico" -type f -delete 2>/dev/null || true; \
+# ─── Cleanup + Rebrand ───
+RUN find /a0/webui/ -maxdepth 1 \( -name "favicon*" -o -name "*.ico" \) -type f -delete 2>/dev/null || true; \
     cp -f /a0/webui/public/favicon.svg /a0/webui/favicon.svg 2>/dev/null || true; \
     cp -f /a0/webui/public/favicon.svg /a0/webui/favicon.ico 2>/dev/null || true; \
     cp -f /a0/webui/public/favicon_round.svg /a0/webui/favicon_round.svg 2>/dev/null || true; \
     cp -f /a0/webui/public/icon.svg /a0/webui/icon.svg 2>/dev/null || true; \
-    rm -f /a0/extensions/webui/right_canvas_register_surfaces/register-docking.js 2>/dev/null || true; \
-    rm -f /a0/extensions/webui/right_canvas_register_surfaces/register-3d-viewer.js 2>/dev/null || true; \
-    rm -f /a0/extensions/webui/right_canvas_register_surfaces/register-admet.js 2>/dev/null || true; \
-    rm -f /a0/extensions/webui/right_canvas_register_surfaces/register-drug-browser.js 2>/dev/null || true; \
-    rm -f /a0/extensions/webui/right_canvas_register_surfaces/register-mol-similarity.js 2>/dev/null || true; \
-    rm -f /a0/extensions/webui/right_canvas_register_surfaces/register-chemical-space.js 2>/dev/null || true; \
-    rm -f /a0/extensions/webui/right_canvas_register_surfaces/register-agent-tasks.js 2>/dev/null || true; \
-    rm -f /a0/extensions/webui/right-canvas-panels/docking-panel.html 2>/dev/null || true; \
-    rm -f /a0/extensions/webui/right-canvas-panels/viewer3d-panel.html 2>/dev/null || true; \
-    rm -f /a0/extensions/webui/right-canvas-panels/admet-panel.html 2>/dev/null || true; \
-    rm -f /a0/extensions/webui/right-canvas-panels/drug-browser-panel.html 2>/dev/null || true; \
-    rm -f /a0/extensions/webui/right-canvas-panels/mol-similarity-panel.html 2>/dev/null || true; \
-    rm -f /a0/extensions/webui/right-canvas-panels/chemical-space-panel.html 2>/dev/null || true; \
-    rm -f /a0/extensions/webui/right-canvas-panels/agent-tasks-panel.html 2>/dev/null || true; \
-    rm -rf /a0/webui/components/docking 2>/dev/null || true; \
-    rm -rf /a0/webui/components/3d-viewer 2>/dev/null || true; \
-    rm -rf /a0/webui/components/admet 2>/dev/null || true; \
-    rm -rf /a0/webui/components/drug-browser 2>/dev/null || true; \
-    rm -rf /a0/webui/components/mol-similarity 2>/dev/null || true; \
-    rm -rf /a0/webui/components/chemical-space 2>/dev/null || true; \
-    rm -rf /a0/webui/components/agent-tasks 2>/dev/null || true; \
+    rm -f /a0/extensions/webui/right_canvas_register_surfaces/register-*.js 2>/dev/null || true; \
+    rm -f /a0/extensions/webui/right-canvas-panels/*.html 2>/dev/null || true; \
+    rm -rf /a0/webui/components/docking /a0/webui/components/3d-viewer /a0/webui/components/admet \
+           /a0/webui/components/drug-browser /a0/webui/components/mol-similarity \
+           /a0/webui/components/chemical-space /a0/webui/components/agent-tasks 2>/dev/null || true; \
     sed -i 's|Agent Zero|BioDockify AI|g' /a0/prompts/*.md 2>/dev/null || true; \
     sed -i 's|agent_zero|biodockify_ai|g' /a0/prompts/*.md 2>/dev/null || true; \
     sed -i 's|Agent Zero|BioDockify AI|g' /a0/agent_zero/prompts_v19/*.md 2>/dev/null || true; \
@@ -68,107 +23,44 @@ RUN find /a0/webui/ -maxdepth 1 -name "favicon*" -type f -delete 2>/dev/null || 
     sed -i 's|Agent Zero|BioDockify AI|g' /a0/agent.py 2>/dev/null || true; \
     sed -i 's|Agent Zero|BioDockify AI|g' /a0/models.py 2>/dev/null || true
 
-# Install RDKit into framework venv
-RUN apt-get update -qq && apt-get install -y -qq python3-rdkit 2>/dev/null || true; \
-    SYS_PKGS=$(python3 -c "import site; print(site.getsitepackages()[0])"); \
-    VENV_PY="/opt/venv-a0/bin/python"; \
-    $VENV_PY -m pip install rdkit 2>/dev/null || ( \
-      cp -r $SYS_PKGS/rdkit* /opt/venv-a0/lib/python3.12/site-packages/ 2>/dev/null || true; \
-    ); \
-    $VENV_PY -c "from rdkit import Chem; print('RDKit OK')" 2>/dev/null || echo "RDKit unavailable in venv"
-
-# Install OpenBabel + AutoDock Vina + GNINA for molecular docking
+# ─── System packages (RDKit + OpenBabel + Vina) ───
 RUN apt-get update -qq && apt-get install -y -qq \
-    openbabel \
-    autodock-vina \
-    wget \
-    2>/dev/null || true; \
-    echo "OpenBabel: $(obabel -V 2>&1 || echo 'not found')"; \
-    echo "Vina: $(vina --version 2>&1 || echo 'not found')"
+    python3-rdkit openbabel autodock-vina wget 2>/dev/null || true; \
+    SYS_PKGS=$(python3 -c "import site; print(site.getsitepackages()[0])"); \
+    /opt/venv-a0/bin/python -m pip install rdkit 2>/dev/null || \
+      (cp -r $SYS_PKGS/rdkit* /opt/venv-a0/lib/python3.12/site-packages/ 2>/dev/null || true); \
+    /opt/venv-a0/bin/python -c "from rdkit import Chem; print('RDKit OK')" 2>/dev/null || echo "RDKit unavailable in venv"
 
-# Install ML scoring packages (CPU-only, no GPU required)
-RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir meeko>=0.5.0 && \
-    echo "Meeko installed" || \
-    echo "Meeko install failed"
-
-# Install scientific + pharma packages in FRAMEWORK venv (/opt/venv-a0).
-# This is where the API handlers (statistics, pharmacophore, literature, etc.)
-# actually run. All pharma deps live here.
-RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
-    scipy>=1.11.0 \
-    scikit-learn>=1.3.0 \
-    pandas>=2.0.0 \
-    matplotlib>=3.7.0 \
-    statsmodels>=0.14.0 \
-    seaborn>=0.12.0 \
-    arxiv>=2.1.0 \
-    biopython>=1.83 \
-    lifelines>=0.27.0 \
-    semanticscholar>=0.6.0 \
-    tabulate>=0.9.0 \
-    pingouin>=0.5.4 \
-    reportlab>=4.0.0 \
-    fastapi>=0.110.0 \
-    && echo "Pharma packages installed (framework)" || \
-    echo "Pharma packages install failed"
-
-# Install ONLY core scientific packages in EXECUTION venv (/opt/venv).
-# The agent runtime needs basic data science libs for code_execution_tool,
-# but NOT the heavy pharma stack (biopython, lifelines, pingouin, reportlab).
-# This saves ~1.5GB. arviz removed entirely (Bayesian HDI uses scipy fallback).
-RUN /opt/venv/bin/python -m pip install --no-cache-dir \
-    scipy>=1.11.0 \
-    scikit-learn>=1.3.0 \
-    pandas>=2.0.0 \
-    matplotlib>=3.7.0 \
-    statsmodels>=0.14.0 \
-    seaborn>=0.12.0 \
-    && echo "Core scientific packages installed (execution)" || \
-    echo "Scientific packages install failed"
-
-# Pin NumPy <2.5 — required by numba (whisper dependency). Fixes ImportError: Numba needs NumPy 2.4 or less
-RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir "numpy>=1.24,<2.5" \
-    && echo "NumPy pinned <2.5 (framework)" || \
-    echo "NumPy pin failed (framework)"
-
-RUN /opt/venv/bin/python -m pip install --no-cache-dir "numpy>=1.24,<2.5" \
-    && echo "NumPy pinned <2.5 (execution)" || \
-    echo "NumPy pin failed (execution)"
-
-# Install Knowledge Base vector store dependencies
+# ─── Framework venv (/opt/venv-a0): all pharma + science + ML packages ───
 ENV PIP_DEFAULT_TIMEOUT=120
 RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
-    chromadb>=0.4.0 \
-    faiss-cpu>=1.7.4 \
-    sentence-transformers>=2.2.0 \
-    && echo "Vector store packages installed" || \
-    echo "Vector store packages install failed"
+    meeko>=0.5.0 \
+    scipy>=1.11.0 scikit-learn>=1.3.0 pandas>=2.0.0 matplotlib>=3.7.0 \
+    statsmodels>=0.14.0 seaborn>=0.12.0 arxiv>=2.1.0 biopython>=1.83 \
+    lifelines>=0.27.0 semanticscholar>=0.6.0 tabulate>=0.9.0 \
+    pingouin>=0.5.4 reportlab>=4.0.0 fastapi>=0.110.0 \
+    "numpy>=1.24,<2.5" \
+    chromadb>=0.4.0 faiss-cpu>=1.7.4 sentence-transformers>=2.2.0 \
+    openmm>=8.1.0 mdtraj>=1.9.9 \
+    && echo "Framework venv packages installed" || echo "Framework venv packages install failed"
 
-# Pre-cache sentence-transformers model (prevents HuggingFace download at runtime)
+# ─── Execution venv (/opt/venv): core scientific + MD packages ───
+RUN /opt/venv/bin/python -m pip install --no-cache-dir \
+    scipy>=1.11.0 scikit-learn>=1.3.0 pandas>=2.0.0 matplotlib>=3.7.0 \
+    statsmodels>=0.14.0 seaborn>=0.12.0 \
+    "numpy>=1.24,<2.5" \
+    openmm>=8.1.0 mdtraj>=1.9.9 \
+    && echo "Execution venv packages installed" || echo "Execution venv packages install failed"
+
+# ─── Pre-cache sentence-transformers model (prevents HuggingFace download at runtime) ───
 ENV SENTENCE_TRANSFORMERS_HOME=/a0/.cache/sentence-transformers
 RUN mkdir -p /a0/.cache/sentence-transformers && \
     /opt/venv-a0/bin/python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2', cache_folder='/a0/.cache/sentence-transformers')" 2>/dev/null && \
     echo "sentence-transformers model cached" || \
     echo "sentence-transformers model cache failed — will try HuggingFace at runtime"
 
-# Install MD Lite dependencies (OpenMM + MDTraj) for BOTH runtimes
-RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
-    openmm>=8.1.0 \
-    mdtraj>=1.9.9 \
-    && echo "MD Lite installed (framework)" || \
-    echo "MD Lite install failed (framework)"
-
-RUN /opt/venv/bin/python -m pip install --no-cache-dir \
-    openmm>=8.1.0 \
-    mdtraj>=1.9.9 \
-    && echo "MD Lite installed (execution)" || \
-    echo "MD Lite install failed (execution)"
-
 EXPOSE 50001
-
 VOLUME ["/a0/usr"]
-
 HEALTHCHECK --interval=30s --timeout=15s --retries=3 CMD \
   curl -sf http://localhost:80/api/health || exit 1
-
 CMD ["/exe/initialize.sh", "main"]
