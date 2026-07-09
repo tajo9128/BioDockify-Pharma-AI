@@ -13,6 +13,9 @@ RUN find /a0/webui/ -maxdepth 1 \( -name "favicon*" -o -name "*.ico" \) -type f 
     rm -rf /a0/webui/components/docking /a0/webui/components/3d-viewer /a0/webui/components/admet \
            /a0/webui/components/drug-browser /a0/webui/components/mol-similarity \
            /a0/webui/components/chemical-space /a0/webui/components/agent-tasks 2>/dev/null || true; \
+    rm -rf /a0/webui/components/qsar /a0/webui/components/qsar3d_old 2>/dev/null || true; \
+    rm -rf /a0/modules/qsar 2>/dev/null || true; \
+    rm -f /a0/api/qsar.py /a0/api/pharmacophore_old.py 2>/dev/null || true; \
     sed -i 's|Agent Zero|BioDockify AI|g' /a0/prompts/*.md 2>/dev/null || true; \
     sed -i 's|agent_zero|biodockify_ai|g' /a0/prompts/*.md 2>/dev/null || true; \
     sed -i 's|Agent Zero|BioDockify AI|g' /a0/agent_zero/prompts_v19/*.md 2>/dev/null || true; \

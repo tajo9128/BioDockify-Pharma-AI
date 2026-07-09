@@ -11,7 +11,7 @@ const defaultModules = [
   { id: "research-dashboard", title: "Research CMD", icon: "rocket_launch", component: "/components/research-dashboard/research-dashboard.html", order: 2, defaultWidth: 800, defaultHeight: 600 },
   { id: "deep-research", title: "Deep Research", icon: "travel_explore", component: "/components/deep-research/deep-research.html", order: 3, defaultWidth: 800, defaultHeight: 650 },
   { id: "molecular-toolkit", title: "Molecular Toolkit", icon: "biotech", component: "/components/molecular-toolkit/molecular-toolkit.html", order: 4, defaultWidth: 750, defaultHeight: 600 },
-  { id: "qsar", title: "QSAR Modeler", icon: "model_training", component: "/components/qsar/qsar.html", order: 5, defaultWidth: 700, defaultHeight: 550 },
+  { id: "qsar", title: "3D-QSAR Modeler", icon: "model_training", component: "/components/qsar3d/qsar3d.html", order: 5, defaultWidth: 750, defaultHeight: 600 },
   { id: "molecule-editor", title: "Drug Analysis", icon: "science", component: "/components/molecule-editor/molecule-editor.html", order: 6, defaultWidth: 850, defaultHeight: 650 },
   { id: "pharmacophore", title: "Pharmacophore", icon: "ads_click", component: "/components/pharmacophore/pharmacophore.html", order: 7, defaultWidth: 650, defaultHeight: 500 },
   { id: "statistics", title: "Statistics", icon: "analytics", component: "/components/statistics/statistics-modal.html", order: 8, defaultWidth: 750, defaultHeight: 550 },
