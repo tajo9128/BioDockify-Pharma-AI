@@ -1,5 +1,8 @@
 """Literature Module"""
-from .discovery import discovery_engine, Paper
+try:
+    from .discovery import discovery_engine, Paper
+except ImportError:
+    discovery_engine = None
+    Paper = None
 
-# Ensure backward compatibility if needed, or expose the new engine
 __all__ = ['discovery_engine', 'Paper']
