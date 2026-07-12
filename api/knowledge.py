@@ -213,6 +213,8 @@ class KnowledgeHandler(ApiHandler):
             return self._upload(input)
         elif action == "graph":
             return self._graph(input)
+        elif action == "download_docx":
+            return self._download_docx(input)
 
         return {"status": "error", "error": f"Unknown action: {action}"}
 
@@ -493,3 +495,23 @@ class KnowledgeHandler(ApiHandler):
             return {"status": "ok", "graph": graph}
         except Exception as e:
             return {"status": "error", "error": str(e)}
+
+    def _download_docx(self, input: dict) -> dict | Response:
+        """Serve a DOCX file for download."""
+        filepath = input.get("file", "")
+        if not filepath or not os.path.exists(filepath):
+            return Response(status=404, body="File not found")
+
+        filename = os.path.basename(filepath)
+        with open(filepath, "rb") as f:
+            content = f.read()
+
+        return Response(
+            status=200,
+            body=content,
+            headers={
+                "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Length": str(len(content)),
+            },
+        )

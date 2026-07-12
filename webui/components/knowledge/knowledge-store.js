@@ -509,6 +509,8 @@ export const store = createStore("knowledgeModal", {
               source: entry.source || entry.category_label || "Knowledge Base",
               saved: true,
               createdAt: entry.created_at || new Date().toISOString(),
+              format: entry.format || "",
+              file: entry.file || "",
             });
           }
         }

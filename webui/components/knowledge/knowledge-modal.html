@@ -293,6 +293,15 @@
                     @click="$store.knowledgeModal.toggleFavorite(entry.id)"
                     x-text="$store.knowledgeModal.favorites.includes(entry.id) ? '⭐' : '☆'"></button>
                   <span class="nb-entry-title" x-text="entry.question"></span>
+                  <!-- DOCX badge + download -->
+                  <template x-if="entry.format === 'docx'">
+                    <span style="background:#2a5540;color:#90e0a0;font-size:0.5rem;padding:2px 6px;border-radius:4px;font-weight:700;margin-left:6px">DOCX</span>
+                  </template>
+                  <template x-if="entry.format === 'docx'">
+                    <a :href="'/api/knowledge_download?file=' + encodeURIComponent(entry.file)" download
+                       style="font-size:0.56rem;color:var(--color-primary);text-decoration:none;margin-left:6px;font-weight:600"
+                       @click.stop>Download</a>
+                  </template>
                   <button class="nb-writer-btn" @click="$store.knowledgeModal.openInWriter(entry)" title="Open in Academic Writer">📝</button>
                   <button class="nb-del-btn" @click="$store.knowledgeModal.deleteEntry(entry)">×</button>
                 </div>
