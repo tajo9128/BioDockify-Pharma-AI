@@ -109,6 +109,48 @@ def _store_entry(category: str, title: str, content: str, tags: str = "", source
     return entry
 
 
+def _store_docx_entry(category: str, title: str, docx_bytes: bytes, tags: str = "", source: str = "", metadata: dict = None):
+    """Store a DOCX document in the knowledge base. No vector indexing for binary files."""
+    import time as _time
+
+    cat_dir = os.path.join(KB_DIR, category)
+    os.makedirs(cat_dir, exist_ok=True)
+
+    safe_title = "".join(c for c in title[:80] if c.isalnum() or c in " _-").strip().replace(" ", "_")
+    if not safe_title:
+        safe_title = f"entry_{int(_time.time())}"
+    filepath = os.path.join(cat_dir, f"{safe_title}.docx")
+
+    counter = 1
+    while os.path.exists(filepath):
+        filepath = os.path.join(cat_dir, f"{safe_title}_{counter}.docx")
+        counter += 1
+
+    with open(filepath, "wb") as f:
+        f.write(docx_bytes)
+
+    index = _load_index()
+    entry = {
+        "id": f"{category}_{len(index['entries'])}",
+        "title": title,
+        "category": category,
+        "category_label": CATEGORIES.get(category, category),
+        "tags": tags.split(",") if tags else [],
+        "source": source,
+        "file": filepath,
+        "created_at": _time.strftime("%Y-%m-%d %H:%M:%S"),
+        "size": len(docx_bytes),
+        "format": "docx",
+    }
+    if metadata:
+        entry["metadata"] = metadata
+    index["entries"].append(entry)
+    index["categories"][category] = index["categories"].get(category, 0) + 1
+    _save_index(index)
+
+    return entry
+
+
 def _detect_category(filename: str) -> str:
     """Auto-detect KB category from filename/extension."""
     ext = os.path.splitext(filename)[1].lower()
@@ -117,6 +159,8 @@ def _detect_category(filename: str) -> str:
     # By extension
     if ext == '.pdf':
         return "books"
+    elif ext == '.docx':
+        return "literature"
     elif ext in ('.xlsx', '.xls', '.csv'):
         return "data_files"
     elif ext in ('.mp3', '.wav', '.ogg', '.m4a', '.flac'):
