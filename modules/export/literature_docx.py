@@ -18,12 +18,13 @@ class LiteratureDocxExporter:
     Output is DOCX bytes (ZIP/OpenXML format) for storage.
     """
 
-    def export_article(self, paper: Dict, full_text: Optional[str]) -> bytes:
-        """Generate DOCX bytes for an article.
+    def export_article(self, paper: Dict, full_text: Optional[str], serial_num: int = 0) -> bytes:
+        """Generate DOCX bytes for an article with clear page formatting.
 
         Args:
             paper: Dict with title, authors, year, journal, doi, source, abstract
             full_text: Full body text (or None for abstract-only mode)
+            serial_num: Article serial number for filename and header (0 = no serial)
 
         Returns:
             DOCX file as bytes (valid .docx / ZIP archive)
@@ -35,17 +36,26 @@ class LiteratureDocxExporter:
         font.name = "Times New Roman"
         font.size = Pt(11)
 
-        # --- Title ---
+        # ── Header: Serial number ──
+        if serial_num > 0:
+            header_para = doc.add_paragraph()
+            header_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            run = header_para.add_run(f"Article #{serial_num:03d}")
+            run.font.size = Pt(8)
+            run.font.color.rgb = RGBColor(128, 128, 128)
+
+        # ── Title ──
         title_para = doc.add_paragraph()
         title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        title_para.paragraph_format.space_before = Pt(12)
         run = title_para.add_run(paper.get("title", "Untitled"))
         run.bold = True
         run.font.size = Pt(16)
 
-        # --- Metadata ---
+        # ── Metadata ──
         meta = doc.add_paragraph()
         meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        meta.paragraph_format.space_after = Pt(6)
+        meta.paragraph_format.space_after = Pt(12)
 
         authors = paper.get("authors", [])
         if isinstance(authors, list):
@@ -72,17 +82,19 @@ class LiteratureDocxExporter:
             doc.add_heading("Abstract", level=2)
             doc.add_paragraph(abstract)
 
-        # --- Full Text ---
+        # ── Full Text with page breaks ──
         if full_text:
+            doc.add_page_break()
             doc.add_heading("Full Text", level=2)
             sections = self._split_sections(full_text)
-            for sec_title, body in sections:
+            for i, (sec_title, body) in enumerate(sections):
+                if sec_title and i > 0:
+                    doc.add_page_break()
                 if sec_title:
                     doc.add_heading(sec_title, level=3)
-                for para_text in body.split("\n\n"):
-                    para_text = para_text.strip()
-                    if para_text:
-                        doc.add_paragraph(para_text)
+                paragraphs = [p.strip() for p in body.split("\n\n") if p.strip()]
+                for para_text in paragraphs:
+                    doc.add_paragraph(para_text)
         else:
             doc.add_heading("Full Text Unavailable", level=2)
             note = doc.add_paragraph()

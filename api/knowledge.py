@@ -109,30 +109,58 @@ def _store_entry(category: str, title: str, content: str, tags: str = "", source
     return entry
 
 
-def _store_docx_entry(category: str, title: str, docx_bytes: bytes, tags: str = "", source: str = "", metadata: dict = None):
-    """Store a DOCX document in the knowledge base. No vector indexing for binary files."""
+def _store_docx_entry(category: str, title: str, docx_bytes: bytes, tags: str = "", source: str = "", metadata: dict = None, serial_num: int = 0):
+    """Store a DOCX/PDF document in the knowledge base. No vector indexing for binary files.
+
+    Deduplicates by DOI (from metadata) or title. Serial numbers prefix filenames.
+    """
     import time as _time
+
+    index = _load_index()
+
+    # ── Dedup check: DOI ──
+    doi = (metadata or {}).get("doi", "")
+    if doi:
+        for entry in index.get("entries", []):
+            entry_doi = (entry.get("metadata") or {}).get("doi", "")
+            if entry_doi and entry_doi == doi:
+                log.debug(f"Dedup: skipping duplicate DOI {doi} — {title[:60]}")
+                return entry
+
+    # ── Dedup check: title ──
+    title_key = title.strip().lower()
+    for entry in index.get("entries", []):
+        if entry.get("title", "").strip().lower() == title_key:
+            log.debug(f"Dedup: skipping duplicate title — {title[:60]}")
+            return entry
 
     cat_dir = os.path.join(KB_DIR, category)
     os.makedirs(cat_dir, exist_ok=True)
 
-    safe_title = "".join(c for c in title[:80] if c.isalnum() or c in " _-").strip().replace(" ", "_")
+    # ── Serial-numbered filename ──
+    safe_title = "".join(c for c in title[:60] if c.isalnum() or c in " _-").strip().replace(" ", "_")
     if not safe_title:
         safe_title = f"entry_{int(_time.time())}"
-    filepath = os.path.join(cat_dir, f"{safe_title}.docx")
 
+    if serial_num > 0:
+        prefix = f"{serial_num:03d}_"
+    else:
+        prefix = ""
+    filepath = os.path.join(cat_dir, f"{prefix}{safe_title}.docx")
+
+    # Avoid overwrite
     counter = 1
     while os.path.exists(filepath):
-        filepath = os.path.join(cat_dir, f"{safe_title}_{counter}.docx")
+        filepath = os.path.join(cat_dir, f"{prefix}{safe_title}_{counter}.docx")
         counter += 1
 
     with open(filepath, "wb") as f:
         f.write(docx_bytes)
 
-    index = _load_index()
     entry = {
         "id": f"{category}_{len(index['entries'])}",
         "title": title,
+        "serial_num": serial_num if serial_num > 0 else len(index["entries"]) + 1,
         "category": category,
         "category_label": CATEGORIES.get(category, category),
         "tags": tags.split(",") if tags else [],
@@ -149,6 +177,32 @@ def _store_docx_entry(category: str, title: str, docx_bytes: bytes, tags: str = 
     _save_index(index)
 
     return entry
+
+
+def _delete_entry(entry_id: str) -> bool:
+    """Delete an entry from KB index and filesystem."""
+    index = _load_index()
+    entries = index.get("entries", [])
+
+    for i, e in enumerate(entries):
+        if e.get("id") == entry_id or e.get("file") == entry_id:
+            # Remove file
+            filepath = e.get("file", "")
+            if filepath and os.path.exists(filepath):
+                try:
+                    os.remove(filepath)
+                except Exception as ex:
+                    log.warning(f"Failed to delete file {filepath}: {ex}")
+
+            # Remove from index
+            cat = e.get("category", "")
+            entries.pop(i)
+            if cat in index.get("categories", {}):
+                index["categories"][cat] = max(0, index["categories"][cat] - 1)
+            _save_index(index)
+            return True
+
+    return False
 
 
 def _detect_category(filename: str) -> str:
@@ -215,6 +269,8 @@ class KnowledgeHandler(ApiHandler):
             return self._graph(input)
         elif action == "download_docx":
             return self._download_docx(input)
+        elif action == "delete_entry":
+            return self._delete(input)
 
         return {"status": "error", "error": f"Unknown action: {action}"}
 
@@ -463,6 +519,14 @@ class KnowledgeHandler(ApiHandler):
             }
         except Exception as e:
             return {"status": "error", "error": str(e)}
+
+    def _delete(self, input: dict) -> dict:
+        """Delete an entry from KB."""
+        entry_id = input.get("id", "") or input.get("file", "")
+        if not entry_id:
+            return {"status": "error", "error": "No entry id provided"}
+        ok = _delete_entry(entry_id)
+        return {"status": "ok", "deleted": ok} if ok else {"status": "error", "error": "Entry not found"}
 
     def _graph(self, input: dict) -> dict:
         """Build knowledge graph from KB entries."""

@@ -231,12 +231,25 @@
 
         <!-- Entry list -->
         <div x-show="$store.knowledgeModal.filteredEntries.length" class="nb-entries">
-          <h4 x-text="'Notebook Entries (' + $store.knowledgeModal.filteredEntries.length + ')'"></h4>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <h4 x-text="'Entries (' + $store.knowledgeModal.filteredEntries.length + ')'" style="margin:0"></h4>
+            <div>
+              <button class="nb-btn-sm" @click="$store.knowledgeModal.selectAll()"
+                x-text="$store.knowledgeModal.filteredEntries.every(e => $store.knowledgeModal.selected[e.id]) ? 'Deselect All' : 'Select All'"
+                style="margin-right:4px"></button>
+              <button class="nb-btn-sm nb-btn-danger" x-show="$store.knowledgeModal.selectedCount > 0"
+                @click="$store.knowledgeModal.deleteSelected()"
+                x-text="'Delete (' + $store.knowledgeModal.selectedCount + ')'"></button>
+            </div>
+          </div>
           <template x-for="entry in $store.knowledgeModal.filteredEntries" :key="entry.id">
             <!-- Render paper entries differently -->
             <template x-if="$store.knowledgeModal.tryParsePapers(entry.answer).isCollection">
               <div class="nb-entry-card nb-paper-collection" :class="{saved: $store.knowledgeModal.favorites.includes(entry.id)}">
                 <div class="nb-entry-header">
+                  <input type="checkbox" :checked="$store.knowledgeModal.selected[entry.id] || false"
+                    @click.stop="$store.knowledgeModal.toggleSelect(entry)"
+                    style="margin-right:6px;cursor:pointer;accent-color:var(--color-primary)" />
                   <button class="nb-fav-btn" :class="{active: $store.knowledgeModal.favorites.includes(entry.id)}"
                     @click="$store.knowledgeModal.toggleFavorite(entry.id)"
                     x-text="$store.knowledgeModal.favorites.includes(entry.id) ? '⭐' : '☆'"></button>
@@ -289,11 +302,14 @@
             <template x-if="!$store.knowledgeModal.tryParsePapers(entry.answer).isCollection">
               <div class="nb-entry-card" :class="{saved: $store.knowledgeModal.favorites.includes(entry.id)}">
                 <div class="nb-entry-header">
+                  <input type="checkbox" :checked="$store.knowledgeModal.selected[entry.id] || false"
+                    @click.stop="$store.knowledgeModal.toggleSelect(entry)"
+                    style="margin-right:6px;cursor:pointer;accent-color:var(--color-primary)" />
                   <button class="nb-fav-btn" :class="{active: $store.knowledgeModal.favorites.includes(entry.id)}"
                     @click="$store.knowledgeModal.toggleFavorite(entry.id)"
                     x-text="$store.knowledgeModal.favorites.includes(entry.id) ? '⭐' : '☆'"></button>
                   <span class="nb-entry-title" x-text="entry.question"></span>
-                  <!-- DOCX badge + download -->
+                  <!-- DOCX badge -->
                   <template x-if="entry.format === 'docx'">
                     <span style="background:#2a5540;color:#90e0a0;font-size:0.5rem;padding:2px 6px;border-radius:4px;font-weight:700;margin-left:6px">DOCX</span>
                   </template>
@@ -431,6 +447,8 @@
       .nb-entry-title { flex: 1; font-size: 0.66rem; font-weight: 600; color: var(--color-text); }
       .nb-del-btn { padding: 1px 5px; background: transparent; border: none; color: var(--color-text-muted); cursor: pointer; font-size: 0.75rem; }
       .nb-del-btn:hover { color: var(--color-error-text); }
+      .nb-btn-danger { background: color-mix(in srgb, var(--color-error-text) 15%, transparent); color: var(--color-error-text); border: 1px solid color-mix(in srgb, var(--color-error-text) 30%, transparent); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.58rem; font-weight: 600; }
+      .nb-btn-danger:hover { background: color-mix(in srgb, var(--color-error-text) 25%, transparent); }
       .nb-entry-body { font-size: 0.62rem; color: var(--color-text-muted); margin-top: 4px; line-height: 1.4; white-space: pre-wrap; }
       .nb-entry-meta { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
       .nb-entry-tag { padding: 1px 6px; background: color-mix(in srgb, var(--color-primary) 8%, transparent); border: none; border-radius: 3px; font-size: 0.54rem; color: var(--color-primary); cursor: pointer; }

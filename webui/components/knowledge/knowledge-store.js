@@ -27,6 +27,7 @@ export const store = createStore("knowledgeModal", {
   tags: ["biochemistry", "pharmacology", "molecular-biology", "medicinal-chemistry", "drug-discovery"],
   activeTag: null,
   favorites: [],
+  selected: {},   // {entryId: true}
   viewMode: "list",
 
   // Graph
@@ -269,9 +270,40 @@ export const store = createStore("knowledgeModal", {
   },
 
   deleteEntry(entry) {
+    // Call API to delete from KB filesystem if it's a KB entry
+    if (entry.saved && (entry.file || entry.id)) {
+      callJsonApi("knowledge", {
+        action: "delete_entry",
+        id: entry.id,
+      }).catch(() => {});
+    }
     this.entries = this.entries.filter(e => e.id !== entry.id);
     this.favorites = this.favorites.filter(id => id !== entry.id);
+    delete this.selected[entry.id];
     this.persist();
+  },
+
+  toggleSelect(entry) {
+    this.selected[entry.id] = !this.selected[entry.id];
+  },
+
+  get selectedCount() {
+    return Object.values(this.selected).filter(Boolean).length;
+  },
+
+  deleteSelected() {
+    const ids = Object.keys(this.selected).filter(k => this.selected[k]);
+    for (const id of ids) {
+      const entry = this.entries.find(e => e.id === id || e.id == id);
+      if (entry) this.deleteEntry(entry);
+    }
+  },
+
+  selectAll() {
+    const allSelected = this.filteredEntries.every(e => this.selected[e.id]);
+    for (const e of this.filteredEntries) {
+      this.selected[e.id] = !allSelected;
+    }
   },
 
   addTag(tag) {

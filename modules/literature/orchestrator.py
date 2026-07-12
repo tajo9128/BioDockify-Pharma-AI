@@ -51,7 +51,9 @@ class DeepResearchOrchestrator:
         failed_titles = []
 
         # ── Round 1: Full retrieval attempt ──
+        serial = 0
         for i, paper in enumerate(selected_papers):
+            serial += 1
             paper_dict = {
                 "title": paper.title,
                 "url": paper.url,
@@ -68,19 +70,18 @@ class DeepResearchOrchestrator:
 
             if full_text:
                 try:
-                    # Save DOCX
-                    docx_bytes = exporter.export_article(paper_dict, full_text)
+                    docx_bytes = exporter.export_article(paper_dict, full_text, serial_num=serial)
                     _store_docx_entry(
                         category="literature",
                         title=paper.title,
                         docx_bytes=docx_bytes,
                         tags="deep_research,full_text",
                         source=paper.source,
-                        metadata={"doi": paper.doi, "year": paper.year}
+                        metadata={"doi": paper.doi, "year": paper.year},
+                        serial_num=serial,
                     )
                     docx_stored += 1
 
-                    # Save PDF if available from Tier 2
                     pdf_bytes = retriever.get_last_pdf_bytes()
                     if pdf_bytes:
                         try:
@@ -90,7 +91,8 @@ class DeepResearchOrchestrator:
                                 docx_bytes=pdf_bytes,
                                 tags="deep_research,full_text,pdf",
                                 source=paper.source,
-                                metadata={"doi": paper.doi, "year": paper.year, "format": "pdf"}
+                                metadata={"doi": paper.doi, "year": paper.year, "format": "pdf"},
+                                serial_num=serial,
                             )
                             pdf_stored += 1
                         except Exception:
@@ -127,14 +129,15 @@ class DeepResearchOrchestrator:
                 full_text = retriever.retrieve(paper_dict)
                 if full_text:
                     try:
-                        docx_bytes = exporter.export_article(paper_dict, full_text)
+                        docx_bytes = exporter.export_article(paper_dict, full_text, serial_num=serial)
                         _store_docx_entry(
                             category="literature",
                             title=paper.title,
                             docx_bytes=docx_bytes,
                             tags="deep_research,full_text,retry",
                             source=paper.source,
-                            metadata={"doi": paper.doi, "year": paper.year, "retry": True}
+                            metadata={"doi": paper.doi, "year": paper.year, "retry": True},
+                            serial_num=serial,
                         )
                         docx_stored += 1
 
@@ -147,7 +150,8 @@ class DeepResearchOrchestrator:
                                     docx_bytes=pdf_bytes,
                                     tags="deep_research,full_text,pdf,retry",
                                     source=paper.source,
-                                    metadata={"doi": paper.doi, "year": paper.year, "format": "pdf"}
+                                    metadata={"doi": paper.doi, "year": paper.year, "format": "pdf"},
+                                    serial_num=serial,
                                 )
                                 pdf_stored += 1
                             except Exception:
