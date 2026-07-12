@@ -26,8 +26,9 @@ def test_tier1_europe_pmc_no_pmcid():
 def test_tier2_pdf_download_no_url():
     r = FullTextRetriever()
     paper = {"title": "No PDF URL"}
-    result = r._tier2_pdf_download(paper)
-    assert result is None
+    text, pdf = r._tier2_pdf_download(paper)
+    assert text is None
+    assert pdf is None
 
 
 def test_tier3_hacker_agent_no_doi_no_url():
@@ -42,3 +43,20 @@ def test_retrieve_all_tiers_fail():
     paper = {"title": "No identifiers at all", "source": "unknown"}
     result = r.retrieve(paper)
     assert result is None
+
+
+def test_get_last_pdf_bytes_initially_none():
+    r = FullTextRetriever()
+    assert r.get_last_pdf_bytes() is None
+
+
+def test_is_substantial_text():
+    r = FullTextRetriever()
+    assert r._is_substantial_text("Short.\n\nText.") is False
+    long_text = (
+        "Introduction paragraph with enough content to be considered substantial. "
+        * 5
+        + "\n\nMethods section with more detailed content about the methodology used. "
+        * 5
+    )
+    assert r._is_substantial_text(long_text) is True
