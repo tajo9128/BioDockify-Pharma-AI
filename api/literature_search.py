@@ -66,6 +66,15 @@ class LiteratureSearch(ApiHandler):
             except Exception as e:
                 logger.warning(f"KB store failed: {e}")
 
+        # ── AUTO-STORE to Knowledge Base ──
+        try:
+            from modules.knowledge.auto_store import auto_store
+            auto_store("literature_search", f"Literature: {query} ({database})",
+                       {"query": query, "database": database, "total": total, "papers": papers},
+                       source=f"{database} search", tags=["literature", database, query[:30]])
+        except Exception:
+            pass
+
         return {
             "papers": papers,
             "total": total,

@@ -4,7 +4,7 @@ import { callJsonApi, getCsrfToken } from "/js/api.js";
 const LS_KEY = "biodockify.notebook";
 
 export const store = createStore("knowledgeModal", {
-  activeTab: "notebook",
+  activeTab: "all",
   entries: [],
   searchQuery: "",
   searchResults: [],
@@ -44,6 +44,13 @@ export const store = createStore("knowledgeModal", {
   podcastVoice: "alloy",
   podcastUrl: "",
   podcastLoading: false,
+
+  // Category management + file selection (WordPress-style)
+  customCategories: [],
+  activeCategory: "all",  // "all" or a category key
+  selectedIds: [],        // checked file IDs
+  showAddCategory: false,
+  newCategoryName: "",
 
   _restored: false,
 
@@ -176,7 +183,8 @@ export const store = createStore("knowledgeModal", {
       if (s.tags) this.tags = s.tags;
       if (s.favorites) this.favorites = s.favorites;
     } catch {}
-    // Load library entries from KB API
+    // Load ALL KB entries immediately (no search required)
+    this.loadAllEntries();
     this.loadLibraryFromKB();
   },
 
@@ -185,6 +193,82 @@ export const store = createStore("knowledgeModal", {
       return this.entries.filter(e => (e.tags || []).includes(this.activeTag));
     }
     return this.entries;
+  },
+
+  async loadAllEntries() {
+    /** Load ALL KB entries on open — no search required. */
+    this.loading = true;
+    try {
+      const r = await callJsonApi("knowledge", { action: "list_all" });
+      if (r.status === "ok" && r.entries) {
+        // Merge: KB entries become the primary entries list
+        const kbEntries = r.entries.map(e => ({
+          id: e.id || Date.now(),
+          question: e.title || "Untitled",
+          answer: e.preview || "",  // Store preview as initial answer
+          tags: e.tags || [e.category || "uncategorized"],
+          source: e.source || e.category_label || "Knowledge Base",
+          saved: true,
+          createdAt: e.created_at || new Date().toISOString(),
+          file: e.file || "",
+          hasContent: e.has_content || false,
+          contentLength: e.content_length || 0,
+          _fullyLoaded: false,  // content not fully loaded yet
+        }));
+
+        // Keep local-only entries (notes created in UI but not in KB)
+        const localOnly = this.entries.filter(e => !e.saved);
+        // Combine: KB entries + local entries, dedupe by question title
+        const all = [...kbEntries];
+        for (const le of localOnly) {
+          if (!all.find(a => a.question === le.question)) {
+            all.unshift(le);
+          }
+        }
+
+        this.entries = all;
+        this.persist();
+      }
+    } catch (e) {
+      console.error("loadAllEntries failed:", e);
+    }
+    this.loading = false;
+  },
+
+  async readEntry(entry) {
+    /** Read full content of an entry from KB. Opens it in the reader. */
+    if (entry._fullyLoaded) {
+      this.readingPaper = entry;
+      return;
+    }
+    this.loading = true;
+    try {
+      const r = await callJsonApi("knowledge", {
+        action: "read_entry",
+        file: entry.file || "",
+        entry_id: typeof entry.id === "string" ? entry.id : "",
+      });
+      if (r.status === "ok" && r.content) {
+        // Update the entry with full content
+        const idx = this.entries.findIndex(e => e.id === entry.id);
+        if (idx >= 0) {
+          this.entries[idx].answer = r.content;
+          this.entries[idx]._fullyLoaded = true;
+        }
+        // Open in reader view
+        this.readingPaper = {
+          ...entry,
+          full_text: r.content,
+          answer: r.content,
+        };
+      } else {
+        // Fallback: show whatever content we have
+        this.readingPaper = entry;
+      }
+    } catch (e) {
+      this.error = "Failed to read entry: " + e.message;
+    }
+    this.loading = false;
   },
 
   get recentEntries() {
@@ -594,6 +678,212 @@ export const store = createStore("knowledgeModal", {
       this.error = "Graph error: " + e.message;
     }
     this.loading = false;
+  },
+
+  // ═══════════════════════════════════════════════════════════════
+  // CATEGORY MANAGEMENT (WordPress-style)
+  // ═══════════════════════════════════════════════════════════════
+
+  async createCategory() {
+    const name = this.newCategoryName.trim();
+    if (!name) return;
+    const key = name.toLowerCase().replace(/\s+/g, "_");
+    try {
+      const r = await callJsonApi("knowledge", {
+        action: "create_category",
+        category_key: key,
+        category_label: name,
+      });
+      if (r.status === "ok") {
+        this.customCategories.push({ key, label: r.label || name });
+        this.activeCategory = key;
+        this.newCategoryName = "";
+        this.showAddCategory = false;
+        this.message = "Category created";
+        setTimeout(() => { this.message = ""; }, 2000);
+      }
+    } catch (e) {
+      this.error = "Create category failed: " + e.message;
+    }
+  },
+
+  get allCategories() {
+    // Merge built-in + custom categories
+    const builtIn = [
+      { key: "literature", label: "Literature & Papers" },
+      { key: "deep_research", label: "Deep Research" },
+      { key: "docking", label: "Docking Results" },
+      { key: "drug_analysis", label: "Drug Analysis" },
+      { key: "pharmacophore", label: "Pharmacophore" },
+      { key: "qsar", label: "QSAR Models" },
+      { key: "statistics", label: "Statistics" },
+      { key: "faculty", label: "Faculty & Teaching" },
+      { key: "wetlab", label: "Wet Lab" },
+      { key: "books", label: "Books & References" },
+      { key: "protocols", label: "Protocols & Methods" },
+      { key: "data_files", label: "Data Files" },
+      { key: "notes", label: "Notes" },
+      { key: "misc", label: "Miscellaneous" },
+    ];
+    return [...builtIn, ...this.customCategories];
+  },
+
+  // ═══════════════════════════════════════════════════════════════
+  // FILE SELECTION (checkboxes for "Use Selected")
+  // ═══════════════════════════════════════════════════════════════
+
+  toggleSelection(id) {
+    const idx = this.selectedIds.indexOf(id);
+    if (idx >= 0) {
+      this.selectedIds.splice(idx, 1);
+    } else {
+      this.selectedIds.push(id);
+    }
+  },
+
+  isSelected(id) {
+    return this.selectedIds.includes(id);
+  },
+
+  selectAll() {
+    if (this.selectedIds.length === this.recentEntries.length) {
+      this.selectedIds = [];
+    } else {
+      this.selectedIds = this.recentEntries.map(e => e.id);
+    }
+  },
+
+  clearSelection() {
+    this.selectedIds = [];
+  },
+
+  // Entries filtered by active category
+  get categoryFilteredEntries() {
+    if (this.activeCategory === "all") {
+      return this.recentEntries;
+    }
+    return this.recentEntries.filter(e => {
+      const tags = e.tags || [];
+      const cat = e.category || (tags[0] || "");
+      return tags.includes(this.activeCategory) || cat === this.activeCategory;
+    });
+  },
+
+  // ═══════════════════════════════════════════════════════════════
+  // "USE SELECTED" — send selected files to other modules
+  // ═══════════════════════════════════════════════════════════════
+
+  async getSelectedContent() {
+    if (!this.selectedIds.length) return null;
+    try {
+      const r = await callJsonApi("knowledge", {
+        action: "selected_entries",
+        entry_ids: this.selectedIds,
+      });
+      if (r.status === "ok") {
+        return r.entries;
+      }
+    } catch (e) {
+      this.error = "Failed to load selected: " + e.message;
+    }
+    return null;
+  },
+
+  async useSelectedFor(target) {
+    /** Send selected files to: thesis, review, podcast, ppt */
+    if (!this.selectedIds.length) {
+      this.error = "Select at least one file first";
+      setTimeout(() => { this.error = ""; }, 2000);
+      return;
+    }
+    this.loading = true;
+    const selected = await this.getSelectedContent();
+    if (!selected) {
+      this.loading = false;
+      return;
+    }
+
+    // Combine all selected content into one text block
+    const combinedText = selected.map(e =>
+      `# ${e.title}\n**Source:** ${e.source || ""}\n\n${e.content}`
+    ).join("\n\n---\n\n");
+
+    // Route to the target module
+    if (target === "podcast") {
+      this.podcastText = combinedText;
+      this.activeTab = "podcast";
+      this.message = `${selected.length} files loaded for podcast`;
+    } else if (target === "thesis") {
+      // Open thesis writer and inject the content
+      if (window.$store && window.$store.desktopWorkspace) {
+        window.$store.desktopWorkspace.openWindow("thesis");
+      }
+      setTimeout(() => {
+        const input = document.querySelector(".aw-source-input, .aw-topic-input");
+        if (input) {
+          input.value = combinedText.substring(0, 50000);
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }, 500);
+      this.message = `${selected.length} files sent to Thesis Writer`;
+    } else if (target === "review") {
+      // Open literature review
+      if (window.$store && window.$store.desktopWorkspace) {
+        window.$store.desktopWorkspace.openWindow("review");
+      }
+      setTimeout(() => {
+        const input = document.querySelector(".aw-source-input, .lit-review-input");
+        if (input) {
+          input.value = combinedText.substring(0, 50000);
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }, 500);
+      this.message = `${selected.length} files sent to Review Writer`;
+    } else if (target === "ppt") {
+      // Open PPT generator
+      if (window.$store && window.$store.desktopWorkspace) {
+        window.$store.desktopWorkspace.openWindow("slides");
+      }
+      setTimeout(() => {
+        const input = document.querySelector(".slides-topic-input, .aw-topic-input");
+        if (input) {
+          input.value = combinedText.substring(0, 30000);
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }, 500);
+      this.message = `${selected.length} files sent to PPT Generator`;
+    } else if (target === "export") {
+      // Download as combined text
+      const blob = new Blob([combinedText], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `kb_export_${Date.now()}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+      this.message = `${selected.length} files exported`;
+    }
+
+    setTimeout(() => { this.message = ""; }, 3000);
+    this.loading = false;
+  },
+
+  async moveToCategory(categoryKey) {
+    /** Move selected files to a category. */
+    if (!this.selectedIds.length) return;
+    for (const id of this.selectedIds) {
+      try {
+        await callJsonApi("knowledge", {
+          action: "move_to_category",
+          entry_id: id,
+          category: categoryKey,
+        });
+      } catch (e) {}
+    }
+    this.message = `${this.selectedIds.length} files moved to ${categoryKey}`;
+    setTimeout(() => { this.message = ""; }, 3000);
+    this.clearSelection();
+    await this.loadAllEntries();
   },
 });
 

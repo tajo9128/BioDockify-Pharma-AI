@@ -41,9 +41,23 @@ class FacultyTools(ApiHandler):
             return await self._check_plagiarism(input)
         elif action == "lecture":
             return self._gen_lecture(input)
+        # ── Enhanced Faculty Workflow (added) ──
+        elif action == "analyze_syllabus_enhanced":
+            return self._analyze_syllabus_enhanced(input)
+        elif action == "divide_into_classes":
+            return self._divide_into_classes(input)
+        elif action == "find_reference_books":
+            return await self._find_reference_books(input)
+        elif action == "generate_class_slides":
+            return self._generate_class_slides(input)
+        elif action == "create_class_ppt":
+            return self._create_class_ppt(input)
         else:
             return {
-                "actions": ["syllabus", "plan_semester", "plan_class", "lesson_plan", "prep_notes", "make_slides", "assignment", "questions", "plagiarism", "lecture"],
+                "actions": ["syllabus", "plan_semester", "plan_class", "lesson_plan", "prep_notes",
+                            "make_slides", "assignment", "questions", "plagiarism", "lecture",
+                            "analyze_syllabus_enhanced", "divide_into_classes",
+                            "find_reference_books", "generate_class_slides", "create_class_ppt"],
                 "hint": "Send action with topic/text"
             }
 
@@ -482,3 +496,250 @@ class FacultyTools(ApiHandler):
         _store_to_kb("lecture", f"Lecture: {topic}", kb_content, f"{topic},lecture")
 
         return result
+
+    # ═══════════════════════════════════════════════════════════════
+    # Enhanced Faculty Workflow (added)
+    # ═══════════════════════════════════════════════════════════════
+
+    def _analyze_syllabus_enhanced(self, input: dict) -> dict:
+        """Enhanced syllabus parser that extracts topics AND reference books."""
+        text = (input.get("text", "") or "").strip()
+        if not text:
+            return {"error": "Please paste syllabus text or provide syllabus content"}
+        import re
+        lines = text.split("\n")
+        course_name, course_code, duration = "", "", ""
+        topics, books, units = [], [], []
+        book_patterns = ["textbook", "reference book", "recommended reading",
+                        "reference:", "text:", "books:", "bibliography",
+                        "essential reading", "supplementary reading"]
+        current_section = "topics"
+        for line in lines:
+            ls = line.strip()
+            if not ls: continue
+            low = ls.lower()
+            if "course" in low and ":" in ls and not course_name:
+                course_name = ls.split(":", 1)[-1].strip()
+            elif "code" in low and ":" in ls:
+                course_code = ls.split(":", 1)[-1].strip()
+            elif "duration" in low or "credit" in low:
+                duration = ls
+            if any(p in low for p in book_patterns):
+                current_section = "books"
+                if ":" in ls:
+                    bt = ls.split(":", 1)[-1].strip()
+                    if bt and len(bt) > 5:
+                        books.append(self._parse_book_ref(bt))
+                continue
+            if any(p in low for p in ["unit", "module"]) and (":" in ls or low.startswith(("unit", "module"))):
+                current_section = "units"
+                units.append({"title": ls, "topics": []})
+                continue
+            if current_section == "books" and len(ls) > 10:
+                if any(c.isalpha() for c in ls) and not ls.startswith(("#", "-")):
+                    parsed = self._parse_book_ref(ls)
+                    if parsed.get("title"):
+                        books.append(parsed)
+            elif current_section == "units" and units:
+                if len(ls) > 10:
+                    units[-1]["topics"].append(ls)
+            elif current_section == "topics":
+                if "week" in low or "topic" in low:
+                    topics.append(ls)
+                elif len(ls) > 10 and any(c.isalpha() for c in ls):
+                    if not ls.isupper() and not ls.startswith(("Course", "Instructor", "Professor", "Code", "Credit")):
+                        topics.append(ls)
+        if not topics:
+            basic = self._parse_syllabus(input)
+            topics = basic.get("topics", [])
+            if not course_name: course_name = basic.get("course_name", "")
+        if not books:
+            for line in lines:
+                low = line.lower().strip()
+                if " by " in low and len(line.strip()) > 15:
+                    books.append(self._parse_book_ref(line.strip()))
+                elif "isbn" in low:
+                    books.append(self._parse_book_ref(line.strip()))
+        result = {
+            "course_name": course_name or "Untitled Course", "course_code": course_code,
+            "duration": duration, "topics": topics[:30], "topic_count": len(topics),
+            "units": units, "reference_books": books, "book_count": len(books),
+            "estimated_classes_needed": max(len(topics), sum(len(u.get("topics", [])) for u in units)),
+        }
+        kb_content = f"## Enhanced Syllabus Analysis: {result['course_name']}\n\n"
+        kb_content += f"**Code:** {result['course_code']} | **Duration:** {duration}\n"
+        kb_content += f"**Topics:** {result['topic_count']} | **Books:** {result['book_count']}\n\n"
+        if books:
+            kb_content += "### Reference Books\n\n"
+            for b in books:
+                kb_content += f"- {b.get('title', '')} by {b.get('author', 'Unknown')} ({b.get('year', 'N/A')})\n"
+        kb_content += "\n### Topics\n\n"
+        for i, t in enumerate(topics, 1):
+            kb_content += f"{i}. {t}\n"
+        _store_to_kb("faculty", f"Syllabus Analysis: {result['course_name']}", kb_content,
+                     f"{result['course_name']},syllabus,analysis")
+        return result
+
+    def _parse_book_ref(self, text: str) -> dict:
+        """Parse a book reference string into structured data."""
+        import re
+        book = {"title": "", "author": "", "year": "", "isbn": ""}
+        text = text.strip().rstrip(".")
+        year_match = re.search(r'\b(19|20)\d{2}\b', text)
+        if year_match: book["year"] = year_match.group()
+        isbn_match = re.search(r'ISBN[:\s-]*([\d-X]+)', text, re.IGNORECASE)
+        if isbn_match: book["isbn"] = isbn_match.group(1).replace("-", "")
+        if " by " in text.lower():
+            parts = re.split(r'\s+[bB][yY]\s+', text, maxsplit=1)
+            book["title"] = parts[0].strip().strip('"').strip("'")
+            if len(parts) > 1:
+                author_part = parts[1].strip()
+                if book["year"]: author_part = author_part.replace(book["year"], "").strip().rstrip(",").strip()
+                book["author"] = author_part
+        elif "," in text:
+            parts = text.split(",", 1)
+            if len(parts[0]) < 40:
+                book["author"] = parts[0].strip(); book["title"] = parts[1].strip()
+            else:
+                book["title"] = parts[0].strip(); book["author"] = parts[1].strip()
+        else:
+            book["title"] = text
+        for key in book:
+            if isinstance(book[key], str): book[key] = book[key].strip().strip('"').strip("'").strip(".")
+        return book
+
+    def _divide_into_classes(self, input: dict) -> dict:
+        """Divide syllabus topics into N classes intelligently."""
+        topics = input.get("topics", [])
+        num_classes = int(input.get("num_classes", 0))
+        course_name = input.get("course_name", "Course")
+        units = input.get("units", [])
+        if not topics: return {"error": "Topics required"}
+        if num_classes < 1: return {"error": "Number of classes required (num_classes)"}
+        classes = []
+        topic_idx = 0
+        total_topics = len(topics)
+        if units:
+            for unit in units:
+                unit_topics = unit.get("topics", [])
+                if not unit_topics: continue
+                for ut in unit_topics:
+                    if topic_idx < num_classes:
+                        classes.append({"class_num": len(classes) + 1, "topic": ut,
+                                       "unit": unit.get("title", ""), "subtopics": [], "estimated_slides": 45})
+                        topic_idx += 1
+        else:
+            topics_per_class = max(1, total_topics / num_classes)
+            for i in range(num_classes):
+                start_idx = int(i * topics_per_class)
+                end_idx = int((i + 1) * topics_per_class)
+                class_topics = topics[start_idx:end_idx]
+                if not class_topics and topics: class_topics = [topics[-1]]
+                main_topic = class_topics[0] if class_topics else f"Review & Practice"
+                subtopics = class_topics[1:] if len(class_topics) > 1 else []
+                classes.append({"class_num": i + 1, "topic": main_topic, "subtopics": subtopics,
+                               "estimated_slides": 45, "duration": "50 min"})
+        result = {"course_name": course_name, "num_classes": len(classes), "classes": classes,
+                  "total_estimated_slides": sum(c.get("estimated_slides", 45) for c in classes)}
+        kb_content = f"## Class Schedule: {course_name}\n\n**Total Classes:** {len(classes)} | **Slides/Class:** 45\n\n"
+        for c in classes:
+            kb_content += f"### Class {c['class_num']}: {c['topic']}\n"
+            if c.get("subtopics"): kb_content += f"  Subtopics: {', '.join(c['subtopics'])}\n"
+            kb_content += f"  Estimated: {c.get('estimated_slides', 45)} slides\n\n"
+        _store_to_kb("faculty", f"Class Schedule: {course_name}", kb_content, f"{course_name},class_schedule")
+        return result
+
+    async def _find_reference_books(self, input: dict) -> dict:
+        """Search for free reference books via deep research."""
+        books = input.get("books", [])
+        topic = input.get("topic", "")
+        course_name = input.get("course_name", "")
+        if not books and not topic: return {"error": "Provide books list or topic"}
+        search_queries = []
+        for book in books:
+            if isinstance(book, dict):
+                title = book.get("title", ""); author = book.get("author", "")
+                if title: search_queries.append(f"{title} {author} free PDF")
+            elif isinstance(book, str): search_queries.append(f"{book} free PDF")
+        if topic:
+            search_queries.append(f"{topic} textbook free PDF download")
+            search_queries.append(f"{topic} open access book")
+        all_results = []
+        for query in search_queries[:5]:
+            try:
+                from modules.literature.discovery import discovery_engine
+                import asyncio
+                papers = await asyncio.wait_for(discovery_engine.search(query, limit=10), timeout=30.0)
+                for paper in papers:
+                    if isinstance(paper, dict):
+                        all_results.append({"title": paper.get("title", ""), "authors": paper.get("authors", []),
+                                           "year": paper.get("year", ""), "url": paper.get("url", paper.get("pdf_url", "")),
+                                           "source": paper.get("source", ""), "has_pdf": bool(paper.get("pdf_url"))})
+            except Exception as e:
+                logger.warning(f"Book search failed: {e}")
+        seen = set(); unique = []
+        for r in all_results:
+            key = r.get("title", "").lower()[:50]
+            if key and key not in seen: seen.add(key); unique.append(r)
+        result = {"search_queries": search_queries[:5], "total_found": len(unique), "books": unique[:20], "course_name": course_name}
+        _store_to_kb("faculty", f"Reference Books: {course_name or topic}", str(result), f"{course_name or topic},books")
+        return result
+
+    def _generate_class_slides(self, input: dict) -> dict:
+        """Generate 40-50 slide content for a class."""
+        topic = input.get("topic", "")
+        subtopics = input.get("subtopics", [])
+        class_num = int(input.get("class_num", 1))
+        num_slides = min(max(int(input.get("num_slides", 45)), 30), 60)
+        course_name = input.get("course_name", "")
+        if not topic: return {"error": "Topic required"}
+        slides = []
+        slides.append({"slide": 1, "type": "title", "title": f"Class {class_num}: {topic}",
+                       "subtitle": course_name, "notes": f"Welcome to Class {class_num}. Today we cover {topic}."})
+        slides.append({"slide": 2, "type": "content", "title": "Learning Objectives",
+                       "bullets": [f"Understand {topic}", f"Analyze key principles", f"Apply to pharma problems"],
+                       "notes": "Learning objectives for this class."})
+        slides.append({"slide": 3, "type": "content", "title": "Outline",
+                       "bullets": [f"{i+1}. {s}" for i, s in enumerate([topic] + subtopics[:5])],
+                       "notes": "Class outline."})
+        sn = 4
+        for section in (subtopics or [topic])[:8]:
+            slides.append({"slide": sn, "type": "section", "title": section, "notes": f"Section: {section}"}); sn += 1
+            slides.append({"slide": sn, "type": "content", "title": f"Key Concepts: {section}",
+                          "bullets": [f"Definition of {section}", "Mechanism of action", "Structure-activity", "Pharma significance"],
+                          "notes": f"Core concepts for {section}."}); sn += 1
+            slides.append({"slide": sn, "type": "two_column", "title": f"Details: {section}",
+                          "left": {"title": "Theory", "bullets": ["Framework", "Principles", "History"]},
+                          "right": {"title": "Applications", "bullets": ["Pharma apps", "Clinical", "Research"]},
+                          "notes": f"Theory vs applications for {section}."}); sn += 1
+            slides.append({"slide": sn, "type": "content", "title": f"Case Study: {section}",
+                          "bullets": ["Real-world example", "Problem analysis", "Solution", "Key points"],
+                          "notes": f"Case study for {section}."}); sn += 1
+        slides.append({"slide": sn, "type": "content", "title": "Key Takeaways",
+                       "bullets": [f"Summary of {topic}"] + [f"• {s}" for s in subtopics[:4]]}); sn += 1
+        slides.append({"slide": sn, "type": "content", "title": "Practice Questions",
+                       "bullets": [f"Q1: Explain {topic}", f"Q2: Compare approaches", f"Q3: Real-world application"]}); sn += 1
+        slides.append({"slide": sn, "type": "content", "title": "References",
+                       "bullets": [f"Textbook on {topic}", "PubMed reviews", "Recent papers", "DrugBank/PubChem"]})
+        slides = slides[:num_slides]
+        result = {"class_num": class_num, "topic": topic, "subtopics": subtopics,
+                  "num_slides": len(slides), "slides": slides, "estimated_duration": f"{len(slides)*1.5:.0f} min"}
+        _store_to_kb("faculty", f"Class {class_num} Slides: {topic}", str(result), f"{topic},slides,class_{class_num}")
+        return result
+
+    def _create_class_ppt(self, input: dict) -> dict:
+        """Create editable PPTX from class slide data using ppt-master."""
+        slides = input.get("slides", [])
+        topic = input.get("topic", "Class Presentation")
+        theme = input.get("theme", "academic")
+        class_num = int(input.get("class_num", 1))
+        if not slides: return {"error": "Slides data required"}
+        try:
+            from api.ppt_master import PptMasterHandler
+            handler = PptMasterHandler()
+            result = handler._generate_from_slides(slides, f"Class {class_num}: {topic}", theme)
+            _store_to_kb("faculty", f"Class {class_num} PPT: {topic}",
+                        f"PPT: {len(slides)} slides", f"{topic},ppt,class_{class_num}")
+            return result
+        except Exception as e:
+            return {"error": f"PPT generation failed: {str(e)}"}

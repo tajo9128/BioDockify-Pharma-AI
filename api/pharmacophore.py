@@ -97,13 +97,21 @@ class PharmacophoreHandler(ApiHandler):
             for f in features:
                 families[f["family"]] = families.get(f["family"], 0) + 1
             
-            return {
+            result = {
                 "success": True,
                 "smiles": smiles,
                 "features": features,
                 "num_features": len(features),
                 "feature_summary": families,
             }
+            # ── AUTO-STORE ──
+            try:
+                from modules.knowledge.auto_store import auto_store
+                auto_store("pharmacophore", f"Pharmacophore: {smiles[:30]}", result,
+                           source="Pharmacophore Generator", tags=["pharmacophore", smiles[:20]])
+            except Exception:
+                pass
+            return result
         except ImportError:
             return {"success": False, "error": "RDKit not available on this server", "features": []}
         except Exception as e:

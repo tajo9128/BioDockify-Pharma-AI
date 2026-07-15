@@ -298,6 +298,24 @@ class DockingRun(ApiHandler):
             except Exception as mmgbsa_err:
                 log.warning(f"MM-GBSA scoring error: {mmgbsa_err}")
 
+            # ── AUTO-STORE to Knowledge Base ──
+            try:
+                from modules.knowledge.auto_store import auto_store, auto_store_file
+                result_summary = {
+                    "job_id": job_id,
+                    "num_poses": len(poses),
+                    "poses": poses,
+                    "mmgbsa": mmgbsa_result,
+                }
+                lig_name = input.get("ligand_smiles", input.get("ligand_name", "compound"))[:30]
+                auto_store("docking_run", f"Docking: {lig_name}", result_summary,
+                           source="AutoDock Vina", tags=["docking", "vina", lig_name])
+                if os.path.exists(output_path):
+                    auto_store_file("docking_run", f"Docked poses: {lig_name}", output_path,
+                                   source="AutoDock Vina", tags=["docking", "pdbqt"])
+            except Exception as kb_err:
+                log.debug(f"KB auto-store (non-fatal): {kb_err}")
+
             return {
                 "status": "complete",
                 "job_id": job_id,

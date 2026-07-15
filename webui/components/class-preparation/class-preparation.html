@@ -1,0 +1,481 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+
+    export const store = createStore("classPrep", {
+      // Workflow state
+      step: 1,  // 1=syllabus, 2=classes, 3=books, 4=generate, 5=review
+      loading: false,
+      error: "",
+      message: "",
+
+      // Step 1: Syllabus
+      syllabusText: "",
+      syllabusResult: null,
+
+      // Step 2: Classes
+      numClasses: 10,
+      classSchedule: null,
+
+      // Step 3: Reference books
+      bookSearchResults: [],
+      selectedBooks: [],
+      uploadedBookContent: "",
+      bookSearchDone: false,
+
+      // Step 4: Generate slides
+      classesToGenerate: [],
+      currentClassIdx: 0,
+      generating: false,
+      generatedSlides: {},
+
+      // Step 5: Review
+      reviewingClass: null,
+      reviewSlides: null,
+
+      // Course name (auto-filled from syllabus)
+      courseName: "",
+
+      // ── Step 1: Analyze Syllabus ──
+      async analyzeSyllabus() {
+        if (!this.syllabusText.trim()) return;
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("faculty_tools", {
+            action: "analyze_syllabus_enhanced",
+            text: this.syllabusText,
+          });
+          if (r.error) { this.error = r.error; return; }
+          this.syllabusResult = r;
+          this.courseName = r.course_name || "Course";
+          this.step = 2;
+          this.message = `Found ${r.topic_count} topics and ${r.book_count} reference books`;
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      // ── Step 2: Divide into Classes ──
+      async divideClasses() {
+        if (!this.syllabusResult) return;
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("faculty_tools", {
+            action: "divide_into_classes",
+            topics: this.syllabusResult.topics,
+            num_classes: this.numClasses,
+            course_name: this.courseName,
+            units: this.syllabusResult.units || [],
+          });
+          if (r.error) { this.error = r.error; return; }
+          this.classSchedule = r;
+          this.step = 3;
+          this.message = `Divided into ${r.num_classes} classes`;
+          // Auto-search for books
+          if (this.syllabusResult.reference_books && this.syllabusResult.reference_books.length) {
+            this.searchBooks();
+          }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      // ── Step 3: Search for Reference Books ──
+      async searchBooks() {
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("faculty_tools", {
+            action: "find_reference_books",
+            books: this.syllabusResult?.reference_books || [],
+            topic: this.courseName,
+            course_name: this.courseName,
+          });
+          if (r.error) { this.error = r.error; return; }
+          this.bookSearchResults = r.books || [];
+          this.bookSearchDone = true;
+          this.message = `Found ${r.total_found} reference sources`;
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      toggleBookSelection(idx) {
+        const i = this.selectedBooks.indexOf(idx);
+        if (i >= 0) this.selectedBooks.splice(i, 1);
+        else this.selectedBooks.push(idx);
+      },
+
+      skipBooks() {
+        this.step = 4;
+        this.classesToGenerate = this.classSchedule?.classes || [];
+      },
+
+      proceedToGenerate() {
+        this.step = 4;
+        this.classesToGenerate = this.classSchedule?.classes || [];
+      },
+
+      // ── Step 4: Generate Slides ──
+      async generateAllSlides() {
+        this.generating = true; this.error = "";
+        const classes = this.classesToGenerate;
+        for (let i = 0; i < classes.length; i++) {
+          this.currentClassIdx = i;
+          const cls = classes[i];
+          try {
+            const r = await callJsonApi("faculty_tools", {
+              action: "generate_class_slides",
+              topic: cls.topic,
+              subtopics: cls.subtopics || [],
+              class_num: cls.class_num,
+              num_slides: 45,
+              course_name: this.courseName,
+            });
+            if (!r.error) {
+              this.generatedSlides[cls.class_num] = r;
+              this.message = `Generated slides for Class ${cls.class_num}: ${cls.topic}`;
+            }
+          } catch (e) {
+            this.error = `Class ${cls.class_num} failed: ${e.message}`;
+          }
+        }
+        this.generating = false;
+        this.step = 5;
+        this.message = `All ${classes.length} classes generated!`;
+      },
+
+      // ── Step 5: Review ──
+      reviewClass(cls) {
+        this.reviewingClass = cls;
+        this.reviewSlides = this.generatedSlides[cls.class_num] || null;
+      },
+
+      async createPPT(cls) {
+        this.loading = true; this.error = "";
+        try {
+          const slides = this.generatedSlides[cls.class_num]?.slides || [];
+          const r = await callJsonApi("faculty_tools", {
+            action: "create_class_ppt",
+            slides: slides,
+            topic: cls.topic,
+            class_num: cls.class_num,
+            theme: "academic",
+          });
+          if (r.error) { this.error = r.error; return; }
+          // Trigger download
+          if (r instanceof Blob || r instanceof ArrayBuffer) {
+            const blob = r instanceof Blob ? r : new Blob([r]);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `Class_${cls.class_num}_${cls.topic.replace(/\s+/g, '_')}.pptx`;
+            a.click(); URL.revokeObjectURL(url);
+          }
+          this.message = `PPT created for Class ${cls.class_num}`;
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async downloadPPT(cls) {
+        await this.createPPT(cls);
+      },
+
+      reset() {
+        this.step = 1; this.syllabusText = ""; this.syllabusResult = null;
+        this.numClasses = 10; this.classSchedule = null;
+        this.bookSearchResults = []; this.selectedBooks = []; this.bookSearchDone = false;
+        this.classesToGenerate = []; this.currentClassIdx = 0;
+        this.generatedSlides = {}; this.reviewingClass = null;
+        this.error = ""; this.message = ""; this.loading = false;
+      },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="cp-panel">
+
+    <!-- Header -->
+    <div class="cp-header">
+      <span class="material-symbols-outlined cp-icon">school</span>
+      <div><h2>Class Preparation</h2>
+      <p class="cp-sub" x-text="$store.classPrep.courseName || 'Upload a syllabus to begin'"></p></div>
+      <div class="cp-header-actions">
+        <button class="cp-btn-sm" @click="$store.classPrep.reset()" title="Start over">
+          <span class="material-symbols-outlined">restart_alt</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Progress Steps -->
+    <div class="cp-steps">
+      <div class="cp-step" :class="{active: $store.classPrep.step===1, done: $store.classPrep.step>1}"><span>1</span> Syllabus</div>
+      <div class="cp-step" :class="{active: $store.classPrep.step===2, done: $store.classPrep.step>2}"><span>2</span> Classes</div>
+      <div class="cp-step" :class="{active: $store.classPrep.step===3, done: $store.classPrep.step>3}"><span>3</span> Books</div>
+      <div class="cp-step" :class="{active: $store.classPrep.step===4, done: $store.classPrep.step>4}"><span>4</span> Generate</div>
+      <div class="cp-step" :class="{active: $store.classPrep.step===5}"><span>5</span> Review & PPT</div>
+    </div>
+
+    <!-- Error / Message -->
+    <div x-show="$store.classPrep.error" class="cp-error" x-text="$store.classPrep.error"></div>
+    <div x-show="$store.classPrep.message" class="cp-msg" x-text="$store.classPrep.message"></div>
+    <div x-show="$store.classPrep.loading" class="cp-loading"><div class="cp-spinner"></div> Processing...</div>
+
+    <!-- Step 1: Syllabus Input -->
+    <div x-show="$store.classPrep.step===1" class="cp-body">
+      <div class="cp-card">
+        <h3>Paste Your Syllabus</h3>
+        <p class="cp-hint">Paste the full syllabus text below. The system will extract topics, units, and reference books automatically.</p>
+        <textarea x-model="$store.classPrep.syllabusText" class="cp-textarea" rows="15"
+          placeholder="Course: Pharmacology 101&#10;Code: PHR-101&#10;Duration: 16 weeks&#10;&#10;Unit 1: Introduction to Pharmacology&#10;  - Drug absorption and distribution&#10;  - Drug metabolism and excretion&#10;&#10;Unit 2: Autonomic Nervous System&#10;  - Cholinergic drugs&#10;  - Adrenergic drugs&#10;&#10;Textbook: Goodman & Gilman's The Pharmacological Basis of Therapeutics by Brunton et al. (2023)&#10;Reference: Rang & Dale's Pharmacology by Rang et al. (2019)"></textarea>
+        <button class="cp-btn-primary" @click="$store.classPrep.analyzeSyllabus()" :disabled="$store.classPrep.loading || !$store.classPrep.syllabusText.trim()">
+          <span class="material-symbols-outlined">auto_awesome</span> Analyze Syllabus
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2: Set Number of Classes -->
+    <div x-show="$store.classPrep.step===2" class="cp-body">
+      <div class="cp-card">
+        <h3>How Many Classes?</h3>
+        <p class="cp-hint" x-text="'Found ' + ($store.classPrep.syllabusResult?.topic_count || 0) + ' topics in ' + ($store.classPrep.syllabusResult?.units?.length || 0) + ' units. How many classes do you want to complete the syllabus?'"></p>
+        <div class="cp-input-row">
+          <label>Number of Classes:</label>
+          <input type="number" x-model.number="$store.classPrep.numClasses" min="1" max="100" class="cp-input-num" />
+        </div>
+        <div class="cp-topic-preview">
+          <h4>Topics Found:</h4>
+          <div class="cp-topic-list">
+            <template x-for="(t, i) in ($store.classPrep.syllabusResult?.topics || []).slice(0, 15)" :key="i">
+              <div class="cp-topic-item" x-text="(i+1) + '. ' + t"></div>
+            </template>
+            <div x-show="($store.classPrep.syllabusResult?.topics || []).length > 15" class="cp-topic-more"
+              x-text="'... and ' + (($store.classPrep.syllabusResult?.topics || []).length - 15) + ' more'"></div>
+          </div>
+        </div>
+        <button class="cp-btn-primary" @click="$store.classPrep.divideClasses()" :disabled="$store.classPrep.loading">
+          <span class="material-symbols-outlined">calendar_month</span> Divide into Classes
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 3: Reference Books -->
+    <div x-show="$store.classPrep.step===3" class="cp-body">
+      <div class="cp-card">
+        <h3>Reference Books</h3>
+        <p class="cp-hint">Select books for slide generation, or skip to generate without book references.</p>
+
+        <!-- Books from syllabus -->
+        <div x-show="$store.classPrep.syllabusResult?.reference_books?.length" class="cp-book-section">
+          <h4>Books from Syllabus:</h4>
+          <template x-for="(book, i) in ($store.classPrep.syllabusResult?.reference_books || [])" :key="i">
+            <div class="cp-book-item" :class="{selected: $store.classPrep.selectedBooks.includes(i)}"
+              @click="$store.classPrep.toggleBookSelection(i)">
+              <input type="checkbox" :checked="$store.classPrep.selectedBooks.includes(i)" />
+              <div>
+                <div class="cp-book-title" x-text="book.title || 'Untitled'"></div>
+                <div class="cp-book-meta" x-text="(book.author || 'Unknown') + ' (' + (book.year || 'N/A') + ')'"></div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Deep research results -->
+        <div x-show="$store.classPrep.bookSearchDone && $store.classPrep.bookSearchResults.length" class="cp-book-section">
+          <h4>Found Online (Free Sources):</h4>
+          <template x-for="(book, i) in $store.classPrep.bookSearchResults.slice(0, 10)" :key="i">
+            <div class="cp-book-item" :class="{selected: $store.classPrep.selectedBooks.includes('search_' + i)}"
+              @click="$store.classPrep.toggleBookSelection('search_' + i)">
+              <input type="checkbox" :checked="$store.classPrep.selectedBooks.includes('search_' + i)" />
+              <div>
+                <div class="cp-book-title" x-text="book.title || 'Untitled'"></div>
+                <div class="cp-book-meta" x-text="(book.authors?.join(', ') || '') + ' (' + (book.year || '') + ') — ' + (book.source || '')"></div>
+                <a x-show="book.url" :href="book.url" target="_blank" class="cp-book-link" @click.stop>Open</a>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <div x-show="!$store.classPrep.bookSearchDone && !$store.classPrep.loading" class="cp-book-section">
+          <button class="cp-btn-sm" @click="$store.classPrep.searchBooks()">
+            <span class="material-symbols-outlined">search</span> Search for Free Books Online
+          </button>
+        </div>
+
+        <!-- Upload own book PDF -->
+        <div class="cp-book-section">
+          <h4>Or Upload Your Own Book PDF:</h4>
+          <input type="file" accept=".pdf" class="cp-file-input" @change="$store.classPrep.uploadedBookContent = $event.target.files[0]?.name || ''" />
+        </div>
+
+        <div class="cp-btn-row">
+          <button class="cp-btn-secondary" @click="$store.classPrep.skipBooks()">Skip Books</button>
+          <button class="cp-btn-primary" @click="$store.classPrep.proceedToGenerate()">
+            <span class="material-symbols-outlined">arrow_forward</span> Continue with Selected
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4: Generate Slides -->
+    <div x-show="$store.classPrep.step===4" class="cp-body">
+      <div class="cp-card">
+        <h3>Generate Slides</h3>
+        <p class="cp-hint">Generate 40-50 slides for each class. This may take a few minutes.</p>
+
+        <div class="cp-class-grid">
+          <template x-for="cls in $store.classPrep.classesToGenerate" :key="cls.class_num">
+            <div class="cp-class-item" :class="{done: $store.classPrep.generatedSlides[cls.class_num]}">
+              <div class="cp-class-num" x-text="'Class ' + cls.class_num"></div>
+              <div class="cp-class-topic" x-text="cls.topic"></div>
+              <div class="cp-class-status" x-text="$store.classPrep.generatedSlides[cls.class_num] ? '✓ Done' : 'Pending'"></div>
+            </div>
+          </template>
+        </div>
+
+        <div x-show="$store.classPrep.generating" class="cp-progress">
+          <div class="cp-progress-bar" :style="'width:' + (($store.classPrep.currentClassIdx / ($store.classPrep.classesToGenerate.length || 1)) * 100) + '%'"></div>
+          <span x-text="'Generating Class ' + $store.classPrep.currentClassIdx + ' of ' + $store.classPrep.classesToGenerate.length"></span>
+        </div>
+
+        <button class="cp-btn-primary" @click="$store.classPrep.generateAllSlides()" :disabled="$store.classPrep.generating || $store.classPrep.classesToGenerate.length === 0">
+          <span class="material-symbols-outlined">auto_awesome</span> Generate All Slides
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 5: Review & Create PPT -->
+    <div x-show="$store.classPrep.step===5" class="cp-body">
+      <div class="cp-card">
+        <h3>Review & Create PPT</h3>
+        <p class="cp-hint">Review slide content for each class, then create editable PowerPoint files.</p>
+
+        <div class="cp-class-grid">
+          <template x-for="cls in $store.classPrep.classesToGenerate" :key="cls.class_num">
+            <div class="cp-review-item">
+              <div class="cp-review-header">
+                <span class="cp-class-num" x-text="'Class ' + cls.class_num"></span>
+                <span class="cp-class-topic" x-text="cls.topic"></span>
+                <span class="cp-slide-count" x-text="($store.classPrep.generatedSlides[cls.class_num]?.num_slides || 0) + ' slides'"></span>
+              </div>
+              <div class="cp-review-actions">
+                <button class="cp-btn-sm" @click="$store.classPrep.reviewClass(cls)" title="Preview slides">
+                  <span class="material-symbols-outlined">visibility</span> Review
+                </button>
+                <button class="cp-btn-primary cp-btn-sm" @click="$store.classPrep.downloadPPT(cls)" :disabled="$store.classPrep.loading" title="Download editable PPTX">
+                  <span class="material-symbols-outlined">download</span> PPT
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Review Preview -->
+        <div x-show="$store.classPrep.reviewSlides" class="cp-review-preview">
+          <div class="cp-review-preview-header">
+            <h4 x-text="'Class ' + ($store.classPrep.reviewingClass?.class_num || '') + ': ' + ($store.classPrep.reviewingClass?.topic || '')"></h4>
+            <button class="cp-btn-sm" @click="$store.classPrep.reviewSlides = null; $store.classPrep.reviewingClass = null">
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+          <div class="cp-slides-preview">
+            <template x-for="s in ($store.classPrep.reviewSlides?.slides || [])" :key="s.slide">
+              <div class="cp-slide-card">
+                <div class="cp-slide-num" x-text="s.slide"></div>
+                <div class="cp-slide-content">
+                  <div class="cp-slide-title" x-text="s.title"></div>
+                  <div x-show="s.subtitle" class="cp-slide-subtitle" x-text="s.subtitle"></div>
+                  <ul x-show="s.bullets" class="cp-slide-bullets">
+                    <template x-for="b in (s.bullets || [])" :key="b">
+                      <li x-text="b"></li>
+                    </template>
+                  </ul>
+                  <div x-show="s.notes" class="cp-slide-notes">
+                    <span class="material-symbols-outlined" style="font-size:12px">speaker_notes</span>
+                    <span x-text="s.notes"></span>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      .cp-panel { display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background) }
+      .cp-header { display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0 }
+      .cp-icon { font-size:26px;color:var(--color-primary) }
+      .cp-header h2 { font-size:1rem;margin:0;font-weight:700;color:var(--color-text) }
+      .cp-sub { font-size:0.62rem;color:var(--color-text-muted);margin:0 }
+      .cp-header-actions { margin-left:auto;display:flex;gap:4px }
+      .cp-btn-sm { padding:5px 8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:5px;color:var(--color-text-muted);cursor:pointer;display:flex;align-items:center;gap:3px;font-size:0.6rem }
+      .cp-btn-sm:hover { border-color:var(--color-primary) }
+      .cp-steps { display:flex;gap:4px;padding:8px 16px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0 }
+      .cp-step { display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:12px;font-size:0.58rem;color:var(--color-text-muted);background:var(--color-background) }
+      .cp-step span { width:16px;height:16px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--color-border);font-size:0.55rem;font-weight:600 }
+      .cp-step.active { color:var(--color-primary);font-weight:600 }
+      .cp-step.active span { background:var(--color-primary);color:white }
+      .cp-step.done { color:#22c55e }
+      .cp-step.done span { background:#22c55e;color:white }
+      .cp-error { padding:8px 12px;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.2);border-radius:6px;color:#ff6b6b;font-size:0.65rem;margin:8px 16px }
+      .cp-msg { padding:8px 12px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);border-radius:6px;color:#22c55e;font-size:0.65rem;margin:8px 16px }
+      .cp-loading { display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;font-size:0.7rem;color:var(--color-text-muted) }
+      .cp-spinner { width:16px;height:16px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:cp-spin 0.8s linear infinite }
+      @keyframes cp-spin { to { transform:rotate(360deg) } }
+      .cp-body { flex:1;overflow-y:auto;padding:12px 16px }
+      .cp-card { background:var(--color-panel);border:1px solid var(--color-border);border-radius:10px;padding:16px;margin-bottom:12px }
+      .cp-card h3 { font-size:0.85rem;margin:0 0 8px 0;color:var(--color-text) }
+      .cp-hint { font-size:0.62rem;color:var(--color-text-muted);margin:0 0 12px 0;line-height:1.5 }
+      .cp-textarea { width:100%;padding:10px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-background);color:var(--color-text);font-size:0.68rem;font-family:monospace;resize:vertical;box-sizing:border-box }
+      .cp-textarea:focus { outline:none;border-color:var(--color-primary) }
+      .cp-input-row { display:flex;align-items:center;gap:10px;margin-bottom:12px }
+      .cp-input-row label { font-size:0.7rem;font-weight:600;color:var(--color-text) }
+      .cp-input-num { width:80px;padding:8px 12px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-background);color:var(--color-text);font-size:0.8rem;text-align:center }
+      .cp-btn-primary { display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 20px;background:var(--color-primary);border:none;border-radius:8px;color:white;font-size:0.75rem;font-weight:600;cursor:pointer }
+      .cp-btn-primary:disabled { opacity:0.5;cursor:not-allowed }
+      .cp-btn-secondary { padding:10px 20px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;color:var(--color-text);font-size:0.75rem;cursor:pointer }
+      .cp-btn-row { display:flex;gap:8px;margin-top:12px }
+      .cp-topic-preview { margin:12px 0 }
+      .cp-topic-preview h4 { font-size:0.7rem;margin:0 0 6px 0;color:var(--color-text) }
+      .cp-topic-list { max-height:200px;overflow-y:auto;background:var(--color-background);border:1px solid var(--color-border);border-radius:6px;padding:8px }
+      .cp-topic-item { font-size:0.62rem;color:var(--color-text);padding:3px 0 }
+      .cp-topic-more { font-size:0.58rem;color:var(--color-text-muted);padding:4px 0 }
+      .cp-book-section { margin:12px 0 }
+      .cp-book-section h4 { font-size:0.7rem;margin:0 0 6px 0;color:var(--color-text) }
+      .cp-book-item { display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border:1px solid var(--color-border);border-radius:6px;margin-bottom:4px;cursor:pointer;transition:all 0.15s }
+      .cp-book-item:hover { border-color:var(--color-primary) }
+      .cp-book-item.selected { border-color:var(--color-primary);background:color-mix(in srgb,var(--color-primary)5%,var(--color-panel)) }
+      .cp-book-item input { margin-top:3px }
+      .cp-book-title { font-size:0.68rem;font-weight:600;color:var(--color-text) }
+      .cp-book-meta { font-size:0.55rem;color:var(--color-text-muted) }
+      .cp-book-link { font-size:0.55rem;color:var(--color-primary) }
+      .cp-file-input { font-size:0.65rem }
+      .cp-class-grid { display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 }
+      .cp-class-item { flex:1;min-width:120px;padding:8px 10px;background:var(--color-background);border:1px solid var(--color-border);border-radius:6px;text-align:center }
+      .cp-class-item.done { border-color:#22c55e;background:rgba(34,197,94,0.05) }
+      .cp-class-num { font-size:0.6rem;font-weight:700;color:var(--color-primary) }
+      .cp-class-topic { font-size:0.58rem;color:var(--color-text);margin:2px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
+      .cp-class-status { font-size:0.55rem;color:var(--color-text-muted) }
+      .cp-class-item.done .cp-class-status { color:#22c55e }
+      .cp-progress { margin:12px 0;position:relative;height:6px;background:var(--color-border);border-radius:3px;overflow:hidden }
+      .cp-progress-bar { position:absolute;left:0;top:0;height:100%;background:var(--color-primary);border-radius:3px;transition:width 0.3s }
+      .cp-progress span { display:block;margin-top:4px;font-size:0.6rem;color:var(--color-text-muted) }
+      .cp-review-item { display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:1px solid var(--color-border);border-radius:6px;margin-bottom:4px }
+      .cp-review-header { display:flex;align-items:center;gap:8px }
+      .cp-slide-count { font-size:0.55rem;color:var(--color-text-muted) }
+      .cp-review-actions { display:flex;gap:4px }
+      .cp-review-preview { margin-top:12px;background:var(--color-background);border:1px solid var(--color-border);border-radius:8px;max-height:500px;overflow-y:auto }
+      .cp-review-preview-header { display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--color-border);position:sticky;top:0;background:var(--color-panel);z-index:1 }
+      .cp-review-preview-header h4 { font-size:0.75rem;margin:0 }
+      .cp-slides-preview { padding:8px }
+      .cp-slide-card { display:flex;gap:8px;padding:8px;margin-bottom:4px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px }
+      .cp-slide-num { width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:var(--color-primary);color:white;border-radius:50%;font-size:0.5rem;font-weight:700;flex-shrink:0 }
+      .cp-slide-content { flex:1 }
+      .cp-slide-title { font-size:0.68rem;font-weight:600;color:var(--color-text) }
+      .cp-slide-subtitle { font-size:0.58rem;color:var(--color-text-muted) }
+      .cp-slide-bullets { margin:4px 0 0 16px;padding:0 }
+      .cp-slide-bullets li { font-size:0.58rem;color:var(--color-text);margin-bottom:2px }
+      .cp-slide-notes { display:flex;align-items:flex-start;gap:4px;font-size:0.55rem;color:var(--color-text-muted);margin-top:4px;padding:4px 6px;background:color-mix(in srgb,var(--color-primary)5%,transparent);border-radius:4px }
+    </style>
+  </div>
+</body>
+</html>

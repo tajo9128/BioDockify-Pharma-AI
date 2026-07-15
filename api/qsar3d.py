@@ -120,7 +120,7 @@ class QSAR3DHandler(ApiHandler):
             with open(metadata_path, 'w') as f:
                 json.dump(metadata, f, indent=2)
             
-            return {
+            return_result = {
                 "status": "ok",
                 "model_id": model_id,
                 "name": name,
@@ -132,6 +132,14 @@ class QSAR3DHandler(ApiHandler):
                 "n_molecules": stats.get('n_molecules'),
                 "message": f"3D-QSAR model built successfully. r²={stats.get('r2')}, q²={stats.get('q2')}"
             }
+            # ── AUTO-STORE ──
+            try:
+                from modules.knowledge.auto_store import auto_store
+                auto_store("qsar3d", f"QSAR Model: {name} ({mode})", return_result,
+                           source="3D-QSAR Engine", tags=["qsar", mode, name[:20]])
+            except Exception:
+                pass
+            return return_result
         
         except Exception as e:
             log.error(f"[QSAR3D] Build failed: {e}", exc_info=True)

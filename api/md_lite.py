@@ -145,7 +145,15 @@ class MDLite(ApiHandler):
         top = os.path.join(job_dir, "complex.pdb") or os.path.join(job_dir, "protein.pdb")
         from modules.md_lite.analysis import analyze
         r = analyze(traj, top, job_dir)
-        return {"status": "ok", "job_id": job_id, "analysis": r}
+        result = {"status": "ok", "job_id": job_id, "analysis": r}
+        # ── AUTO-STORE ──
+        try:
+            from modules.knowledge.auto_store import auto_store
+            auto_store("md_lite", f"MD Results: job {job_id}", result,
+                       source="MD Lite (OpenMM)", tags=["md", "docking", job_id])
+        except Exception:
+            pass
+        return result
 
     def _download(self, input):
         job_id = input["job_id"]

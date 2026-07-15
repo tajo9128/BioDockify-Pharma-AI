@@ -2,6 +2,9 @@ from helpers.api import ApiHandler, Request, Response
 from helpers import files
 from helpers.security import safe_filename
 import os
+import logging
+
+log = logging.getLogger("upload")
 
 
 class UploadFile(ApiHandler):
@@ -24,6 +27,30 @@ class UploadFile(ApiHandler):
                 try:
                     file.save(filepath)
                     saved_filenames.append(filename)
+
+                    # ── AUTO-STORE every uploaded file to Knowledge Base ──
+                    try:
+                        from modules.knowledge.auto_store import auto_store_file
+                        ext = os.path.splitext(filename)[1].lower().lstrip(".")
+                        # Auto-detect category from extension
+                        cat = "notes"
+                        if ext in ("pdf",):
+                            cat = "books"
+                        elif ext in ("csv", "xlsx", "xls"):
+                            cat = "data_files"
+                        elif ext in ("pdb", "sdf", "mol", "mol2", "pdbqt"):
+                            cat = "docking"
+                        elif ext in ("doc", "docx", "txt", "md"):
+                            cat = "notes"
+                        elif ext in ("mp3", "wav", "mp4", "avi"):
+                            cat = "audio_video"
+
+                        auto_store_file("upload", filename, filepath,
+                                       source="User Upload", category=cat,
+                                       tags=[cat, ext] if ext else [cat])
+                    except Exception as kb_err:
+                        log.debug(f"KB auto-store upload (non-fatal): {kb_err}")
+
                 except Exception as e:
                     return {"error": f"Failed to save '{filename}': {str(e)}", "filenames": saved_filenames}
 
@@ -35,5 +62,3 @@ class UploadFile(ApiHandler):
 
     def allowed_file(self,filename):
         return True
-        # ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "txt", "pdf", "csv", "html", "json", "md"}
-        # return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS

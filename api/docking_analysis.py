@@ -387,6 +387,14 @@ class DockingAnalysisHandler(ApiHandler):
                 if energies and i < len(energies):
                     interactions["energy"] = energies[i]
                 per_pose.append(interactions)
+            # ── AUTO-STORE ──
+            try:
+                from modules.knowledge.auto_store import auto_store
+                auto_store("docking_analysis", f"Docking Analysis: job {job_id}",
+                           {"job_id": job_id, "per_pose": per_pose, "num_poses": len(per_pose)},
+                           source="Docking Analysis", tags=["docking", "analysis", job_id])
+            except Exception:
+                pass
             return {"success": True, "job_id": job_id, "per_pose": per_pose, "num_poses": len(per_pose)}
 
         # ── rmsd ──

@@ -70,7 +70,7 @@ class DrugAnalysisHandler(ApiHandler):
                 brenk = _check_smarts(smiles, BRENK_SMARTS)
                 nih = _check_smarts(smiles, NIH_SMARTS)
 
-                return {
+                result = {
                     "success": True,
                     "smiles": smiles,
                     "pains_flagged": pains,
@@ -84,6 +84,14 @@ class DrugAnalysisHandler(ApiHandler):
                     "nih_count": len(nih),
                     "overall_pass": len(pains) == 0 and len(brenk) == 0 and len(nih) == 0,
                 }
+                # ── AUTO-STORE ──
+                try:
+                    from modules.knowledge.auto_store import auto_store
+                    auto_store("drug_analysis", f"Drug Check: {smiles[:30]}", result,
+                               source="PAINS/Brenk/NIH Filters", tags=["drug_analysis", "filters", smiles[:20]])
+                except Exception:
+                    pass
+                return result
             except ImportError:
                 return {"success": False, "error": "RDKit not available"}
             except Exception as e:

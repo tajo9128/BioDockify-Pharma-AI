@@ -387,7 +387,15 @@ class StatisticsAnalyze(ApiHandler):
                 if chart: result["apa_output"]["chart"] = {"base64": chart}
             except Exception:
                 pass
-            return _to_json_safe(result)
+            safe_result = _to_json_safe(result)
+            # ── AUTO-STORE ──
+            try:
+                from modules.knowledge.auto_store import auto_store
+                auto_store("statistics", f"Stats: {test_type}", safe_result,
+                           source=f"Statistics ({test_type})", tags=["statistics", test_type])
+            except Exception:
+                pass
+            return safe_result
 
         except Exception as e:
             return _to_json_safe({"status": "error", "error": str(e), "test_type": test_type})

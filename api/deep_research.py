@@ -34,7 +34,7 @@ class DeepResearchHandler(ApiHandler):
             return {"status": "error", "error": "Topic required"}
 
         max_sources = int(input.get("max_sources", 100))
-        databases = input.get("databases", ["pubmed", "semantic_scholar", "crossref"])
+        databases = input.get("databases", ["pubmed", "semantic_scholar", "crossref", "openalex", "arxiv", "europe_pmc", "biorxiv"])
         year_from = input.get("year_from", "")
         year_to = input.get("year_to", "")
 
@@ -55,6 +55,16 @@ class DeepResearchHandler(ApiHandler):
                     sources = await self._search_openalex(topic, max_sources // len(databases))
                 elif db == "arxiv":
                     sources = await self._search_arxiv(topic, max_sources // len(databases))
+                elif db == "europe_pmc":
+                    sources = await self._search_europe_pmc(topic, max_sources // len(databases))
+                elif db == "biorxiv":
+                    sources = await self._search_biorxiv(topic, max_sources // len(databases))
+                elif db == "google_scholar":
+                    sources = await self._search_google_scholar(topic, max_sources // len(databases))
+                elif db == "scopus":
+                    sources = await self._search_scopus(topic, max_sources // len(databases))
+                elif db == "springer":
+                    sources = await self._search_springer(topic, max_sources // len(databases))
                 else:
                     sources = []
 
@@ -81,6 +91,15 @@ class DeepResearchHandler(ApiHandler):
         session_path = os.path.join(STORAGE_DIR, f"session_{session_id}.json")
         with open(session_path, "w", encoding="utf-8") as f:
             json.dump({"topic": topic, "sources": unique_sources, "stats": stats, "created_at": datetime.now().isoformat()}, f, ensure_ascii=False, indent=2)
+
+        # ── AUTO-STORE to Knowledge Base ──
+        try:
+            from modules.knowledge.auto_store import auto_store
+            auto_store("deep_research", f"Deep Research: {topic}",
+                       {"topic": topic, "session_id": session_id, "stats": stats, "sources": unique_sources[:100]},
+                       source=f"Deep Research ({', '.join(databases)})", tags=["deep_research", topic[:30]])
+        except Exception:
+            pass
 
         return {
             "status": "ok",
@@ -383,4 +402,89 @@ class DeepResearchHandler(ApiHandler):
                 })
         except Exception as e:
             log.warning(f"arXiv search failed: {e}")
+        return results
+
+    async def _search_europe_pmc(self, topic, limit):
+        results = []
+        try:
+            q = urllib.parse.quote(topic)
+            url = f"https://www.ebi.ac.uk/europepmc/webservices/rest/search?query={q}&resultType=core&pageSize={min(limit,100)}&format=json&sort=RELEVANCE"
+            req = urllib.request.Request(url, headers={"User-Agent":"BioDockify/7.0"})
+            resp = urllib.request.urlopen(req, timeout=30)
+            data = json.loads(resp.read())
+            for r in data.get("resultList",{}).get("result",[]):
+                authors = (r.get("authorString","") or "").split(", ")[:5]
+                results.append({"title":r.get("title",""),"authors":authors,"year":str(r.get("pubYear","")),"journal":r.get("journalTitle",""),"pmid":r.get("pmid",""),"pmcid":r.get("pmcid",""),"doi":r.get("doi",""),"abstract":(r.get("abstractText","") or "")[:500],"citations":r.get("citedByCount",0),"database":"Europe PMC","url":f"https://europepmc.org/article/{r.get('source','')}/{r.get('id','')}"})
+        except Exception as e:
+            log.warning(f"Europe PMC failed: {e}")
+        return results
+
+    async def _search_biorxiv(self, topic, limit):
+        results = []
+        try:
+            q = urllib.parse.quote(topic)
+            url = f"https://www.ebi.ac.uk/europepmc/webservices/rest/search?query={q}%20AND%20(SRC:PPR%20OR%20SRC:MED)&resultType=lite&pageSize={min(limit,100)}&format=json&sort=RELEVANCE"
+            req = urllib.request.Request(url, headers={"User-Agent":"BioDockify/7.0"})
+            resp = urllib.request.urlopen(req, timeout=30)
+            data = json.loads(resp.read())
+            for r in data.get("resultList",{}).get("result",[]):
+                authors = (r.get("authorString","") or "").split(", ")[:5]
+                results.append({"title":r.get("title",""),"authors":authors,"year":str(r.get("pubYear","")),"journal":"bioRxiv/medRxiv","abstract":(r.get("abstractText","") or "")[:500],"doi":r.get("doi",""),"citations":0,"database":"bioRxiv","url":f"https://europepmc.org/article/PPR/{r.get('id','')}"})
+        except Exception as e:
+            log.warning(f"bioRxiv failed: {e}")
+        return results
+
+    async def _search_google_scholar(self, topic, limit):
+        results = []
+        api_key = os.getenv("SERPAPI_KEY","")
+        if not api_key:
+            log.warning("Google Scholar needs SERPAPI_KEY - skipping")
+            return results
+        try:
+            q = urllib.parse.quote(topic)
+            url = f"https://serpapi.com/search.json?engine=google_scholar&q={q}&num={min(limit,20)}&api_key={api_key}"
+            req = urllib.request.Request(url, headers={"User-Agent":"BioDockify/7.0"})
+            resp = urllib.request.urlopen(req, timeout=30)
+            data = json.loads(resp.read())
+            for r in data.get("organic_results",[]):
+                pub = r.get("publication_info",{})
+                results.append({"title":r.get("title",""),"authors":pub.get("authors",[]),"year":pub.get("year",0),"journal":pub.get("summary",""),"abstract":r.get("snippet",""),"doi":"","citations":r.get("inline_links",{}).get("cited_by",{}).get("total",0),"database":"Google Scholar","url":r.get("link","")})
+        except Exception as e:
+            log.warning(f"Google Scholar failed: {e}")
+        return results
+
+    async def _search_scopus(self, topic, limit):
+        results = []
+        api_key = os.getenv("SCOPUS_API_KEY","")
+        if not api_key:
+            log.warning("Scopus needs SCOPUS_API_KEY - skipping")
+            return results
+        try:
+            q = urllib.parse.quote(topic)
+            url = f"https://api.elsevier.com/content/search/scopus?query={q}&count={min(limit,25)}&sort=relevance"
+            req = urllib.request.Request(url, headers={"User-Agent":"BioDockify/7.0","X-ELS-APIKey":api_key,"Accept":"application/json"})
+            resp = urllib.request.urlopen(req, timeout=30)
+            data = json.loads(resp.read())
+            for r in data.get("search-results",{}).get("entry",[]):
+                results.append({"title":r.get("dc:title",""),"authors":[r.get("dc:creator","")],"year":r.get("prism:coverDate","")[:4],"journal":r.get("prism:publicationName",""),"doi":r.get("prism:doi",""),"abstract":"","citations":int(r.get("citedby-count",0)),"database":"Scopus"})
+        except Exception as e:
+            log.warning(f"Scopus failed: {e}")
+        return results
+
+    async def _search_springer(self, topic, limit):
+        results = []
+        api_key = os.getenv("SPRINGER_API_KEY","")
+        if not api_key:
+            log.warning("Springer needs SPRINGER_API_KEY - skipping")
+            return results
+        try:
+            q = urllib.parse.quote(topic)
+            url = f"https://api.springernature.com/meta/v2/json?q={q}&s=1&p={min(limit,25)}&api_key={api_key}"
+            req = urllib.request.Request(url, headers={"User-Agent":"BioDockify/7.0"})
+            resp = urllib.request.urlopen(req, timeout=30)
+            data = json.loads(resp.read())
+            for r in data.get("records",[]):
+                results.append({"title":r.get("title",""),"authors":[a.get("creator","") for a in r.get("creators",[])],"year":r.get("publicationDate","")[:4],"journal":r.get("publicationName",""),"doi":r.get("doi",""),"abstract":r.get("abstract","")[:500],"citations":0,"database":"Springer"})
+        except Exception as e:
+            log.warning(f"Springer failed: {e}")
         return results

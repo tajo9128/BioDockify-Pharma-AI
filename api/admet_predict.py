@@ -60,6 +60,13 @@ class AdmetPredict(ApiHandler):
                 "synthetic_accessibility": "N/A",
                 "qed": round(QED.qed(mol), 3) if hasattr(QED, 'qed') else "N/A",
             }
+            # ── AUTO-STORE ──
+            try:
+                from modules.knowledge.auto_store import auto_store
+                auto_store("admet_predict", f"ADMET: {smiles[:30]}", result,
+                           source="ADMET Prediction", tags=["drug_analysis", "admet", smiles[:20]])
+            except Exception:
+                pass
             return result
         except ImportError:
             return {"error": "RDKit not available"}
