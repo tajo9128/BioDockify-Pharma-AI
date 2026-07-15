@@ -1,0 +1,213 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+    export const store = createStore("naturalProductsModal", {
+      activeTab: "screen", loading: false, error: "", result: null,
+      npClass: "", npFormula: "", npIC50Conc: "", npIC50Resp: "", npIC50Control: "100",
+      npCancerIC50: "", npNormalIC50: "",
+      npRawWeight: "", npExtractWeight: "", npExtractMethod: "maceration",
+      async runScreen() {
+        this.loading = true; this.error = "";
+        try { this.result = await callJsonApi("natural_products", { action: "phytochemical_screen", class: this.npClass || "" }); } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async runIC50() {
+        if (!this.npIC50Conc || !this.npIC50Resp) return;
+        this.loading = true; this.error = "";
+        try {
+          this.result = await callJsonApi("natural_products", { action: "ic50",
+            concentrations: this.npIC50Conc.split(",").map(Number),
+            responses: this.npIC50Resp.split(",").map(Number),
+            control_response: parseFloat(this.npIC50Control) || 100 });
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async runExtraction() {
+        if (!this.npRawWeight || !this.npExtractWeight) return;
+        this.loading = true; this.error = "";
+        try {
+          this.result = await callJsonApi("natural_products", { action: "extraction_yield",
+            raw_weight_g: parseFloat(this.npRawWeight), extract_weight_g: parseFloat(this.npExtractWeight), method: this.npExtractMethod });
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async runSelectivity() {
+        if (!this.npCancerIC50 || !this.npNormalIC50) return;
+        this.loading = true; this.error = "";
+        try {
+          this.result = await callJsonApi("natural_products", { action: "selectivity_index",
+            ic50_cancer: parseFloat(this.npCancerIC50), ic50_normal: parseFloat(this.npNormalIC50) });
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async runDereplication() {
+        if (!this.npFormula) return;
+        this.loading = true; this.error = "";
+        try { this.result = await callJsonApi("natural_products", { action: "dereplication", formula: this.npFormula }); } catch(e) { this.error = e.message; }
+        this.loading = false;
+      }
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="dp-panel">
+    <div class="dp-header">
+      <span class="material-symbols-outlined dp-icon">eco</span>
+      <div><h2>Natural Products</h2><p class="dp-sub">Pharmacognosy: phytochemical screening, IC50, extraction yield, dereplication</p></div>
+    </div>
+    <div class="dp-tabs">
+      <button class="dp-tab" :class="{active:$store.naturalProductsModal.activeTab==='screen'}" @click="$store.naturalProductsModal.activeTab='screen'">Phytochemical</button>
+      <button class="dp-tab" :class="{active:$store.naturalProductsModal.activeTab==='ic50'}" @click="$store.naturalProductsModal.activeTab='ic50'">IC50</button>
+      <button class="dp-tab" :class="{active:$store.naturalProductsModal.activeTab==='extraction'}" @click="$store.naturalProductsModal.activeTab='extraction'">Extraction</button>
+      <button class="dp-tab" :class="{active:$store.naturalProductsModal.activeTab==='selectivity'}" @click="$store.naturalProductsModal.activeTab='selectivity'">Selectivity</button>
+      <button class="dp-tab" :class="{active:$store.naturalProductsModal.activeTab==='dereplication'}" @click="$store.naturalProductsModal.activeTab='dereplication'">Dereplication</button>
+    </div>
+    <div class="dp-body">
+      <div x-show="$store.naturalProductsModal.error" class="dp-error" x-text="$store.naturalProductsModal.error"></div>
+      <div x-show="$store.naturalProductsModal.loading" class="dp-loading"><div class="dp-spinner"></div> Processing...</div>
+      <!-- Phytochemical Screening -->
+      <div x-show="$store.naturalProductsModal.activeTab==='screen'">
+        <div class="dp-card">
+          <h3>Phytochemical Screening Protocols</h3>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
+            <button class="dp-chip" @click="$store.naturalProductsModal.npClass='alkaloids';$store.naturalProductsModal.runScreen()">Alkaloids</button>
+            <button class="dp-chip" @click="$store.naturalProductsModal.npClass='flavonoids';$store.naturalProductsModal.runScreen()">Flavonoids</button>
+            <button class="dp-chip" @click="$store.naturalProductsModal.npClass='tannins';$store.naturalProductsModal.runScreen()">Tannins</button>
+            <button class="dp-chip" @click="$store.naturalProductsModal.npClass='saponins';$store.naturalProductsModal.runScreen()">Saponins</button>
+            <button class="dp-chip" @click="$store.naturalProductsModal.npClass='steroids';$store.naturalProductsModal.runScreen()">Steroids</button>
+            <button class="dp-chip" @click="$store.naturalProductsModal.npClass='terpenoids';$store.naturalProductsModal.runScreen()">Terpenoids</button>
+            <button class="dp-chip" @click="$store.naturalProductsModal.npClass='glycosides';$store.naturalProductsModal.runScreen()">Glycosides</button>
+          </div>
+          <template x-if="$store.naturalProductsModal.result?.tests">
+            <div class="dp-result">
+              <b style="font-size:0.7rem" x-text="$store.naturalProductsModal.result.class"></b>
+              <template x-for="t in $store.naturalProductsModal.result.tests" :key="t.name">
+                <div style="margin:6px 0;padding:6px;border:1px solid var(--color-border);border-radius:4px">
+                  <b style="font-size:0.6rem" x-text="t.name"></b>
+                  <div style="font-size:0.55rem;color:var(--color-text-muted)">
+                    Reagent: <span x-text="t.reagent"></span><br>
+                    Positive: <span x-text="t.positive"></span><br>
+                    Sensitivity: <span x-text="t.sensitivity"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- IC50 -->
+      <div x-show="$store.naturalProductsModal.activeTab==='ic50'">
+        <div class="dp-card">
+          <h3>IC50/EC50 Calculator</h3>
+          <label class="dp-label">Concentrations (comma-separated):</label>
+          <input type="text" x-model="$store.naturalProductsModal.npIC50Conc" class="dp-input" placeholder="0.1,1,10,100,1000" />
+          <label class="dp-label">Responses (% of control, comma-separated):</label>
+          <input type="text" x-model="$store.naturalProductsModal.npIC50Resp" class="dp-input" placeholder="95,80,55,30,15" />
+          <label class="dp-label">Control response:</label>
+          <input type="number" x-model="$store.naturalProductsModal.npIC50Control" class="dp-input" value="100" />
+          <button class="dp-btn" @click="$store.naturalProductsModal.runIC50()" :disabled="$store.naturalProductsModal.loading">Calculate IC50</button>
+          <template x-if="$store.naturalProductsModal.result?.ic50">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">IC50</span><span class="dp-stat-val good" x-text="$store.naturalProductsModal.result.ic50_fitted || $store.naturalProductsModal.result.ic50"></span></div>
+              <div class="dp-stat" x-show="$store.naturalProductsModal.result.hill_coefficient"><span class="dp-stat-label">Hill coeff</span><span class="dp-stat-val" x-text="$store.naturalProductsModal.result.hill_coefficient"></span></div>
+              <div class="dp-stat" x-show="$store.naturalProductsModal.result.r_squared"><span class="dp-stat-label">R²</span><span class="dp-stat-val" x-text="$store.naturalProductsModal.result.r_squared"></span></div>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- Extraction -->
+      <div x-show="$store.naturalProductsModal.activeTab==='extraction'">
+        <div class="dp-card">
+          <h3>Extraction Yield Calculator</h3>
+          <div class="dp-grid">
+            <div><label class="dp-label">Raw material (g):</label><input type="number" x-model="$store.naturalProductsModal.npRawWeight" class="dp-input" placeholder="100" /></div>
+            <div><label class="dp-label">Extract weight (g):</label><input type="number" x-model="$store.naturalProductsModal.npExtractWeight" class="dp-input" placeholder="12" /></div>
+          </div>
+          <label class="dp-label">Method:</label>
+          <select x-model="$store.naturalProductsModal.npExtractMethod" class="dp-input">
+            <option value="maceration">Maceration</option>
+            <option value="soxhlet">Soxhlet</option>
+            <option value="ultrasound">Ultrasound-assisted</option>
+            <option value="supercritical_co2">Supercritical CO₂</option>
+          </select>
+          <button class="dp-btn" @click="$store.naturalProductsModal.runExtraction()" :disabled="$store.naturalProductsModal.loading">Calculate Yield</button>
+          <template x-if="$store.naturalProductsModal.result?.yield_percent !== undefined">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">Yield</span><span class="dp-stat-val good" x-text="$store.naturalProductsModal.result.yield_percent + '%'"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Classification</span><span class="dp-stat-val" x-text="$store.naturalProductsModal.result.classification"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Method</span><span class="dp-stat-val" x-text="$store.naturalProductsModal.result.method_info?.efficiency"></span></div>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- Selectivity -->
+      <div x-show="$store.naturalProductsModal.activeTab==='selectivity'">
+        <div class="dp-card">
+          <h3>Selectivity Index Calculator</h3>
+          <div class="dp-grid">
+            <div><label class="dp-label">IC50 cancer cells:</label><input type="number" x-model="$store.naturalProductsModal.npCancerIC50" class="dp-input" placeholder="15.5" /></div>
+            <div><label class="dp-label">IC50 normal cells:</label><input type="number" x-model="$store.naturalProductsModal.npNormalIC50" class="dp-input" placeholder="120.3" /></div>
+          </div>
+          <button class="dp-btn" @click="$store.naturalProductsModal.runSelectivity()" :disabled="$store.naturalProductsModal.loading">Calculate SI</button>
+          <template x-if="$store.naturalProductsModal.result?.selectivity_index !== undefined">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">Selectivity Index</span><span class="dp-stat-val good" x-text="$store.naturalProductsModal.result.selectivity_index"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Interpretation</span><span class="dp-stat-val" x-text="$store.naturalProductsModal.result.interpretation"></span></div>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- Dereplication -->
+      <div x-show="$store.naturalProductsModal.activeTab==='dereplication'">
+        <div class="dp-card">
+          <h3>Molecular Formula Dereplication</h3>
+          <label class="dp-label">Molecular formula:</label>
+          <input type="text" x-model="$store.naturalProductsModal.npFormula" class="dp-input" placeholder="C20H24O5" @keyup.enter="$store.naturalProductsModal.runDereplication()" />
+          <button class="dp-btn" @click="$store.naturalProductsModal.runDereplication()" :disabled="$store.naturalProductsModal.loading">Analyze</button>
+          <template x-if="$store.naturalProductsModal.result?.exact_mass">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">Exact Mass</span><span class="dp-stat-val" x-text="$store.naturalProductsModal.result.exact_mass"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Degree of Unsaturation</span><span class="dp-stat-val" x-text="$store.naturalProductsModal.result.degree_of_unsaturation"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Compound class</span><span class="dp-stat-val" x-text="$store.naturalProductsModal.result.compound_class_hint"></span></div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+    <style>
+      .dp-panel{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background)}
+      .dp-header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0}
+      .dp-icon{font-size:24px;color:var(--color-primary)}
+      .dp-header h2{font-size:0.95rem;margin:0;font-weight:700;color:var(--color-text)}
+      .dp-sub{font-size:0.6rem;color:var(--color-text-muted);margin:0}
+      .dp-tabs{display:flex;gap:4px;padding:8px 12px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0;flex-wrap:wrap}
+      .dp-tab{padding:5px 10px;border:1px solid var(--color-border);background:var(--color-panel);color:var(--color-text);font-size:0.6rem;cursor:pointer;border-radius:12px}
+      .dp-tab.active{background:var(--color-primary);color:white;border-color:var(--color-primary)}
+      .dp-body{flex:1;overflow-y:auto;padding:12px 16px}
+      .dp-card{background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;padding:14px;margin-bottom:10px}
+      .dp-card h3{font-size:0.8rem;margin:0 0 8px 0;color:var(--color-text)}
+      .dp-hint{font-size:0.58rem;color:var(--color-text-muted);margin:0 0 8px 0;line-height:1.4}
+      .dp-label{font-size:0.62rem;font-weight:600;color:var(--color-text);margin-bottom:3px;display:block}
+      .dp-input{width:100%;padding:7px 10px;border:1px solid var(--color-border);border-radius:5px;background:var(--color-background);color:var(--color-text);font-size:0.65rem;font-family:monospace;box-sizing:border-box;margin-bottom:8px}
+      .dp-input:focus{outline:none;border-color:var(--color-primary)}
+      .dp-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+      .dp-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:9px;background:var(--color-primary);border:none;border-radius:6px;color:white;font-size:0.7rem;font-weight:600;cursor:pointer;margin-top:6px}
+      .dp-btn:disabled{opacity:0.5;cursor:not-allowed}
+      .dp-chip{padding:5px 10px;border:1px solid var(--color-border);background:var(--color-panel);color:var(--color-text);font-size:0.6rem;cursor:pointer;border-radius:12px}
+      .dp-chip:hover{border-color:var(--color-primary)}
+      .dp-error{padding:7px 10px;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.2);border-radius:5px;color:#ff6b6b;font-size:0.6rem;margin-bottom:8px}
+      .dp-loading{display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;font-size:0.65rem;color:var(--color-text-muted)}
+      .dp-spinner{width:14px;height:14px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:dpspin 0.8s linear infinite}
+      @keyframes dpspin{to{transform:rotate(360deg)}}
+      .dp-result{margin-top:10px;padding:10px;background:var(--color-background);border:1px solid var(--color-border);border-radius:6px}
+      .dp-stat{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--color-border)}
+      .dp-stat:last-child{border-bottom:none}
+      .dp-stat-label{font-size:0.6rem;color:var(--color-text-muted);font-weight:600}
+      .dp-stat-val{font-size:0.65rem;color:var(--color-text);font-weight:600}
+      .dp-stat-val.good{color:#22c55e}
+    </style>
+  </div>
+</body>
+</html>

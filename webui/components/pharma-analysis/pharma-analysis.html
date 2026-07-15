@@ -1,0 +1,210 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+    export const store = createStore("pharmaAnalysisModal", {
+      activeTab: "validation", loading: false, error: "", result: null,
+      // Validation
+      valData: "", valConcs: "",
+      // f2
+      f2Ref: "", f2Test: "",
+      // Chromatography
+      chromTR1: "", chromTR2: "", chromW1: "", chromW2: "", chromT0: "", chromWH1: "",
+      // LOD/LOQ
+      lodSlope: "", lodNoise: "", lodStd: "", lodMethod: "snr",
+      async runValidation() {
+        if (!this.valData) return;
+        this.loading = true; this.error = "";
+        try {
+          const data = JSON.parse(this.valData);
+          this.result = await callJsonApi("pharma_analysis", { action: "method_validation", data });
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async runF2() {
+        if (!this.f2Ref || !this.f2Test) return;
+        this.loading = true; this.error = "";
+        try {
+          const ref = this.f2Ref.split(",").map(Number);
+          const test = this.f2Test.split(",").map(Number);
+          this.result = await callJsonApi("pharma_analysis", { action: "dissolution_f2", reference: ref, test });
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async runChromatography() {
+        this.loading = true; this.error = "";
+        try {
+          this.result = await callJsonApi("pharma_analysis", { action: "chromatography",
+            retention_time_min: parseFloat(this.chromTR1) || 0, retention_time_2_min: parseFloat(this.chromTR2) || 0,
+            peak_width_min: parseFloat(this.chromW1) || 0, peak_width_2_min: parseFloat(this.chromW2) || 0,
+            void_time_min: parseFloat(this.chromT0) || 0, peak_width_half_height_min: parseFloat(this.chromWH1) || 0 });
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async runLOD() {
+        this.loading = true; this.error = "";
+        try {
+          this.result = await callJsonApi("pharma_analysis", { action: "lod_loq", method: this.lodMethod,
+            slope: parseFloat(this.lodSlope) || 0, noise: parseFloat(this.lodNoise) || 0,
+            std_blank_response: parseFloat(this.lodStd) || 0 });
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async runDegradation() {
+        this.loading = true; this.error = "";
+        try {
+          this.result = await callJsonApi("pharma_analysis", { action: "forced_degradation", drug_name: "Drug" });
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      }
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="dp-panel">
+    <div class="dp-header">
+      <span class="material-symbols-outlined dp-icon">biotech</span>
+      <div><h2>Pharmaceutical Analysis</h2><p class="dp-sub">ICH Q2 validation, dissolution, chromatography, forced degradation</p></div>
+    </div>
+    <div class="dp-tabs">
+      <button class="dp-tab" :class="{active:$store.pharmaAnalysisModal.activeTab==='validation'}" @click="$store.pharmaAnalysisModal.activeTab='validation'">Method Validation</button>
+      <button class="dp-tab" :class="{active:$store.pharmaAnalysisModal.activeTab==='f2'}" @click="$store.pharmaAnalysisModal.activeTab='f2'">Dissolution f2</button>
+      <button class="dp-tab" :class="{active:$store.pharmaAnalysisModal.activeTab==='chrom'}" @click="$store.pharmaAnalysisModal.activeTab='chrom'">Chromatography</button>
+      <button class="dp-tab" :class="{active:$store.pharmaAnalysisModal.activeTab==='lod'}" @click="$store.pharmaAnalysisModal.activeTab='lod'">LOD/LOQ</button>
+      <button class="dp-tab" :class="{active:$store.pharmaAnalysisModal.activeTab==='degrade'}" @click="$store.pharmaAnalysisModal.activeTab='degrade'">Forced Degradation</button>
+    </div>
+    <div class="dp-body">
+      <div x-show="$store.pharmaAnalysisModal.error" class="dp-error" x-text="$store.pharmaAnalysisModal.error"></div>
+      <div x-show="$store.pharmaAnalysisModal.loading" class="dp-loading"><div class="dp-spinner"></div> Processing...</div>
+      <!-- Method Validation -->
+      <div x-show="$store.pharmaAnalysisModal.activeTab==='validation'">
+        <div class="dp-card">
+          <h3>ICH Q2(R2) Method Validation</h3>
+          <p class="dp-hint">Enter data as JSON: {"conc1": [measured_values], "conc2": [...], ...}</p>
+          <textarea x-model="$store.pharmaAnalysisModal.valData" class="dp-input" rows="6" placeholder='{"10": [9.8, 10.1, 10.3], "20": [19.5, 20.2, 19.8], "30": [29.1, 30.5, 29.8], "40": [39.2, 40.1, 39.7], "50": [48.8, 50.2, 49.5]}'></textarea>
+          <button class="dp-btn" @click="$store.pharmaAnalysisModal.runValidation()" :disabled="$store.pharmaAnalysisModal.loading">Validate</button>
+          <template x-if="$store.pharmaAnalysisModal.result?.linearity">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">R²</span><span class="dp-stat-val" :class="{good:$store.pharmaAnalysisModal.result.linearity.r_squared>=0.999}" x-text="$store.pharmaAnalysisModal.result.linearity.r_squared"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Mean Recovery</span><span class="dp-stat-val" x-text="$store.pharmaAnalysisModal.result.accuracy?.mean_recovery + '%'"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Mean RSD</span><span class="dp-stat-val" x-text="$store.pharmaAnalysisModal.result.precision?.mean_rsd + '%'"></span></div>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- f2 -->
+      <div x-show="$store.pharmaAnalysisModal.activeTab==='f2'">
+        <div class="dp-card">
+          <h3>f2 Similarity Factor (FDA)</h3>
+          <label class="dp-label">Reference (%):</label>
+          <input type="text" x-model="$store.pharmaAnalysisModal.f2Ref" class="dp-input" placeholder="10,25,45,60,72,80,88,92" />
+          <label class="dp-label">Test (%):</label>
+          <input type="text" x-model="$store.pharmaAnalysisModal.f2Test" class="dp-input" placeholder="12,28,48,62,75,82,89,94" />
+          <button class="dp-btn" @click="$store.pharmaAnalysisModal.runF2()" :disabled="$store.pharmaAnalysisModal.loading">Calculate f2</button>
+          <template x-if="$store.pharmaAnalysisModal.result?.f2 !== undefined">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">f2</span><span class="dp-stat-val" :class="{good:$store.pharmaAnalysisModal.result.similar}" x-text="$store.pharmaAnalysisModal.result.f2"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">f1</span><span class="dp-stat-val" x-text="$store.pharmaAnalysisModal.result.f1"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Verdict</span><span class="dp-stat-val" :class="{good:$store.pharmaAnalysisModal.result.similar}" x-text="$store.pharmaAnalysisModal.result.similar ? 'SIMILAR' : 'NOT SIMILAR'"></span></div>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- Chromatography -->
+      <div x-show="$store.pharmaAnalysisModal.activeTab==='chrom'">
+        <div class="dp-card">
+          <h3>Chromatographic Calculations</h3>
+          <div class="dp-grid">
+            <div><label class="dp-label">tR Peak 1 (min):</label><input type="number" x-model="$store.pharmaAnalysisModal.chromTR1" class="dp-input" step="0.1" /></div>
+            <div><label class="dp-label">tR Peak 2 (min):</label><input type="number" x-model="$store.pharmaAnalysisModal.chromTR2" class="dp-input" step="0.1" /></div>
+            <div><label class="dp-label">Width Peak 1 (min):</label><input type="number" x-model="$store.pharmaAnalysisModal.chromW1" class="dp-input" step="0.1" /></div>
+            <div><label class="dp-label">Width Peak 2 (min):</label><input type="number" x-model="$store.pharmaAnalysisModal.chromW2" class="dp-input" step="0.1" /></div>
+            <div><label class="dp-label">Void time t0 (min):</label><input type="number" x-model="$store.pharmaAnalysisModal.chromT0" class="dp-input" step="0.1" /></div>
+            <div><label class="dp-label">Width at half-height (min):</label><input type="number" x-model="$store.pharmaAnalysisModal.chromWH1" class="dp-input" step="0.1" /></div>
+          </div>
+          <button class="dp-btn" @click="$store.pharmaAnalysisModal.runChromatography()" :disabled="$store.pharmaAnalysisModal.loading">Calculate</button>
+          <template x-if="$store.pharmaAnalysisModal.result?.theoretical_plates">
+            <div class="dp-result">
+              <div class="dp-stat" x-show="$store.pharmaAnalysisModal.result.resolution"><span class="dp-stat-label">Resolution (Rs)</span><span class="dp-stat-val" :class="{good:$store.pharmaAnalysisModal.result.baseline_resolved}" x-text="$store.pharmaAnalysisModal.result.resolution"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Plates (N)</span><span class="dp-stat-val" x-text="$store.pharmaAnalysisModal.result.theoretical_plates"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Capacity (k\')</span><span class="dp-stat-val" x-text="$store.pharmaAnalysisModal.result.capacity_factor"></span></div>
+              <div class="dp-stat" x-show="$store.pharmaAnalysisModal.result.tailing_factor"><span class="dp-stat-label">Tailing (T)</span><span class="dp-stat-val" x-text="$store.pharmaAnalysisModal.result.tailing_factor"></span></div>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- LOD/LOQ -->
+      <div x-show="$store.pharmaAnalysisModal.activeTab==='lod'">
+        <div class="dp-card">
+          <h3>LOD / LOQ Calculator (ICH Q2)</h3>
+          <div class="dp-grid">
+            <div><label class="dp-label">Method:</label><select x-model="$store.pharmaAnalysisModal.lodMethod" class="dp-input"><option value="snr">Signal-to-Noise</option><option value="std">Std Deviation</option></select></div>
+            <div><label class="dp-label">Slope:</label><input type="number" x-model="$store.pharmaAnalysisModal.lodSlope" class="dp-input" step="0.01" /></div>
+            <div x-show="$store.pharmaAnalysisModal.lodMethod==='snr'"><label class="dp-label">Noise:</label><input type="number" x-model="$store.pharmaAnalysisModal.lodNoise" class="dp-input" step="0.01" /></div>
+            <div x-show="$store.pharmaAnalysisModal.lodMethod==='std'"><label class="dp-label">Std blank response:</label><input type="number" x-model="$store.pharmaAnalysisModal.lodStd" class="dp-input" step="0.01" /></div>
+          </div>
+          <button class="dp-btn" @click="$store.pharmaAnalysisModal.runLOD()" :disabled="$store.pharmaAnalysisModal.loading">Calculate</button>
+          <template x-if="$store.pharmaAnalysisModal.result?.lod !== undefined">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">LOD</span><span class="dp-stat-val" x-text="$store.pharmaAnalysisModal.result.lod"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">LOQ</span><span class="dp-stat-val" x-text="$store.pharmaAnalysisModal.result.loq"></span></div>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- Forced Degradation -->
+      <div x-show="$store.pharmaAnalysisModal.activeTab==='degrade'">
+        <div class="dp-card">
+          <h3>Forced Degradation Planner</h3>
+          <button class="dp-btn" @click="$store.pharmaAnalysisModal.runDegradation()" :disabled="$store.pharmaAnalysisModal.loading">Generate Conditions</button>
+          <template x-if="$store.pharmaAnalysisModal.result?.conditions">
+            <div class="dp-result">
+              <template x-for="c in $store.pharmaAnalysisModal.result.conditions" :key="c.stress">
+                <div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--color-border)">
+                  <b style="font-size:0.65rem" x-text="c.stress"></b>
+                  <div style="font-size:0.55rem;color:var(--color-text-muted)">
+                    <div>Reagent: <span x-text="c.reagent"></span></div>
+                    <div>Temp: <span x-text="c.temp"></span> | Time: <span x-text="c.time"></span></div>
+                    <div>Target: <span x-text="c.target_degradation"></span></div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+    <style>
+      .dp-panel{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background)}
+      .dp-header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0}
+      .dp-icon{font-size:24px;color:var(--color-primary)}
+      .dp-header h2{font-size:0.95rem;margin:0;font-weight:700;color:var(--color-text)}
+      .dp-sub{font-size:0.6rem;color:var(--color-text-muted);margin:0}
+      .dp-tabs{display:flex;gap:4px;padding:8px 12px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0;flex-wrap:wrap}
+      .dp-tab{padding:5px 10px;border:1px solid var(--color-border);background:var(--color-panel);color:var(--color-text);font-size:0.6rem;cursor:pointer;border-radius:12px}
+      .dp-tab.active{background:var(--color-primary);color:white;border-color:var(--color-primary)}
+      .dp-body{flex:1;overflow-y:auto;padding:12px 16px}
+      .dp-card{background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;padding:14px;margin-bottom:10px}
+      .dp-card h3{font-size:0.8rem;margin:0 0 8px 0;color:var(--color-text)}
+      .dp-hint{font-size:0.58rem;color:var(--color-text-muted);margin:0 0 8px 0;line-height:1.4}
+      .dp-label{font-size:0.62rem;font-weight:600;color:var(--color-text);margin-bottom:3px;display:block}
+      .dp-input{width:100%;padding:7px 10px;border:1px solid var(--color-border);border-radius:5px;background:var(--color-background);color:var(--color-text);font-size:0.65rem;font-family:monospace;box-sizing:border-box;margin-bottom:8px}
+      .dp-input:focus{outline:none;border-color:var(--color-primary)}
+      .dp-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+      .dp-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:9px;background:var(--color-primary);border:none;border-radius:6px;color:white;font-size:0.7rem;font-weight:600;cursor:pointer;margin-top:6px}
+      .dp-btn:disabled{opacity:0.5;cursor:not-allowed}
+      .dp-error{padding:7px 10px;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.2);border-radius:5px;color:#ff6b6b;font-size:0.6rem;margin-bottom:8px}
+      .dp-loading{display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;font-size:0.65rem;color:var(--color-text-muted)}
+      .dp-spinner{width:14px;height:14px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:dpspin 0.8s linear infinite}
+      @keyframes dpspin{to{transform:rotate(360deg)}}
+      .dp-result{margin-top:10px;padding:10px;background:var(--color-background);border:1px solid var(--color-border);border-radius:6px}
+      .dp-stat{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--color-border)}
+      .dp-stat:last-child{border-bottom:none}
+      .dp-stat-label{font-size:0.6rem;color:var(--color-text-muted);font-weight:600}
+      .dp-stat-val{font-size:0.65rem;color:var(--color-text);font-weight:600}
+      .dp-stat-val.good{color:#22c55e}
+    </style>
+  </div>
+</body>
+</html>

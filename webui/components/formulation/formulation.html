@@ -1,0 +1,236 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+    export const store = createStore("formulationModal", {
+      activeTab: "kinetics", loading: false, error: "", message: "",
+      // Release kinetics
+      kTime: "", kRelease: "", kResult: null,
+      // Dissolution f2
+      f2Ref: "", f2Test: "", f2Result: null,
+      // Nanoparticle
+      npZeta: "", npPdi: "", npDrugLoaded: "", npTotal: "", npSupernatant: "", npResult: null,
+      // Stability
+      stTemps: "", stT90: "", stTarget: "25", stResult: null,
+      // Excipients
+      excCategory: "", excResult: null,
+      async runKinetics() {
+        if (!this.kTime || !this.kRelease) return;
+        this.loading = true; this.error = "";
+        try {
+          const time = this.kTime.split(",").map(Number);
+          const release = this.kRelease.split(",").map(Number);
+          const r = await callJsonApi("formulation", { action: "release_kinetics", time, release_pct: release });
+          this.kResult = r;
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async runF2() {
+        if (!this.f2Ref || !this.f2Test) return;
+        this.loading = true; this.error = "";
+        try {
+          const ref = this.f2Ref.split(",").map(Number);
+          const test = this.f2Test.split(",").map(Number);
+          const r = await callJsonApi("formulation", { action: "dissolution_f2", reference: ref, test });
+          this.f2Result = r;
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async runNanoparticle() {
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("formulation", { action: "nanoparticle",
+            zeta_potential: parseFloat(this.npZeta) || null,
+            pdi: parseFloat(this.npPdi) || null,
+            drug_loaded_mg: parseFloat(this.npDrugLoaded) || null,
+            total_weight_mg: parseFloat(this.npTotal) || null,
+            drug_in_supernatant_mg: parseFloat(this.npSupernatant) || null
+          });
+          this.npResult = r;
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async runStability() {
+        if (!this.stTemps || !this.stT90) return;
+        this.loading = true; this.error = "";
+        try {
+          const temps = this.stTemps.split(",").map(Number);
+          const t90 = this.stT90.split(",").map(Number);
+          const r = await callJsonApi("formulation", { action: "stability",
+            temperature_C: temps, t90_days: t90, target_temp_C: parseFloat(this.stTarget) });
+          this.stResult = r;
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async loadExcipients() {
+        this.loading = true;
+        try {
+          const r = await callJsonApi("formulation", { action: "excipient_db", category: this.excCategory || "" });
+          this.excResult = r;
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      }
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="dp-panel">
+    <div class="dp-header">
+      <span class="material-symbols-outlined dp-icon">science</span>
+      <div><h2>Formulation Lab</h2><p class="dp-sub">Pharmaceutics tools: kinetics, dissolution, nanoparticles, stability</p></div>
+    </div>
+    <div class="dp-tabs">
+      <button class="dp-tab" :class="{active:$store.formulationModal.activeTab==='kinetics'}" @click="$store.formulationModal.activeTab='kinetics'">Release Kinetics</button>
+      <button class="dp-tab" :class="{active:$store.formulationModal.activeTab==='f2'}" @click="$store.formulationModal.activeTab='f2'">Dissolution f2</button>
+      <button class="dp-tab" :class="{active:$store.formulationModal.activeTab==='nano'}" @click="$store.formulationModal.activeTab='nano'">Nanoparticle</button>
+      <button class="dp-tab" :class="{active:$store.formulationModal.activeTab==='stability'}" @click="$store.formulationModal.activeTab='stability'">Stability</button>
+      <button class="dp-tab" :class="{active:$store.formulationModal.activeTab==='excipients'}" @click="$store.formulationModal.activeTab='excipients'">Excipients</button>
+    </div>
+    <div class="dp-body">
+      <div x-show="$store.formulationModal.error" class="dp-error" x-text="$store.formulationModal.error"></div>
+      <div x-show="$store.formulationModal.loading" class="dp-loading"><div class="dp-spinner"></div> Processing...</div>
+      <!-- Release Kinetics -->
+      <div x-show="$store.formulationModal.activeTab==='kinetics'">
+        <div class="dp-card">
+          <h3>Release Kinetics Models</h3>
+          <p class="dp-hint">Enter time points and release percentages (comma-separated). Fits: Zero-order, First-order, Higuchi, Korsmeyer-Peppas, Weibull.</p>
+          <label class="dp-label">Time (hours):</label>
+          <input type="text" x-model="$store.formulationModal.kTime" class="dp-input" placeholder="0,1,2,4,6,8,12,24" />
+          <label class="dp-label">Release %:</label>
+          <input type="text" x-model="$store.formulationModal.kRelease" class="dp-input" placeholder="0,15,28,42,55,68,82,95" />
+          <button class="dp-btn" @click="$store.formulationModal.runKinetics()" :disabled="$store.formulationModal.loading">Calculate</button>
+          <template x-if="$store.formulationModal.kResult">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">Best Fit</span><span class="dp-stat-val" x-text="$store.formulationModal.kResult.best_fit"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">R²</span><span class="dp-stat-val" x-text="$store.formulationModal.kResult.best_r2"></span></div>
+              <div class="dp-model" x-show="$store.formulationModal.kResult.models?.korsmeyer_peppas?.n">
+                <b>Peppas n:</b> <span x-text="$store.formulationModal.kResult.models.korsmeyer_peppas.n"></span>
+                — <span x-text="$store.formulationModal.kResult.models.korsmeyer_peppas.release_mechanism"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- Dissolution f2 -->
+      <div x-show="$store.formulationModal.activeTab==='f2'">
+        <div class="dp-card">
+          <h3>f2 Similarity Factor (FDA)</h3>
+          <label class="dp-label">Reference dissolution % (comma-separated):</label>
+          <input type="text" x-model="$store.formulationModal.f2Ref" class="dp-input" placeholder="10,25,45,60,72,80,88,92" />
+          <label class="dp-label">Test dissolution %:</label>
+          <input type="text" x-model="$store.formulationModal.f2Test" class="dp-input" placeholder="12,28,48,62,75,82,89,94" />
+          <button class="dp-btn" @click="$store.formulationModal.runF2()" :disabled="$store.formulationModal.loading">Calculate f2</button>
+          <template x-if="$store.formulationModal.f2Result">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">f2</span><span class="dp-stat-val" :class="{good:$store.formulationModal.f2Result.similar}" x-text="$store.formulationModal.f2Result.f2"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">f1</span><span class="dp-stat-val" x-text="$store.formulationModal.f2Result.f1"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Verdict</span><span class="dp-stat-val" :class="{good:$store.formulationModal.f2Result.similar}" x-text="$store.formulationModal.f2Result.similar ? 'SIMILAR' : 'NOT SIMILAR'"></span></div>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- Nanoparticle -->
+      <div x-show="$store.formulationModal.activeTab==='nano'">
+        <div class="dp-card">
+          <h3>Nanoparticle Characterization</h3>
+          <div class="dp-grid">
+            <div><label class="dp-label">Zeta Potential (mV):</label><input type="number" x-model="$store.formulationModal.npZeta" class="dp-input" placeholder="-25.3" /></div>
+            <div><label class="dp-label">PDI:</label><input type="number" x-model="$store.formulationModal.npPdi" class="dp-input" placeholder="0.15" step="0.01" /></div>
+            <div><label class="dp-label">Drug loaded (mg):</label><input type="number" x-model="$store.formulationModal.npDrugLoaded" class="dp-input" placeholder="45" /></div>
+            <div><label class="dp-label">Total NP weight (mg):</label><input type="number" x-model="$store.formulationModal.npTotal" class="dp-input" placeholder="200" /></div>
+            <div><label class="dp-label">Drug in supernatant (mg):</label><input type="number" x-model="$store.formulationModal.npSupernatant" class="dp-input" placeholder="5" /></div>
+          </div>
+          <button class="dp-btn" @click="$store.formulationModal.runNanoparticle()" :disabled="$store.formulationModal.loading">Analyze</button>
+          <template x-if="$store.formulationModal.npResult">
+            <div class="dp-result">
+              <div x-show="$store.formulationModal.npResult.zeta_potential" class="dp-stat"><span class="dp-stat-label">Zeta</span><span class="dp-stat-val" x-text="($store.formulationModal.npResult.zeta_potential?.value_mV || '') + ' mV — ' + ($store.formulationModal.npResult.zeta_potential?.stability || '')"></span></div>
+              <div x-show="$store.formulationModal.npResult.pdi" class="dp-stat"><span class="dp-stat-label">PDI</span><span class="dp-stat-val" x-text="($store.formulationModal.npResult.pdi?.value || '') + ' — ' + ($store.formulationModal.npResult.pdi?.classification || '')"></span></div>
+              <div x-show="$store.formulationModal.npResult.encapsulation_efficiency" class="dp-stat"><span class="dp-stat-label">EE%</span><span class="dp-stat-val" x-text="$store.formulationModal.npResult.encapsulation_efficiency?.percent + '%'"></span></div>
+              <div x-show="$store.formulationModal.npResult.loading_capacity" class="dp-stat"><span class="dp-stat-label">LC%</span><span class="dp-stat-val" x-text="$store.formulationModal.npResult.loading_capacity?.percent + '%'"></span></div>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- Stability -->
+      <div x-show="$store.formulationModal.activeTab==='stability'">
+        <div class="dp-card">
+          <h3>ICH Q1E Stability Prediction</h3>
+          <label class="dp-label">Temperatures (°C, comma-separated):</label>
+          <input type="text" x-model="$store.formulationModal.stTemps" class="dp-input" placeholder="40,50,60" />
+          <label class="dp-label">t90 at each temp (days):</label>
+          <input type="text" x-model="$store.formulationModal.stT90" class="dp-input" placeholder="180,90,45" />
+          <label class="dp-label">Target storage temp (°C):</label>
+          <input type="number" x-model="$store.formulationModal.stTarget" class="dp-input" value="25" />
+          <button class="dp-btn" @click="$store.formulationModal.runStability()" :disabled="$store.formulationModal.loading">Predict Shelf Life</button>
+          <template x-if="$store.formulationModal.stResult">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">t90 at target</span><span class="dp-stat-val good" x-text="$store.formulationModal.stResult.t90_at_target_days + ' days (' + $store.formulationModal.stResult.t90_at_target_months + ' months)'"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Ea</span><span class="dp-stat-val" x-text="$store.formulationModal.stResult.activation_energy_kJ_mol + ' kJ/mol'"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">R²</span><span class="dp-stat-val" x-text="$store.formulationModal.stResult.r2"></span></div>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- Excipients -->
+      <div x-show="$store.formulationModal.activeTab==='excipients'">
+        <div class="dp-card">
+          <h3>Excipient Database</h3>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
+            <button class="dp-chip" @click="$store.formulationModal.excCategory='fillers';$store.formulationModal.loadExcipients()">Fillers</button>
+            <button class="dp-chip" @click="$store.formulationModal.excCategory='binders';$store.formulationModal.loadExcipients()">Binders</button>
+            <button class="dp-chip" @click="$store.formulationModal.excCategory='disintegrants';$store.formulationModal.loadExcipients()">Disintegrants</button>
+            <button class="dp-chip" @click="$store.formulationModal.excCategory='lubricants';$store.formulationModal.loadExcipients()">Lubricants</button>
+            <button class="dp-chip" @click="$store.formulationModal.excCategory='coatings';$store.formulationModal.loadExcipients()">Coatings</button>
+          </div>
+          <template x-if="$store.formulationModal.excResult?.excipients">
+            <div>
+              <template x-for="exc in $store.formulationModal.excResult.excipients" :key="exc.name">
+                <div class="dp-excipient">
+                  <b x-text="exc.name"></b> — <span x-text="exc.type"></span>
+                  <div class="dp-exc-detail" x-text="exc.notes"></div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+    <style>
+      .dp-panel{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background)}
+      .dp-header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0}
+      .dp-icon{font-size:24px;color:var(--color-primary)}
+      .dp-header h2{font-size:0.95rem;margin:0;font-weight:700;color:var(--color-text)}
+      .dp-sub{font-size:0.6rem;color:var(--color-text-muted);margin:0}
+      .dp-tabs{display:flex;gap:4px;padding:8px 12px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0;flex-wrap:wrap}
+      .dp-tab{padding:5px 10px;border:1px solid var(--color-border);background:var(--color-panel);color:var(--color-text);font-size:0.6rem;cursor:pointer;border-radius:12px}
+      .dp-tab.active{background:var(--color-primary);color:white;border-color:var(--color-primary)}
+      .dp-body{flex:1;overflow-y:auto;padding:12px 16px}
+      .dp-card{background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;padding:14px;margin-bottom:10px}
+      .dp-card h3{font-size:0.8rem;margin:0 0 8px 0;color:var(--color-text)}
+      .dp-hint{font-size:0.58rem;color:var(--color-text-muted);margin:0 0 8px 0;line-height:1.4}
+      .dp-label{font-size:0.62rem;font-weight:600;color:var(--color-text);margin-bottom:3px;display:block}
+      .dp-input{width:100%;padding:7px 10px;border:1px solid var(--color-border);border-radius:5px;background:var(--color-background);color:var(--color-text);font-size:0.65rem;font-family:monospace;box-sizing:border-box;margin-bottom:8px}
+      .dp-input:focus{outline:none;border-color:var(--color-primary)}
+      .dp-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+      .dp-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:9px;background:var(--color-primary);border:none;border-radius:6px;color:white;font-size:0.7rem;font-weight:600;cursor:pointer;margin-top:6px}
+      .dp-btn:disabled{opacity:0.5;cursor:not-allowed}
+      .dp-chip{padding:5px 10px;border:1px solid var(--color-border);background:var(--color-panel);color:var(--color-text);font-size:0.6rem;cursor:pointer;border-radius:12px}
+      .dp-chip:hover{border-color:var(--color-primary)}
+      .dp-error{padding:7px 10px;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.2);border-radius:5px;color:#ff6b6b;font-size:0.6rem;margin-bottom:8px}
+      .dp-loading{display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;font-size:0.65rem;color:var(--color-text-muted)}
+      .dp-spinner{width:14px;height:14px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:dpspin 0.8s linear infinite}
+      @keyframes dpspin{to{transform:rotate(360deg)}}
+      .dp-result{margin-top:10px;padding:10px;background:var(--color-background);border:1px solid var(--color-border);border-radius:6px}
+      .dp-stat{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--color-border)}
+      .dp-stat:last-child{border-bottom:none}
+      .dp-stat-label{font-size:0.6rem;color:var(--color-text-muted);font-weight:600}
+      .dp-stat-val{font-size:0.65rem;color:var(--color-text);font-weight:600}
+      .dp-stat-val.good{color:#22c55e}
+      .dp-model{margin-top:6px;font-size:0.62rem;color:var(--color-text)}
+      .dp-excipient{padding:6px 0;border-bottom:1px solid var(--color-border);font-size:0.62rem}
+      .dp-exc-detail{font-size:0.55rem;color:var(--color-text-muted);margin-top:2px}
+    </style>
+  </div>
+</body>
+</html>
