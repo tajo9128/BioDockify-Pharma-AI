@@ -1,11 +1,27 @@
-"""MM-GBSA Free Energy Scoring — CPU-only, no MD simulation.
+"""Approximate Binding Score — CPU-only, no MD simulation.
 
-Estimates binding free energy using a simplified MM-GBSA approach:
-- MM term: from Vina interaction energies (VdW + electrostatics)
-- GB term: Generalized Born solvation via RDKit descriptors
-- SA term: Solvent-accessible surface area approximation
+⚠️  IMPORTANT SCIENTIFIC DISCLAIMER:
+This is NOT a proper MM-GBSA calculation. True MM-GBSA requires:
+- Nanosecond-scale molecular dynamics trajectories of complex, receptor, and ligand
+- MM energy decomposition (bond, angle, dihedral, VdW, electrostatic)
+- GB solvation via Still's model or GBOBC with AM1-BCC or RESP charges
+- SA via ICOSA or Shrake-Rupley algorithm
 
-Reference: Genheden & Ryde, Expert Syst. Appl. 2015
+This module uses a simplified approximation:
+- MM term: Vina empirical scoring (not molecular mechanics)
+- GB term: RDKit descriptor-based solvation proxy (not Generalized Born)
+- SA term: Crude SASA approximation (not ICOSA/Shrake-Rupley)
+
+For publication or regulatory submission, use proper MM-GBSA tools:
+- gmx_MMPBSA (GROMACS + AMBER)
+- AMBER MMPBSA.py
+- Schrödinger Prime MM-GBSA
+
+This approximation is useful for quick ranking of docking poses but should NOT
+be cited as MM-GBSA in publications. Use "approximate binding score" instead.
+
+Reference: The scoring approach is inspired by Genheden & Ryde, Expert Syst. Appl. 2015
+but does NOT implement their methodology.
 """
 import os, logging, math
 import numpy as np

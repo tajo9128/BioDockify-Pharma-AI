@@ -1,20 +1,57 @@
-"""Enhanced Drug Analysis API — PAINS, Brenk, NIH substructure filters for drug-likeness."""
+"""Enhanced Drug Analysis API — PAINS, Brenk, NIH substructure filters for drug-likeness.
+Uses RDKit FilterCatalog for comprehensive PAINS coverage (~480 patterns vs previous 8)."""
 from helpers.api import ApiHandler, Request, Response
 import logging
 
 log = logging.getLogger("drug_analysis")
 
-# PAINS substructures (Pan-Assay Interference Compounds) — SMARTS patterns
-PAINS_SMARTS = {
-    "ene_rhodanine": "[#6]-1-[#6](=[#8])-[#7]-[#16]-[#6]-1=[#16]",
-    "anil_di_alk": "c1ccccc1-[#7](-[#6])-[#6]",
-    "pyrrole_imine": "[#7]1-[#6]=[#6]-[#6](=[#6]1-[#6])-[#6]",
-    "quinone_A": "[#6]1([#6](=[#8])[#6](=[#6]1[#6])[#6])=[#8]",
-    "catechol_A": "c1(c(c(ccc1)-[#8])-[#8])-[#8]",
-    "mannich_A": "[#7](-[#6])-[#6]-[#6]-[#7]",
-    "hzone_phenol_A": "[#8]-c1ccc(cc1)-[#6]=[#7]-[#7]",
-    "furan_carboxyl_A": "[#8]1-[#6]=[#6]-[#6](=[#8])-[#6]1=[#6]",
-}
+
+def _check_pains_rdkit(smiles: str) -> list:
+    """Check PAINS using RDKit FilterCatalog — comprehensive coverage (~480 patterns)."""
+    try:
+        from rdkit import Chem
+        from rdkit.Chem import FilterCatalog
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            return []
+        # Use PAINS_A (most important), PAINS_B (intermediate), PAINS_C (less common)
+        params = FilterCatalog.FilterCatalogParams()
+        params.AddCatalog(FilterCatalog.FilterCatalogParams.FilterCatalogs.PAINS_A)
+        params.AddCatalog(FilterCatalog.FilterCatalogParams.FilterCatalogs.PAINS_B)
+        params.AddCatalog(FilterCatalog.FilterCatalogParams.FilterCatalogs.PAINS_C)
+        catalog = FilterCatalog.FilterCatalog(params)
+        if catalog.HasMatch(mol):
+            return [entry.GetDescription() for entry in catalog.GetMatches(mol)]
+        return []
+    except ImportError:
+        log.warning("RDKit FilterCatalog not available — falling back to basic patterns")
+        return _check_pains_basic(smiles)
+    except Exception as e:
+        log.warning(f"PAINS check failed: {e}")
+        return []
+
+
+def _check_pains_basic(smiles: str) -> list:
+    """Fallback PAINS check using SMARTS patterns (8 patterns — use RDKit FilterCatalog for full coverage)."""
+    from rdkit import Chem
+    PAINS_SMARTS = {
+        "ene_rhodanine": "[#6]-1-[#6](=[#8])-[#7]-[#16]-[#6]-1=[#16]",
+        "anil_di_alk": "c1ccccc1-[#7](-[#6])-[#6]",
+        "pyrrole_imine": "[#7]1-[#6]=[#6]-[#6](=[#6]1-[#6])-[#6]",
+        "quinone_A": "[#6]1([#6](=[#8])[#6](=[#6]1[#6])[#6])=[#8]",
+        "catechol_A": "c1(c(c(ccc1)-[#8])-[#8])-[#8]",
+        "mannich_A": "[#7](-[#6])-[#6]-[#6]-[#7]",
+        "hzone_phenol_A": "[#8]-c1ccc(cc1)-[#6]=[#7]-[#7]",
+        "furan_carboxyl_A": "[#8]1-[#6]=[#6]-[#6](=[#8])-[#6]1=[#6]",
+    }
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None: return []
+    flagged = []
+    for name, smarts in PAINS_SMARTS.items():
+        pat = Chem.MolFromSmarts(smarts)
+        if pat and mol.HasSubstructMatch(pat):
+            flagged.append(name)
+    return flagged
 
 # Brenk unwanted fragments (toxicity/reactive groups) — SMARTS
 BRENK_SMARTS = {

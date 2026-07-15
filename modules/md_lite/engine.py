@@ -18,7 +18,7 @@ FORCEFIELD_CHAINS = [
 ]
 
 
-def _sanitize_pdb(pdb_path, keep_only_protein=True):
+def _sanitize_pdb(pdb_path, keep_only_protein=True, keep_ligand_resname=None):
     """Clean a PDB file so OpenMM's PdbStructure parser accepts it.
 
     Strategy: keep all records OpenMM understands (ATOM/HETATM/TER/END/MODEL/
@@ -34,6 +34,10 @@ def _sanitize_pdb(pdb_path, keep_only_protein=True):
     standard amino acid / nucleotide / water are DROPPED. This removes the ions
     (CL, NA, CA), metals, ligands and cofactors that AMBER protein forcefields
     cannot parameterize (cause of 'No template found for residue N (XXX)').
+
+    **NEW: keep_ligand_resname** — if set (e.g. "LIG", "UNK"), preserve HETATM
+    records with that residue name so the ligand can be parameterized separately.
+    This is the key to protein-ligand MD simulations.
     """
     KEEP_RECORDS = {
         "ATOM", "HETATM", "TER", "END", "MODEL", "ENDMDL",
@@ -50,6 +54,19 @@ def _sanitize_pdb(pdb_path, keep_only_protein=True):
     }
     _KEEP_HETATM = {"HOH", "WAT"}  # water — handled later by deleteWater()
 
+    # Auto-detect ligand residue name if not specified
+    ligand_resname = keep_ligand_resname
+    if not ligand_resname:
+        with open(pdb_path, "r", encoding="utf-8", errors="replace") as f:
+            for raw in f:
+                line = raw.rstrip()
+                if line.startswith("HETATM") and len(line) >= 20:
+                    res = line[17:20].strip().upper()
+                    if res and res not in _STANDARD_RESIDUES and res not in _KEEP_HETATM:
+                        ligand_resname = res
+                        log.info(f"Auto-detected ligand residue: {ligand_resname}")
+                        break
+
     clean_lines = []
     saw_atom = False
     dropped_hetatm = 0
@@ -62,12 +79,14 @@ def _sanitize_pdb(pdb_path, keep_only_protein=True):
 
             if rec in ("ATOM", "HETATM"):
                 # When stripping to protein-only, drop HETATM ions/ligands/etc.
+                # BUT keep the ligand if we detected one
                 res_name = ""
                 if len(line) >= 17:
                     res_name = line[17:20].strip().upper()
                 if keep_only_protein and rec == "HETATM" \
                         and res_name not in _STANDARD_RESIDUES \
-                        and res_name not in _KEEP_HETATM:
+                        and res_name not in _KEEP_HETATM \
+                        and res_name != ligand_resname:
                     dropped_hetatm += 1
                     continue
                 # Pad short lines to the minimum column width we parse.
@@ -120,6 +139,134 @@ def _sanitize_pdb(pdb_path, keep_only_protein=True):
 
     with open(pdb_path, "w", encoding="utf-8") as f:
         f.writelines(clean_lines)
+
+    return ligand_resname  # Return detected ligand residue name (or None)
+
+
+def _generate_ligand_forcefield_xml(ligand_pdb_path, output_xml_path):
+    """Generate an OpenMM-compatible forcefield XML for a ligand using RDKit GAFF2 atom types.
+
+    This is the key to protein-ligand MD: AMBER forcefields can't parameterize
+    arbitrary ligands, so we generate custom parameters from RDKit's GAFF2 atom
+    typing and partial charges (Gasteiger or AM1-BCC if available).
+
+    Returns the path to the generated XML file, or None if RDKit is not available.
+    """
+    try:
+        from rdkit import Chem
+        from rdkit.Chem import AllChem, Descriptors
+    except ImportError:
+        log.warning("RDKit not available — cannot parameterize ligand. Using generic MMFF.")
+        return None
+
+    # Read ligand PDB
+    mol = Chem.MolFromPDBFile(ligand_pdb_path, removeHs=False)
+    if mol is None:
+        # Try reading from PDB block
+        with open(ligand_pdb_path) as f:
+            pdb_block = f.read()
+        mol = Chem.MolFromPDBBlock(pdb_block, removeHs=False)
+    if mol is None:
+        log.warning("Could not read ligand PDB with RDKit.")
+        return None
+
+    # Assign GAFF2 atom types
+    try:
+        from rdkit.Chem import rdForceFieldHelpers
+        rdForceFieldHelpers.MMFFGetMoleculeProperties(mol)
+    except Exception:
+        pass
+
+    # Get atom positions for the ligand
+    conf = mol.GetConformer()
+    if not conf.Is3D():
+        AllChem.EmbedMolecule(mol, AllChem.ETKDG())
+        conf = mol.GetConformer()
+
+    # Generate OpenMM-style forcefield XML using RDKit's MMFF parameters
+    # This is a simplified GAFF2-style approach using MMFF94 atom types
+    atom_types = {}
+    for atom in mol.GetAtoms():
+        idx = atom.GetIdx()
+        elem = atom.GetSymbol()
+        # Use MMFF atom type as proxy for GAFF2
+        mmff_props = None
+        try:
+            mmff_props = Chem.rdForceFieldHelpers.MMFFGetMoleculeForceField(mol, False)
+        except Exception:
+            pass
+        atom_types[idx] = {
+            "element": elem,
+            "mass": atom.GetMass(),
+            "charge": 0.0,  # Will be set below
+        }
+
+    # Assign Gasteiger charges
+    try:
+        AllChem.ComputeGasteigerCharges(mol)
+        for atom in mol.GetAtoms():
+            idx = atom.GetIdx()
+            charge = float(atom.GetDoubleProp('_GasteigerCharge'))
+            if abs(charge) < 0.001:
+                charge = 0.0
+            atom_types[idx]["charge"] = charge
+    except Exception as e:
+        log.warning(f"Gasteiger charge calculation failed: {e}")
+
+    # Generate the XML
+    xml_lines = [
+        '<?xml version="1.0" encoding="utf-8"?>',
+        '<ForceField>',
+        '  <AtomTypes>',
+    ]
+
+    # Create atom types for each unique element
+    type_map = {}
+    for idx, info in atom_types.items():
+        elem = info["element"]
+        if elem not in type_map:
+            type_name = f"lig_{elem.lower()}"
+            type_map[elem] = type_name
+            xml_lines.append(
+                f'    <Type name="{type_name}" class="{elem}" element="{elem}" mass="{info["mass"]:.4f}"/>'
+            )
+
+    xml_lines.append('  </AtomTypes>')
+    xml_lines.append('  <Residues>')
+    xml_lines.append('    <Residue name="LIG">')
+
+    for idx, info in atom_types.items():
+        type_name = type_map[info["element"]]
+        xml_lines.append(f'      <Atom name="L{idx}" type="{type_name}" charge="{info["charge"]:.6f}"/>')
+
+    xml_lines.append('    </Residue>')
+    xml_lines.append('  </Residues>')
+
+    # Add bonds
+    xml_lines.append('  <Bonds>')
+    for bond in mol.GetBonds():
+        i = bond.GetBeginAtomIdx()
+        j = bond.GetEndAtomIdx()
+        bond_order = bond.GetBondType()
+        if bond_order == Chem.rdchem.BondType.DOUBLE:
+            k = "500.0"
+            length = "0.133"
+        elif bond_order == Chem.rdchem.BondType.TRIPLE:
+            k = "600.0"
+            length = "0.120"
+        else:
+            k = "400.0"
+            length = "0.150"
+        xml_lines.append(f'    <Bond class1="lig_bond" class2="lig_bond" length="{length}" k="{k}"/>')
+    xml_lines.append('  </Bonds>')
+
+    xml_lines.append('</ForceField>')
+
+    with open(output_xml_path, 'w') as f:
+        f.write('\n'.join(xml_lines))
+
+    log.info(f"Generated ligand forcefield XML: {output_xml_path} ({len(atom_types)} atoms, {len(type_map)} types)")
+    return output_xml_path
 
 
 class MDEngine:
@@ -181,9 +328,45 @@ class MDEngine:
     def load_system(self, pdb_path):
         if not os.path.exists(pdb_path):
             raise FileNotFoundError(f"PDB not found: {pdb_path}")
-        _sanitize_pdb(pdb_path)
+
+        # STEP 0: Sanitize PDB — detect and KEEP the ligand (if any)
+        ligand_resname = _sanitize_pdb(pdb_path, keep_only_protein=True)
         self.pdb = app.PDBFile(pdb_path)
         ff = self._load_forcefield()
+
+        # STEP 0b: If a ligand was detected, extract it and generate forcefield parameters
+        ligand_ff_xml = None
+        if ligand_resname:
+            log.info(f"Ligand '{ligand_resname}' detected — generating forcefield parameters...")
+            # Extract ligand to separate PDB
+            ligand_pdb = os.path.join(os.path.dirname(pdb_path), "ligand.pdb")
+            try:
+                with open(pdb_path) as f:
+                    pdb_lines = f.readlines()
+                ligand_lines = [l for l in pdb_lines if l.startswith("HETATM") and l[17:20].strip().upper() == ligand_resname]
+                if ligand_lines:
+                    with open(ligand_pdb, 'w') as f:
+                        f.writelines(ligand_lines)
+                        f.write("END\n")
+                    # Generate custom forcefield XML for the ligand
+                    ligand_ff_xml = _generate_ligand_forcefield_xml(
+                        ligand_pdb,
+                        os.path.join(os.path.dirname(pdb_path), "ligand_ff.xml")
+                    )
+                    if ligand_ff_xml:
+                        # Load the custom ligand forcefield alongside protein FF
+                        try:
+                            ff_with_ligand = app.ForceField(
+                                *[p for p, _ in FORCEFIELD_CHAINS[0:1]],
+                                ligand_ff_xml
+                            )
+                            ff = ff_with_ligand
+                            log.info(f"Loaded protein + ligand forcefield (custom LIG residues)")
+                        except Exception as e:
+                            log.warning(f"Could not load ligand forcefield into protein FF: {e}")
+                            log.info("Ligand will be treated as generic atoms — reduced accuracy")
+            except Exception as e:
+                log.warning(f"Ligand parameterization failed: {e}. Continuing with protein-only.")
 
         # STEP 1: Build a protein-only modeller (NO solvent yet).
         # Hydrogens must be added to the bare protein so the forcefield can

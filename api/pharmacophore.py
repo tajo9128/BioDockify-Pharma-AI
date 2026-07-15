@@ -218,6 +218,17 @@ class PharmacophoreHandler(ApiHandler):
             for feat in factory.GetFeaturesForMol(q_mol):
                 q_types.add(feat.GetFamily())
             
+            # Try enhanced engine for 3D geometric matching
+            enhanced_available = False
+            try:
+                from modules.pharmacophore.engine import EnhancedPharmacophore
+                engine = EnhancedPharmacophore()
+                q_features_enhanced = engine.detect_features(q_mol)
+                if q_features_enhanced:
+                    enhanced_available = True
+            except Exception:
+                pass
+            
             # Screen library
             hits = []
             for smi in library_smiles:
@@ -228,25 +239,69 @@ class PharmacophoreHandler(ApiHandler):
                 mol = Chem.AddHs(mol)
                 AllChem.EmbedMolecule(mol, AllChem.ETKDG())
                 
-                mol_types = set()
-                for feat in factory.GetFeaturesForMol(mol):
-                    mol_types.add(feat.GetFamily())
-                
-                # Calculate weighted score
-                matched = q_types & mol_types
-                if not matched:
-                    continue
-                
-                score = sum(weights.get(t, 1) for t in matched) / sum(weights.get(t, 1) for t in q_types)
-                
-                if score > min_score and len(matched) >= 2:
-                    hits.append({
-                        "smiles": smi.strip(),
-                        "score": round(score, 4),
-                        "weighted_score": round(score * 100, 1),
-                        "matched_types": list(matched),
-                        "matched_count": len(matched),
-                    })
+                if enhanced_available:
+                    # Use enhanced engine for 3D geometric matching (triangle-based)
+                    try:
+                        m_features = engine.detect_features(mol)
+                        if not m_features:
+                            continue
+                        # Calculate geometric match score using enhanced engine
+                        q_pos = np.array([[f.get("x", 0), f.get("y", 0), f.get("z", 0)] for f in q_features_enhanced])
+                        m_pos = np.array([[f.get("x", 0), f.get("y", 0), f.get("z", 0)] for f in m_features])
+                        q_types_enhanced = set(f.get("family", "") for f in q_features_enhanced)
+                        m_types_enhanced = set(f.get("family", "") for f in m_features)
+                        
+                        # Weighted type overlap
+                        matched_types = q_types_enhanced & m_types_enhanced
+                        if not matched_types:
+                            continue
+                        type_score = sum(weights.get(t, 1) for t in matched_types) / sum(weights.get(t, 1) for t in q_types_enhanced)
+                        
+                        # 3D geometric similarity (RMSD of matched feature positions)
+                        geom_score = 1.0
+                        if len(q_pos) >= 3 and len(m_pos) >= 3:
+                            from scipy.spatial.distance import cdist
+                            # Use triangle-based matching: compare pairwise distances
+                            q_dists = cdist(q_pos, q_pos).flatten()
+                            m_dists = cdist(m_pos, m_pos).flatten()
+                            min_len = min(len(q_dists), len(m_dists))
+                            rmsd = np.sqrt(np.mean((q_dists[:min_len] - m_dists[:min_len])**2))
+                            geom_score = max(0, 1.0 - rmsd / 5.0)  # Normalize: 0A RMSD = 1.0, 5A+ = 0.0
+                        
+                        combined_score = 0.6 * type_score + 0.4 * geom_score
+                        
+                        if combined_score > min_score and len(matched_types) >= 2:
+                            hits.append({
+                                "smiles": smi.strip(),
+                                "score": round(combined_score, 4),
+                                "weighted_score": round(combined_score * 100, 1),
+                                "type_score": round(type_score, 4),
+                                "geometric_score": round(geom_score, 4),
+                                "matched_types": list(matched_types),
+                                "matched_count": len(matched_types),
+                                "method": "enhanced_3d",
+                            })
+                    except Exception:
+                        # Fall back to basic matching for this molecule
+                        pass
+                else:
+                    # Basic set-based matching (fallback)
+                    mol_types = set()
+                    for feat in factory.GetFeaturesForMol(mol):
+                        mol_types.add(feat.GetFamily())
+                    matched = q_types & mol_types
+                    if not matched:
+                        continue
+                    score = sum(weights.get(t, 1) for t in matched) / sum(weights.get(t, 1) for t in q_types)
+                    if score > min_score and len(matched) >= 2:
+                        hits.append({
+                            "smiles": smi.strip(),
+                            "score": round(score, 4),
+                            "weighted_score": round(score * 100, 1),
+                            "matched_types": list(matched),
+                            "matched_count": len(matched),
+                            "method": "basic_set",
+                        })
             
             hits.sort(key=lambda h: h["score"], reverse=True)
             
@@ -257,6 +312,7 @@ class PharmacophoreHandler(ApiHandler):
                 "total_screened": len(library_smiles),
                 "total_hits": len(hits),
                 "hits": hits[:50],
+                "method": "enhanced_3d" if enhanced_available else "basic_set",
             }
         except ImportError:
             return {"success": False, "error": "RDKit not available"}

@@ -130,7 +130,10 @@ class DockingRun(ApiHandler):
         ligand = input.get("ligand_pdbqt", "") or input.get("ligand", "")
         center = input.get("center", {"x": 0, "y": 0, "z": 0})
         size = input.get("size", {"x": 20, "y": 20, "z": 20})
-        exhaustiveness = input.get("exhaustiveness", 8)
+        exhaustiveness = input.get("exhaustiveness", 64)
+        if exhaustiveness < 32:
+            log.warning(f"Exhaustiveness={exhaustiveness} is below 32 — results may not be reproducible. "
+                        f"Journals recommend >= 32 for publication-quality docking.")
         num_modes = input.get("num_modes", 9)
 
         if not job_id:
