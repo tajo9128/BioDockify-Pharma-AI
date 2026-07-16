@@ -139,4 +139,47 @@ export const store = createStore("backupRecovery", {
       if (r.status === "ok") { this.autoBackupStatus = r; }
     } catch (e) {}
   },
+
+  // Upload backup from PC and auto-restore
+  restoringFromUpload: false,
+  uploadFilename: "",
+
+  triggerUploadRestore() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".zip";
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      this.restoringFromUpload = true;
+      this.uploadFilename = file.name;
+      this.error = "";
+      this.message = `Restoring from ${file.name}...`;
+      try {
+        const formData = new FormData();
+        formData.append("backup_file", file);
+        formData.append("action", "restore_from_upload");
+        formData.append("metadata", "{}");
+        const csrf = await (await fetch("/api/csrf_token")).json();
+        const resp = await fetch("/api/backup_auto", {
+          method: "POST",
+          headers: { "X-CSRF-Token": csrf.csrf_token || "" },
+          body: formData,
+        });
+        const result = await resp.json();
+        if (result.success) {
+          this.message = `✓ Restored ${result.restored_files} files from ${file.name}. Your data is back!`;
+          setTimeout(() => this.message = "", 8000);
+          await this.loadBackups();
+        } else {
+          this.error = result.error || "Restore failed";
+        }
+      } catch (e) {
+        this.error = "Upload restore failed: " + e.message;
+      }
+      this.restoringFromUpload = false;
+      this.uploadFilename = "";
+    };
+    input.click();
+  },
 });

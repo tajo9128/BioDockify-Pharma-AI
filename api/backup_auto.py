@@ -151,8 +151,10 @@ class AutoBackupHandler(ApiHandler):
             return self._delete(input.get("backup_id", ""))
         elif action == "download":
             return self._download(input.get("backup_id", ""))
+        elif action == "restore_from_upload":
+            return self._restore_from_upload(input, request)
 
-        return {"actions": ["status", "create", "list", "restore", "delete", "download"]}
+        return {"actions": ["status", "create", "list", "restore", "delete", "download", "restore_from_upload"]}
 
     def _status(self):
         """Quick status check."""
@@ -338,3 +340,65 @@ class AutoBackupHandler(ApiHandler):
             "path": zip_path,
             "filename": f"{backup_id}.zip"
         }
+
+    def _restore_from_upload(self, input: dict, request) -> dict:
+        """Restore from an uploaded ZIP backup file — no Docker commands needed.
+
+        User uploads a .zip file through the web UI → this extracts it
+        into /a0/usr/ and restores all data.
+        """
+        try:
+            # Check for uploaded file
+            if not hasattr(request, 'files') or 'backup_file' not in request.files:
+                return {"success": False, "error": "No backup file uploaded. Please select a .zip file."}
+
+            backup_file = request.files['backup_file']
+            if not backup_file or not backup_file.filename:
+                return {"success": False, "error": "No file selected."}
+
+            # Save uploaded file to temp location
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            upload_dir = os.path.join(BACKUPS_DIR, f"uploaded_{timestamp}")
+            os.makedirs(upload_dir, exist_ok=True)
+            upload_path = os.path.join(upload_dir, "backup.zip")
+            backup_file.save(upload_path)
+
+            # Verify it's a valid zip
+            if not zipfile.is_zipfile(upload_path):
+                shutil.rmtree(upload_dir, ignore_errors=True)
+                return {"success": False, "error": "File is not a valid ZIP archive."}
+
+            # Extract and restore
+            restored, errors = _restore_from_zip(upload_path, DATA_DIR)
+
+            # Save metadata
+            metadata = {
+                "backup_id": f"uploaded_{timestamp}",
+                "created_at": datetime.datetime.now().isoformat(),
+                "label": f"Uploaded: {backup_file.filename}",
+                "zip_size_mb": round(os.path.getsize(upload_path) / (1024 * 1024), 2),
+                "restored_files": restored,
+            }
+            with open(os.path.join(upload_dir, "metadata.json"), "w") as f:
+                json.dump(metadata, f, indent=2)
+            with open(os.path.join(upload_dir, BACKUP_MARKER), "w") as f:
+                f.write(datetime.datetime.now().isoformat())
+
+            if restored > 0:
+                return {
+                    "success": True,
+                    "backup_id": f"uploaded_{timestamp}",
+                    "restored_files": restored,
+                    "errors": errors[:5] if errors else [],
+                    "message": f"Backup restored: {restored} files extracted from {backup_file.filename}. Your data is back."
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"No files restored from {backup_file.filename}. The zip may not contain expected data.",
+                    "errors": errors[:5]
+                }
+
+        except Exception as e:
+            log.error(f"Upload restore failed: {e}")
+            return {"success": False, "error": str(e)}
