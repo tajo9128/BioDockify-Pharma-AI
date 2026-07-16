@@ -424,9 +424,14 @@ class Memory:
                 doc.metadata["timestamp"] = timestamp  # add timestamp
                 if not doc.metadata.get("area", ""):
                     doc.metadata["area"] = Memory.Area.MAIN.value
-                # Sanitize text: remove Unicode surrogates (\\ud800-\\udfff) that break UTF-8 encoding
-                if doc.text:
-                    doc.text = doc.text.encode("utf-8", errors="ignore").decode("utf-8")
+                # Sanitize text: remove Unicode surrogates that break UTF-8 encoding
+                # Langchain Document uses page_content (not .text)
+                try:
+                    content = doc.page_content
+                    if content:
+                        doc.page_content = content.encode("utf-8", errors="ignore").decode("utf-8")
+                except (AttributeError, Exception):
+                    pass  # If page_content doesn't exist, skip sanitization
 
             await self.db.aadd_documents(documents=docs, ids=ids)
             self._save_db()  # persist
