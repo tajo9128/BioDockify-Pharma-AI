@@ -55,7 +55,10 @@ def _save_index(index):
 
 
 def _store_entry(category: str, title: str, content: str, tags: str = "", source: str = "", metadata: dict = None):
-    """Store an entry in the knowledge base with category."""
+    """Store an entry in the knowledge base with category.
+    
+    Every entry is saved as BOTH a .md (fast reading) and a .docx (downloadable/podcast/review).
+    """
     cat_dir = os.path.join(KB_DIR, category)
     os.makedirs(cat_dir, exist_ok=True)
 
@@ -64,8 +67,9 @@ def _store_entry(category: str, title: str, content: str, tags: str = "", source
     if not safe_title:
         safe_title = f"entry_{int(time.time())}"
     filepath = os.path.join(cat_dir, f"{safe_title}.md")
+    docx_path = os.path.join(cat_dir, f"{safe_title}.docx")
 
-    # Write content
+    # Write .md (fast read format)
     with open(filepath, "w", encoding="utf-8") as f:
         f.write(f"# {title}\n\n")
         if tags:
@@ -73,6 +77,12 @@ def _store_entry(category: str, title: str, content: str, tags: str = "", source
         if source:
             f.write(f"**Source:** {source}\n\n")
         f.write(content)
+
+    # Generate .docx (downloadable document format)
+    try:
+        _generate_docx(title, content, tags, source, docx_path)
+    except Exception:
+        docx_path = None  # .docx generation failed — .md still works
 
     # Update index
     index = _load_index()
@@ -84,6 +94,7 @@ def _store_entry(category: str, title: str, content: str, tags: str = "", source
         "tags": tags.split(",") if tags else [],
         "source": source,
         "file": filepath,
+        "docx_file": docx_path,  # downloadable .docx
         "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "size": len(content),
     }
@@ -107,6 +118,77 @@ def _store_entry(category: str, title: str, content: str, tags: str = "", source
         log.debug(f"Vector indexing skipped: {e}")
 
     return entry
+
+
+def _generate_docx(title: str, content: str, tags: str, source: str, docx_path: str):
+    """Generate a proper .docx file from markdown content."""
+    from docx import Document
+    from docx.shared import Pt, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    doc = Document()
+
+    # Title
+    p = doc.add_heading(title, level=1)
+    p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+
+    # Metadata line
+    meta_parts = []
+    if source:
+        meta_parts.append(f"Source: {source}")
+    if tags:
+        meta_parts.append(f"Tags: {tags}")
+    if meta_parts:
+        p = doc.add_paragraph()
+        run = p.add_run("  |  ".join(meta_parts))
+        run.font.size = Pt(9)
+        run.font.color.rgb = RGBColor(128, 128, 128)
+
+    doc.add_paragraph()  # spacer
+
+    # Content — convert markdown to docx paragraphs
+    lines = content.split("\n")
+    in_list = False
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            doc.add_paragraph()
+            in_list = False
+            continue
+
+        # Headings
+        if stripped.startswith("## "):
+            doc.add_heading(stripped[3:], level=2)
+            in_list = False
+        elif stripped.startswith("### "):
+            doc.add_heading(stripped[4:], level=3)
+            in_list = False
+        elif stripped.startswith("#### "):
+            doc.add_heading(stripped[5:], level=4)
+            in_list = False
+        elif stripped.startswith("# "):
+            doc.add_heading(stripped[2:], level=1)
+            in_list = False
+        # Bold lines
+        elif stripped.startswith("**") and stripped.endswith("**"):
+            p = doc.add_paragraph()
+            run = p.add_run(stripped.strip("*"))
+            run.bold = True
+            in_list = False
+        # List items
+        elif stripped.startswith("- ") or stripped.startswith("* "):
+            p = doc.add_paragraph(stripped[2:], style="List Bullet")
+            in_list = True
+        # Numbered items
+        elif len(stripped) > 2 and stripped[0].isdigit() and stripped[1] in (".", ")"):
+            p = doc.add_paragraph(stripped[3:] if len(stripped) > 3 else stripped[2:], style="List Number")
+            in_list = True
+        # Regular paragraph
+        else:
+            doc.add_paragraph(stripped)
+            in_list = False
+
+    doc.save(docx_path)
 
 
 def _store_docx_entry(category: str, title: str, docx_bytes: bytes, tags: str = "", source: str = "", metadata: dict = None, serial_num: int = 0):
