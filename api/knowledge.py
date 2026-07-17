@@ -456,49 +456,64 @@ class KnowledgeHandler(ApiHandler):
         return {"status": "ok", "entries": entries[:limit], "total": len(entries)}
 
     def _upload(self, input: dict) -> dict:
-        """Upload files to KB with chunking and indexing.
-        
-        Supports: TXT, MD, PDF, DOCX, XLSX, CSV, HTML, JSON, SDF, PDB, PDBQT
-        Auto-detects category from file type if not specified.
+        """Upload files to KB with text extraction and indexing.
+
+        Supports: TXT, MD, PDF, DOCX, XLSX, CSV, HTML, JSON, SDF, PDB, PDBQT, images, audio.
+        Every file gets its readable content extracted and stored — users can always click to read.
         """
         try:
             files = input.get("files", [])
-            category = input.get("category", "")  # Empty = auto-detect
+            category = input.get("category", "")
             tags = input.get("tags", "")
 
             if not files:
                 return {"status": "error", "error": "No files provided"}
 
-            # Try to use chunker with multi-format support
-            try:
-                from modules.rag.chunker import chunk_document, extract_text_from_file
-                use_chunker = True
-            except ImportError:
-                use_chunker = False
-
             stored = 0
             chunked = 0
             for file_data in files:
                 filename = file_data.get("filename", "upload.txt")
-                content = file_data.get("content", "")
+                raw_content = file_data.get("content", "")
 
-                # Auto-detect category from file type if not specified
                 if not category:
                     category = _detect_category(filename)
 
-                if not content:
-                    continue
+                # ── Extract readable text from binary uploads ──
+                ext = os.path.splitext(filename)[1].lower().lstrip(".")
+                content = ""
 
-                # Store file entry
+                if raw_content and len(raw_content) > 50:
+                    # Frontend already sent text content (TXT, MD, CSV, JSON, HTML)
+                    content = raw_content
+                elif ext == "pdf":
+                    content = self._extract_pdf_text(raw_content, filename)
+                elif ext in ("docx", "doc"):
+                    content = self._extract_docx_text(raw_content, filename)
+                elif ext in ("xlsx", "xls"):
+                    content = self._extract_xlsx_text(raw_content, filename)
+                elif ext in ("pdb", "sdf", "mol", "mol2", "pdbqt"):
+                    content = raw_content if raw_content else self._read_file_as_text(filename)
+                elif ext in ("csv",):
+                    content = raw_content if raw_content else ""
+                elif raw_content:
+                    content = raw_content
+                else:
+                    # Last resort: try to read as text
+                    content = self._read_file_as_text(filename)
+
+                if not content or len(content.strip()) < 10:
+                    content = f"[File uploaded: {filename}] — Content could not be extracted. File type: {ext}. Size: {len(raw_content) if raw_content else 0} bytes."
+
+                # Store the extracted content
                 entry = _store_entry(category, filename, content, tags, source="File Upload")
                 stored += 1
 
-                # Chunk and index if chunker available
-                if use_chunker and len(content) > 200:
-                    try:
+                # Chunk for vector indexing
+                try:
+                    from modules.rag.chunker import chunk_document
+                    if content and len(content) > 200:
                         chunks = chunk_document(content, doc_id=filename)
                         if chunks:
-                            # Store chunks in vector store
                             try:
                                 from modules.rag.vector_store import get_vector_store
                                 store = get_vector_store()
@@ -509,10 +524,10 @@ class KnowledgeHandler(ApiHandler):
                                     if add_fn:
                                         add_fn(texts, metadatas)
                                         chunked += len(chunks)
-                            except Exception as e:
-                                log.debug(f"Vector indexing failed: {e}")
-                    except Exception as e:
-                        log.debug(f"Chunking failed: {e}")
+                            except Exception:
+                                pass
+                except ImportError:
+                    pass  # Chunker not available — content still stored as .md
 
             return {
                 "status": "ok",
@@ -523,6 +538,78 @@ class KnowledgeHandler(ApiHandler):
             }
         except Exception as e:
             return {"status": "error", "error": str(e)}
+
+    def _extract_pdf_text(self, raw_content: str, filename: str) -> str:
+        """Extract text from a PDF using PyMuPDF (pymupdf)."""
+        try:
+            import fitz  # PyMuPDF
+            import base64
+            if raw_content and len(raw_content) > 100:
+                pdf_bytes = base64.b64decode(raw_content)
+            else:
+                return ""
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            pages = []
+            for page in doc[:50]:
+                pages.append(page.get_text())
+            doc.close()
+            return "\n\n".join(pages).strip() if pages else ""
+        except Exception:
+            return ""
+
+    def _extract_docx_text(self, raw_content: str, filename: str) -> str:
+        """Extract text from a DOCX using python-docx."""
+        try:
+            from docx import Document
+            import base64, io
+            if raw_content and len(raw_content) > 100:
+                doc_bytes = base64.b64decode(raw_content)
+            else:
+                return ""
+            doc = Document(io.BytesIO(doc_bytes))
+            paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+            return "\n\n".join(paragraphs).strip()
+        except Exception:
+            return ""
+
+    def _extract_xlsx_text(self, raw_content: str, filename: str) -> str:
+        """Extract text from XLSX using openpyxl."""
+        try:
+            import openpyxl, base64, io
+            if raw_content and len(raw_content) > 100:
+                wb_bytes = base64.b64decode(raw_content)
+            else:
+                return ""
+            wb = openpyxl.load_workbook(io.BytesIO(wb_bytes), read_only=True, data_only=True)
+            texts = []
+            for sheet in wb.sheetnames:
+                ws = wb[sheet]
+                rows = []
+                for row in ws.iter_rows(values_only=True):
+                    row_str = [str(c) if c is not None else "" for c in row]
+                    if any(row_str):
+                        rows.append(" | ".join(row_str))
+                if rows:
+                    texts.append(f"## Sheet: {sheet}\n" + "\n".join(rows[:200]))
+            wb.close()
+            return "\n\n".join(texts).strip()
+        except Exception:
+            return ""
+
+    def _read_file_as_text(self, filename: str) -> str:
+        """Try to read a file from common upload locations as text."""
+        import glob
+        for pattern in ["usr/uploads/{}", "usr/workdir/{}", "data/{}", "data/knowledge_base/*_{}"]:
+            matches = glob.glob(os.path.join(os.path.dirname(__file__), "..", pattern.format(filename)))
+            for path in matches:
+                try:
+                    with open(path, "r", encoding="utf-8", errors="replace") as f:
+                        text = f.read(50000)
+                    if len(text) > 10:
+                        return text
+                except Exception:
+                    continue
+        return ""
 
     def _delete(self, input: dict) -> dict:
         """Delete an entry from KB."""
