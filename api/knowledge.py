@@ -271,6 +271,10 @@ class KnowledgeHandler(ApiHandler):
             return self._download_docx(input)
         elif action == "delete_entry":
             return self._delete(input)
+        elif action == "list_all":
+            return self._list_all(input)
+        elif action == "read_entry":
+            return self._read_entry(input)
 
         return {"status": "error", "error": f"Unknown action: {action}"}
 
@@ -527,6 +531,72 @@ class KnowledgeHandler(ApiHandler):
             return {"status": "error", "error": "No entry id provided"}
         ok = _delete_entry(entry_id)
         return {"status": "ok", "deleted": ok} if ok else {"status": "error", "error": "Entry not found"}
+
+    def _list_all(self, input: dict) -> dict:
+        """List ALL KB entries with metadata — no search required.
+        Every entry enriched with source module label and upload type."""
+        try:
+            index = _load_index()
+            entries = index.get("entries", [])
+
+            # Source module label map
+            SOURCE_LABELS = {
+                "docking_run": ("🧬", "Docking"), "docking_analysis": ("🧬", "Docking Analysis"),
+                "docking_mmgbsa": ("🧬", "MM-GBSA"), "literature_search": ("📚", "Literature Search"),
+                "deep_research": ("🔍", "Deep Research"), "qsar3d": ("📊", "3D-QSAR"),
+                "pharmacophore": ("💊", "Pharmacophore"), "drug_analysis": ("💊", "Drug Analysis"),
+                "admet_predict": ("💊", "ADMET"), "statistics": ("📈", "Statistics"),
+                "md_lite": ("⚗️", "MD Simulation"), "faculty": ("🎓", "Faculty"),
+                "notes": ("📝", "Notes"), "upload": ("📁", "User Upload"),
+            }
+
+            for entry in entries:
+                src = entry.get("source", "") or entry.get("module", "") or ""
+                entry["source_module"] = src
+                icon, label = SOURCE_LABELS.get(src, ("📄", src or "Knowledge Base"))
+                entry["source_icon"] = icon
+                entry["source_label"] = label
+                entry["uploaded_by"] = "auto-store" if src and src != "upload" else "user-upload"
+
+            entries.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+            return {
+                "status": "ok",
+                "entries": entries,
+                "total": len(entries),
+                "categories": index.get("categories", {}),
+            }
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    def _read_entry(self, input: dict) -> dict:
+        """Read full content of a single KB entry."""
+        filepath = input.get("file", "")
+        entry_id = input.get("entry_id", "")
+
+        # If we have a file path, read it directly
+        if filepath and os.path.exists(filepath):
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    content = f.read()
+                return {"status": "ok", "content": content, "file": filepath}
+            except Exception as e:
+                return {"status": "error", "error": f"Failed to read file: {e}"}
+
+        # Otherwise find by entry_id in the index
+        index = _load_index()
+        for entry in index.get("entries", []):
+            if entry.get("id") == entry_id or entry.get("file") == entry_id:
+                filepath = entry.get("file", "")
+                if filepath and os.path.exists(filepath):
+                    try:
+                        with open(filepath, "r", encoding="utf-8") as f:
+                            content = f.read()
+                        return {"status": "ok", "content": content, "file": filepath, "entry": entry}
+                    except Exception as e:
+                        return {"status": "error", "error": f"Failed to read file: {e}"}
+
+        return {"status": "error", "error": "Entry not found or file missing"}
 
     def _graph(self, input: dict) -> dict:
         """Build knowledge graph from KB entries."""

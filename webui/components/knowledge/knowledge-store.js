@@ -52,6 +52,10 @@ export const store = createStore("knowledgeModal", {
   showAddCategory: false,
   newCategoryName: "",
 
+  // Source/time filters
+  recentFilter: "all",    // "all" | "7d" | "30d"
+  sourceFilter: "all",    // "all" or a source module name
+
   _restored: false,
 
   // Detect if an entry contains a paper/document collection
@@ -287,6 +291,45 @@ export const store = createStore("knowledgeModal", {
   },
 
   get entryCount() { return this.entries.length; },
+
+  get filteredBySource() {
+    let list = this.categoryFilteredEntries;
+    // Apply recent filter
+    if (this.recentFilter === "7d") {
+      const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      list = list.filter(e => {
+        const d = new Date(e.createdAt || 0).getTime();
+        return d >= cutoff;
+      });
+    } else if (this.recentFilter === "30d") {
+      const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      list = list.filter(e => {
+        const d = new Date(e.createdAt || 0).getTime();
+        return d >= cutoff;
+      });
+    }
+    // Apply source filter
+    if (this.sourceFilter && this.sourceFilter !== "all") {
+      list = list.filter(e => (e.source || e.source_module || "").includes(this.sourceFilter));
+    }
+    return list;
+  },
+
+  relativeTime(dateStr) {
+    if (!dateStr) return "";
+    const now = Date.now();
+    const then = new Date(dateStr).getTime();
+    const diff = now - then;
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return mins + "m ago";
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + "h ago";
+    const days = Math.floor(hrs / 24);
+    if (days < 30) return days + "d ago";
+    const months = Math.floor(days / 30);
+    return months + "mo ago";
+  },
 
   async search() {
     if (!this.searchQuery.trim()) return;

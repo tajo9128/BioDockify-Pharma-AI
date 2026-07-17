@@ -111,19 +111,42 @@
 
           <!-- File Grid -->
           <div class="kb-file-area">
+            <!-- Filter bar -->
+            <div class="kb-filter-bar" x-show="$store.knowledgeModal.entryCount > 0">
+              <div class="kb-filter-group">
+                <button class="kb-filter-chip" :class="{active: $store.knowledgeModal.recentFilter==='all'}" @click="$store.knowledgeModal.recentFilter='all'">All</button>
+                <button class="kb-filter-chip" :class="{active: $store.knowledgeModal.recentFilter==='7d'}" @click="$store.knowledgeModal.recentFilter='7d'">Last 7 days</button>
+                <button class="kb-filter-chip" :class="{active: $store.knowledgeModal.recentFilter==='30d'}" @click="$store.knowledgeModal.recentFilter='30d'">Last 30 days</button>
+              </div>
+              <select class="kb-source-select" x-model="$store.knowledgeModal.sourceFilter" @change="">
+                <option value="all">All Sources</option>
+                <option value="literature_search">📚 Literature Search</option>
+                <option value="deep_research">🔍 Deep Research</option>
+                <option value="docking">🧬 Docking</option>
+                <option value="qsar">📊 QSAR</option>
+                <option value="pharmacophore">💊 Pharmacophore</option>
+                <option value="drug_analysis">💊 Drug Analysis</option>
+                <option value="statistics">📈 Statistics</option>
+                <option value="md_lite">⚗️ MD Simulation</option>
+                <option value="faculty">🎓 Faculty</option>
+                <option value="upload">📁 User Upload</option>
+              </select>
+            </div>
+
             <!-- Empty state -->
-            <div x-show="!$store.knowledgeModal.loading && $store.knowledgeModal.entryCount === 0" class="kb-empty">
+            <div x-show="!$store.knowledgeModal.loading && $store.knowledgeModal.filteredBySource.length === 0" class="kb-empty">
               <span class="material-symbols-outlined" style="font-size:40px;opacity:0.2">folder_open</span>
-              <p>No files saved yet.</p>
-              <button class="kb-btn-upload-big" @click="$store.knowledgeModal.triggerUploadRestore()">
+              <p x-show="$store.knowledgeModal.entryCount === 0">No files saved yet.</p>
+              <p x-show="$store.knowledgeModal.entryCount > 0">No files match your filter. Try "All" to see everything.</p>
+              <button class="kb-btn-upload-big" @click="$store.knowledgeModal.triggerUploadRestore()" x-show="$store.knowledgeModal.entryCount === 0">
                 <span class="material-symbols-outlined">upload_file</span> Upload Files
               </button>
-              <p style="font-size:0.55rem;margin-top:8px;color:var(--color-text-muted)">Supports: PDF, DOCX, XLSX, CSV, PPT, SDF, PDB, TXT, MD, JSON, images, audio</p>
+              <p style="font-size:0.55rem;margin-top:8px;color:var(--color-text-muted)" x-show="$store.knowledgeModal.entryCount === 0">Supports: PDF, DOCX, XLSX, CSV, PPT, SDF, PDB, TXT, MD, JSON, images, audio</p>
             </div>
 
             <!-- File Grid -->
-            <div class="kb-file-grid" x-show="!$store.knowledgeModal.loading && $store.knowledgeModal.entryCount > 0">
-              <template x-for="(entry, idx) in $store.knowledgeModal.categoryFilteredEntries" :key="entry.id || idx">
+            <div class="kb-file-grid" x-show="!$store.knowledgeModal.loading && $store.knowledgeModal.filteredBySource.length > 0">
+              <template x-for="(entry, idx) in $store.knowledgeModal.filteredBySource" :key="entry.id || idx">
                 <div class="kb-file-card" :class="{selected: $store.knowledgeModal.isSelected(entry.id)}">
                   <!-- Checkbox -->
                   <label class="kb-checkbox" @click.stop="$store.knowledgeModal.toggleSelection(entry.id)">
@@ -131,15 +154,15 @@
                   </label>
                   <!-- File icon -->
                   <span class="kb-file-card-icon" @click="$store.knowledgeModal.readEntry(entry)">
-                    <span class="material-symbols-outlined" style="font-size:28px" x-text="entry.source && entry.source.includes('Literature') || (entry.tags||[]).includes('literature') ? 'article' : (entry.tags||[]).includes('notes') ? 'note' : (entry.tags||[]).includes('docking') ? 'science' : 'description'"></span>
+                    <span class="material-symbols-outlined" style="font-size:28px" x-text="entry.source_icon || 'description'"></span>
                   </span>
                   <!-- File info -->
                   <div class="kb-file-card-info" @click="$store.knowledgeModal.readEntry(entry)">
                     <div class="kb-file-card-name" x-text="entry.question || entry.title || 'Untitled'"></div>
                     <div class="kb-file-card-meta">
-                      <span x-text="entry.source || 'Knowledge Base'"></span>
+                      <span class="kb-source-badge" x-text="(entry.source_icon||'') + ' ' + (entry.source_label || entry.source || 'Knowledge Base')"></span>
                       <span x-show="entry.contentLength" x-text="entry.contentLength > 1000 ? Math.round(entry.contentLength/1000)+'KB' : (entry.contentLength||0)+'B'"></span>
-                      <span x-text="(entry.createdAt||'').substring(0,10)"></span>
+                      <span class="kb-time-ago" x-text="$store.knowledgeModal.relativeTime(entry.createdAt)"></span>
                     </div>
                     <div class="kb-file-card-tags">
                       <template x-for="tag in (entry.tags||[]).slice(0,3)" :key="tag">
@@ -210,6 +233,14 @@
       .kb-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;color:var(--color-text-muted);text-align:center;height:100%}
       .kb-empty p{font-size:0.7rem;margin:4px 0}
       .kb-btn-upload-big{display:flex;align-items:center;gap:6px;margin-top:12px;padding:10px 20px;background:var(--color-primary);border:none;border-radius:8px;color:white;font-size:0.7rem;cursor:pointer}
+      .kb-filter-bar{display:flex;align-items:center;gap:8px;padding:8px 0;margin-bottom:8px;flex-wrap:wrap}
+      .kb-filter-group{display:flex;gap:4px}
+      .kb-filter-chip{padding:4px 10px;border:1px solid var(--color-border);background:var(--color-panel);color:var(--color-text-muted);font-size:0.58rem;cursor:pointer;border-radius:12px}
+      .kb-filter-chip.active{background:var(--color-primary);color:white;border-color:var(--color-primary)}
+      .kb-filter-chip:hover{border-color:var(--color-primary)}
+      .kb-source-select{padding:4px 8px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-panel);color:var(--color-text);font-size:0.58rem;cursor:pointer}
+      .kb-source-badge{font-size:0.52rem;padding:1px 6px;background:color-mix(in srgb,var(--color-primary)6%,transparent);border-radius:3px;color:var(--color-primary);font-weight:500;white-space:nowrap}
+      .kb-time-ago{font-size:0.52rem;color:var(--color-text-muted);white-space:nowrap}
       .kb-file-grid{display:flex;flex-direction:column;gap:4px}
       .kb-file-card{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;transition:all 0.15s;position:relative}
       .kb-file-card:hover{border-color:var(--color-primary)}
