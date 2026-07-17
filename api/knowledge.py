@@ -357,6 +357,31 @@ class KnowledgeHandler(ApiHandler):
             return self._list_all(input)
         elif action == "read_entry":
             return self._read_entry(input)
+        # ── Notebook LM features ──
+        elif action == "create_notebook":
+            return self._create_notebook(input)
+        elif action == "list_notebooks":
+            return self._list_notebooks()
+        elif action == "delete_notebook":
+            return self._delete_notebook(input)
+        elif action == "add_source_to_notebook":
+            return self._add_source_to_notebook(input)
+        elif action == "remove_source_from_notebook":
+            return self._remove_source_from_notebook(input)
+        elif action == "add_note":
+            return self._add_note(input)
+        elif action == "list_notes":
+            return self._list_notes(input)
+        elif action == "delete_note":
+            return self._delete_note(input)
+        elif action == "create_transformation":
+            return self._create_transformation(input)
+        elif action == "list_transformations":
+            return self._list_transformations()
+        elif action == "run_transformation":
+            return self._run_transformation(input)
+        elif action == "generate_podcast":
+            return self._generate_podcast(input)
 
         return {"status": "error", "error": f"Unknown action: {action}"}
 
@@ -818,3 +843,215 @@ class KnowledgeHandler(ApiHandler):
                 "Content-Length": str(len(content)),
             },
         )
+
+    # ═══════════════════════════════════════════════════════════════
+    # Notebook LM Features — Notebooks, Notes, Transformations, Podcast
+    # ═══════════════════════════════════════════════════════════════
+
+    def _load_notebooks(self):
+        path = os.path.join(KB_DIR, "notebooks.json")
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return {"notebooks": [], "transformations": []}
+
+    def _save_notebooks(self, data):
+        os.makedirs(KB_DIR, exist_ok=True)
+        with open(os.path.join(KB_DIR, "notebooks.json"), "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False, default=str)
+
+    def _create_notebook(self, input: dict) -> dict:
+        name = input.get("name", "").strip()
+        description = input.get("description", "")
+        if not name:
+            return {"status": "error", "error": "Name required"}
+        data = self._load_notebooks()
+        nb_id = f"nb_{int(time.time())}_{len(data['notebooks'])}"
+        notebook = {
+            "id": nb_id, "name": name, "description": description,
+            "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "sources": [], "notes": []
+        }
+        data["notebooks"].append(notebook)
+        self._save_notebooks(data)
+        return {"status": "ok", "notebook": notebook}
+
+    def _list_notebooks(self) -> dict:
+        data = self._load_notebooks()
+        return {"status": "ok", "notebooks": data.get("notebooks", [])}
+
+    def _delete_notebook(self, input: dict) -> dict:
+        nb_id = input.get("notebook_id", "")
+        data = self._load_notebooks()
+        data["notebooks"] = [n for n in data["notebooks"] if n["id"] != nb_id]
+        self._save_notebooks(data)
+        return {"status": "ok", "deleted": nb_id}
+
+    def _add_source_to_notebook(self, input: dict) -> dict:
+        nb_id = input.get("notebook_id", "")
+        entry_id = input.get("entry_id", "")
+        context_level = input.get("context_level", "full")  # full | summary | off
+        data = self._load_notebooks()
+        for nb in data["notebooks"]:
+            if nb["id"] == nb_id:
+                source = {"entry_id": entry_id, "context_level": context_level,
+                          "added_at": time.strftime("%Y-%m-%d %H:%M:%S")}
+                nb.setdefault("sources", []).append(source)
+                self._save_notebooks(data)
+                return {"status": "ok", "source": source}
+        return {"status": "error", "error": "Notebook not found"}
+
+    def _remove_source_from_notebook(self, input: dict) -> dict:
+        nb_id = input.get("notebook_id", "")
+        entry_id = input.get("entry_id", "")
+        data = self._load_notebooks()
+        for nb in data["notebooks"]:
+            if nb["id"] == nb_id:
+                nb["sources"] = [s for s in nb.get("sources", []) if s.get("entry_id") != entry_id]
+                self._save_notebooks(data)
+                return {"status": "ok"}
+        return {"status": "error", "error": "Notebook not found"}
+
+    def _add_note(self, input: dict) -> dict:
+        nb_id = input.get("notebook_id", "")
+        content = input.get("content", "").strip()
+        author = input.get("author", "manual")  # manual | ai
+        if not nb_id or not content:
+            return {"status": "error", "error": "Notebook ID and content required"}
+        data = self._load_notebooks()
+        for nb in data["notebooks"]:
+            if nb["id"] == nb_id:
+                note = {
+                    "id": f"note_{int(time.time())}",
+                    "content": content, "author": author,
+                    "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+                }
+                nb.setdefault("notes", []).append(note)
+                self._save_notebooks(data)
+                return {"status": "ok", "note": note}
+        return {"status": "error", "error": "Notebook not found"}
+
+    def _list_notes(self, input: dict) -> dict:
+        nb_id = input.get("notebook_id", "")
+        data = self._load_notebooks()
+        for nb in data["notebooks"]:
+            if nb["id"] == nb_id:
+                return {"status": "ok", "notes": nb.get("notes", [])}
+        return {"status": "error", "error": "Notebook not found"}
+
+    def _delete_note(self, input: dict) -> dict:
+        note_id = input.get("note_id", "")
+        nb_id = input.get("notebook_id", "")
+        data = self._load_notebooks()
+        for nb in data["notebooks"]:
+            if nb["id"] == nb_id:
+                nb["notes"] = [n for n in nb.get("notes", []) if n.get("id") != note_id]
+                self._save_notebooks(data)
+                return {"status": "ok"}
+        return {"status": "error", "error": "Notebook not found"}
+
+    def _create_transformation(self, input: dict) -> dict:
+        name = input.get("name", "").strip()
+        prompt = input.get("prompt_template", "").strip()
+        if not name or not prompt:
+            return {"status": "error", "error": "Name and prompt template required"}
+        data = self._load_notebooks()
+        tf = {
+            "id": f"tf_{int(time.time())}",
+            "name": name, "prompt_template": prompt,
+            "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        data.setdefault("transformations", []).append(tf)
+        self._save_notebooks(data)
+        return {"status": "ok", "transformation": tf}
+
+    def _list_transformations(self) -> dict:
+        data = self._load_notebooks()
+        return {"status": "ok", "transformations": data.get("transformations", [])}
+
+    def _run_transformation(self, input: dict) -> dict:
+        """Apply a transformation to a KB entry. Returns the prompt for Agent Zero to process."""
+        tf_id = input.get("transformation_id", "")
+        entry_id = input.get("entry_id", "")
+        nb_id = input.get("notebook_id", "")
+        data = self._load_notebooks()
+        tf = None
+        for t in data.get("transformations", []):
+            if t["id"] == tf_id:
+                tf = t
+                break
+        if not tf:
+            return {"status": "error", "error": "Transformation not found"}
+        # Find the entry content
+        index = _load_index()
+        entry_content = ""
+        entry_title = ""
+        for e in index.get("entries", []):
+            if e.get("id") == entry_id:
+                filepath = e.get("file", "")
+                if filepath and os.path.exists(filepath):
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        entry_content = f.read(20000)
+                entry_title = e.get("title", "")
+                break
+        if not entry_content:
+            return {"status": "error", "error": "Entry not found or empty"}
+        # Build the prompt
+        prompt = tf["prompt_template"].replace("{content}", entry_content[:15000]).replace("{title}", entry_title)
+        return {"status": "ok", "prompt": prompt, "transformation_name": tf["name"],
+                "instruction": "Send this prompt to the agent to generate an AI note. The result will be saved as a note in the notebook."}
+
+    def _generate_podcast(self, input: dict) -> dict:
+        """Build podcast generation prompt from notebook sources."""
+        nb_id = input.get("notebook_id", "")
+        speakers = input.get("speakers", [{"name": "Host", "persona": "Research host"},
+                                           {"name": "Expert", "persona": "Domain expert"}])
+        topic = input.get("topic", "")
+        format_type = input.get("format", "interview")  # interview | discussion | lecture
+        tone = input.get("tone", "professional")
+        length = input.get("length", "medium")  # short | medium | long
+
+        # Gather source content
+        data = self._load_notebooks()
+        source_text = ""
+        for nb in data.get("notebooks", []):
+            if nb["id"] == nb_id:
+                index = _load_index()
+                for src in nb.get("sources", [])[:10]:
+                    for e in index.get("entries", []):
+                        if e.get("id") == src.get("entry_id"):
+                            filepath = e.get("file", "")
+                            if filepath and os.path.exists(filepath):
+                                with open(filepath, "r", encoding="utf-8") as f:
+                                    content = f.read(3000)
+                                source_text += f"\n\n--- {e.get('title', 'Source')} ---\n{content}"
+                break
+
+        if not source_text.strip():
+            return {"status": "error", "error": "No sources in notebook. Add sources first."}
+
+        # Build podcast prompt
+        speaker_desc = ", ".join([f"{s['name']} ({s['persona']})" for s in speakers])
+        length_map = {"short": "5-10 minutes", "medium": "15-20 minutes", "long": "25-35 minutes"}
+
+        prompt = (
+            f"Generate a {format_type} podcast script with {speaker_desc}.\n\n"
+            f"Topic: {topic or 'Based on the research sources below'}\n"
+            f"Tone: {tone}\n"
+            f"Length: {length_map.get(length, '15-20 minutes')}\n\n"
+            f"Sources:\n{source_text[:12000]}\n\n"
+            "Format the script as a dialogue between speakers. "
+            "Each line should start with the speaker name followed by colon. "
+            "Include an introduction, main discussion, and conclusion."
+        )
+
+        return {
+            "status": "ok",
+            "prompt": prompt,
+            "speakers": speakers,
+            "source_count": source_text.count("---"),
+            "instruction": "Send this prompt to the agent to generate the podcast script. Use the Podcast tab in Knowledge Base for TTS generation.",
+        }

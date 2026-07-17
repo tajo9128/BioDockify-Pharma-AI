@@ -928,6 +928,334 @@ export const store = createStore("knowledgeModal", {
     this.clearSelection();
     await this.loadAllEntries();
   },
+
+  // ═══════════════════════════════════════════════════════════════
+  // NOTEBOOK LM — Notebooks, Sources, Notes, Transformations, Podcast
+  // ═══════════════════════════════════════════════════════════════
+
+  // Notebook state
+  notebooks: [],
+  activeNotebookId: null,
+  notebookSources: [],
+  notebookNotes: [],
+  showNotebooks: false,  // toggle between file list and notebook view
+
+  // Transformations
+  transformations: [],
+  showTransformations: false,
+
+  // Podcast (enhanced — from notebook)
+  podcastTopic: "",
+  podcastFormat: "interview",
+  podcastTone: "professional",
+  podcastLength: "medium",
+  podcastSpeakers: [
+    { name: "Host", persona: "Research host" },
+    { name: "Expert", persona: "Domain expert" },
+  ],
+  podcastPrompt: "",  // generated prompt to send to agent
+
+  // Chat in notebook
+  nbChatMessages: [],
+  nbChatInput: "",
+  nbChatLoading: false,
+
+  // Load all notebooks
+  async loadNotebooks() {
+    try {
+      const r = await callJsonApi("knowledge", { action: "list_notebooks" });
+      if (r.status === "ok") {
+        this.notebooks = r.notebooks || [];
+      }
+    } catch (e) {
+      console.error("loadNotebooks failed:", e);
+    }
+  },
+
+  // Create a new notebook
+  async createNotebook(name, description) {
+    if (!name?.trim()) return;
+    try {
+      const r = await callJsonApi("knowledge", {
+        action: "create_notebook",
+        name: name.trim(),
+        description: description || "",
+      });
+      if (r.status === "ok" && r.notebook) {
+        this.notebooks.push(r.notebook);
+        this.activeNotebookId = r.notebook.id;
+        this.message = "Notebook created";
+        setTimeout(() => { this.message = ""; }, 2000);
+        return r.notebook;
+      } else {
+        this.error = r.error || "Failed to create notebook";
+      }
+    } catch (e) {
+      this.error = "Create notebook failed: " + e.message;
+    }
+  },
+
+  // Delete a notebook
+  async deleteNotebook(nbId) {
+    try {
+      await callJsonApi("knowledge", { action: "delete_notebook", notebook_id: nbId });
+      this.notebooks = this.notebooks.filter(n => n.id !== nbId);
+      if (this.activeNotebookId === nbId) {
+        this.activeNotebookId = null;
+        this.notebookSources = [];
+        this.notebookNotes = [];
+      }
+      this.message = "Notebook deleted";
+      setTimeout(() => { this.message = ""; }, 2000);
+    } catch (e) {
+      this.error = "Delete failed: " + e.message;
+    }
+  },
+
+  // Open a notebook — loads sources and notes
+  async openNotebook(nbId) {
+    this.activeNotebookId = nbId;
+    this.showNotebooks = true;
+    await this.loadNotebookSources(nbId);
+    await this.loadNotebookNotes(nbId);
+  },
+
+  // Get active notebook object
+  get activeNotebook() {
+    return this.notebooks.find(n => n.id === this.activeNotebookId) || null;
+  },
+
+  // Add a KB source to the active notebook
+  async addSourceToNotebook(entryId, contextLevel) {
+    if (!this.activeNotebookId) return;
+    try {
+      const r = await callJsonApi("knowledge", {
+        action: "add_source_to_notebook",
+        notebook_id: this.activeNotebookId,
+        entry_id: entryId,
+        context_level: contextLevel || "full",
+      });
+      if (r.status === "ok") {
+        await this.loadNotebookSources(this.activeNotebookId);
+        this.message = "Source added to notebook";
+        setTimeout(() => { this.message = ""; }, 2000);
+      }
+    } catch (e) {
+      this.error = "Add source failed: " + e.message;
+    }
+  },
+
+  // Remove a source from the active notebook
+  async removeSourceFromNotebook(entryId) {
+    if (!this.activeNotebookId) return;
+    try {
+      await callJsonApi("knowledge", {
+        action: "remove_source_from_notebook",
+        notebook_id: this.activeNotebookId,
+        entry_id: entryId,
+      });
+      this.notebookSources = this.notebookSources.filter(s => s.entry_id !== entryId);
+      this.message = "Source removed";
+      setTimeout(() => { this.message = ""; }, 2000);
+    } catch (e) {
+      this.error = "Remove source failed: " + e.message;
+    }
+  },
+
+  // Load sources for a notebook
+  async loadNotebookSources(nbId) {
+    // Sources are embedded in the notebook object
+    const nb = this.notebooks.find(n => n.id === (nbId || this.activeNotebookId));
+    if (!nb) { this.notebookSources = []; return; }
+    // Resolve source entries from the main entries list
+    const sources = nb.sources || [];
+    this.notebookSources = sources.map(s => {
+      const entry = this.entries.find(e => e.id === s.entry_id || e.id == s.entry_id);
+      return {
+        ...s,
+        title: entry?.question || entry?.title || s.entry_id,
+        source: entry?.source || "",
+        category: (entry?.tags || [])[0] || "",
+        file: entry?.file || "",
+      };
+    });
+  },
+
+  // Add a note to the active notebook
+  async addNotebookNote(content, author) {
+    if (!this.activeNotebookId || !content?.trim()) return;
+    try {
+      const r = await callJsonApi("knowledge", {
+        action: "add_note",
+        notebook_id: this.activeNotebookId,
+        content: content.trim(),
+        author: author || "manual",
+      });
+      if (r.status === "ok" && r.note) {
+        this.notebookNotes.push(r.note);
+        this.message = "Note added";
+        setTimeout(() => { this.message = ""; }, 2000);
+      }
+    } catch (e) {
+      this.error = "Add note failed: " + e.message;
+    }
+  },
+
+  // Load notes for a notebook
+  async loadNotebookNotes(nbId) {
+    try {
+      const r = await callJsonApi("knowledge", {
+        action: "list_notes",
+        notebook_id: nbId || this.activeNotebookId,
+      });
+      if (r.status === "ok") {
+        this.notebookNotes = r.notes || [];
+      }
+    } catch (e) {
+      this.notebookNotes = [];
+    }
+  },
+
+  // Delete a note
+  async deleteNotebookNote(noteId) {
+    if (!this.activeNotebookId) return;
+    try {
+      await callJsonApi("knowledge", {
+        action: "delete_note",
+        notebook_id: this.activeNotebookId,
+        note_id: noteId,
+      });
+      this.notebookNotes = this.notebookNotes.filter(n => n.id !== noteId);
+    } catch (e) {
+      this.error = "Delete note failed: " + e.message;
+    }
+  },
+
+  // Load transformations
+  async loadTransformations() {
+    try {
+      const r = await callJsonApi("knowledge", { action: "list_transformations" });
+      if (r.status === "ok") {
+        this.transformations = r.transformations || [];
+      }
+    } catch (e) {}
+  },
+
+  // Create a transformation
+  async createTransformation(name, promptTemplate) {
+    if (!name?.trim() || !promptTemplate?.trim()) return;
+    try {
+      const r = await callJsonApi("knowledge", {
+        action: "create_transformation",
+        name: name.trim(),
+        prompt_template: promptTemplate.trim(),
+      });
+      if (r.status === "ok" && r.transformation) {
+        this.transformations.push(r.transformation);
+        this.message = "Transformation created";
+        setTimeout(() => { this.message = ""; }, 2000);
+      }
+    } catch (e) {
+      this.error = "Create transformation failed: " + e.message;
+    }
+  },
+
+  // Run a transformation on a source — returns prompt for agent
+  async runTransformation(tfId, entryId) {
+    if (!this.activeNotebookId) return;
+    try {
+      const r = await callJsonApi("knowledge", {
+        action: "run_transformation",
+        transformation_id: tfId,
+        entry_id: entryId,
+        notebook_id: this.activeNotebookId,
+      });
+      if (r.status === "ok" && r.prompt) {
+        // Send the prompt to the agent for processing
+        this.nbChatMessages.push({ role: "user", content: r.prompt });
+        this.message = `Running: ${r.transformation_name}`;
+        setTimeout(() => { this.message = ""; }, 3000);
+      } else {
+        this.error = r.error || "Transformation failed";
+      }
+    } catch (e) {
+      this.error = "Run transformation failed: " + e.message;
+    }
+  },
+
+  // Generate podcast prompt from notebook sources
+  async generateNotebookPodcast() {
+    if (!this.activeNotebookId) {
+      this.error = "Open a notebook first";
+      return;
+    }
+    try {
+      const r = await callJsonApi("knowledge", {
+        action: "generate_podcast",
+        notebook_id: this.activeNotebookId,
+        speakers: this.podcastSpeakers,
+        topic: this.podcastTopic || "",
+        format: this.podcastFormat,
+        tone: this.podcastTone,
+        length: this.podcastLength,
+      });
+      if (r.status === "ok" && r.prompt) {
+        this.podcastPrompt = r.prompt;
+        // Send to agent chat
+        this.nbChatMessages.push({
+          role: "user",
+          content: r.prompt,
+        });
+        this.message = `Podcast prompt built (${r.source_count} sources). Sent to agent.`;
+        setTimeout(() => { this.message = ""; }, 5000);
+      } else {
+        this.error = r.error || "Podcast generation failed";
+      }
+    } catch (e) {
+      this.error = "Podcast error: " + e.message;
+    }
+  },
+
+  // Notebook chat — send message with notebook context
+  async sendNotebookChat() {
+    if (!this.nbChatInput.trim()) return;
+    const msg = this.nbChatInput.trim();
+    this.nbChatMessages.push({ role: "user", content: msg });
+    this.nbChatInput = "";
+    this.nbChatLoading = true;
+    try {
+      // Build context from notebook sources + notes
+      const sourceContext = this.notebookSources.map(s =>
+        `[Source: ${s.title}]`
+      ).join("\n");
+      const noteContext = this.notebookNotes.map(n =>
+        `[Note by ${n.author}]: ${n.content}`
+      ).join("\n");
+      const context = `Notebook: ${this.activeNotebook?.name || ""}\n\nSources:\n${sourceContext}\n\nNotes:\n${noteContext}\n\nUser: ${msg}`;
+      // Route to Agent Zero chat
+      const input = document.getElementById("chat-input") || document.querySelector("textarea[data-chat-input]");
+      if (input) {
+        input.value = context;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.focus();
+      }
+      this.nbChatMessages.push({
+        role: "assistant",
+        content: "Sent to Agent Zero with notebook context. Check the chat panel for the response.",
+      });
+    } catch (e) {
+      this.nbChatMessages.push({ role: "assistant", content: "Error: " + e.message });
+    }
+    this.nbChatLoading = false;
+  },
+
+  // Toggle between file list and notebook view
+  toggleNotebookView() {
+    this.showNotebooks = !this.showNotebooks;
+    if (this.showNotebooks && !this.notebooks.length) {
+      this.loadNotebooks();
+    }
+  },
 });
 
 

@@ -20,8 +20,222 @@
       </div>
     </template>
 
-    <!-- Main List View (when not reading) -->
-    <template x-if="!$store.knowledgeModal.readingPaper">
+    <!-- Notebook LM 3-Column View -->
+    <template x-if="$store.knowledgeModal.showNotebooks && !$store.knowledgeModal.readingPaper">
+      <div class="nb-container">
+        <!-- Notebook header bar -->
+        <div class="nb-topbar">
+          <button class="nb-btn-back" @click="$store.knowledgeModal.showNotebooks = false">
+            <span class="material-symbols-outlined" style="font-size:16px">arrow_back</span> Files
+          </button>
+          <div class="nb-topbar-title">
+            <template x-if="!$store.knowledgeModal.activeNotebook">
+              <span>Notebooks</span>
+            </template>
+            <template x-if="$store.knowledgeModal.activeNotebook">
+              <span x-text="$store.knowledgeModal.activeNotebook.name"></span>
+            </template>
+          </div>
+          <div class="nb-topbar-actions">
+            <button class="kb-btn-sm" @click="$store.knowledgeModal.loadNotebooks()" title="Refresh">
+              <span class="material-symbols-outlined" style="font-size:16px">refresh</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- No notebook selected — show notebook list -->
+        <template x-if="!$store.knowledgeModal.activeNotebookId">
+          <div class="nb-notebook-list">
+            <div class="nb-create-form">
+              <input type="text" placeholder="New notebook name..." class="nb-create-input"
+                x-ref="nbCreateName" @keyup.enter="$store.knowledgeModal.createNotebook($refs.nbCreateName.value, $refs.nbCreateDesc.value); $refs.nbCreateName.value=''; $refs.nbCreateDesc.value='';" />
+              <input type="text" placeholder="Description (optional)" class="nb-create-input"
+                x-ref="nbCreateDesc" style="margin-top:4px" />
+              <button class="nb-create-btn" @click="$store.knowledgeModal.createNotebook($refs.nbCreateName.value, $refs.nbCreateDesc.value); $refs.nbCreateName.value=''; $refs.nbCreateDesc.value='';">
+                <span class="material-symbols-outlined" style="font-size:14px">add</span> Create Notebook
+              </button>
+            </div>
+            <template x-for="nb in $store.knowledgeModal.notebooks" :key="nb.id">
+              <div class="nb-notebook-card" @click="$store.knowledgeModal.openNotebook(nb.id)">
+                <div class="nb-card-icon"><span class="material-symbols-outlined">auto_stories</span></div>
+                <div class="nb-card-info">
+                  <div class="nb-card-name" x-text="nb.name"></div>
+                  <div class="nb-card-desc" x-text="nb.description || 'No description'"></div>
+                  <div class="nb-card-meta">
+                    <span x-text="(nb.sources||[]).length + ' sources'"></span>
+                    <span x-text="(nb.notes||[]).length + ' notes'"></span>
+                    <span x-text="$store.knowledgeModal.relativeTime(nb.created_at)"></span>
+                  </div>
+                </div>
+                <button class="nb-btn-delete" @click.stop="$store.knowledgeModal.deleteNotebook(nb.id)" title="Delete">
+                  <span class="material-symbols-outlined" style="font-size:14px">delete</span>
+                </button>
+              </div>
+            </template>
+            <div x-show="$store.knowledgeModal.notebooks.length === 0" class="kb-empty" style="padding:40px">
+              <span class="material-symbols-outlined" style="font-size:36px;opacity:0.2">auto_stories</span>
+              <p>No notebooks yet. Create one to get started.</p>
+            </div>
+          </div>
+        </template>
+
+        <!-- Notebook open — 3-column layout -->
+        <template x-if="$store.knowledgeModal.activeNotebookId">
+          <div class="nb-3col">
+            <!-- Column 1: Sources -->
+            <div class="nb-col nb-col-sources">
+              <div class="nb-col-header">
+                <span class="material-symbols-outlined" style="font-size:16px">description</span>
+                <span>Sources</span>
+                <span class="nb-col-count" x-text="$store.knowledgeModal.notebookSources.length"></span>
+              </div>
+              <!-- Add source from KB -->
+              <div class="nb-add-source">
+                <select class="nb-source-dropdown" x-ref="nbSourceSelect">
+                  <option value="">+ Add from Knowledge Base...</option>
+                  <template x-for="entry in $store.knowledgeModal.entries.filter(e => e.saved)" :key="entry.id">
+                    <option :value="entry.id" x-text="entry.question || entry.title || 'Untitled'"></option>
+                  </template>
+                </select>
+                <button class="nb-btn-add" @click="const v=$refs.nbSourceSelect.value; if(v) $store.knowledgeModal.addSourceToNotebook(v); $refs.nbSourceSelect.value='';">
+                  <span class="material-symbols-outlined" style="font-size:14px">add</span>
+                </button>
+              </div>
+              <div class="nb-source-list">
+                <template x-for="src in $store.knowledgeModal.notebookSources" :key="src.entry_id">
+                  <div class="nb-source-item">
+                    <span class="material-symbols-outlined" style="font-size:14px;color:var(--color-primary)">description</span>
+                    <div class="nb-source-info">
+                      <div class="nb-source-title" x-text="src.title" @click="$store.knowledgeModal.readEntry({id: src.entry_id, file: src.file, question: src.title})"></div>
+                      <div class="nb-source-meta" x-text="src.source || src.category || ''"></div>
+                    </div>
+                    <button class="nb-btn-remove" @click="$store.knowledgeModal.removeSourceFromNotebook(src.entry_id)" title="Remove">
+                      <span class="material-symbols-outlined" style="font-size:12px">close</span>
+                    </button>
+                  </div>
+                </template>
+                <div x-show="$store.knowledgeModal.notebookSources.length === 0" class="nb-empty-col">
+                  Add sources from your Knowledge Base
+                </div>
+              </div>
+            </div>
+
+            <!-- Column 2: Notes + AI Transformations -->
+            <div class="nb-col nb-col-notes">
+              <div class="nb-col-header">
+                <span class="material-symbols-outlined" style="font-size:16px">edit_note</span>
+                <span>Notes</span>
+                <span class="nb-col-count" x-text="$store.knowledgeModal.notebookNotes.length"></span>
+              </div>
+              <!-- Add note -->
+              <div class="nb-note-input-area">
+                <textarea class="nb-note-textarea" x-ref="nbNoteContent" placeholder="Write a note..." rows="3"></textarea>
+                <button class="nb-btn-add-note" @click="const c=$refs.nbNoteContent.value; if(c.trim()) { $store.knowledgeModal.addNotebookNote(c, 'manual'); $refs.nbNoteContent.value=''; }">
+                  <span class="material-symbols-outlined" style="font-size:14px">add</span> Add Note
+                </button>
+              </div>
+              <!-- AI Transformations -->
+              <div class="nb-transform-section">
+                <div class="nb-transform-header" @click="$store.knowledgeModal.showTransformations = !$store.knowledgeModal.showTransformations">
+                  <span class="material-symbols-outlined" style="font-size:14px">auto_awesome</span>
+                  <span>AI Transformations</span>
+                  <span class="material-symbols-outlined" style="font-size:12px" x-text="$store.knowledgeModal.showTransformations ? 'expand_less' : 'expand_more'"></span>
+                </div>
+                <div x-show="$store.knowledgeModal.showTransformations" class="nb-transform-list">
+                  <div class="nb-transform-item" @click="$store.knowledgeModal.runTransformation('tf_summary', $store.knowledgeModal.notebookSources[0]?.entry_id)">
+                    <span class="material-symbols-outlined" style="font-size:13px">summarize</span> Summarize Sources
+                  </div>
+                  <div class="nb-transform-item" @click="$store.knowledgeModal.runTransformation('tf_key_findings', $store.knowledgeModal.notebookSources[0]?.entry_id)">
+                    <span class="material-symbols-outlined" style="font-size:13px">key</span> Key Findings
+                  </div>
+                  <div class="nb-transform-item" @click="$store.knowledgeModal.runTransformation('tf_critique', $store.knowledgeModal.notebookSources[0]?.entry_id)">
+                    <span class="material-symbols-outlined" style="font-size:13px">rate_review</span> Critical Analysis
+                  </div>
+                  <div class="nb-transform-item" @click="$store.knowledgeModal.runTransformation('tf_timeline', $store.knowledgeModal.notebookSources[0]?.entry_id)">
+                    <span class="material-symbols-outlined" style="font-size:13px">timeline</span> Timeline
+                  </div>
+                </div>
+              </div>
+              <!-- Notes list -->
+              <div class="nb-notes-list">
+                <template x-for="note in $store.knowledgeModal.notebookNotes" :key="note.id">
+                  <div class="nb-note-card" :class="{'nb-note-ai': note.author === 'ai'}">
+                    <div class="nb-note-header">
+                      <span class="nb-note-author" x-text="note.author === 'ai' ? '🤖 AI' : '✏️ You'"></span>
+                      <span class="nb-note-time" x-text="$store.knowledgeModal.relativeTime(note.created_at)"></span>
+                      <button class="nb-btn-remove" @click="$store.knowledgeModal.deleteNotebookNote(note.id)" title="Delete note">
+                        <span class="material-symbols-outlined" style="font-size:12px">delete</span>
+                      </button>
+                    </div>
+                    <div class="nb-note-body" x-html="note.content.replace(/\n/g, '<br>')"></div>
+                  </div>
+                </template>
+                <div x-show="$store.knowledgeModal.notebookNotes.length === 0" class="nb-empty-col">
+                  Write notes or use AI Transformations
+                </div>
+              </div>
+            </div>
+
+            <!-- Column 3: Chat + Podcast -->
+            <div class="nb-col nb-col-chat">
+              <div class="nb-col-header">
+                <span class="material-symbols-outlined" style="font-size:16px">chat</span>
+                <span>Chat</span>
+              </div>
+              <!-- Podcast controls -->
+              <div class="nb-podcast-section">
+                <div class="nb-podcast-header" @click="$store.knowledgeModal._showPodcast = !$store.knowledgeModal._showPodcast">
+                  <span class="material-symbols-outlined" style="font-size:14px">podcasts</span>
+                  <span>Generate Podcast</span>
+                  <span class="material-symbols-outlined" style="font-size:12px" x-text="$store.knowledgeModal._showPodcast ? 'expand_less' : 'expand_more'"></span>
+                </div>
+                <div x-show="$store.knowledgeModal._showPodcast" class="nb-podcast-controls">
+                  <input type="text" class="nb-podcast-input" placeholder="Topic (optional)" x-model="$store.knowledgeModal.podcastTopic" />
+                  <div class="nb-podcast-row">
+                    <select class="nb-podcast-select" x-model="$store.knowledgeModal.podcastFormat">
+                      <option value="interview">Interview</option>
+                      <option value="discussion">Discussion</option>
+                      <option value="lecture">Lecture</option>
+                    </select>
+                    <select class="nb-podcast-select" x-model="$store.knowledgeModal.podcastLength">
+                      <option value="short">Short (5-10m)</option>
+                      <option value="medium">Medium (15-20m)</option>
+                      <option value="long">Long (25-35m)</option>
+                    </select>
+                  </div>
+                  <button class="nb-btn-podcast" @click="$store.knowledgeModal.generateNotebookPodcast()">
+                    <span class="material-symbols-outlined" style="font-size:14px">podcasts</span> Generate Podcast Script
+                  </button>
+                </div>
+              </div>
+              <!-- Chat messages -->
+              <div class="nb-chat-messages">
+                <template x-for="(msg, i) in $store.knowledgeModal.nbChatMessages" :key="i">
+                  <div class="nb-chat-msg" :class="'nb-chat-' + msg.role">
+                    <div class="nb-chat-bubble" x-html="msg.content.replace(/\n/g, '<br>')"></div>
+                  </div>
+                </template>
+                <div x-show="$store.knowledgeModal.nbChatMessages.length === 0" class="nb-empty-col">
+                  Ask questions about your notebook sources
+                </div>
+              </div>
+              <!-- Chat input -->
+              <div class="nb-chat-input-area">
+                <textarea class="nb-chat-textarea" x-model="$store.knowledgeModal.nbChatInput"
+                  placeholder="Ask about your sources..." rows="2"
+                  @keydown.enter.prevent="$store.knowledgeModal.sendNotebookChat()"></textarea>
+                <button class="nb-btn-send" @click="$store.knowledgeModal.sendNotebookChat()" :disabled="$store.knowledgeModal.nbChatLoading">
+                  <span class="material-symbols-outlined" style="font-size:16px">send</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <!-- Main List View (when not reading and not in notebook view) -->
+    <template x-if="!$store.knowledgeModal.readingPaper && !$store.knowledgeModal.showNotebooks">
       <div class="kb-main-view">
         <!-- Header -->
         <div class="kb-header">
@@ -31,6 +245,9 @@
             <p class="kb-sub" x-text="$store.knowledgeModal.entryCount + ' files · ' + ($store.knowledgeModal.selectedIds.length) + ' selected'"></p>
           </div>
           <div class="kb-header-actions">
+            <button class="kb-btn-notebook" @click="$store.knowledgeModal.toggleNotebookView()" title="Notebooks" :class="{active: $store.knowledgeModal.showNotebooks}">
+              <span class="material-symbols-outlined" style="font-size:16px">auto_stories</span> Notebooks
+            </button>
             <button class="kb-btn-sm" @click="$store.knowledgeModal.loadAllEntries()" :disabled="$store.knowledgeModal.loading" title="Refresh">
               <span class="material-symbols-outlined">refresh</span>
             </button>
@@ -257,6 +474,92 @@
       .kb-upload-zone{padding:10px 0}
       .kb-btn-upload{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:8px;background:transparent;border:1px dashed var(--color-border);border-radius:6px;color:var(--color-text-muted);font-size:0.62rem;cursor:pointer}
       .kb-btn-upload:hover{border-color:var(--color-primary);color:var(--color-primary)}
+      .kb-btn-notebook{display:flex;align-items:center;gap:4px;padding:6px 12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-muted);font-size:0.62rem;cursor:pointer;font-weight:600}
+      .kb-btn-notebook:hover,.kb-btn-notebook.active{border-color:var(--color-primary);color:var(--color-primary);background:color-mix(in srgb,var(--color-primary)8%,var(--color-panel))}
+
+      /* ── Notebook LM 3-column layout ── */
+      .nb-container{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background)}
+      .nb-topbar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0}
+      .nb-btn-back{display:flex;align-items:center;gap:4px;padding:5px 10px;background:transparent;border:1px solid var(--color-border);border-radius:6px;color:var(--color-text);font-size:0.62rem;cursor:pointer}
+      .nb-btn-back:hover{border-color:var(--color-primary);color:var(--color-primary)}
+      .nb-topbar-title{flex:1;font-size:0.85rem;font-weight:700;color:var(--color-text)}
+      .nb-topbar-actions{display:flex;gap:4px}
+
+      /* Notebook list */
+      .nb-notebook-list{flex:1;overflow-y:auto;padding:16px}
+      .nb-create-form{margin-bottom:16px;padding:12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px}
+      .nb-create-input{width:100%;padding:6px 10px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-background);color:var(--color-text);font-size:0.65rem;box-sizing:border-box}
+      .nb-create-btn{display:flex;align-items:center;gap:4px;margin-top:8px;padding:6px 14px;background:var(--color-primary);border:none;border-radius:6px;color:white;font-size:0.62rem;cursor:pointer;font-weight:600}
+      .nb-notebook-card{display:flex;align-items:center;gap:12px;padding:12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:8px;cursor:pointer;transition:border-color 0.15s}
+      .nb-notebook-card:hover{border-color:var(--color-primary)}
+      .nb-card-icon{color:var(--color-primary);flex-shrink:0}
+      .nb-card-info{flex:1;min-width:0}
+      .nb-card-name{font-size:0.72rem;font-weight:600;color:var(--color-text)}
+      .nb-card-desc{font-size:0.58rem;color:var(--color-text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .nb-card-meta{display:flex;gap:8px;margin-top:4px;font-size:0.52rem;color:var(--color-text-muted)}
+      .nb-btn-delete{background:none;border:none;color:var(--color-text-muted);cursor:pointer;padding:4px;opacity:0.5}
+      .nb-btn-delete:hover{opacity:1;color:#ff6b6b}
+
+      /* 3-column layout */
+      .nb-3col{display:flex;flex:1;overflow:hidden}
+      .nb-col{display:flex;flex-direction:column;border-right:1px solid var(--color-border);overflow:hidden}
+      .nb-col:last-child{border-right:none}
+      .nb-col-sources{flex:0 0 260px;min-width:200px}
+      .nb-col-notes{flex:1;min-width:250px}
+      .nb-col-chat{flex:0 0 320px;min-width:250px}
+      .nb-col-header{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--color-border);background:var(--color-panel);font-size:0.68rem;font-weight:600;color:var(--color-text);flex-shrink:0}
+      .nb-col-count{margin-left:auto;font-size:0.52rem;background:var(--color-background);padding:1px 6px;border-radius:3px;color:var(--color-text-muted)}
+
+      /* Sources column */
+      .nb-add-source{display:flex;gap:4px;padding:8px 10px;border-bottom:1px solid var(--color-border)}
+      .nb-source-dropdown{flex:1;padding:5px 8px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-background);color:var(--color-text);font-size:0.58rem}
+      .nb-btn-add{padding:5px 8px;background:var(--color-primary);border:none;border-radius:6px;color:white;cursor:pointer;display:flex;align-items:center}
+      .nb-source-list{flex:1;overflow-y:auto;padding:6px}
+      .nb-source-item{display:flex;align-items:flex-start;gap:6px;padding:8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;margin-bottom:4px;transition:border-color 0.15s}
+      .nb-source-item:hover{border-color:var(--color-primary)}
+      .nb-source-info{flex:1;min-width:0}
+      .nb-source-title{font-size:0.6rem;font-weight:600;color:var(--color-text);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .nb-source-title:hover{color:var(--color-primary)}
+      .nb-source-meta{font-size:0.5rem;color:var(--color-text-muted);margin-top:2px}
+      .nb-btn-remove{background:none;border:none;color:var(--color-text-muted);cursor:pointer;padding:2px;opacity:0.5;flex-shrink:0}
+      .nb-btn-remove:hover{opacity:1;color:#ff6b6b}
+
+      /* Notes column */
+      .nb-note-input-area{padding:8px 10px;border-bottom:1px solid var(--color-border)}
+      .nb-note-textarea{width:100%;padding:6px 8px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-background);color:var(--color-text);font-size:0.6rem;resize:vertical;box-sizing:border-box;font-family:inherit}
+      .nb-btn-add-note{display:flex;align-items:center;gap:4px;margin-top:4px;padding:5px 10px;background:var(--color-primary);border:none;border-radius:5px;color:white;font-size:0.58rem;cursor:pointer}
+      .nb-transform-section{border-bottom:1px solid var(--color-border)}
+      .nb-transform-header{display:flex;align-items:center;gap:6px;padding:8px 12px;cursor:pointer;font-size:0.6rem;font-weight:600;color:var(--color-text-muted)}
+      .nb-transform-header:hover{color:var(--color-primary)}
+      .nb-transform-list{padding:4px 10px 8px}
+      .nb-transform-item{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:5px;font-size:0.58rem;cursor:pointer;color:var(--color-text);transition:background 0.15s}
+      .nb-transform-item:hover{background:color-mix(in srgb,var(--color-primary)8%,transparent);color:var(--color-primary)}
+      .nb-notes-list{flex:1;overflow-y:auto;padding:6px}
+      .nb-note-card{padding:10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;margin-bottom:6px}
+      .nb-note-ai{border-left:3px solid var(--color-primary);background:color-mix(in srgb,var(--color-primary)4%,var(--color-panel))}
+      .nb-note-header{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+      .nb-note-author{font-size:0.55rem;font-weight:600;color:var(--color-primary)}
+      .nb-note-time{font-size:0.5rem;color:var(--color-text-muted);flex:1}
+      .nb-note-body{font-size:0.6rem;color:var(--color-text);line-height:1.6}
+
+      /* Chat column */
+      .nb-podcast-section{border-bottom:1px solid var(--color-border)}
+      .nb-podcast-header{display:flex;align-items:center;gap:6px;padding:8px 12px;cursor:pointer;font-size:0.6rem;font-weight:600;color:var(--color-text-muted)}
+      .nb-podcast-header:hover{color:var(--color-primary)}
+      .nb-podcast-controls{padding:6px 10px 10px}
+      .nb-podcast-input{width:100%;padding:5px 8px;border:1px solid var(--color-border);border-radius:5px;background:var(--color-background);color:var(--color-text);font-size:0.58rem;box-sizing:border-box}
+      .nb-podcast-row{display:flex;gap:4px;margin-top:4px}
+      .nb-podcast-select{flex:1;padding:4px 6px;border:1px solid var(--color-border);border-radius:5px;background:var(--color-background);color:var(--color-text);font-size:0.55rem}
+      .nb-btn-podcast{display:flex;align-items:center;gap:4px;margin-top:6px;padding:6px 10px;background:var(--color-primary);border:none;border-radius:5px;color:white;font-size:0.58rem;cursor:pointer;font-weight:600}
+      .nb-chat-messages{flex:1;overflow-y:auto;padding:10px}
+      .nb-chat-msg{margin-bottom:8px}
+      .nb-chat-user{text-align:right}
+      .nb-chat-user .nb-chat-bubble{background:var(--color-primary);color:white;display:inline-block;padding:6px 10px;border-radius:10px 10px 2px 10px;font-size:0.6rem;max-width:85%}
+      .nb-chat-assistant .nb-chat-bubble{background:var(--color-panel);border:1px solid var(--color-border);color:var(--color-text);display:inline-block;padding:6px 10px;border-radius:10px 10px 10px 2px;font-size:0.6rem;max-width:85%}
+      .nb-chat-input-area{display:flex;gap:6px;padding:10px;border-top:1px solid var(--color-border)}
+      .nb-chat-textarea{flex:1;padding:6px 8px;border:1px solid var(--color-border);border-radius:8px;background:var(--color-background);color:var(--color-text);font-size:0.6rem;resize:none;font-family:inherit}
+      .nb-btn-send{padding:6px 10px;background:var(--color-primary);border:none;border-radius:8px;color:white;cursor:pointer;display:flex;align-items:center}
+      .nb-empty-col{display:flex;align-items:center;justify-content:center;padding:30px;font-size:0.6rem;color:var(--color-text-muted);text-align:center}
     </style>
   </div>
 </body>
