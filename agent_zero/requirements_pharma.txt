@@ -7,12 +7,19 @@
 lifelines>=0.28.0
 scikit-survival>=0.27.0
 
+# Bayesian Statistics (Bayes factors, posterior summaries)
+pingouin>=0.5.4
+arviz>=0.17.0
+
 # Network Pharmacology & Graph Theory (Pillar 26)
 networkx>=3.2.1
 
 # Reporting & GxP Documentation (Pillar 33)
 python-docx>=1.1.0
 reportlab>=4.0.9
+
+# Data Import (XLSX support for statistics module)
+openpyxl>=3.1.0
 
 # Innovation & Chemical Space (Pillar 24)
 # Note: RDKit is already in requirements_heavy.txt, confirming presence.
