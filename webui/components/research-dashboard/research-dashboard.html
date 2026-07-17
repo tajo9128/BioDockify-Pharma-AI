@@ -6,8 +6,8 @@
   <div x-data class="rd-panel" x-init="$store.researchDashboard?.init()">
     <div class="rd-header">
       <span class="material-symbols-outlined rd-icon">rocket_launch</span>
-      <h2>Research Command Center</h2>
-      <p class="rd-sub">Auto-research pipeline · Literature · Wet Lab · Thesis tracking</p>
+      <h2>Research Hub</h2>
+      <p class="rd-sub">Projects · Deep Research (10 DBs) · Literature · Pipeline · Wet Lab</p>
     </div>
 
     <div class="rd-tabs">
@@ -17,16 +17,26 @@
       <button class="rd-tab" :class="{active: $store.researchDashboard.activeTab === 'pipeline'}" @click="$store.researchDashboard.activeTab = 'pipeline'; $store.researchDashboard.loadDashboard()" :disabled="!$store.researchDashboard.activeProjectId">
         <span class="material-symbols-outlined">account_tree</span> Pipeline
       </button>
+      <button class="rd-tab" :class="{active: $store.researchDashboard.activeTab === 'collect'}" @click="$store.researchDashboard.activeTab = 'collect'">
+        <span class="material-symbols-outlined">travel_explore</span> Deep Research
+      </button>
+      <button class="rd-tab" :class="{active: $store.researchDashboard.activeTab === 'results'}" @click="$store.researchDashboard.activeTab = 'results'" x-show="$store.researchDashboard.drScannedSources.length || $store.researchDashboard.drSources.length">
+        <span class="material-symbols-outlined">list</span> Results
+      </button>
       <button class="rd-tab" :class="{active: $store.researchDashboard.activeTab === 'literature'}" @click="$store.researchDashboard.activeTab = 'literature'">
         <span class="material-symbols-outlined">menu_book</span> Literature
       </button>
       <button class="rd-tab" :class="{active: $store.researchDashboard.activeTab === 'wetlab'}" @click="$store.researchDashboard.activeTab = 'wetlab'">
         <span class="material-symbols-outlined">science</span> Wet Lab
       </button>
+      <button class="rd-tab" :class="{active: $store.researchDashboard.activeTab === 'history'}" @click="$store.researchDashboard.activeTab = 'history'; $store.researchDashboard.drLoadSessions()">
+        <span class="material-symbols-outlined">history</span> History
+      </button>
     </div>
 
-    <div x-show="$store.researchDashboard.error" class="rd-error" x-text="$store.researchDashboard.error"></div>
-    <div x-show="$store.researchDashboard.message" class="rd-msg" x-text="$store.researchDashboard.message"></div>
+    <div x-show="$store.researchDashboard.error" class="rd-error" x-text="$store.researchDashboard.error" @click="$store.researchDashboard.error=''"></div>
+    <div x-show="$store.researchDashboard.message" class="rd-msg" x-text="$store.researchDashboard.message" @click="$store.researchDashboard.message=''"></div>
+    <div x-show="$store.researchDashboard.loading" class="rd-loading"><div class="loading-spinner"></div><span>Processing...</span></div>
 
     <!-- Projects Tab -->
     <div x-show="$store.researchDashboard.activeTab === 'projects'" class="rd-tab-content">
@@ -96,7 +106,6 @@
             <h4 x-text="$store.researchDashboard.activeProject.topic || $store.researchDashboard.activeProject.title"></h4>
             <div class="rd-bar big"><div class="rd-fill" :style="'width:' + $store.researchDashboard.progressPct + '%'" x-text="$store.researchDashboard.progressPct + '%'"></div></div>
           </div>
-
           <div class="rd-card" x-show="$store.researchDashboard.dashboard?.tasks?.length">
             <h4>Pipeline Tasks</h4>
             <template x-for="t in $store.researchDashboard.dashboard.tasks" :key="t.id">
@@ -107,7 +116,6 @@
               </div>
             </template>
           </div>
-
           <div class="rd-card" x-show="$store.researchDashboard.dashboard?.milestones?.length">
             <h4>Milestones</h4>
             <template x-for="m in $store.researchDashboard.dashboard.milestones" :key="m.milestone_id">
@@ -120,7 +128,6 @@
               </div>
             </template>
           </div>
-
           <div class="rd-card" x-show="$store.researchDashboard.dashboard?.wetlab_summary">
             <h4>Wet Lab Overview</h4>
             <div class="rd-stats">
@@ -138,6 +145,90 @@
       </div>
     </div>
 
+    <!-- Deep Research / Collect Tab -->
+    <div x-show="$store.researchDashboard.activeTab === 'collect'" class="rd-tab-content">
+      <div class="rd-card hero">
+        <h4>Deep Research — Bulk Source Collection</h4>
+        <p class="rd-hero-desc">Collect thousands of sources from 10 databases · Scan for relevance · Store to Knowledge Base</p>
+        <textarea x-model="$store.researchDashboard.drTopic" placeholder="Research topic..." class="rd-textarea" rows="2"></textarea>
+        <div class="rd-new-row" style="margin-bottom:6px">
+          <input type="number" x-model="$store.researchDashboard.drMaxSources" placeholder="Max sources" class="rd-input" style="flex:none;width:100px" min="50" max="5000" />
+          <input type="text" x-model="$store.researchDashboard.drYearFrom" placeholder="From year" class="rd-input" style="flex:none;width:80px" />
+          <input type="text" x-model="$store.researchDashboard.drYearTo" placeholder="To year" class="rd-input" style="flex:none;width:80px" />
+        </div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
+          <template x-for="db in ['pubmed','semantic_scholar','crossref','openalex','arxiv','europe_pmc','biorxiv','google_scholar','scopus','springer']" :key="db">
+            <button class="rd-chip" :class="{active: $store.researchDashboard.drDatabases.includes(db)}" @click="$store.researchDashboard.drToggleDb(db)" x-text="db.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())"></button>
+          </template>
+        </div>
+        <button class="rd-btn" @click="$store.researchDashboard.drCollect()" :disabled="$store.researchDashboard.loading || !$store.researchDashboard.drTopic">
+          <span class="material-symbols-outlined">search</span> Collect Sources
+        </button>
+      </div>
+
+      <div class="rd-card" x-show="$store.researchDashboard.drStats">
+        <h4>Collection Stats</h4>
+        <div class="rd-stats">
+          <div class="rd-stat"><span class="rd-stat-num" x-text="$store.researchDashboard.drStats?.total || 0"></span>Sources</div>
+          <div class="rd-stat"><span class="rd-stat-num" x-text="$store.researchDashboard.drStats?.duplicates_removed || 0"></span>Duplicates</div>
+          <div class="rd-stat"><span class="rd-stat-num active" x-text="Object.keys($store.researchDashboard.drStats?.by_database || {}).length"></span>Databases</div>
+        </div>
+        <template x-for="(count, db) in ($store.researchDashboard.drStats?.by_database || {})" :key="db">
+          <div style="display:flex;justify-content:space-between;font-size:0.58rem;padding:2px 0">
+            <span x-text="db"></span><span x-text="count"></span>
+          </div>
+        </template>
+      </div>
+
+      <div class="rd-card" x-show="$store.researchDashboard.drSessionId">
+        <h4>Scan & Store</h4>
+        <input type="text" x-model="$store.researchDashboard.drScanKeywords" placeholder="Keywords (comma-separated)..." class="rd-input" style="margin-bottom:6px" />
+        <div class="rd-new-row">
+          <button class="rd-btn-sm" @click="$store.researchDashboard.drScan()" :disabled="$store.researchDashboard.loading" style="flex:1">Scan for Relevance</button>
+          <button class="rd-btn-sm" @click="$store.researchDashboard.drStoreToKB()" :disabled="$store.researchDashboard.loading" style="flex:1">Store to KB</button>
+        </div>
+      </div>
+
+      <div class="rd-card" x-show="$store.researchDashboard.drSources.length && !$store.researchDashboard.drScannedSources.length">
+        <h4>Collected Sources (<span x-text="$store.researchDashboard.drSources.length"></span>)</h4>
+        <template x-for="(src, i) in $store.researchDashboard.drSources.slice(0, 20)" :key="i">
+          <div class="rd-paper">
+            <div class="rd-paper-title" x-text="src.title || 'Untitled'"></div>
+            <div class="rd-paper-meta">
+              <span x-text="src.database"></span>
+              <span x-text="$store.researchDashboard.drFormatYear(src.year)"></span>
+              <span x-show="src.citations" x-text="'Cited: ' + src.citations"></span>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Results Tab -->
+    <div x-show="$store.researchDashboard.activeTab === 'results'" class="rd-tab-content">
+      <div class="rd-card">
+        <h4>Ranked Results (<span x-text="$store.researchDashboard.drScannedSources.length"></span>)</h4>
+        <template x-for="(src, i) in $store.researchDashboard.drScannedSources" :key="i">
+          <div class="rd-paper" :class="{highlight: src.relevance_score >= 5}">
+            <div class="rd-paper-title" x-text="src.title || 'Untitled'"></div>
+            <div class="rd-paper-meta">
+              <span x-text="src.database"></span>
+              <span x-show="src.journal" x-text="src.journal"></span>
+              <span x-text="$store.researchDashboard.drFormatYear(src.year)"></span>
+              <span x-show="src.citations" x-text="'Cited: ' + src.citations"></span>
+              <span class="rd-score" x-show="src.relevance_score !== undefined" x-text="'Score: ' + src.relevance_score"></span>
+            </div>
+            <div class="rd-paper-abs" x-show="src.abstract" x-text="(src.abstract || '').substring(0, 200) + '...'"></div>
+          </div>
+        </template>
+      </div>
+      <div x-show="!$store.researchDashboard.drScannedSources.length" class="rd-empty">
+        <span class="material-symbols-outlined rd-empty-icon">list</span>
+        <p>Collect sources and scan for relevance to see ranked results.</p>
+        <button class="rd-chip" @click="$store.researchDashboard.activeTab = 'collect'">← Go to Deep Research</button>
+      </div>
+    </div>
+
     <!-- Literature Tab -->
     <div x-show="$store.researchDashboard.activeTab === 'literature'" class="rd-tab-content">
       <div class="rd-card"><h4>Literature Search</h4><p class="rd-hero-desc">PubMed, Semantic Scholar, Scopus, Google Scholar — 10 databases. Full screening, alerts, NER, hypothesis generation.</p></div>
@@ -150,20 +241,56 @@
       <x-component path="wetlab/wetlab-modal.html"></x-component>
     </div>
 
+    <!-- History Tab (merged sessions + projects) -->
+    <div x-show="$store.researchDashboard.activeTab === 'history'" class="rd-tab-content">
+      <div class="rd-card" x-show="$store.researchDashboard.drSessions.length">
+        <h4>Deep Research Sessions</h4>
+        <template x-for="s in $store.researchDashboard.drSessions" :key="s.session_id">
+          <div class="rd-paper" style="cursor:pointer" @click="$store.researchDashboard.drTopic = s.topic; $store.researchDashboard.drSessionId = s.session_id; $store.researchDashboard.activeTab = 'collect'">
+            <div class="rd-paper-title" x-text="s.topic || 'Untitled'"></div>
+            <div class="rd-paper-meta">
+              <span x-text="(s.total || 0) + ' sources'"></span>
+              <span x-text="s.created_at ? s.created_at.substring(0,10) : ''"></span>
+            </div>
+          </div>
+        </template>
+      </div>
+      <div class="rd-card" x-show="$store.researchDashboard.projects.length">
+        <h4>Research Projects</h4>
+        <template x-for="p in $store.researchDashboard.projects" :key="p.research_id">
+          <div class="rd-paper" style="cursor:pointer" @click="$store.researchDashboard.selectProject(p.research_id); $store.researchDashboard.activeTab = 'pipeline'">
+            <div class="rd-paper-title" x-text="p.topic || p.title || 'Untitled'"></div>
+            <div class="rd-paper-meta">
+              <span x-text="p.research_type"></span>
+              <span x-text="'Progress: ' + Math.round((p.progress||0)*100) + '%'"></span>
+              <span x-text="'Stage: ' + (p.current_stage || 'N/A')"></span>
+            </div>
+          </div>
+        </template>
+      </div>
+      <div x-show="!$store.researchDashboard.drSessions.length && !$store.researchDashboard.projects.length" class="rd-empty">
+        <span class="material-symbols-outlined rd-empty-icon">history</span>
+        <p>No research history yet. Start a project or collect sources to see history.</p>
+      </div>
+    </div>
+
     <style>
       .rd-panel { display: flex; flex-direction: column; height: 100%; overflow-y: auto; padding: 14px 18px; background: var(--color-background); }
       .rd-header { margin-bottom: 8px; flex-shrink: 0; }
       .rd-header h2 { color: var(--color-primary); font-size: 0.95rem; margin: 0 0 2px 0; font-weight: 700; }
       .rd-sub { font-size: 0.58rem; color: var(--color-text-muted); margin: 0; }
-      .rd-tabs { display: flex; gap: 2px; margin-bottom: 10px; border-bottom: 1px solid var(--color-border); }
-      .rd-tab { display: flex; align-items: center; gap: 4px; padding: 6px 12px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--color-text-muted); cursor: pointer; font-size: 0.66rem; font-weight: 500; }
+      .rd-tabs { display: flex; gap: 2px; margin-bottom: 10px; border-bottom: 1px solid var(--color-border); flex-wrap: wrap; }
+      .rd-tab { display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--color-text-muted); cursor: pointer; font-size: 0.62rem; font-weight: 500; }
       .rd-tab:hover { color: var(--color-text); }
       .rd-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
       .rd-tab:disabled { opacity: 0.3; cursor: not-allowed; }
       .rd-tab .material-symbols-outlined { font-size: 15px; }
       .rd-tab-content { flex: 1; }
-      .rd-error { padding: 5px 8px; background: rgba(255,107,107,0.1); border-radius: 4px; color: var(--color-error-text); font-size: 0.6rem; margin-bottom: 6px; }
-      .rd-msg { padding: 5px 8px; background: rgba(0,212,170,0.08); border-radius: 4px; color: var(--color-primary); font-size: 0.6rem; margin-bottom: 6px; }
+      .rd-error { padding: 5px 8px; background: rgba(255,107,107,0.1); border-radius: 4px; color: #ff6b6b; font-size: 0.6rem; margin-bottom: 6px; cursor: pointer; }
+      .rd-msg { padding: 5px 8px; background: rgba(0,212,170,0.08); border-radius: 4px; color: var(--color-primary); font-size: 0.6rem; margin-bottom: 6px; cursor: pointer; }
+      .rd-loading { display: flex; align-items: center; gap: 6px; padding: 8px; font-size: 0.6rem; color: var(--color-text-muted); }
+      .loading-spinner { width: 14px; height: 14px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
       .rd-card { padding: 12px 14px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 8px; }
       .rd-card.hero { border-color: color-mix(in srgb, var(--color-primary) 25%, var(--color-border)); background: color-mix(in srgb, var(--color-primary) 3%, var(--color-panel)); }
       .rd-card h4 { font-size: 0.66rem; font-weight: 600; color: var(--color-text); margin: 0 0 8px 0; }
@@ -180,8 +307,11 @@
       .rd-btn { display: flex; align-items: center; gap: 4px; padding: 7px 14px; background: var(--color-primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.64rem; font-weight: 600; white-space: nowrap; }
       .rd-btn:disabled { opacity: 0.5; }
       .rd-btn .material-symbols-outlined { font-size: 16px; }
-      .rd-btn-sm { padding: 3px 8px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 4px; color: var(--color-text); cursor: pointer; font-size: 0.56rem; }
+      .rd-btn-sm { padding: 5px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 5px; color: var(--color-text); cursor: pointer; font-size: 0.6rem; font-weight: 500; }
       .rd-btn-sm:hover { border-color: var(--color-primary); }
+      .rd-chip { padding: 4px 10px; border: 1px solid var(--color-border); background: var(--color-panel); color: var(--color-text); font-size: 0.58rem; cursor: pointer; border-radius: 12px; }
+      .rd-chip.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
+      .rd-chip:hover { border-color: var(--color-primary); }
       .rd-proj { padding: 8px 10px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: 4px; cursor: pointer; transition: all 0.12s; }
       .rd-proj:hover { border-color: var(--color-primary); }
       .rd-proj.selected { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 4%, var(--color-background)); }
@@ -210,11 +340,15 @@
       .rd-stat { flex: 1; text-align: center; padding: 8px; background: var(--color-background); border-radius: 6px; }
       .rd-stat-num { display: block; font-size: 1rem; font-weight: 700; color: var(--color-text); }
       .rd-stat-num.done { color: #22c55e; } .rd-stat-num.active { color: #4fc3f7; }
+      .rd-paper { padding: 8px 10px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: 4px; }
+      .rd-paper.highlight { border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.04); }
+      .rd-paper-title { font-size: 0.62rem; font-weight: 600; color: var(--color-text); margin-bottom: 2px; }
+      .rd-paper-meta { display: flex; gap: 8px; font-size: 0.52rem; color: var(--color-text-muted); flex-wrap: wrap; }
+      .rd-paper-meta .rd-score { color: #22c55e; font-weight: 600; }
+      .rd-paper-abs { font-size: 0.55rem; color: var(--color-text-muted); margin-top: 4px; line-height: 1.3; }
       .rd-empty { display: flex; flex-direction: column; align-items: center; padding: 30px; text-align: center; }
       .rd-empty-icon { font-size: 36px; color: var(--color-border); margin-bottom: 8px; }
       .rd-empty p { font-size: 0.66rem; color: var(--color-text-muted); margin: 0 0 8px 0; }
-      .rd-chip { padding: 5px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 5px; font-size: 0.6rem; color: var(--color-text); cursor: pointer; }
-      .rd-chip:hover { border-color: var(--color-primary); }
     </style>
   </div>
 </body>

@@ -8,8 +8,7 @@ function generateId() {
 
 const defaultModules = [
   { id: "research", title: "All Tools", icon: "apps", component: "/components/research/research-tools.html", order: 1, defaultWidth: 700, defaultHeight: 500 },
-  { id: "research-dashboard", title: "Research CMD", icon: "rocket_launch", component: "/components/research-dashboard/research-dashboard.html", order: 2, defaultWidth: 800, defaultHeight: 600 },
-  { id: "deep-research", title: "Deep Research", icon: "travel_explore", component: "/components/deep-research/deep-research.html", order: 3, defaultWidth: 800, defaultHeight: 650 },
+  { id: "research-dashboard", title: "Research Hub", icon: "rocket_launch", component: "/components/research-dashboard/research-dashboard.html", order: 2, defaultWidth: 850, defaultHeight: 650 },
   { id: "molecular-toolkit", title: "Molecular Toolkit", icon: "biotech", component: "/components/molecular-toolkit/molecular-toolkit.html", order: 4, defaultWidth: 750, defaultHeight: 600 },
   { id: "qsar", title: "3D-QSAR Modeler", icon: "model_training", component: "/components/qsar3d/qsar3d.html", order: 5, defaultWidth: 750, defaultHeight: 600 },
   { id: "molecule-editor", title: "Drug Analysis", icon: "science", component: "/components/molecule-editor/molecule-editor.html", order: 6, defaultWidth: 850, defaultHeight: 650 },
