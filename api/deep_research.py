@@ -87,26 +87,66 @@ class DeepResearchHandler(ApiHandler):
 
         stats["total"] = len(unique_sources)
 
-        # Save session
+        # ── Fetch full text for every collected source ──
+        full_text_count = 0
+        try:
+            from modules.literature.full_text import FullTextRetriever
+            retriever = FullTextRetriever()
+            for src in unique_sources:
+                if not src.get("title"):
+                    continue
+                try:
+                    ft = retriever.retrieve(src)
+                    if ft and len(ft) > 200:
+                        src["full_text"] = ft
+                        src["full_text_available"] = True
+                        full_text_count += 1
+                    else:
+                        src["full_text_available"] = False
+                except Exception:
+                    src["full_text_available"] = False
+            log.info(f"Full text retrieved for {full_text_count}/{len(unique_sources)} sources")
+        except ImportError:
+            log.warning("FullTextRetriever not available — storing metadata only")
+        except Exception as e:
+            log.warning(f"Full text retrieval error: {e}")
+        stats["full_text_count"] = full_text_count
+
+        # Save session (with full text included)
         session_path = os.path.join(STORAGE_DIR, f"session_{session_id}.json")
         with open(session_path, "w", encoding="utf-8") as f:
             json.dump({"topic": topic, "sources": unique_sources, "stats": stats, "created_at": datetime.now().isoformat()}, f, ensure_ascii=False, indent=2)
 
-        # ── AUTO-STORE to Knowledge Base ──
+        # ── AUTO-STORE to Knowledge Base (with full text when available) ──
         try:
-            from modules.knowledge.auto_store import auto_store
-            auto_store("deep_research", f"Deep Research: {topic}",
-                       {"topic": topic, "session_id": session_id, "stats": stats, "sources": unique_sources[:100]},
-                       source=f"Deep Research ({', '.join(databases)})", tags=["deep_research", topic[:30]])
-        except Exception:
-            pass
+            from api.knowledge import _store_entry
+            for src in unique_sources[:30]:
+                title = src.get("title", "Untitled")
+                authors = ", ".join(src.get("authors", [])[:5])
+                abstract = src.get("abstract", "")
+                full_text = src.get("full_text", "")
+                if full_text:
+                    content = f"**Authors:** {authors}\n**Year:** {src.get('year','')}\n**Source:** {src.get('database','')}\n\n## Full Text\n\n{full_text}"
+                else:
+                    content = f"**Authors:** {authors}\n**Year:** {src.get('year','')}\n**Source:** {src.get('database','')}\n\n## Abstract\n\n{abstract}"
+                _store_entry(
+                    category="deep_research",
+                    title=title,
+                    content=content,
+                    tags=f"{topic},{src.get('database','')}",
+                    source=f"Research: {topic}",
+                    metadata={"doi": src.get("doi",""), "pmid": src.get("pmid",""), "full_text": bool(full_text)}
+                )
+        except Exception as e:
+            log.warning(f"KB store failed: {e}")
 
         return {
             "status": "ok",
             "session_id": session_id,
             "topic": topic,
-            "sources": unique_sources[:50],  # Return first 50 for display
+            "sources": unique_sources[:50],
             "stats": stats,
+            "full_text_fetched": full_text_count,
         }
 
     def _scan_results(self, input: dict) -> dict:

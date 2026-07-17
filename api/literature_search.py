@@ -44,7 +44,30 @@ class LiteratureSearch(ApiHandler):
         else:
             return {"error": f"Unknown database: {database}", "papers": [], "total": 0}
 
-        # Store to knowledge base if requested
+        # ── Fetch full text for every paper ──
+        full_text_count = 0
+        try:
+            from modules.literature.full_text import FullTextRetriever
+            retriever = FullTextRetriever()
+            for paper in papers:
+                if not paper.get("title"):
+                    continue
+                try:
+                    ft = retriever.retrieve(paper)
+                    if ft and len(ft) > 200:
+                        paper["full_text"] = ft
+                        paper["full_text_available"] = True
+                        full_text_count += 1
+                    else:
+                        paper["full_text_available"] = False
+                except Exception:
+                    paper["full_text_available"] = False
+        except ImportError:
+            logger.warning("FullTextRetriever not available — storing abstracts only")
+        except Exception as e:
+            logger.warning(f"Full text fetch error: {e}")
+
+        # Store to knowledge base — with full text if available
         kb_stored = 0
         if store_to_kb and papers:
             try:
@@ -53,14 +76,20 @@ class LiteratureSearch(ApiHandler):
                     title = paper.get("title", "Untitled")
                     authors = ", ".join(paper.get("authors", [])[:5])
                     abstract = paper.get("abstract", "")
-                    content = f"**Authors:** {authors}\n**Year:** {paper.get('year', '')}\n**Journal:** {paper.get('journal', '')}\n**Database:** {database}\n\n## Abstract\n\n{abstract}"
+                    full_text = paper.get("full_text", "")
+
+                    if full_text:
+                        content = f"**Authors:** {authors}\n**Year:** {paper.get('year', '')}\n**Journal:** {paper.get('journal', '')}\n**Database:** {database}\n\n## Full Text\n\n{full_text}"
+                    else:
+                        content = f"**Authors:** {authors}\n**Year:** {paper.get('year', '')}\n**Journal:** {paper.get('journal', '')}\n**Database:** {database}\n\n## Abstract\n\n{abstract}"
+
                     _store_entry(
                         category="literature",
                         title=title,
                         content=content,
                         tags=f"{query},{database}",
                         source=f"Literature Search: {database}",
-                        metadata={"doi": paper.get("doi", ""), "pmid": paper.get("pmid", "")}
+                        metadata={"doi": paper.get("doi", ""), "pmid": paper.get("pmid", ""), "full_text": bool(full_text)}
                     )
                     kb_stored += 1
             except Exception as e:
@@ -70,7 +99,7 @@ class LiteratureSearch(ApiHandler):
         try:
             from modules.knowledge.auto_store import auto_store
             auto_store("literature_search", f"Literature: {query} ({database})",
-                       {"query": query, "database": database, "total": total, "papers": papers},
+                       {"query": query, "database": database, "total": total, "papers": papers, "full_text_count": full_text_count},
                        source=f"{database} search", tags=["literature", database, query[:30]])
         except Exception:
             pass
@@ -81,6 +110,7 @@ class LiteratureSearch(ApiHandler):
             "query": query,
             "database": database,
             "kb_stored": kb_stored,
+            "full_text_fetched": full_text_count,
         }
 
     async def _search_pubmed(self, query: str, max_results: int):
@@ -139,8 +169,13 @@ class LiteratureSearch(ApiHandler):
                 if pub_date is not None:
                     year = self._get_text(pub_date.find("Year")) or self._get_text(pub_date.find("MedlineDate"))
 
+                doi_val = self._get_text(article_data.find(".//ELocationID[@EIdType='doi']"))
+
                 papers.append({
                     "id": pmid,
+                    "pmid": pmid,
+                    "pmcid": self._get_text(medline.find(".//PMCID")) if medline is not None else "",
+                    "doi": doi_val or "",
                     "title": title or "No title",
                     "abstract": (abstract or "")[:800],
                     "authors": authors[:5],
@@ -149,6 +184,10 @@ class LiteratureSearch(ApiHandler):
                     "url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid else "",
                     "database": "PubMed",
                 })
+
+            # Resolve PMCIDs in batch via Europe PMC (enables Tier 1 full text)
+            if papers:
+                self._batch_resolve_pmcids(papers)
 
             return papers, count
         except Exception as e:
