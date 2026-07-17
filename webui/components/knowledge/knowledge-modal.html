@@ -5,565 +5,228 @@
   </script>
 </head>
 <body>
-  <div x-data class="nb-panel" x-init="$store.knowledgeModal.restore()">
-    <!-- Header -->
-    <div class="nb-header">
-      <span class="material-symbols-outlined nb-icon">psychology</span>
-      <div><h2>Research Notebook</h2><p class="nb-sub" x-text="$store.knowledgeModal.entryCount + ' entries · ' + ($store.knowledgeModal.tags?.length || 0) + ' categories'"></p></div>
-      <div class="nb-header-actions">
-        <button class="nb-btn-sm" @click="$store.knowledgeModal.reindexKB()" :disabled="$store.knowledgeModal.loading" title="Re-index Knowledge Base">
-          <span class="material-symbols-outlined">sync</span>
-        </button>
-        <button class="nb-btn-sm" @click="$store.knowledgeModal.loadGraph()" :disabled="$store.knowledgeModal.loading" title="Knowledge Graph">
-          <span class="material-symbols-outlined">hub</span>
-        </button>
-        <button class="nb-btn-sm" @click="$store.knowledgeModal.triggerFileUpload()" :disabled="$store.knowledgeModal.uploading" title="Upload files">
-          <span class="material-symbols-outlined">upload_file</span>
-        </button>
-        <button class="nb-btn-sm" @click="$store.knowledgeModal.exportJson()" title="Export JSON">
-          <span class="material-symbols-outlined">download</span>
-        </button>
-      </div>
-    </div>
+  <div x-data class="kb-panel" x-init="$store.knowledgeModal.restore()">
 
-    <!-- Tabs -->
-    <div class="nb-tabs">
-      <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='notebook'}" @click="$store.knowledgeModal.activeTab='notebook'"><span class="material-symbols-outlined" style="font-size:14px">edit_note</span> Notebook</button>
-      <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='recent'}" @click="$store.knowledgeModal.activeTab='recent'"><span class="material-symbols-outlined" style="font-size:14px">schedule</span> Recent</button>
-      <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='chat'}" @click="$store.knowledgeModal.activeTab='chat'"><span class="material-symbols-outlined" style="font-size:14px">chat</span> Chat</button>
-      <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='library'}" @click="$store.knowledgeModal.activeTab='library'"><span class="material-symbols-outlined" style="font-size:14px">local_library</span> Library</button>
-      <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='podcast'}" @click="$store.knowledgeModal.activeTab='podcast'"><span class="material-symbols-outlined" style="font-size:14px">podcasts</span> Podcast</button>
-      <button class="nb-tab" :class="{active:$store.knowledgeModal.activeTab=='notes'}" @click="$store.knowledgeModal.activeTab='notes'"><span class="material-symbols-outlined" style="font-size:14px">edit_note</span> Notes</button>
-    </div>
-
-    <!-- Recent Tab -->
-    <div x-show="$store.knowledgeModal.activeTab === 'recent'" style="flex:1;overflow-y:auto;min-height:0">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span style="font-size:0.62rem;font-weight:600;color:var(--color-text)" x-text="'Recently Added (' + $store.knowledgeModal.recentEntries.length + ')'"></span>
-        <button class="nb-btn-sm" @click="$store.knowledgeModal.loadLibraryFromKB()"><span class="material-symbols-outlined" style="font-size:14px">refresh</span></button>
-      </div>
-      <template x-if="$store.knowledgeModal.recentEntries.length">
-        <div>
-          <template x-for="(entry, idx) in $store.knowledgeModal.recentEntries" :key="entry.id">
-            <div class="nb-entry-card" :class="{saved: $store.knowledgeModal.favorites.includes(entry.id)}">
-              <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:0.6rem;font-weight:700;color:var(--color-primary);min-width:18px" x-text="(idx + 1)"></span>
-                <div style="flex:1;min-width:0">
-                  <div style="font-size:0.64rem;font-weight:600;color:var(--color-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" x-text="entry.question || 'Untitled'"></div>
-                  <div style="display:flex;gap:6px;margin-top:2px;flex-wrap:wrap">
-                    <template x-for="tag in (entry.tags || [])" :key="tag">
-                      <span style="font-size:0.5rem;padding:1px 5px;background:color-mix(in srgb,var(--color-primary)8%,transparent);border-radius:3px;color:var(--color-primary)" x-text="'#'+tag"></span>
-                    </template>
-                    <span x-show="entry.source" style="font-size:0.5rem;color:var(--color-text-muted)" x-text="entry.source"></span>
-                    <span style="font-size:0.5rem;color:var(--color-text-muted)" x-text="entry.createdAt?.substring(0, 10) || new Date(entry.id).toISOString().substring(0,10)"></span>
-                  </div>
-                </div>
-                <button style="padding:2px 6px;background:transparent;border:1px solid var(--color-border);border-radius:3px;font-size:0.54rem;color:var(--color-text-muted);cursor:pointer" @click="$store.knowledgeModal.openInWriter(entry)">Open</button>
-              </div>
-            </div>
-          </template>
+    <!-- Full Screen Reader (when reading a file) -->
+    <template x-if="$store.knowledgeModal.readingPaper">
+      <div class="kb-reader">
+        <div class="kb-reader-header">
+          <button class="kb-btn-back" @click="$store.knowledgeModal.readingPaper = null">
+            <span class="material-symbols-outlined">arrow_back</span> Back to list
+          </button>
+          <span class="kb-reader-title" x-text="$store.knowledgeModal.readingPaper.question || $store.knowledgeModal.readingPaper.title || 'Untitled'"></span>
         </div>
-      </template>
-      <div x-show="!$store.knowledgeModal.recentEntries.length && !$store.knowledgeModal.loading" style="text-align:center;padding:30px;color:var(--color-text-muted);font-size:0.62rem">
-        <span class="material-symbols-outlined" style="font-size:28px;opacity:0.2;display:block;margin-bottom:4px">schedule</span>
-        No documents yet. Upload files or save from Literature search.
+        <div class="kb-reader-content" x-html="($store.knowledgeModal.readingPaper.full_text || $store.knowledgeModal.readingPaper.answer || '').replace(/\n/g, '<br>')"></div>
       </div>
-    </div>
+    </template>
 
-    <!-- Search -->
-    <div class="nb-search-row">
-      <input type="text" x-model="$store.knowledgeModal.searchQuery" placeholder="Search knowledge base (ChromaDB vector search)..." class="nb-input"
-        @keyup.enter="$store.knowledgeModal.search()" />
-      <button class="nb-btn-primary" @click="$store.knowledgeModal.search()" :disabled="$store.knowledgeModal.loading">
-        <span class="material-symbols-outlined">search</span>
-      </button>
-    </div>
-
-    <!-- Status -->
-    <div x-show="$store.knowledgeModal.error" class="nb-error" x-text="$store.knowledgeModal.error"></div>
-    <div x-show="$store.knowledgeModal.message" class="nb-msg" x-text="$store.knowledgeModal.message"></div>
-    <div x-show="$store.knowledgeModal.loading || $store.knowledgeModal.uploading" class="nb-loading"><div class="loading-spinner"></div><span x-text="$store.knowledgeModal.uploading ? 'Uploading...' : 'Searching...'"></span></div>
-
-    <!-- Chat with KB Tab -->
-    <div x-show="$store.knowledgeModal.activeTab === 'chat'" style="display:flex;flex-direction:column;gap:6px;flex:1;overflow:hidden">
-      <div style="flex:1;overflow-y:auto;padding:6px 0">
-        <template x-for="(msg, idx) in $store.knowledgeModal.chatMessages" :key="idx">
-          <div style="padding:6px 10px;margin-bottom:4px;border-radius:6px" :style="msg.role === 'user' ? 'background:rgba(0,212,170,0.08);margin-left:20px' : 'background:var(--color-panel);border:1px solid var(--color-border)'">
-            <div style="font-size:0.56rem;font-weight:600;margin-bottom:2px;color:var(--color-primary)" x-text="msg.role === 'user' ? 'You' : msg.role === 'system' ? 'Context' : 'Agent'"></div>
-            <div style="font-size:0.6rem;color:var(--color-text);line-height:1.5;white-space:pre-wrap" x-text="msg.content"></div>
+    <!-- Main List View (when not reading) -->
+    <template x-if="!$store.knowledgeModal.readingPaper">
+      <div class="kb-main-view">
+        <!-- Header -->
+        <div class="kb-header">
+          <span class="material-symbols-outlined kb-icon">folder_open</span>
+          <div>
+            <h2>Knowledge Base</h2>
+            <p class="kb-sub" x-text="$store.knowledgeModal.entryCount + ' files · ' + ($store.knowledgeModal.selectedIds.length) + ' selected'"></p>
           </div>
-        </template>
-        <div x-show="!$store.knowledgeModal.chatMessages.length" style="text-align:center;padding:30px;color:var(--color-text-muted);font-size:0.64rem">
-          Ask questions about your uploaded documents and research notes
-        </div>
-      </div>
-      <div style="display:flex;gap:4px;flex-shrink:0">
-        <textarea x-model="$store.knowledgeModal.chatInput" placeholder="Ask a question about your knowledge base..." rows="3" class="nb-textarea" @keydown.ctrl.enter="$store.knowledgeModal.sendMessage()" style="min-height:50px;font-family:inherit"></textarea>
-        <button class="nb-btn-primary" @click="$store.knowledgeModal.sendMessage()" :disabled="$store.knowledgeModal.chatLoading" style="width:auto;flex:none;padding:6px 16px">Send</button>
-      </div>
-    </div>
-
-    <!-- Library Tab -->
-    <div x-show="$store.knowledgeModal.activeTab === 'library'" style="flex:1;overflow-y:auto" x-init="$store.knowledgeModal.loadLibraryFromKB()">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <span style="font-size:0.7rem;font-weight:600;color:var(--color-text)">Library Categories</span>
-        <button class="nb-btn-sm" @click="$store.knowledgeModal.loadLibraryFromKB()"><span class="material-symbols-outlined" style="font-size:14px">refresh</span> Refresh</button>
-      </div>
-      <template x-for="cat in $store.knowledgeModal.libraryCategories" :key="cat.name">
-        <div class="nb-entry-card" style="cursor:pointer" @click="$store.knowledgeModal.filterByTag(cat.name); $store.knowledgeModal.activeTab='notebook'">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div>
-              <span style="font-size:0.66rem;font-weight:600;color:var(--color-text)" x-text="'# ' + cat.name"></span>
-              <span style="font-size:0.52rem;color:var(--color-text-muted);margin-left:6px" x-text="cat.count + ' items'"></span>
-            </div>
-            <span style="font-size:0.7rem;font-weight:700;color:var(--color-primary)" x-text="cat.count"></span>
+          <div class="kb-header-actions">
+            <button class="kb-btn-sm" @click="$store.knowledgeModal.loadAllEntries()" :disabled="$store.knowledgeModal.loading" title="Refresh">
+              <span class="material-symbols-outlined">refresh</span>
+            </button>
+            <button class="kb-btn-sm" @click="$store.knowledgeModal.triggerUploadRestore()" :disabled="$store.knowledgeModal.uploading" title="Upload files">
+              <span class="material-symbols-outlined">upload_file</span>
+            </button>
           </div>
-          <div style="margin-top:3px;font-size:0.5rem;color:var(--color-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" x-text="cat.items.slice(0,3).join(' · ')"></div>
         </div>
-      </template>
-      <div x-show="!$store.knowledgeModal.libraryCategories.length" style="text-align:center;padding:30px;color:var(--color-text-muted);font-size:0.64rem">
-        <span class="material-symbols-outlined" style="font-size:28px;opacity:0.2;display:block;margin-bottom:4px">local_library</span>
-        No categories yet. Add entries with tags to organize your library.
-      </div>
-    </div>
 
-    <!-- Podcast Tab -->
-    <div x-show="$store.knowledgeModal.activeTab === 'podcast'" style="flex:1;overflow-y:auto">
-      <div style="padding:10px 12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:6px">
-        <h4 style="font-size:0.66rem;font-weight:600;color:var(--color-text);margin:0 0 6px 0">Generate Research Podcast</h4>
-        <p style="font-size:0.58rem;color:var(--color-text-muted);line-height:1.5;margin:0 0 8px 0">Convert text into spoken audio using TTS (configure API key in Settings).</p>
-        <textarea x-model="$store.knowledgeModal.podcastText" placeholder="Paste research text, summary, or notes here..." class="nb-textarea" rows="6"></textarea>
-        <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
-          <select x-model="$store.knowledgeModal.podcastVoice" style="padding:5px 8px;border:1px solid var(--color-border);border-radius:5px;background:var(--color-panel);color:var(--color-text);font-size:0.6rem">
-            <option value="alloy">Alloy (Neutral)</option>
-            <option value="echo">Echo (Warm)</option>
-            <option value="fable">Fable (British)</option>
-            <option value="onyx">Onyx (Deep)</option>
-            <option value="nova">Nova (Friendly)</option>
-            <option value="shimmer">Shimmer (Clear)</option>
-          </select>
-          <button class="nb-btn-primary" @click="$store.knowledgeModal.generatePodcast()" :disabled="$store.knowledgeModal.podcastLoading || !$store.knowledgeModal.podcastText">
-            <span class="material-symbols-outlined">podcasts</span> Generate
+        <!-- Selection Action Bar (appears when files are selected) -->
+        <div class="kb-action-bar" x-show="$store.knowledgeModal.selectedIds.length > 0">
+          <span class="kb-selected-count" x-text="$store.knowledgeModal.selectedIds.length + ' selected'"></span>
+          <div class="kb-action-buttons">
+            <button class="kb-action-btn" @click="$store.knowledgeModal.useSelectedFor('thesis')" title="Send to Thesis Writer">
+              <span class="material-symbols-outlined" style="font-size:15px">school</span> Thesis
+            </button>
+            <button class="kb-action-btn" @click="$store.knowledgeModal.useSelectedFor('review')" title="Send to Literature Review">
+              <span class="material-symbols-outlined" style="font-size:15px">rate_review</span> Review
+            </button>
+            <button class="kb-action-btn" @click="$store.knowledgeModal.useSelectedFor('podcast')" title="Send to Podcast">
+              <span class="material-symbols-outlined" style="font-size:15px">podcasts</span> Podcast
+            </button>
+            <button class="kb-action-btn" @click="$store.knowledgeModal.useSelectedFor('ppt')" title="Send to PPT Generator">
+              <span class="material-symbols-outlined" style="font-size:15px">slideshow</span> Slides
+            </button>
+            <button class="kb-action-btn" @click="$store.knowledgeModal.useSelectedFor('export')" title="Export Selected">
+              <span class="material-symbols-outlined" style="font-size:15px">download</span> Export
+            </button>
+          </div>
+          <button class="kb-btn-clear" @click="$store.knowledgeModal.clearSelection()" title="Clear selection">
+            <span class="material-symbols-outlined" style="font-size:15px">close</span>
           </button>
         </div>
-        <div x-show="$store.knowledgeModal.podcastLoading" class="nb-loading"><div class="loading-spinner"></div><span>Generating audio...</span></div>
-        <div x-show="$store.knowledgeModal.podcastUrl" style="margin-top:10px">
-          <audio :src="$store.knowledgeModal.podcastUrl" controls style="width:100%;border-radius:6px"></audio>
-        </div>
-      </div>
-    </div>
 
-    <!-- Notes Tab -->
-    <div x-show="$store.knowledgeModal.activeTab === 'notes'" style="flex:1;overflow-y:auto">
-      <div style="padding:10px 12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px">
-        <h4 style="font-size:0.66rem;font-weight:600;color:var(--color-text);margin:0 0 6px 0">Quick Note</h4>
-        <p style="font-size:0.58rem;color:var(--color-text-muted);line-height:1.5;margin:0 0 8px 0">Save a quick research note to the Knowledge Base.</p>
-        <input type="text" id="nb-note-title" placeholder="Note title..." class="nb-input-sm" />
-        <textarea id="nb-note-content" placeholder="Your note..." class="nb-textarea" rows="4"></textarea>
-        <button class="nb-btn-primary" @click="$store.knowledgeModal.addQuickNote()">
-          <span class="material-symbols-outlined">save</span> Save to Knowledge Base
-        </button>
-      </div>
-    </div>
+        <!-- Error / Message -->
+        <div x-show="$store.knowledgeModal.error" class="kb-error" x-text="$store.knowledgeModal.error"></div>
+        <div x-show="$store.knowledgeModal.message" class="kb-msg" x-text="$store.knowledgeModal.message"></div>
+        <div x-show="$store.knowledgeModal.loading" class="kb-loading"><div class="kb-spinner"></div> <span>Loading files...</span></div>
 
-    <!-- Main content area (Notebook tab) -->
-    <div class="nb-main" x-show="$store.knowledgeModal.activeTab === 'notebook'">
-      <!-- Tags sidebar -->
-      <div class="nb-sidebar">
-        <h4 class="nb-sidebar-title">Tags</h4>
-        <button class="nb-tag" :class="{active: !$store.knowledgeModal.activeTag}" @click="$store.knowledgeModal.activeTag = null">All</button>
-        <template x-for="tag in ($store.knowledgeModal.tags||[])" :key="tag">
-          <button class="nb-tag" :class="{active: $store.knowledgeModal.activeTag === tag}" @click="$store.knowledgeModal.filterByTag(tag)" x-text="'#' + tag"></button>
-        </template>
-        <div class="nb-add-tag">
-          <input type="text" placeholder="+ new tag" class="nb-tag-input"
-            @keyup.enter="if($event.target.value.trim()) { $store.knowledgeModal.addTag($event.target.value); $event.target.value = ''; }" />
-        </div>
-        <button class="nb-tag nb-tag-fav" @click="$store.knowledgeModal.filterByTag('__fav__')" x-show="$store.knowledgeModal.favorites.length">
-          ⭐ Favorites (<span x-text="$store.knowledgeModal.favorites.length"></span>)
-        </button>
-      </div>
-
-      <!-- Content -->
-      <div class="nb-content">
-        <!-- Graph view -->
-        <div x-show="$store.knowledgeModal.showGraph" class="nb-graph-container">
-          <div class="nb-graph-header">
-            <h4>Knowledge Graph</h4>
-            <button class="nb-btn-sm" @click="$store.knowledgeModal.showGraph = false">Close</button>
-          </div>
-          <canvas id="nb-graph-canvas" width="600" height="400" class="nb-graph-canvas"
-            x-init="if($store.knowledgeModal.showGraph) { $nextTick(() => drawGraph($store.knowledgeModal.graphData)); }"
-            x-effect="if($store.knowledgeModal.showGraph) { $nextTick(() => drawGraph($store.knowledgeModal.graphData)); }"></canvas>
-        </div>
-
-        <!-- Search Results (when active) -->
-        <div x-show="$store.knowledgeModal.searchResults.length" class="nb-results">
-          <h4 x-text="'Search Results (' + $store.knowledgeModal.searchResults.length + ')'"></h4>
-          <template x-for="r in $store.knowledgeModal.searchResults" :key="r.id || r.title">
-            <div class="nb-entry-card">
-              <div class="nb-entry-header">
-                <span class="nb-entry-title" x-text="r.title || r.content?.substring(0, 80)"></span>
-                <button class="nb-fav-btn" @click="$store.knowledgeModal.addNoteBookEntry(r.title||r.content?.substring(0,80), r.content||'', r.source||'Search', ['search'])">+ Save</button>
+        <!-- Body: Category Sidebar + File Grid -->
+        <div class="kb-body">
+          <!-- Category Sidebar -->
+          <div class="kb-sidebar">
+            <div class="kb-sidebar-section">
+              <div class="kb-sidebar-header">
+                <span class="kb-sidebar-title">Categories</span>
+                <button class="kb-add-cat-btn" @click="$store.knowledgeModal.showAddCategory = !$store.knowledgeModal.showAddCategory" title="Add category">
+                  <span class="material-symbols-outlined" style="font-size:14px">add</span>
+                </button>
               </div>
-              <div class="nb-entry-body" x-text="(r.content || '').substring(0, 400)"></div>
-              <div class="nb-entry-meta">
-                <span x-show="r.source" x-text="'Source: ' + r.source"></span>
+              <!-- Add new category form -->
+              <div x-show="$store.knowledgeModal.showAddCategory" class="kb-new-cat-form">
+                <input type="text" x-model="$store.knowledgeModal.newCategoryName" placeholder="Category name..."
+                  class="kb-cat-input" @keyup.enter="$store.knowledgeModal.createCategory()" />
+                <button class="kb-cat-add" @click="$store.knowledgeModal.createCategory()">Add</button>
               </div>
+              <!-- Category list -->
+              <button class="kb-cat-item" :class="{active: $store.knowledgeModal.activeCategory==='all'}" @click="$store.knowledgeModal.activeCategory='all'">
+                <span class="material-symbols-outlined" style="font-size:15px">folder</span> All Files
+                <span class="kb-cat-count" x-text="$store.knowledgeModal.entryCount"></span>
+              </button>
+              <template x-for="cat in $store.knowledgeModal.allCategories" :key="cat.key">
+                <button class="kb-cat-item" :class="{active: $store.knowledgeModal.activeCategory===cat.key}" @click="$store.knowledgeModal.activeCategory=cat.key">
+                  <span class="material-symbols-outlined" style="font-size:15px" x-text="cat.key==='literature'||cat.key==='deep_research'?'article':cat.key==='docking'||cat.key==='drug_analysis'?'science':cat.key==='notes'?'note':cat.key==='faculty'?'school':cat.key==='books'?'menu_book':'folder'"></span>
+                  <span x-text="cat.label"></span>
+                </button>
+              </template>
             </div>
-          </template>
-        </div>
-
-        <!-- Add entry form -->
-        <div class="nb-form">
-          <h4>Quick Note</h4>
-          <input type="text" x-model="$store.knowledgeModal.newEntry.question" placeholder="Title / concept name" class="nb-input-sm" />
-          <textarea x-model="$store.knowledgeModal.newEntry.answer" placeholder="Notes, key findings, or description..." class="nb-textarea"></textarea>
-          <div class="nb-form-row">
-            <input type="text" x-model="$store.knowledgeModal.newEntry.source" placeholder="Source (e.g. PubMed ID, URL)" class="nb-input-sm flex-1" />
-            <input type="text" placeholder="Tags (comma-separated)"
-              class="nb-input-sm flex-1"
-              @keyup.enter="if($event.target.value) { $store.knowledgeModal.newEntry.tags = $event.target.value.split(',').map(t=>t.trim().toLowerCase().replace(/\s+/g,'-')); $store.knowledgeModal.addEntry(); $event.target.value=''; }"
-              @change="if($event.target.value) { $store.knowledgeModal.newEntry.tags = $event.target.value.split(',').map(t=>t.trim().toLowerCase().replace(/\s+/g,'-')); }" />
-          </div>
-          <button class="nb-btn-primary" @click="$store.knowledgeModal.addEntry()" :disabled="!$store.knowledgeModal.newEntry.question">Add Entry</button>
-        </div>
-
-        <!-- Entry list -->
-        <div x-show="$store.knowledgeModal.filteredEntries.length" class="nb-entries">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-            <h4 x-text="'Entries (' + $store.knowledgeModal.filteredEntries.length + ')'" style="margin:0"></h4>
-            <div>
-              <button class="nb-btn-sm" @click="$store.knowledgeModal.selectAll()"
-                x-text="$store.knowledgeModal.filteredEntries.every(e => $store.knowledgeModal.selected[e.id]) ? 'Deselect All' : 'Select All'"
-                style="margin-right:4px"></button>
-              <button class="nb-btn-sm nb-btn-danger" x-show="$store.knowledgeModal.selectedCount > 0"
-                @click="$store.knowledgeModal.deleteSelected()"
-                x-text="'Delete (' + $store.knowledgeModal.selectedCount + ')'"></button>
+            <!-- Select All checkbox -->
+            <div class="kb-select-all">
+              <label class="kb-checkbox-label">
+                <input type="checkbox" :checked="$store.knowledgeModal.selectedIds.length === $store.knowledgeModal.recentEntries.length && $store.knowledgeModal.recentEntries.length > 0"
+                  @change="$store.knowledgeModal.selectAll()">
+                <span>Select All</span>
+              </label>
             </div>
           </div>
-          <template x-for="entry in $store.knowledgeModal.filteredEntries" :key="entry.id">
-            <!-- Render paper entries differently -->
-            <template x-if="$store.knowledgeModal.tryParsePapers(entry.answer).isCollection">
-              <div class="nb-entry-card nb-paper-collection" :class="{saved: $store.knowledgeModal.favorites.includes(entry.id)}">
-                <div class="nb-entry-header">
-                  <input type="checkbox" :checked="$store.knowledgeModal.selected[entry.id] || false"
-                    @click.stop="$store.knowledgeModal.toggleSelect(entry)"
-                    style="margin-right:6px;cursor:pointer;accent-color:var(--color-primary)" />
-                  <button class="nb-fav-btn" :class="{active: $store.knowledgeModal.favorites.includes(entry.id)}"
-                    @click="$store.knowledgeModal.toggleFavorite(entry.id)"
-                    x-text="$store.knowledgeModal.favorites.includes(entry.id) ? '⭐' : '☆'"></button>
-                  <span class="nb-entry-title" x-text="entry.question"></span>
-                  <span class="nb-paper-count" x-text="'📄 ' + $store.knowledgeModal.tryParsePapers(entry.answer).papers.length + ' docs'"></span>
-                  <button class="nb-toggle-btn" @click="entry._expanded = !entry._expanded"
-                    x-text="entry._expanded ? '▲ Collapse' : '▼ Expand'"></button>
-                  <button class="nb-del-btn" @click="$store.knowledgeModal.deleteEntry(entry)">×</button>
-                </div>
-                <!-- Paper card list (expandable) -->
-                <div x-show="!entry.hasOwnProperty('_expanded') || entry._expanded" class="nb-paper-list">
-                  <template x-for="(paper, pi) in $store.knowledgeModal.tryParsePapers(entry.answer).papers" :key="entry.id + '_' + pi">
-                    <div class="nb-paper-card" @click="$store.knowledgeModal.openPaperReader(paper)">
-                      <div class="nbp-title" x-text="paper.title || paper.question || 'Untitled'"></div>
-                      <div class="nbp-meta">
-                        <span x-show="$store.knowledgeModal.formatAuthors(paper.authors)" class="nbp-authors"
-                          x-text="$store.knowledgeModal.formatAuthors(paper.authors)"></span>
-                        <span x-show="paper.journal" class="nbp-journal" x-text="paper.journal"></span>
-                        <span x-show="paper.year" class="nbp-year" x-text="paper.year"></span>
-                        <span x-show="paper.citations" class="nbp-citations" x-text="'Cited: ' + paper.citations"></span>
-                      </div>
-                      <div x-show="paper.abstract" class="nbp-abstract" x-text="(paper.abstract || '').substring(0, 300)"></div>
-                      <div class="nbp-actions" @click.stop>
-                        <a x-show="paper.url" :href="paper.url" target="_blank" class="nbp-action-btn">🔗 Open</a>
-                        <a x-show="paper.doi" :href="'https://doi.org/' + paper.doi" target="_blank" class="nbp-action-btn">📄 DOI</a>
-                        <button @click="$store.knowledgeModal.openInWriter({question: paper.title, answer: paper.abstract || '', source: paper.journal || ''})" class="nbp-action-btn">📝 Write</button>
-                      </div>
+
+          <!-- File Grid -->
+          <div class="kb-file-area">
+            <!-- Empty state -->
+            <div x-show="!$store.knowledgeModal.loading && $store.knowledgeModal.entryCount === 0" class="kb-empty">
+              <span class="material-symbols-outlined" style="font-size:40px;opacity:0.2">folder_open</span>
+              <p>No files saved yet.</p>
+              <button class="kb-btn-upload-big" @click="$store.knowledgeModal.triggerUploadRestore()">
+                <span class="material-symbols-outlined">upload_file</span> Upload Files
+              </button>
+              <p style="font-size:0.55rem;margin-top:8px;color:var(--color-text-muted)">Supports: PDF, DOCX, XLSX, CSV, PPT, SDF, PDB, TXT, MD, JSON, images, audio</p>
+            </div>
+
+            <!-- File Grid -->
+            <div class="kb-file-grid" x-show="!$store.knowledgeModal.loading && $store.knowledgeModal.entryCount > 0">
+              <template x-for="(entry, idx) in $store.knowledgeModal.categoryFilteredEntries" :key="entry.id || idx">
+                <div class="kb-file-card" :class="{selected: $store.knowledgeModal.isSelected(entry.id)}">
+                  <!-- Checkbox -->
+                  <label class="kb-checkbox" @click.stop="$store.knowledgeModal.toggleSelection(entry.id)">
+                    <input type="checkbox" :checked="$store.knowledgeModal.isSelected(entry.id)">
+                  </label>
+                  <!-- File icon -->
+                  <span class="kb-file-card-icon" @click="$store.knowledgeModal.readEntry(entry)">
+                    <span class="material-symbols-outlined" style="font-size:28px" x-text="entry.source && entry.source.includes('Literature') || (entry.tags||[]).includes('literature') ? 'article' : (entry.tags||[]).includes('notes') ? 'note' : (entry.tags||[]).includes('docking') ? 'science' : 'description'"></span>
+                  </span>
+                  <!-- File info -->
+                  <div class="kb-file-card-info" @click="$store.knowledgeModal.readEntry(entry)">
+                    <div class="kb-file-card-name" x-text="entry.question || entry.title || 'Untitled'"></div>
+                    <div class="kb-file-card-meta">
+                      <span x-text="entry.source || 'Knowledge Base'"></span>
+                      <span x-show="entry.contentLength" x-text="entry.contentLength > 1000 ? Math.round(entry.contentLength/1000)+'KB' : (entry.contentLength||0)+'B'"></span>
+                      <span x-text="(entry.createdAt||'').substring(0,10)"></span>
                     </div>
-                  </template>
-                </div>
-                      <div x-show="paper.abstract" class="nbp-abstract" x-text="paper.abstract?.substring(0, 300)"></div>
-                      <div class="nbp-actions">
-                        <a x-show="paper.url" :href="paper.url" target="_blank" class="nbp-action-btn">🔗 Open</a>
-                        <a x-show="paper.doi" :href="'https://doi.org/' + paper.doi" target="_blank" class="nbp-action-btn">📄 DOI</a>
-                        <button @click="$store.knowledgeModal.openInWriter({question: paper.title, answer: paper.abstract || '', source: paper.journal || ''})" class="nbp-action-btn">📝 Write</button>
-                      </div>
+                    <div class="kb-file-card-tags">
+                      <template x-for="tag in (entry.tags||[]).slice(0,3)" :key="tag">
+                        <span class="kb-tag" x-text="tag"></span>
+                      </template>
                     </div>
-                  </template>
-                </div>
-                <div class="nb-entry-meta">
-                  <template x-for="tag in (entry.tags || [])" :key="tag">
-                    <button class="nb-entry-tag" @click="$store.knowledgeModal.filterByTag(tag)" x-text="'#' + tag"></button>
-                  </template>
-                  <span x-show="entry.source" class="nb-entry-source" x-text="'📄 ' + entry.source"></span>
-                  <span class="nb-entry-date" x-text="entry.createdAt?.substring(0, 10)"></span>
-                </div>
-              </div>
-            </template>
-            <!-- Regular entry (non-paper) -->
-            <template x-if="!$store.knowledgeModal.tryParsePapers(entry.answer).isCollection">
-              <div class="nb-entry-card" :class="{saved: $store.knowledgeModal.favorites.includes(entry.id)}">
-                <div class="nb-entry-header">
-                  <input type="checkbox" :checked="$store.knowledgeModal.selected[entry.id] || false"
-                    @click.stop="$store.knowledgeModal.toggleSelect(entry)"
-                    style="margin-right:6px;cursor:pointer;accent-color:var(--color-primary)" />
-                  <button class="nb-fav-btn" :class="{active: $store.knowledgeModal.favorites.includes(entry.id)}"
-                    @click="$store.knowledgeModal.toggleFavorite(entry.id)"
-                    x-text="$store.knowledgeModal.favorites.includes(entry.id) ? '⭐' : '☆'"></button>
-                  <span class="nb-entry-title" x-text="entry.question"></span>
-                  <!-- DOCX badge -->
-                  <template x-if="entry.format === 'docx'">
-                    <span style="background:#2a5540;color:#90e0a0;font-size:0.5rem;padding:2px 6px;border-radius:4px;font-weight:700;margin-left:6px">DOCX</span>
-                  </template>
-                  <template x-if="entry.format === 'docx'">
-                    <a :href="'/api/knowledge_download?file=' + encodeURIComponent(entry.file)" download
-                       style="font-size:0.56rem;color:var(--color-primary);text-decoration:none;margin-left:6px;font-weight:600"
-                       @click.stop>Download</a>
-                  </template>
-                  <button class="nb-writer-btn" @click="$store.knowledgeModal.openInWriter(entry)" title="Open in Academic Writer">📝</button>
-                  <button class="nb-del-btn" @click="$store.knowledgeModal.deleteEntry(entry)">×</button>
-                </div>
-                <div class="nb-entry-body" x-show="entry.answer" x-text="entry.answer?.substring(0, 500)"></div>
-                <div class="nb-entry-meta">
-                  <template x-for="tag in (entry.tags || [])" :key="tag">
-                    <button class="nb-entry-tag" @click="$store.knowledgeModal.filterByTag(tag)" x-text="'#' + tag"></button>
-                  </template>
-                  <span x-show="entry.source" class="nb-entry-source" x-text="'📄 ' + entry.source"></span>
-                  <span class="nb-entry-date" x-text="entry.createdAt?.substring(0, 10)"></span>
-                </div>
-              </div>
-            </template>
-          </template>
-        </div>
-
-        <!-- Full Paper Reader -->
-        <div x-show="$store.knowledgeModal.readingPaper" class="nb-paper-reader-overlay" @click.self="$store.knowledgeModal.closePaperReader()">
-          <div class="nb-paper-reader">
-            <div class="npr-header">
-              <button class="npr-close" @click="$store.knowledgeModal.closePaperReader()">✕</button>
-              <h2 class="npr-title" x-text="$store.knowledgeModal.readingPaper?.title || 'Untitled'"></h2>
-            </div>
-            <div class="npr-authors" x-show="$store.knowledgeModal.formatAuthors($store.knowledgeModal.readingPaper?.authors)">
-              <span x-text="$store.knowledgeModal.formatAuthors($store.knowledgeModal.readingPaper?.authors)"></span>
-            </div>
-            <div class="npr-meta-grid">
-              <template x-for="m in $store.knowledgeModal.getPaperMetadata($store.knowledgeModal.readingPaper)" :key="m.label">
-                <div class="npr-meta-item">
-                  <span class="npr-meta-label" x-text="m.label"></span>
-                  <span x-show="m.label !== 'URL' && m.label !== 'DOI'" class="npr-meta-value" x-text="m.value"></span>
-                  <a x-show="m.label === 'DOI'" :href="'https://doi.org/' + m.value" target="_blank" class="npr-meta-link" x-text="m.value"></a>
-                  <a x-show="m.label === 'URL'" :href="m.value" target="_blank" class="npr-meta-link" x-text="m.value"></a>
+                  </div>
                 </div>
               </template>
             </div>
-            <div class="npr-section" x-show="$store.knowledgeModal.readingPaper?.abstract">
-              <h3>Abstract</h3>
-              <p x-text="$store.knowledgeModal.readingPaper?.abstract"></p>
-            </div>
-            <div class="npr-section" x-show="$store.knowledgeModal.getFullText($store.knowledgeModal.readingPaper)">
-              <h3>Full Text</h3>
-              <pre class="npr-fulltext" x-text="$store.knowledgeModal.getFullText($store.knowledgeModal.readingPaper)"></pre>
-            </div>
-            <div class="npr-actions-row">
-              <a x-show="$store.knowledgeModal.readingPaper?.url" :href="$store.knowledgeModal.readingPaper?.url" target="_blank" class="nb-btn-primary">🔗 Open Original</a>
-              <a x-show="$store.knowledgeModal.readingPaper?.doi" :href="'https://doi.org/' + $store.knowledgeModal.readingPaper?.doi" target="_blank" class="nb-btn-primary">📄 View DOI</a>
-              <button class="nb-btn-primary" @click="const p = $store.knowledgeModal.readingPaper; $store.knowledgeModal.openInWriter({question: p.title, answer: p.abstract || '', source: p.journal || ''}); $store.knowledgeModal.closePaperReader()">📝 Send to Writer</button>
+
+            <!-- Upload zone -->
+            <div class="kb-upload-zone" x-show="$store.knowledgeModal.entryCount > 0">
+              <button class="kb-btn-upload" @click="$store.knowledgeModal.triggerUploadRestore()" :disabled="$store.knowledgeModal.uploading">
+                <span class="material-symbols-outlined">add</span> Add Files
+              </button>
             </div>
           </div>
         </div>
 
-        <div x-show="!$store.knowledgeModal.entries.length && !$store.knowledgeModal.searchResults.length && !$store.knowledgeModal.loading" class="nb-empty">
-          <span class="material-symbols-outlined nb-empty-icon">menu_book</span>
-          <p>Your research notebook is empty</p>
-          <p class="nb-empty-hint">Upload PDFs, search & save papers, or add notes manually. Save entries from Literature search with "Save to Notebook".</p>
-        </div>
+        <div x-show="$store.knowledgeModal.uploading" class="kb-loading"><div class="kb-spinner"></div> <span>Uploading...</span></div>
       </div>
-    </div>
+    </template>
 
     <style>
-      .nb-panel { display: flex; flex-direction: column; height: 100%; overflow: hidden; padding: 10px 14px; background: var(--color-background); }
-      .nb-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-shrink: 0; }
-      .nb-icon { font-size: 22px; color: var(--color-primary); }
-      .nb-header h2 { color: var(--color-primary); font-size: 0.9rem; margin: 0; font-weight: 700; }
-      .nb-sub { color: var(--color-text-muted); font-size: 0.58rem; margin: 0; }
-      .nb-header-actions { display: flex; gap: 3px; margin-left: auto; }
-      .nb-tabs { display:flex;gap:1px;margin-bottom:8px;flex-shrink:0;border-bottom:1px solid var(--color-border);padding-bottom:4px }
-      .nb-tab { display:flex;align-items:center;gap:3px;padding:5px 10px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--color-text-muted);cursor:pointer;font-size:0.62rem;font-weight:500 }
-      .nb-tab:hover { color:var(--color-text) }
-      .nb-tab.active { color:var(--color-primary);border-bottom-color:var(--color-primary) }
-      .nb-btn-sm { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 5px; color: var(--color-text-muted); cursor: pointer; font-size: 0; }
-      .nb-btn-sm:hover { border-color: var(--color-primary); color: var(--color-primary); }
-      .nb-btn-sm:disabled { opacity: 0.4; }
-      .nb-btn-sm .material-symbols-outlined { font-size: 15px; }
-
-      .nb-search-row { display: flex; gap: 5px; margin-bottom: 6px; flex-shrink: 0; }
-      .nb-input { flex: 1; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-panel); color: var(--color-text); font-size: 0.68rem; }
-      .nb-input:focus { outline: none; border-color: var(--color-primary); }
-      .nb-input::placeholder { color: var(--color-text-muted); font-size: 0.62rem; }
-      .nb-btn-primary { display: flex; align-items: center; gap: 3px; padding: 6px 10px; background: var(--color-primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.66rem; font-weight: 600; white-space: nowrap; }
-      .nb-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-      .nb-btn-primary .material-symbols-outlined { font-size: 16px; }
-
-      .nb-error { padding: 4px 8px; background: rgba(255,107,107,0.1); border-radius: 4px; color: var(--color-error-text); font-size: 0.6rem; margin-bottom: 4px; }
-      .nb-msg { padding: 4px 8px; background: rgba(0,212,170,0.08); border-radius: 4px; color: var(--color-primary); font-size: 0.6rem; margin-bottom: 4px; }
-      .nb-loading { display: flex; align-items: center; gap: 5px; font-size: 0.62rem; color: var(--color-text-muted); margin-bottom: 4px; }
-      .loading-spinner { width: 12px; height: 12px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
-      @keyframes spin { to { transform: rotate(360deg); } }
-
-      .nb-main { flex: 1; display: flex; gap: 8px; min-height: 0; overflow: hidden; }
-      .nb-sidebar { width: 110px; flex-shrink: 0; overflow-y: auto; padding-right: 4px; }
-      .nb-sidebar-title { font-size: 0.58rem; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.3px; margin: 0 0 4px 0; }
-      .nb-tag { display: block; width: 100%; padding: 3px 6px; background: transparent; border: none; border-radius: 4px; color: var(--color-text-muted); cursor: pointer; font-size: 0.6rem; text-align: left; transition: all 0.1s; margin-bottom: 1px; }
-      .nb-tag:hover { background: color-mix(in srgb, var(--color-primary) 6%, transparent); color: var(--color-text); }
-      .nb-tag.active { background: color-mix(in srgb, var(--color-primary) 12%, transparent); color: var(--color-primary); font-weight: 600; }
-      .nb-tag-fav { color: #ffd93d; }
-      .nb-add-tag { margin-top: 4px; }
-      .nb-tag-input { width: 100%; padding: 2px 6px; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-panel); color: var(--color-text); font-size: 0.56rem; }
-
-      .nb-content { flex: 1; overflow-y: auto; min-width: 0; }
-      .nb-graph-container { margin-bottom: 8px; }
-      .nb-graph-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-      .nb-graph-header h4 { font-size: 0.7rem; font-weight: 600; color: var(--color-text); margin: 0; }
-      .nb-graph-canvas { width: 100%; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-panel); }
-      .nb-results { margin-bottom: 8px; }
-      .nb-results h4 { font-size: 0.64rem; font-weight: 600; color: var(--color-text); margin: 0 0 4px 0; }
-
-      .nb-form { padding: 8px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 8px; }
-      .nb-form h4 { font-size: 0.64rem; font-weight: 600; color: var(--color-primary); margin: 0 0 6px 0; }
-      .nb-input-sm { width: 100%; padding: 5px 8px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-background); color: var(--color-text); font-size: 0.62rem; margin-bottom: 4px; box-sizing: border-box; }
-      .nb-input-sm:focus { outline: none; border-color: var(--color-primary); }
-      .nb-textarea { width: 100%; padding: 5px 8px; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-background); color: var(--color-text); font-size: 0.62rem; min-height: 50px; resize: vertical; margin-bottom: 4px; box-sizing: border-box; }
-      .nb-textarea:focus { outline: none; border-color: var(--color-primary); }
-      .nb-form-row { display: flex; gap: 4px; }
-      .flex-1 { flex: 1; min-width: 0; }
-
-      .nb-entries { }
-      .nb-entries h4 { font-size: 0.64rem; font-weight: 600; color: var(--color-text); margin: 0 0 4px 0; }
-      .nb-entry-card { padding: 8px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 7px; margin-bottom: 4px; border-left: 3px solid var(--color-border); transition: all 0.12s; }
-      .nb-entry-card.saved { border-left-color: #ffd93d; }
-      .nb-entry-header { display: flex; align-items: center; gap: 6px; }
-      .nb-fav-btn { padding: 1px 4px; background: transparent; border: none; cursor: pointer; font-size: 0.7rem; color: var(--color-text-muted); }
-      .nb-fav-btn.active { color: #ffd93d; }
-      .nb-writer-btn { padding: 1px 4px; background: transparent; border: none; cursor: pointer; font-size: 0.7rem; opacity: 0; transition: opacity 0.15s; }
-      .nb-entry-card:hover .nb-writer-btn { opacity: 1; }
-      .nb-entry-title { flex: 1; font-size: 0.66rem; font-weight: 600; color: var(--color-text); }
-      .nb-del-btn { padding: 1px 5px; background: transparent; border: none; color: var(--color-text-muted); cursor: pointer; font-size: 0.75rem; }
-      .nb-del-btn:hover { color: var(--color-error-text); }
-      .nb-btn-danger { background: color-mix(in srgb, var(--color-error-text) 15%, transparent); color: var(--color-error-text); border: 1px solid color-mix(in srgb, var(--color-error-text) 30%, transparent); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.58rem; font-weight: 600; }
-      .nb-btn-danger:hover { background: color-mix(in srgb, var(--color-error-text) 25%, transparent); }
-      .nb-entry-body { font-size: 0.62rem; color: var(--color-text-muted); margin-top: 4px; line-height: 1.4; white-space: pre-wrap; }
-      .nb-entry-meta { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
-      .nb-entry-tag { padding: 1px 6px; background: color-mix(in srgb, var(--color-primary) 8%, transparent); border: none; border-radius: 3px; font-size: 0.54rem; color: var(--color-primary); cursor: pointer; }
-      .nb-entry-tag:hover { background: color-mix(in srgb, var(--color-primary) 16%, transparent); }
-      .nb-entry-source { font-size: 0.55rem; color: var(--color-text-muted); }
-      .nb-entry-date { font-size: 0.52rem; color: var(--color-text-muted); margin-left: auto; }
-
-      .nb-empty { display: flex; flex-direction: column; align-items: center; padding: 30px 16px; text-align: center; }
-      .nb-empty-icon { font-size: 36px; color: var(--color-border); margin-bottom: 8px; }
-      .nb-empty p { font-size: 0.68rem; color: var(--color-text-muted); margin: 0 0 4px 0; }
-      .nb-empty-hint { font-size: 0.6rem; color: var(--color-text-muted); opacity: 0.7; line-height: 1.3; }
-
-      /* Paper collection / NotebookLM-style document cards */
-      .nb-paper-collection { border-left-color: var(--color-primary) !important; background: color-mix(in srgb, var(--color-primary) 3%, var(--color-panel)); }
-      .nb-paper-count { font-size: 0.54rem; color: var(--color-primary); font-weight: 600; padding: 1px 8px; background: rgba(0,212,170,0.1); border-radius: 10px; }
-      .nb-toggle-btn { padding: 1px 6px; background: transparent; border: 1px solid var(--color-border); border-radius: 3px; font-size: 0.52rem; color: var(--color-text-muted); cursor: pointer; }
-      .nb-toggle-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-      .nb-paper-list { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; max-height: 500px; overflow-y: auto; }
-      .nb-paper-card { padding: 8px 10px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 6px; transition: all 0.12s; }
-      .nb-paper-card:hover { border-color: var(--color-primary); box-shadow: 0 2px 8px rgba(0,212,170,0.06); }
-      .nbp-title { font-size: 0.64rem; font-weight: 600; color: var(--color-text); margin-bottom: 3px; line-height: 1.3; }
-      .nbp-meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 3px; }
-      .nbp-authors { font-size: 0.54rem; color: var(--color-text-muted); font-style: italic; }
-      .nbp-journal { font-size: 0.54rem; color: var(--color-primary); font-weight: 500; }
-      .nbp-year { font-size: 0.52rem; color: var(--color-text-muted); background: var(--color-panel); padding: 1px 5px; border-radius: 3px; }
-      .nbp-citations { font-size: 0.5rem; color: var(--color-text-muted); }
-      .nbp-abstract { font-size: 0.56rem; color: var(--color-text-muted); line-height: 1.4; margin-top: 3px; padding-top: 3px; border-top: 1px solid var(--color-border); }
-      .nbp-actions { display: flex; gap: 4px; margin-top: 4px; }
-      .nbp-action-btn { padding: 2px 8px; background: color-mix(in srgb, var(--color-primary) 8%, transparent); border: none; border-radius: 4px; font-size: 0.52rem; color: var(--color-primary); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 2px; }
-      .nbp-action-btn:hover { background: color-mix(in srgb, var(--color-primary) 16%, transparent); }
-
-      /* Full Paper Reader */
-      .nb-paper-reader-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 9999; display: flex; align-items: flex-start; justify-content: center; padding: 20px; overflow-y: auto; }
-      .nb-paper-reader { width: 100%; max-width: 750px; background: var(--color-background, #0a0a1a); border: 1px solid var(--color-border); border-radius: 14px; padding: 24px; margin: 20px 0; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
-      .npr-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
-      .npr-close { padding: 4px 10px; background: transparent; border: 1px solid var(--color-border); border-radius: 6px; color: var(--color-text-muted); font-size: 0.9rem; cursor: pointer; line-height: 1; flex-shrink: 0; }
-      .npr-close:hover { border-color: var(--color-error-text); color: var(--color-error-text); }
-      .npr-title { font-size: 1.05rem; font-weight: 700; color: var(--color-text); margin: 0; line-height: 1.3; }
-      .npr-authors { font-size: 0.74rem; color: var(--color-text-muted); font-style: italic; margin-bottom: 12px; }
-      .npr-meta-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
-      .npr-meta-item { padding: 3px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 5px; }
-      .npr-meta-label { font-size: 0.5rem; font-weight: 600; color: var(--color-primary); text-transform: uppercase; display: block; margin-bottom: 1px; }
-      .npr-meta-value { font-size: 0.62rem; color: var(--color-text); }
-      .npr-meta-link { font-size: 0.58rem; color: var(--color-primary); text-decoration: none; word-break: break-all; }
-      .npr-meta-link:hover { text-decoration: underline; }
-      .npr-section { margin-bottom: 16px; }
-      .npr-section h3 { font-size: 0.68rem; font-weight: 600; color: var(--color-primary); margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.3px; }
-      .npr-section p { font-size: 0.72rem; color: var(--color-text-muted); line-height: 1.6; margin: 0; }
-      .npr-fulltext { padding: 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; font-size: 0.66rem; font-family: var(--font-mono, 'Consolas', monospace); color: var(--color-text); line-height: 1.6; white-space: pre-wrap; max-height: 500px; overflow-y: auto; margin: 0; }
-      .npr-actions-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--color-border); }
+      .kb-panel{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background);font-family:inherit}
+      .kb-reader{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background)}
+      .kb-reader-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--color-border);background:var(--color-panel)}
+      .kb-btn-back{display:flex;align-items:center;gap:4px;padding:6px 12px;background:var(--color-primary);border:none;border-radius:6px;color:white;font-size:0.7rem;cursor:pointer}
+      .kb-reader-title{flex:1;font-size:0.8rem;font-weight:600;color:var(--color-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .kb-reader-content{flex:1;overflow-y:auto;padding:20px;font-size:0.75rem;color:var(--color-text);line-height:1.8}
+      .kb-main-view{display:flex;flex-direction:column;height:100%;overflow:hidden}
+      .kb-header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0}
+      .kb-icon{font-size:24px;color:var(--color-primary)}
+      .kb-header h2{font-size:0.95rem;margin:0;font-weight:700;color:var(--color-text)}
+      .kb-sub{font-size:0.62rem;color:var(--color-text-muted);margin:0}
+      .kb-header-actions{margin-left:auto;display:flex;gap:4px}
+      .kb-btn-sm{padding:6px 8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-muted);cursor:pointer;display:flex;align-items:center}
+      .kb-btn-sm:hover{border-color:var(--color-primary)}
+      .kb-action-bar{display:flex;align-items:center;gap:6px;padding:8px 12px;background:color-mix(in srgb,var(--color-primary)8%,var(--color-panel));border-bottom:1px solid var(--color-border);flex-shrink:0;flex-wrap:wrap}
+      .kb-selected-count{font-size:0.65rem;font-weight:600;color:var(--color-primary);flex-shrink:0}
+      .kb-action-buttons{display:flex;gap:4px;flex-wrap:wrap}
+      .kb-action-btn{display:flex;align-items:center;gap:4px;padding:5px 10px;background:var(--color-primary);border:none;border-radius:5px;color:white;font-size:0.6rem;cursor:pointer;font-weight:600}
+      .kb-action-btn:hover{background:color-mix(in srgb,var(--color-primary)85%,black)}
+      .kb-btn-clear{padding:5px;background:transparent;border:1px solid var(--color-border);border-radius:5px;color:var(--color-text-muted);cursor:pointer;display:flex;align-items:center}
+      .kb-error{padding:8px 12px;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.2);border-radius:6px;color:#ff6b6b;font-size:0.65rem;margin:8px 16px}
+      .kb-msg{padding:8px 12px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);border-radius:6px;color:#22c55e;font-size:0.65rem;margin:8px 16px}
+      .kb-loading{display:flex;align-items:center;justify-content:center;gap:8px;padding:16px;font-size:0.7rem;color:var(--color-text-muted)}
+      .kb-spinner{width:16px;height:16px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:kb-spin 0.8s linear infinite}
+      @keyframes kb-spin{to{transform:rotate(360deg)}}
+      .kb-body{display:flex;flex:1;overflow:hidden}
+      .kb-sidebar{width:180px;flex-shrink:0;border-right:1px solid var(--color-border);background:var(--color-panel);overflow-y:auto;display:flex;flex-direction:column}
+      .kb-sidebar-section{flex:1;padding:8px 0}
+      .kb-sidebar-header{display:flex;align-items:center;justify-content:space-between;padding:4px 12px 8px}
+      .kb-sidebar-title{font-size:0.65rem;font-weight:700;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.5px}
+      .kb-add-cat-btn{background:none;border:none;color:var(--color-primary);cursor:pointer;padding:2px;display:flex;align-items:center}
+      .kb-new-cat-form{display:flex;gap:4px;padding:4px 8px 8px}
+      .kb-cat-input{flex:1;padding:4px 6px;border:1px solid var(--color-border);border-radius:4px;background:var(--color-background);color:var(--color-text);font-size:0.58rem}
+      .kb-cat-add{padding:4px 8px;background:var(--color-primary);border:none;border-radius:4px;color:white;font-size:0.58rem;cursor:pointer}
+      .kb-cat-item{display:flex;align-items:center;gap:6px;width:100%;padding:6px 12px;border:none;background:transparent;color:var(--color-text);font-size:0.62rem;cursor:pointer;text-align:left;transition:background 0.15s}
+      .kb-cat-item:hover{background:color-mix(in srgb,var(--color-primary)5%,transparent)}
+      .kb-cat-item.active{background:color-mix(in srgb,var(--color-primary)12%,transparent);color:var(--color-primary);font-weight:600}
+      .kb-cat-count{margin-left:auto;font-size:0.55rem;color:var(--color-text-muted);background:var(--color-background);padding:1px 5px;border-radius:3px}
+      .kb-select-all{padding:8px 12px;border-top:1px solid var(--color-border)}
+      .kb-checkbox-label{display:flex;align-items:center;gap:6px;font-size:0.6rem;color:var(--color-text);cursor:pointer}
+      .kb-checkbox-label input{width:14px;height:14px;cursor:pointer}
+      .kb-file-area{flex:1;overflow-y:auto;padding:8px 12px}
+      .kb-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;color:var(--color-text-muted);text-align:center;height:100%}
+      .kb-empty p{font-size:0.7rem;margin:4px 0}
+      .kb-btn-upload-big{display:flex;align-items:center;gap:6px;margin-top:12px;padding:10px 20px;background:var(--color-primary);border:none;border-radius:8px;color:white;font-size:0.7rem;cursor:pointer}
+      .kb-file-grid{display:flex;flex-direction:column;gap:4px}
+      .kb-file-card{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;transition:all 0.15s;position:relative}
+      .kb-file-card:hover{border-color:var(--color-primary)}
+      .kb-file-card.selected{border-color:var(--color-primary);background:color-mix(in srgb,var(--color-primary)5%,var(--color-panel))}
+      .kb-checkbox{flex-shrink:0;cursor:pointer;display:flex;align-items:center;padding-top:4px}
+      .kb-checkbox input{width:16px;height:16px;cursor:pointer}
+      .kb-file-card-icon{flex-shrink:0;color:var(--color-primary);cursor:pointer;padding-top:2px}
+      .kb-file-card-info{flex:1;min-width:0;cursor:pointer}
+      .kb-file-card-name{font-size:0.68rem;font-weight:600;color:var(--color-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .kb-file-card-meta{display:flex;gap:8px;margin-top:2px;flex-wrap:wrap}
+      .kb-file-card-meta span{font-size:0.52rem;color:var(--color-text-muted)}
+      .kb-file-card-tags{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap}
+      .kb-tag{font-size:0.5rem;padding:1px 5px;background:color-mix(in srgb,var(--color-primary)8%,transparent);border-radius:3px;color:var(--color-primary)}
+      .kb-upload-zone{padding:10px 0}
+      .kb-btn-upload{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:8px;background:transparent;border:1px dashed var(--color-border);border-radius:6px;color:var(--color-text-muted);font-size:0.62rem;cursor:pointer}
+      .kb-btn-upload:hover{border-color:var(--color-primary);color:var(--color-primary)}
     </style>
-
-    <script>
-      function drawGraph(data) {
-        const canvas = document.getElementById("nb-graph-canvas");
-        if (!canvas || !data || !data.nodes.length) return;
-        const ctx = canvas.getContext("2d");
-        const w = canvas.width = canvas.offsetWidth || 600;
-        const h = canvas.height = 400;
-        ctx.clearRect(0, 0, w, h);
-
-        const nodes = data.nodes.map((n, i) => ({
-          ...n,
-          x: w / 2 + (Math.cos(i * 2 * Math.PI / data.nodes.length) * (w / 3)),
-          y: h / 2 + (Math.sin(i * 2 * Math.PI / data.nodes.length) * (h / 3)),
-          vx: 0, vy: 0,
-        }));
-
-        // Simple force simulation (10 iterations)
-        for (let iter = 0; iter < 20; iter++) {
-          nodes.forEach(n => {
-            n.vx = 0; n.vy = 0;
-            nodes.forEach(n2 => {
-              if (n === n2) return;
-              const dx = n.x - n2.x, dy = n.y - n2.y;
-              const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-              const force = 2000 / (dist * dist);
-              n.vx += (dx / dist) * force;
-              n.vy += (dy / dist) * force;
-            });
-            n.vx += (w / 2 - n.x) * 0.001;
-            n.vy += (h / 2 - n.y) * 0.001;
-            n.vx *= 0.5; n.vy *= 0.5;
-            n.x += n.vx; n.y += n.vy;
-            n.x = Math.max(30, Math.min(w - 30, n.x));
-            n.y = Math.max(20, Math.min(h - 20, n.y));
-          });
-        }
-
-        // Draw edges
-        ctx.strokeStyle = "rgba(150,150,170,0.3)";
-        ctx.lineWidth = 1;
-        data.edges.forEach(e => {
-          const s = nodes.find(n => n.id === e.source);
-          const t = nodes.find(n => n.id === e.target);
-          if (s && t) { ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(t.x, t.y); ctx.stroke(); }
-        });
-
-        // Draw nodes
-        nodes.forEach(n => {
-          const r = n.type === "tag" ? 8 : n.type === "source" ? 10 : 14;
-          ctx.beginPath();
-          ctx.arc(n.x, n.y, r, 0, 2 * Math.PI);
-          ctx.fillStyle = n.type === "tag" ? "rgba(0,212,170,0.7)" : n.type === "source" ? "rgba(100,150,255,0.7)" : "rgba(255,255,255,0.8)";
-          ctx.fill();
-          ctx.strokeStyle = n.type === "tag" ? "rgba(0,180,150,1)" : "rgba(100,100,120,1)";
-          ctx.lineWidth = 1;
-          ctx.stroke();
-          ctx.fillStyle = n.type === "entry" ? "#000" : "#fff";
-          ctx.font = "10px Inter, sans-serif";
-          ctx.textAlign = "center";
-          ctx.fillText(n.label, n.x, n.y + r + 12);
-        });
-      }
-    </script>
   </div>
 </body>
 </html>
