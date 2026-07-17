@@ -22,6 +22,11 @@ const defaultModules = [
   { id: "system-health", title: "System Health", icon: "monitoring", component: "/components/system-health/system-health.html", order: 14, defaultWidth: 500, defaultHeight: 500 },
   { id: "md-lite", title: "MD Lite", icon: "experiment", component: "/components/md-lite/md-lite.html", order: 4.5, defaultWidth: 700, defaultHeight: 600 },
   { id: "pkpd", title: "PK/PD", icon: "monitoring", component: "/components/pkpd/pkpd-modal.html", order: 6.5, defaultWidth: 650, defaultHeight: 500 },
+  { id: "formulation", title: "Formulation", icon: "science", component: "/components/formulation/formulation.html", order: 15, defaultWidth: 750, defaultHeight: 600 },
+  { id: "clinical", title: "Clinical Pharmacy", icon: "clinical_notes", component: "/components/clinical/clinical.html", order: 16, defaultWidth: 750, defaultHeight: 600 },
+  { id: "pharma-analysis", title: "Pharma Analysis", icon: "biotech", component: "/components/pharma-analysis/pharma-analysis.html", order: 17, defaultWidth: 750, defaultHeight: 600 },
+  { id: "natural-products", title: "Natural Products", icon: "eco", component: "/components/natural-products/natural-products.html", order: 18, defaultWidth: 750, defaultHeight: 600 },
+  { id: "regulatory-enhanced", title: "Regulatory Affairs", icon: "gavel", component: "/components/regulatory-enhanced/regulatory-enhanced.html", order: 19, defaultWidth: 750, defaultHeight: 600 },
 ];
 
 const model = {
