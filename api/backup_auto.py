@@ -22,6 +22,13 @@ DATA_DIR = "/a0/usr"
 MAX_BACKUPS = 7
 BACKUP_MARKER = ".backup_complete"
 
+# All directories that contain user data — backup ALL of these
+BACKUP_PATHS = [
+    "/a0/usr",           # User settings, agents, projects, plugins
+    "/a0/.a0proj",       # Project config, memory, instructions
+    "/a0/data",          # Knowledge base, deep research sessions
+]
+
 
 def _get_backup_size(backup_dir):
     """Calculate total size of a backup directory in MB."""
@@ -41,20 +48,24 @@ def _count_files(backup_dir):
 
 
 def _create_zip_backup(backup_dir, data_dir):
-    """Create a zip archive of all user data."""
+    """Create a zip archive of all user data from ALL important paths."""
     zip_path = os.path.join(backup_dir, "backup.zip")
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-        for root, dirs, files in os.walk(data_dir):
-            # Skip the backups directory itself to avoid recursion
-            if 'backups' in root.split(os.sep):
+        for base_path in BACKUP_PATHS:
+            if not os.path.exists(base_path):
                 continue
-            for f in files:
-                filepath = os.path.join(root, f)
-                arcname = os.path.relpath(filepath, data_dir)
-                try:
-                    zf.write(filepath, arcname)
-                except Exception as e:
-                    log.warning(f"Could not backup {filepath}: {e}")
+            for root, dirs, files in os.walk(base_path):
+                # Skip the backups directory itself to avoid recursion
+                if 'backups' in root.split(os.sep):
+                    continue
+                for f in files:
+                    filepath = os.path.join(root, f)
+                    # Preserve full path structure in the zip
+                    arcname = filepath.lstrip('/')
+                    try:
+                        zf.write(filepath, arcname)
+                    except Exception as e:
+                        log.warning(f"Could not backup {filepath}: {e}")
     return zip_path
 
 
