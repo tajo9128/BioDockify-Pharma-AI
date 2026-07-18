@@ -1,7 +1,7 @@
 """3D-QSAR API — Molecular Interaction Fields + PLS regression.
 Based on Open3DQSAR + Py-CoMFA merged engine."""
-from helpers.api import ApiHandler, Request, Response
-import os, json, pickle, uuid, logging, threading, numpy as np
+from helpers.api import ApiHandler, Request
+import os, json, uuid, logging, numpy as np
 from datetime import datetime
 
 log = logging.getLogger("qsar3d_api")

@@ -3,8 +3,8 @@
 Built for clinical pharmacists and hospital pharmacy. All calculations use
 validated clinical algorithms with literature references.
 """
-from helpers.api import ApiHandler, Request, Response
-import logging, json, math
+from helpers.api import ApiHandler, Request
+import logging, math
 
 log = logging.getLogger("clinical")
 

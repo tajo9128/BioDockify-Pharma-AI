@@ -39,7 +39,7 @@ except ImportError:
 
 def _safe_float(v):
     try: return float(v)
-    except: return None
+    except (ValueError, TypeError): return None
 
 
 def _parse_content(content, filename):
@@ -59,7 +59,7 @@ def _parse_content(content, filename):
         if HAS_PANDAS:
             try:
                 df = pd.read_excel(io.BytesIO(base64.b64decode(content)))
-            except:
+            except Exception:
                 df = pd.read_excel(io.BytesIO(content.encode("latin1") if isinstance(content, str) else content))
             cols = list(df.columns)
             rows = df.to_dict("records")

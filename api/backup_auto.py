@@ -13,7 +13,7 @@ import zipfile
 import datetime
 import logging
 import glob
-from helpers.api import ApiHandler, Request, Response
+from helpers.api import ApiHandler, Request
 
 log = logging.getLogger("backup_auto")
 

@@ -1,7 +1,7 @@
 """MD Lite API — OpenMM molecular dynamics simulation handler."""
-from helpers.api import ApiHandler, Request, Response
+from helpers.api import ApiHandler, Request
 from helpers import files
-import os, json, uuid, threading, logging, shutil, base64
+import os, json, uuid, threading, logging, shutil
 
 log = logging.getLogger("md_lite")
 WORKDIR = files.get_abs_path("usr/md-lite")

@@ -83,14 +83,17 @@ class HealthCheck(ApiHandler):
             try:
                 socket.create_connection(("8.8.8.8", 53), timeout=3)
                 health["checks"].append({"name": "Internet", "status": "ok"})
-            except:
+            except Exception as e:
+                log.debug(f"Internet check failed: {e}")
                 health["checks"].append({"name": "Internet", "status": "fail"})
 
             # Vina
             try:
-                r = subprocess.run(["vina", "--help"], capture_output=True, timeout=5)
+                import asyncio
+                r = await asyncio.to_thread(subprocess.run, ["vina", "--help"], capture_output=True, timeout=5)
                 health["checks"].append({"name": "AutoDock Vina", "status": "ok" if r.returncode <= 1 else "fail"})
-            except:
+            except Exception as e:
+                log.debug(f"Vina check failed: {e}")
                 health["checks"].append({"name": "AutoDock Vina", "status": "fail", "detail": "Not installed"})
 
             # MM-GBSA Free Energy Scoring (CPU-only, no MD)

@@ -1,5 +1,5 @@
 """Writing Tools API — Flask handler for LaTeX export, gap analysis, lit matrix, PRISMA, faculty review, citation verification, journal suggestions."""
-from helpers.api import ApiHandler, Request, Response
+from helpers.api import ApiHandler, Request
 import logging
 
 log = logging.getLogger("writing_tools")

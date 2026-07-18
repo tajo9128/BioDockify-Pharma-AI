@@ -6,7 +6,7 @@ formulation scientists and researchers.
 
 Science-first: all calculations use validated models from peer-reviewed literature.
 """
-from helpers.api import ApiHandler, Request, Response
+from helpers.api import ApiHandler, Request
 import logging, json, os, math
 import numpy as np
 

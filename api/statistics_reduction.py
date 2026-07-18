@@ -89,8 +89,8 @@ def _pca_analysis(data: list, columns: list, n_components: int = None):
                 ax.legend(); ax.grid(alpha=0.3)
                 scree_b64 = _fig_to_base64(fig)
                 plt.close(fig)
-            except:
-                pass
+            except Exception as e:
+                log.debug(f"Scree plot generation failed: {e}")
 
         return {
             "success": True,
@@ -258,8 +258,8 @@ def _hierarchical_cluster(data: list, columns: list, n_clusters: int = 3, method
                 ax.set_xlabel("Sample / Feature"); ax.set_ylabel("Distance")
                 dendro_b64 = _fig_to_base64(fig)
                 plt.close(fig)
-            except:
-                pass
+            except Exception as e:
+                log.debug(f"Dendrogram generation failed: {e}")
 
         return {
             "success": True,
