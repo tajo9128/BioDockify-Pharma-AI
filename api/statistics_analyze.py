@@ -214,11 +214,78 @@ class StatisticsAnalyze(ApiHandler):
             return self._power(input)
         elif action == "survival":
             return self._survival(input)
+        elif action == "pdf_report":
+            return self._pdf_report(input)
         return {"error": f"Unknown action: {action}"}
 
     def _survival(self, input: dict) -> dict:
         """Survival analysis stub — agent-driven."""
         return {"status": "ok", "action": "survival", "message": "Survival analysis uses agent chat. Type your request with the data attached."}
+
+    def _pdf_report(self, input: dict) -> dict:
+        """Generate a PDF report with BioDockify letterhead for a statistics result."""
+        analysis_type = input.get("analysis_type", "descriptive")
+        results = input.get("results", {})
+        interpretation = input.get("interpretation", "")
+        methodology = input.get("methodology", "")
+        table_records = input.get("table_records")
+        table_columns = input.get("table_columns")
+        chart_path = input.get("chart_path")
+
+        try:
+            from modules.statistics.pdf_report import generate_statistics_report
+            import base64
+
+            title_map = {
+                "descriptive": "Descriptive Statistics Report",
+                "correlation": "Correlation Analysis Report",
+                "ttest": "T-Test Analysis Report",
+                "anova": "ANOVA Analysis Report",
+                "chisquare": "Chi-Square Test Report",
+                "mannwhitney": "Mann-Whitney U Test Report",
+                "wilcoxon": "Wilcoxon Signed-Rank Test Report",
+                "kruskalwallis": "Kruskal-Wallis Test Report",
+                "normality": "Normality Test Report",
+                "homogeneity": "Homogeneity of Variance Report",
+                "power": "Power Analysis Report",
+                "auto_decide": "Statistical Analysis Report",
+            }
+            title = title_map.get(analysis_type, f"Statistics Report — {analysis_type.title()}")
+
+            pdf_buffer = generate_statistics_report(
+                title=title,
+                analysis_type=analysis_type,
+                results=results,
+                interpretation=interpretation,
+                methodology=methodology,
+                table_records=table_records,
+                table_columns=table_columns,
+                chart_path=chart_path,
+            )
+            pdf_bytes = pdf_buffer.read()
+            pdf_b64 = base64.b64encode(pdf_bytes).decode("utf-8")
+
+            # Auto-store to KB
+            try:
+                from modules.knowledge.auto_store import auto_store
+                auto_store("statistics", f"PDF Report — {analysis_type.title()}",
+                           {"analysis_type": analysis_type, "results_summary": str(results)[:500]},
+                           source="Statistics PDF Report",
+                           tags=["statistics", "pdf", analysis_type])
+            except Exception:
+                pass
+
+            return {
+                "status": "ok",
+                "pdf_base64": pdf_b64,
+                "filename": f"statistics_{analysis_type}_{__import__('time').strftime('%Y%m%d')}.pdf",
+                "size_bytes": len(pdf_bytes),
+            }
+        except ImportError:
+            return {"status": "error", "error": "reportlab not installed. PDF generation unavailable."}
+        except Exception as e:
+            log.exception("PDF report generation failed")
+            return {"status": "error", "error": str(e)}
 
     def _auto_decide(self, input: dict):
         """Step 3-6: AI decides sub-type, runs test, returns results with explanations."""

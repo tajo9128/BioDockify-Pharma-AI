@@ -202,6 +202,40 @@ Alpine.data("statisticsModal", () => ({
     const b = new Blob([JSON.stringify(this.result, null, 2)], { type: "application/json" });
     const u = URL.createObjectURL(b); const a = document.createElement("a"); a.href = u; a.download = "stats-result.json"; a.click(); URL.revokeObjectURL(u);
   },
+  async downloadPDF() {
+    if (!this.result) { this.error = "Run an analysis first"; return; }
+    this.loading = true;
+    this.error = "";
+    try {
+      const r = await callJsonApi("statistics_analyze", {
+        action: "pdf_report",
+        analysis_type: this.lastAnalysis || this.testType || "descriptive",
+        results: this.result,
+        interpretation: this.result?.interpretation || "",
+      });
+      if (r.status === "ok" && r.pdf_base64) {
+        const byteStr = atob(r.pdf_base64);
+        const bytes = new Uint8Array(byteStr.length);
+        for (let i = 0; i < byteStr.length; i++) bytes[i] = byteStr.charCodeAt(i);
+        const blob = new Blob([bytes], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = r.filename || "statistics-report.pdf";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        this.message = "PDF report downloaded";
+        setTimeout(() => { this.message = ""; }, 3000);
+      } else {
+        this.error = r.error || "PDF generation failed";
+      }
+    } catch (e) {
+      this.error = "PDF error: " + (e.message || "unknown");
+    }
+    this.loading = false;
+  },
   exportAll() {
     const b = new Blob([JSON.stringify(this.history.map(h => ({ type: h.type, result: h.result })), null, 2)], { type: "application/json" });
     const u = URL.createObjectURL(b); const a = document.createElement("a"); a.href = u; a.download = "all-results.json"; a.click(); URL.revokeObjectURL(u);

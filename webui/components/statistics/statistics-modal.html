@@ -152,6 +152,7 @@
         <button class="sl" style="margin-left:auto" @click="goBack()">Back</button>
         <button class="sl" @click="resetData()">New</button>
         <button class="sl" @click="downloadJSON()">JSON</button>
+        <button class="sl" @click="downloadPDF()" :disabled="loading">PDF</button>
         <button class="sl" style="background:var(--color-primary);color:#fff" @click="saveToKB()">Save</button>
       </div>
 
