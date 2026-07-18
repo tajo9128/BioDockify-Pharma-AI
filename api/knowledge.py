@@ -22,6 +22,7 @@ CATEGORIES = {
     "pharmacophore": "Pharmacophore",
     "qsar": "QSAR Models",
     "statistics": "Statistical Analysis",
+    "md_simulation": "MD Simulations",
     # Teaching
     "faculty": "Faculty & Teaching",
     # Wet Lab

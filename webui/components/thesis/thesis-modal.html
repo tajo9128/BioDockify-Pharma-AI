@@ -84,6 +84,85 @@
       playing: false, synth: null, utterance: null,
       _restored: false,
 
+      // ── Knowledge Base sources (loaded by category, kept SEPARATE) ──
+      kbCategories: [],          // [{key, count}] from KB
+      kbSelectedCategory: "literature",
+      kbSources: [],             // loaded source bundle
+      kbSourceCount: 0,
+      kbLoading: false,
+      kbMessage: "",
+
+      async loadKbCategories() {
+        try {
+          const r = await callJsonApi("writing", { action: "kb_categories" });
+          if (r.status === "ok") {
+            this.kbCategories = r.categories || [];
+            // Default to literature if present, else first category
+            if (!this.kbCategories.find(c => c.key === this.kbSelectedCategory)) {
+              this.kbSelectedCategory = this.kbCategories[0]?.key || "literature";
+            }
+          }
+        } catch (e) { /* ignore */ }
+      },
+
+      async loadKbSources() {
+        this.kbLoading = true; this.kbMessage = "";
+        try {
+          const r = await callJsonApi("writing", {
+            action: "kb_sources",
+            category: this.kbSelectedCategory,
+            max_chars: 100000,
+            max_entries: 300,
+          });
+          if (r.status === "ok") {
+            this.kbSources = r.sources || [];
+            this.kbSourceCount = r.count || 0;
+            this.kbMessage = r.message || `Loaded ${this.kbSourceCount} sources from ${this.kbSelectedCategory}`;
+          } else {
+            this.kbMessage = r.error || "Failed to load sources";
+          }
+        } catch (e) {
+          this.kbMessage = "Error: " + e.message;
+        }
+        this.kbLoading = false;
+      },
+
+      clearKbSources() {
+        this.kbSources = [];
+        this.kbSourceCount = 0;
+        this.kbMessage = "";
+      },
+
+      // Build a formatted context block from loaded KB sources for the agent prompt
+      get kbContextBlock() {
+        if (!this.kbSources.length) return "";
+        const fullText = this.kbSources.filter(s => s.content_type === "full");
+        const abstracts = this.kbSources.filter(s => s.content_type === "abstract");
+        const titles = this.kbSources.filter(s => s.content_type === "title_only");
+        let block = `\n\n## KNOWLEDGE BASE SOURCES (use these — do NOT fabricate citations)\n`;
+        block += `Category: ${this.kbSelectedCategory} | ${this.kbSourceCount} sources loaded\n\n`;
+        if (fullText.length) {
+          block += `### Full-text sources (${fullText.length})\n`;
+          for (const s of fullText) {
+            block += `\n#### ${s.title}\n_Source: ${s.source}_\n\n${s.content}\n`;
+          }
+        }
+        if (abstracts.length) {
+          block += `\n### Abstracts (${abstracts.length})\n`;
+          for (const s of abstracts) {
+            block += `\n#### ${s.title}\n_Source: ${s.source}_\n\n${s.content}\n`;
+          }
+        }
+        if (titles.length) {
+          block += `\n### Additional references (titles only — ${titles.length})\n`;
+          for (const s of titles) {
+            block += `- ${s.title} (${s.source})\n`;
+          }
+        }
+        block += `\n---\nCite ONLY from the sources above. Use author/year format. If a claim has no source, mark it [needs citation].\n`;
+        return block;
+      },
+
       restore() {
         if (this._restored) return; this._restored = true;
         try {
@@ -92,6 +171,7 @@
           if (s.branch) this.branch = s.branch;
           if (s.degree) this.degree = s.degree;
         } catch {}
+        this.loadKbCategories();
       },
       selectDocType(id) {
         this.docType = id; this.activeTab = id; this.result = null; this.error = "";
@@ -188,7 +268,9 @@
           gaps: `Analyze research gaps in "${this.topic}" from a ${branchLabel} perspective. ${dept}. What is well-studied? What is under-explored? 3-5 novel high-impact directions? Methodological gaps?`,
         };
         const p = prompts[this.docType] || prompts.research_paper;
-        this.sendToAgent(p);
+        // Inject KB sources if loaded — keeps categories SEPARATE, agent cites real sources
+        const finalPrompt = p + (this.kbSourceCount > 0 ? this.kbContextBlock : "");
+        this.sendToAgent(finalPrompt);
       },
 
       sendToAgent(prompt) {
@@ -377,7 +459,30 @@
       <div class="aw-for-group"><label class="aw-for-label">Year</label><div style="display:flex;gap:4px;align-items:center"><input type="number" x-model="$store.academicWriter.litYearStart" class="aw-year-inp"> <span style="font-size:0.6rem;color:var(--color-text-muted)">-</span> <input type="number" x-model="$store.academicWriter.litYearEnd" class="aw-year-inp"></div></div>
     </div>
 
-    <!-- ═══ STEP 3: Topic + Generate ═══ -->
+    <!-- ═══ STEP 3: Knowledge Base Sources (by category — kept SEPARATE) ═══ -->
+    <div class="aw-section-label"><span class="material-symbols-outlined">library_books</span> Use Knowledge Base sources? <span style="font-weight:normal;color:var(--color-text-muted);font-size:0.62rem">(optional — pick a category)</span></div>
+    <div class="aw-kb-row">
+      <select x-model="$store.academicWriter.kbSelectedCategory" class="aw-kb-select"
+              @change="$store.academicWriter.kbSources = []; $store.academicWriter.kbSourceCount = 0; $store.academicWriter.kbMessage = ''">
+        <template x-for="cat in $store.academicWriter.kbCategories" :key="cat.key">
+          <option :value="cat.key" x-text="cat.key.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) + ' (' + cat.count + ')'"></option>
+        </template>
+      </select>
+      <button class="aw-kb-btn" @click="$store.academicWriter.loadKbSources()" :disabled="$store.academicWriter.kbLoading">
+        <span class="material-symbols-outlined" style="font-size:14px">download</span>
+        <span x-text="$store.academicWriter.kbLoading ? 'Loading...' : 'Load Sources'"></span>
+      </button>
+      <button x-show="$store.academicWriter.kbSourceCount > 0" class="aw-kb-clear" @click="$store.academicWriter.clearKbSources()">
+        <span class="material-symbols-outlined" style="font-size:14px">close</span>
+      </button>
+    </div>
+    <div x-show="$store.academicWriter.kbMessage" class="aw-kb-msg" x-text="$store.academicWriter.kbMessage"></div>
+    <div x-show="$store.academicWriter.kbSourceCount > 0" class="aw-kb-badge">
+      <span class="material-symbols-outlined" style="font-size:13px">check_circle</span>
+      <span x-text="$store.academicWriter.kbSourceCount + ' sources from ' + $store.academicWriter.kbSelectedCategory + ' will be used for this document'"></span>
+    </div>
+
+    <!-- ═══ STEP 4: Topic + Generate ═══ -->
     <div class="aw-section-label"><span class="material-symbols-outlined">title</span> What is the topic?</div>
     <div class="aw-input-row">
       <input type="text" x-model="$store.academicWriter.topic"
@@ -467,6 +572,14 @@
 
       /* Topic */
       .aw-input-row { display: flex; gap: 6px; flex-shrink: 0; margin-bottom: 6px; }
+      .aw-kb-row { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; flex-shrink: 0; }
+      .aw-kb-select { flex: 1; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-panel); color: var(--color-text); font-size: 0.68rem; }
+      .aw-kb-btn { display: flex; align-items: center; gap: 4px; padding: 6px 12px; background: color-mix(in srgb, var(--color-primary) 12%, var(--color-panel)); color: var(--color-primary); border: 1px solid color-mix(in srgb, var(--color-primary) 30%, var(--color-border)); border-radius: 6px; cursor: pointer; font-size: 0.66rem; font-weight: 600; white-space: nowrap; }
+      .aw-kb-btn:disabled { opacity: 0.5; cursor: wait; }
+      .aw-kb-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--color-primary) 20%, var(--color-panel)); }
+      .aw-kb-clear { padding: 6px 8px; background: transparent; color: var(--color-text-muted); border: 1px solid var(--color-border); border-radius: 6px; cursor: pointer; display: flex; align-items: center; }
+      .aw-kb-msg { font-size: 0.6rem; color: var(--color-text-muted); padding: 4px 8px; margin-bottom: 4px; }
+      .aw-kb-badge { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: color-mix(in srgb, #22c55e 10%, var(--color-panel)); border: 1px solid color-mix(in srgb, #22c55e 30%, var(--color-border)); border-radius: 6px; color: #22c55e; font-size: 0.62rem; font-weight: 600; margin-bottom: 8px; }
       .aw-topic-input { flex: 1; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-panel); color: var(--color-text); font-size: 0.74rem; }
       .aw-topic-input:focus { outline: none; border-color: var(--color-primary); }
       .aw-topic-input::placeholder { color: var(--color-text-muted); font-size: 0.65rem; }

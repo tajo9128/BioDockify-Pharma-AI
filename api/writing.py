@@ -16,7 +16,182 @@ class WritingTools(ApiHandler):
         if action == "faculty-review":     return self._faculty_review(input)
         if action == "verify-citations":   return self._verify_citations(input)
         if action == "suggest-journals":   return self._suggest_journals(input)
-        return {"actions": ["export-latex","export-docx","gap-analysis","literature-matrix","prisma-flowchart","faculty-review","verify-citations","suggest-journals"]}
+        if action == "kb_sources":         return self._kb_sources(input)
+        if action == "kb_categories":      return self._kb_categories(input)
+        return {"actions": ["export-latex","export-docx","gap-analysis","literature-matrix","prisma-flowchart","faculty-review","verify-citations","suggest-journals","kb_sources","kb_categories"]}
+
+    def _kb_categories(self, input: dict) -> dict:
+        """List all KB categories with entry counts — for the writer's category dropdown."""
+        try:
+            import sys; sys.path.insert(0, "/a0")
+            from modules.knowledge.auto_store import _load_index
+            idx = _load_index()
+            cats = {}
+            for e in idx.get("entries", []):
+                c = e.get("category", "misc")
+                cats[c] = cats.get(c, 0) + 1
+            # Sort by count desc
+            sorted_cats = sorted(cats.items(), key=lambda x: -x[1])
+            return {
+                "status": "ok",
+                "categories": [{"key": c, "count": n} for c, n in sorted_cats],
+                "total_entries": len(idx.get("entries", [])),
+            }
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    def _kb_sources(self, input: dict) -> dict:
+        """Load KB entries by category, formatted as a source bundle for the Academic Writer.
+
+        Keeps categories SEPARATE — caller picks which category(ies) to pull from.
+        Applies a 100K character budget: full text for top entries, abstracts/titles for the rest.
+        """
+        try:
+            import sys, os; sys.path.insert(0, "/a0")
+            from modules.knowledge.auto_store import _load_index
+
+            category = input.get("category", "literature")        # single category or "all"
+            categories = input.get("categories", [])                # OR list of categories
+            max_chars = int(input.get("max_chars", 100000))         # 100K char budget
+            max_entries = int(input.get("max_entries", 300))
+
+            if categories:
+                target_cats = set(categories)
+            elif category and category != "all":
+                target_cats = {category}
+            else:
+                target_cats = None  # all categories
+
+            idx = _load_index()
+            entries = idx.get("entries", [])
+
+            # Filter by category
+            if target_cats is not None:
+                entries = [e for e in entries if e.get("category") in target_cats]
+
+            # Sort newest first
+            entries.sort(key=lambda e: e.get("created_at", ""), reverse=True)
+            entries = entries[:max_entries]
+
+            if not entries:
+                return {
+                    "status": "ok",
+                    "sources": [],
+                    "count": 0,
+                    "total_chars": 0,
+                    "message": f"No entries found in category '{category}'",
+                }
+
+            # ── Budget loading: full text first, then abstracts, then titles only ──
+            sources = []
+            total_chars = 0
+            FULL_BUDGET = int(max_chars * 0.7)   # 70% for full content
+            ABS_BUDGET = int(max_chars * 0.25)   # 25% for abstracts
+            # 5% reserved for titles
+
+            # Pass 1: load full content until FULL_BUDGET reached
+            full_count = 0
+            for e in entries:
+                if total_chars >= FULL_BUDGET:
+                    break
+                filepath = e.get("file", "")
+                content = ""
+                if filepath and os.path.exists(filepath):
+                    try:
+                        with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+                            content = f.read(max_chars)
+                    except Exception:
+                        pass
+                if content and len(content) > 100:
+                    # Truncate if this entry would blow the budget
+                    remaining = FULL_BUDGET - total_chars
+                    if len(content) > remaining:
+                        content = content[:remaining] + "\n...[truncated]"
+                    sources.append({
+                        "title": e.get("title", "Untitled"),
+                        "category": e.get("category", ""),
+                        "source": e.get("source", ""),
+                        "content": content,
+                        "content_type": "full",
+                        "created_at": e.get("created_at", ""),
+                    })
+                    total_chars += len(content)
+                    full_count += 1
+
+            # Pass 2: for entries not loaded as full, add abstract/summary if budget allows
+            loaded_titles = {s["title"] for s in sources}
+            abs_count = 0
+            for e in entries:
+                if total_chars >= FULL_BUDGET + ABS_BUDGET:
+                    break
+                if e.get("title") in loaded_titles:
+                    continue
+                # Try to extract abstract (first 500-2000 chars after metadata)
+                filepath = e.get("file", "")
+                snippet = ""
+                if filepath and os.path.exists(filepath):
+                    try:
+                        with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+                            text = f.read(3000)
+                        # Find abstract section
+                        if "## Abstract" in text:
+                            snippet = text.split("## Abstract", 1)[1][:1500].strip()
+                        elif "## Full Text" in text:
+                            snippet = text.split("## Full Text", 1)[1][:1500].strip()
+                        else:
+                            snippet = text[:1000]
+                    except Exception:
+                        pass
+                if snippet:
+                    remaining = (FULL_BUDGET + ABS_BUDGET) - total_chars
+                    if len(snippet) > remaining:
+                        snippet = snippet[:remaining] + "...[truncated]"
+                    sources.append({
+                        "title": e.get("title", "Untitled"),
+                        "category": e.get("category", ""),
+                        "source": e.get("source", ""),
+                        "content": snippet,
+                        "content_type": "abstract",
+                        "created_at": e.get("created_at", ""),
+                    })
+                    total_chars += len(snippet)
+                    abs_count += 1
+                    loaded_titles.add(e["title"])
+
+            # Pass 3: titles-only for the rest (citations)
+            title_count = 0
+            for e in entries:
+                if e.get("title") in loaded_titles:
+                    continue
+                sources.append({
+                    "title": e.get("title", "Untitled"),
+                    "category": e.get("category", ""),
+                    "source": e.get("source", ""),
+                    "content": "",
+                    "content_type": "title_only",
+                    "created_at": e.get("created_at", ""),
+                })
+                title_count += 1
+
+            return {
+                "status": "ok",
+                "sources": sources,
+                "count": len(sources),
+                "category": category,
+                "full_text_count": full_count,
+                "abstract_count": abs_count,
+                "title_only_count": title_count,
+                "total_chars": total_chars,
+                "budget_chars": max_chars,
+                "message": (
+                    f"Loaded {len(sources)} sources from '{category}': "
+                    f"{full_count} full text, {abs_count} abstracts, {title_count} titles only. "
+                    f"Total {total_chars:,} chars (budget {max_chars:,})."
+                ),
+            }
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
 
     def _export_latex(self, input: dict):
         title = input.get("title", "")

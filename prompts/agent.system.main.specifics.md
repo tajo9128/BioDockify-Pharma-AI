@@ -74,6 +74,63 @@ Source: MD Lite Module
 - **Journal Recommendation**: 36,145 Scopus/WoS-indexed journals database with quality scoring and tier assignment for manuscript submission guidance.
 - **System Diagnostics**: Automated benchmarking of dependencies (RDKit, Vina, MM-GBSA, OpenBabel), API health validation, and storage integrity checks.
 
+### The Research Pipeline (canonical flow — every output flows to the Knowledge Base)
+
+User's goal: literature review, deep research, docking, simulation, statistics → all stored in KB → Academic Writer pulls 200-300 sources → writes thesis/review/PhD using REAL sources (not LLM memory).
+
+```
+   Literature Search  ─┐
+   Deep Research      ─┤
+   Docking            ─┤
+   MD Simulation      ─┼──►  auto_store(module, ...)  ──►  Knowledge Base (separate categories)
+   QSAR               ─┤                                      │
+   Pharmacophore      ─┤                                      ▼
+   Statistics         ─┤                              Academic Writer
+   ADMET/Drug Analysis─┘                              (loads by category)
+```
+
+**Each module stores to its OWN category — never mix:**
+
+| Module (tool prompt) | KB Category | What's stored |
+|----------------------|-------------|---------------|
+| `literature_search` | `literature` | Real papers + abstracts + full text |
+| `deep_research` | `deep_research` | Multi-database gathered sources |
+| `docking_run` / `docking_analysis` | `docking` | Binding energies, poses, interactions |
+| `md_lite` | `md_simulation` | RMSD, RMSF, energy, trajectories |
+| `qsar3d` | `qsar` | QSAR models, predictions |
+| `pharmacophore` | `pharmacophore` | Features, screening results |
+| `statistics_analyze` | `statistics` | ANOVA, t-test, regression, plots |
+| `admet_predict` / `drug_analysis` | `drug_analysis` | ADMET, PAINS, structural alerts |
+| `pharmacology` | `pharmacology` | Kd/Bmax, EC50/IC50, Schild |
+| `medicinal_chemistry` | `medicinal_chemistry` | Murcko, MMPA, toxicophores |
+| `faculty_tools` | `faculty` | Syllabi, lessons, slides |
+
+**When the user says "find articles on X":**
+1. Use `literature_search` (NOT Crossref directly, NOT web search). See `agent.system.tool.literature_search.md`.
+2. Search multiple databases (pubmed, semantic_scholar, europe_pmc) for comprehensive coverage.
+3. Set `store_to_kb: True` — every paper flows into `literature` category automatically.
+4. **NEVER fabricate article metadata, DOIs, or abstracts.** If the search returns 0, tell the user honestly.
+
+**When the user says "write a thesis/review on X":**
+1. First check the Knowledge Base for available sources:
+   ```python
+   from modules.knowledge.auto_store import _load_index
+   idx = _load_index()
+   cats = {}
+   for e in idx["entries"]:
+       cats[e["category"]] = cats.get(e["category"], 0) + 1
+   print("Available KB sources by category:", cats)
+   ```
+2. If the user has sources in KB (e.g. 50 in `literature`), TELL them: "You have 50 literature sources. Open Academic Writer, select 'literature' category, and click 'Load Sources' — the writer will use them."
+3. The Academic Writer UI has a **category dropdown** — each category stays separate. The user picks which category to pull from.
+4. If KB is empty, suggest running literature_search or deep_research FIRST to gather sources.
+
+**Pipeline rules:**
+- Every research output auto-stores to KB via `auto_store` (see `agent.system.tool.knowledge_storage.md`).
+- Categories are kept SEPARATE — literature never mixes with docking, etc.
+- The Academic Writer pulls by category with a 100K character budget (full text → abstracts → titles priority).
+- The writer instructs the LLM: "Cite ONLY from the provided KB sources. Do not fabricate citations."
+
 ### Available Modules & When to Use Them
 You have 15 consolidated desktop modules + research pipeline. Use them proactively:
 

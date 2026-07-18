@@ -51,8 +51,8 @@ MODULE_TO_CATEGORY = {
     "statistics": "statistics",
     "statistics_analyze": "statistics",
     "statistics_auto": "statistics",
-    # MD Lite
-    "md_lite": "docking",
+    # MD Lite — its OWN category (was wrongly dumped into docking)
+    "md_lite": "md_simulation",
     # Faculty
     "faculty": "faculty",
     "faculty_tools": "faculty",
