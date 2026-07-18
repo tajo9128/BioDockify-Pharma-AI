@@ -1,20 +1,17 @@
 import { createStore } from "/js/AlpineStore.js";
 
 const model = {
-  versionNo: "",
+  versionNo: "v7.5.2",
   commitTime: "",
 
   get versionLabel() {
-    const v = this.versionNo || "";
-    const clean = v.replace(/^M\s*/, "").replace(/^v/, "v");
-    // Show version from gitinfo if available, otherwise fallback
-    return clean ? `BioDockify ${clean}` : `BioDockify v7.5.2`;
+    // Always show v7.5.2 — gitinfo may have stale tags
+    return `BioDockify v7.5.2`;
   },
 
   init() {
     const gi = globalThis.gitinfo;
-    if (gi && gi.version && gi.commit_time) {
-      this.versionNo = gi.version;
+    if (gi && gi.commit_time) {
       this.commitTime = gi.commit_time;
     }
   },

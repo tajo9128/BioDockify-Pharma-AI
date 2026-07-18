@@ -5,6 +5,11 @@
     import { callJsonApi } from "/js/api.js";
     export const store = createStore("pharmacologyModal", {
       activeTab: "binding", loading: false, error: "", message: "",
+
+      // PK/PD state
+      pkFile: null, pkFileName: "", pkColumns: [], pkRowCount: 0,
+      pkTimeCol: "", pkConcCol: "", pkDoseCol: "", pkResult: null,
+      pdDose: "", pdResponse: "", pdDirection: "agonist", pdUnit: "µM", pdResult: null,
       // Receptor binding
       rbConc: "", rbTotal: "", rbNs: "", rbResult: null,
       // Dose-response
@@ -121,6 +126,74 @@
           if (r.error) this.error = r.error;
         } catch(e) { this.error = e.message; }
         this.loading = false;
+      },
+
+      // ── PK/PD Methods (merged from PK/PD module) ──
+      openPkFilePicker() {
+        const input = document.createElement('input');
+        input.type = 'file'; input.accept = '.csv,.txt,.xlsx';
+        input.onchange = async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          this.pkFileName = file.name;
+          const text = await file.text();
+          const lines = text.trim().split('\n');
+          if (lines.length < 2) { this.error = 'File needs header + data rows'; return; }
+          this.pkColumns = lines[0].split(',').map(c => c.trim());
+          this.pkRowCount = lines.length - 1;
+          this.pkTimeCol = this.pkColumns[0];
+          this.pkConcCol = this.pkColumns[1] || this.pkColumns[0];
+        };
+        input.click();
+      },
+
+      async runNca() {
+        if (!this.pkFileName) { this.error = 'Upload PK data first'; return; }
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("pkpd", {
+            action: "nca", file: this.pkFileName,
+            time_col: this.pkTimeCol, conc_col: this.pkConcCol,
+          });
+          this.pkResult = r.error ? null : r;
+          if (r.error) this.error = r.error;
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async runPkAction(action) {
+        if (!this.pkFileName) { this.error = 'Upload PK data first'; return; }
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("pkpd", {
+            action, file: this.pkFileName,
+            time_col: this.pkTimeCol, conc_col: this.pkConcCol,
+          });
+          this.pkResult = r.error ? null : r;
+          if (r.error) this.error = r.error;
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async runPdResponse() {
+        if (!this.pdDose || !this.pdResponse) { this.error = 'Enter dose and response data'; return; }
+        this.loading = true; this.error = "";
+        try {
+          const doses = this.pdDose.split(',').map(Number);
+          const responses = this.pdResponse.split(',').map(Number);
+          const r = await callJsonApi("pkpd", {
+            action: "pd_response", doses, responses,
+            direction: this.pdDirection, unit: this.pdUnit,
+          });
+          this.pdResult = r.error ? null : r;
+          if (r.error) this.error = r.error;
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      resetPkData() {
+        this.pkFileName = ""; this.pkColumns = []; this.pkRowCount = 0;
+        this.pkTimeCol = ""; this.pkConcCol = ""; this.pkResult = null;
       }
     });
   </script>
@@ -139,6 +212,8 @@
       <button class="dp-tab" :class="{active:$store.pharmacologyModal.activeTab==='sel'}" @click="$store.pharmacologyModal.activeTab='sel'">Selectivity</button>
       <button class="dp-tab" :class="{active:$store.pharmacologyModal.activeTab==='rdb'}" @click="$store.pharmacologyModal.activeTab='rdb'">Receptor DB</button>
       <button class="dp-tab" :class="{active:$store.pharmacologyModal.activeTab==='iv'}" @click="$store.pharmacologyModal.activeTab='iv'">In-Vivo Design</button>
+      <button class="dp-tab" :class="{active:$store.pharmacologyModal.activeTab==='nca'}" @click="$store.pharmacologyModal.activeTab='nca'">NCA</button>
+      <button class="dp-tab" :class="{active:$store.pharmacologyModal.activeTab==='pkpd'}" @click="$store.pharmacologyModal.activeTab='pkpd'">PK/PD</button>
     </div>
     <div class="dp-body">
       <div x-show="$store.pharmacologyModal.error" class="dp-error" x-text="$store.pharmacologyModal.error"></div>
@@ -342,6 +417,74 @@
           </template>
         </div>
       </div>
+
+      <!-- NCA (Non-Compartmental Analysis) — merged from PK/PD module -->
+      <div x-show="$store.pharmacologyModal.activeTab==='nca'">
+        <div class="dp-card">
+          <h3>Non-Compartmental Analysis (NCA)</h3>
+          <p class="dp-help">Upload PK data (CSV: time, concentration) → AUC, Cmax, Tmax, half-life, clearance.</p>
+          <div x-show="!$store.pharmacologyModal.pkFileName" class="dp-upload" @click="$store.pharmacologyModal.openPkFilePicker()">
+            <span class="material-symbols-outlined" style="font-size:32px;opacity:0.5">upload_file</span>
+            <span>Click to upload PK data (.csv)</span>
+          </div>
+          <div x-show="$store.pharmacologyModal.pkFileName">
+            <div class="dp-file-info">
+              <span class="material-symbols-outlined" style="font-size:14px;color:#22c55e">check_circle</span>
+              <b x-text="$store.pharmacologyModal.pkFileName"></b>
+              <small x-text="$store.pharmacologyModal.pkRowCount + ' rows'"></small>
+              <button class="dp-btn-sm" @click="$store.pharmacologyModal.resetPkData()">Change</button>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:8px">
+              <div style="flex:1"><label class="dp-label">Time column:</label><select x-model="$store.pharmacologyModal.pkTimeCol" class="dp-input"><template x-for="c in $store.pharmacologyModal.pkColumns"><option :value="c" x-text="c"></option></template></select></div>
+              <div style="flex:1"><label class="dp-label">Conc column:</label><select x-model="$store.pharmacologyModal.pkConcCol" class="dp-input"><template x-for="c in $store.pharmacologyModal.pkColumns"><option :value="c" x-text="c"></option></template></select></div>
+            </div>
+            <div style="display:flex;gap:4px;margin-top:8px">
+              <button class="dp-btn" style="flex:1" @click="$store.pharmacologyModal.runNca()" :disabled="$store.pharmacologyModal.loading">NCA Full Analysis</button>
+              <button class="dp-btn" style="flex:1;background:#8b5cf6" @click="$store.pharmacologyModal.runPkAction('half_life')" :disabled="$store.pharmacologyModal.loading">Half-Life</button>
+              <button class="dp-btn" style="flex:1;background:#f59e0b" @click="$store.pharmacologyModal.runPkAction('auc')" :disabled="$store.pharmacologyModal.loading">AUC</button>
+            </div>
+          </div>
+          <template x-if="$store.pharmacologyModal.pkResult">
+            <div class="dp-result">
+              <template x-for="(v, k) in $store.pharmacologyModal.pkResult" :key="k">
+                <div class="dp-stat" x-show="v !== null && v !== undefined && typeof v !== 'object'">
+                  <span class="dp-stat-label" x-text="k.replace(/_/g, ' ')"></span>
+                  <span class="dp-stat-val" x-text="typeof v === 'number' ? v.toFixed(4) : v"></span>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- PK/PD Response — merged from PK/PD module -->
+      <div x-show="$store.pharmacologyModal.activeTab==='pkpd'">
+        <div class="dp-card">
+          <h3>PK/PD Response Modeling</h3>
+          <p class="dp-help">EC50/IC50, Emax, Hill slope from dose-response data. Agonist (increasing) or inhibitor (decreasing).</p>
+          <div style="display:flex;gap:6px;margin-bottom:6px">
+            <select x-model="$store.pharmacologyModal.pdDirection" class="dp-input" style="flex:1">
+              <option value="agonist">Agonist (EC50, increasing)</option>
+              <option value="inhibitor">Inhibitor (IC50, decreasing)</option>
+            </select>
+            <input type="text" x-model="$store.pharmacologyModal.pdUnit" class="dp-input" placeholder="µM" style="width:70px">
+          </div>
+          <label class="dp-label">Doses (comma-separated):</label>
+          <input type="text" x-model="$store.pharmacologyModal.pdDose" class="dp-input" placeholder="0.1,0.3,1,3,10,30,100" />
+          <label class="dp-label">Responses (comma-separated):</label>
+          <input type="text" x-model="$store.pharmacologyModal.pdResponse" class="dp-input" placeholder="5,12,28,52,78,92,98" />
+          <button class="dp-btn" @click="$store.pharmacologyModal.runPdResponse()" :disabled="$store.pharmacologyModal.loading">Fit PK/PD Model</button>
+          <template x-if="$store.pharmacologyModal.pdResult">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">EC50/IC50</span><span class="dp-stat-val good" x-text="($store.pharmacologyModal.pdResult.ec50 || $store.pharmacologyModal.pdResult.ic50 || '—') + ' ' + $store.pharmacologyModal.pdUnit"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Emax</span><span class="dp-stat-val" x-text="$store.pharmacologyModal.pdResult.emax || '—'"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Hill slope</span><span class="dp-stat-val" x-text="$store.pharmacologyModal.pdResult.hill_slope || '—'"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">R²</span><span class="dp-stat-val" x-text="$store.pharmacologyModal.pdResult.r2 || '—'"></span></div>
+              <div class="dp-interpret" x-text="$store.pharmacologyModal.pdResult.interpretation || ''"></div>
+            </div>
+          </template>
+        </div>
+      </div>
     </div>
     <style>
       .dp-panel{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background);font-family:inherit}
@@ -375,6 +518,10 @@
       .dp-loading{display:flex;align-items:center;gap:8px;padding:8px;font-size:0.62rem;color:var(--color-text-muted)}
       .dp-spinner{width:14px;height:14px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:dp-spin 0.8s linear infinite}
       @keyframes dp-spin{to{transform:rotate(360deg)}}
+      .dp-upload{display:flex;flex-direction:column;align-items:center;gap:6px;padding:20px;border:2px dashed var(--color-border);border-radius:8px;cursor:pointer;text-align:center;font-size:0.62rem;color:var(--color-text-muted);margin-top:6px}
+      .dp-upload:hover{border-color:var(--color-primary);color:var(--color-primary)}
+      .dp-file-info{display:flex;align-items:center;gap:6px;padding:6px 8px;background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.15);border-radius:6px;font-size:0.6rem;margin-top:6px}
+      .dp-btn-sm{padding:3px 8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:4px;cursor:pointer;font-size:0.55rem;color:var(--color-text-muted)}
     </style>
   </div>
 </body>
