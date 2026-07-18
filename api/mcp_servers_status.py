@@ -5,7 +5,7 @@ from typing import Any
 from helpers.mcp_handler import MCPConfig
 
 
-class McpServersStatuss(ApiHandler):
+class McpServersStatus(ApiHandler):
     async def process(self, input: dict[Any, Any], request: Request) -> dict[Any, Any] | Response:
         
         # try:

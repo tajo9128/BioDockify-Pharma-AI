@@ -10,18 +10,32 @@ import numpy as np
 log = logging.getLogger("pharma_analysis")
 
 
+def _kb_store(title, content, tags=None):
+    try:
+        from modules.knowledge.auto_store import auto_store
+        auto_store("pharma_analysis", title, content, source="Pharma Analysis",
+                   tags=tags or ["pharma_analysis"], category="pharma_analysis")
+    except Exception:
+        pass
+
+
 class PharmaAnalysisHandler(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
         action = input.get("action", "")
-        if action == "method_validation": return self._method_validation(input)
-        elif action == "dissolution_f2": return self._dissolution_f2(input)
-        elif action == "forced_degradation": return self._forced_degradation(input)
-        elif action == "chromatography": return self._chromatography(input)
-        elif action == "lod_loq": return self._lod_loq(input)
-        return {
-            "actions": ["method_validation", "dissolution_f2", "forced_degradation", "chromatography", "lod_loq"],
-            "hint": "Pharma analysis: ICH Q2 validation, dissolution testing, forced degradation, HPLC calculations"
-        }
+        result = None
+        if action == "method_validation": result = self._method_validation(input)
+        elif action == "dissolution_f2": result = self._dissolution_f2(input)
+        elif action == "forced_degradation": result = self._forced_degradation(input)
+        elif action == "chromatography": result = self._chromatography(input)
+        elif action == "lod_loq": result = self._lod_loq(input)
+        else:
+            return {
+                "actions": ["method_validation", "dissolution_f2", "forced_degradation", "chromatography", "lod_loq"],
+                "hint": "Pharma analysis: ICH Q2 validation, dissolution testing, forced degradation, HPLC calculations"
+            }
+        if result and not result.get("error"):
+            _kb_store(f"Pharma Analysis — {action.replace('_', ' ').title()}", result, ["pharma_analysis", action])
+        return result
 
     def _method_validation(self, input):
         """ICH Q2(R2) method validation parameters calculator.

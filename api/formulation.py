@@ -13,19 +13,36 @@ import numpy as np
 log = logging.getLogger("formulation")
 
 
+def _kb_store(title, content, tags=None):
+    """Store result to Knowledge Base (formulation category)."""
+    try:
+        from modules.knowledge.auto_store import auto_store
+        auto_store("formulation", title, content, source="Formulation Lab",
+                   tags=tags or ["formulation"], category="formulation")
+    except Exception:
+        pass
+
+
 class FormulationHandler(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
         action = input.get("action", "")
-        if action == "release_kinetics": return self._release_kinetics(input)
-        elif action == "dissolution_f2": return self._dissolution_f2(input)
-        elif action == "nanoparticle": return self._nanoparticle(input)
-        elif action == "stability": return self._stability(input)
-        elif action == "excipient_db": return self._excipient_db(input)
-        elif action == "optimize": return self._optimize(input)
-        return {
-            "actions": ["release_kinetics", "dissolution_f2", "nanoparticle", "stability", "excipient_db", "optimize"],
-            "hint": "Pharmaceutics tools: release kinetics, dissolution comparison, nanoparticle characterization, stability prediction"
-        }
+        result = None
+        if action == "release_kinetics": result = self._release_kinetics(input)
+        elif action == "dissolution_f2": result = self._dissolution_f2(input)
+        elif action == "nanoparticle": result = self._nanoparticle(input)
+        elif action == "stability": result = self._stability(input)
+        elif action == "excipient_db": result = self._excipient_db(input)
+        elif action == "optimize": result = self._optimize(input)
+        else:
+            return {
+                "actions": ["release_kinetics", "dissolution_f2", "nanoparticle", "stability", "excipient_db", "optimize"],
+                "hint": "Pharmaceutics tools: release kinetics, dissolution comparison, nanoparticle characterization, stability prediction"
+            }
+        # Auto-store to Knowledge Base if successful
+        if result and not result.get("error"):
+            title = f"Formulation — {action.replace('_', ' ').title()}"
+            _kb_store(title, result, tags=["formulation", action])
+        return result
 
     def _release_kinetics(self, input):
         """Fit dissolution/release data to kinetic models.

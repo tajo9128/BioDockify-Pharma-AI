@@ -3,7 +3,7 @@ export default async function registerDockingAnalysisSurface(canvas) {
     id: "docking-analysis",
     title: "Docking Analysis",
     icon: "biotech",
-    order: 26,
+    order: 26.5,
     modalPath: "/components/docking-analysis/docking-analysis.html",
     async open(payload = {}) {
       if (payload.jobId) {

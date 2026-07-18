@@ -58,6 +58,7 @@ MODULE_TO_CATEGORY = {
     "faculty_tools": "faculty",
     "lecture_generate": "faculty",
     "ppt_generate": "faculty",
+    "ppt_master": "faculty",
     # Writing
     "writing": "notes",
     "thesis": "notes",

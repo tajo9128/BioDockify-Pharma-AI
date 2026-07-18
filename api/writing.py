@@ -23,7 +23,6 @@ class WritingTools(ApiHandler):
     def _kb_categories(self, input: dict) -> dict:
         """List all KB categories with entry counts — for the writer's category dropdown."""
         try:
-            import sys; sys.path.insert(0, "/a0")
             from modules.knowledge.auto_store import _load_index
             idx = _load_index()
             cats = {}
@@ -47,7 +46,7 @@ class WritingTools(ApiHandler):
         Applies a 100K character budget: full text for top entries, abstracts/titles for the rest.
         """
         try:
-            import sys, os; sys.path.insert(0, "/a0")
+            import os
             from modules.knowledge.auto_store import _load_index
 
             category = input.get("category", "literature")        # single category or "all"

@@ -10,19 +10,33 @@ import numpy as np
 log = logging.getLogger("natural_products")
 
 
+def _kb_store(title, content, tags=None):
+    try:
+        from modules.knowledge.auto_store import auto_store
+        auto_store("natural_products", title, content, source="Natural Products",
+                   tags=tags or ["natural_products"], category="natural_products")
+    except Exception:
+        pass
+
+
 class NaturalProductsHandler(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
         action = input.get("action", "")
-        if action == "phytochemical_screen": return self._phytochemical_screen(input)
-        elif action == "extraction_yield": return self._extraction_yield(input)
-        elif action == "ic50": return self._ic50(input)
-        elif action == "plant_database": return self._plant_database(input)
-        elif action == "dereplication": return self._dereplication(input)
-        elif action == "selectivity_index": return self._selectivity_index(input)
-        return {
-            "actions": ["phytochemical_screen", "extraction_yield", "ic50", "plant_database", "dereplication", "selectivity_index"],
-            "hint": "Natural products: phytochemical screening, extraction yields, IC50 calculation, plant database"
-        }
+        result = None
+        if action == "phytochemical_screen": result = self._phytochemical_screen(input)
+        elif action == "extraction_yield": result = self._extraction_yield(input)
+        elif action == "ic50": result = self._ic50(input)
+        elif action == "plant_database": result = self._plant_database(input)
+        elif action == "dereplication": result = self._dereplication(input)
+        elif action == "selectivity_index": result = self._selectivity_index(input)
+        else:
+            return {
+                "actions": ["phytochemical_screen", "extraction_yield", "ic50", "plant_database", "dereplication", "selectivity_index"],
+                "hint": "Natural products: phytochemical screening, extraction yields, IC50 calculation, plant database"
+            }
+        if result and not result.get("error"):
+            _kb_store(f"Natural Products — {action.replace('_', ' ').title()}", result, ["natural_products", action])
+        return result
 
     def _phytochemical_screen(self, input):
         """Standard phytochemical qualitative screening protocols.

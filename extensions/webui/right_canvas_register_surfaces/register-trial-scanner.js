@@ -3,7 +3,7 @@ export default async function registerTrialScanner(canvas) {
     id: "trial-scanner",
     title: "Trial Scanner",
     icon: "clinical_notes",
-    order: 31,
+    order: 31.5,
     modalPath: "/components/trial-scanner/trial-panel.html",
     open() {}, close() {},
   });

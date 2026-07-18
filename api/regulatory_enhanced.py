@@ -10,18 +10,32 @@ import numpy as np
 log = logging.getLogger("regulatory_enhanced")
 
 
+def _kb_store(title, content, tags=None):
+    try:
+        from modules.knowledge.auto_store import auto_store
+        auto_store("regulatory_enhanced", title, content, source="Regulatory Affairs",
+                   tags=tags or ["regulatory"], category="regulatory_enhanced")
+    except Exception:
+        pass
+
+
 class RegulatoryEnhancedHandler(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
         action = input.get("action", "")
-        if action == "ectd_structure": return self._ectd_structure(input)
-        elif action == "ich_guidelines": return self._ich_guidelines(input)
-        elif action == "stability_planner": return self._stability_planner(input)
-        elif action == "be_report": return self._be_report(input)
-        elif action == "ind_nda_checklist": return self._ind_nda_checklist(input)
-        return {
-            "actions": ["ectd_structure", "ich_guidelines", "stability_planner", "be_report", "ind_nda_checklist"],
-            "hint": "Regulatory: eCTD structure, ICH guidelines, stability planning, BE reports, IND/NDA checklists"
-        }
+        result = None
+        if action == "ectd_structure": result = self._ectd_structure(input)
+        elif action == "ich_guidelines": result = self._ich_guidelines(input)
+        elif action == "stability_planner": result = self._stability_planner(input)
+        elif action == "be_report": result = self._be_report(input)
+        elif action == "ind_nda_checklist": result = self._ind_nda_checklist(input)
+        else:
+            return {
+                "actions": ["ectd_structure", "ich_guidelines", "stability_planner", "be_report", "ind_nda_checklist"],
+                "hint": "Regulatory: eCTD structure, ICH guidelines, stability planning, BE reports, IND/NDA checklists"
+            }
+        if result and not result.get("error"):
+            _kb_store(f"Regulatory — {action.replace('_', ' ').title()}", result, ["regulatory", action])
+        return result
 
     def _ectd_structure(self, input):
         """Common Technical Document (CTD) / eCTD structure.

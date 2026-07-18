@@ -8,6 +8,16 @@ import logging, json, math
 
 log = logging.getLogger("clinical")
 
+
+def _kb_store(title, content, tags=None):
+    """Store result to Knowledge Base (clinical category)."""
+    try:
+        from modules.knowledge.auto_store import auto_store
+        auto_store("clinical", title, content, source="Clinical Pharmacy",
+                   tags=tags or ["clinical"], category="clinical")
+    except Exception:
+        pass
+
 # ── Drug Interaction Database (CYP-mediated + pharmacodynamic) ──
 DRUG_INTERACTIONS = {
     ("warfarin", "amiodarone"): {"severity": "Major", "mechanism": "CYP2C9/3A4 inhibition", "effect": "Increased INR, bleeding risk", "action": "Reduce warfarin dose 30-50%, monitor INR weekly"},
@@ -45,16 +55,21 @@ NARANJO_QUESTIONS = [
 class ClinicalHandler(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
         action = input.get("action", "")
-        if action == "drug_interaction": return self._drug_interaction(input)
-        elif action == "tdm": return self._tdm(input)
-        elif action == "renal_adjust": return self._renal_adjust(input)
-        elif action == "hepatic_adjust": return self._hepatic_adjust(input)
-        elif action == "naranjo": return self._naranjo(input)
-        elif action == "ckd_epi": return self._ckd_epi(input)
-        return {
-            "actions": ["drug_interaction", "tdm", "renal_adjust", "hepatic_adjust", "naranjo", "ckd_epi"],
-            "hint": "Clinical pharmacy tools: drug interactions, TDM, dose adjustment, ADR assessment"
-        }
+        result = None
+        if action == "drug_interaction": result = self._drug_interaction(input)
+        elif action == "tdm": result = self._tdm(input)
+        elif action == "renal_adjust": result = self._renal_adjust(input)
+        elif action == "hepatic_adjust": result = self._hepatic_adjust(input)
+        elif action == "naranjo": result = self._naranjo(input)
+        elif action == "ckd_epi": result = self._ckd_epi(input)
+        else:
+            return {
+                "actions": ["drug_interaction", "tdm", "renal_adjust", "hepatic_adjust", "naranjo", "ckd_epi"],
+                "hint": "Clinical pharmacy tools: drug interactions, TDM, dose adjustment, ADR assessment"
+            }
+        if result and not result.get("error"):
+            _kb_store(f"Clinical — {action.replace('_', ' ').title()}", result, ["clinical", action])
+        return result
 
     def _drug_interaction(self, input):
         """Check drug-drug interactions from the database."""

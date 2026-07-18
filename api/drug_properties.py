@@ -5,6 +5,15 @@ Inspired by MolSoft ICM-Pro (ML LogP/LogS/DrugLikeness), DeepPurpose (DL encodin
 from helpers.api import ApiHandler, Request
 import re
 
+
+def _kb_store(title, content, tags=None):
+    try:
+        from modules.knowledge.auto_store import auto_store
+        auto_store("drug_properties", title, content, source="Drug Properties",
+                   tags=tags or ["drug_properties"], category="drug_analysis")
+    except Exception:
+        pass
+
 DRUG_LIBRARY = {
     "aspirin": {"smiles": "CC(=O)Oc1ccccc1C(=O)O", "name": "Aspirin"},
     "caffeine": {"smiles": "Cn1cnc2c1c(=O)n(c(=O)n2C)C", "name": "Caffeine"},
@@ -250,7 +259,7 @@ class DrugProperties(ApiHandler):
             dl_score = _compute_druglikeness_score(mol, mw, logp, hbd, hba, tpsa, rot, formula)
             lipinski = _calc_lipinski(mw, logp, hbd, hba)
 
-            return {
+            result = {
                 "smiles": smiles,
                 "formula": formula,
                 # Flat keys (frontend compat)
@@ -275,6 +284,10 @@ class DrugProperties(ApiHandler):
                     "melting_point": {"value": mp, "unit": "°C"},
                 },
             }
+            # Auto-store to Knowledge Base
+            name = preset or smiles[:30]
+            _kb_store(f"Drug Properties — {name}", result, ["drug_properties", formula])
+            return result
         except ImportError:
             return {"error": "RDKit not available"}
         except Exception as e:

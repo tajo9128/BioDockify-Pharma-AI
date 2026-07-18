@@ -19,7 +19,11 @@ from .statistical_tools import AdditionalStatisticalTools
 from .surfsense_bridge import SurfSenseStatisticsBridge
 from .orchestrator import StatisticsOrchestrator
 from .bayesian import BayesianStats
-from .pdf_report import generate_statistics_report
+
+try:
+    from .pdf_report import generate_statistics_report
+except ImportError:
+    generate_statistics_report = None
 
 __all__ = [
     'DataImporter',

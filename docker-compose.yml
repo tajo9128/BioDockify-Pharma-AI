@@ -3,31 +3,32 @@ version: '3.8'
 # ╔══════════════════════════════════════════════════════════════════════════╗
 # ║  BioDockify Pharma AI — Docker Configuration                           ║
 # ║                                                                          ║
-# ║  ⚠️  YOU MUST USE THE VOLUME BELOW. Without it, ALL data is lost        ║
-# ║     when the container is deleted. This includes memory, chats,          ║
-# ║     settings, knowledge, projects, AND backups you create in-app.        ║
+# ║  ⚠️  YOU MUST USE ALL 3 VOLUMES BELOW. Without them, research data is  ║
+# ║     lost when the container is deleted. This includes knowledge base,    ║
+# ║     agent memory, chats, settings, AND backups.                         ║
 # ║                                                                          ║
-# ║  ✅ WITH volume: data persists forever across container restarts/updates ║
-# ║  ❌ WITHOUT volume: ALL data + ALL backups are gone on container delete  ║
+# ║  ✅ WITH volumes: data persists forever across container restarts/updates║
+# ║  ❌ WITHOUT volumes: ALL data is gone on container delete               ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 
 services:
-  biodockify-pharma-ai:
+  biodockify:
     image: tajo9128/biodockify-pharma-ai:latest
     build:
       context: .
       dockerfile: Dockerfile.release
-    container_name: biodockify-pharma-ai
+    container_name: biodockify
     ports:
-      # VPS: map to host port 50001 (Caddy proxies to this)
-      # Direct access: change to "80:50001" to skip Caddy
-      - "50001:50001"
+      # Direct access: open http://localhost in your browser
+      - "80:50001"
     volumes:
-      # === REQUIRED VOLUME ===
-      - biodockify_pharma_usr:/a0/usr
+      # === ALL 3 REQUIRED VOLUMES (data persists across container deletion) ===
+      - biodockify_usr:/a0/usr          # workspace, chats, projects, plugins, backups
+      - biodockify_data:/a0/data        # knowledge base, deep research sessions
+      - biodockify_a0proj:/a0/.a0proj   # agent memory (FAISS), instructions, project config
 
-      # === RECOMMENDED: Mount host folders for easy backup ===
-      - ./backups:/a0/usr/backups
+      # === RECOMMENDED: Mount host folder so backups appear on your PC ===
+      - ~/biodockify-backups:/a0/usr/backups
 
     environment:
       - PORT=50001
@@ -57,7 +58,6 @@ services:
       # === OPTIONAL: DEPLOYMENT ===
       # - AUTH_TOKEN=your-auth-token         # Enable authentication
       # - LOG_LEVEL=DEBUG                    # DEBUG, INFO, WARNING, ERROR
-      # - TZ=Asia/Kolkata                    # Set timezone (default: UTC)
 
     extra_hosts:
       # Allows the container to access host services via "host.docker.internal"
@@ -72,18 +72,12 @@ services:
     #       cpus: '4'
 
 volumes:
-  biodockify_pharma_usr:
-    # Docker named volume — persists on your machine at:
-    # Windows (WSL2): \\wsl$\docker-desktop-data\version-pack-data\community\docker\volumes\biodockify_pharma_usr\_data
-    # macOS:         ~/Library/Containers/com.docker.docker/Data/vms/0/data/volumes/...
-    # Linux:         /var/lib/docker/volumes/biodockify_pharma_usr/_data
-    #
-    # To find where this volume is stored on your system, run:
-    #   docker volume inspect biodockify_pharma_usr
-    #
-    # To BACKUP this volume (Windows PowerShell):
-    #   docker run --rm -v biodockify_pharma_usr:/volume -v ${PWD}:/backup alpine tar czf /backup/biodockify-backup.tar.gz -C /volume .
-    #
-    # To RESTORE this volume:
-    #   docker run --rm -v biodockify_pharma_usr:/volume -v ${PWD}:/backup alpine sh -c "rm -rf /volume/* && tar xzf /backup/biodockify-backup.tar.gz -C /volume"
-    name: biodockify_pharma_usr
+  biodockify_usr:
+    # User workspace, chats, projects, plugins, backups
+    name: biodockify_usr
+  biodockify_data:
+    # Knowledge base, deep research sessions
+    name: biodockify_data
+  biodockify_a0proj:
+    # Agent memory (FAISS vector DB), instructions, project config
+    name: biodockify_a0proj

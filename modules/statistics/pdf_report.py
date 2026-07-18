@@ -24,18 +24,23 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import mm, cm
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-    PageBreak, Image as RLImage, KeepTogether,
-)
-from reportlab.pdfgen import canvas
-from reportlab.graphics.shapes import Drawing, Line, Circle, String
-from reportlab.graphics import renderPDF
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm, cm
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+        PageBreak, Image as RLImage, KeepTogether,
+    )
+    from reportlab.pdfgen import canvas
+    from reportlab.graphics.shapes import Drawing, Line, Circle, String
+    from reportlab.graphics import renderPDF
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
+    logging.getLogger(__name__).warning("reportlab not installed — PDF report generation disabled")
 
 logger = logging.getLogger(__name__)
 
@@ -273,7 +278,7 @@ def generate_statistics_report(
     ----------
     title : report title (e.g. "Bayesian Binomial Test")
     analysis_type : short tag (e.g. "Bayesian", "Survival", "ANOVA")
-    results : the analysis result — dict for key/value table, or list of dicts
+    results : the analysis result - dict for key/value table, or list of dicts
               for a data table
     interpretation : plain-English interpretation (highlighted box)
     methodology : statistical methodology description
@@ -283,7 +288,11 @@ def generate_statistics_report(
     output_buffer : if given, write here; otherwise a new BytesIO
 
     Returns the BytesIO buffer positioned at 0 (ready to serve/download).
+
+    Raises ImportError if reportlab is not installed.
     """
+    if not REPORTLAB_AVAILABLE:
+        raise ImportError("reportlab is required for PDF report generation. Install with: pip install reportlab")
     buf = output_buffer or io.BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=A4,
