@@ -1,53 +1,142 @@
-# Installation Guide (Docker Edition)
+# Installation Guide — BioDockify Pharma AI v7.5.2
 
-**BioDockify v7.0.0** is now a pure Docker-based application. This ensures maximum consistency across environments and simplifies the deployment of its heavy pharmaceutical research engines.
+BioDockify runs as a single Docker container. One command to install, one command to start.
 
 ## System Requirements
 
-*   **Operating System:** Windows 10/11, Linux (Ubuntu/Debian recommended), or macOS (Intel/M-series)
-*   **Processor:** Intel Core i5 / AMD Ryzen 5 or better (AVX support required)
-*   **RAM:** 16 GB minimum (32 GB recommended for large knowledge graphs)
-*   **Disk Space:** 20 GB free space (for Docker images and database)
-*   **Software:** Docker Desktop (Windows/Mac) or Docker Engine (Linux)
+| Requirement | Minimum | Recommended |
+|-------------|---------|-------------|
+| **OS** | Windows 10+, Linux, macOS | Any with Docker Desktop |
+| **RAM** | 8 GB | 16 GB+ |
+| **Disk** | 10 GB free | 20 GB+ |
+| **Docker** | Docker Desktop 4.x | Latest stable |
+| **CPU** | 4 cores | 8+ cores |
 
----
+## Quick Start
 
-## Step-by-Step Installation
-
-### 1. Prerequisites (Docker)
-BioDockify relies on **Docker** to run its specialized AI models (BioBERT, GROBID, etc.) in a consistent environment.
-
-1.  Download and install **Docker Desktop** from [docker.com](https://www.docker.com/).
-2.  Ensure Docker is running and healthy.
-
-### 2. Launch BioDockify
-Since BioDockify is a pure Docker application, you can start it with a single command:
+### Windows / macOS
 
 ```bash
-docker pull tajo9128/biodockify-ai:latest
-docker run -d -p 3000:3000 --name biodockify -v biodockify-data:/app/data --restart unless-stopped tajo9128/biodockify-ai:latest
+# 1. Install Docker Desktop from https://www.docker.com/
+# 2. Create backup folder
+mkdir C:\Users\%USERNAME%\biodockify-backups
+
+# 3. Run BioDockify
+docker run -d ^
+  --name biodockify ^
+  -p 80:80 ^
+  -v biodockify_usr:/a0/usr ^
+  -v biodockify_data:/a0/data ^
+  -v biodockify_a0proj:/a0/.a0proj ^
+  -v C:\Users\%USERNAME%\biodockify-backups:/a0/usr/backups ^
+  --restart unless-stopped ^
+  tajo9128/biodockify-pharma-ai:latest
+
+# 4. Open http://localhost in your browser
 ```
 
-### 3. Access the Workstation
-1.  Open your browser to: **[http://localhost:3000](http://localhost:3000)**.
-2.  The application will initialize its local databases and load AI models on the first run.
+### Linux
 
----
+```bash
+# 1. Install Docker Engine
+curl -fsSL https://get.docker.com | sh
+
+# 2. Create backup folder
+mkdir -p ~/biodockify-backups
+
+# 3. Run BioDockify
+docker run -d \
+  --name biodockify \
+  -p 80:80 \
+  -v biodockify_usr:/a0/usr \
+  -v biodockify_data:/a0/data \
+  -v biodockify_a0proj:/a0/.a0proj \
+  -v ~/biodockify-backups:/a0/usr/backups \
+  --restart unless-stopped \
+  tajo9128/biodockify-pharma-ai:latest
+
+# 4. Open http://localhost in your browser
+```
+
+### Docker Compose
+
+Save as `docker-compose.yml` and run `docker compose up -d`:
+
+```yaml
+services:
+  biodockify:
+    image: tajo9128/biodockify-pharma-ai:latest
+    container_name: biodockify
+    ports:
+      - "80:80"
+    volumes:
+      - biodockify_usr:/a0/usr
+      - biodockify_data:/a0/data
+      - biodockify_a0proj:/a0/.a0proj
+      - ~/biodockify-backups:/a0/usr/backups
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  biodockify_usr:
+  biodockify_data:
+  biodockify_a0proj:
+```
+
+## Data Persistence
+
+All research data lives in **3 Docker volumes**:
+
+| Volume | Path | Contents |
+|--------|------|----------|
+| `biodockify_usr` | `/a0/usr` | Workspace, chats, projects, plugins |
+| `biodockify_data` | `/a0/data` | Knowledge base, research sessions |
+| `biodockify_a0proj` | `/a0/.a0proj` | Agent memory, instructions, config |
+
+**Your data survives container deletion** as long as you use named volumes.
+
+## Backup
+
+Backups are stored at `/a0/usr/backups/` (mapped to your PC via the host mount).
+
+**Three ways to backup:**
+1. **In-app**: Open Backup & Recovery panel → "Save to PC" (downloads .zip to your Downloads folder)
+2. **Script**: Double-click `backup-data.bat` (Windows) to save all 3 data locations to Desktop
+3. **Automatic**: Backups run daily at 3 AM and on every container startup
+
+## Updating
+
+```bash
+# Stop and remove old container (data is safe in volumes)
+docker stop biodockify && docker rm biodockify
+
+# Pull latest image
+docker pull tajo9128/biodockify-pharma-ai:latest
+
+# Run with same volume names — all data returns automatically
+docker run -d \
+  --name biodockify \
+  -p 80:80 \
+  -v biodockify_usr:/a0/usr \
+  -v biodockify_data:/a0/data \
+  -v biodockify_a0proj:/a0/.a0proj \
+  -v ~/biodockify-backups:/a0/usr/backups \
+  --restart unless-stopped \
+  tajo9128/biodockify-pharma-ai:latest
+```
 
 ## Troubleshooting
 
-### "Read timed out" during Initialization
-*   **Cause:** Heavy AI dependencies are loading (especially on the first run).
-*   **Fix:** Wait another 60-90 seconds and refresh. The system is designed to self-heal once the backend is ready.
+| Problem | Cause | Fix |
+|---------|-------|-----|
+| Container won't start | Port 80 in use | Use `-p 8080:80` and visit `http://localhost:8080` |
+| "Unhealthy" status | Still initializing | Wait 60 seconds, then refresh |
+| Data missing | Wrong volume names | Ensure all 3 volumes use correct names |
+| Slow first response | Model warmup | Normal on first request after restart |
+| No AI responses | No API key configured | Open Settings → add your API key |
 
-### CSS 404 or Style Issues
-*   **Cause:** Nginx routing conflict or outdated image.
-*   **Fix:** Ensure you pulled the latest version (`v2.4.0+`) which includes the Nginx static routing fixes.
+## Support
 
-### "Backend Connection Failed"
-*   **Cause:** Port conflict on port 3000.
-*   **Fix:** Ensure no other services are using port 3000. You can map a different host port if needed: `-p 5000:3000`.
-
----
-**Need Help?**
-Open an issue on the [GitHub repository](https://github.com/tajo9128/BioDockify-pharma-research-ai/issues).
+- [GitHub Issues](https://github.com/tajo9128/BioDockify-Pharma-AI/issues)
+- [Docker Hub](https://hub.docker.com/r/tajo9128/biodockify-pharma-ai)

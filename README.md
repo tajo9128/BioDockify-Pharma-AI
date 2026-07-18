@@ -32,7 +32,7 @@
 
 ## Features
 
-### 16 Consolidated Research Modules
+### 22 Consolidated Research Modules
 
 | # | Module | Function | Backend |
 |---|--------|----------|---------|
