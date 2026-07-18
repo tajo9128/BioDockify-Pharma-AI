@@ -64,9 +64,55 @@ export const store = createStore("backupRecovery", {
     } catch (e) { this.error = "Delete failed: " + e.message; }
   },
 
-  backupToPC() {
-    this.message = "Use Docker desktop to download files from the usr/backups/ volume, or run: docker cp <container>:/a0/usr/backups/ ./backups/";
-    setTimeout(() => this.message = "", 8000);
+  async backupToPC(backupId) {
+    // Real download: stream the backup zip to the user's browser → Downloads folder
+    if (!backupId) {
+      // No specific backup given — create one first, then download it
+      this.message = "Creating a fresh backup before downloading...";
+      const create = await callJsonApi("backup_auto", { action: "create", label: "Save to PC" });
+      if (create.error || !create.success) { this.error = create.error || "Backup creation failed"; return; }
+      backupId = create.backup_id;
+      this.message = `Backup ${backupId} created. Downloading to your PC...`;
+      await this.loadBackups();
+    } else {
+      this.message = `Downloading ${backupId} to your PC...`;
+    }
+    try {
+      // Fetch the zip as a blob and trigger browser download
+      const csrfResp = await fetch("/api/csrf_token");
+      const csrfData = await csrfResp.json();
+      const resp = await fetch("/api/backup_auto", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfData.csrf_token || "",
+        },
+        body: JSON.stringify({ action: "download", backup_id: backupId }),
+      });
+      if (!resp.ok) {
+        const errText = await resp.text();
+        this.error = `Download failed: ${resp.status} ${errText.substring(0, 100)}`;
+        return;
+      }
+      const blob = await resp.blob();
+      if (blob.size < 100) {
+        this.error = "Downloaded file is too small — backup may be empty.";
+        return;
+      }
+      // Trigger browser download to the user's Downloads folder
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${backupId}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      this.message = `✓ ${backupId}.zip downloaded to your Downloads folder (${(blob.size / 1024 / 1024).toFixed(2)} MB). Safe on your PC.`;
+      setTimeout(() => this.message = "", 8000);
+    } catch (e) {
+      this.error = "Download failed: " + e.message;
+    }
   },
 
   syncToCloud() {

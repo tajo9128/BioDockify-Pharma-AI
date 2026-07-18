@@ -1,70 +1,95 @@
 @echo off
-REM BioDockify Pharma AI — Backup Volume to Desktop (Windows)
-REM ==========================================================
-REM This backs up the ENTIRE Docker volume containing all research data:
-REM   - Memory (FAISS vector database)
-REM   - Chat history
-REM   - Settings and secrets
-REM   - Knowledge base
-REM   - Projects
-REM   - User plugins, skills, workdir files
-REM   - Backups created via the in-app Backup panel
+REM BioDockify Pharma AI — Complete Backup to PC (Windows)
+REM =======================================================
+REM Backs up ALL research data from the Docker container:
+REM   - /a0/usr          (workspace, chats, projects, plugins)
+REM   - /a0/.a0proj      (agent memory, instructions, project config)  [NEW]
+REM   - /a0/data         (knowledge base, deep research sessions)      [NEW]
 REM
 REM Backup is saved to: %USERPROFILE%\Desktop\BioDockify-Backups\
+REM This file is on your PC and survives container deletion.
 REM
-REM To restore this backup later:
-REM   docker run --rm -v biodockify_pharma_usr:/volume -v %CD%:/backup alpine sh -c "rm -rf /volume/* && tar xzf /backup/biodockify-backup-XXXXXXXX.tar.gz -C /volume"
+REM === To restore this backup later ===
+REM   See restore-data.bat (companion script) or use the in-app
+REM   Backup & Recovery panel → "Restore from PC" button.
+
+setlocal
 
 set BACKUP_DIR=%USERPROFILE%\Desktop\BioDockify-Backups
 set TIMESTAMP=%DATE:~10,4%%DATE:~4,2%%DATE:~7,2%_%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%
 set TIMESTAMP=%TIMESTAMP: =0%
-set BACKUP_FILE=%BACKUP_DIR%\biodockify-volume-backup-%TIMESTAMP%.tar.gz
+set BACKUP_FILE=%BACKUP_DIR%\biodockify-full-backup-%TIMESTAMP%.tar.gz
+set CONTAINER=biodockify
 
 echo.
-echo [BioDockify Pharma AI] Volume Backup Tool
-echo ==========================================
+echo [BioDockify Pharma AI] Complete Backup Tool
+echo ============================================
 echo.
 echo Backup destination: %BACKUP_DIR%
 echo.
 
 if not exist "%BACKUP_DIR%" mkdir "%BACKUP_DIR%"
 
-echo [1/3] Creating backup from Docker volume...
-docker run --rm -v biodockify_pharma_usr:/volume -v "%BACKUP_DIR%:/backup" alpine tar czf "/backup/biodockify-volume-backup-%TIMESTAMP%.tar.gz" -C /volume . 2>&1
+REM Check container is running
+docker ps --format "{{.Names}}" | findstr /C:"%CONTAINER%" >nul
 if %errorlevel% neq 0 (
-    echo [ERROR] Failed to create backup. Make sure the container exists and the volume 'biodockify_pharma_usr' is present.
+    echo [ERROR] Container '%CONTAINER%' is not running.
+    echo Start it first:  docker start %CONTAINER%
     echo.
-    echo Check available volumes: docker volume ls
+    echo Or check running containers:  docker ps
     pause
     exit /b 1
 )
 
-echo [2/3] Verifying backup file...
-if exist "%BACKUP_FILE%" (
-    for %%F in ("%BACKUP_FILE%") do echo File size: %%~zF bytes
+echo [1/4] Backing up /a0/usr (workspace, chats, projects)...
+docker cp %CONTAINER%:/a0/usr "%BACKUP_DIR%\usr-%TIMESTAMP%" 2>&1
+if %errorlevel% neq 0 (
+    echo [WARNING] Could not copy /a0/usr — continuing.
+)
+
+echo [2/4] Backing up /a0/.a0proj (agent memory, instructions)...
+docker cp %CONTAINER%:/a0/.a0proj "%BACKUP_DIR%\a0proj-%TIMESTAMP%" 2>&1
+if %errorlevel% neq 0 (
+    echo [WARNING] Could not copy /a0/.a0proj — continuing.
+)
+
+echo [3/4] Backing up /a0/data (knowledge base)...
+docker cp %CONTAINER%:/a0/data "%BACKUP_DIR%\data-%TIMESTAMP%" 2>&1
+if %errorlevel% neq 0 (
+    echo [WARNING] Could not copy /a0/data — continuing.
+)
+
+echo [4/4] Bundling everything into a single .tar.gz...
+REM Bundle all three snapshots into one compressed archive
+docker run --rm -v "%BACKUP_DIR%:/backup" alpine sh -c "cd /backup && tar czf biodockify-full-backup-%TIMESTAMP%.tar.gz usr-%TIMESTAMP% a0proj-%TIMESTAMP% data-%TIMESTAMP% 2>/dev/null || tar czf biodockify-full-backup-%TIMESTAMP%.tar.gz usr-%TIMESTAMP% a0proj-%TIMESTAMP% data-%TIMESTAMP%"
+if %errorlevel% neq 0 (
+    echo [WARNING] Could not create tar.gz bundle. Individual folders are still safe in %BACKUP_DIR%.
 ) else (
-    echo [ERROR] Backup file not found.
-    pause
-    exit /b 1
+    REM Clean up the individual folders now that they're bundled
+    rmdir /s /q "%BACKUP_DIR%\usr-%TIMESTAMP%" 2>nul
+    rmdir /s /q "%BACKUP_DIR%\a0proj-%TIMESTAMP%" 2>nul
+    rmdir /s /q "%BACKUP_DIR%\data-%TIMESTAMP%" 2>nul
 )
 
-echo [3/3] Done!
 echo.
-echo [SUCCESS] Backup saved to:
-echo   %BACKUP_FILE%
+echo ============================================
+echo [SUCCESS] Backup complete!
+echo ============================================
 echo.
-echo Your ENTIRE research data (memory, chats, knowledge, projects, backups) is now safe.
-echo This file includes: memory DB, chat history, settings, knowledge base, projects.
+if exist "%BACKUP_FILE%" (
+    for %%F in ("%BACKUP_FILE%") do echo Archive: %%F  (%%~zF bytes)
+) else (
+    echo Individual folders saved in: %BACKUP_DIR%
+    dir /b "%BACKUP_DIR%\*-%TIMESTAMP%" 2>nul
+)
 echo.
-echo === How to restore ===
-echo To restore this backup to a new container:
-echo   1. docker compose down
-echo   2. docker volume rm biodockify_pharma_usr
-echo   3. docker run --rm -v biodockify_pharma_usr:/volume -v "%CD%:/backup" alpine sh -c "rm -rf /volume/* ^&^& tar xzf /backup/biodockify-volume-backup-%TIMESTAMP%.tar.gz -C /volume"
-echo   4. docker compose up -d
+echo Your ENTIRE research data is now safe on your PC:
+echo   - workspace, chats, projects (/a0/usr)
+echo   - agent memory, instructions (/a0/.a0proj)
+echo   - knowledge base (/a0/data)
 echo.
-echo Or restore from a different backup file:
-echo   docker run --rm -v biodockify_pharma_usr:/volume -v "%CD%:/backup" alpine sh -c "rm -rf /volume/* ^&^& tar xzf /backup/YOUR_BACKUP_FILE.tar.gz -C /volume"
+echo To restore: use the in-app "Backup ^& Recovery" panel and click
+echo "Restore from PC", OR run restore-data.bat.
 echo.
-
 pause
+endlocal

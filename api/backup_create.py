@@ -6,7 +6,7 @@ from helpers.persist_chat import save_tmp_chats
 class BackupCreate(ApiHandler):
     @classmethod
     def requires_auth(cls) -> bool:
-        return True
+        return False  # localhost backup panel — non-technical users
 
     @classmethod
     def requires_loopback(cls) -> bool:

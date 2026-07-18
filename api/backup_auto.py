@@ -70,14 +70,26 @@ def _create_zip_backup(backup_dir, data_dir):
 
 
 def _restore_from_zip(zip_path, data_dir):
-    """Restore all data from a zip archive."""
+    """Restore all data from a zip archive.
+
+    Archive paths include the full 'a0/...' prefix (e.g. 'a0/usr/...',
+    'a0/.a0proj/...', 'a0/data/...'), so we extract to '/' (container root)
+    to land files in their correct original locations.
+    """
     restored = 0
     errors = []
     with zipfile.ZipFile(zip_path, 'r') as zf:
         for member in zf.namelist():
             try:
-                # Extract to data directory
-                zf.extract(member, data_dir)
+                # Skip directory entries
+                if member.endswith('/'):
+                    continue
+                # Validate path — only restore a0/ paths for safety
+                if not member.startswith('a0/'):
+                    errors.append(f"{member}: skipped (not under a0/)")
+                    continue
+                # Extract to container root so a0/usr/X → /a0/usr/X
+                zf.extract(member, "/")
                 restored += 1
             except Exception as e:
                 errors.append(f"{member}: {e}")
@@ -157,11 +169,11 @@ class AutoBackupHandler(ApiHandler):
         elif action == "list":
             return self._list()
         elif action == "restore":
-            return self._restore(input.get("backup_id", ""))
+            return self._restore(input.get("backup_id") or input.get("id", ""))
         elif action == "delete":
-            return self._delete(input.get("backup_id", ""))
+            return self._delete(input.get("backup_id") or input.get("id", ""))
         elif action == "download":
-            return self._download(input.get("backup_id", ""))
+            return self._download(input.get("backup_id") or input.get("id", ""))
         elif action == "restore_from_upload":
             return self._restore_from_upload(input, request)
 
@@ -193,19 +205,32 @@ class AutoBackupHandler(ApiHandler):
             zip_path = _create_zip_backup(backup_dir, DATA_DIR)
             zip_size = round(os.path.getsize(zip_path) / (1024 * 1024), 2) if os.path.exists(zip_path) else 0
 
-            # Also copy directory structure for direct-restore fallback
-            for item in os.listdir(DATA_DIR):
-                if item == "backups":
-                    continue
-                src = os.path.join(DATA_DIR, item)
-                dst = os.path.join(backup_dir, item)
-                try:
-                    if os.path.isdir(src):
-                        shutil.copytree(src, dst)
-                    else:
-                        shutil.copy2(src, dst)
-                except Exception as e:
-                    log.warning(f"Could not copy {item}: {e}")
+            # Also copy directory structure for direct-restore fallback (all 3 paths)
+            for base_path in BACKUP_PATHS:
+                if base_path == DATA_DIR:
+                    # /a0/usr — skip the backups subdir
+                    for item in os.listdir(base_path):
+                        if item == "backups":
+                            continue
+                        src = os.path.join(base_path, item)
+                        dst = os.path.join(backup_dir, os.path.basename(base_path), item)
+                        try:
+                            os.makedirs(os.path.dirname(dst), exist_ok=True)
+                            if os.path.isdir(src):
+                                shutil.copytree(src, dst)
+                            else:
+                                shutil.copy2(src, dst)
+                        except Exception as e:
+                            log.warning(f"Could not copy {item}: {e}")
+                else:
+                    # /a0/.a0proj and /a0/data — copy whole tree
+                    base_name = os.path.basename(base_path)
+                    dst_base = os.path.join(backup_dir, base_name)
+                    if os.path.isdir(base_path):
+                        try:
+                            shutil.copytree(base_path, dst_base)
+                        except Exception as e:
+                            log.warning(f"Could not copy {base_path}: {e}")
 
             # Save metadata
             metadata = {
@@ -341,16 +366,18 @@ class AutoBackupHandler(ApiHandler):
             return {"success": False, "error": str(e)}
 
     def _download(self, backup_id):
-        """Download a backup zip file."""
+        """Download a backup zip file — streams the file to the browser."""
+        from flask import send_file
         backup_dir = os.path.join(BACKUPS_DIR, backup_id)
         zip_path = os.path.join(backup_dir, "backup.zip")
         if not os.path.exists(zip_path):
             return {"error": "Backup zip not found"}
-        return {
-            "success": True,
-            "path": zip_path,
-            "filename": f"{backup_id}.zip"
-        }
+        return send_file(
+            zip_path,
+            as_attachment=True,
+            download_name=f"{backup_id}.zip",
+            mimetype='application/zip',
+        )
 
     def _restore_from_upload(self, input: dict, request) -> dict:
         """Restore from an uploaded ZIP backup file — no Docker commands needed.

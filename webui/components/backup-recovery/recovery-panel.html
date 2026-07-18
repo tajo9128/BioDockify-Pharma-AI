@@ -2,116 +2,69 @@
   <script type="module">
     import { store } from "/components/backup-recovery/recovery-store.js";
   </script>
-</head><body><div x-data class="recovery-panel" x-init="$store.backupRecovery.loadBackups(); $store.backupRecovery.loadAutoBackupStatus()">
+</head><body><div x-data class="recovery-panel" x-init="$store.backupRecovery.loadBackups()">
   <div class="panel-header"><span class="material-symbols-outlined panel-icon">backup</span><h2>Backup & Recovery</h2></div>
-  <p class="desc">Backups stored at <code>usr/backups/</code> (Docker volume) — survive container deletion.</p>
+  <p class="desc">Protect your research. Backups capture agent memory, knowledge base, and workspace — and survive container deletion.</p>
 
-  <!-- Backup Methods -->
+  <!-- Primary actions: 4 clear methods -->
   <div class="backup-methods">
     <div class="bm-card" @click="$store.backupRecovery.createBackup()">
       <span class="material-symbols-outlined bm-icon">save</span>
-      <span class="bm-title">Quick Backup</span>
-      <span class="bm-desc">Save settings + chats to Docker volume</span>
+      <span class="bm-title">Backup Now</span>
+      <span class="bm-desc">Save everything to Docker volume</span>
     </div>
-    <div class="bm-card" @click="$store.backupRecovery.createFullBackup()">
-      <span class="material-symbols-outlined bm-icon">archive</span>
-      <span class="bm-title">Full Backup</span>
-      <span class="bm-desc">All data: memory, knowledge, projects</span>
-    </div>
-    <div class="bm-card" @click="$store.backupRecovery.backupToPC()">
-      <span class="material-symbols-outlined bm-icon">computer</span>
+    <div class="bm-card" style="border-color:#22c55e;background:rgba(34,197,94,0.05)" @click="$store.backupRecovery.backupToPC()">
+      <span class="material-symbols-outlined bm-icon" style="color:#22c55e">computer</span>
       <span class="bm-title">Save to PC</span>
-      <span class="bm-desc">Download backup to local machine</span>
+      <span class="bm-desc">Download backup ZIP to your computer</span>
     </div>
-    <div class="bm-card" style="border-color:#22c55e;background:rgba(34,197,94,0.05)" @click="$store.backupRecovery.triggerUploadRestore()">
-      <span class="material-symbols-outlined bm-icon" style="color:#22c55e">upload_file</span>
+    <div class="bm-card" style="border-color:#4fc3f7;background:rgba(79,195,247,0.05)" @click="$store.backupRecovery.triggerUploadRestore()">
+      <span class="material-symbols-outlined bm-icon" style="color:#4fc3f7">upload_file</span>
       <span class="bm-title">Restore from PC</span>
-      <span class="bm-desc">Upload a backup ZIP — auto-restores everything</span>
+      <span class="bm-desc">Upload a backup ZIP to restore</span>
+    </div>
+    <div class="bm-card" @click="$store.backupRecovery.loadBackups()">
+      <span class="material-symbols-outlined bm-icon">refresh</span>
+      <span class="bm-title">Refresh</span>
+      <span class="bm-desc">Reload backup list</span>
     </div>
   </div>
 
-  <!-- Actions -->
-  <div class="actions">
-    <button class="btn" @click="$store.backupRecovery.createBackup()" :disabled="$store.backupRecovery.creating">
-      <span class="material-symbols-outlined">add</span>
-      <span x-text="$store.backupRecovery.creating ? 'Creating...' : 'Create Backup Now'"></span>
-    </button>
-    <button class="btn-secondary" @click="$store.backupRecovery.loadBackups()" :disabled="$store.backupRecovery.loading">
-      <span class="material-symbols-outlined">refresh</span>
-      <span>Refresh</span>
-    </button>
-  </div>
-
-  <!-- Cloud backup section -->
-  <div class="gd-card">
-    <div class="gd-header">
-      <span>☁️ Google Drive Backup</span>
-      <span class="gd-status" :class="{connected: $store.backupRecovery.gdriveConnected}" x-text="$store.backupRecovery.gdriveConnected ? '🟢 Connected' : '🔴 Not connected'"></span>
-    </div>
-    <div class="gd-actions">
-      <button class="btn-sm cloud-connect" @click="$store.backupRecovery.connectGDrive()" x-show="!$store.backupRecovery.gdriveConnected">
-        <span class="material-symbols-outlined">cloud_upload</span> Connect
-      </button>
-      <button class="btn-sm" @click="$store.backupRecovery.syncToCloud()" x-show="$store.backupRecovery.gdriveConnected" :disabled="$store.backupRecovery.creating">
-        <span class="material-symbols-outlined">cloud_upload</span> Upload
-      </button>
-      <button class="btn-sm" @click="$store.backupRecovery.retrieveBackup('cloud')" x-show="$store.backupRecovery.gdriveConnected">
-        <span class="material-symbols-outlined">cloud_download</span> Restore
-      </button>
-      <button class="btn-sm cloud-disconnect" @click="$store.backupRecovery.disconnectGDrive()" x-show="$store.backupRecovery.gdriveConnected">Disconnect</button>
-    </div>
-    <div class="gd-locations">
-      <label class="gd-check"><input type="checkbox" checked disabled> Docker Volume: /usr/backups/</label>
-      <label class="gd-check"><input type="checkbox" x-model="$store.backupRecovery.gdriveAutoSync"> Auto-sync to GDrive</label>
-    </div>
-  </div>
-
-  <!-- Auto-Backup Section -->
-  <div class="gd-card" style="border-color: #4fc3f7; margin-top: 8px">
-    <div class="gd-header">
-      <span style="font-weight:600;font-size:0.7rem">🛡️ Auto-Backup System</span>
-      <span style="font-size:0.55rem;color:var(--color-text-muted)" x-text="($store.backupRecovery.autoBackupStatus?.total_backups || 0) + ' backups (' + ($store.backupRecovery.autoBackupStatus?.max_backups || 7) + ' max)'"></span>
-    </div>
-    <div style="font-size:0.55rem;color:var(--color-text-muted);margin:4px 0">
-      Runs on container restart + periodically. Keeps last 7 backups. Survives container deletion.
-    </div>
-    <div style="display:flex;gap:4px;margin-top:6px">
-      <button class="btn-sm" @click="$store.backupRecovery.createAutoBackup()" :disabled="$store.backupRecovery.creating">
-        <span class="material-symbols-outlined">save</span> Create Now
-      </button>
-      <button class="btn-sm" @click="$store.backupRecovery.listAutoBackups()" :disabled="$store.backupRecovery.loading">
-        <span class="material-symbols-outlined">list</span> List
-      </button>
-      <button class="btn-sm" style="background:#4fc3f7;color:white;border-color:#4fc3f7" @click="$store.backupRecovery.restoreLatest()" :disabled="$store.backupRecovery.creating">
-        <span class="material-symbols-outlined">restore</span> Restore Latest
-      </button>
-    </div>
-    <div x-show="$store.backupRecovery.autoBackupList.length" style="margin-top:6px;max-height:80px;overflow-y:auto">
-      <template x-for="b in $store.backupRecovery.autoBackupList" :key="b">
-        <div style="display:flex;justify-content:space-between;font-size:0.5rem;padding:2px 0">
-          <span x-text="b"></span>
-          <button class="btn-sm" style="font-size:0.48rem;padding:1px 6px" @click="$store.backupRecovery.restoreSpecific(b)">Restore</button>
-        </div>
-      </template>
-    </div>
+  <!-- Status banner -->
+  <div class="info-banner">
+    <span class="material-symbols-outlined" style="font-size:14px;color:var(--color-text-muted)">info</span>
+    <span><b>What's backed up:</b> agent memory (.a0proj), knowledge base (/a0/data), workspace (/a0/usr). All three locations captured in every backup ZIP.</span>
   </div>
 
   <div x-show="$store.backupRecovery.message" class="msg" x-text="$store.backupRecovery.message"></div>
   <div x-show="$store.backupRecovery.error" class="error" x-text="$store.backupRecovery.error"></div>
   <div x-show="$store.backupRecovery.loading" class="loading">Loading backups...</div>
+  <div x-show="$store.backupRecovery.creating" class="loading">Creating backup... this may take a moment.</div>
+  <div x-show="$store.backupRecovery.restoring" class="loading">Restoring... please wait.</div>
 
+  <!-- Backup list -->
   <template x-if="$store.backupRecovery.hasBackups && !$store.backupRecovery.loading">
     <div class="backup-list">
-      <h3>Available Backups</h3>
+      <div class="backup-list-header">
+        <h3>Available Backups</h3>
+        <span class="backup-count" x-text="$store.backupRecovery.backups.length + ' total'"></span>
+      </div>
       <template x-for="b in $store.backupRecovery.backups" :key="b.id">
-        <div class="backup-card" :class="{ 'has-archive': b.has_archive }">
+        <div class="backup-card" :class="{ 'has-zip': b.has_zip, 'empty-backup': !b.has_zip || b.zip_size_mb === 0 }">
           <div class="backup-info">
             <span class="backup-id" x-text="b.id"></span>
-            <span class="backup-meta" x-text="(b.size_mb > 0 ? b.size_mb + ' MB' : 'empty') + ' | ' + b.created_at"></span>
+            <span class="backup-meta">
+              <span x-text="b.zip_size_mb > 0 ? b.zip_size_mb + ' MB' : 'empty'"></span>
+              <span x-show="b.created_at" x-text="' · ' + b.created_at"></span>
+              <span class="badge" x-show="b.complete" style="color:#22c55e">✓ complete</span>
+            </span>
           </div>
           <div class="backup-actions">
-            <button class="btn-sm" @click="$store.backupRecovery.restoreBackup(b.id)" :disabled="!b.has_archive || $store.backupRecovery.restoring">Restore</button>
-            <button class="btn-sm-danger" @click="$store.backupRecovery.deleteBackup(b.id)">Delete</button>
+            <button class="btn-sm" @click="$store.backupRecovery.backupToPC(b.id)" :disabled="!b.has_zip" title="Download to PC">
+              <span class="material-symbols-outlined" style="font-size:13px">download</span>
+            </button>
+            <button class="btn-sm" @click="$store.backupRecovery.restoreBackup(b.id)" :disabled="!b.has_zip || $store.backupRecovery.restoring">Restore</button>
+            <button class="btn-sm-danger" @click="$store.backupRecovery.deleteBackup(b.id)" title="Delete">Delete</button>
           </div>
         </div>
       </template>
@@ -119,46 +72,44 @@
   </template>
 
   <div x-show="!$store.backupRecovery.hasBackups && !$store.backupRecovery.loading" class="empty">
-    <p>No backups found. Click a backup method above to create your first backup.</p>
-    <p class="hint">Backups are stored at <code>usr/backups/</code> on the Docker volume.</p>
+    <span class="material-symbols-outlined" style="font-size:36px;color:var(--color-text-muted);opacity:0.4">backup</span>
+    <p>No backups yet.</p>
+    <p class="hint">Click <b>Backup Now</b> above to create your first backup. Then use <b>Save to PC</b> to keep a copy on your computer.</p>
   </div>
 
   <style>
     .recovery-panel{padding:14px 16px;height:100%;overflow-y:auto;display:flex;flex-direction:column}
-    .panel-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-shrink:0}
+    .panel-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0}
     .panel-icon{font-size:24px;color:var(--color-primary)}
     .panel-header h2{color:var(--color-primary);font-size:0.95rem;margin:0;font-weight:700}
     .desc{font-size:.68rem;color:var(--color-text-muted);margin:0 0 10px 0;line-height:1.3}
-    .desc code{font-family:var(--font-mono);font-size:.7rem;background:var(--color-panel);padding:1px 5px;border-radius:3px}
-    .backup-methods{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
-    .bm-card{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;cursor:pointer;text-align:center;transition:all .15s}
+    .backup-methods{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:10px}
+    .bm-card{display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;cursor:pointer;text-align:center;transition:all .15s}
     .bm-card:hover{border-color:var(--color-primary);background:color-mix(in srgb,var(--color-primary) 6%,var(--color-panel));transform:translateY(-1px)}
-    .bm-icon{font-size:22px;color:var(--color-primary)}
-    .bm-title{font-size:.68rem;font-weight:600;color:var(--color-text)}
-    .bm-desc{font-size:.55rem;color:var(--color-text-muted);line-height:1.2}
-    .actions{display:flex;gap:6px;margin-bottom:10px}
-    .btn,.btn-secondary{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;cursor:pointer;border:none;font-size:.72rem;font-weight:500}
-    .btn{background:var(--color-primary);color:white}.btn:disabled{opacity:.6}
-    .btn-secondary{background:var(--color-panel);border:1px solid var(--color-border);color:var(--color-text)}
-    .gd-card{padding:10px 12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:10px}
-    .gd-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-weight:600;font-size:.68rem;color:var(--color-text)}
-    .gd-status{font-size:.6rem;font-weight:500}.gd-status.connected{color:#22c55e}
-    .gd-actions{display:flex;gap:5px}
-    .cloud-connect{background:#4285f4;color:white;border:none}.cloud-disconnect{background:var(--color-panel);border:1px solid var(--color-border);color:var(--color-text-muted)}
-    .btn-sm{display:flex;align-items:center;gap:3px;padding:4px 8px;border-radius:5px;cursor:pointer;border:none;font-size:.62rem;font-weight:500;background:var(--color-primary);color:white}.btn-sm:disabled{opacity:.5}
-    .btn-sm-danger{padding:4px 8px;border-radius:5px;cursor:pointer;border:none;font-size:.62rem;background:rgba(255,107,107,.1);color:var(--color-error-text,#ff6b6b)}
-    .msg{font-size:.64rem;color:var(--color-primary);padding:4px 8px;margin-bottom:6px}
-    .error{font-size:.64rem;color:var(--color-error-text,#ff6b6b);margin-bottom:6px}
+    .bm-icon{font-size:24px;color:var(--color-primary)}
+    .bm-title{font-size:.72rem;font-weight:600;color:var(--color-text)}
+    .bm-desc{font-size:.58rem;color:var(--color-text-muted);line-height:1.2}
+    .info-banner{display:flex;align-items:flex-start;gap:6px;padding:8px 10px;background:color-mix(in srgb,var(--color-primary) 5%,var(--color-panel));border:1px solid color-mix(in srgb,var(--color-primary) 20%,var(--color-border));border-radius:6px;font-size:.6rem;color:var(--color-text);line-height:1.4;margin-bottom:10px}
+    .msg{font-size:.66rem;color:#22c55e;padding:8px 10px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:6px;margin-bottom:6px}
+    .error{font-size:.66rem;color:var(--color-error-text,#ff6b6b);padding:8px 10px;background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.2);border-radius:6px;margin-bottom:6px}
     .loading{font-size:.7rem;color:var(--color-text-muted);padding:10px;text-align:center}
-    .backup-list h3{font-size:.7rem;color:var(--color-text);margin-bottom:6px}
-    .backup-card{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;margin-bottom:4px}
-    .backup-card.has-archive{border-left:3px solid var(--color-primary)}
-    .backup-info{display:flex;flex-direction:column;gap:2px}
-    .backup-id{font-size:.68rem;font-weight:600;color:var(--color-text);font-family:var(--font-mono)}
-    .backup-meta{font-size:.6rem;color:var(--color-text-muted)}
-    .backup-actions{display:flex;gap:4px}
-    .empty{padding:16px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;text-align:center}
-    .empty p{margin:0 0 4px 0;font-size:.7rem;color:var(--color-text-muted)}
-    .hint{font-size:.62rem;color:var(--color-text-muted);font-style:italic}
+    .backup-list-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .backup-list h3{font-size:.72rem;color:var(--color-text);margin:0;font-weight:600}
+    .backup-count{font-size:.58rem;color:var(--color-text-muted)}
+    .backup-card{display:flex;justify-content:space-between;align-items:center;padding:9px 11px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;margin-bottom:5px}
+    .backup-card.has-zip{border-left:3px solid var(--color-primary)}
+    .backup-card.empty-backup{opacity:0.6}
+    .backup-info{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+    .backup-id{font-size:.68rem;font-weight:600;color:var(--color-text);font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .backup-meta{font-size:.58rem;color:var(--color-text-muted);display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+    .badge{font-size:.55rem;font-weight:600}
+    .backup-actions{display:flex;gap:4px;flex-shrink:0}
+    .btn-sm{display:flex;align-items:center;gap:3px;padding:5px 10px;border-radius:5px;cursor:pointer;border:none;font-size:.6rem;font-weight:500;background:var(--color-primary);color:white}
+    .btn-sm:disabled{opacity:.4;cursor:not-allowed}
+    .btn-sm-danger{padding:5px 10px;border-radius:5px;cursor:pointer;border:none;font-size:.6rem;background:rgba(255,107,107,.1);color:var(--color-error-text,#ff6b6b)}
+    .btn-sm-danger:hover{background:rgba(255,107,107,.2)}
+    .empty{padding:24px 16px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
+    .empty p{margin:0;font-size:.7rem;color:var(--color-text-muted)}
+    .hint{font-size:.6rem;color:var(--color-text-muted);font-style:italic;line-height:1.4;max-width:280px}
   </style>
 </div></body></html>

@@ -1,0 +1,5 @@
+# BioDockify Auto-Backup — daily at 3:00 AM
+# Captures all 3 data locations: /a0/usr, /a0/.a0proj, /a0/data
+# Keeps last 7 backups, prunes older ones automatically
+# Backups live in /a0/usr/backups/ (mount to host for PC visibility)
+0 3 * * * root /a0/docker/run/auto_backup.sh >> /var/log/biodockify-backup.log 2>&1

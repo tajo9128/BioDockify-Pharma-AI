@@ -62,7 +62,8 @@ RUN mkdir -p /a0/.cache/sentence-transformers && \
     echo "sentence-transformers model cache failed — will try HuggingFace at runtime"
 
 EXPOSE 50001
-VOLUME ["/a0/usr"]
+# Persist user data, agent memory, and knowledge base separately so each survives
+VOLUME ["/a0/usr", "/a0/.a0proj", "/a0/data"]
 HEALTHCHECK --interval=30s --timeout=15s --retries=3 CMD \
   curl -sf http://localhost:80/api/health || exit 1
 CMD ["/exe/initialize.sh", "main"]
