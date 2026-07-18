@@ -905,7 +905,7 @@ class MedicinalChemistryHandler(ApiHandler):
             return {"error": f"Invalid SMILES: {smiles}"}
 
         TOXICOPHORES = [
-            {"name": "Aniline (primary aromatic amine)", "smarts": "[c][NX2H2]",
+            {"name": "Aniline (primary aromatic amine)", "smarts": "[c][NX3;H2]",
              "concern": "Mutagenic — metabolic N-hydroxylation to nitrenium ions",
              "severity": "high", "fix": "Replace with amide, sulfonamide, or N-alkylate"},
             {"name": "Nitroaromatic", "smarts": "[c][NX3](=O)=O",
