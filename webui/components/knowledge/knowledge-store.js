@@ -100,6 +100,108 @@ export const store = createStore("knowledgeModal", {
     this.readingPaper = paper;
   },
 
+  // Simple markdown-to-HTML renderer (no external dependency)
+  renderMarkdown(text) {
+    if (!text) return "";
+    let html = text;
+
+    // Escape HTML first
+    html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // Code blocks ```...```
+    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre style="background:var(--color-panel);padding:10px;border-radius:6px;overflow-x:auto;font-size:0.65rem;border:1px solid var(--color-border)"><code>$2</code></pre>');
+
+    // Headings (### before ## before #)
+    html = html.replace(/^#### (.+)$/gm, '<h4 style="font-size:0.85rem;color:var(--color-primary);margin:12px 0 4px">$1</h4>');
+    html = html.replace(/^### (.+)$/gm, '<h3 style="font-size:0.9rem;color:var(--color-primary);margin:12px 0 4px">$1</h3>');
+    html = html.replace(/^## (.+)$/gm, '<h2 style="font-size:1rem;color:var(--color-primary);margin:14px 0 6px;border-bottom:1px solid var(--color-border);padding-bottom:4px">$1</h2>');
+    html = html.replace(/^# (.+)$/gm, '<h1 style="font-size:1.15rem;color:var(--color-primary);margin:16px 0 8px">$1</h1>');
+
+    // Bold **text**
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // Italic *text* (but not ** **)
+    html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+
+    // Horizontal rules ---
+    html = html.replace(/^---+$/gm, '<hr style="border:none;border-top:1px solid var(--color-border);margin:12px 0">');
+
+    // Unordered list items - item or * item
+    html = html.replace(/^[\-\*] (.+)$/gm, '<li style="margin-left:20px;list-style:disc;margin-bottom:3px">$1</li>');
+
+    // Ordered list items 1. item
+    html = html.replace(/^\d+\. (.+)$/gm, '<li style="margin-left:20px;list-style:decimal;margin-bottom:3px">$1</li>');
+
+    // Links [text](url)
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:var(--color-primary);text-decoration:underline">$1</a>');
+
+    // DOI links
+    html = html.replace(/doi:\s*(10\.\d{4,9}\/[^\s<]+)/gi, '<a href="https://doi.org/$1" target="_blank" style="color:var(--color-primary)">doi:$1</a>');
+
+    // PMID links
+    html = html.replace(/PMID[:\s]*(\d{6,8})/gi, '<a href="https://pubmed.ncbi.nlm.nih.gov/$1/" target="_blank" style="color:var(--color-primary)">PMID: $1</a>');
+
+    // Tables (simple markdown tables)
+    html = html.replace(/^\|(.+)\|$/gm, (match) => {
+      const cells = match.split('|').filter(c => c.trim());
+      if (cells.every(c => c.trim().match(/^[-:]+$/))) return ''; // separator row
+      return '<tr>' + cells.map(c => `<td style="border:1px solid var(--color-border);padding:4px 8px;font-size:0.65rem">${c.trim()}</td>`).join('') + '</tr>';
+    });
+    // Wrap consecutive <tr> in <table>
+    html = html.replace(/(<tr>[\s\S]*?<\/tr>)/g, '<table style="border-collapse:collapse;width:100%;margin:8px 0">$1</table>');
+
+    // Paragraphs — wrap blocks separated by blank lines
+    html = html.split(/\n\n+/).map(block => {
+      block = block.trim();
+      if (!block) return '';
+      if (block.startsWith('<')) return block; // already HTML
+      return '<p style="margin:8px 0;line-height:1.7">' + block.replace(/\n/g, '<br>') + '</p>';
+    }).join('\n');
+
+    return html;
+  },
+
+  async downloadDocx() {
+    /** Download the current reading entry as DOCX */
+    if (!this.readingPaper) return;
+    const file = this.readingPaper.file || "";
+    const docxFile = file.replace(/\.md$/, '.docx');
+    if (docxFile !== file) {
+      // Try downloading the .docx version
+      try {
+        const csrfResp = await fetch("/api/csrf_token");
+        const csrfData = await csrfResp.json();
+        const resp = await fetch("/api/knowledge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfData.csrf_token || "" },
+          body: JSON.stringify({ action: "download_docx", file: docxFile }),
+        });
+        if (resp.ok) {
+          const blob = await resp.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = (this.readingPaper.title || "article").substring(0, 50) + ".docx";
+          a.click();
+          URL.revokeObjectURL(url);
+          this.message = "DOCX downloaded";
+          setTimeout(() => { this.message = ""; }, 3000);
+          return;
+        }
+      } catch (e) {}
+    }
+    // Fallback: download as .txt
+    const content = this.readingPaper.full_text || this.readingPaper.answer || "";
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = (this.readingPaper.title || "article").substring(0, 50) + ".txt";
+    a.click();
+    URL.revokeObjectURL(url);
+    this.message = "Text downloaded";
+    setTimeout(() => { this.message = ""; }, 3000);
+  },
+
   closePaperReader() {
     this.readingPaper = null;
   },
