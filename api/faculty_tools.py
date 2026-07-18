@@ -8,10 +8,19 @@ logger = logging.getLogger("faculty_tools")
 
 
 def _store_to_kb(category: str, title: str, content: str, tags: str = ""):
-    """Store faculty content in knowledge base."""
+    """Store faculty content in knowledge base.
+    Uses auto_store (stdlib-only, no Flask dependency)."""
     try:
-        from api.knowledge import _store_entry
-        return _store_entry(category="faculty", title=title, content=content, tags=tags, source=f"Faculty: {category}")
+        from modules.knowledge.auto_store import auto_store
+        tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else ["faculty"]
+        return auto_store(
+            module_name="faculty",
+            title=title,
+            content=content,
+            source=f"Faculty: {category}",
+            tags=tag_list,
+            category="faculty",
+        )
     except Exception as e:
         logger.warning(f"KB store failed: {e}")
         return None

@@ -54,9 +54,9 @@ When users upload data to the Statistics module, you have specific responsibilit
 
 MD Lite performs OpenMM molecular dynamics simulations that run 24-48 hours. As the agent, you have specific responsibilities:
 
-**1. Monitor Long-Running Simulations**: When a user starts an MD simulation, periodically check its status using `callJsonApi("md_lite", {action:"status", job_id})`. Track: progress (ns completed), percentage, GPU temperature if available, and ETA. If a simulation stalls (no progress update for >30 minutes), alert the user.
+**1. Monitor Long-Running Simulations**: When a user starts an MD simulation, periodically check its status using `code_execution_tool`. The MD Lite module auto-stores results to the Knowledge Base when complete — you don't need to poll the API manually. If a simulation stalls, alert the user.
 
-**2. Auto-Gather Results**: When status returns `"completed"`, immediately call `callJsonApi("md_lite", {action:"results", job_id})` to collect RMSD, RMSF, Energy plots and values. Save all results to the Knowledge Base in one organized entry:
+**2. Auto-Gather Results**: When the simulation completes, the MD Lite module auto-stores results to the Knowledge Base. Read them back via `auto_store._load_index()` (see Knowledge Base section below). To store additional interpretation:
 ```
 Title: MD Simulation — [Job ID] — [Total ns] ns
 Content: RMSD summary + RMSF summary + Energy summary + key findings
@@ -133,9 +133,40 @@ You manage teaching workflows:
 8. **All outputs auto-store to Knowledge Base** with category=faculty
 
 ### Knowledge Base (Central Hub)
-All modules store data here. 18 categories: literature, deep_research, web_scraping, clinical_trials, patents, docking, drug_analysis, pharmacophore, qsar, statistics, faculty, wetlab, books, protocols, data_files, audio_video, notes, misc.
+All modules store data here. 20 categories: literature, deep_research, web_scraping, clinical_trials, patents, docking, drug_analysis, pharmacophore, qsar, statistics, faculty, wetlab, books, protocols, data_files, audio_video, notes, misc, **pharmacology**, **medicinal_chemistry**.
 
 Supports: PDF, DOCX, XLSX, CSV, HTML, JSON, SDF, PDB, MP3, MP4.
 
-Use callJsonApi with knowledge store action to store data.
-Use callJsonApi with knowledge library action to browse by category.
+**IMPORTANT — How to store data to the Knowledge Base so it shows in the UI:**
+
+You do NOT have a `callJsonApi` tool. To store data to the Knowledge Base (so it appears in the user's UI), use `code_execution_tool` with the `auto_store` helper:
+
+```python
+import sys; sys.path.insert(0, "/a0")
+from modules.knowledge.auto_store import auto_store
+
+auto_store(
+    module_name="literature_search",   # which module produced this
+    title="Aspirin COX-2 inhibition review",
+    content="**Authors:** Smith J et al.\n\n## Abstract\n\n...",  # markdown content
+    source="PubMed",
+    tags=["literature", "review", "COX-2"],
+    category="literature",             # optional — auto-detected from module_name if omitted
+)
+```
+
+**Key facts:**
+- `auto_store` is **stdlib-only** (no Flask, no FastAPI) — works in any Python environment.
+- **Do NOT** use `from api.knowledge import _store_entry` — that imports Flask and will fail in your code execution environment.
+- **Do NOT** use `memory_save` for content the user needs to see in the KB UI. `memory_save` stores to your internal recall DB, NOT the user-visible Knowledge Base. They are two separate systems.
+- **Do NOT** manually write files to `/a0/data/knowledge_base/` and edit `index.json` yourself — `auto_store` does this correctly. Direct writes risk corrupting the index.
+- After storing, the entry appears in the Knowledge Base UI within seconds (the UI refreshes on open).
+
+**To retrieve / browse the Knowledge Base:**
+```python
+import sys, json; sys.path.insert(0, "/a0")
+from modules.knowledge.auto_store import _load_index
+idx = _load_index()
+for e in idx["entries"][-20:]:   # most recent 20
+    print(e["title"], "→", e["category"], "→", e["file"])
+```

@@ -118,8 +118,9 @@ class DeepResearchHandler(ApiHandler):
             json.dump({"topic": topic, "sources": unique_sources, "stats": stats, "created_at": datetime.now().isoformat()}, f, ensure_ascii=False, indent=2)
 
         # ── AUTO-STORE to Knowledge Base (with full text when available) ──
+        # Uses auto_store (stdlib-only, no Flask dependency — works in any Python env)
         try:
-            from api.knowledge import _store_entry
+            from modules.knowledge.auto_store import auto_store
             for src in unique_sources[:30]:
                 title = src.get("title", "Untitled")
                 authors = ", ".join(src.get("authors", [])[:5])
@@ -129,13 +130,14 @@ class DeepResearchHandler(ApiHandler):
                     content = f"**Authors:** {authors}\n**Year:** {src.get('year','')}\n**Source:** {src.get('database','')}\n\n## Full Text\n\n{full_text}"
                 else:
                     content = f"**Authors:** {authors}\n**Year:** {src.get('year','')}\n**Source:** {src.get('database','')}\n\n## Abstract\n\n{abstract}"
-                _store_entry(
-                    category="deep_research",
+                auto_store(
+                    module_name="deep_research",
                     title=title,
                     content=content,
-                    tags=f"{topic},{src.get('database','')}",
                     source=f"Research: {topic}",
-                    metadata={"doi": src.get("doi",""), "pmid": src.get("pmid",""), "full_text": bool(full_text)}
+                    tags=["deep_research", src.get('database',''), topic[:30]],
+                    metadata={"doi": src.get("doi",""), "pmid": src.get("pmid",""), "full_text": bool(full_text)},
+                    category="deep_research",
                 )
         except Exception as e:
             log.warning(f"KB store failed: {e}")
@@ -236,14 +238,15 @@ class DeepResearchHandler(ApiHandler):
                 content = f"**Authors:** {authors}\n**Year:** {year}\n**Journal:** {journal}\n**Database:** {database}\n**DOI:** {doi}\n\n## Abstract\n\n{abstract}"
 
                 # Store in knowledge base
-                from api.knowledge import _store_entry
-                _store_entry(
-                    category="deep_research",
+                from modules.knowledge.auto_store import auto_store
+                auto_store(
+                    module_name="deep_research",
                     title=title,
                     content=content,
-                    tags=f"{topic},{database},{year}",
                     source=f"Deep Research: {topic}",
-                    metadata={"doi": doi, "pmid": src.get("pmid", ""), "citations": src.get("citations", 0)}
+                    tags=["deep_research", database, str(year), topic[:30]],
+                    metadata={"doi": doi, "pmid": src.get("pmid", ""), "citations": src.get("citations", 0)},
+                    category="deep_research",
                 )
                 stored += 1
             except Exception as e:
@@ -257,13 +260,14 @@ class DeepResearchHandler(ApiHandler):
         for i, src in enumerate(sources[:10], 1):
             summary_content += f"{i}. {src.get('title', '')} ({src.get('year', '')}) - {src.get('journal', '')}\n"
 
-        from api.knowledge import _store_entry
-        _store_entry(
-            category="deep_research",
+        from modules.knowledge.auto_store import auto_store
+        auto_store(
+            module_name="deep_research",
             title=f"Research Summary: {topic}",
             content=summary_content,
-            tags=f"{topic},summary",
-            source="Deep Research Summary"
+            source="Deep Research Summary",
+            tags=["deep_research", "summary", topic[:30]],
+            category="deep_research",
         )
 
         return {"status": "ok", "stored": stored, "session_id": session_id, "topic": topic}

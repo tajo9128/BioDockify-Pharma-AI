@@ -68,10 +68,11 @@ class LiteratureSearch(ApiHandler):
             logger.warning(f"Full text fetch error: {e}")
 
         # Store to knowledge base — with full text if available
+        # Uses auto_store (stdlib-only, no Flask dependency — works in any Python env)
         kb_stored = 0
         if store_to_kb and papers:
             try:
-                from api.knowledge import _store_entry
+                from modules.knowledge.auto_store import auto_store
                 for paper in papers[:20]:
                     title = paper.get("title", "Untitled")
                     authors = ", ".join(paper.get("authors", [])[:5])
@@ -79,30 +80,22 @@ class LiteratureSearch(ApiHandler):
                     full_text = paper.get("full_text", "")
 
                     if full_text:
-                        content = f"**Authors:** {authors}\n**Year:** {paper.get('year', '')}\n**Journal:** {paper.get('journal', '')}\n**Database:** {database}\n\n## Full Text\n\n{full_text}"
+                        content = f"**Authors:** {authors}\n**Year:** {paper.get('year', '')}\n**Journal:** {paper.get('journal', '')}\n**Database:** {database}\n**DOI:** {paper.get('doi', '')}\n**PMID:** {paper.get('pmid', '')}\n**URL:** {paper.get('url', '')}\n\n## Full Text\n\n{full_text}"
                     else:
-                        content = f"**Authors:** {authors}\n**Year:** {paper.get('year', '')}\n**Journal:** {paper.get('journal', '')}\n**Database:** {database}\n\n## Abstract\n\n{abstract}"
+                        content = f"**Authors:** {authors}\n**Year:** {paper.get('year', '')}\n**Journal:** {paper.get('journal', '')}\n**Database:** {database}\n**DOI:** {paper.get('doi', '')}\n**PMID:** {paper.get('pmid', '')}\n**URL:** {paper.get('url', '')}\n\n## Abstract\n\n{abstract}"
 
-                    _store_entry(
-                        category="literature",
+                    auto_store(
+                        module_name="literature_search",
                         title=title,
                         content=content,
-                        tags=f"{query},{database}",
                         source=f"Literature Search: {database}",
-                        metadata={"doi": paper.get("doi", ""), "pmid": paper.get("pmid", ""), "full_text": bool(full_text)}
+                        tags=["literature", database, query[:30]],
+                        metadata={"doi": paper.get("doi", ""), "pmid": paper.get("pmid", ""), "full_text": bool(full_text)},
+                        category="literature",
                     )
                     kb_stored += 1
             except Exception as e:
                 logger.warning(f"KB store failed: {e}")
-
-        # ── AUTO-STORE to Knowledge Base ──
-        try:
-            from modules.knowledge.auto_store import auto_store
-            auto_store("literature_search", f"Literature: {query} ({database})",
-                       {"query": query, "database": database, "total": total, "papers": papers, "full_text_count": full_text_count},
-                       source=f"{database} search", tags=["literature", database, query[:30]])
-        except Exception:
-            pass
 
         return {
             "papers": papers,
@@ -177,7 +170,7 @@ class LiteratureSearch(ApiHandler):
                     "pmcid": self._get_text(medline.find(".//PMCID")) if medline is not None else "",
                     "doi": doi_val or "",
                     "title": title or "No title",
-                    "abstract": (abstract or "")[:800],
+                    "abstract": abstract or "",
                     "authors": authors[:5],
                     "journal": journal or "",
                     "year": year or "",
@@ -186,8 +179,14 @@ class LiteratureSearch(ApiHandler):
                 })
 
             # Resolve PMCIDs in batch via Europe PMC (enables Tier 1 full text)
+            # Optional enhancement — skip gracefully if helper not available
             if papers:
-                self._batch_resolve_pmcids(papers)
+                resolver = getattr(self, "_batch_resolve_pmcids", None)
+                if callable(resolver):
+                    try:
+                        resolver(papers)
+                    except Exception as e:
+                        logger.debug(f"PMCID batch resolve skipped: {e}")
 
             return papers, count
         except Exception as e:
@@ -254,7 +253,7 @@ class LiteratureSearch(ApiHandler):
                 papers.append({
                     "id": arxiv_id,
                     "title": title or "No title",
-                    "abstract": (abstract or "")[:800],
+                    "abstract": abstract or "",
                     "authors": authors[:5],
                     "journal": "arXiv preprint",
                     "year": year,
