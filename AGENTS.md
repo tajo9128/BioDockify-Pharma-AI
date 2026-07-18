@@ -1,6 +1,43 @@
 ﻿# BioDockify AI - AGENTS.md
 
-**Last updated: 2026-06-15 | Version: v7.0.0**
+**Last updated: 2026-07-18 | Version: v7.5.2**
+
+## Stability Sprints (2026-07-18) — v7.5.2 Release
+
+### Sprint 1 — Security Hardening
+- CORS allow_origins=["*"] → localhost-only whitelist
+- Unauthenticated backup/RFC/chat reset → all require auth
+- File upload whitelist (35 extensions), size limits (50MB/file, 200MB total)
+- ZIP path traversal protection, CSP unsafe-eval removed
+- .gitignore updated (data/knowledge_base/ excluded)
+
+### Sprint 2 — Backend Hardening
+- Blocking subprocess.run → asyncio.to_thread() in docking_run.py, health.py
+- time.sleep → await asyncio.sleep in mcp_servers_apply.py
+- RAG routes no longer expose raw exceptions to clients
+- 10+ bare except clauses fixed with proper logging
+- psutil version conflict fixed, 8 unused imports removed
+
+### Sprint 3 — Frontend Fixes
+- Broken register-pipeline.js and register-qsar.js paths fixed
+- ppt_generate → ppt_master (PPTX download was always failing)
+- Duplicate loadLibraryFromKB() and selectAll() functions merged
+- faculty-dashboard reference kept (component exists)
+
+### Sprint 4 — Docker Hardening
+- .dockerignore: keep bun.lock for reproducible builds
+- supervisord.conf: socket permissions 0777 → 0770
+- health.py: version field added from version_info.txt
+- ARCHITECTURE.md rewritten to match actual codebase
+
+### Sprint 5 — Version & Documentation
+- Version bumped to v7.5.2 across all files
+- Frontend version display fixed (sidebar, welcome screen)
+- ARCHITECTURE.md rewritten (was describing wrong Tauri/React/Rust stack)
+- Backup system verified working (447KB, all 3 data locations captured)
+
+### Module Count
+- **22 consolidated desktop modules** (including 7 department modules)
 
 ## Today's Additions (2026-06-15) — v7.0.0 Release
 

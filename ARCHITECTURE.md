@@ -1,54 +1,108 @@
-﻿# System Architecture
+# BioDockify Pharma AI — System Architecture
 
-BioDockify is a hybrid desktop application combining a high-performance native shell with a containerized microservices backend. This architecture ensures cross-platform compatibility while maintaining the performance required for ML tasks.
+## Overview
 
-## High-Level Diagram
+BioDockify Pharma AI is a pharmaceutical research platform built on the **Agent Zero v2.0** framework. It runs as a single Docker container with a Python/Flask backend, Alpine.js frontend, and supervisord process management.
 
-```mermaid
-graph TD
-    User[User] -->|Interacts| UI[Tauri Frontend (React)]
-    UI -->|IPC Calls| Core[Rust Core Process]
-    Core -->|HTTP/REST| API[FastAPI Backend (Python)]
-    
-    subgraph "Docker Container / Local Runtime"
-        API -->|Orchestrates| Agent[BioDockify AI (Orchestrator)]
-        Agent -->|Calls| BioNER[BioNER Model (TensorFlow)]
-        Agent -->|Calls| GraphDB[(Neo4j Knowledge Graph)]
-        Agent -->|Calls| VectorDB[(Chroma/FAISS Vector Store)]
-    end
-    
-    BioNER -->|Reads| PDFs[PDF Documents]
-    BioNER -->|Writes| GraphDB
+## Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Docker Container                       │
+│                                                           │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │
+│  │   Caddy     │  │  SearXNG    │  │    Cron     │      │
+│  │ (reverse    │  │ (web search)│  │ (scheduled  │      │
+│  │  proxy)     │  │             │  │  tasks)     │      │
+│  └──────┬──────┘  └─────────────┘  └─────────────┘      │
+│         │                                                 │
+│  ┌──────▼──────┐                                         │
+│  │  Flask API  │ ← 155+ API handlers (api/*.py)          │
+│  │  (port 80)  │ ← Auto-discovered by filename           │
+│  └──────┬──────┘                                         │
+│         │                                                 │
+│  ┌──────▼──────┐  ┌─────────────┐  ┌─────────────┐      │
+│  │   Agent     │  │  Knowledge  │  │  Modules    │      │
+│  │   Zero      │  │    Base     │  │ (QSAR, MD,  │      │
+│  │ (LLM core)  │  │ (files +    │  │  Docking,   │      │
+│  │             │  │  FAISS)     │  │  Statistics) │      │
+│  └─────────────┘  └─────────────┘  └─────────────┘      │
+│                                                           │
+│  ┌─────────────────────────────────────────────────────┐ │
+│  │              Data Volumes                            │ │
+│  │  /a0/usr        → workspace, chats, projects         │ │
+│  │  /a0/.a0proj    → agent memory, instructions         │ │
+│  │  /a0/data       → knowledge base, research sessions  │ │
+│  └─────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+         │
+    ┌────▼────┐
+    │ Browser │ ← Alpine.js + Web Components
+    │ (UI)    │   22 desktop modules
+    └─────────┘
 ```
 
 ## Components
 
-### 1. Frontend (UI)
-*   **Tech:** React.js, TailwindCSS, Lucide Icons.
-*   **Role:** Renders the interactive dashboard, chat interface, and D3.js/Vis.js graph visualizations.
-*   **Communication:** Communicates with the Rust layer via Tauri Commands.
+### Frontend (Alpine.js)
+- **Technology**: Alpine.js, Web Components, vanilla JS
+- **State management**: Alpine.js stores (`createStore`)
+- **22 desktop modules** registered in `desktop-store.js`
+- **No build step** — direct HTML/JS served by Caddy
 
-### 2. Desktop Shell (Tauri)
-*   **Tech:** Rust.
-*   **Role:** Manages the application window, native file system access, and system tray. It acts as a secure proxy between the UI and the Python backend.
+### Backend (Flask API)
+- **Technology**: Python 3.12, Flask, asyncio
+- **155+ API handlers** in `api/*.py`
+- **Auto-discovery**: `helpers/api.py` loads handlers by filename
+- **Pattern**: `class XxxHandler(ApiHandler): async def process(self, input, request)`
 
-### 3. Intelligence Layer (Python)
-*   **Tech:** Python 3.10, FastAPI, LangChain.
-*   **Role:**
-    *   **API:** Exposes endpoints for the UI.
-    *   **BioDockify AI:** The central logic unit that interprets user intent.
-    *   **Tool Registry:** A collection of functional tools (e.g., `lookup_gene`, `parse_pdf`) that the agent can invoke.
+### Agent Zero Core
+- **LLM orchestration**: Multi-provider support (OpenRouter, OpenAI, Anthropic, Ollama)
+- **Tool system**: 30 tool prompts in `prompts/agent.system.tool.*.md`
+- **Memory**: FAISS vector store at `/a0/.a0proj/memory/`
+- **Extensions**: Plugin system in `agent_zero/extensions_v19/`
 
-### 4. Data Layer
-*   **Neo4j:** Stores the structured Knowledge Graph (Nodes & Edges).
-*   **Vector Store:** Stores embeddings of text chunks for semantic search.
-*   **SQLite:** Stores persistent app configuration and session history.
+### Knowledge Base
+- **Storage**: File-based (`/a0/data/knowledge_base/`) with `index.json`
+- **20 categories**: literature, deep_research, docking, qsar, pharmacophore, statistics, md_simulation, drug_analysis, pharmacology, medicinal_chemistry, clinical, formulation, pharma_analysis, natural_products, regulatory, faculty, notes, misc
+- **Auto-store**: `modules/knowledge/auto_store.py` — all modules auto-store results
 
-## Design Decisions
+### Modules (Pharma-Specific)
+| Module | Actions | Category |
+|--------|---------|----------|
+| Formulation | 6 (kinetics, f2, nanoparticle, stability, excipients, DOE) | formulation |
+| Clinical | 6 (DDI, TDM, renal, hepatic, naranjo, CKD-EPI) | clinical |
+| Pharma Analysis | 5 (validation, f2, degradation, chromatography, LOD/LOQ) | pharma_analysis |
+| Natural Products | 6 (phytochemical, extraction, IC50, plant DB, dereplication, SI) | natural_products |
+| Regulatory | 5 (eCTD, ICH, stability, BE, IND/NDA) | regulatory_enhanced |
+| Pharmacology | 7 (binding, dose-response, Schild, operational, selectivity, receptor DB, in-vivo) | pharmacology |
+| Medicinal Chemistry | 10 (Murcko, MMPA, clustering, SMARTS, SA, retrosynthesis, named reactions, protecting groups, toxicophore, stereo) | medicinal_chemistry |
 
-### Why Local-First?
-Pharma research involves highly sensitive IP. By running the "Thinking" models and databases locally (or in self-hosted containers), we ensure that **no data leaves the user's premise** by default.
+### Docker & Deployment
+- **Single container** with supervisord managing 5 services
+- **3 volumes**: `biodockify_usr`, `biodockify_data`, `biodockify_a0proj`
+- **Health check**: `/api/health` every 30s
+- **Auto-backup**: Daily at 3 AM + on startup, captures all 3 data paths
 
-### Why Agentic?
-Traditional rigid pipelines break when faced with unstructured/messy data. An **Agentic** approach allows the system to dynamic "re-plan" if a PDF is unreadable or a search yields no results, imitating how a human researcher adapts.
+## Data Flow
 
+```
+User Request → Browser → Caddy → Flask API → Handler → Module
+                                                    ↓
+                                              auto_store()
+                                                    ↓
+                                          Knowledge Base (/a0/data/knowledge_base/)
+                                                    ↓
+                                          Academic Writer (loads by category)
+```
+
+## Security
+
+- **CORS**: Localhost-only whitelist
+- **CSRF**: Token-based protection on all write endpoints
+- **Auth**: Session-based with `requires_auth` per handler
+- **File uploads**: 35-extension whitelist, 50MB/file limit
+
+## Version
+
+Current: **v7.5.2** (see `version_info.txt`)

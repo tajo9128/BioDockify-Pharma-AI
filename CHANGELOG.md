@@ -2,6 +2,74 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v7.5.2] - 2026-07-18
+
+### Stability Sprints (5 sprints, 30+ files changed)
+
+#### Security (Sprint 1)
+- CORS `allow_origins=["*"]` → localhost-only whitelist
+- Unauthenticated backup/RFC/chat reset/terminate → all require auth
+- File upload whitelist (35 safe extensions)
+- Upload size limits: 50MB/file, 200MB total
+- ZIP path traversal protection (rejects `..` sequences)
+- CSP `unsafe-eval` removed from script-src
+- `.gitignore` updated: `data/knowledge_base/` excluded
+
+#### Backend Hardening (Sprint 2)
+- Blocking `subprocess.run` wrapped in `asyncio.to_thread()` (docking_run.py, health.py)
+- `time.sleep` → `await asyncio.sleep` in async handlers (mcp_servers_apply.py)
+- RAG routes no longer expose raw exception details to API clients
+- 10+ bare `except:` clauses fixed with proper `Exception as e` + logging
+- psutil version conflict fixed (==5.9.8 → >=7.0.0)
+- Duplicate pandas entry removed from requirements
+- 8 unused imports removed (Response, json, pickle, threading, base64)
+
+#### Frontend Fixes (Sprint 3)
+- Broken `register-pipeline.js` path: `research-command-center` → `research-dashboard`
+- Broken `register-qsar.js` path: `qsar/qsar.html` → `qsar3d/qsar3d.html`
+- PPTX download: `ppt_generate` → `ppt_master` (endpoint was renamed)
+- Duplicate `loadLibraryFromKB()` merged into single function
+- Duplicate `selectAll()` renamed to `toggleSelectAll()` to avoid overwrite
+
+#### Docker Hardening (Sprint 4)
+- `.dockerignore`: keep `bun.lock` for reproducible Dockerfile builds
+- `supervisord.conf`: socket permissions `0777` → `0770` (security)
+- `health.py`: version field added from `version_info.txt`
+
+#### Version & Documentation (Sprint 5)
+- Version bumped to v7.5.2 across all files
+- Frontend version display fixed (sidebar-bottom-store, welcome-screen, welcome-store)
+- `ARCHITECTURE.md` rewritten to match actual codebase (was describing wrong Tauri/React/Rust stack)
+- `AGENTS.md` updated with sprint history
+- Backup system verified: 447KB backups with all 3 data locations captured
+
+## [v7.5.1] - 2026-07-18
+### Backup & Recovery — Bulletproof
+- Fixed: every existing backup was 0.0 MB empty (3 years of PhD research not captured)
+- All 3 data locations now captured: /a0/usr, /a0/.a0proj, /a0/data
+- Backups visible on PC via host bind mount
+- "Save to PC" button: real download flow (fetch → blob → browser download)
+- "Restore from PC" button: upload .zip → auto-restore
+- Daily auto-backup at 3 AM + on container start
+
+### Research Pipeline — Complete
+- 7 new tool prompts for research modules (literature, deep_research, docking, md_lite, stats, admet, drug_analysis)
+- Academic Writer now loads KB sources by category with 100K char budget
+- Knowledge Base: Open Notebook LM features (notebooks, notes, transformations, podcast)
+- PubMed crash fixed (_batch_resolve_pmcids was never defined)
+- 800-char abstract truncation removed
+
+### Department Modules
+- 7 department modules added (Pharmacology, Medicinal Chemistry, Formulation, Clinical, Pharma Analysis, Natural Products, Regulatory)
+- All 8 pharmacy departments now have dedicated modules
+- Each module auto-stores results to Knowledge Base
+
+## [v7.0.6] - 2026-06-15
+### Agent Zero v2.0 Core
+- LiteLLM transport layer merged
+- Parallel tool calling + OpenAI Responses API support
+- Security-pinned dependencies
+
 ## [v6.9.5] - 2026-06-10
 ### Frontend Audit & Merge
 - **14-module desktop**: Knowledge Base + Notebook merged into 5-tab panel
