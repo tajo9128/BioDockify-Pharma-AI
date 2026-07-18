@@ -60,6 +60,12 @@
       <button class="mrn" @click="prepare()" :disabled="loading">
         <span class="material-symbols-outlined">science</span> Prepare System
       </button>
+      <button class="mrn" style="background:#8b5cf6;margin-top:6px" @click="prepareComplex()" :disabled="loading">
+        <span class="material-symbols-outlined">auto_fix_high</span> Auto-Prepare (PDBFixer + RDKit)
+      </button>
+      <p style="color:var(--color-text-muted);font-size:0.52rem;text-align:center;margin-top:4px">
+        Auto-Prepare fixes NPRO, adds hydrogens, parameterizes ligand — bridges docking → MD
+      </p>
       <div x-show="loading" style="text-align:center;padding:8px;color:var(--color-text-muted);font-size:0.58rem">
         <span class="spin"></span> Preparing with OpenMM...
       </div>

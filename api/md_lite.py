@@ -13,17 +13,18 @@ _jobs = {}  # in-memory job tracking: job_id -> threading.Thread
 class MDLite(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
         action = input.get("action", "")
-        if action == "health":        return self._health()
-        if action == "prepare":       return self._prepare(input)
-        if action == "run":           return self._run(input)
-        if action == "status":        return self._status(input)
-        if action == "stop":          return self._stop(input)
-        if action == "results":       return self._results(input)
-        if action == "download":      return self._download(input)
+        if action == "health":         return self._health()
+        if action == "prepare":        return self._prepare(input)
+        if action == "prepare_complex": return self._prepare_complex(input)
+        if action == "run":            return self._run(input)
+        if action == "status":         return self._status(input)
+        if action == "stop":           return self._stop(input)
+        if action == "results":        return self._results(input)
+        if action == "download":       return self._download(input)
         if action == "import_docking": return self._import_docking(input)
-        if action == "mmpbsa":        return self._mmpbsa(input)
-        return {"actions": ["health","prepare","run","status","stop","results","download","import_docking","mmpbsa"],
-                "hint": "1. prepare (upload PDB) → 2. run (start MD) → 3. status (poll) → 4. results (analysis)"}
+        if action == "mmpbsa":         return self._mmpbsa(input)
+        return {"actions": ["health","prepare","prepare_complex","run","status","stop","results","download","import_docking","mmpbsa"],
+                "hint": "1. prepare_complex (auto-prepare protein+ligand) → 2. run (start MD) → 3. status (poll) → 4. results (analysis)"}
 
     def _health(self):
         try:
@@ -81,13 +82,60 @@ class MDLite(ApiHandler):
                 msg = "PDB file is empty or contains no valid atomic coordinates. Upload a valid protein structure."
             elif "invalid literal for int()" in msg or "PdbStructure" in msg:
                 msg = ("PDB file format error. The file contains malformed ATOM/HETATM records. "
-                       "Upload a clean .pdb file from RCSB PDB or your docking software.")
+                       "Upload a clean .pdb file from RCSB PDB or your docking software. "
+                       "Tip: If using a docked complex, ensure the protein has all hydrogens and "
+                       "no non-standard residues. Use PDBFixer or Modeller to clean the PDB first.")
             elif "Could not locate" in msg or "forcefield" in msg.lower():
                 msg = f"OpenMM forcefield files missing: {msg}. Rebuild Docker image to install forcefields."
             elif "No template found" in msg or "missing" in msg.lower() and "H atom" in msg:
                 msg = ("Could not add hydrogens to all residues. The PDB may have non-standard "
                        f"residue termini. Details: {msg}")
             return {"status": "error", "error": msg}
+
+    def _prepare_complex(self, input):
+        """Prepare a protein-ligand complex for MD — bridges docking → MD gap.
+
+        Takes protein PDB + docked ligand PDBQT → prepared complex PDB ready for MD.
+        Uses PDBFixer for protein prep, RDKit for ligand prep.
+        """
+        protein_path = input.get("protein_pdb", "")
+        ligand_path = input.get("ligand_pdbqt", "")
+        job_id = input.get("job_id") or str(uuid.uuid4())[:8]
+        job_dir = os.path.join(WORKDIR, job_id)
+        os.makedirs(job_dir, exist_ok=True)
+
+        if not protein_path or not os.path.exists(protein_path):
+            return {"error": "protein_pdb path required and must exist"}
+        if not ligand_path or not os.path.exists(ligand_path):
+            return {"error": "ligand_pdbqt path required and must exist"}
+
+        try:
+            from modules.md_lite.preparation import prepare_complex
+            output_path = os.path.join(job_dir, "prepared_complex.pdb")
+            result = prepare_complex(protein_path, ligand_path, output_path)
+
+            if result.get("status") == "ok":
+                # Store to Knowledge Base
+                try:
+                    from modules.knowledge.auto_store import auto_store
+                    auto_store("md_lite",
+                        f"MD Complex Prepared: {result.get('total_atoms', 0)} atoms",
+                        result,
+                        source="MD Lite Preparation",
+                        tags=["md", "preparation", "complex"],
+                        category="md_simulation")
+                except Exception:
+                    pass
+
+                result["job_id"] = job_id
+                result["job_dir"] = job_dir
+                result["next_step"] = f"Call action='run' with job_id='{job_id}' to start MD simulation"
+
+            return result
+
+        except Exception as e:
+            log.error(f"Complex preparation failed: {e}")
+            return {"status": "error", "error": str(e)}
 
     def _run(self, input):
         job_id = input["job_id"]

@@ -77,6 +77,7 @@ def _sanitize_pdb(pdb_path, keep_only_protein=True, keep_ligand_resname=None):
                 continue
             rec = line[:6].strip()
 
+            # Fix common PDB format issues
             if rec in ("ATOM", "HETATM"):
                 # When stripping to protein-only, drop HETATM ions/ligands/etc.
                 # BUT keep the ligand if we detected one
@@ -101,6 +102,10 @@ def _sanitize_pdb(pdb_path, keep_only_protein=True, keep_ligand_resname=None):
                     float(line[46:54])         # z
                 except (ValueError, IndexError):
                     continue
+                # Fix common PDB issues: missing chain ID, wrong atom numbering
+                # Ensure chain ID is set (column 21)
+                if len(line) > 21 and line[21] == ' ':
+                    line = line[:21] + 'A' + line[22:]
                 clean_lines.append(line + "\n")
                 saw_atom = True
             elif rec in KEEP_RECORDS:
@@ -380,22 +385,68 @@ class MDEngine:
             pass
 
         # STEP 2: Add hydrogens to the protein BEFORE solvent.
-        # Try progressively: pH-aware, then standard, then forcefield-only.
-        # This resolves 'missing 1 H atom' errors (e.g. NPRO/PRO terminal).
+        # Use PDBFixer to properly handle NPRO/CTER and other terminal residue issues.
+        # PDBFixer correctly adds missing hydrogens for all forcefield templates.
         hydrogens_ok = False
         last_h_error = None
-        for hydro_args, label in [
-            ({"pH": 7.0}, "pH=7.0"),
-            ({}, "standard"),
-        ]:
+
+        # Try PDBFixer first (handles NPRO, missing atoms, etc.)
+        try:
+            import tempfile
+            from pdbfixer import PDBFixer
+            import io
+
+            # Write protein to temp file for PDBFixer
+            tmp_pdb = tempfile.NamedTemporaryFile(suffix=".pdb", delete=False)
+            with open(tmp_pdb.name, 'w') as f:
+                f.write(f"REMARK PDBFixer input\n")
+                # Write topology as PDB
+                positions = protein_modeller.positions
+                for i, atom in enumerate(protein_modeller.topology.atoms()):
+                    res = atom.residue
+                    x, y, z = positions[i].value_in_unit(unit.angstroms)
+                    f.write(f"ATOM  {i+1:5d} {atom.name:<4s} {res.name:<3s} {res.chain.id}{res.id:>4s}    {x:8.3f}{y:8.3f}{z:8.3f}  1.00  0.00           {atom.element.symbol}\n")
+                f.write("END\n")
+            tmp_pdb.close()
+
+            fixer = PDBFixer(filename=tmp_pdb.name)
+            fixer.findMissingResidues()
+            fixer.findMissingAtoms()
+            fixer.addMissingHydrogens(7.0)
+
+            # Get fixed topology and positions
+            protein_modeller = app.Modeller(fixer.topology, fixer.positions)
             try:
-                protein_modeller.addHydrogens(ff, **hydro_args)
-                hydrogens_ok = True
-                log.info(f"addHydrogens({label}) succeeded.")
-                break
-            except Exception as e:
-                last_h_error = e
-                log.warning(f"addHydrogens({label}) failed: {e}")
+                protein_modeller.deleteWater()
+            except Exception:
+                pass
+            hydrogens_ok = True
+            log.info("PDBFixer: added hydrogens successfully (handles NPRO/terminal residues)")
+
+            # Clean up temp file
+            try:
+                os.unlink(tmp_pdb.name)
+            except Exception:
+                pass
+
+        except Exception as e:
+            last_h_error = e
+            log.warning(f"PDBFixer failed: {e}, trying standard addHydrogens")
+
+        # Fallback: standard OpenMM addHydrogens
+        if not hydrogens_ok:
+            for hydro_args, label in [
+                ({"pH": 7.0}, "pH=7.0"),
+                ({}, "standard"),
+            ]:
+                try:
+                    protein_modeller.addHydrogens(ff, **hydro_args)
+                    hydrogens_ok = True
+                    log.info(f"addHydrogens({label}) succeeded.")
+                    break
+                except Exception as e:
+                    last_h_error = e
+                    log.warning(f"addHydrogens({label}) failed: {e}")
 
         if not hydrogens_ok:
             # Last resort: let createSystem try with whatever hydrogens exist.

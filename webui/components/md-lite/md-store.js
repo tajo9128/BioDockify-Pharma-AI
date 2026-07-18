@@ -54,7 +54,7 @@ Alpine.data("mdLite", () => ({
     document.body.appendChild(i); i.click();
   },
 
-  // Prepare system
+  // Prepare system (standard)
   async prepare() {
     this.loading = true; this.errorMessage = ""; this.jobId = null; this.liveLog = [];
     try {
@@ -71,6 +71,32 @@ Alpine.data("mdLite", () => ({
       const r = await callJsonApi("md_lite", p);
       if (r.status === "ok") { this.jobId = r.job_id; this.step = 2; this.liveLog.push(`Minimization complete · ${r.min_energy_kjmol} kJ/mol`); }
       else { this.errorMessage = r.error || "Prepare failed"; }
+    } catch (e) { this.errorMessage = "Error: " + (e.message || "API unavailable"); }
+    this.loading = false;
+  },
+
+  // Auto-prepare complex (PDBFixer + RDKit) — bridges docking → MD
+  async prepareComplex() {
+    this.loading = true; this.errorMessage = ""; this.jobId = null; this.liveLog = [];
+    try {
+      const p = { action: "prepare_complex" };
+      if (this._proteinContent) p.protein_pdb_path = this._proteinName;
+      if (this._ligandContent) p.ligand_pdbqt_path = this._ligandName;
+      // Pass file content for server-side processing
+      if (this._proteinContent) {
+        p.protein_pdb_content = this._proteinContent;
+        p.ligand_pdbqt_content = this._ligandContent || "";
+      }
+      const r = await callJsonApi("md_lite", p);
+      if (r.status === "ok") {
+        this.jobId = r.job_id;
+        this.step = 2;
+        this.liveLog.push(`Complex prepared: ${r.total_atoms} atoms (${r.protein_atoms} protein + ${r.ligand_atoms} ligand)`);
+        if (r.ligand_smiles) this.liveLog.push(`Ligand SMILES: ${r.ligand_smiles}`);
+        this.liveLog.push(r.message || "Ready for MD simulation");
+      } else {
+        this.errorMessage = r.error || "Complex preparation failed";
+      }
     } catch (e) { this.errorMessage = "Error: " + (e.message || "API unavailable"); }
     this.loading = false;
   },
