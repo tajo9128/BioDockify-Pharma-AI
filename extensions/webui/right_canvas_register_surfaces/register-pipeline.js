@@ -4,6 +4,6 @@ export default async function registerPipelineSurface(canvas) {
     title: "Research Pipeline",
     icon: "account_tree",
     order: 5,
-    modalPath: "/components/research-command-center/pipeline-dashboard.html",
+    modalPath: "/components/research-dashboard/research-dashboard.html",
   });
 }

@@ -4,6 +4,6 @@ export default async function registerQsarSurface(canvas) {
     title: "QSAR Modeler",
     icon: "model_training",
     order: 24,
-    modalPath: "/components/qsar/qsar.html",
+    modalPath: "/components/qsar3d/qsar3d.html",
   });
 }
