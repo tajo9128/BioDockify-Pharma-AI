@@ -609,6 +609,62 @@ export const store = createStore("knowledgeModal", {
     URL.revokeObjectURL(url);
   },
 
+  triggerUploadRestore() {
+    /** File picker → upload to Knowledge Base. This is the method called by the UI buttons. */
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".csv,.pdf,.txt,.md,.json,.docx,.xlsx,.xls,.html,.htm,.sdf,.mol,.pdb,.pdbqt,.mp3,.wav,.mp4,.avi,.png,.jpg,.jpeg";
+    input.multiple = true;
+    input.onchange = async (e) => {
+      const files = e.target.files;
+      if (!files || !files.length) return;
+      this.uploading = true;
+      this.error = "";
+      this.message = `Uploading ${files.length} file(s)...`;
+      try {
+        const fileData = [];
+        for (const file of files) {
+          // Read as text for text-based files; for binary (PDF/DOCX/XLSX), send filename only
+          const ext = file.name.split('.').pop().toLowerCase();
+          if (["pdf", "docx", "xlsx", "xls", "png", "jpg", "jpeg", "mp3", "wav", "mp4", "avi"].includes(ext)) {
+            // Binary file — read as base64
+            const reader = new FileReader();
+            const base64 = await new Promise((resolve) => {
+              reader.onload = () => {
+                const result = reader.result;
+                // Strip data URL prefix if present
+                const base64 = result.includes(",") ? result.split(",")[1] : result;
+                resolve(base64);
+              };
+              reader.readAsDataURL(file);
+            });
+            fileData.push({ filename: file.name, content: base64 });
+          } else {
+            // Text file — read as text
+            const text = await file.text();
+            fileData.push({ filename: file.name, content: text });
+          }
+        }
+        const result = await callJsonApi("knowledge", {
+          action: "upload",
+          files: fileData,
+        });
+        if (result.status === "ok") {
+          this.message = result.message || `${files.length} file(s) uploaded`;
+          setTimeout(() => { this.message = ""; }, 4000);
+          await this.loadAllEntries();
+          await this.loadLibraryFromKB();
+        } else {
+          this.error = result.error || "Upload failed";
+        }
+      } catch (e) {
+        this.error = "Upload error: " + e.message;
+      }
+      this.uploading = false;
+    };
+    input.click();
+  },
+
   triggerFileUpload() {
     const input = document.createElement("input");
     input.type = "file";
