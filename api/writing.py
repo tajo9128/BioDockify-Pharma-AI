@@ -18,7 +18,10 @@ class WritingTools(ApiHandler):
         if action == "suggest-journals":   return self._suggest_journals(input)
         if action == "kb_sources":         return self._kb_sources(input)
         if action == "kb_categories":      return self._kb_categories(input)
-        return {"actions": ["export-latex","export-docx","gap-analysis","literature-matrix","prisma-flowchart","faculty-review","verify-citations","suggest-journals","kb_sources","kb_categories"]}
+        if action == "pharma_citation_verify":  return self._pharma_citation_verify(input)
+        if action == "pharma_reporting_check":  return self._pharma_reporting_check(input)
+        if action == "pharma_scorecard":        return self._pharma_scorecard(input)
+        return {"actions": ["export-latex","export-docx","gap-analysis","literature-matrix","prisma-flowchart","faculty-review","verify-citations","suggest-journals","kb_sources","kb_categories","pharma_citation_verify","pharma_reporting_check","pharma_scorecard"]}
 
     def _kb_categories(self, input: dict) -> dict:
         """List all KB categories with entry counts — for the writer's category dropdown."""
@@ -323,6 +326,516 @@ class WritingTools(ApiHandler):
                 {"name": "Chemical Biology & Drug Design", "quartile": "Q3", "if": "1.9", "issn": "1747-0277"},
                 {"name": "Drug Development Research", "quartile": "Q3", "if": "1.5", "issn": "0272-4391"},
             ]}
+
+
+    # ═══════════════════════════════════════════════════════════════
+    # Pharma Research Tools (extracted from OpenDraft + RE-paper-writing)
+    # ═══════════════════════════════════════════════════════════════
+
+    def _pharma_citation_verify(self, input: dict) -> dict:
+        """Verify pharmaceutical citations against real databases.
+        Pharma-focused: prioritizes PubMed, Europe PMC, CrossRef.
+        Returns per-citation status: verified/suspicious/hallucinated."""
+        import re, urllib.request, json as _json, time as _time
+
+        text = input.get("text", "")
+        citations = input.get("citations", [])  # [{doi, pmid, title, authors, year}]
+
+        # Extract citations from text if not provided
+        if not citations and text:
+            # Find DOIs in text
+            dois = re.findall(r'10\.\d{4,9}/[-._;()/:A-Z0-9]+', text, re.I)
+            # Find PMIDs
+            pmids = re.findall(r'PMID[:\s]*(\d{6,8})', text, re.I)
+            # Find author-year patterns: (Smith et al., 2020) or (Smith, 2020)
+            author_years = re.findall(r'\(([A-Z][a-z]+(?:\s+(?:et\s+al|and\s+[A-Z][a-z]+))?)\s*,?\s*(\d{4})\)', text)
+
+            for doi in dois[:50]:
+                citations.append({"doi": doi})
+            for pmid in pmids[:50]:
+                citations.append({"pmid": pmid})
+            for author, year in author_years[:30]:
+                citations.append({"authors": [author], "year": year})
+
+        if not citations:
+            return {"status": "error", "error": "No citations found. Provide text with DOIs/PMIDs or a citations list."}
+
+        results = []
+        verified = suspicious = hallucinated = 0
+
+        for cite in citations[:100]:
+            result = {"input": cite, "status": "unknown", "source": None}
+            doi = cite.get("doi", "")
+            pmid = cite.get("pmid", "")
+            title = cite.get("title", "")
+
+            try:
+                if doi:
+                    # CrossRef DOI lookup
+                    url = f"https://api.crossref.org/works/{urllib.parse.quote(doi, safe='')}"
+                    req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.5.2"})
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        data = _json.loads(resp.read())
+                    work = data.get("message", {})
+                    result["status"] = "verified"
+                    result["source"] = "CrossRef"
+                    result["title"] = work.get("title", [None])[0]
+                    result["journal"] = work.get("container-title", [None])[0]
+                    result["year"] = work.get("published-print", {}).get("date-parts", [[None]])[0][0]
+                    result["authors"] = [a.get("family", "") for a in work.get("author", [])[:5]]
+                    result["pmid"] = next((l.get("id") for l in work.get("link", []) if "pubmed" in l.get("URL", "")), "")
+                    verified += 1
+
+                elif pmid:
+                    # PubMed PMID lookup
+                    url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id={pmid}&retmode=json"
+                    req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.5.2"})
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        data = _json.loads(resp.read())
+                    result_data = data.get("result", {}).get(pmid, {})
+                    if result_data.get("title"):
+                        result["status"] = "verified"
+                        result["source"] = "PubMed"
+                        result["title"] = result_data.get("title")
+                        result["journal"] = result_data.get("fulljournalname", "")
+                        result["year"] = result_data.get("pubdate", "")[:4]
+                        verified += 1
+                    else:
+                        result["status"] = "suspicious"
+                        suspicious += 1
+
+                elif title:
+                    # Title search via CrossRef
+                    url = f"https://api.crossref.org/works?query={urllib.parse.quote(title[:200])}&rows=3"
+                    req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.5.2"})
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        data = _json.loads(resp.read())
+                    items = data.get("message", {}).get("items", [])
+                    if items:
+                        best = items[0]
+                        best_title = (best.get("title", [""])[0]).lower()
+                        if title.lower()[:50] in best_title or best_title[:50] in title.lower():
+                            result["status"] = "verified"
+                            result["source"] = "CrossRef (title match)"
+                            result["doi"] = best.get("DOI", "")
+                            result["title"] = best.get("title", [None])[0]
+                            verified += 1
+                        else:
+                            result["status"] = "suspicious"
+                            result["best_match"] = best.get("title", [""])[0]
+                            suspicious += 1
+                    else:
+                        result["status"] = "hallucinated"
+                        hallucinated += 1
+                else:
+                    result["status"] = "skipped"
+
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)[:200]
+
+            results.append(result)
+            _time.sleep(0.15)  # Rate limit
+
+        total = len(results)
+        score = round(verified / max(total, 1) * 100, 1)
+
+        out = {
+            "status": "ok",
+            "total": total,
+            "verified": verified,
+            "suspicious": suspicious,
+            "hallucinated": hallucinated,
+            "integrity_score": score,
+            "results": results,
+            "pharma_note": "Citations verified against PubMed + CrossRef. PubMed-indexed citations preferred for pharmaceutical research.",
+        }
+        try:
+            from modules.knowledge.auto_store import auto_store
+            auto_store("writing", f"Citation Verification — {verified}/{total} verified", out,
+                       source="Pharma Citation Verify", tags=["citation", "verification", "pharma"])
+        except Exception:
+            pass
+        return out
+
+    def _pharma_reporting_check(self, input: dict) -> dict:
+        """Check pharmaceutical study compliance with ICH/FDA/EMA reporting guidelines."""
+        study_type = input.get("study_type", "clinical_trial")
+        sections = input.get("sections", [])  # [{section_name, content}]
+
+        # Pharma-specific reporting guideline checklists
+        GUIDELINES = {
+            "clinical_trial": {
+                "name": "CONSORT 2021 (RCTs)",
+                "ref": "Schulz et al., BMJ 2010;340:c869",
+                "items": [
+                    {"id": "1a", "item": "Title identifies as RCT", "section": "title"},
+                    {"id": "1b", "item": "Structured abstract", "section": "abstract"},
+                    {"id": "2a", "item": "Scientific background and explanation", "section": "introduction"},
+                    {"id": "3a", "item": "Trial design (parallel/crossover/factorial)", "section": "methods"},
+                    {"id": "4a", "item": "Eligibility criteria for participants", "section": "methods"},
+                    {"id": "4b", "item": "Settings and locations", "section": "methods"},
+                    {"id": "5", "item": "Interventions for each group (detailed)", "section": "methods"},
+                    {"id": "6a", "item": "Completely defined primary outcome", "section": "methods"},
+                    {"id": "6b", "item": "Secondary outcomes", "section": "methods"},
+                    {"id": "7a", "item": "Sample size determination", "section": "methods"},
+                    {"id": "8a", "item": "Randomization sequence generation", "section": "methods"},
+                    {"id": "9", "item": "Allocation concealment mechanism", "section": "methods"},
+                    {"id": "10", "item": "Implementation (who generated/enrolled)", "section": "methods"},
+                    {"id": "11a", "item": "Blinding (who was blinded)", "section": "methods"},
+                    {"id": "12a", "item": "Statistical methods for primary outcome", "section": "methods"},
+                    {"id": "13a", "item": "Participant flow diagram (CONSORT)", "section": "results"},
+                    {"id": "13b", "item": "Losses and exclusions per group", "section": "results"},
+                    {"id": "14a", "item": "Baseline characteristics table", "section": "results"},
+                    {"id": "15", "item": "Numbers analyzed per group", "section": "results"},
+                    {"id": "17a", "item": "Primary outcome estimates + CI", "section": "results"},
+                    {"id": "17b", "item": "Secondary outcomes", "section": "results"},
+                    {"id": "18", "item": "Harms/adverse events", "section": "results"},
+                    {"id": "20", "item": "Trial limitations", "section": "discussion"},
+                    {"id": "21", "item": "Generalizability", "section": "discussion"},
+                    {"id": "22", "item": "Registration number and protocol", "section": "other"},
+                    {"id": "24", "item": "Funding source", "section": "other"},
+                ]
+            },
+            "observational": {
+                "name": "STROBE (Observational Studies)",
+                "ref": "von Elm et al., Lancet 2007;370:1453-7",
+                "items": [
+                    {"id": "1", "item": "Title indicates study design", "section": "title"},
+                    {"id": "2", "item": "Abstract — informative structured", "section": "abstract"},
+                    {"id": "3", "item": "Background/rationale", "section": "introduction"},
+                    {"id": "4", "item": "Objectives and hypotheses", "section": "introduction"},
+                    {"id": "5", "item": "Study design", "section": "methods"},
+                    {"id": "6", "item": "Setting (locations, dates)", "section": "methods"},
+                    {"id": "7", "item": "Participants (eligibility, sources)", "section": "methods"},
+                    {"id": "8", "item": "Variables (exposures, outcomes, confounders)", "section": "methods"},
+                    {"id": "9", "item": "Data sources/measurement", "section": "methods"},
+                    {"id": "10", "item": "Bias (efforts to address)", "section": "methods"},
+                    {"id": "11", "item": "Study size", "section": "methods"},
+                    {"id": "12", "item": "Quantitative variables", "section": "methods"},
+                    {"id": "13", "item": "Statistical methods", "section": "methods"},
+                    {"id": "14a", "item": "Participants (numbers, characteristics)", "section": "results"},
+                    {"id": "15", "item": "Descriptive data", "section": "results"},
+                    {"id": "16", "item": "Main results (estimates + CI)", "section": "results"},
+                    {"id": "17", "item": "Other analyses (subgroup, sensitivity)", "section": "results"},
+                    {"id": "18", "item": "Key results + limitations", "section": "discussion"},
+                    {"id": "19", "item": "Generalizability", "section": "discussion"},
+                    {"id": "21", "item": "Funding source", "section": "other"},
+                ]
+            },
+            "systematic_review": {
+                "name": "PRISMA 2020 (Systematic Reviews)",
+                "ref": "Page et al., BMJ 2021;372:n71",
+                "items": [
+                    {"id": "1", "item": "Title identifies as systematic review", "section": "title"},
+                    {"id": "2", "item": "Structured abstract", "section": "abstract"},
+                    {"id": "3", "item": "Rationale", "section": "introduction"},
+                    {"id": "4", "item": "Objectives", "section": "introduction"},
+                    {"id": "5", "item": "Eligibility criteria (PICO)", "section": "methods"},
+                    {"id": "6", "item": "Information sources", "section": "methods"},
+                    {"id": "7", "item": "Search strategy", "section": "methods"},
+                    {"id": "8", "item": "Selection process", "section": "methods"},
+                    {"id": "9", "item": "Data collection process", "section": "methods"},
+                    {"id": "10", "item": "Risk of bias assessment", "section": "methods"},
+                    {"id": "11", "item": "Effect measures", "section": "methods"},
+                    {"id": "12", "item": "Synthesis methods", "section": "methods"},
+                    {"id": "13", "item": "Reporting bias assessment", "section": "methods"},
+                    {"id": "14", "item": "Certainty assessment (GRADE)", "section": "methods"},
+                    {"id": "16", "item": "Study selection flow diagram", "section": "results"},
+                    {"id": "17", "item": "Study characteristics", "section": "results"},
+                    {"id": "18", "item": "Risk of bias results", "section": "results"},
+                    {"id": "19", "item": "Synthesis results (forest plots)", "section": "results"},
+                    {"id": "20", "item": "Reporting biases", "section": "results"},
+                    {"id": "21", "item": "Certainty of evidence", "section": "results"},
+                    {"id": "22", "item": "Discussion — interpretation, limitations", "section": "discussion"},
+                    {"id": "24", "item": "Registration and protocol", "section": "other"},
+                    {"id": "25", "item": "Funding", "section": "other"},
+                ]
+            },
+            "animal_study": {
+                "name": "ARRIVE 2.0 (Animal Studies)",
+                "ref": "Percie du Sert et al., PLoS Biol 2020;18:e3000411",
+                "items": [
+                    {"id": "1", "item": "Study design (groups, controls)", "section": "methods"},
+                    {"id": "2", "item": "Sample size (calculation/justification)", "section": "methods"},
+                    {"id": "3", "item": "Inclusion/exclusion criteria", "section": "methods"},
+                    {"id": "4", "item": "Randomization", "section": "methods"},
+                    {"id": "5", "item": "Blinding", "section": "methods"},
+                    {"id": "6", "item": "Outcome measures (primary/secondary)", "section": "methods"},
+                    {"id": "7", "item": "Statistical methods", "section": "methods"},
+                    {"id": "8", "item": "Experimental animals (species, strain, sex, age)", "section": "methods"},
+                    {"id": "9", "item": "Experimental procedures (anesthesia, analgesia)", "section": "methods"},
+                    {"id": "10", "item": "Results — numbers analyzed", "section": "results"},
+                    {"id": "11", "item": "Results — adverse events", "section": "results"},
+                    {"id": "12", "item": "Discussion — interpretation, 3Rs", "section": "discussion"},
+                ]
+            },
+            "bioequivalence": {
+                "name": "FDA/EMA Bioequivalence Guidelines",
+                "ref": "FDA Guidance for Industry: Bioequivalence Studies, 2021",
+                "items": [
+                    {"id": "1", "item": "Study design (crossover/parallel)", "section": "methods"},
+                    {"id": "2", "item": "Reference listed drug (RLD) specification", "section": "methods"},
+                    {"id": "3", "item": "Washout period justification", "section": "methods"},
+                    {"id": "4", "item": "Analytical method validation (ICH Q2)", "section": "methods"},
+                    {"id": "5", "item": "PK parameters: AUC, Cmax, Tmax", "section": "results"},
+                    {"id": "6", "item": "90% CI for GMR (80.00-125.00%)", "section": "results"},
+                    {"id": "7", "item": "Statistical model (ANOVA, mixed effects)", "section": "methods"},
+                    {"id": "8", "item": "Subject dropout handling", "section": "results"},
+                    {"id": "9", "item": "Incurred sample reanalysis (ISR)", "section": "results"},
+                    {"id": "10", "item": "Compliance with ICH E6(R2) GCP", "section": "other"},
+                ]
+            },
+        }
+
+        guideline = GUIDELINES.get(study_type)
+        if not guideline:
+            return {"status": "error", "error": f"Unknown study type: {study_type}. Choose from: {list(GUIDELINES.keys())}"}
+
+        # Build section text map
+        section_text = {}
+        if sections:
+            for s in sections:
+                name = s.get("section_name", "").lower()
+                section_text[name] = s.get("content", "")
+
+        # Check each item against provided sections
+        checks = []
+        present = missing = partial = 0
+        for item in guideline["items"]:
+            status = "not_checked"
+            if sections:
+                target_section = item["section"]
+                relevant_text = section_text.get(target_section, "")
+                # Simple keyword matching
+                keywords = item["item"].lower().split()[:4]
+                match_count = sum(1 for kw in keywords if kw in relevant_text.lower())
+                if match_count >= 3:
+                    status = "present"
+                    present += 1
+                elif match_count >= 1:
+                    status = "partial"
+                    partial += 1
+                else:
+                    status = "missing"
+                    missing += 1
+            checks.append({"id": item["id"], "item": item["item"], "section": item["section"], "status": status})
+
+        total = len(checks)
+        compliance = round((present + partial * 0.5) / max(total, 1) * 100, 1) if sections else None
+
+        out = {
+            "status": "ok",
+            "study_type": study_type,
+            "guideline": guideline["name"],
+            "reference": guideline["ref"],
+            "total_items": total,
+            "present": present,
+            "partial": partial,
+            "missing": missing,
+            "compliance_score": compliance,
+            "checks": checks,
+            "pharma_note": f"Compliance check against {guideline['name']} — essential for pharmaceutical regulatory submissions.",
+        }
+        try:
+            from modules.knowledge.auto_store import auto_store
+            auto_store("writing", f"Reporting Check — {study_type} ({compliance}%)", out,
+                       source="Pharma Reporting Guidelines", tags=["reporting", study_type, "pharma"])
+        except Exception:
+            pass
+        return out
+
+    def _pharma_scorecard(self, input: dict) -> dict:
+        """Pharma-specific 8-dimension manuscript quality scoring.
+        Returns per-dimension scores (1-5), overall score, quality level."""
+        import re
+
+        content = input.get("content", "")
+        doc_type = input.get("doc_type", "paper")
+        title = input.get("title", "")
+
+        if not content:
+            return {"status": "error", "error": "Content required for scoring"}
+
+        text = content.lower()
+        word_count = len(content.split())
+
+        # ── 8 Pharma-Specific Dimensions ──
+        dimensions = {}
+
+        # 1. Study Design Rigor (20%)
+        design_score = 3  # baseline
+        design_notes = []
+        if any(w in text for w in ["randomized", "randomised", "random allocation"]):
+            design_score += 0.5; design_notes.append("randomization mentioned")
+        if any(w in text for w in ["double-blind", "single-blind", "blinded", "blinding"]):
+            design_score += 0.5; design_notes.append("blinding mentioned")
+        if any(w in text for w in ["power analysis", "sample size calculation", "power calculation"]):
+            design_score += 0.5; design_notes.append("power analysis present")
+        if any(w in text for w in ["primary endpoint", "primary outcome", "main outcome"]):
+            design_score += 0.3; design_notes.append("primary endpoint defined")
+        if any(w in text for w in ["inclusion criteria", "exclusion criteria", "eligibility criteria"]):
+            design_score += 0.3; design_notes.append("eligibility criteria defined")
+        if any(w in text for w in ["placebo", "positive control", "vehicle control"]):
+            design_score += 0.2; design_notes.append("control group described")
+        dimensions["study_design_rigor"] = {"score": min(5.0, round(design_score, 1)), "weight": 0.20, "notes": design_notes}
+
+        # 2. Statistical Analysis (15%)
+        stat_score = 3
+        stat_notes = []
+        if any(w in text for w in ["confidence interval", "95% ci", "ci:", "confidence intervals"]):
+            stat_score += 0.5; stat_notes.append("confidence intervals reported")
+        if any(w in text for w in ["p-value", "p < ", "p = ", "p<", "p="]):
+            stat_score += 0.3; stat_notes.append("p-values reported")
+        if any(w in text for w in ["effect size", "cohens d", "cohen", "hedges g"]):
+            stat_score += 0.5; stat_notes.append("effect sizes reported")
+        if any(w in text for w in ["anova", "t-test", "chi-square", "regression", "mixed model"]):
+            stat_score += 0.4; stat_notes.append("appropriate statistical test")
+        if any(w in text for w in ["intention-to-treat", "itt", "per-protocol", "pp"]):
+            stat_score += 0.3; stat_notes.append("ITT/PP analysis population defined")
+        if any(w in text for w in ["multiple comparison", "bonferroni", "tukey", "holm"]):
+            stat_score += 0.2; stat_notes.append("multiple comparison correction")
+        dimensions["statistical_analysis"] = {"score": min(5.0, round(stat_score, 1)), "weight": 0.15, "notes": stat_notes}
+
+        # 3. Safety Reporting (15%)
+        safety_score = 3
+        safety_notes = []
+        if any(w in text for w in ["adverse event", "adverse events", "ae ", "aes "]):
+            safety_score += 0.5; safety_notes.append("adverse events reported")
+        if any(w in text for w in ["serious adverse event", "sae", "saes"]):
+            safety_score += 0.4; safety_notes.append("SAEs reported")
+        if any(w in text for w in ["dose-limiting toxicity", "dlt", "maximum tolerated dose", "mtd"]):
+            safety_score += 0.3; safety_notes.append("dose-limiting toxicity/MTD")
+        if any(w in text for w in ["laboratory", "biochemistry", "hematology", "hemogram"]):
+            safety_score += 0.2; safety_notes.append("laboratory safety data")
+        if any(w in text for w in ["vital signs", "ecg", "electrocardiogram"]):
+            safety_score += 0.2; safety_notes.append("vital signs/ECG monitoring")
+        if any(w in text for w in ["causality", "naranjo", "who-umc", "drug-related"]):
+            safety_score += 0.2; safety_notes.append("causality assessment")
+        dimensions["safety_reporting"] = {"score": min(5.0, round(safety_score, 1)), "weight": 0.15, "notes": safety_notes}
+
+        # 4. Efficacy Evidence (15%)
+        eff_score = 3
+        eff_notes = []
+        if any(w in text for w in ["primary endpoint", "primary outcome met", "statistically significant"]):
+            eff_score += 0.5; eff_notes.append("primary endpoint addressed")
+        if any(w in text for w in ["clinical significance", "clinically meaningful", "minimal clinically important"]):
+            eff_score += 0.5; eff_notes.append("clinical significance discussed")
+        if any(w in text for w in ["dose-response", "dose-response relationship"]):
+            eff_score += 0.3; eff_notes.append("dose-response relationship")
+        if any(w in text for w in ["number needed to treat", "nnt", "absolute risk reduction", "arr"]):
+            eff_score += 0.3; eff_notes.append("NNT/ARR reported")
+        if any(w in text for w in ["non-inferiority", "superiority", "equivalence"]):
+            eff_score += 0.2; eff_notes.append("inferential framework stated")
+        dimensions["efficacy_evidence"] = {"score": min(5.0, round(eff_score, 1)), "weight": 0.15, "notes": eff_notes}
+
+        # 5. PK/PD Integration (10%)
+        pk_score = 3
+        pk_notes = []
+        if any(w in text for w in ["pharmacokinetic", "pk", "absorption", "distribution", "metabolism", "excretion"]):
+            pk_score += 0.4; pk_notes.append("PK parameters discussed")
+        if any(w in text for w in ["auc", "cmax", "tmax", "half-life", "clearance"]):
+            pk_score += 0.4; pk_notes.append("PK endpoints reported")
+        if any(w in text for w in ["pharmacodynamic", "pd", "receptor", "binding", "ic50", "ec50"]):
+            pk_score += 0.3; pk_notes.append("PD parameters reported")
+        if any(w in text for w in ["therapeutic window", "therapeutic index", "exposure-response"]):
+            pk_score += 0.3; pk_notes.append("therapeutic window considered")
+        dimensions["pk_pd_integration"] = {"score": min(5.0, round(pk_score, 1)), "weight": 0.10, "notes": pk_notes}
+
+        # 6. Regulatory Compliance (10%)
+        reg_score = 3
+        reg_notes = []
+        if any(w in text for w in ["ich", "international council for harmonisation"]):
+            reg_score += 0.4; reg_notes.append("ICH guidelines referenced")
+        if any(w in text for w in ["gcp", "good clinical practice", "glp", "good laboratory practice"]):
+            reg_score += 0.3; reg_notes.append("GLP/GCP compliance mentioned")
+        if any(w in text for w in ["consort", "strobe", "prisma", "arrive"]):
+            reg_score += 0.3; reg_notes.append("reporting guideline followed")
+        if any(w in text for w in ["clinicaltrials.gov", "nct", "isrctn", "trial registration"]):
+            reg_score += 0.3; reg_notes.append("trial registration cited")
+        if any(w in text for wr in ["ethics committee", "institutional review board", "irb", "ethics approval"]):
+            reg_score += 0.2; reg_notes.append("ethics approval mentioned")
+        dimensions["regulatory_compliance"] = {"score": min(5.0, round(reg_score, 1)), "weight": 0.10, "notes": reg_notes}
+
+        # 7. Citation Quality (10%)
+        cite_score = 3
+        cite_notes = []
+        # Count citations
+        doi_count = len(re.findall(r'10\.\d{4,9}/', content))
+        pmid_count = len(re.findall(r'PMID[:\s]*\d{6,8}', content, re.I))
+        total_cites = doi_count + pmid_count
+        if total_cites >= 20:
+            cite_score += 0.5; cite_notes.append(f"good citation density ({total_cites} DOIs/PMIDs)")
+        elif total_cites >= 10:
+            cite_score += 0.3; cite_notes.append(f"moderate citations ({total_cites})")
+        if doi_count > pmid_count:
+            cite_score += 0.2; cite_notes.append("DOI-based citations (verifiable)")
+        if any(w in text for w in ["pubmed", "scopus", "web of science"]):
+            cite_score += 0.2; cite_notes.append("indexed database cited")
+        dimensions["citation_quality"] = {"score": min(5.0, round(cite_score, 1)), "weight": 0.10, "notes": cite_notes}
+
+        # 8. Writing Clarity (5%)
+        write_score = 3
+        write_notes = []
+        # Check word count is appropriate
+        if word_count >= 3000:
+            write_score += 0.3; write_notes.append(f"adequate length ({word_count} words)")
+        elif word_count >= 1000:
+            write_score += 0.1; write_notes.append(f"moderate length ({word_count} words)")
+        # Check for structured headings
+        heading_count = len(re.findall(r'^#{1,4}\s', content, re.M))
+        if heading_count >= 5:
+            write_score += 0.3; write_notes.append(f"well-structured ({heading_count} headings)")
+        # Check for tables/figures
+        if any(w in text for w in ["table 1", "table 2", "figure 1", "fig. 1"]):
+            write_score += 0.2; write_notes.append("tables/figures referenced")
+        dimensions["writing_clarity"] = {"score": min(5.0, round(write_score, 1)), "weight": 0.05, "notes": write_notes}
+
+        # ── Overall Score ──
+        weighted_sum = sum(d["score"] * d["weight"] for d in dimensions.values())
+        overall_score = round(weighted_sum, 2)
+
+        quality_levels = [
+            (4.5, "Exceptional"),
+            (4.0, "Strong"),
+            (3.5, "Good"),
+            (3.0, "Acceptable"),
+            (2.0, "Weak"),
+            (0.0, "Poor"),
+        ]
+        quality_level = "Poor"
+        for threshold, label in quality_levels:
+            if overall_score >= threshold:
+                quality_level = label
+                break
+
+        # Generate improvement suggestions
+        suggestions = []
+        for dim_name, dim in dimensions.items():
+            if dim["score"] < 3.5:
+                readable = dim_name.replace("_", " ").title()
+                suggestions.append(f"Improve {readable} (scored {dim['score']}/5): {'; '.join(dim['notes'][:2])}")
+            elif dim["score"] < 4.0:
+                readable = dim_name.replace("_", " ").title()
+                suggestions.append(f"Strengthen {readable} (scored {dim['score']}/5)")
+
+        out = {
+            "status": "ok",
+            "doc_type": doc_type,
+            "word_count": word_count,
+            "overall_score": overall_score,
+            "quality_level": quality_level,
+            "dimensions": dimensions,
+            "suggestions": suggestions[:8],
+            "pharma_note": "Scoring uses 8 pharma-specific dimensions weighted by importance for pharmaceutical research submissions.",
+        }
+        try:
+            from modules.knowledge.auto_store import auto_store
+            auto_store("writing", f"Pharma Scorecard — {quality_level} ({overall_score}/5)", out,
+                       source="Pharma Manuscript Scorecard", tags=["scorecard", "quality", "pharma"])
+        except Exception:
+            pass
+        return out
 
 
 def _sanitize(text: str) -> str:

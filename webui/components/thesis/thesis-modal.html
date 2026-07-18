@@ -370,6 +370,22 @@
           if(r.status==="ok") this.result._review=r.review;
         } catch(e) { this.error="Review: "+(e.message||"failed"); } this.loading=false;
       },
+      async pharmaScorecard() {
+        const c=this.result?.content||""; if(!c) { this.error="Generate content first"; return; }
+        try { this.loading=true; this.error="";
+          const r=await callJsonApi("writing",{action:"pharma_scorecard",content:c.substring(0,20000),doc_type:this.docType,title:this.topic});
+          if(r.status==="ok") { this.result._pharmaScore=r; this.message="Pharma score: "+r.overall_score+"/5 ("+r.quality_level+")"; }
+          else { this.error=r.error||"Scorecard failed"; }
+        } catch(e) { this.error="Scorecard: "+(e.message||"failed"); } this.loading=false;
+      },
+      async pharmaClaimVerify() {
+        const c=this.result?.content||""; if(!c) { this.error="Generate content first"; return; }
+        try { this.loading=true; this.error="";
+          const r=await callJsonApi("claim_verify",{action:"full_verify",text:c.substring(0,15000),study_type:this.docType.includes("thesis")?"clinical_trial":"general"});
+          if(r.status==="ok") { this.result._claimVerify=r; this.message="Claims verified: "+r.total_claims+" found, rigor "+(r.rigor?.rigor_score||0)+"/100"; }
+          else { this.error=r.error||"Verification failed"; }
+        } catch(e) { this.error="Verify: "+(e.message||"failed"); } this.loading=false;
+      },
     });
   </script>
 </head>
@@ -514,6 +530,8 @@
             <button class="aw-act-btn" @click="$store.academicWriter.verifyCitations()"><span class="material-symbols-outlined">verified</span> Verify</button>
             <button class="aw-act-btn" @click="$store.academicWriter.suggestJournals()"><span class="material-symbols-outlined">library_books</span> Journals</button>
             <button class="aw-act-btn" @click="$store.academicWriter.facultyReview()"><span class="material-symbols-outlined">rate_review</span> Review</button>
+            <button class="aw-act-btn" style="background:color-mix(in srgb,#22c55e 15%,var(--color-panel));color:#22c55e" @click="$store.academicWriter.pharmaScorecard()"><span class="material-symbols-outlined">score</span> Pharma Score</button>
+            <button class="aw-act-btn" style="background:color-mix(in srgb,#4fc3f7 15%,var(--color-panel));color:#4fc3f7" @click="$store.academicWriter.pharmaClaimVerify()"><span class="material-symbols-outlined">fact_check</span> Verify Claims</button>
             <button class="aw-act-btn" @click="$store.academicWriter.refineWithAgent()"><span class="material-symbols-outlined">psychology</span> Refine</button>
             <button class="aw-act-btn" @click="$store.academicWriter.clear()"><span class="material-symbols-outlined">refresh</span> New</button>
           </div>
@@ -531,6 +549,63 @@
         <!-- Journals -->
         <template x-if="$store.academicWriter.result._journals?.length">
           <div class="aw-journal-list"><h4>Suggested Journals</h4><template x-for="j in $store.academicWriter.result._journals.slice(0,5)"><div class="aw-journal-item"><b x-text="j.name||j.title||''"></b><span class="aw-journal-meta"><small x-text="(j.quartile||j.if?'Q'+j.quartile+' · IF '+j.if:'')+(j.issn?' · '+j.issn:'')"></small></span></div></template></div>
+        </template>
+        <!-- Pharma Scorecard -->
+        <template x-if="$store.academicWriter.result._pharmaScore">
+          <div class="aw-pharma-card">
+            <div class="aw-pharma-header">
+              <span class="material-symbols-outlined" style="font-size:20px">score</span>
+              <span>Pharma Quality Scorecard</span>
+              <span class="aw-pharma-score" :class="$store.academicWriter.result._pharmaScore.overall_score>=3.5?'good':'needs-work'" x-text="$store.academicWriter.result._pharmaScore.overall_score+'/5'"></span>
+            </div>
+            <div class="aw-pharma-level" x-text="$store.academicWriter.result._pharmaScore.quality_level"></div>
+            <div class="aw-pharma-dims">
+              <template x-for="(dim, name) in $store.academicWriter.result._pharmaScore.dimensions" :key="name">
+                <div class="aw-pharma-dim">
+                  <span class="aw-pharma-dim-name" x-text="name.replace(/_/g,' ')"></span>
+                  <div class="aw-pharma-dim-bar"><div class="aw-pharma-dim-fill" :style="'width:' + (dim.score/5*100) + '%'" :class="dim.score>=4?'good':dim.score>=3?'ok':'low'"></div></div>
+                  <span class="aw-pharma-dim-score" x-text="dim.score + '/5'"></span>
+                </div>
+              </template>
+            </div>
+            <div class="aw-pharma-suggestions" x-show="$store.academicWriter.result._pharmaScore.suggestions?.length">
+              <h5>Improvement Suggestions</h5>
+              <template x-for="s in $store.academicWriter.result._pharmaScore.suggestions" :key="s">
+                <p class="aw-pharma-suggestion" x-text="s"></p>
+              </template>
+            </div>
+          </div>
+        </template>
+        <!-- Pharma Claim Verification -->
+        <template x-if="$store.academicWriter.result._claimVerify">
+          <div class="aw-pharma-card">
+            <div class="aw-pharma-header">
+              <span class="material-symbols-outlined" style="font-size:20px">fact_check</span>
+              <span>Claim Verification</span>
+              <span class="aw-pharma-score" :class="$store.academicWriter.result._claimVerify.overall_assessment==='STRONG'?'good':'needs-work'" x-text="$store.academicWriter.result._claimVerify.overall_assessment"></span>
+            </div>
+            <div class="aw-pharma-stats">
+              <div><b x-text="$store.academicWriter.result._claimVerify.total_claims"></b> claims found</div>
+              <div><b x-text="$store.academicWriter.result._claimVerify.high_risk_claims"></b> high/critical risk</div>
+              <div>Rigor: <b x-text="($store.academicWriter.result._claimVerify.rigor?.rigor_score||0) + '/100'"></b></div>
+            </div>
+            <template x-if="$store.academicWriter.result._claimVerify.rigor?.strengths?.length">
+              <div class="aw-pharma-strengths">
+                <h5>Strengths</h5>
+                <template x-for="s in $store.academicWriter.result._claimVerify.rigor.strengths" :key="s">
+                  <p class="aw-pharma-strength" x-text="'✓ ' + s"></p>
+                </template>
+              </div>
+            </template>
+            <template x-if="$store.academicWriter.result._claimVerify.rigor?.issues?.length">
+              <div class="aw-pharma-issues">
+                <h5>Issues to Address</h5>
+                <template x-for="i in $store.academicWriter.result._claimVerify.rigor.issues" :key="i">
+                  <p class="aw-pharma-issue" x-text="'⚠ ' + i"></p>
+                </template>
+              </div>
+            </template>
+          </div>
         </template>
       </div>
     </template>
@@ -621,6 +696,29 @@
       .aw-journal-meta small { color: var(--color-text-muted); }
 
       .aw-empty-guide { display: flex; flex-direction: column; align-items: center; padding: 20px; text-align: center; flex-shrink: 0; }
+
+      /* Pharma Scorecard & Claim Verification Cards */
+      .aw-pharma-card { padding: 10px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-top: 6px; }
+      .aw-pharma-header { display: flex; align-items: center; gap: 6px; font-size: 0.65rem; font-weight: 600; color: var(--color-text); margin-bottom: 6px; }
+      .aw-pharma-score { margin-left: auto; font-size: 0.85rem; font-weight: 800; padding: 2px 8px; border-radius: 4px; }
+      .aw-pharma-score.good { color: #22c55e; background: rgba(34,197,94,.08); }
+      .aw-pharma-score.needs-work { color: #f59e0b; background: rgba(245,158,11,.08); }
+      .aw-pharma-level { font-size: 0.58rem; font-weight: 700; color: var(--color-primary); margin-bottom: 8px; }
+      .aw-pharma-dims { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+      .aw-pharma-dim { display: flex; align-items: center; gap: 6px; font-size: 0.58rem; }
+      .aw-pharma-dim-name { min-width: 120px; color: var(--color-text-muted); text-transform: capitalize; }
+      .aw-pharma-dim-bar { flex: 1; height: 6px; background: var(--color-border); border-radius: 3px; overflow: hidden; }
+      .aw-pharma-dim-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+      .aw-pharma-dim-fill.good { background: #22c55e; }
+      .aw-pharma-dim-fill.ok { background: #f59e0b; }
+      .aw-pharma-dim-fill.low { background: #ff6b6b; }
+      .aw-pharma-dim-score { min-width: 30px; text-align: right; font-weight: 600; font-size: 0.55rem; }
+      .aw-pharma-suggestions h5, .aw-pharma-strengths h5, .aw-pharma-issues h5 { font-size: 0.6rem; font-weight: 600; color: var(--color-text); margin: 8px 0 4px; }
+      .aw-pharma-suggestion, .aw-pharma-strength, .aw-pharma-issue { font-size: 0.55rem; color: var(--color-text-muted); margin: 2px 0; line-height: 1.4; }
+      .aw-pharma-strength { color: #22c55e; }
+      .aw-pharma-issue { color: #f59e0b; }
+      .aw-pharma-stats { display: flex; gap: 12px; font-size: 0.6rem; color: var(--color-text-muted); margin-bottom: 8px; }
+      .aw-pharma-stats b { color: var(--color-text); }
     </style>
   </div>
 </body>
