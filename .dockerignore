@@ -87,8 +87,7 @@ Prismer_Repo/
 external/
 _external/
 
-# Lock files
-bun.lock
+# Lock files (keep bun.lock — Dockerfile COPYs it for reproducible builds)
 package-lock.json
 yarn.lock
 pnpm-lock.yaml

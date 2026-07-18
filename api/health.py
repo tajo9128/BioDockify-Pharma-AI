@@ -153,4 +153,14 @@ class HealthCheck(ApiHandler):
             health["status"] = "error"
             health["error"] = str(e)
 
-        return {"status": "ok", "gitinfo": gitinfo, "health": health, "error": error}
+        # Read version from version_info.txt
+        version = "unknown"
+        try:
+            version_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "version_info.txt")
+            if os.path.exists(version_file):
+                with open(version_file, "r") as f:
+                    version = f.read().strip()
+        except Exception:
+            pass
+
+        return {"status": "ok", "version": version, "gitinfo": gitinfo, "health": health, "error": error}
