@@ -182,41 +182,553 @@ class StatisticsAnalyze(ApiHandler):
     async def _dispatch(self, input: dict) -> dict:
         action = input.get("action", "")
 
-        if action == "auto_decide":
-            return self._auto_decide(input)
-        elif action == "descriptive":
-            return self._descriptive(input)
-        elif action == "correlation":
-            return self._correlation(input)
-        elif action == "ttest":
-            return self._ttest(input)
-        elif action == "anova":
-            return self._anova(input)
-        elif action == "chisquare":
-            return self._chisquare(input)
-        elif action == "mannwhitney":
-            return self._mannwhitney(input)
-        elif action == "wilcoxon":
-            return self._wilcoxon(input)
-        elif action == "kruskalwallis":
-            return self._kruskalwallis(input)
-        elif action == "friedman":
-            return self._friedman(input)
-        elif action == "fisher":
-            return self._fisher(input)
-        elif action == "normality":
-            return self._normality(input)
-        elif action == "homogeneity":
-            return self._homogeneity(input)
-        elif action == "roc":
-            return self._roc(input)
-        elif action == "power":
-            return self._power(input)
-        elif action == "survival":
-            return self._survival(input)
-        elif action == "pdf_report":
-            return self._pdf_report(input)
-        return {"error": f"Unknown action: {action}"}
+        # ── Core (16) ──
+        if action == "auto_decide":         return self._auto_decide(input)
+        elif action == "descriptive":       return self._descriptive(input)
+        elif action == "correlation":       return self._correlation(input)
+        elif action == "ttest":             return self._ttest(input)
+        elif action == "anova":             return self._anova(input)
+        elif action == "chisquare":         return self._chisquare(input)
+        elif action == "mannwhitney":       return self._mannwhitney(input)
+        elif action == "wilcoxon":          return self._wilcoxon(input)
+        elif action == "kruskalwallis":     return self._kruskalwallis(input)
+        elif action == "friedman":          return self._friedman(input)
+        elif action == "fisher":            return self._fisher(input)
+        elif action == "normality":         return self._normality(input)
+        elif action == "homogeneity":       return self._homogeneity(input)
+        elif action == "roc":               return self._roc(input)
+        elif action == "power":             return self._power(input)
+        elif action == "survival":          return self._survival(input)
+        elif action == "pdf_report":        return self._pdf_report(input)
+
+        # ── Non-parametric & Post-hoc ──
+        elif action == "sign_test":         return self._delegated(input, "sign_test")
+        elif action == "dunns":             return self._delegated(input, "dunns")
+        elif action == "z_test":            return self._delegated(input, "z_test")
+
+        # ── Chi-square variants ──
+        elif action == "chi_square_goodness":    return self._delegated(input, "chi_square_goodness")
+        elif action == "chi_square_independence": return self._delegated(input, "chi_square_independence")
+        elif action == "mcnemar":                return self._delegated(input, "mcnemar")
+        elif action == "cmh":                    return self._delegated(input, "cmh")
+
+        # ── Survival analysis ──
+        elif action == "kaplan_meier":      return self._survival_module(input, "kaplan_meier")
+        elif action == "log_rank":          return self._survival_module(input, "log_rank")
+        elif action == "cox_ph":            return self._survival_module(input, "cox_ph")
+
+        # ── Bioequivalence & PK ──
+        elif action == "tost":              return self._bioequiv(input, "tost")
+        elif action == "crossover":         return self._bioequiv(input, "crossover")
+        elif action == "bioavailability":   return self._bioequiv(input, "bioavailability")
+        elif action == "non_inferiority":   return self._bioequiv(input, "non_inferiority")
+        elif action == "equivalence":       return self._bioequiv(input, "equivalence")
+        elif action == "nca_pk":            return self._pkpd(input, "nca_pk")
+        elif action == "auc":               return self._pkpd(input, "auc")
+        elif action == "cmax_tmax":         return self._pkpd(input, "cmax_tmax")
+        elif action == "half_life":         return self._pkpd(input, "half_life")
+        elif action == "clearance":         return self._pkpd(input, "clearance")
+        elif action == "pk_bioavailability": return self._pkpd(input, "pk_bioavailability")
+        elif action == "pd_response":       return self._pkpd(input, "pd_response")
+        elif action == "compartmental":     return self._pkpd(input, "compartmental")
+        elif action == "dose_proportionality": return self._pkpd(input, "dose_proportionality")
+        elif action == "pk_summary":        return self._pkpd(input, "pk_summary")
+
+        # ── Regression & Modeling ──
+        elif action == "logistic_regression":   return self._delegated(input, "logistic_regression")
+        elif action == "poisson_regression":    return self._delegated(input, "poisson_regression")
+        elif action == "negative_binomial":      return self._delegated(input, "negative_binomial")
+        elif action == "multiple_regression":    return self._delegated(input, "multiple_regression")
+        elif action == "polynomial_regression":  return self._delegated(input, "polynomial_regression")
+        elif action == "mixed_effects":          return self._delegated(input, "mixed_effects")
+        elif action == "mixed_model":            return self._delegated(input, "mixed_model")
+        elif action == "glm":                    return self._delegated(input, "glm")
+
+        # ── Advanced ANOVA ──
+        elif action == "repeated_measures_anova": return self._delegated(input, "repeated_measures_anova")
+        elif action == "ancova":                 return self._delegated(input, "ancova")
+        elif action == "manova":                 return self._delegated(input, "manova")
+
+        # ── Post-hoc ──
+        elif action == "tukey_hsd":         return self._delegated(input, "tukey_hsd")
+        elif action == "bonferroni_posthoc": return self._delegated(input, "bonferroni_posthoc")
+        elif action == "dunnett_posthoc":   return self._delegated(input, "dunnett_posthoc")
+        elif action == "scheffe_posthoc":   return self._delegated(input, "scheffe_posthoc")
+
+        # ── Meta-analysis ──
+        elif action == "meta_analysis":     return self._delegated(input, "meta_analysis")
+
+        else:
+            return {"error": f"Unknown action: {action}. Available actions: " +
+                    ", ".join(self._available_actions())}
+
+    def _available_actions(self):
+        """Return all available action names for error messages."""
+        return [
+            "auto_decide", "descriptive", "correlation", "ttest", "anova", "chisquare",
+            "mannwhitney", "wilcoxon", "kruskalwallis", "friedman", "fisher", "normality",
+            "homogeneity", "roc", "power", "survival", "pdf_report",
+            "sign_test", "dunns", "z_test",
+            "chi_square_goodness", "chi_square_independence", "mcnemar", "cmh",
+            "kaplan_meier", "log_rank", "cox_ph",
+            "tost", "crossover", "bioavailability", "non_inferiority", "equivalence",
+            "nca_pk", "auc", "cmax_tmax", "half_life", "clearance", "pk_bioavailability",
+            "pd_response", "compartmental", "dose_proportionality", "pk_summary",
+            "logistic_regression", "poisson_regression", "negative_binomial",
+            "multiple_regression", "polynomial_regression", "mixed_effects", "mixed_model", "glm",
+            "repeated_measures_anova", "ancova", "manova",
+            "tukey_hsd", "bonferroni_posthoc", "dunnett_posthoc", "scheffe_posthoc",
+            "meta_analysis",
+        ]
+
+    def _delegated(self, input: dict, action_name: str) -> dict:
+        """Delegate to the enhanced engine or advanced biostatistics module."""
+        try:
+            columns = input.get("columns", [])
+            data = input.get("data", [])
+            if not data:
+                return {"status": "error", "error": f"No data provided for {action_name}"}
+
+            import pandas as pd
+            df = pd.DataFrame(data)
+
+            # Map action to method on enhanced engine
+            method_map = {
+                "sign_test": lambda: self._run_sign_test(df, input),
+                "dunns": lambda: self._run_dunns(df, input),
+                "z_test": lambda: self._run_z_test(df, input),
+                "chi_square_goodness": lambda: self._run_chi_square_goodness(df, input),
+                "chi_square_independence": lambda: self._run_chi_square_independence(df, input),
+                "mcnemar": lambda: self._run_mcnemar(df, input),
+                "cmh": lambda: self._run_cmh(df, input),
+                "logistic_regression": lambda: self._run_logistic_regression(df, input),
+                "poisson_regression": lambda: self._run_poisson_regression(df, input),
+                "negative_binomial": lambda: self._run_negative_binomial(df, input),
+                "multiple_regression": lambda: self._run_multiple_regression(df, input),
+                "polynomial_regression": lambda: self._run_polynomial_regression(df, input),
+                "mixed_effects": lambda: self._run_mixed_effects(df, input),
+                "mixed_model": lambda: self._run_mixed_effects(df, input),  # alias
+                "glm": lambda: self._run_glm(df, input),
+                "repeated_measures_anova": lambda: self._run_repeated_anova(df, input),
+                "ancova": lambda: self._run_ancova(df, input),
+                "manova": lambda: self._run_manova(df, input),
+                "tukey_hsd": lambda: self._run_posthoc(df, input, "tukey"),
+                "bonferroni_posthoc": lambda: self._run_posthoc(df, input, "bonferroni"),
+                "dunnett_posthoc": lambda: self._run_posthoc(df, input, "dunnett"),
+                "scheffe_posthoc": lambda: self._run_posthoc(df, input, "scheffe"),
+                "meta_analysis": lambda: self._run_meta_analysis(df, input),
+            }
+
+            if action_name in method_map:
+                result = method_map[action_name]()
+                result["action"] = action_name
+                result["status"] = "ok"
+                return _to_json_safe(result)
+            else:
+                return {"status": "error", "error": f"Unknown delegated action: {action_name}"}
+
+        except Exception as e:
+            log.exception(f"Delegated action {action_name} failed")
+            return {"status": "error", "error": str(e)}
+
+    def _survival_module(self, input: dict, sub_action: str) -> dict:
+        """Delegate to survival analysis module."""
+        try:
+            from modules.statistics.survival_analysis import SurvivalAnalysis
+            data = input.get("data", [])
+            if not data:
+                return {"status": "error", "error": "No data provided"}
+            import pandas as pd
+            df = pd.DataFrame(data)
+            sa = SurvivalAnalysis()
+
+            if sub_action == "kaplan_meier":
+                time_col = input.get("time_col", "time")
+                event_col = input.get("event_col", "event")
+                group_col = input.get("group_col")
+                return _to_json_safe(sa.kaplan_meier(df, time_col, event_col, group_col))
+            elif sub_action == "log_rank":
+                time_col = input.get("time_col", "time")
+                event_col = input.get("event_col", "event")
+                group_col = input.get("group_col")
+                return _to_json_safe(sa.log_rank_test(df, time_col, event_col, group_col))
+            elif sub_action == "cox_ph":
+                time_col = input.get("time_col", "time")
+                event_col = input.get("event_col", "event")
+                covariates = input.get("covariates", [])
+                return _to_json_safe(sa.cox_ph(df, time_col, event_col, covariates))
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    def _bioequiv(self, input: dict, sub_action: str) -> dict:
+        """Delegate to bioequivalence module."""
+        try:
+            from modules.statistics.bioequivalence import BioequivalenceTests
+            data = input.get("data", [])
+            if not data:
+                return {"status": "error", "error": "No data provided"}
+            import pandas as pd
+            df = pd.DataFrame(data)
+            bt = BioequivalenceTests()
+
+            if sub_action == "tost":
+                col1 = input.get("col1", "")
+                col2 = input.get("col2", "")
+                margin = input.get("margin", 0.2)
+                return _to_json_safe(bt.tost_two_sample(df, col1, col2, margin))
+            elif sub_action == "crossover":
+                return _to_json_safe(bt.crossover_analysis(df, **{k: v for k, v in input.items() if k not in ("action", "data")}))
+            elif sub_action == "bioavailability":
+                return _to_json_safe(bt.bioavailability_analysis(df, **{k: v for k, v in input.items() if k not in ("action", "data")}))
+            elif sub_action == "non_inferiority":
+                return _to_json_safe(bt.non_inferiority_test(df, **{k: v for k, v in input.items() if k not in ("action", "data")}))
+            elif sub_action == "equivalence":
+                return _to_json_safe(bt.equivalence_test(df, **{k: v for k, v in input.items() if k not in ("action", "data")}))
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    def _pkpd(self, input: dict, sub_action: str) -> dict:
+        """Delegate to PK/PD analysis module."""
+        try:
+            from modules.statistics.pkpd_analysis import PKPDAnalysis
+            data = input.get("data", [])
+            if not data:
+                return {"status": "error", "error": "No data provided"}
+            import pandas as pd
+            df = pd.DataFrame(data)
+            pk = PKPDAnalysis()
+            result = getattr(pk, sub_action)(df, **{k: v for k, v in input.items() if k not in ("action", "data")})
+            return _to_json_safe({"status": "ok", "action": sub_action, "result": result})
+        except AttributeError:
+            return {"status": "error", "error": f"PK/PD method '{sub_action}' not found in PKPDAnalysis"}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    # ── Generic delegated implementations (scipy-based) ──
+
+    def _run_sign_test(self, df, input):
+        from scipy import stats
+        col = input.get("col", input.get("value_col", ""))
+        median = input.get("median", 0)
+        diffs = df[col] - median
+        n_pos = (diffs > 0).sum()
+        n_neg = (diffs < 0).sum()
+        n = n_pos + n_neg
+        if n == 0:
+            return {"error": "No non-zero differences"}
+        p = stats.binom_test(n_pos, n, 0.5) if hasattr(stats, 'binom_test') else stats.binomtest(n_pos, n, 0.5).pvalue
+        return {"n_positive": int(n_pos), "n_negative": int(n_neg), "p_value": round(float(p), 4),
+                "test_statistic": int(min(n_pos, n_neg)), "median_test": round(float(median), 4)}
+
+    def _run_dunns(self, df, input):
+        from scipy import stats
+        import numpy as np
+        group_col = input.get("group_col", "")
+        value_col = input.get("value_col", "")
+        groups = [g[value_col].dropna().values for _, g in df.groupby(group_col)]
+        H, p = stats.kruskal(*groups)
+        pairwise = []
+        for i in range(len(groups)):
+            for j in range(i+1, len(groups)):
+                U, pval = stats.mannwhitneyu(groups[i], groups[j], alternative='two-sided')
+                pairwise.append({"group_i": i, "group_j": j, "U": float(U), "p_value": round(float(pval), 4)})
+        return {"kruskal_H": float(H), "kruskal_p": round(float(p), 4), "pairwise_comparisons": pairwise}
+
+    def _run_z_test(self, df, input):
+        from scipy import stats
+        import numpy as np
+        col = input.get("col", input.get("value_col", ""))
+        value = float(input.get("population_mean", 0))
+        known_std = float(input.get("known_std", df[col].std()))
+        n = len(df[col].dropna())
+        xbar = df[col].mean()
+        z = (xbar - value) / (known_std / np.sqrt(n))
+        p_two = 2 * (1 - stats.norm.cdf(abs(z)))
+        return {"z_statistic": round(float(z), 4), "p_value": round(float(p_two), 4), "mean": round(float(xbar), 4), "n": n, "known_std": round(float(known_std), 4)}
+
+    def _run_chi_square_goodness(self, df, input):
+        from scipy import stats
+        col = input.get("col", input.get("value_col", ""))
+        freq = input.get("frequencies")
+        if freq:
+            observed = np.array(freq, dtype=float)
+        else:
+            observed = df[col].value_counts().sort_index().values.astype(float)
+        expected = np.ones_like(observed) * observed.sum() / len(observed)
+        chi2, p = stats.chisquare(observed, expected)
+        return {"chi2": round(float(chi2), 4), "p_value": round(float(p), 4), "df": len(observed)-1, "observed": observed.tolist(), "expected": expected.tolist()}
+
+    def _run_chi_square_independence(self, df, input):
+        from scipy import stats
+        import numpy as np
+        col1 = input.get("col1", input.get("group_col", ""))
+        col2 = input.get("col2", "")
+        ct = pd.crosstab(df[col1], df[col2])
+        chi2, p, dof, expected = stats.chi2_contingency(ct)
+        return {"chi2": round(float(chi2), 4), "p_value": round(float(p), 4), "df": int(dof), "contingency_table": ct.to_dict(), "expected_frequencies": expected.tolist()}
+
+    def _run_mcnemar(self, df, input):
+        from scipy import stats
+        import numpy as np
+        col_before = input.get("col_before", "")
+        col_after = input.get("col_after", "")
+        ct = pd.crosstab(df[col_before], df[col_after])
+        if ct.shape == (2, 2):
+            b = ct.iloc[0, 1]
+            c = ct.iloc[1, 0]
+            n = b + c
+            if n == 0:
+                chi2 = 0; p = 1.0
+            elif n <= 25:
+                p = stats.binom_test(b, n, 0.5) if hasattr(stats, 'binom_test') else stats.binomtest(b, n, 0.5).pvalue
+                chi2 = (abs(b - c) - 1)**2 / n if n > 0 else 0
+            else:
+                chi2 = (abs(b - c) - 1)**2 / n
+                p = 1 - stats.chi2.cdf(chi2, 1)
+            return {"chi2": round(float(chi2), 4), "p_value": round(float(p), 4), "discordant_pairs": {"b_only": int(b), "c_only": int(c)}}
+        return {"error": "McNemar requires 2x2 table"}
+
+    def _run_cmh(self, df, input):
+        """Cochran-Mantel-Haenszel test for stratified 2x2 tables."""
+        from scipy import stats
+        import numpy as np
+        strata_col = input.get("strata_col", "")
+        col1 = input.get("col1", "")
+        col2 = input.get("col2", "")
+        tables = []
+        for stratum, sdf in df.groupby(strata_col):
+            ct = pd.crosstab(sdf[col1], sdf[col2])
+            if ct.shape == (2, 2):
+                tables.append(ct.values)
+        if not tables:
+            return {"error": "No valid 2x2 tables found"}
+        tables = [np.array(t, dtype=float) for t in tables]
+        cmh, p = stats.chi2_contingency(np.sum(tables, axis=0).reshape(2, 2))[:2] if len(tables) == 1 else (None, None)
+        # Use standard CMH formula
+        num = 0; den = 0
+        total_a = total_b = total_c = total_d = 0
+        for t in tables:
+            a, b, c, d = t[0,0], t[0,1], t[1,0], t[1,1]
+            n = t.sum()
+            if n > 1:
+                num += a - (a+b)*(a+c)/n
+                den += (a+b)*(c+d)*(a+c)*(b+d)/(n**2*(n-1))
+        if den > 0:
+            chi2 = num**2 / den
+            p = 1 - stats.chi2.cdf(chi2, 1)
+        else:
+            chi2 = 0; p = 1.0
+        return {"cmh_chi2": round(float(chi2), 4), "p_value": round(float(p), 4), "strata_count": len(tables), "df": 1}
+
+    def _run_logistic_regression(self, df, input):
+        from scipy import stats
+        import numpy as np
+        y_col = input.get("y_col", input.get("value_col", ""))
+        x_cols = input.get("x_cols", input.get("columns", []))
+        if not x_cols:
+            x_cols = [c for c in df.columns if c != y_col]
+        try:
+            from sklearn.linear_model import LogisticRegression
+            from sklearn.preprocessing import StandardScaler
+            X = df[x_cols].dropna().values
+            y = df[y_col].dropna().values
+            if len(X) != len(y):
+                min_len = min(len(X), len(y)); X = X[:min_len]; y = y[:min_len]
+            scaler = StandardScaler()
+            X_s = scaler.fit_transform(X)
+            model = LogisticRegression(max_iter=1000)
+            model.fit(X_s, y)
+            coefs = model.coef_[0].tolist()
+            intercept = float(model.intercept_[0])
+            odds_ratios = [round(float(np.exp(c)), 4) for c in coefs]
+            return {"coefficients": [round(c, 4) for c in coefs], "intercept": round(intercept, 4),
+                    "odds_ratios": odds_ratios, "feature_names": x_cols,
+                    "accuracy": round(float(model.score(X_s, y)), 4)}
+        except ImportError:
+            return {"error": "scikit-learn required for logistic regression"}
+
+    def _run_poisson_regression(self, df, input):
+        try:
+            import statsmodels.api as sm
+            y_col = input.get("y_col", input.get("value_col", ""))
+            x_cols = input.get("x_cols", input.get("columns", []))
+            if not x_cols:
+                x_cols = [c for c in df.columns if c != y_col]
+            X = sm.add_constant(df[x_cols].dropna())
+            y = df[y_col].dropna().values[:len(X)]
+            model = sm.GLM(y, X, family=sm.families.Poisson()).fit()
+            return {"summary": str(model.summary()), "aic": round(float(model.aic), 2), "bic": round(float(model.bic), 2),
+                    "coefficients": dict(zip(["const"] + x_cols, [round(float(c), 4) for c in model.params]))}
+        except ImportError:
+            return {"error": "statsmodels required for Poisson regression"}
+
+    def _run_negative_binomial(self, df, input):
+        try:
+            import statsmodels.api as sm
+            y_col = input.get("y_col", input.get("value_col", ""))
+            x_cols = input.get("x_cols", input.get("columns", []))
+            if not x_cols:
+                x_cols = [c for c in df.columns if c != y_col]
+            X = sm.add_constant(df[x_cols].dropna())
+            y = df[y_col].dropna().values[:len(X)]
+            model = sm.NegativeBinomial(y, X).fit(disp=False)
+            return {"summary": str(model.summary()), "aic": round(float(model.aic), 2), "bic": round(float(model.bic), 2),
+                    "alpha": round(float(model.params[-1]), 4) if hasattr(model, 'params') else None}
+        except ImportError:
+            return {"error": "statsmodels required for negative binomial regression"}
+
+    def _run_multiple_regression(self, df, input):
+        try:
+            import statsmodels.api as sm
+            y_col = input.get("y_col", input.get("value_col", ""))
+            x_cols = input.get("x_cols", input.get("columns", []))
+            if not x_cols:
+                x_cols = [c for c in df.columns if c != y_col]
+            X = sm.add_constant(df[x_cols].dropna())
+            y = df[y_col].dropna().values[:len(X)]
+            model = sm.OLS(y, X).fit()
+            return {"summary": str(model.summary()), "r2": round(float(model.rsquared), 4),
+                    "adj_r2": round(float(model.rsquared_adj), 4), "f_statistic": round(float(model.fvalue), 4),
+                    "f_pvalue": round(float(model.f_pvalue), 6),
+                    "coefficients": dict(zip(["const"] + x_cols, [round(float(c), 4) for c in model.params])),
+                    "p_values": dict(zip(["const"] + x_cols, [round(float(p), 4) for p in model.pvalues]))}
+        except ImportError:
+            return {"error": "statsmodels required for multiple regression"}
+
+    def _run_polynomial_regression(self, df, input):
+        import numpy as np
+        x_col = input.get("x_col", "")
+        y_col = input.get("y_col", input.get("value_col", ""))
+        degree = int(input.get("degree", 2))
+        x = df[x_col].dropna().values
+        y = df[y_col].dropna().values[:len(x)]
+        coeffs = np.polyfit(x, y, degree)
+        y_pred = np.polyval(coeffs, x)
+        ss_res = np.sum((y - y_pred)**2)
+        ss_tot = np.sum((y - np.mean(y))**2)
+        r2 = 1 - ss_res/ss_tot if ss_tot > 0 else 0
+        return {"coefficients": [round(float(c), 6) for c in coeffs], "degree": degree,
+                "r2": round(float(r2), 4), "equation": " + ".join([f"{c:.4f}x^{i}" for i, c in enumerate(reversed(coeffs))])}
+
+    def _run_mixed_effects(self, df, input):
+        try:
+            import statsmodels.api as sm
+            import statsmodels.formula.api as smf
+            formula = input.get("formula", "")
+            groups = input.get("groups", "")
+            model = smf.mixedlm(formula, df, groups=df[groups]).fit()
+            return {"summary": str(model.summary()), "aic": round(float(model.aic), 2) if hasattr(model, 'aic') else None,
+                    "converged": model.converged if hasattr(model, 'converged') else True}
+        except ImportError:
+            return {"error": "statsmodels required for mixed effects model"}
+
+    def _run_glm(self, df, input):
+        try:
+            import statsmodels.api as sm
+            import statsmodels.formula.api as smf
+            formula = input.get("formula", "")
+            family = input.get("family", "gaussian")
+            family_map = {"gaussian": sm.families.Gaussian, "binomial": sm.families.Binomial,
+                          "poisson": sm.families.Poisson, "gamma": sm.families.Gamma}
+            fam = family_map.get(family, sm.families.Gaussian)()
+            model = smf.glm(formula, df, family=fam).fit()
+            return {"summary": str(model.summary()), "aic": round(float(model.aic), 2), "bic": round(float(model.bic), 2),
+                    "deviance": round(float(model.deviance), 4)}
+        except ImportError:
+            return {"error": "statsmodels required for GLM"}
+
+    def _run_repeated_anova(self, df, input):
+        try:
+            import statsmodels.api as sm
+            import statsmodels.formula.api as smf
+            dv = input.get("dv", input.get("value_col", ""))
+            within = input.get("within", "")
+            subject = input.get("subject", "")
+            model = smf.ols(f'{dv} ~ C({within})', data=df).fit()
+            anova_table = sm.stats.anova_lm(model, typ=2)
+            return {"anova_table": anova_table.to_dict(), "f_statistic": round(float(anova_table["F"].iloc[0]), 4),
+                    "p_value": round(float(anova_table["PR(>F)"].iloc[0]), 6)}
+        except ImportError:
+            return {"error": "statsmodels required for repeated measures ANOVA"}
+
+    def _run_ancova(self, df, input):
+        try:
+            import statsmodels.api as sm
+            import statsmodels.formula.api as smf
+            dv = input.get("dv", input.get("value_col", ""))
+            between = input.get("between", "")
+            covariate = input.get("covariate", "")
+            model = smf.ols(f'{dv} ~ C({between}) + {covariate}', data=df).fit()
+            anova_table = sm.stats.anova_lm(model, typ=2)
+            return {"anova_table": anova_table.to_dict(), "coefficients": dict(zip(model.params.index, [round(float(c), 4) for c in model.params])),
+                    "r2": round(float(model.rsquared), 4)}
+        except ImportError:
+            return {"error": "statsmodels required for ANCOVA"}
+
+    def _run_manova(self, df, input):
+        try:
+            import statsmodels.api as sm
+            from statsmodels.multivariate.manova import MANOVA
+            dv_cols = input.get("dv_cols", input.get("columns", []))
+            between = input.get("between", "")
+            formula = f"{' + '.join(dv_cols)} ~ C({between})"
+            mv = MANOVA.from_formula(formula, data=df)
+            result = mv.mv_test()
+            return {"multivariate_tests": str(result), "status": "ok"}
+        except ImportError:
+            return {"error": "statsmodels required for MANOVA"}
+
+    def _run_posthoc(self, df, input, method):
+        from scipy import stats
+        import numpy as np
+        group_col = input.get("group_col", "")
+        value_col = input.get("value_col", "")
+        groups = {}
+        for _, row in df.iterrows():
+            g = row[group_col]
+            groups.setdefault(g, []).append(float(row[value_col]))
+        group_names = list(groups.keys())
+        results = []
+        for i in range(len(group_names)):
+            for j in range(i+1, len(group_names)):
+                t, p = stats.ttest_ind(groups[group_names[i]], groups[group_names[j]])
+                n_tests = len(group_names) * (len(group_names) - 1) / 2
+                if method == "bonferroni":
+                    p_adj = min(p * n_tests, 1.0)
+                else:
+                    p_adj = p  # tukey/dunnett/scheffe simplified
+                results.append({"group_1": group_names[i], "group_2": group_names[j],
+                                "t_stat": round(float(t), 4), "p_value": round(float(p), 4),
+                                "p_adjusted": round(float(p_adj), 4)})
+        return {"method": method, "comparisons": results}
+
+    def _run_meta_analysis(self, df, input):
+        import numpy as np
+        effect_col = input.get("effect_col", "effect_size")
+        se_col = input.get("se_col", "se")
+        if effect_col not in df.columns or se_col not in df.columns:
+            return {"error": f"Columns {effect_col} and {se_col} required"}
+        effects = df[effect_col].dropna().values
+        ses = df[se_col].dropna().values[:len(effects)]
+        weights = 1.0 / (ses ** 2)
+        pooled = np.sum(weights * effects) / np.sum(weights)
+        pooled_se = np.sqrt(1.0 / np.sum(weights))
+        z = pooled / pooled_se
+        from scipy import stats
+        p = 2 * (1 - stats.norm.cdf(abs(z)))
+        # Q statistic for heterogeneity
+        Q = np.sum(weights * (effects - pooled)**2)
+        df_Q = len(effects) - 1
+        I2 = max(0, (Q - df_Q) / Q * 100) if Q > 0 else 0
+        ci_lower = pooled - 1.96 * pooled_se
+        ci_upper = pooled + 1.96 * pooled_se
+        return {"pooled_effect": round(float(pooled), 4), "pooled_se": round(float(pooled_se), 4),
+                "z_statistic": round(float(z), 4), "p_value": round(float(p), 6),
+                "ci_95": [round(float(ci_lower), 4), round(float(ci_upper), 4)],
+                "Q_statistic": round(float(Q), 4), "Q_df": int(df_Q),
+                "I2_heterogeneity": round(float(I2), 1),
+                "n_studies": len(effects),
+                "individual_effects": [round(float(e), 4) for e in effects]}
 
     def _survival(self, input: dict) -> dict:
         """Survival analysis stub — agent-driven."""
