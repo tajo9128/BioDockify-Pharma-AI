@@ -132,7 +132,7 @@ User's goal: literature review, deep research, docking, simulation, statistics â
 - The writer instructs the LLM: "Cite ONLY from the provided KB sources. Do not fabricate citations."
 
 ### Available Modules & When to Use Them
-You have 21 consolidated desktop modules + research pipeline. Use them proactively:
+You have 22 consolidated desktop modules + research pipeline. Use them proactively:
 
 | Module | Agent Action | Example |
 |--------|-------------|---------|
