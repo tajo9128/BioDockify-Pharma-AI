@@ -447,6 +447,7 @@ class StatisticsAnalyze(ApiHandler):
         return {"z_statistic": round(float(z), 4), "p_value": round(float(p_two), 4), "mean": round(float(xbar), 4), "n": n, "known_std": round(float(known_std), 4)}
 
     def _run_chi_square_goodness(self, df, input):
+        import numpy as np
         from scipy import stats
         col = input.get("col", input.get("value_col", ""))
         freq = input.get("frequencies")
@@ -459,8 +460,8 @@ class StatisticsAnalyze(ApiHandler):
         return {"chi2": round(float(chi2), 4), "p_value": round(float(p), 4), "df": len(observed)-1, "observed": observed.tolist(), "expected": expected.tolist()}
 
     def _run_chi_square_independence(self, df, input):
+        import pandas as pd
         from scipy import stats
-        import numpy as np
         col1 = input.get("col1", input.get("group_col", ""))
         col2 = input.get("col2", "")
         ct = pd.crosstab(df[col1], df[col2])
@@ -468,8 +469,8 @@ class StatisticsAnalyze(ApiHandler):
         return {"chi2": round(float(chi2), 4), "p_value": round(float(p), 4), "df": int(dof), "contingency_table": ct.to_dict(), "expected_frequencies": expected.tolist()}
 
     def _run_mcnemar(self, df, input):
+        import pandas as pd
         from scipy import stats
-        import numpy as np
         col_before = input.get("col_before", "")
         col_after = input.get("col_after", "")
         ct = pd.crosstab(df[col_before], df[col_after])
@@ -639,6 +640,7 @@ class StatisticsAnalyze(ApiHandler):
 
     def _run_repeated_anova(self, df, input):
         try:
+            import pandas as pd
             import statsmodels.api as sm
             import statsmodels.formula.api as smf
             dv = input.get("dv", input.get("value_col", ""))
