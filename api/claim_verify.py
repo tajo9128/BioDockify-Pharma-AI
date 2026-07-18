@@ -15,6 +15,10 @@ log = logging.getLogger("claim_verify")
 
 
 class ClaimVerifyHandler(ApiHandler):
+    @classmethod
+    def requires_auth(cls) -> bool:
+        return False  # Claim verification is public (used by Academic Writer UI)
+
     async def process(self, input: dict, request: Request) -> dict:
         action = input.get("action", "")
         if action == "extract_claims": return self._extract_claims(input)

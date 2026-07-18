@@ -330,6 +330,12 @@ def _detect_category(filename: str) -> str:
 
 
 class KnowledgeHandler(ApiHandler):
+    """Knowledge Base API — listing/reading is public, writing requires auth."""
+
+    @classmethod
+    def requires_auth(cls) -> bool:
+        return False  # KB listing/reading is public; writing actions handle their own auth
+
     async def process(self, input: dict, request: Request) -> dict | Response:
         action = input.get("action", "query")
 

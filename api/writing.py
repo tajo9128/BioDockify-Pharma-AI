@@ -6,6 +6,10 @@ log = logging.getLogger("writing_tools")
 
 
 class WritingTools(ApiHandler):
+    @classmethod
+    def requires_auth(cls) -> bool:
+        return False  # Writing tools are public (used by Academic Writer UI)
+
     async def process(self, input: dict, request: Request) -> dict:
         action = input.get("action", "")
         if action == "export-latex":       return self._export_latex(input)
