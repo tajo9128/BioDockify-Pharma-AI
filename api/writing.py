@@ -753,7 +753,7 @@ class WritingTools(ApiHandler):
             reg_score += 0.3; reg_notes.append("reporting guideline followed")
         if any(w in text for w in ["clinicaltrials.gov", "nct", "isrctn", "trial registration"]):
             reg_score += 0.3; reg_notes.append("trial registration cited")
-        if any(w in text for wr in ["ethics committee", "institutional review board", "irb", "ethics approval"]):
+        if any(w in text for w in ["ethics committee", "institutional review board", "irb", "ethics approval"]):
             reg_score += 0.2; reg_notes.append("ethics approval mentioned")
         dimensions["regulatory_compliance"] = {"score": min(5.0, round(reg_score, 1)), "weight": 0.10, "notes": reg_notes}
 
