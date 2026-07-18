@@ -52,7 +52,7 @@
             bullets: (s.content || s.body || "").split("\n").filter(l => l.trim()),
             notes: s.notes || s.speaker_notes || "",
           }));
-          const resp = await fetch("/api/ppt_generate", {
+          const resp = await fetch("/api/ppt_master", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "generate", slides, theme: this.style, title: this.topic.substring(0, 50), include_notes: true }),

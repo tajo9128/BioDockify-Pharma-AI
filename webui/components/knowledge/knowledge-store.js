@@ -426,7 +426,7 @@ export const store = createStore("knowledgeModal", {
     }
   },
 
-  selectAll() {
+  toggleSelectAll() {
     const allSelected = this.filteredEntries.every(e => this.selected[e.id]);
     for (const e of this.filteredEntries) {
       this.selected[e.id] = !allSelected;
@@ -519,16 +519,15 @@ export const store = createStore("knowledgeModal", {
 
   async loadLibraryFromKB() {
     try {
+      // Load KB status and categories
       const r = await callJsonApi("knowledge", { action: "status" });
       if (r.status === "ok") {
         this.kbStatus = r;
-        // Build categories from KB
         const kbCats = [];
         const labels = r.category_labels || {};
         for (const [key, count] of Object.entries(r.categories || {})) {
           kbCats.push({ name: key, label: labels[key] || key, count: count, source: "kb" });
         }
-        // Merge with local categories
         for (const cat of kbCats) {
           const existing = this.libraryCategories.find(c => c.name === cat.name);
           if (existing) {
@@ -541,7 +540,28 @@ export const store = createStore("knowledgeModal", {
         }
         this.libraryCategories.sort((a, b) => b.count - a.count);
       }
-    } catch (e) {}
+      // Load KB entries into entries array
+      const r2 = await callJsonApi("knowledge", { action: "library", limit: 100 });
+      if (r2.status === "ok" && r2.entries) {
+        for (const entry of r2.entries) {
+          const exists = this.entries.find(e => e.question === entry.title && e.source === entry.source);
+          if (!exists) {
+            this.entries.unshift({
+              id: entry.id || Date.now(),
+              question: entry.title,
+              answer: "",
+              tags: entry.tags || [],
+              source: entry.source || entry.category_label || "Knowledge Base",
+              saved: true,
+              createdAt: entry.created_at || new Date().toISOString(),
+              format: entry.format || "",
+              file: entry.file || "",
+            });
+          }
+        }
+        this.persist();
+      }
+    } catch (e) { console.error("loadLibraryFromKB failed:", e); }
   },
 
   async loadLibraryEntries(category) {
@@ -648,32 +668,6 @@ export const store = createStore("knowledgeModal", {
       const r = await callJsonApi("knowledge", { action: "status" });
       if (r.status === "ok") {
         this.kbStatus = r;
-      }
-    } catch (e) {}
-  },
-
-  async loadLibraryFromKB() {
-    try {
-      const r = await callJsonApi("knowledge", { action: "library", limit: 100 });
-      if (r.status === "ok" && r.entries) {
-        // Add KB entries to the library
-        for (const entry of r.entries) {
-          const exists = this.entries.find(e => e.question === entry.title && e.source === entry.source);
-          if (!exists) {
-            this.entries.unshift({
-              id: entry.id || Date.now(),
-              question: entry.title,
-              answer: "",
-              tags: entry.tags || [],
-              source: entry.source || entry.category_label || "Knowledge Base",
-              saved: true,
-              createdAt: entry.created_at || new Date().toISOString(),
-              format: entry.format || "",
-              file: entry.file || "",
-            });
-          }
-        }
-        this.persist();
       }
     } catch (e) {}
   },
