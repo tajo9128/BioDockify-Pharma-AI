@@ -151,8 +151,8 @@ class MDLite(ApiHandler):
             from modules.knowledge.auto_store import auto_store
             auto_store("md_lite", f"MD Results: job {job_id}", result,
                        source="MD Lite (OpenMM)", tags=["md", "docking", job_id])
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug(f"Auto-store for MD job {job_id} failed: {e}")
         return result
 
     def _download(self, input):

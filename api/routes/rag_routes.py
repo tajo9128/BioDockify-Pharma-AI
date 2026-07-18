@@ -29,7 +29,7 @@ async def upload_source(file: UploadFile = File(...)):
             
     except Exception as e:
         logger.error(f"RAG upload failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="File upload failed. Please check the file format and try again.")
 
 @router.get("/documents")
 async def list_documents():
@@ -39,7 +39,7 @@ async def list_documents():
         return {"documents": docs}
     except Exception as e:
         logger.error(f"Failed to list RAG documents: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to retrieve document list.")
 
 @router.delete("/documents/{document_id}")
 async def delete_document(document_id: str):
@@ -54,8 +54,8 @@ async def delete_document(document_id: str):
         
         return {"status": "success", "message": f"Document {document_id} deleted"}
     except Exception as e:
-        logger.error(f"Failed to delete RAG document: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to delete RAG document {document_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete document. Please try again.")
 
 @router.post("/chat")
 async def rag_chat(request: Dict[str, Any]):

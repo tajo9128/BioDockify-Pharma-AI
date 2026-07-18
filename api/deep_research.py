@@ -289,8 +289,8 @@ class DeepResearchHandler(ApiHandler):
                     with open(os.path.join(STORAGE_DIR, f)) as fh:
                         s = json.load(fh)
                     sessions.append({"session_id": s.get("stats", {}).get("session_id", ""), "topic": s.get("topic", ""), "total": s.get("stats", {}).get("total", 0), "created_at": s.get("created_at", "")})
-                except:
-                    pass
+                except Exception as e:
+                    log.debug(f"Failed to load session {f}: {e}")
         return {"status": "ok", "sessions": sorted(sessions, key=lambda x: x.get("created_at", ""), reverse=True)}
 
     # ── Database Scrapers ──
