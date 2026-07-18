@@ -74,7 +74,8 @@ class FormulationHandler(ApiHandler):
             ss_tot = np.sum((mt - np.mean(mt)) ** 2)
             r2_zero = 1 - ss_res / ss_tot if ss_tot > 0 else 0
             results["zero_order"] = {"k0": round(float(k0), 4), "r2": round(float(r2_zero), 4), "equation": f"Mt = {k0:.4f}*t + {m0:.4f}"}
-        except:
+        except Exception as e:
+            log.debug(f"Zero-order fit failed: {e}")
             results["zero_order"] = {"error": "fit failed"}
 
         # First-order: ln(Mt) = k1*t + ln(M0) → ln(1 - release_frac) vs time
@@ -91,7 +92,8 @@ class FormulationHandler(ApiHandler):
                 results["first_order"] = {"k1": round(float(k1), 4), "r2": round(float(r2_first), 4), "equation": f"ln(1-Mt) = {k1:.4f}*t + {ln_m0:.4f}"}
             else:
                 results["first_order"] = {"error": "need at least 2 points with release < 100%"}
-        except:
+        except Exception as e:
+            log.debug(f"First-order fit failed: {e}")
             results["first_order"] = {"error": "fit failed"}
 
         # Higuchi: Mt = kH * sqrt(t)
@@ -104,7 +106,8 @@ class FormulationHandler(ApiHandler):
             ss_tot = np.sum((mt - np.mean(mt)) ** 2)
             r2_higuchi = 1 - ss_res / ss_tot if ss_tot > 0 else 0
             results["higuchi"] = {"kH": round(float(kH), 4), "r2": round(float(r2_higuchi), 4), "equation": f"Mt = {kH:.4f}*sqrt(t) + {c:.4f}"}
-        except:
+        except Exception as e:
+            log.debug(f"Higuchi fit failed: {e}")
             results["higuchi"] = {"error": "fit failed"}
 
         # Korsmeyer-Peppas: Mt/Minf = k_KP * t^n  →  log(release_frac) = n*log(t) + log(k)
@@ -124,7 +127,8 @@ class FormulationHandler(ApiHandler):
                 }
             else:
                 results["korsmeyer_peppas"] = {"error": "need at least 2 points with 0 < release < 100%"}
-        except:
+        except Exception as e:
+            log.debug(f"Korsmeyer-Peppas fit failed: {e}")
             results["korsmeyer_peppas"] = {"error": "fit failed"}
 
         # Weibull: Mt/Minf = 1 - exp(-(t^b)/a)  →  ln(-ln(1-Mt/Minf)) = b*ln(t) - b*ln(a)
@@ -139,7 +143,8 @@ class FormulationHandler(ApiHandler):
                 results["weibull"] = {"a": round(float(a), 4), "b": round(float(b), 4), "equation": f"Mt = 1 - exp(-(t^{b:.4f})/{a:.4f})"}
             else:
                 results["weibull"] = {"error": "need at least 2 points with 0 < release < 100%"}
-        except:
+        except Exception as e:
+            log.debug(f"Weibull fit failed: {e}")
             results["weibull"] = {"error": "fit failed"}
 
         # Best-fit recommendation
@@ -423,7 +428,8 @@ class FormulationHandler(ApiHandler):
                         "coefficients": [round(float(c), 4) for c in coeffs],
                         "predicted": [round(float(p), 2) for p in y_pred[:5]],
                     }
-                except:
+                except Exception as e:
+                    log.debug(f"Polynomial fit failed for {resp}: {e}")
                     results["models"][resp] = {"error": "fit failed"}
 
             # Optimal point (simple: find data row with best response)

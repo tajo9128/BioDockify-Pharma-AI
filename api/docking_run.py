@@ -194,7 +194,9 @@ class DockingRun(ApiHandler):
         log.info(f"Running Vina: {' '.join(vina_args)}")
 
         try:
-            result = subprocess.run(
+            import asyncio
+            result = await asyncio.to_thread(
+                subprocess.run,
                 vina_args,
                 capture_output=True, text=True, timeout=600
             )
@@ -281,7 +283,9 @@ class DockingRun(ApiHandler):
             # Try converting to SDF for better compatibility
             sdf_available = False
             try:
-                conv = subprocess.run(
+                import asyncio
+                conv = await asyncio.to_thread(
+                    subprocess.run,
                     ["obabel", output_path, "-O", sdf_output_path],
                     capture_output=True, text=True, timeout=30
                 )
