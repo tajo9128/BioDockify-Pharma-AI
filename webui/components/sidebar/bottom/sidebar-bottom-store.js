@@ -7,8 +7,8 @@ const model = {
   get versionLabel() {
     const v = this.versionNo || "";
     const clean = v.replace(/^M\s*/, "").replace(/^v/, "v");
-    // Ensure we show the correct version (override old git tags)
-    return `BioDockify v7.0.6`;
+    // Show version from gitinfo if available, otherwise fallback
+    return clean ? `BioDockify ${clean}` : `BioDockify v7.5.2`;
   },
 
   init() {
