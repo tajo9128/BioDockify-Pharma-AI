@@ -88,6 +88,10 @@ def _restore_from_zip(zip_path, data_dir):
                 if not member.startswith('a0/'):
                     errors.append(f"{member}: skipped (not under a0/)")
                     continue
+                # Path traversal protection — reject any path with ..
+                if '..' in member:
+                    errors.append(f"{member}: skipped (path traversal attempt)")
+                    continue
                 # Extract to container root so a0/usr/X → /a0/usr/X
                 zf.extract(member, "/")
                 restored += 1
@@ -157,7 +161,7 @@ class AutoBackupHandler(ApiHandler):
 
     @classmethod
     def requires_auth(cls) -> bool:
-        return False
+        return True  # Backup operations require authentication
 
     async def process(self, input: dict, request: Request) -> dict:
         action = input.get("action", "status")

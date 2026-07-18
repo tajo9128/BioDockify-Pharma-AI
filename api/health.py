@@ -7,6 +7,11 @@ log = logging.getLogger("health")
 _BACKUP_DONE_TODAY = False
 
 
+def _get_agent_root():
+    """Get agent root directory — works both in Docker and local dev."""
+    return os.environ.get("AGENT_ROOT", "/a0") if os.path.exists("/a0") else os.path.dirname(os.path.abspath(__file__))
+
+
 def _auto_backup_if_needed():
     """Run auto-backup once per container start."""
     global _BACKUP_DONE_TODAY
@@ -16,8 +21,9 @@ def _auto_backup_if_needed():
     try:
         import shutil
         from datetime import datetime
-        backup_dir = "/a0/usr/backups"
-        data_dir = "/a0/usr"
+        agent_root = _get_agent_root()
+        backup_dir = os.path.join(agent_root, "usr", "backups")
+        data_dir = os.path.join(agent_root, "usr")
         os.makedirs(backup_dir, exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_path = os.path.join(backup_dir, f"auto_backup_{ts}")

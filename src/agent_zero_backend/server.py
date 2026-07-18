@@ -27,7 +27,16 @@ app = FastAPI(title="BioDockify BioDockify AI", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost",
+        "http://localhost:80",
+        "http://localhost:3000",
+        "http://localhost:50001",
+        "http://127.0.0.1",
+        "http://127.0.0.1:80",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:50001",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

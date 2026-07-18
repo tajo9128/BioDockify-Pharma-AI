@@ -8,11 +8,11 @@ import json
 class ApiResetChat(ApiHandler):
     @classmethod
     def requires_auth(cls) -> bool:
-        return False
+        return True  # Chat reset requires authentication
 
     @classmethod
     def requires_csrf(cls) -> bool:
-        return False
+        return True
 
     @classmethod
     def requires_api_key(cls) -> bool:

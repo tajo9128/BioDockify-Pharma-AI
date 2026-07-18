@@ -572,6 +572,9 @@ class KnowledgeHandler(ApiHandler):
         Supports: TXT, MD, PDF, DOCX, XLSX, CSV, HTML, JSON, SDF, PDB, PDBQT, images, audio.
         Every file gets its readable content extracted and stored — users can always click to read.
         """
+        MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB per file
+        MAX_TOTAL_SIZE = 200 * 1024 * 1024  # 200MB total per upload
+
         try:
             files = input.get("files", [])
             category = input.get("category", "")
@@ -579,6 +582,17 @@ class KnowledgeHandler(ApiHandler):
 
             if not files:
                 return {"status": "error", "error": "No files provided"}
+
+            # Size validation
+            total_size = 0
+            for file_data in files:
+                raw_content = file_data.get("content", "")
+                file_size = len(raw_content) if raw_content else 0
+                total_size += file_size
+                if file_size > MAX_FILE_SIZE:
+                    return {"status": "error", "error": f"File '{file_data.get('filename', 'unknown')}' exceeds 50MB limit ({file_size // (1024*1024)}MB)"}
+            if total_size > MAX_TOTAL_SIZE:
+                return {"status": "error", "error": f"Total upload size exceeds 200MB limit ({total_size // (1024*1024)}MB)"}
 
             stored = 0
             chunked = 0

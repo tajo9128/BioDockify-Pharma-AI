@@ -61,4 +61,13 @@ class UploadFile(ApiHandler):
 
 
     def allowed_file(self,filename):
-        return True
+        """Validate file extension against whitelist."""
+        ALLOWED_EXTENSIONS = {
+            '.txt', '.md', '.pdf', '.docx', '.doc', '.xlsx', '.xls', '.csv',
+            '.json', '.sdf', '.mol', '.mol2', '.pdb', '.pdbqt', '.html', '.htm',
+            '.mp3', '.wav', '.ogg', '.m4a', '.flac', '.mp4', '.avi', '.mkv', '.mov', '.webm',
+            '.png', '.jpg', '.jpeg', '.gif', '.svg', '.bmp', '.tiff',
+            '.py', '.ipynb', '.r', '.R', '.ipynb',
+        }
+        ext = '.' + filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+        return ext in ALLOWED_EXTENSIONS

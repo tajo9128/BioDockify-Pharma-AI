@@ -8,11 +8,11 @@ import json
 class ApiTerminateChat(ApiHandler):
     @classmethod
     def requires_auth(cls) -> bool:
-        return False
+        return True  # Chat termination requires authentication
 
     @classmethod
     def requires_csrf(cls) -> bool:
-        return False
+        return True
 
     @classmethod
     def requires_api_key(cls) -> bool:

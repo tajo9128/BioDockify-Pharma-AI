@@ -95,6 +95,10 @@ data/workspace/test_script.py
 data/workspace/nanobot/
 data/workspace/__pycache__/
 
+# Knowledge base (large binary files and sensitive research data)
+data/knowledge_base/
+data/knowledge_base/**
+
 # Temp files
 *.docx
 *.mp3

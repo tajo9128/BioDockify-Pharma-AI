@@ -6,11 +6,11 @@ class RFC(ApiHandler):
 
     @classmethod
     def requires_csrf(cls) -> bool:
-        return False
+        return True
 
     @classmethod
     def requires_auth(cls) -> bool:
-        return False
+        return True  # RFC allows arbitrary code execution - must be authenticated
 
     async def process(self, input: dict, request: Request) -> dict | Response:
         result = await runtime.handle_rfc(input) # type: ignore
