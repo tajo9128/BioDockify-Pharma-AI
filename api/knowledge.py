@@ -26,6 +26,9 @@ CATEGORIES = {
     "faculty": "Faculty & Teaching",
     # Wet Lab
     "wetlab": "Wet Lab & Experiments",
+    # Departments
+    "pharmacology": "Pharmacology",
+    "medicinal_chemistry": "Medicinal Chemistry",
     # Uploads
     "books": "Books & References",
     "protocols": "Protocols & Methods",

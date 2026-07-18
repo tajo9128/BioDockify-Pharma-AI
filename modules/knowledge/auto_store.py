@@ -63,6 +63,9 @@ MODULE_TO_CATEGORY = {
     "thesis": "notes",
     # Clinical
     "clinical_trials": "clinical_trials",
+    # Pharmacology & Medicinal Chemistry
+    "pharmacology": "pharmacology",
+    "medicinal_chemistry": "medicinal_chemistry",
     # Knowledge
     "knowledge": "notes",
     # Uploads

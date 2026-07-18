@@ -1,0 +1,381 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+    export const store = createStore("pharmacologyModal", {
+      activeTab: "binding", loading: false, error: "", message: "",
+      // Receptor binding
+      rbConc: "", rbTotal: "", rbNs: "", rbResult: null,
+      // Dose-response
+      drDose: "", drResp: "", drDirection: "agonist", drUnit: "µM", drResult: null,
+      // Schild
+      scConc: "", scEc50Control: "", scEc50Shifted: "", scResult: null,
+      // Operational
+      opEmaxSys: "", opEc50: "", opEmaxAg: "", opResult: null,
+      // Selectivity
+      selTargets: "", selTherTarget: "", selUnit: "nM", selResult: null,
+      // Receptor DB
+      rdbQuery: "", rdbResult: null,
+      // In-vivo design
+      ivEndpoint: "anti-inflammatory", ivEffect: "1.5", ivAlpha: "0.05", ivPower: "0.80", ivSpecies: "rat", ivResult: null,
+
+      async runBinding() {
+        if (!this.rbConc || !this.rbTotal) return;
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("pharmacology", {
+            action: "receptor_binding",
+            concentration: this.rbConc.split(",").map(Number),
+            total_binding: this.rbTotal.split(",").map(Number),
+            nonspecific: this.rbNs ? this.rbNs.split(",").map(Number) : [],
+          });
+          this.rbResult = r.error ? null : r;
+          if (r.error) this.error = r.error;
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async runDoseResponse() {
+        if (!this.drDose || !this.drResp) return;
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("pharmacology", {
+            action: "dose_response",
+            dose: this.drDose.split(",").map(Number),
+            response: this.drResp.split(",").map(Number),
+            direction: this.drDirection, unit: this.drUnit,
+          });
+          this.drResult = r.error ? null : r;
+          if (r.error) this.error = r.error;
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async runSchild() {
+        if (!this.scConc || !this.scEc50Control || !this.scEc50Shifted) return;
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("pharmacology", {
+            action: "schild_analysis",
+            antagonist_conc: this.scConc.split(",").map(Number),
+            ec50_control: parseFloat(this.scEc50Control),
+            ec50_shifted: this.scEc50Shifted.split(",").map(Number),
+          });
+          this.scResult = r.error ? null : r;
+          if (r.error) this.error = r.error;
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async runOperational() {
+        if (!this.opEmaxSys || !this.opEc50 || !this.opEmaxAg) return;
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("pharmacology", {
+            action: "operational_model",
+            emax_system: parseFloat(this.opEmaxSys),
+            ec50_observed: parseFloat(this.opEc50),
+            emax_observed: parseFloat(this.opEmaxAg),
+          });
+          this.opResult = r.error ? null : r;
+          if (r.error) this.error = r.error;
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async runSelectivity() {
+        if (!this.selTargets) return;
+        this.loading = true; this.error = "";
+        try {
+          // Parse "Name:Kd, Name:Kd" format
+          const targets = this.selTargets.split(",").map(t => {
+            const [name, val] = t.split(":").map(s => s.trim());
+            return { name, kd_or_ic50: parseFloat(val) };
+          }).filter(t => t.name && t.kd_or_ic50);
+          const r = await callJsonApi("pharmacology", {
+            action: "selectivity_ratio",
+            targets, therapeutic_target: this.selTherTarget, unit: this.selUnit,
+          });
+          this.selResult = r.error ? null : r;
+          if (r.error) this.error = r.error;
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async loadReceptorDB() {
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("pharmacology", { action: "receptor_database", query: this.rdbQuery });
+          this.rdbResult = r;
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async runInVivo() {
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("pharmacology", {
+            action: "in_vivo_design",
+            endpoint: this.ivEndpoint,
+            effect_size: parseFloat(this.ivEffect),
+            alpha: parseFloat(this.ivAlpha),
+            power: parseFloat(this.ivPower),
+            species: this.ivSpecies,
+          });
+          this.ivResult = r.error ? null : r;
+          if (r.error) this.error = r.error;
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
+      }
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="dp-panel">
+    <div class="dp-header">
+      <span class="material-symbols-outlined dp-icon">monitor_heart</span>
+      <div><h2>Pharmacology</h2><p class="dp-sub">Receptor binding, dose-response, Schild, operational model, selectivity, in-vivo design</p></div>
+    </div>
+    <div class="dp-tabs">
+      <button class="dp-tab" :class="{active:$store.pharmacologyModal.activeTab==='binding'}" @click="$store.pharmacologyModal.activeTab='binding'">Receptor Binding</button>
+      <button class="dp-tab" :class="{active:$store.pharmacologyModal.activeTab==='dr'}" @click="$store.pharmacologyModal.activeTab='dr'">Dose-Response</button>
+      <button class="dp-tab" :class="{active:$store.pharmacologyModal.activeTab==='schild'}" @click="$store.pharmacologyModal.activeTab='schild'">Schild</button>
+      <button class="dp-tab" :class="{active:$store.pharmacologyModal.activeTab==='op'}" @click="$store.pharmacologyModal.activeTab='op'">Operational</button>
+      <button class="dp-tab" :class="{active:$store.pharmacologyModal.activeTab==='sel'}" @click="$store.pharmacologyModal.activeTab='sel'">Selectivity</button>
+      <button class="dp-tab" :class="{active:$store.pharmacologyModal.activeTab==='rdb'}" @click="$store.pharmacologyModal.activeTab='rdb'">Receptor DB</button>
+      <button class="dp-tab" :class="{active:$store.pharmacologyModal.activeTab==='iv'}" @click="$store.pharmacologyModal.activeTab='iv'">In-Vivo Design</button>
+    </div>
+    <div class="dp-body">
+      <div x-show="$store.pharmacologyModal.error" class="dp-error" x-text="$store.pharmacologyModal.error"></div>
+      <div x-show="$store.pharmacologyModal.loading" class="dp-loading"><div class="dp-spinner"></div> Computing...</div>
+
+      <!-- Receptor Binding -->
+      <div x-show="$store.pharmacologyModal.activeTab==='binding'">
+        <div class="dp-card">
+          <h3>Radioligand Saturation Binding → Kd, Bmax</h3>
+          <p class="dp-help">Specific binding = Total − Nonspecific. Returns Kd (affinity), Bmax (density), Scatchard & Hill plots.</p>
+          <label class="dp-label">Radioligand [L] (nM, comma):</label>
+          <input type="text" x-model="$store.pharmacologyModal.rbConc" class="dp-input" placeholder="0.1,0.3,1,3,10,30" />
+          <label class="dp-label">Total binding (fmol/mg):</label>
+          <input type="text" x-model="$store.pharmacologyModal.rbTotal" class="dp-input" placeholder="120,240,480,720,960,1080" />
+          <label class="dp-label">Nonspecific binding (optional, same length):</label>
+          <input type="text" x-model="$store.pharmacologyModal.rbNs" class="dp-input" placeholder="40,80,140,200,260,310" />
+          <button class="dp-btn" @click="$store.pharmacologyModal.runBinding()" :disabled="$store.pharmacologyModal.loading">Analyze Binding</button>
+          <template x-if="$store.pharmacologyModal.rbResult">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">Kd</span><span class="dp-stat-val good" x-text="($store.pharmacologyModal.rbResult.Kd_nM||'—') + ' nM'"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Bmax</span><span class="dp-stat-val" x-text="($store.pharmacologyModal.rbResult.Bmax||'—') + ' fmol/mg'"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">R²</span><span class="dp-stat-val" x-text="$store.pharmacologyModal.rbResult.R2_fit"></span></div>
+              <div class="dp-stat" x-show="$store.pharmacologyModal.rbResult.hill_plot"><span class="dp-stat-label">Hill nH</span><span class="dp-stat-val" x-text="$store.pharmacologyModal.rbResult.hill_plot?.nH"></span></div>
+              <div class="dp-interpret" x-text="$store.pharmacologyModal.rbResult.interpretation"></div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Dose-Response -->
+      <div x-show="$store.pharmacologyModal.activeTab==='dr'">
+        <div class="dp-card">
+          <h3>Dose-Response Curve (4PL) → EC50 / IC50</h3>
+          <p class="dp-help">4-parameter logistic fit. Use direction to set agonist (EC50) or inhibitor (IC50).</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <select x-model="$store.pharmacologyModal.drDirection" class="dp-input" style="flex:1">
+              <option value="agonist">Agonist (EC50, increasing)</option>
+              <option value="inhibitor">Inhibitor (IC50, decreasing)</option>
+            </select>
+            <input type="text" x-model="$store.pharmacologyModal.drUnit" class="dp-input" placeholder="µM" style="width:80px" />
+          </div>
+          <label class="dp-label">Doses (comma):</label>
+          <input type="text" x-model="$store.pharmacologyModal.drDose" class="dp-input" placeholder="0.1,0.3,1,3,10,30,100" />
+          <label class="dp-label">Responses (comma):</label>
+          <input type="text" x-model="$store.pharmacologyModal.drResp" class="dp-input" placeholder="5,12,28,52,78,92,98" />
+          <button class="dp-btn" @click="$store.pharmacologyModal.runDoseResponse()" :disabled="$store.pharmacologyModal.loading">Fit Curve</button>
+          <template x-if="$store.pharmacologyModal.drResult">
+            <div class="dp-result">
+              <template x-for="(v,k) in {EC50:$store.pharmacologyModal.drResult.EC50, IC50:$store.pharmacologyModal.drResult.IC50}" :key="k">
+                <div class="dp-stat" x-show="v !== null && v !== undefined"><span class="dp-stat-label" x-text="k"></span><span class="dp-stat-val good" x-text="v + ' ' + $store.pharmacologyModal.drResult.EC50_unit"></span></div>
+              </template>
+              <div class="dp-stat"><span class="dp-stat-label">Hill slope</span><span class="dp-stat-val" x-text="$store.pharmacologyModal.drResult.hill_slope"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">R²</span><span class="dp-stat-val" x-text="$store.pharmacologyModal.drResult.R2"></span></div>
+              <div class="dp-stat" x-show="$store.pharmacologyModal.drResult.EC90"><span class="dp-stat-label">EC90/IC90</span><span class="dp-stat-val" x-text="($store.pharmacologyModal.drResult.EC90||$store.pharmacologyModal.drResult.IC90)"></span></div>
+              <div class="dp-interpret" x-text="$store.pharmacologyModal.drResult.interpretation"></div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Schild -->
+      <div x-show="$store.pharmacologyModal.activeTab==='schild'">
+        <div class="dp-card">
+          <h3>Schild Analysis → pA2, KB, Schild slope</h3>
+          <p class="dp-help">Antagonist potency. Slope ≈ 1 = competitive antagonism.</p>
+          <label class="dp-label">Antagonist [B] (M, comma):</label>
+          <input type="text" x-model="$store.pharmacologyModal.scConc" class="dp-input" placeholder="1e-9,1e-8,1e-7,1e-6" />
+          <label class="dp-label">EC50 without antagonist:</label>
+          <input type="number" step="any" x-model="$store.pharmacologyModal.scEc50Control" class="dp-input" placeholder="1.0" />
+          <label class="dp-label">EC50 shifted (one per [B]):</label>
+          <input type="text" x-model="$store.pharmacologyModal.scEc50Shifted" class="dp-input" placeholder="1.5,8,45,250" />
+          <button class="dp-btn" @click="$store.pharmacologyModal.runSchild()" :disabled="$store.pharmacologyModal.loading">Analyze</button>
+          <template x-if="$store.pharmacologyModal.scResult">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">pA2</span><span class="dp-stat-val good" x-text="$store.pharmacologyModal.scResult.pA2"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">pKB</span><span class="dp-stat-val" x-text="$store.pharmacologyModal.scResult.pKB"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">KB</span><span class="dp-stat-val" x-text="$store.pharmacologyModal.scResult.KB_M + ' M'"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Schild slope</span><span class="dp-stat-val" x-text="$store.pharmacologyModal.scResult.schild_slope"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">R²</span><span class="dp-stat-val" x-text="$store.pharmacologyModal.scResult.R2"></span></div>
+              <div class="dp-interpret" x-text="$store.pharmacologyModal.scResult.mechanism"></div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Operational Model -->
+      <div x-show="$store.pharmacologyModal.activeTab==='op'">
+        <div class="dp-card">
+          <h3>Black-Leff Operational Model → τ, KA</h3>
+          <p class="dp-help">Separates efficacy (τ) from affinity (KA). Requires observed vs system max.</p>
+          <label class="dp-label">System Emax (max possible response):</label>
+          <input type="number" step="any" x-model="$store.pharmacologyModal.opEmaxSys" class="dp-input" placeholder="100" />
+          <label class="dp-label">Observed EC50 of agonist:</label>
+          <input type="number" step="any" x-model="$store.pharmacologyModal.opEc50" class="dp-input" placeholder="2.5" />
+          <label class="dp-label">Observed Emax of agonist:</label>
+          <input type="number" step="any" x-model="$store.pharmacologyModal.opEmaxAg" class="dp-input" placeholder="85" />
+          <button class="dp-btn" @click="$store.pharmacologyModal.runOperational()" :disabled="$store.pharmacologyModal.loading">Estimate τ, KA</button>
+          <template x-if="$store.pharmacologyModal.opResult">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">τ (efficacy)</span><span class="dp-stat-val good" x-text="$store.pharmacologyModal.opResult.tau"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">KA (affinity)</span><span class="dp-stat-val" x-text="$store.pharmacologyModal.opResult.KA"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Emax ratio</span><span class="dp-stat-val" x-text="$store.pharmacologyModal.opResult.emax_ratio"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Class</span><span class="dp-stat-val" x-text="$store.pharmacologyModal.opResult.efficacy_classification"></span></div>
+              <div class="dp-interpret" x-text="$store.pharmacologyModal.opResult.receptor_reserve"></div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Selectivity -->
+      <div x-show="$store.pharmacologyModal.activeTab==='sel'">
+        <div class="dp-card">
+          <h3>Selectivity Ratio</h3>
+          <p class="dp-help">Format: Name:Kd, Name:Kd (lower = more potent). Aim for &gt;30× over off-targets.</p>
+          <input type="text" x-model="$store.pharmacologyModal.selTargets" class="dp-input" placeholder="Target-A:5, Target-B:250, Target-C:1200" style="margin-bottom:8px" />
+          <div style="display:flex;gap:8px">
+            <input type="text" x-model="$store.pharmacologyModal.selTherTarget" class="dp-input" placeholder="Therapeutic target (optional)" style="flex:1" />
+            <input type="text" x-model="$store.pharmacologyModal.selUnit" class="dp-input" placeholder="nM" style="width:70px" />
+          </div>
+          <button class="dp-btn" @click="$store.pharmacologyModal.runSelectivity()" :disabled="$store.pharmacologyModal.loading">Compute Selectivity</button>
+          <template x-if="$store.pharmacologyModal.selResult">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">Primary</span><span class="dp-stat-val good" x-text="$store.pharmacologyModal.selResult.primary_target"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Potency</span><span class="dp-stat-val" x-text="$store.pharmacologyModal.selResult.primary_potency"></span></div>
+              <template x-if="$store.pharmacologyModal.selResult.selectivity_table">
+                <div style="margin-top:8px">
+                  <template x-for="t in $store.pharmacologyModal.selResult.selectivity_table" :key="t.off_target">
+                    <div class="dp-row"><b x-text="t.off_target"></b>: <span x-text="t.fold_selective"></span> (<span x-text="t.therapeutic_relevance"></span>)</div>
+                  </template>
+                </div>
+              </template>
+              <div class="dp-interpret" x-text="$store.pharmacologyModal.selResult.interpretation"></div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Receptor DB -->
+      <div x-show="$store.pharmacologyModal.activeTab==='rdb'">
+        <div class="dp-card">
+          <h3>Receptor / Target Database</h3>
+          <p class="dp-help">25+ curated targets: GPCRs, kinases, ion channels, transporters, enzymes.</p>
+          <input type="text" x-model="$store.pharmacologyModal.rdbQuery" class="dp-input" placeholder="Search: name, family, indication (blank=all)" style="margin-bottom:8px" />
+          <button class="dp-btn" @click="$store.pharmacologyModal.loadReceptorDB()" :disabled="$store.pharmacologyModal.loading">Browse Database</button>
+          <template x-if="$store.pharmacologyModal.rdbResult">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">Matches</span><span class="dp-stat-val" x-text="($store.pharmacologyModal.rdbResult.count||$store.pharmacologyModal.rdbResult.receptors?.length) + ' / ' + $store.pharmacologyModal.rdbResult.total_in_db"></span></div>
+              <template x-for="r in ($store.pharmacologyModal.rdbResult.matches || $store.pharmacologyModal.rdbResult.receptors || [])" :key="r.name">
+                <div class="dp-row">
+                  <b x-text="r.name"></b> <span class="dp-tag" x-text="r.family"></span>
+                  <div class="dp-exc-detail"><b>Ligand:</b> <span x-text="r.endogenous"></span></div>
+                  <div class="dp-exc-detail"><b>Drugs:</b> <span x-text="r.therapeutics"></span></div>
+                  <div class="dp-exc-detail"><b>Indication:</b> <span x-text="r.indication"></span> · <b>Signal:</b> <span x-text="r.signal"></span></div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- In-Vivo Design -->
+      <div x-show="$store.pharmacologyModal.activeTab==='iv'">
+        <div class="dp-card">
+          <h3>In-Vivo Study Design</h3>
+          <p class="dp-help">Animal model selection + group sizing power analysis (Lehr's formula) + dosing.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <select x-model="$store.pharmacologyModal.ivEndpoint" class="dp-input" style="flex:1">
+              <option value="anti-inflammatory">Anti-inflammatory</option>
+              <option value="analgesic">Analgesic</option>
+              <option value="antidiabetic">Antidiabetic</option>
+              <option value="stroke">Stroke</option>
+              <option value="anticancer">Anticancer</option>
+            </select>
+            <select x-model="$store.pharmacologyModal.ivSpecies" class="dp-input" style="width:100px">
+              <option value="rat">Rat</option>
+              <option value="mouse">Mouse</option>
+              <option value="rabbit">Rabbit</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <input type="number" step="0.1" x-model="$store.pharmacologyModal.ivEffect" class="dp-input" placeholder="1.5" title="Cohen's d effect size" style="flex:1" />
+            <input type="number" step="0.01" x-model="$store.pharmacologyModal.ivAlpha" class="dp-input" placeholder="0.05" style="width:90px" title="alpha (significance)" />
+            <input type="number" step="0.05" x-model="$store.pharmacologyModal.ivPower" class="dp-input" placeholder="0.80" style="width:90px" title="power" />
+          </div>
+          <button class="dp-btn" @click="$store.pharmacologyModal.runInVivo()" :disabled="$store.pharmacologyModal.loading">Design Study</button>
+          <template x-if="$store.pharmacologyModal.ivResult">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">n per group</span><span class="dp-stat-val good" x-text="$store.pharmacologyModal.ivResult.power_analysis?.n_per_group"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Total animals</span><span class="dp-stat-val" x-text="$store.pharmacologyModal.ivResult.power_analysis?.total_animals"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Dose range</span><span class="dp-stat-val" style="font-size:0.55rem" x-text="$store.pharmacologyModal.ivResult.typical_dose_range"></span></div>
+              <div style="margin-top:8px"><b>Recommended models:</b></div>
+              <template x-for="m in ($store.pharmacologyModal.ivResult.models||[])" :key="m.name">
+                <div class="dp-row"><b x-text="m.name"></b> <span class="dp-tag" x-text="m.species"></span>
+                  <div class="dp-exc-detail"><b>Induction:</b> <span x-text="m.induction"></span></div>
+                  <div class="dp-exc-detail"><b>Readout:</b> <span x-text="m.readout"></span></div>
+                  <div class="dp-exc-detail"><b>Positive control:</b> <span x-text="m.positive_control"></span></div>
+                </div>
+              </template>
+              <div class="dp-interpret" x-text="$store.pharmacologyModal.ivResult.ethics_note"></div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+    <style>
+      .dp-panel{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background);font-family:inherit}
+      .dp-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--color-border);background:var(--color-panel)}
+      .dp-icon{font-size:24px;color:var(--color-primary)}
+      .dp-header h2{font-size:0.95rem;margin:0;font-weight:700;color:var(--color-text)}
+      .dp-sub{font-size:0.6rem;color:var(--color-text-muted);margin:0}
+      .dp-tabs{display:flex;gap:2px;padding:6px 8px;background:var(--color-panel);border-bottom:1px solid var(--color-border);overflow-x:auto;flex-shrink:0}
+      .dp-tab{padding:6px 10px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--color-text-muted);font-size:0.6rem;cursor:pointer;white-space:nowrap}
+      .dp-tab.active{color:var(--color-primary);border-bottom-color:var(--color-primary);font-weight:600}
+      .dp-tab:hover{color:var(--color-primary)}
+      .dp-body{flex:1;overflow-y:auto;padding:10px}
+      .dp-card{padding:12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;margin-bottom:8px}
+      .dp-card h3{font-size:0.78rem;margin:0 0 8px;color:var(--color-text)}
+      .dp-help{font-size:0.58rem;color:var(--color-text-muted);margin:0 0 8px}
+      .dp-label{display:block;font-size:0.6rem;color:var(--color-text);margin-top:6px;margin-bottom:2px}
+      .dp-input{width:100%;padding:6px 8px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-background);color:var(--color-text);font-size:0.62rem;box-sizing:border-box}
+      .dp-btn{margin-top:10px;padding:8px 16px;background:var(--color-primary);border:none;border-radius:6px;color:white;font-size:0.65rem;cursor:pointer;font-weight:600}
+      .dp-btn:disabled{opacity:0.5;cursor:wait}
+      .dp-btn:hover:not(:disabled){background:color-mix(in srgb,var(--color-primary)85%,black)}
+      .dp-result{margin-top:12px;padding:10px;background:color-mix(in srgb,var(--color-primary)4%,var(--color-background));border-radius:6px;border-left:3px solid var(--color-primary)}
+      .dp-stat{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:0.65rem}
+      .dp-stat-label{min-width:90px;font-weight:600;color:var(--color-text-muted);font-size:0.58rem}
+      .dp-stat-val{color:var(--color-text);font-weight:600}
+      .dp-stat-val.good{color:#22c55e}
+      .dp-row{padding:6px 8px;background:var(--color-background);border:1px solid var(--color-border);border-radius:5px;margin-top:6px;font-size:0.6rem}
+      .dp-exc-detail{font-size:0.55rem;color:var(--color-text-muted);margin-top:2px}
+      .dp-tag{font-size:0.5rem;padding:1px 6px;background:color-mix(in srgb,var(--color-primary)10%,transparent);border-radius:3px;color:var(--color-primary);margin-left:4px}
+      .dp-interpret{margin-top:8px;font-size:0.58rem;color:var(--color-text);font-style:italic;border-top:1px dashed var(--color-border);padding-top:6px}
+      .dp-error{padding:8px;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.2);border-radius:6px;color:#ff6b6b;font-size:0.62rem;margin-bottom:8px}
+      .dp-loading{display:flex;align-items:center;gap:8px;padding:8px;font-size:0.62rem;color:var(--color-text-muted)}
+      .dp-spinner{width:14px;height:14px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:dp-spin 0.8s linear infinite}
+      @keyframes dp-spin{to{transform:rotate(360deg)}}
+    </style>
+  </div>
+</body>
+</html>
