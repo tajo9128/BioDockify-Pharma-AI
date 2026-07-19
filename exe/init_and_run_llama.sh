@@ -16,7 +16,8 @@ if [ -f "$MODEL_PATH" ]; then
         echo "[llama] Starting BioDockify AI Engine (Bonsai-8B, 1-bit)..."
         echo "[llama] Model: $MODEL_PATH ($((ACTUAL_SIZE/1024/1024)) MB)"
         echo "[llama] Endpoint: http://localhost:8080/v1 (OpenAI-compatible)"
-        exec llama-server \
+        export LD_LIBRARY_PATH=/opt/llama-server:${LD_LIBRARY_PATH:-}
+        exec /opt/llama-server/llama-server \
             -m "$MODEL_PATH" \
             --host 0.0.0.0 \
             --port 8080 \

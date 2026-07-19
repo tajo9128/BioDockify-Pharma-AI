@@ -2,6 +2,23 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v7.5.8] - 2026-07-19
+
+### Fix: copy ALL llama.cpp shared libraries (not just the binary)
+
+v7.5.7's multi-stage build only copied `/app/llama-server` (the main
+binary) from the llama.cpp image. The binary requires ~30 shared
+libraries (libggml-cpu-*.so, libllama-*.so, libggml.so, etc.) that
+were missing, causing: `error while loading shared libraries:
+libllama-server-impl.so: cannot open shared object file`.
+
+Fix: copy the entire `/app/` directory from the llama-src stage to
+`/opt/llama-server/` in the BioDockify image. Run `ldconfig` to
+register the library path. Startup script sets `LD_LIBRARY_PATH` as
+a safety net. Binary accessible via symlink at `/usr/local/bin/llama-server`.
+
+This increases the image size by ~100 MB (the shared libraries) — expected.
+
 ## [v7.5.7] - 2026-07-19
 
 ### Local AI Engine bundled inside BioDockify — one `docker compose up` does everything

@@ -1,13 +1,21 @@
-# ─── Stage 1: Extract llama-server binary from official image ───
+# ─── Stage 1: Extract llama-server from official image ───
+# The llama.cpp server image has ~30 shared libraries (libggml-cpu-*.so,
+# libllama-*.so, etc.) alongside the main binary. We copy the ENTIRE /app/
+# directory to ensure all dependencies are present.
 FROM ghcr.io/ggml-org/llama.cpp:server AS llama-src
 
 # ─── Stage 2: BioDockify Pharma AI ───
 FROM tajo9128/biodockify-pharma-ai:v7.0.7
 
-# ─── Bundle llama-server from Stage 1 ───
-COPY --from=llama-src /app/llama-server /usr/local/bin/llama-server
-RUN chmod +x /usr/local/bin/llama-server && \
-    echo "llama-server bundled: $(llama-server --version 2>&1 | head -1)" || true
+# ─── Bundle entire llama-server runtime from Stage 1 ───
+# Copy all shared libraries + binary from /app/ to /opt/llama-server/
+# Then create a symlink so 'llama-server' is on PATH.
+COPY --from=llama-src /app/ /opt/llama-server/
+RUN chmod +x /opt/llama-server/llama-server && \
+    ln -sf /opt/llama-server/llama-server /usr/local/bin/llama-server && \
+    echo "/opt/llama-server" > /etc/ld.so.conf.d/llama-server.conf && \
+    ldconfig && \
+    echo "llama-server bundled: $(ls /opt/llama-server/*.so | wc -l) shared libraries"
 
 # ─── Install libgomp1 (OpenMP runtime for llama-server CPU inference) ───
 RUN apt-get update -qq && apt-get install -y -qq libgomp1 2>/dev/null && \
