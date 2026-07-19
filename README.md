@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://hub.docker.com/r/tajo9128/biodockify-pharma-ai"><img src="https://img.shields.io/badge/docker-tajo9128%2Fbiodockify--pharma--ai-blue.svg" alt="Docker"/></a>
-  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v7.5.2-green.svg" alt="Version"/></a>
+  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v7.5.8-green.svg" alt="Version"/></a>
   <a href="https://github.com/tajo9128/BioDockify-Pharma-AI"><img src="https://img.shields.io/badge/GitHub-BioDockify--Pharma--AI-181717?style=flat&logo=github" alt="GitHub"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"/></a>
   <a href="docs/user-guide/README.md"><img src="https://img.shields.io/badge/docs-user%20guide-lightgrey.svg" alt="Documentation"/></a>
@@ -16,7 +16,7 @@
   <img src="assets/screenshot.png" alt="BioDockify Pharma AI Screenshot" width="800">
 </p>
 
-**BioDockify Pharma AI** is a pharmaceutical research platform built on the **Agent Zero v2.0** core, with **25+ integrated modules** covering all 8 pharmacy departments. It features AutoDock Vina molecular docking with MM-GBSA free energy scoring, OpenMM molecular dynamics (MD Lite), SPSS/jamovi-level biostatistics (20+ analysis types), a 25-stage autonomous research pipeline, literature search across 10 databases with automatic full-text retrieval, QSAR modeling, pharmacophore screening, 7 department modules (Pharmaceutics, Clinical Pharmacy, Pharma Analysis, Natural Products, Regulatory Affairs, **Pharmacology**, **Medicinal Chemistry**), a Knowledge Base redesigned as Open Notebook LM (notebooks, 3-column layout, AI transformations, podcast), an Academic Writer that pulls real sources from the KB to write theses/reviews, a 36,145-journal recommender, 4 AI sub-agents, and bulletproof backup to PC.
+**BioDockify Pharma AI** is a pharmaceutical research platform built on the **Agent Zero v2.0** core, with **25+ integrated modules** covering all 8 pharmacy departments. It features a **bundled local AI engine** (Bonsai-8B, 1-bit, runs offline with zero cloud dependency), AutoDock Vina molecular docking with MM-GBSA free energy scoring, OpenMM molecular dynamics (MD Lite), **56 biostatistics analysis types** (SPSS/jamovi-level), a 25-stage autonomous research pipeline, literature search across 10 databases with automatic full-text retrieval, QSAR modeling, pharmacophore screening, 8 department modules (Pharmaceutics, Clinical Pharmacy, Pharma Analysis, Natural Products, Regulatory Affairs, Pharmacology, Medicinal Chemistry), a Knowledge Base redesigned as Open Notebook LM, an Academic Writer with pharma-specific claim verification and ICH compliance checks, a 36,145-journal recommender, 4 AI sub-agents, and bulletproof backup to PC.
 
 ---
 
@@ -32,22 +32,41 @@
 
 ## Features
 
+### BioDockify AI Engine — Local LLM (NEW in v7.5.8)
+
+**Runs fully offline. No cloud. No API spend. No PHI/compound data egress.**
+
+| Feature | Details |
+|---------|---------|
+| **Model** | [Bonsai-8B](https://huggingface.co/prism-ml/Bonsai-8B-gguf) — 1-bit, ~1.15 GB, 64K context, Apache-2.0 license |
+| **Engine** | [llama.cpp](https://github.com/ggml-org/llama.cpp) server, bundled inside the BioDockify Docker image |
+| **Setup** | `docker compose up -d` — that's it. Model auto-downloads on first run (~1.1 GB, one-time). |
+| **Endpoint** | `http://localhost:8080/v1` (OpenAI-compatible, LiteLLM via `lm_studio` provider) |
+| **Pharma Prompt Library** | 8 domain templates: Literature Review, MOA Explanation, Docking Interpretation, ADMET Analysis, Claim Verification (JSON), Thesis Drafting (IMRaD), ICH Compliance (CONSORT/STROBE/PRISMA/ARRIVE) |
+| **In-app panel** | Right-canvas rail → "BioDockify AI Engine" (brain icon) → 4 tabs: Status, Models, Runtimes, Benchmark |
+| **Benchmark** | Built-in tok/s test with Good/OK/Slow verdict using a pharma-specific prompt |
+| **Model catalog** | Data-driven (`modules/local_llm/models.json`) — adding Gemma/Phi/Qwen is a one-line JSON edit, zero code changes |
+| **Runtime registry** | Data-driven (`modules/local_llm/runtimes.json`) — 5 backends: bundled llama.cpp, host Ollama, host LM Studio, future vLLM, future MLX |
+| **Preset** | "BioDockify AI Engine — Local (Bonsai-8B)" — one click in Settings → Models |
+| **Privacy** | No telemetry, no egress, HIPAA/GDPR friendly, fully reproducible thesis work |
+| **Smoke tests** | 27/27 pass (`tests/test_local_llm.py`) — guards against image, filename, namespace, schema regressions |
+
 ### 22 Consolidated Research Modules
 
 | # | Module | Function | Backend |
 |---|--------|----------|---------|
 | 1 | **Research Command Center** | Auto-research pipeline + Literature Search + Wet Lab tracking | 23 REST endpoints |
 | 2 | **Molecular Toolkit** | ADMET + Docking (Vina + MM-GBSA) + Inline 3D Analysis (interactions, clusters, residue energy) | RDKit + Vina + Meeko |
-| 3 | **Statistics** | 20 analysis types + auto-analyze (descriptive/correlation/group/normality) + data transform | scipy + pandas + matplotlib |
-| 4 | **Academic Writer** | 8-tab: Lit Review, Paper, Thesis (PhD/M.Pharm/B.Pharm/Pharm.D), Grant, Regulatory, Citation, Lecture, Slides + **"Use KB Sources"** button (loads by category, 100K char budget, real citations from KB) | Thesis + Slides + Grant APIs + KB integration |
+| 3 | **Statistics** | **56 analysis types** + auto-analyze + PDF report with BioDockify letterhead | scipy + pandas + matplotlib |
+| 4 | **Academic Writer** | 8-tab: Lit Review, Paper, Thesis (PhD/M.Pharm/B.Pharm/Pharm.D), Grant, Regulatory, Citation, Lecture, Slides + **"Use KB Sources"** button (loads by category, 100K char budget, real citations from KB) + **Pharma Scorecard** (8 dimensions) + **Claim Verification** (6 pharma claim types) | Thesis + Slides + Grant APIs + KB integration |
 | 5 | **Faculty CMD** | 9 tabs: Syllabus, Lectures, Tasks, Semester, Lesson, Notes, Slides, Plagiarism, Questions | faculty_tools |
 | 6 | **Journal Finder** | 36,145 journals + verify + deep research + fake detector + dossier | journals.db + 6 live APIs |
 | 7 | **QSAR Modeler** | 6 regression + 3 classification, batch predict, read-across, feature selection | RDKit + scikit-learn |
 | 8 | **Pharmacophore** | 5 tabs: Protein-based, Screen, Batch, Models, Target ID | RDKit |
 | 9 | **Drug Analysis** | 3Dmol.js viewer + Properties (hERG/AMES/pKa/BBB) + Filters + Optimization + PubChem | RDKit + PubChem |
 | 10 | **Docking Analysis** | 3D receptor+ligand viewer, interactions, PLIF, clusters, external file upload | 3Dmol.js + RDKit |
-| 11 | **Knowledge Base** | Open Notebook LM-style: Notebooks, Sources | Notes | Chat, AI transformations, podcast, source filters (by module + time), category sidebar, DOCX export, full text extraction (PDF/DOCX/XLSX) | auto_store |
-| 12 | **MD Lite** | OpenMM molecular dynamics, GPU-accelerated (CUDA/OpenCL), 24-48hr background runs with auto-resume | OpenMM + MDTraj |
+| 11 | **Knowledge Base** | Open Notebook LM-style: Notebooks, Sources, Notes, Chat, AI transformations, podcast, source filters (by module + time), category sidebar, DOCX export, full text extraction (PDF/DOCX/XLSX) | auto_store |
+| 12 | **MD Lite** | OpenMM molecular dynamics, GPU-accelerated (CUDA/OpenCL), 24-48hr background runs with auto-resume + **PDBFixer protein preparation** | OpenMM + MDTraj |
 | 13 | **System Health** | Platform-aware health badges (Vina/MM-GBSA/RDKit/Meeko), Docker vs Windows | health.py |
 | 14 | **Deep Research** | 5-database collection (PubMed, S2, Crossref, OpenAlex, arXiv), relevance scanning | 5 live APIs |
 | 15 | **Backup & Recovery** | Full system backup/restore + Save to PC + Restore from PC + daily auto-backup | backup APIs |
@@ -56,9 +75,33 @@
 | 18 | **Pharma Analysis** | ICH Q2(R2) validation, f2, forced degradation, chromatography, LOD/LOQ | ICH methods |
 | 19 | **Natural Products** | Phytochemical screening (7 classes), extraction yield, IC50 4PL, plant DB, dereplication | RDKit |
 | 20 | **Regulatory Affairs** | eCTD/CTD structure, 40+ ICH guidelines, stability planner, BE report, IND/NDA checklists | ICH database |
-| 21 | **Pharmacology** | Receptor binding (Kd/Bmax), dose-response 4PL (EC50/IC50), Schild pA2, operational model (τ/KA), selectivity, receptor DB, in-vivo design | scipy + RDKit |
+| 21 | **Pharmacology** | Receptor binding (Kd/Bmax), dose-response 4PL (EC50/IC50), Schild pA2, operational model (τ/KA), selectivity, receptor DB, in-vivo design, **NCA PK/PD analysis** | scipy + RDKit |
 | 22 | **Medicinal Chemistry** | Murcko scaffolds, MMPA, Butina clustering, SMARTS search, SA score, retrosynthesis, named reactions, protecting groups, toxicophore scan, stereo analysis | RDKit |
 | — | **All Tools** | Quick-launch grid for all modules | N/A |
+
+### Statistics — 56 Analysis Types (SPSS/jamovi-level)
+
+| Category | Analysis Types |
+|----------|---------------|
+| **Core (v7.0.6)** | descriptive, correlation, ttest, anova, chisquare, mannwhitney, wilcoxon, kruskalwallis, friedman, fisher, normality, homogeneity, roc, power, survival, pdf_report |
+| **Post-hoc (v7.5.3)** | tukey_hsd, bonferroni_posthoc, dunnett_posthoc, scheffe_posthoc, dunns |
+| **Parametric (v7.5.3)** | z_test, ancova, manova, repeated_measures_anova, mixed_effects, mixed_model, glm |
+| **Non-parametric (v7.5.3)** | sign_test, mcnemar, cmh |
+| **Chi-square (v7.5.3)** | chi_square_goodness, chi_square_independence |
+| **Regression (v7.5.3)** | logistic_regression, poisson_regression, negative_binomial, multiple_regression, polynomial_regression |
+| **Survival (v7.5.3)** | kaplan_meier, log_rank, cox_ph |
+| **Equivalence (v7.5.3)** | tost, crossover, bioavailability, non_inferiority, equivalence |
+| **PK/PD (v7.5.3)** | nca_pk, auc, cmax_tmax, half_life, clearance, pk_bioavailability, pd_response, compartmental, dose_proportionality, pk_summary |
+| **Meta-analysis (v7.5.3)** | meta_analysis |
+
+### Academic Writer — Pharma-Specific Enhancements
+
+| Feature | Description |
+|---------|-------------|
+| **KB Sources Integration** | "Use KB Sources" button loads articles by category (literature, docking, pharmacology, etc.) with 100K char budget |
+| **Pharma Scorecard** | 8-dimension quality score: Study Design Rigor (20%), Statistical Analysis (15%), Safety Reporting (15%), Efficacy Evidence (15%), PK/PD Integration (10%), Regulatory Compliance (10%), Citation Quality (10%), Writing Clarity (5%) |
+| **Claim Verification** | 6 pharma claim types: efficacy, safety, PK/PD, mechanism, comparative, dosing. Verdict: SUPPORTED/CONTRADICTED/INSUFFICIENT/HALLUCINATED |
+| **ICH Compliance** | CONSORT (RCTs), STROBE (observational), PRISMA (systematic reviews), ARRIVE (animal studies), ICH E3 (clinical study reports), ICH M4 (CTD structure) |
 
 ### Merged Modules (Accessible via Parent Dashboards)
 
@@ -75,6 +118,7 @@
 | Slides Generator | Faculty CMD → Slides tab |
 | Lecture Builder | Faculty CMD → Lectures tab |
 | Docking Deep Analysis | Molecular Toolkit → Analysis tab |
+| PK/PD Dashboard | Pharmacology → NCA tab |
 
 ### MM-GBSA Free Energy Scoring
 
@@ -89,217 +133,48 @@ After AutoDock Vina completes, MM-GBSA free energy scoring runs automatically (C
 
 Output: Per-pose MM-GBSA energies, Z-scores, and consensus with Vina (`0.4*Vina_Z + 0.6*MMGBSA_Z`). Displayed as a table in the Docking results.
 
-### Docking Input Formats
-
-Molecular Toolkit docking accepts multiple formats via RDKit + OpenBabel conversion:
-
-| File | Accepted Formats |
-|------|-----------------|
-| Protein | `.pdb`, `.pdbqt`, `.ent`, `.mol2`, `.cif` |
-| Ligand | `.smi` (SMILES), `.sdf`, `.mol`, `.pdb`, `.mol2` |
-
-Both protein and ligand are auto-converted to PDBQT for Vina docking.
-
 ### 4 Specialized Sub-Agents
 
 | Agent | Role | Tools |
 |-------|------|-------|
 | **Researcher** | Deep research, literature synthesis, drug discovery | 10 literature APIs, PRISMA screening, BioNER, web scraping, patent/trial APIs |
-| **Biostatistician** | SPSS-level analysis, clinical trials, PK/PD modeling | 20 analysis types, 8 chart types, data transform/reduction, PCA, survival, meta-analysis |
-| **Writer** | Academic writing, thesis, papers, slides, lectures, journal selection | All writing APIs, 36,145-journal database |
+| **Biostatistician** | SPSS-level analysis, clinical trials, PK/PD modeling | 56 analysis types, 8 chart types, data transform/reduction, PCA, survival, meta-analysis |
+| **Writer** | Academic writing, thesis, papers, slides, lectures, journal selection | All writing APIs, 36,145-journal database, pharma scorecard, claim verification |
 | **Hacker** | Code execution, web scraping, automation, debugging | Python/JS execution, browser tools, system repair |
 
 ---
 
-## Research Workflow
+## Quick Start — One Command
 
-```
-User Request
-     ↓
-Agent0 (Main Orchestrator)
-     ↓
-├─→ Researcher ─→ Hacker (if blocked)
-│         ↓
-│    Biostatistician (SPSS-level stats) + QSAR (predictions)
-│         ↓
-│    Pharmacophore (feature detection)
-│         ↓
-├─→ Molecular Toolkit (Docking: Vina → MM-GBSA)
-│         ↓
-│    Deep Analysis (3D View, Interactions, Clusters)
-│         ↓
-├─→ Pipeline Engine (25-stage autonomous workflow)
-│    Debate → Experiment → Self-Heal → Verify → Quality Gate → HITL
-│         ↓
-└─→ Writer (output) + Journal Recommender (36,145 journals) + Mol Optimizer
-```
+### Students: just run `docker compose up -d` and open http://localhost
 
----
-
-## What's New in v7.5.1
-
-### Complete Research Pipeline: Literature → Knowledge Base → Academic Writer
-The full pipeline now works end-to-end — every research output flows into the Knowledge Base by category, and the Academic Writer pulls real sources to write theses/reviews:
-- **Literature Search**: 10 databases (PubMed, Semantic Scholar, Europe PMC, arXiv, bioRxiv, etc.) with automatic full-text retrieval via 3-tier fetch (Europe PMC → PDF → Hacker Agent)
-- **Deep Research**: Multi-database comprehensive gathering (50-300 papers) with deduplication and relevance scoring
-- **Agent Tool Prompts**: 7 new tool prompts teach the agent how to call research modules (literature_search, deep_research, docking_run, md_lite, statistics_analyze, admet_predict, drug_analysis) — agent no longer fabricates data
-- **Academic Writer KB Integration**: New "Use KB Sources" UI with category dropdown (literature, deep_research, docking, etc. kept SEPARATE), 100K char budget (full text → abstracts → titles priority), writer prompt includes "Cite ONLY from KB sources — do not fabricate"
-- **800-char abstract truncation removed**: Full abstracts now stored (was silently truncating all PubMed results)
-- **PubMed crash fixed**: `_batch_resolve_pmcids` was referenced but never defined — literature_search silently returned 0 papers on every search
-- **KB Storage fix**: 3 modules (literature_search, deep_research, faculty_tools) used a Flask-bound import that fails in the agent environment — replaced with stdlib-only `auto_store`
-
-### 7 New Department Modules (v7.5.0)
-All 8 departments from the thesis structure enum now have dedicated modules:
-
-| Department | Module | Key Actions |
-|-----------|--------|-------------|
-| **Pharmaceutics** | `formulation.py` | Release kinetics (5 models), dissolution f2, nanoparticle characterization, ICH stability prediction, excipient database, DOE/RSM optimization |
-| **Clinical Pharmacy** | `clinical.py` | Drug-drug interactions (15 pairs), therapeutic drug monitoring (TDM), renal dose adjustment (CKD-EPI 2021), hepatic (Child-Pugh), Naranjo ADR causality |
-| **Pharma Analysis** | `pharma_analysis.py` | ICH Q2(R2) method validation, dissolution f2, forced degradation, chromatography resolution/tailing/capacity, LOD/LOQ (S/N + std deviation) |
-| **Natural Products** | `natural_products.py` | Phytochemical screening (7 classes), extraction yield (4 methods), IC50 4PL fitting, plant database (6 medicinal plants), dereplication, selectivity index |
-| **Regulatory Affairs** | `regulatory_enhanced.py` | ICH M4 eCTD structure, 40+ ICH guidelines database, ICH stability planner, bioequivalence report (90% CI), IND/NDA/ANDA checklists |
-| **Pharmacology** (NEW) | `pharmacology.py` | Receptor binding (Kd/Bmax/Scatchard/Hill), dose-response 4PL (EC50/IC50), Schild pA2/KB, Black-Leff operational model (τ/KA), selectivity ratios, 25+ receptor database, in-vivo study design (5 endpoints + power analysis) |
-| **Medicinal Chemistry** (NEW) | `medicinal_chemistry.py` | Murcko scaffold extraction, Matched Molecular Pair Analysis (MMPA), Butina clustering + diversity picking, SMARTS substructure search, synthetic accessibility score, retrosynthesis (10 disconnection motifs), 30+ named reactions database, 20+ protecting groups database, toxicophore scan (15 alerts), stereochemistry analysis (R/S, E/Z) |
-
-### Knowledge Base — Open Notebook LM Features
-- **Notebooks**: Create notebooks, add KB sources with context levels (full/summary/off), write notes (manual + AI-authored)
-- **3-Column Layout**: Sources | Notes | Chat — identical to Open Notebook LM
-- **AI Transformations**: Summarize, Key Findings, Critical Analysis, Timeline
-- **Podcast Generation**: From notebook sources with configurable speakers, format (interview/discussion/lecture), tone, length
-- **Per-Notebook Chat**: Full notebook context sent to Agent Zero
-- **DOCX export**: Every KB entry generates both .md (fast read) and .docx (downloadable)
-- **Source filters**: All/7d/30d time filter + source module dropdown (Literature, Docking, QSAR, etc.)
-- **File upload with text extraction**: PDF (PyMuPDF), DOCX (python-docx), XLSX (openpyxl) — every uploaded file is readable
-
-### Backup & Recovery — Bulletproof (v7.5.1)
-**CRITICAL FIX**: Every existing backup was 0.0 MB empty. 3 years of PhD research was not captured. All fixed:
-- **All 3 data locations captured**: `/a0/usr` (workspace), `/a0/.a0proj` (agent memory), `/a0/data` (knowledge base)
-- **Backups visible on PC**: Container created with `-v C:/Users/biodo/biodockify-backups:/a0/usr/backups` — backups appear directly in Windows Explorer
-- **Save to PC button**: Real download flow (fetch → blob → browser download) — no longer just a tooltip
-- **Restore from PC button**: Upload .zip → auto-restore with correct path extraction
-- **Restore buttons work**: Fixed `has_archive` → `has_zip` field name mismatch
-- **Daily auto-backup**: Cron job at 3 AM + on-startup backup after 60s delay
-- **Keeps last 7 auto-backups**, prunes older ones
-- **`backup-data.bat`**: Fixed wrong volume name + now captures all 3 locations
-- **`restore-data.bat`**: New companion script for PC-side restore
-- **Dockerfile VOLUME**: Now declares `/a0/.a0proj` and `/a0/data` alongside `/a0/usr`
-
-### PAINS FilterCatalog Upgrade
-- Replaced 8 hardcoded SMARTS patterns with RDKit FilterCatalog full set (~480 patterns: PAINS_A + PAINS_B + PAINS_C)
-- Fallback to basic patterns if FilterCatalog unavailable
-
-### ADMET Science-Based Models
-- BBB: BOILED-Egg model (Wager 2010) — TPSA + LogP threshold
-- hERG: pkCSM-inspired weighted score (MW + LogP + HBD + TPSA + aromatic rings)
-- Bioavailability: SwissADME-style composite (was hard-coded "0.55")
-- CYP450: SMARTS-based metabolic soft spot detection (1A2, 2C9, 2C19, 2D6, 3A4)
-- Plasma Protein Binding: Valko 2001 LogP correlation
-
-### MM-GBSA Approximation Disclaimer
-- Renamed to "Approximate Binding Score" with clear documentation that it's NOT proper MM-GBSA
-- Scientific disclaimer added — honest about limitations
-
-### Full Article Retrieval
-- `FullTextRetriever` wired into literature_search and deep_research after every search
-- 3-tier retrieval: Europe PMC (open access) → PDF extraction → Hacker Agent (paywall bypass)
-- PMCID extraction added to PubMed search for Tier 1 Europe PMC full text
-
-## What's New in v7.0.6
-
-A major release: **Agent Zero v2.0 core** merged into BioDockify Pharma AI, plus jamovi-parity statistics and hardening across the pharma modules.
-
-### Agent Zero v2.0 Core
-- **LiteLLM transport layer** — broader provider compatibility, global config (`configure_litellm`, `set_litellm_params`, kwargs normalization/merge)
-- **Parallel tool calling** + **OpenAI Responses API** support in `agent.py`
-- **49 helpers updated** to v2.0 + **14 new helpers** (litellm_transport, parallel_tools, responses_tools, chat_media, ephemeral_images, media_artifacts, llm_result, tunnel helpers)
-- **Security-pinned dependencies**: `litellm==1.88.1` (CVE-2026-42271 fix), `starlette==1.0.1` (Host header validation fix)
-- Chat/storage layer version-matched (history metadata support)
-
-### Statistics — jamovi-parity (new)
-- **Bayesian suite** (`modules/statistics/bayesian.py`): Bayes factors (BF₁₀/BF₀₁) for t-test, ANOVA, correlation, regression; Bayesian binomial test (response rates, Phase II); posterior summaries with HDI; Lee & Wagenmakers evidence categories — the same engine jamovi uses (pingouin)
-- **PDF report export** (`modules/statistics/pdf_report.py`): BioDockify-letterhead PDFs with DNA-helix motif, formatted result tables, methodology + interpretation sections, GLP/GCP/FDA/EMA compliance footer. `POST /api/statistics/report/pdf`
-
-### Pharma Module Fixes
-- **MD Lite**: 4-bug fix — hydrogens added before solvent, protein-only NoCutoff validation, consistent topology/system atom counts, `neutralize=False` (resolves CL ion template errors), robust PDB sanitizer (CRYST1 synthesis, non-protein HETATM stripping)
-- **Pharmacophore**: all 16 actions verified passing; coordinate-format robustness (accepts both `[x,y,z]` list and `{x,y,z}` dict)
-
-### Rebrand & Hardening
-- **Rebrand corruption fixed** — zero `biodockify.ai` in any Python file (illegal dots in identifiers/imports/metric names repaired across 19 files)
-- **Update checker** points to BioDockify GitHub releases (not agent-zero server)
-- **Dockerfile.release**: copies v2.0 core files, extends rebrand sed to Python core, adds all pharma deps (biopython, lifelines, semanticscholar, pingouin, arviz, reportlab) to both venvs
-
-## What's New in v6.9.15
-
-- **7 bug fixes**: PK/PD API rewrite (correct PKPDAnalysis constructor), MD Lite forcefield fallback chain (5 combos), PRO/NPRO template mismatch (pH-aware hydrogens), PDB sanitization (malformed ATOM/HETATM), double solvation removed, Protein Prep download fix, Dockerfile statsmodels + sentence-transformers pre-cache
-- **Module removed**: Standalone Protein Prep — redundant with docking's built-in protein preparation (PDBFixer removed from Dockerfile)
-- **16 desktop modules**: PK/PD Dashboard added, Protein Prep removed
-
-## What's New in v6.9.12
-
-- **MD Lite module (#15)** — OpenMM molecular dynamics, GPU-accelerated (CUDA/OpenCL), 24-48hr background runs with auto-resume from checkpoint
-- **Statistics**: jamovi-level UX — editable table (50 rows), chip assignment, live update, APA tables, inline plots, Python syntax output
-- **15-module desktop** — MD Lite slotted below Molecular Toolkit
-- **Knowledge Base**: Recent documents tab showing 50 newest entries
-- **32+ bug fixes**: pagination index, Cohen's d, numpy serialization, slot conflicts, bare except, chart data flow
-
-## What's New in v6.9.5
-
-- **14-module desktop** — Knowledge Base + Notebook merged (5 tabs: Notebook, Chat, Library, Podcast, Notes)
-- **Knowledge Base**: NotebookLM paper cards with full reader, podcast generation (TTS), quick notes
-- **Faculty CMD**: 9 tabs including Questions generator (MCQ → True/False with Bloom's taxonomy)
-- **Statistics**: auto-analyze mode (one-click descriptive, correlation, group tests, normality)
-- **Docker**: simplified to `-p 80:80` open at `http://localhost`
-
----
-
-## Quick Start (Your Data Persists Forever)
-
-### ⚠️ CRITICAL: Volume Persistence — 3 Locations
-
-Your research data lives in 3 places inside the container. **All 3 must be mounted as volumes** to survive container deletion:
-
-| Volume | Container Path | What's Inside |
-|--------|---------------|---------------|
-| `biodockify_usr` | `/a0/usr` | Workspace, chats, projects, plugins, backups |
-| `biodockify_data` | `/a0/data` | Knowledge base, deep research sessions |
-| `biodockify_a0proj` | `/a0/.a0proj` | Agent memory (FAISS), instructions, project config |
-
-**Backups are stored at `/a0/usr/backups/`** — mount a host folder there to see them directly in Windows Explorer.
-
-### Prerequisites
-- **Docker Desktop** (Windows/macOS) or Docker Engine (Linux) — required
-- **An AI model** — pick one of:
-  - **Cloud** (default): any provider API key (OpenRouter, OpenAI, Anthropic, etc.), **or**
-  - **Local & private** (optional): the bundled **BioDockify AI Engine** runs Bonsai-8B on your own machine with **no cloud, no egress, no API spend**. Ideal for air-gapped labs, PHI case reports, and unpublished compound data. **Just run `docker compose up -d` — the model downloads automatically on first run.** See [docs/guides/bonsai-local-llm.md](docs/guides/bonsai-local-llm.md) or use host **Ollama** (see Installation guide).
-- 8GB+ RAM recommended (12GB+ for large docking jobs)
-
-### 1. Run with persistence (REQUIRED)
+That's it. BioDockify starts, the local AI engine (Bonsai-8B) auto-downloads on first run (~1.1 GB, one-time), and everything works offline.
 
 ```bash
-# Create backup folder first
-mkdir ~/biodockify-backups            # Linux / macOS
-mkdir C:\Users\biodo\biodockify-backups   # Windows (adjust username)
-
-# Run container with ALL 3 volumes + host backup mount
-docker run -d \
-  --name biodockify \
-  -p 80:80 \
-  -v biodockify_usr:/a0/usr \
-  -v biodockify_data:/a0/data \
-  -v biodockify_a0proj:/a0/.a0proj \
-  -v ~/biodockify-backups:/a0/usr/backups \
-  tajo9128/biodockify-pharma-ai:latest
-
+docker compose up -d
 # Visit http://localhost
+# Local AI downloads automatically on first start
+# Subsequent starts are instant
 ```
 
-> **If container is deleted and recreated with the SAME volume names, ALL data returns automatically.** Backups appear at `~/biodockify-backups` on your PC — visible in your file manager, survives even `docker volume rm`.
+### Prerequisites
 
----
+- **Docker Desktop** (Windows/macOS) or Docker Engine (Linux) — required
+- **8GB+ RAM** recommended (12GB+ for large docking jobs)
+- **Internet** — only needed for the one-time model download (~1.1 GB). After that, everything works fully offline.
 
-### 2. Or use Docker Compose
+### AI Model Options
 
-Save as `docker-compose.yml`:
+| Option | Setup | Privacy | Cost |
+|--------|-------|---------|------|
+| **BioDockify AI Engine** (Bonsai-8B) | Automatic — bundled inside the container | Full (no egress) | Free |
+| **Cloud providers** (OpenRouter, OpenAI, Anthropic, etc.) | Add API key in Settings → API Keys | Low (data sent to cloud) | Per-token |
+| **Host Ollama** | Install Ollama on host, configure in Settings | Full (no egress) | Free |
+| **Host LM Studio** | Install LM Studio on host, configure in Settings | Full (no egress) | Free |
+
+You can mix: Bonsai for main (offline) + cloud for utility (optional). Fully user-driven.
+
+### Docker Compose (full template)
 
 ```yaml
 services:
@@ -307,12 +182,20 @@ services:
     image: tajo9128/biodockify-pharma-ai:latest
     container_name: biodockify
     ports:
-      - "80:80"
+      - "80:50001"
     volumes:
-      - biodockify_usr:/a0/usr
-      - biodockify_data:/a0/data
-      - biodockify_a0proj:/a0/.a0proj
+      - biodockify_usr:/a0/usr          # workspace, chats, projects, backups
+      - biodockify_data:/a0/data        # knowledge base, deep research
+      - biodockify_a0proj:/a0/.a0proj   # agent memory (FAISS), instructions
       - ~/biodockify-backups:/a0/usr/backups
+    environment:
+      - TZ=Asia/Kolkata
+      # Optional cloud API keys (not required — local AI works without them)
+      # - OPENAI_API_KEY=sk-your-key-here
+      # - ANTHROPIC_API_KEY=sk-ant-your-key-here
+      # - OPENROUTER_API_KEY=sk-or-your-key-here
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
 volumes:
@@ -321,11 +204,7 @@ volumes:
   biodockify_a0proj:
 ```
 
-```bash
-docker compose up -d
-```
-
-### 3. Backup to PC
+### Backup to PC
 
 **Option A — In-app** (recommended): Open **Backup & Recovery** panel → click **"Save to PC"** → .zip downloads to your Downloads folder.
 
@@ -351,6 +230,7 @@ All user data is stored across 3 Docker volumes:
 | **🧩 User plugins** | `/a0/usr/plugins/` | ✅ Yes |
 | **🛠️ User skills** | `/a0/usr/skills/` | ✅ Yes |
 | **💾 Backups** | `/a0/usr/backups/` | ✅ Yes + on PC if host-mounted |
+| **🤖 Local AI model** | `/a0/usr/ai_models/` | ✅ Yes (auto-downloaded on first run) |
 
 ### Volume 2: `/a0/data` (biodockify_data)
 
@@ -391,6 +271,93 @@ All user data is stored across 3 Docker volumes:
 
 ---
 
+## Research Workflow
+
+```
+User Request
+     ↓
+Agent0 (Main Orchestrator)
+     ↓
+├─→ Researcher ─→ Hacker (if blocked)
+│         ↓
+│    Biostatistician (SPSS-level stats) + QSAR (predictions)
+│         ↓
+│    Pharmacophore (feature detection)
+│         ↓
+├─→ Molecular Toolkit (Docking: Vina → MM-GBSA)
+│         ↓
+│    Deep Analysis (3D View, Interactions, Clusters)
+│         ↓
+├─→ Pipeline Engine (25-stage autonomous workflow)
+│    Debate → Experiment → Self-Heal → Verify → Quality Gate → HITL
+│         ↓
+└─→ Writer (output) + Journal Recommender (36,145 journals) + Mol Optimizer
+```
+
+---
+
+## What's New in v7.5.8
+
+### Local AI Engine bundled inside BioDockify — one `docker compose up` does everything
+
+The biggest architectural change: **llama-server is now bundled inside the BioDockify Docker image itself.** No separate sidecar container, no extra image pull, no profiles, no scripts for students to run.
+
+| Before (v7.5.2) | After (v7.5.8) |
+|---|---|
+| No local AI option | **Bonsai-8B bundled** (1-bit, ~1.15 GB, auto-downloads) |
+| Only cloud API keys | **Works fully offline** — no cloud, no egress, no API spend |
+| 0 statistics types (original had 16) | **56 analysis types** (restored from original BioDockify) |
+| No pharma prompt templates | **8 pharma-specific prompt templates** (literature, MOA, docking, ADMET, claims, thesis, ICH) |
+| No claim verification | **6-type pharma claim verification** (efficacy, safety, PK/PD, mechanism, comparative, dosing) |
+| No pharma scorecard | **8-dimension quality scorecard** (study design, stats, safety, efficacy, PK/PD, regulatory, citations, writing) |
+| No ICH compliance checks | **CONSORT/STROBE/PRISMA/ARRIVE/ICH** compliance checking |
+| No PDBFixer in MD Lite | **PDBFixer integration** — auto-fixes missing atoms, hydrogens, terminal residues |
+| No in-app model manager | **4-tab AI Engine panel** (Status, Models, Runtimes, Benchmark) |
+| No benchmark | **Built-in tok/s benchmark** with Good/OK/Slow verdict |
+| 3 stability sprints | **5 stability sprints** completed (security, backend, frontend, Docker, docs) |
+| No smoke tests for AI | **27 smoke tests** guarding AI Engine against regressions |
+
+### Technical details
+
+- **Dockerfile.release**: multi-stage build — extracts llama-server + all ~30 shared libraries from `ghcr.io/ggml-org/llama.cpp:server`, copies to `/opt/llama-server/`, registers with `ldconfig`
+- **exe/init_bonsai.sh**: auto-downloads Bonsai-8B-Q1_0.gguf to `/a0/usr/ai_models/` on first run (skips if present)
+- **exe/init_and_run_llama.sh**: supervisord entrypoint — calls init_bonsai.sh then execs llama-server
+- **docker-compose.yml**: single container, 3 volumes (no sidecar, no init container, no extra volume)
+- **modules/local_llm/**: data-driven model catalog + runtime registry + pharma prompt library + hardware detection
+- **api/local_llm.py**: 7 actions (status, hardware, catalog, runtimes, prompts, readiness, benchmark)
+- **tests/test_local_llm.py**: 27 tests covering schema, runtime contract, compose wiring, startup scripts
+
+### Version history (v7.5.2 → v7.5.8)
+
+| Version | Date | Key Changes |
+|---------|------|-------------|
+| **v7.5.8** | 2026-07-19 | Fix: copy ALL llama.cpp shared libraries (not just binary) |
+| **v7.5.7** | 2026-07-19 | Bundle llama-server inside BioDockify image (one `docker compose up`) |
+| **v7.5.6** | 2026-07-19 | Fix GGUF filename case (`Bonsai-8B-Q1_0.gguf`) + image namespace (`ggml-org`) |
+| **v7.5.5** | 2026-07-19 | Critical fix: wrong llama.cpp image tag + env vars; Runtime Manager + Model Manager UI + benchmark |
+| **v7.5.4** | 2026-07-19 | BioDockify AI Engine (local LLM), model catalog, pharma prompts, install scripts |
+| **v7.5.3** | 2026-07-18 | Statistics module full restoration (16 → 56 analysis types), PDF reports |
+| **v7.5.2** | 2026-07-18 | 5 stability sprints: security, backend, frontend, Docker, documentation |
+
+---
+
+## What's New in v7.5.1
+
+### Complete Research Pipeline: Literature → Knowledge Base → Academic Writer
+- **Literature Search**: 10 databases with automatic full-text retrieval
+- **Deep Research**: Multi-database comprehensive gathering (50-300 papers)
+- **Agent Tool Prompts**: 7 new tool prompts teach the agent how to call research modules
+- **Academic Writer KB Integration**: "Use KB Sources" UI with category dropdown, 100K char budget
+- **KB Storage fix**: 3 modules used a Flask-bound import — replaced with stdlib-only `auto_store`
+
+### Backup & Recovery — Bulletproof
+- **All 3 data locations captured**: `/a0/usr`, `/a0/.a0proj`, `/a0/data`
+- **Backups visible on PC**: Container mounts `~/biodockify-backups:/a0/usr/backups`
+- **Save to PC / Restore from PC buttons**: Real download/upload flow
+- **Daily auto-backup**: Cron job at 3 AM + on-startup backup
+
+---
+
 ## Docker Hub
 
 **Image**: `tajo9128/biodockify-pharma-ai:latest`
@@ -406,6 +373,7 @@ BioDockify Pharma AI is open-source under the [MIT License](LICENSE), inherited 
 ## Documentation
 
 - [User Guide](docs/user-guide/README.md) — 28 chapters covering installation, modules, research workflows
+- [Local AI Engine Guide](docs/guides/bonsai-local-llm.md) — architecture, install, pharma prompts, troubleshooting
 - [Architecture](ARCHITECTURE.md) — system design and component overview
 - [AGENTS.md](AGENTS.md) — developer reference and conventions
 - [CHANGELOG](CHANGELOG.md) — release history
@@ -414,4 +382,3 @@ BioDockify Pharma AI is open-source under the [MIT License](LICENSE), inherited 
 
 - [GitHub Issues](https://github.com/tajo9128/BioDockify-Pharma-AI/issues)
 - [Docker Hub](https://hub.docker.com/r/tajo9128/biodockify-pharma-ai)
-- [Agent Zero](https://github.com/agent0ai/agent-zero) (original framework)
