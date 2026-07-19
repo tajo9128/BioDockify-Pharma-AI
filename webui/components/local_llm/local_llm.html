@@ -1,0 +1,324 @@
+<html>
+<head>
+  <title>BioDockify AI Engine</title>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+
+    export const store = createStore("localLlmModal", {
+      // State
+      status: null,
+      catalog: null,
+      runtimes: null,
+      hardware: null,
+      benchmark: null,
+      loading: false,
+      benchLoading: false,
+      error: "",
+      activeTab: "status",  // status | catalog | runtimes | benchmark
+      lastUpdated: null,
+
+      // Init
+      async init() {
+        await this.refreshAll();
+      },
+
+      async refreshAll() {
+        this.loading = true;
+        this.error = "";
+        try {
+          await Promise.all([
+            this.refreshStatus(),
+            this.refreshCatalog(),
+            this.refreshRuntimes(),
+            this.refreshHardware(),
+          ]);
+          this.lastUpdated = new Date().toLocaleTimeString();
+        } catch (e) {
+          this.error = e.message;
+        }
+        this.loading = false;
+      },
+
+      async refreshStatus() {
+        try {
+          const r = await callJsonApi("local_llm", { action: "status" });
+          this.status = r;
+        } catch (e) { this.error = e.message; }
+      },
+
+      async refreshCatalog() {
+        try {
+          const r = await callJsonApi("local_llm", { action: "catalog" });
+          this.catalog = r;
+        } catch (e) { /* silent */ }
+      },
+
+      async refreshRuntimes() {
+        try {
+          const r = await callJsonApi("local_llm", { action: "runtimes" });
+          this.runtimes = r;
+        } catch (e) { /* silent */ }
+      },
+
+      async refreshHardware() {
+        try {
+          const r = await callJsonApi("local_llm", { action: "hardware" });
+          this.hardware = r;
+        } catch (e) { /* silent */ }
+      },
+
+      async runBenchmark() {
+        this.benchLoading = true;
+        try {
+          this.benchmark = await callJsonApi("local_llm", {
+            action: "benchmark",
+            max_tokens: 50,
+            timeout: 30,
+          });
+        } catch (e) {
+          this.benchmark = { status: "error", error: e.message };
+        }
+        this.benchLoading = false;
+      },
+
+      // Helpers
+      get statusColor() {
+        if (!this.status?.sidecar) return "gray";
+        return this.status.sidecar.running ? "#22c55e" : "#ff6b6b";
+      },
+      get verdictColor() {
+        const v = this.benchmark?.verdict;
+        if (v === "Good") return "#22c55e";
+        if (v === "OK") return "#ffd93d";
+        if (v === "Slow") return "#ff6b6b";
+        return "gray";
+      },
+      get verdictIcon() {
+        const v = this.benchmark?.verdict;
+        if (v === "Good") return "check_circle";
+        if (v === "OK") return "info";
+        if (v === "Slow") return "warning";
+        return "help";
+      },
+
+      copyInstallCmd() {
+        const cmd = "bash scripts/install_bonsai.sh";
+        navigator.clipboard?.writeText(cmd);
+      },
+    });
+  </script>
+</head>
+
+<body style="margin:0">
+  <div x-data class="nb-panel" x-init="await $store.localLlmModal.init()">
+    <!-- Header -->
+    <div class="nb-header">
+      <span class="material-symbols-outlined nb-icon">psychology</span>
+      <div>
+        <h2>BioDockify AI Engine</h2>
+        <p class="nb-sub">Private local LLM for pharma research · No cloud · No egress</p>
+      </div>
+    </div>
+
+    <!-- Refresh -->
+    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+      <button class="nb-btn-primary" @click="$store.localLlmModal.refreshAll()" :disabled="$store.localLlmModal.loading">
+        <span x-show="$store.localLlmModal.loading" class="material-symbols-outlined spinning" style="font-size:14px">progress_activity</span>
+        Refresh
+      </button>
+      <span x-show="$store.localLlmModal.lastUpdated" class="nb-entry-meta" x-text="'Updated ' + $store.localLlmModal.lastUpdated"></span>
+    </div>
+
+    <div x-show="$store.localLlmModal.error" class="nb-error" x-text="$store.localLlmModal.error"></div>
+
+    <!-- Tab strip -->
+    <div class="nb-tabs">
+      <button :class="$store.localLlmModal.activeTab === 'status' ? 'active' : ''" @click="$store.localLlmModal.activeTab = 'status'">Status</button>
+      <button :class="$store.localLlmModal.activeTab === 'catalog' ? 'active' : ''" @click="$store.localLlmModal.activeTab = 'catalog'">Models</button>
+      <button :class="$store.localLlmModal.activeTab === 'runtimes' ? 'active' : ''" @click="$store.localLlmModal.activeTab = 'runtimes'">Runtimes</button>
+      <button :class="$store.localLlmModal.activeTab === 'benchmark' ? 'active' : ''" @click="$store.localLlmModal.activeTab = 'benchmark'">Benchmark</button>
+    </div>
+
+    <!-- ============== STATUS TAB ============== -->
+    <div x-show="$store.localLlmModal.activeTab === 'status' && $store.localLlmModal.status" class="nb-content">
+      <!-- Big status pill -->
+      <div class="nb-status-pill" :style="'border-color:' + $store.localLlmModal.statusColor">
+        <span class="material-symbols-outlined" :style="'color:' + $store.localLlmModal.statusColor"
+              x-text="$store.localLlmModal.status?.sidecar?.running ? 'cloud_done' : 'cloud_off'"></span>
+        <div>
+          <div class="nb-status-label" x-text="$store.localLlmModal.status?.sidecar?.running ? 'Engine Ready' : 'Engine Not Running'"></div>
+          <div class="nb-status-sub" x-text="$store.localLlmModal.status?.runtime?.display_name || 'llama.cpp sidecar'"></div>
+        </div>
+      </div>
+
+      <!-- Model info -->
+      <template x-if="$store.localLlmModal.status?.model">
+        <div class="nb-form">
+          <h4>Active Model</h4>
+          <div class="nb-entry-card">
+            <div>
+              <div class="nb-entry-title" x-text="$store.localLlmModal.status?.model?.display_name || '—'"></div>
+              <div class="nb-entry-meta">
+                <span x-text="($store.localLlmModal.status?.model?.size_gb || '?') + ' GB'"></span> ·
+                <span x-text="($store.localLlmModal.status?.model?.context_length || '?').toLocaleString() + ' ctx'"></span> ·
+                <span x-text="$store.localLlmModal.status?.sidecar?.model_loaded ? 'loaded' : 'not loaded'"></span>
+              </div>
+            </div>
+            <span class="nb-tag" :style="'background:' + ($store.localLlmModal.status?.sidecar?.model_loaded ? '#22c55e22' : '#ff6b6b22')">
+              <span x-text="$store.localLlmModal.status?.sidecar?.model_loaded ? 'READY' : 'MISSING'"></span>
+            </span>
+          </div>
+        </div>
+      </template>
+
+      <!-- Loaded models from /v1/models -->
+      <template x-if="$store.localLlmModal.status?.sidecar?.loaded_models?.length">
+        <div class="nb-form">
+          <h4>Models Reported by Runtime</h4>
+          <template x-for="m in $store.localLlmModal.status?.sidecar?.loaded_models" :key="m">
+            <div class="nb-entry-card">
+              <span class="nb-entry-title" x-text="m"></span>
+              <span class="nb-tag" style="background:#22c55e22">loaded</span>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <!-- Hardware -->
+      <template x-if="$store.localLlmModal.status?.hardware">
+        <div class="nb-form">
+          <h4>Hardware (probe scope: <span x-text="$store.localLlmModal.status?.hardware?.probe_scope"></span>)</h4>
+          <div class="nb-kv"><span>RAM</span><span x-text="($store.localLlmModal.status?.hardware?.ram_total_gb || '?') + ' GB'"></span></div>
+          <div class="nb-kv"><span>GPU</span><span x-text="$store.localLlmModal.status?.hardware?.gpu_present ? $store.localLlmModal.status?.hardware?.gpu_name : 'none'"></span></div>
+          <div class="nb-kv" x-show="$store.localLlmModal.status?.hardware?.vram_total_gb"><span>VRAM</span><span x-text="$store.localLlmModal.status?.hardware?.vram_total_gb + ' GB'"></span></div>
+          <div class="nb-kv" x-show="$store.localLlmModal.status?.hardware?.apple_silicon"><span>Silicon</span><span>Apple MLX eligible</span></div>
+        </div>
+      </template>
+
+      <!-- Notes -->
+      <template x-if="$store.localLlmModal.status?.notes?.length">
+        <div class="nb-form">
+          <h4>Notes</h4>
+          <template x-for="(n, i) in $store.localLlmModal.status?.notes" :key="i">
+            <div class="nb-note" x-text="n"></div>
+          </template>
+        </div>
+      </template>
+
+      <!-- Install help if not running -->
+      <template x-if="!$store.localLlmModal.status?.sidecar?.running">
+        <div class="nb-form">
+          <h4>Install</h4>
+          <p class="nb-sub">From your host machine (not inside Docker), run:</p>
+          <pre class="nb-cmd">bash scripts/install_bonsai.sh       <span class="nb-cmd-comment"># Linux / macOS</span>
+scripts\install_bonsai.bat           <span class="nb-cmd-comment"># Windows</span></pre>
+          <p class="nb-sub">Or use a host runtime (Ollama / LM Studio) — see the Runtimes tab.</p>
+        </div>
+      </template>
+    </div>
+
+    <!-- ============== MODELS TAB ============== -->
+    <div x-show="$store.localLlmModal.activeTab === 'catalog' && $store.localLlmModal.catalog" class="nb-content">
+      <div class="nb-form">
+        <h4>Model Catalog</h4>
+        <p class="nb-sub">Adding new models here requires NO code changes — edit <code>modules/local_llm/models.json</code>.</p>
+        <template x-for="(m, id) in $store.localLlmModal.catalog?.model_details" :key="id">
+          <div class="nb-entry-card">
+            <div style="flex:1">
+              <div class="nb-entry-title">
+                <span x-text="m.display_name"></span>
+                <span x-show="id === $store.localLlmModal.catalog?.default_model" class="nb-tag" style="background:#3b82f622;color:#3b82f6">default</span>
+              </div>
+              <div class="nb-entry-meta">
+                <span x-text="m.publisher"></span> ·
+                <span x-text="(m.gguf?.size_gb || '?') + ' GB'"></span> ·
+                <span x-text="m.gguf?.quantization"></span> ·
+                <span x-text="m.license"></span>
+              </div>
+              <div class="nb-entry-desc" x-text="m.description"></div>
+              <template x-if="m.tags?.length">
+                <div class="nb-tags-row">
+                  <template x-for="t in m.tags" :key="t">
+                    <span class="nb-tag" style="background:#94a3b822" x-text="t"></span>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- ============== RUNTIMES TAB ============== -->
+    <div x-show="$store.localLlmModal.activeTab === 'runtimes' && $store.localLlmModal.runtimes" class="nb-content">
+      <div class="nb-form">
+        <h4>Runtime Backends</h4>
+        <p class="nb-sub">The Brain never knows which runtime is active. All expose an OpenAI-compatible <code>/v1</code> endpoint.</p>
+        <template x-for="(rt, id) in $store.localLlmModal.runtimes?.runtimes" :key="id">
+          <div class="nb-entry-card">
+            <div style="flex:1">
+              <div class="nb-entry-title">
+                <span x-text="rt.display_name"></span>
+                <span x-show="id === $store.localLlmModal.runtimes?.default_runtime" class="nb-tag" style="background:#22c55e22;color:#22c55e">active</span>
+                <span x-show="rt._status === 'documented_for_future_use'" class="nb-tag" style="background:#ffd93d22;color:#b5860b">future</span>
+              </div>
+              <div class="nb-entry-meta">
+                <span x-text="rt.kind"></span> ·
+                <span x-text="rt.litellm_provider"></span>
+              </div>
+              <div class="nb-entry-desc" x-text="rt.description"></div>
+              <div class="nb-kv">
+                <span>Endpoint</span>
+                <code x-text="rt.endpoint?.api_base"></code>
+              </div>
+              <template x-if="rt.requires_host_install">
+                <div class="nb-kv">
+                  <span>Install</span>
+                  <a :href="rt.host_install_url" target="_blank" x-text="rt.host_install_url"></a>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- ============== BENCHMARK TAB ============== -->
+    <div x-show="$store.localLlmModal.activeTab === 'benchmark'" class="nb-content">
+      <div class="nb-form">
+        <h4>Speed Benchmark</h4>
+        <p class="nb-sub">Sends a fixed pharma prompt and measures tokens/sec. Requires the engine to be running.</p>
+        <button class="nb-btn-primary" @click="$store.localLlmModal.runBenchmark()" :disabled="$store.localLlmModal.benchLoading">
+          <span x-show="$store.localLlmModal.benchLoading" class="material-symbols-outlined spinning" style="font-size:14px">progress_activity</span>
+          Run Benchmark (50 tokens)
+        </button>
+
+        <template x-if="$store.localLlmModal.benchmark?.status === 'ok'">
+          <div class="nb-bench-result">
+            <span class="material-symbols-outlined" :style="'color:' + $store.localLlmModal.verdictColor + ';font-size:48px'"
+                  x-text="$store.localLlmModal.verdictIcon"></span>
+            <div>
+              <div class="nb-bench-verdict" x-text="$store.localLlmModal.benchmark?.verdict"></div>
+              <div class="nb-bench-tps" x-text="$store.localLlmModal.benchmark?.tokens_per_second + ' tok/s'"></div>
+              <div class="nb-entry-meta">
+                <span x-text="$store.localLlmModal.benchmark?.completion_tokens + ' tokens'"></span> in
+                <span x-text="$store.localLlmModal.benchmark?.elapsed_s + 's'"></span>
+              </div>
+            </div>
+          </div>
+          <details class="nb-details">
+            <summary>Sample output</summary>
+            <pre class="nb-cmd" x-text="$store.localLlmModal.benchmark?.sample"></pre>
+          </details>
+        </template>
+
+        <template x-if="$store.localLlmModal.benchmark?.status === 'error'">
+          <div class="nb-error" x-text="$store.localLlmModal.benchmark?.error"></div>
+        </template>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

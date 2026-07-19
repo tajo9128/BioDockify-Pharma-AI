@@ -31,11 +31,17 @@ SIDECAR_HEALTH_URL = f"http://{SIDECAR_HOST}:{SIDECAR_PORT}{SIDECAR_HEALTH_PATH}
 SIDECAR_MODEL_PATH = "/models"
 
 _CATALOG_CACHE: Optional[Dict[str, Any]] = None
+_RUNTIMES_CACHE: Optional[Dict[str, Any]] = None
 
 
 def _catalog_path() -> str:
     here = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(here, "models.json")
+
+
+def _runtimes_path() -> str:
+    here = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(here, "runtimes.json")
 
 
 def load_catalog(force: bool = False) -> Dict[str, Any]:
@@ -52,6 +58,32 @@ def load_catalog(force: bool = False) -> Dict[str, Any]:
         return {"_meta": {"default_model": "bonsai-8b"}, "models": {}}
 
 
+def load_runtimes(force: bool = False) -> Dict[str, Any]:
+    """Load the runtime registry (modules/local_llm/runtimes.json).
+
+    The Brain stays runtime-agnostic: it always talks to the active runtime's
+    OpenAI-compatible api_base. Switching runtimes (llama.cpp → Ollama → MLX
+    → vLLM) is a data-only change here + a preset api_base update.
+    """
+    global _RUNTIMES_CACHE
+    if _RUNTIMES_CACHE is not None and not force:
+        return _RUNTIMES_CACHE
+    try:
+        with open(_runtimes_path(), "r", encoding="utf-8") as f:
+            _RUNTIMES_CACHE = json.load(f)
+        return _RUNTIMES_CACHE
+    except Exception as e:
+        log.warning(f"Failed to load runtimes registry: {e}")
+        return {"_meta": {"default_runtime": "llama_cpp_sidecar"}, "runtimes": {}}
+
+
+def get_default_runtime() -> Dict[str, Any]:
+    """Return the currently-active runtime entry."""
+    rt = load_runtimes()
+    rid = rt.get("_meta", {}).get("default_runtime", "llama_cpp_sidecar")
+    return rt.get("runtimes", {}).get(rid, {})
+
+
 def get_model_info(model_id: str) -> Optional[Dict[str, Any]]:
     """Return one model entry from the catalog, or None."""
     return load_catalog().get("models", {}).get(model_id)
@@ -66,20 +98,49 @@ class LocalLLMManager:
 
     def __init__(self) -> None:
         self.catalog = load_catalog()
+        self.runtimes = load_runtimes()
+        self.runtime = get_default_runtime()
 
-    # --- Sidecar probes -----------------------------------------------------
+    # --- Runtime endpoint helpers (runtime-agnostic) ------------------------
+    def _runtime_urls(self) -> Dict[str, str]:
+        """Derive health/models/v1 URLs from the active runtime registry entry.
+
+        Falls back to the bundled-sidecar constants if the registry entry is
+        missing or malformed — defensive so a bad runtimes.json never crashes
+        the API.
+        """
+        ep = (self.runtime or {}).get("endpoint", {}) or {}
+        api_base = ep.get("api_base") or SIDECAR_V1_BASE
+        health_path = ep.get("health_path") or SIDECAR_HEALTH_PATH
+        models_path = ep.get("models_path") or "/v1/models"
+        # health URL = api_base's origin + health_path
+        origin = api_base.rstrip("/").rsplit("/v1", 1)[0] if api_base.endswith("/v1") else api_base.rstrip("/")
+        # For Ollama-style runtimes, api_base already includes the full origin
+        # and health_path is /api/tags. Just concatenate.
+        if health_path.startswith("/v1") or health_path.startswith("/api"):
+            models_url = f"{origin}{health_path}" if health_path == models_path else f"{origin}{models_path}"
+            health_url = f"{origin}{health_path}"
+        else:
+            health_url = f"{origin}{health_path}"
+            models_url = f"{origin}{models_path}"
+        return {"api_base": api_base, "health": health_url, "models": models_url}
+
     async def probe_sidecar(self) -> Dict[str, Any]:
-        """Probe the llama.cpp sidecar /health endpoint.
+        """Probe the active runtime's health endpoint.
 
+        Runtime-agnostic: works for llama.cpp (/health), Ollama (/api/tags),
+        LM Studio (/v1/models), vLLM (/health), MLX (/health).
         Returns {reachable, latency_ms, error?}.
         """
+        urls = self._runtime_urls()
+
         def _do() -> Dict[str, Any]:
             import time
             import urllib.request
             import urllib.error
             t0 = time.time()
             try:
-                req = urllib.request.Request(SIDECAR_HEALTH_URL, method="GET")
+                req = urllib.request.Request(urls["health"], method="GET")
                 with urllib.request.urlopen(req, timeout=3) as r:
                     latency = int((time.time() - t0) * 1000)
                     return {"reachable": 200 <= r.status < 300, "latency_ms": latency}
@@ -91,16 +152,25 @@ class LocalLLMManager:
         return await asyncio.to_thread(_do)
 
     async def list_sidecar_models(self) -> Dict[str, Any]:
-        """Call GET /v1/models on the sidecar (OpenAI-compatible)."""
+        """Call the active runtime's model-listing endpoint (OpenAI-compatible
+        for llama.cpp/LM Studio/vLLM/MLX; /api/tags for Ollama)."""
+        urls = self._runtime_urls()
+        rid = (self.runtimes.get("_meta") or {}).get("default_runtime", "llama_cpp_sidecar")
+        is_ollama = "ollama" in rid
+
         def _do() -> Dict[str, Any]:
             import urllib.request
             import urllib.error
-            url = f"{SIDECAR_V1_BASE}/models"
             try:
-                req = urllib.request.Request(url, method="GET")
+                req = urllib.request.Request(urls["models"], method="GET")
                 with urllib.request.urlopen(req, timeout=5) as r:
                     data = json.loads(r.read().decode("utf-8"))
-                    ids = [m.get("id") for m in data.get("data", []) if m.get("id")]
+                    if is_ollama:
+                        # Ollama /api/tags returns {"models": [{"name": "..."}, ...]}
+                        ids = [m.get("name") for m in data.get("models", []) if m.get("name")]
+                    else:
+                        # OpenAI-compatible /v1/models returns {"data": [{"id": "..."}, ...]}
+                        ids = [m.get("id") for m in data.get("data", []) if m.get("id")]
                     return {"reachable": True, "models": ids}
             except Exception as e:
                 return {"reachable": False, "models": [], "error": str(e)}
@@ -137,20 +207,30 @@ class LocalLLMManager:
         rec = recommend_model(hw, catalog)
 
         notes = []
+        rid = (self.runtimes.get("_meta") or {}).get("default_runtime", "llama_cpp_sidecar")
+        rt_info = self.runtimes.get("runtimes", {}).get(rid, {})
         if not sidecar_health.get("reachable"):
-            notes.append(
-                "Sidecar not reachable. Enable it with: "
-                "`docker compose --profile local-llm up -d`, then run "
-                "`scripts/install_bonsai.sh` (or .bat) once to download the model."
-            )
+            if rt_info.get("kind") == "bundled":
+                notes.append(
+                    f"Runtime '{rid}' not reachable. Enable it with: "
+                    "`docker compose --profile local-llm up -d`, then run "
+                    "`scripts/install_bonsai.sh` (or .bat) once to download the model."
+                )
+            else:
+                host_url = (rt_info.get("endpoint") or {}).get("api_base", "the host service")
+                notes.append(
+                    f"Runtime '{rid}' not reachable at {host_url}. "
+                    f"Install it on the host: {rt_info.get('host_install_url', 'see docs')}, "
+                    "then ensure BioDockify can reach host.docker.internal."
+                )
         else:
-            notes.append("Sidecar is healthy.")
+            notes.append(f"Runtime '{rid}' is healthy.")
 
         if not sidecar_models.get("models"):
             notes.append(
-                "Sidecar is up but no model is loaded. Run the install script to "
+                "Runtime is up but no model is loaded. Run the install script to "
                 "download the GGUF into the biodockify_models volume, then restart "
-                "the sidecar."
+                "the sidecar (or pull the model in your host Ollama / LM Studio)."
             )
 
         loaded_match = (mid in (sidecar_models.get("models") or []))
@@ -166,12 +246,19 @@ class LocalLLMManager:
                 "supports_gpu": (model or {}).get("runtime", {}).get("supports_gpu", True),
                 "supports_cpu": (model or {}).get("runtime", {}).get("supports_cpu", True),
             } if model else None,
+            "runtime": {
+                "id": rid,
+                "display_name": rt_info.get("display_name"),
+                "kind": rt_info.get("kind"),
+                "litellm_provider": rt_info.get("litellm_provider"),
+                "endpoint": (rt_info.get("endpoint") or {}).get("api_base"),
+            },
             "sidecar": {
                 "running": bool(sidecar_health.get("reachable")),
                 "latency_ms": sidecar_health.get("latency_ms"),
                 "loaded_models": sidecar_models.get("models") or [],
                 "model_loaded": loaded_match,
-                "endpoint": SIDECAR_V1_BASE,
+                "endpoint": (rt_info.get("endpoint") or {}).get("api_base") or SIDECAR_V1_BASE,
             },
             "hardware": {
                 "ram_total_gb": hw.get("ram_total_gb"),

@@ -2,6 +2,79 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v7.5.5] - 2026-07-19
+
+### Critical bug fix + hardening pass on the BioDockify AI Engine
+
+#### Critical fix (release-blocker from v7.5.4)
+- **Wrong llama.cpp image tag.** v7.5.4 referenced
+  `ghcr.io/ggerganov/llama.cpp:server-light`, which does not exist on GHCR.
+  The sidecar could never start. Fixed to the correct
+  `ghcr.io/ggerganov/llama.cpp:server` tag (CPU, multi-arch:
+  linux/amd64 + linux/arm64).
+- **Wrong config mechanism.** v7.5.4 passed `MODEL` / `HOST` / `PORT` /
+  `CTX_SIZE` as env vars — the llama-server entrypoint ignores them.
+  Replaced with the proper `command:` block using CLI args (`-m`, `--host`,
+  `--port`, `-c`, `-a`) per upstream docs. Added `-a bonsai-8b` so the
+  model publishes under the id expected by the preset.
+- **Healthcheck made portable.** Replaced the wget-based probe with a
+  pure-bash `/dev/tcp` probe that doesn't depend on curl/wget being in
+  the slim image. `start_period` raised to 90s for slow CPU first-load.
+
+#### New: Runtime Manager abstraction (Phase 6)
+- `modules/local_llm/runtimes.json` — data-driven runtime registry with 5
+  backends: bundled llama.cpp sidecar (default), host Ollama, host LM
+  Studio, future vLLM, future MLX.
+- `LocalLLMManager` is now runtime-agnostic: `probe_sidecar`,
+  `list_sidecar_models`, `get_model_status` all derive endpoints from the
+  active runtime entry. Ollama's `/api/tags` vs OpenAI-compatible
+  `/v1/models` is handled transparently.
+- Brain stays runtime-agnostic — switching backends is a 2-line data
+  change (runtimes.json + preset api_base), no Python or Agent Zero edits.
+
+#### New: In-app Model Manager UI + Health Dashboard (Phase 5+11)
+- `webui/components/local_llm/local_llm.html` — Alpine.js panel with 4
+  tabs: Status (runtime reachability, latency, loaded model, hardware),
+  Models (full catalog with publisher/size/quant/license/tags), Runtimes
+  (every backend with endpoint + install link), Benchmark (tok/s verdict).
+- `extensions/webui/right_canvas_register_surfaces/register-local_llm.js`
+  — registers the panel in the right-canvas rail via BioDockify's
+  extension hook. Zero Agent Zero UI changes.
+
+#### New: Benchmark endpoint (Phase 9)
+- `api/local_llm.py` `benchmark` action — sends a fixed ICH GCP prompt,
+  measures wall-clock + completion tokens, returns `tokens_per_second`
+  with Good (≥20) / OK (≥8) / Slow (>0) verdict. Honors `max_tokens`
+  and `timeout` caps.
+
+#### New: API surface
+- Added `runtimes` and `benchmark` actions to `/api/local_llm`. Existing
+  actions (`status`, `hardware`, `catalog`, `prompts`, `readiness`)
+  unchanged.
+
+#### New: Smoke test suite (Phase 16)
+- `tests/test_local_llm.py` — 23 tests covering: catalog schema, runtime
+  registry, Brain contract (every runtime exposes OpenAI-compatible
+  endpoint), PharmaPromptLibrary rendering, hardware detection, manager
+  probes (returns reachable=False, never raises when sidecar absent),
+  API handler contract (all 7 actions wired, unknown action returns
+  structured error), preset schema, and docker-compose wiring
+  (regression-guard for the image/env-var bugs above).
+- 23/23 pass.
+
+#### Docs
+- `docs/guides/bonsai-local-llm.md`: clarified Bonsai is **fully optional
+  and user-driven** — user picks it for main, utility, both, or neither.
+  Added 5-row matrix of Main × Utility combinations. Added section on
+  swapping runtimes, the new diagnostics panel, and the new v7.5.4 image
+  troubleshooting entry.
+
+#### Constraints honored
+- Zero Agent Zero core files modified (verified via git status).
+- Bonsai remains one preset among four — no forced defaults, no routing
+  logic that overrides user choice.
+- Default `docker compose up` (no profile) still unchanged.
+
 ## [v7.5.4] - 2026-07-19
 
 ### BioDockify AI Engine — Local LLM (Private Pharma Research)

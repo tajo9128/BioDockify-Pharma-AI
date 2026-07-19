@@ -99,7 +99,11 @@ services:
   # The model lives in a named volume so image updates never re-download it.
   # ===========================================================================
   llama-server:
-    image: ghcr.io/ggerganov/llama.cpp:server-light
+    # Official llama.cpp server image (CPU, multi-arch: linux/amd64 + linux/arm64).
+    # For NVIDIA GPU acceleration, swap to: ghcr.io/ggerganov/llama.cpp:server-cuda
+    # and add `deploy.resources.reservations.devices` (see troubleshooting doc).
+    # NOTE: there is no `server-light` tag — `server` IS the slim server-only image.
+    image: ghcr.io/ggerganov/llama.cpp:server
     container_name: biodockify-llama-server
     profiles: ["local-llm"]
     ports:
@@ -107,18 +111,28 @@ services:
       - "8081:8080"
     volumes:
       - biodockify_models:/models
-    environment:
-      # The install script downloads /models/bonsai-8b-Q1_0.gguf
-      - MODEL=/models/bonsai-8b-Q1_0.gguf
-      - HOST=0.0.0.0
-      - PORT=8080
-      - CTX_SIZE=32768
+    # The server image's entrypoint is /app/llama-server, which takes CLI args
+    # (NOT env vars). Args here match the upstream docs:
+    #   https://github.com/ggml-org/llama.cpp/blob/master/docs/docker.md
+    command:
+      - "-m"
+      - "/models/bonsai-8b-Q1_0.gguf"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8080"
+      - "-c"
+      - "32768"
+      - "-a"
+      - "bonsai-8b"   # published as model id in /v1/models (must match preset)
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      # /health endpoint is provided by llama-server. Pure-bash TCP+HTTP probe —
+      # avoids depending on wget/curl being present in the slim server image.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && printf 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 && head -n1 <&3 | grep -q 200 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 90s
     deploy:
       resources:
         limits:

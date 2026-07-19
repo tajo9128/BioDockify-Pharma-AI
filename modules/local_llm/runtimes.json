@@ -1,0 +1,103 @@
+{
+  "_meta": {
+    "schema_version": 1,
+    "description": "BioDockify AI Engine — runtime registry. The Brain talks to whichever runtime is selected here through a single OpenAI-compatible endpoint (api_base), so swapping llama.cpp for Ollama / MLX / vLLM / TensorRT is a data-only change. No Brain or Agent Zero code changes required.",
+    "default_runtime": "llama_cpp_sidecar",
+    "brain_contract": "All runtimes MUST expose POST /v1/chat/completions and GET /v1/models (OpenAI-compatible). The Brain never knows which runtime is active."
+  },
+  "runtimes": {
+    "llama_cpp_sidecar": {
+      "display_name": "llama.cpp (bundled sidecar)",
+      "kind": "bundled",
+      "description": "The default BioDockify AI Engine runtime. A llama.cpp llama-server container started by docker-compose --profile local-llm. CPU-only by default; swap to server-cuda image for NVIDIA. Best for air-gapped labs — no external processes required.",
+      "endpoint": {
+        "api_base": "http://llama-server:8080/v1",
+        "health_path": "/health",
+        "models_path": "/v1/models",
+        "container_port": 8080,
+        "host_port": 8081,
+        "container_name": "biodockify-llama-server"
+      },
+      "litellm_provider": "lm_studio",
+      "compose_profile": "local-llm",
+      "compose_service": "llama-server",
+      "image": "ghcr.io/ggerganov/llama.cpp:server",
+      "supports_gpu": true,
+      "supports_cpu": true,
+      "gpu_image": "ghcr.io/ggerganov/llama.cpp:server-cuda",
+      "tags": ["default", "bundled", "offline", "air-gapped"]
+    },
+    "host_ollama": {
+      "display_name": "Host Ollama",
+      "kind": "external",
+      "description": "Ollama running on the user's host machine. Reach BioDockify via host.docker.internal. Best when the user already runs Ollama and wants native GPU acceleration on Windows/macOS without Docker GPU passthrough headaches.",
+      "endpoint": {
+        "api_base": "http://host.docker.internal:11434",
+        "health_path": "/api/tags",
+        "models_path": "/api/tags",
+        "host_port": 11434
+      },
+      "litellm_provider": "ollama",
+      "compose_profile": null,
+      "requires_host_install": true,
+      "host_install_url": "https://ollama.com/download",
+      "supports_gpu": true,
+      "supports_cpu": true,
+      "tags": ["external", "host", "gpu-friendly"]
+    },
+    "host_lmstudio": {
+      "display_name": "Host LM Studio",
+      "kind": "external",
+      "description": "LM Studio's local server running on the user's host. OpenAI-compatible on port 1234 by default.",
+      "endpoint": {
+        "api_base": "http://host.docker.internal:1234/v1",
+        "health_path": "/v1/models",
+        "models_path": "/v1/models",
+        "host_port": 1234
+      },
+      "litellm_provider": "lm_studio",
+      "compose_profile": null,
+      "requires_host_install": true,
+      "host_install_url": "https://lmstudio.ai",
+      "supports_gpu": true,
+      "supports_cpu": true,
+      "tags": ["external", "host", "gui-friendly"]
+    },
+    "host_vllm": {
+      "display_name": "Host vLLM (future)",
+      "kind": "external",
+      "_status": "documented_for_future_use",
+      "description": "vLLM server for high-throughput GPU inference. Useful when a lab has a multi-GPU server and many concurrent BioDockify users.",
+      "endpoint": {
+        "api_base": "http://host.docker.internal:8000/v1",
+        "health_path": "/health",
+        "models_path": "/v1/models",
+        "host_port": 8000
+      },
+      "litellm_provider": "openai",
+      "compose_profile": null,
+      "requires_host_install": true,
+      "supports_gpu": true,
+      "supports_cpu": false,
+      "tags": ["external", "future", "high-throughput"]
+    },
+    "host_mlx": {
+      "display_name": "Apple Silicon MLX (future)",
+      "kind": "external",
+      "_status": "documented_for_future_use",
+      "description": "mlx_lm.server running on Apple Silicon. Fastest option on M-series Macs; uses unified memory.",
+      "endpoint": {
+        "api_base": "http://host.docker.internal:8080/v1",
+        "health_path": "/health",
+        "models_path": "/v1/models",
+        "host_port": 8080
+      },
+      "litellm_provider": "openai",
+      "compose_profile": null,
+      "requires_host_install": true,
+      "supports_apple_silicon": true,
+      "tags": ["external", "future", "apple-silicon"]
+    }
+  },
+  "_migration_note": "To switch the default runtime, change _meta.default_runtime AND update the preset api_base in plugins/_model_config/default_presets.yaml to match. No Python changes."
+}

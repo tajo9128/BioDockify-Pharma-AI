@@ -29,7 +29,7 @@ Public API:
     load_catalog        — read the model catalog (models.json)
 """
 
-from .manager import LocalLLMManager, load_catalog
+from .manager import LocalLLMManager, load_catalog, load_runtimes, get_default_runtime
 from .hardware import detect_hardware, recommend_model
 from .pharma_prompts import PharmaPromptLibrary
 
@@ -39,6 +39,8 @@ __all__ = [
     "detect_hardware",
     "recommend_model",
     "load_catalog",
+    "load_runtimes",
+    "get_default_runtime",
 ]
 
 __version__ = "1.0.0"

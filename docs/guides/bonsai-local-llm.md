@@ -1,5 +1,11 @@
 # BioDockify AI Engine — Local LLM (Bonsai-8B)
 
+> **Fully optional. Fully user-driven.** Bonsai-8B is one preset among
+> several. You pick it for your main model, your utility model, both, or
+> neither — BioDockify never forces it on you. Nothing on this page is
+> required for normal use; cloud presets (Max Power / Balance / Cost
+> Efficient) keep working unchanged.
+
 > **Pharma research focus.** Run a private LLM entirely on your own machine —
 > no PHI, compound structures, or case-report data ever leaves your lab. This
 > matters for **air-gapped / GxP / regulatory environments**, for thesis
@@ -99,13 +105,38 @@ bash scripts/install_bonsai.sh
 5. Starts the `llama-server` sidecar via `docker compose --profile local-llm up -d`.
 6. Polls `http://localhost:8081/health` until the sidecar is ready (≤90 s).
 
-### Final step (in the UI)
+### Final step (in the UI) — pick Bonsai for either or both slots
+
+BioDockify has two independent model slots that you control separately:
+
+- **Main (chat) model** — does the core reasoning: literature synthesis,
+  thesis drafting, MOA explanation, claim verification, etc.
+- **Utility model** — does short helper tasks the agent runs in the
+  background (title generation, response summarization, tool routing).
+
+You can mix freely. There is no forced default and no routing logic that
+overrides your choice:
+
+| Setup                                  | When to use                                                    |
+|----------------------------------------|----------------------------------------------------------------|
+| Main = Bonsai, Utility = Bonsai        | Fully offline / air-gapped. Zero cloud spend.                  |
+| Main = Bonsai, Utility = Claude/GPT    | Offline-first; cloud accelerates background helpers.           |
+| Main = Claude/GPT, Utility = Bonsai    | Cloud-first; Bonsai used only when cloud is unreachable.       |
+| Main = Claude/GPT, Utility = Claude    | Cloud-only (existing Max Power / Balance presets).             |
+| Main = Bonsai, Utility = (cloud)       | Bonsai as the primary researcher, cloud for JSON/translation.  |
+
+To configure:
 
 1. Open BioDockify at `http://localhost`.
 2. Go to **Settings → Models**.
-3. In the preset switcher (chat bar or settings panel), select
-   **"BioDockify AI Engine — Local (Bonsai-8B)"**.
-4. Send a test message.
+3. Pick the **Main Model** (chat) — Bonsai or any cloud provider.
+4. Pick the **Utility Model** — Bonsai or any cloud provider (or the same
+   as Main).
+5. Save. Send a test message.
+
+If you want a ready-made starting point, the preset
+**"BioDockify AI Engine — Local (Bonsai-8B)"** sets both slots to Bonsai.
+You can then edit either slot independently without losing the other.
 
 ## Using the local model for pharma workflows
 
@@ -193,6 +224,37 @@ docker volume rm biodockify_models   # frees the ~1.15 GB
 Then switch back to a cloud preset (Max Power / Balance / Cost Efficient) in
 Settings → Models. BioDockify continues to work normally.
 
+## In-app diagnostics panel
+
+Open the right-canvas rail and click the **BioDockify AI Engine** icon
+(brain). The panel has four tabs:
+
+- **Status** — runtime reachability, latency, loaded model, hardware probe,
+  install instructions when the engine isn't running.
+- **Models** — full catalog with publisher, size, quantization, license, tags.
+- **Runtimes** — every registered backend (bundled llama.cpp, host Ollama,
+  host LM Studio, future vLLM / MLX) with endpoint URLs and install links.
+- **Benchmark** — runs a fixed pharma prompt and reports tokens/sec with a
+  Good / OK / Slow verdict.
+
+All data comes from the `/api/local_llm` actions
+(`status`, `hardware`, `catalog`, `runtimes`, `prompts`, `readiness`,
+`benchmark`). The panel makes no external calls.
+
+## Swapping runtimes (data-driven, no code)
+
+The Brain talks to whichever runtime is active via a single OpenAI-compatible
+endpoint. Switching from the bundled llama.cpp sidecar to host Ollama is a
+two-line data change:
+
+1. Edit `modules/local_llm/runtimes.json` → change
+   `_meta.default_runtime` from `"llama_cpp_sidecar"` to `"host_ollama"`.
+2. Update the preset's `api_base` in
+   `plugins/_model_config/default_presets.yaml` to match (e.g.
+   `http://host.docker.internal:11434` for Ollama).
+
+No Python changes. No Agent Zero changes.
+
 ## Adding more models (data-driven, no code)
 
 Edit `modules/local_llm/models.json`:
@@ -219,8 +281,10 @@ Then add a preset in `plugins/_model_config/default_presets.yaml` pointing at
 | Symptom | Fix |
 |---------|-----|
 | Sidecar `unhealthy` after 90 s | `docker compose --profile local-llm logs llama-server` |
+| `manifest unknown` or image pull fails | You may be on v7.5.4 which referenced a non-existent `server-light` tag. Update to v7.5.5+ which uses the correct `server` image. |
 | `model file not found` in sidecar logs | Re-run the install script; verify `docker run --rm -v biodockify_models:/models alpine ls -la /models` |
 | Very slow CPU inference | Switch to host Ollama preset (see main Installation docs), or add a GPU |
 | Port 8081 already in use | Edit `docker-compose.yml` and change `8081:8080` to a free host port; also update `HEALTH_URL` in the install scripts |
-| GPU not detected in WSL2 | NVIDIA GPU passthrough on Windows Docker Desktop requires `nvidia-container-toolkit`; the bundled sidecar image falls back to CPU |
+| GPU not detected in WSL2 | NVIDIA GPU passthrough on Windows Docker Desktop requires `nvidia-container-toolkit`; the bundled sidecar image falls back to CPU. For native GPU acceleration, swap to `host_ollama` runtime (Ollama installed on the host) and update the preset `api_base`. |
 | Preset shows "missing API key" | Should not happen — `lm_studio` is in `LOCAL_PROVIDERS`. If you see it, verify `_model_config` plugin is enabled |
+| Brain not reaching the sidecar | Confirm both services are on the same Docker network (`docker network inspect biodockify-pharma-ai_default`) and that the preset `api_base` is `http://llama-server:8080/v1` (the container hostname, not `localhost`) |
