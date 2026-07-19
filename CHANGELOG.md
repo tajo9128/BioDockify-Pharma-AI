@@ -2,6 +2,44 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v7.6.0] - 2026-07-19
+
+### Graphify Knowledge Graph — AI agents can now understand the entire codebase
+
+Added [Graphify](https://github.com/Graphify-Labs/graphify) to generate a
+queryable knowledge graph of the BioDockify codebase. AI agents (ZCode, Claude,
+Cursor, Copilot, etc.) can now traverse the graph to understand code structure,
+find relationships between modules, and answer questions about the codebase
+without reading every file.
+
+#### What Graphify does
+- Converts code into a knowledge graph using **tree-sitter AST parsing**
+  (local, no LLM, nothing leaves your machine)
+- 40,327 nodes, 75,663 edges, 2,915 communities
+- 91% EXTRACTED (from AST), 9% INFERRED (derived relationships)
+- Covers all Python, JavaScript, HTML, CSS, YAML, JSON, Shell files
+- Token cost: 0 (code-only mode, no API key needed)
+
+#### Generated files
+- `graphify-out/graph.json` (48 MB) — the full knowledge graph
+- `graphify-out/GRAPH_REPORT.md` — human-readable report with community hubs,
+  navigation, and graph statistics
+
+#### How to use
+- **AI agents**: The graph is automatically available. Agents can query it
+  to understand code structure, find relationships, and answer questions.
+- **Developers**: Run `graphify query "show the auth flow"` to traverse the
+  graph, or `graphify explain "ApiHandler"` to get a plain-language explanation
+  of any node.
+- **Update after code changes**: Run `graphify update .` to re-extract AST
+  and rebuild the graph (no API cost).
+
+#### Community hubs (key navigation points)
+- `api.py`, `agent.py`, `statistics.py` — core BioDockify modules
+- `ApiHandler`, `UserMessage`, `Tool` — Agent Zero core abstractions
+- `model_config.py`, `StatisticsOrchestrator` — BioDockify-specific
+- `alpine.min.js`, `react` — frontend frameworks
+
 ## [v7.5.9] - 2026-07-19
 
 ### BioDockify ↔ Obsidian Integration

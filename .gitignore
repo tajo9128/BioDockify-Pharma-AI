@@ -103,8 +103,12 @@ data/knowledge_base/**
 *.docx
 *.mp3
 
-# Graphify output
-graphify-out/
+# Graphify output (keep graph.json and GRAPH_REPORT.md, exclude cache)
+graphify-out/cache/
+graphify-out/converted/
+graphify-out/manifest.json
+graphify-out/.graphify_labels.json
+graphify-out/.graphify_root
 
 # Version binary
 version.txt
