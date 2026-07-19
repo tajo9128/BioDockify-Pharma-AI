@@ -60,6 +60,21 @@ class MDLite(ApiHandler):
             return {"status": "error", "error": "No valid PDB file detected. Upload a .pdb file containing ATOM/HETATM lines."}
 
         try:
+            # STEP 0: Prepare PDB with PDBFixer BEFORE passing to OpenMM
+            # This fixes: missing hydrogens, missing atoms, malformed records,
+            # NPRO/CTER terminal issues — the #1 cause of MD failures
+            try:
+                from modules.md_lite.preparation import prepare_protein
+                prepared_path = os.path.join(job_dir, "prepared.pdb")
+                prep_result = prepare_protein(pdb_path, prepared_path)
+                if prep_result.get("status") == "ok":
+                    log.info(f"PDB prepared: {prep_result.get('atoms')} atoms, {prep_result.get('residues')} residues")
+                    pdb_path = prepared_path  # Use the prepared PDB
+                else:
+                    log.warning(f"PDBFixer failed: {prep_result.get('error')}, continuing with original")
+            except Exception as e:
+                log.warning(f"PDBFixer not available: {e}, continuing with original PDB")
+
             from modules.md_lite.engine import MDEngine
             ff = input.get("forcefield", "amber14")
             temp = float(input.get("temperature", 300))

@@ -2,6 +2,76 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v7.5.4] - 2026-07-19
+
+### BioDockify AI Engine — Local LLM (Private Pharma Research)
+
+Optional **private, offline LLM runtime** for air-gapped labs, PHI case reports,
+unpublished compound data, and cost-free student access. Runs Bonsai-8B
+(1.15 GB, 1-bit) entirely on the user's machine — **no cloud, no egress,
+no API spend**.
+
+#### New
+- `modules/local_llm/` package (manager.py, hardware.py, pharma_prompts.py)
+  — provider-agnostic runtime layer. Agent Zero untouched.
+- **Data-driven model catalog** (`modules/local_llm/models.json`) — adding
+  Gemma / Phi / Qwen / future pharma-tuned models requires NO code changes,
+  only a JSON entry.
+- **Pharma Prompt Library** (`pharma_prompts.py`) — 8 domain templates
+  (literature, MOA, docking, ADMET, claims, thesis, ICH compliance) that
+  enforce no-fabrication rules critical for safety/regulatory writing.
+- `api/local_llm.py` — rich status API: `status`, `hardware`, `catalog`,
+  `prompts`, `readiness` actions. Faculty-only.
+- One-click **install scripts**: `scripts/install_bonsai.sh` (Linux/macOS)
+  and `scripts/install_bonsai.bat` (Windows). OS/RAM/GPU-aware preflight,
+  dry-run support.
+- New "BioDockify AI Engine — Local (Bonsai-8B)" preset in
+  `plugins/_model_config/default_presets.yaml` — auto-appears in chat-bar
+  switcher, no UI code changes.
+- `docs/guides/bonsai-local-llm.md` — full architecture, hardware matrix,
+  privacy/compliance notes, troubleshooting.
+- `docs/setup/installation.md` — new "Recommended Local Model: Bonsai-8B"
+  section with comparison table.
+- README.md prerequisites updated — paid API key is no longer framed as
+  mandatory; local engine and host Ollama are first-class options.
+
+#### Docker
+- `docker-compose.yml`: new `llama-server` sidecar service
+  (`ghcr.io/ggerganov/llama.cpp:server-light`) behind opt-in `--profile local-llm`.
+  Default `docker compose up` behavior unchanged.
+- New `biodockify_models` named volume — model weights live outside the image
+  so updates never re-download multi-GB GGUF files.
+- `depends_on: llama-server (required: false)` — biodockify starts fine
+  whether or not the sidecar is enabled.
+
+#### Why this matters for pharma
+- **Privacy**: prompts, KB content, generated text never leave the host
+  (HIPAA / GDPR friendly).
+- **Air-gapped**: regulatory / GxP environments with no internet still run
+  AI-assisted claim verification, citation checks, literature synthesis.
+- **Reproducibility**: thesis work remains re-runnable years later without
+  depending on a cloud model's availability.
+
+## [v7.5.3] - 2026-07-18
+
+### Statistics Module — Full Restoration
+- Restored 40 missing statistics analysis types from original BioDockify
+  (16 → 56 total): sign_test, dunns, z_test, chi_square_goodness/independence,
+  mcnemar, cmh, kaplan_meier, log_rank, cox_ph, tost, crossover,
+  bioavailability, non_inferiority, equivalence, nca_pk, auc, cmax_tmax,
+  half_life, clearance, pk_bioavailability, pd_response, compartmental,
+  dose_proportionality, pk_summary, logistic/poisson/negative_binomial/
+  multiple/polynomial regression, mixed_effects/model, glm,
+  repeated_measures_anova, ancova, manova, tukey/bonferroni/dunnett/scheffe
+  posthoc, meta_analysis.
+- PDF report download with BioDockify letterhead (statistics module).
+- Fixed missing `import pandas as pd` in delegated chi-square / McNemar /
+  CMH / repeated-measures methods.
+- Delegated methods use `_delegated(input, action_name)` pattern; PK/PD →
+  `modules/statistics/pkpd_analysis.py`, bioequivalence →
+  `modules/statistics/bioequivalence.py`, survival →
+  `modules/statistics/survival_analysis.py`.
+
 ## [v7.5.2] - 2026-07-18
 
 ### Stability Sprints (5 sprints, 30+ files changed)

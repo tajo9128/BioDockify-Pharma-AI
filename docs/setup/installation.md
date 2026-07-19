@@ -545,6 +545,63 @@ ollama rm <model-name>
 
 ---
 
+<a name="recommended-local-model-bonsai-8b"></a>
+### Recommended Local Model: Bonsai-8B (Private Pharma Research)
+
+For **air-gapped labs, GxP environments, PHI-containing case reports, and
+unpublished compound series**, BioDockify ships an optional private LLM
+runtime called the **BioDockify AI Engine**, powered by [Bonsai-8B](https://huggingface.co/prism-ml/Bonsai-8B-gguf)
+(~1.15 GB, 1-bit). It runs entirely on your machine — **no cloud, no egress,
+no API spend**.
+
+#### Why use it
+
+- **Privacy**: literature on unpublished compounds, internal assay data, and
+  PHI stays on-device. Nothing is sent to OpenAI/Anthropic/Google.
+- **Offline**: works in research networks with no internet.
+- **Reproducibility**: a thesis written today can be re-run in five years with
+  the exact same model file.
+- **Cost-free**: routine academic-writing tasks (ICH compliance, claim
+  verification, thesis scaffolding) cost nothing in tokens.
+
+#### Install (one-time, ~2 minutes)
+
+**Windows:**
+```bat
+scripts\install_bonsai.bat
+```
+
+**Linux / macOS:**
+```bash
+bash scripts/install_bonsai.sh
+```
+
+The script downloads ~1.15 GB into a Docker volume (not your image), starts
+the sidecar, and verifies health. Full details, hardware requirements, and
+troubleshooting are in **[docs/guides/bonsai-local-llm.md](../guides/bonsai-local-llm.md)**.
+
+#### Use it
+
+1. Open **Settings → Models** in BioDockify.
+2. In the preset switcher, choose **"BioDockify AI Engine — Local (Bonsai-8B)"**.
+3. Send a test message.
+
+#### Comparison
+
+| Preset | Cloud? | Privacy | Speed | Cost | Best for |
+|--------|--------|---------|-------|------|----------|
+| Max Power (Claude Opus / GPT-5.4) | yes | low | fastest | high | heavy reasoning, big literature matrix |
+| Balance (Sonnet / Gemini Flash) | yes | low | fast | medium | daily research |
+| Cost Efficient (Kimi / GPT-5.4-nano) | yes | low | fast | low | student workloads |
+| **AI Engine — Local (Bonsai-8B)** | **no** | **full** | slower | **free** | air-gapped, PHI, unpublished compounds |
+
+> [!NOTE]
+> Bonsai-8B is a smaller model and is best for structured pharma tasks
+> (compliance checks, claim extraction, scaffolding) rather than open-ended
+> long-form reasoning. Use the cloud presets when quality demands it.
+
+---
+
 ## Using BioDockify AI on Your Mobile Device
 
 BioDockify AI can be accessed from mobile devices and other computers using the built-in **Tunnel feature**.

@@ -71,6 +71,60 @@ services:
     #       memory: 8G
     #       cpus: '4'
 
+    # === OPTIONAL DEPENDENCY: BioDockify AI Engine (local LLM sidecar) ===
+    # Not required for normal operation. Set required: false so biodockify
+    # still starts even if the sidecar is disabled / uninstalled.
+    depends_on:
+      llama-server:
+        condition: service_started
+        required: false
+
+  # ===========================================================================
+  # BioDockify AI Engine — local LLM sidecar (OPT-IN via --profile local-llm)
+  # ============================================================================
+  # Runs Bonsai-8B (or any future model from modules/local_llm/models.json)
+  # privately on your machine. Used for air-gapped pharma research labs and
+  # private inference with no PHI/compound egress.
+  #
+  # Activation:
+  #   1) bash scripts/install_bonsai.sh    (Linux/macOS)
+  #      scripts\install_bonsai.bat        (Windows)
+  #   2) docker compose --profile local-llm up -d
+  #
+  # Deactivation / removal:
+  #   docker compose --profile local-llm stop llama-server
+  #   docker volume rm biodockify_models
+  #
+  # Default `docker compose up` (no profile) does NOT start this service.
+  # The model lives in a named volume so image updates never re-download it.
+  # ===========================================================================
+  llama-server:
+    image: ghcr.io/ggerganov/llama.cpp:server-light
+    container_name: biodockify-llama-server
+    profiles: ["local-llm"]
+    ports:
+      # Host 8081 -> sidecar 8080. Choose 8081 to avoid clashes with common dev ports.
+      - "8081:8080"
+    volumes:
+      - biodockify_models:/models
+    environment:
+      # The install script downloads /models/bonsai-8b-Q1_0.gguf
+      - MODEL=/models/bonsai-8b-Q1_0.gguf
+      - HOST=0.0.0.0
+      - PORT=8080
+      - CTX_SIZE=32768
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+    restart: unless-stopped
+
 volumes:
   biodockify_usr:
     # User workspace, chats, projects, plugins, backups
@@ -81,3 +135,8 @@ volumes:
   biodockify_a0proj:
     # Agent memory (FAISS vector DB), instructions, project config
     name: biodockify_a0proj
+  biodockify_models:
+    # BioDockify AI Engine — local LLM weights (GGUF). Populated by
+    # scripts/install_bonsai.sh / .bat. Lives outside the image so updates
+    # never re-download multi-GB models.
+    name: biodockify_models

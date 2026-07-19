@@ -1,0 +1,60 @@
+{
+  "_meta": {
+    "schema_version": 1,
+    "description": "BioDockify AI Engine — local model catalog. Adding a new model here requires NO code changes. Each model is described declaratively; the installer, status API, and presets system read from this file.",
+    "pharma_note": "Every model in this catalog must be suitable for pharmaceutical research workflows: literature synthesis, claim verification, ICH compliance checks, mechanism explanation, ADMET interpretation. Models that fail at structured pharma tasks should NOT be added here.",
+    "default_model": "bonsai-8b"
+  },
+  "models": {
+    "bonsai-8b": {
+      "display_name": "Bonsai-8B (1-bit)",
+      "family": "bonsai",
+      "publisher": "PrismML",
+      "license": "Apache-2.0 (model); see HuggingFace for details",
+      "description": "Natively trained 1-bit LLM. 1.15 GB parameter memory — fits on virtually any GPU. Recommended for student laptops, air-gapped labs, and offline pharmaceutical research workflows. 64K context window.",
+      "pharma_fit": "Default BioDockify AI Engine model for private pharma research. Suitable for: literature review drafting, ICH/CONSORT compliance checks, claim extraction, mechanism-of-action explanation, ADMET result interpretation, thesis section scaffolding.",
+      "gguf": {
+        "repo_id": "prism-ml/Bonsai-8B-gguf",
+        "filename": "bonsai-8b-Q1_0.gguf",
+        "url": "https://huggingface.co/prism-ml/Bonsai-8B-gguf/resolve/main/bonsai-8b-Q1_0.gguf",
+        "sha256": "",
+        "size_gb": 1.15,
+        "quantization": "1-bit"
+      },
+      "ollama_alternative": "digitsflow/bonsai-8b",
+      "requirements": {
+        "min_ram_gb": 6,
+        "recommended_ram_gb": 8,
+        "min_vram_gb": 0,
+        "recommended_vram_gb": 4,
+        "context_length": 65536
+      },
+      "runtime": {
+        "preferred_backend": "llama.cpp",
+        "apple_silicon_backend": "mlx",
+        "supports_gpu": true,
+        "supports_cpu": true,
+        "ctx_length": 32768,
+        "ctx_history": 0.7,
+        "temperature_default": 0.2,
+        "temperature_rationale": "Low temperature for reproducible pharma outputs (claim verification, citation checks)."
+      },
+      "tags": ["default", "pharma-optimized", "offline", "private", "student-friendly"],
+      "added_in_version": "7.5.4"
+    }
+  },
+  "_future_models_placeholder": {
+    "bonsai-27b": {
+      "_comment": "Reserved for future addition. 27B class is heavier (3.5GB+ GGUF) — power-user option, not default. Add when Model Manager UI lands.",
+      "display_name": "Bonsai-27B (1-bit)",
+      "family": "bonsai",
+      "gguf": {
+        "repo_id": "prism-ml/Bonsai-27B-gguf",
+        "filename": "bonsai-27b-Q1_0.gguf",
+        "url": "https://huggingface.co/prism-ml/Bonsai-27B-gguf/resolve/main/bonsai-27b-Q1_0.gguf",
+        "size_gb": 3.53
+      },
+      "requirements": { "min_ram_gb": 12, "recommended_ram_gb": 16, "recommended_vram_gb": 8 }
+    }
+  }
+}
