@@ -1063,6 +1063,63 @@ export const store = createStore("knowledgeModal", {
     this.loading = false;
   },
 
+  // ─── Obsidian Integration ─────────────────────────────────────────────
+
+  async sendToObsidian() {
+    /** Export selected KB entries to Obsidian vault as .md with YAML frontmatter */
+    if (!this.selectedIds.length) {
+      this.error = "Select at least one file first";
+      setTimeout(() => { this.error = ""; }, 2000);
+      return;
+    }
+    this.loading = true;
+    try {
+      const r = await callJsonApi("obsidian_sync", {
+        action: "export",
+        entry_ids: Array.from(this.selectedIds),
+      });
+      if (r.status === "ok") {
+        this.message = r.message || `Exported ${r.exported || 0} files to Obsidian vault`;
+      } else {
+        this.error = r.error || "Export failed";
+      }
+    } catch (e) {
+      this.error = "Obsidian sync error: " + e.message;
+    }
+    this.loading = false;
+    setTimeout(() => { this.message = ""; this.error = ""; }, 4000);
+  },
+
+  async pullFromObsidian() {
+    /** Import .md files from Obsidian vault into BioDockify KB */
+    this.loading = true;
+    try {
+      const r = await callJsonApi("obsidian_sync", { action: "import" });
+      if (r.status === "ok") {
+        this.message = r.message || `Imported ${r.imported || 0} files from Obsidian`;
+        // Refresh the entry list
+        await this.loadAllEntries();
+      } else {
+        this.error = r.error || "Import failed";
+      }
+    } catch (e) {
+      this.error = "Obsidian sync error: " + e.message;
+    }
+    this.loading = false;
+    setTimeout(() => { this.message = ""; this.error = ""; }, 4000);
+  },
+
+  async obsidianStatus() {
+    /** Check Obsidian vault status (file count, categories, last modified) */
+    try {
+      const r = await callJsonApi("obsidian_sync", { action: "status" });
+      if (r.status === "ok") {
+        return r;
+      }
+    } catch (e) { /* silent */ }
+    return { exists: false, file_count: 0, categories: [] };
+  },
+
   async moveToCategory(categoryKey) {
     /** Move selected files to a category. */
     if (!this.selectedIds.length) return;

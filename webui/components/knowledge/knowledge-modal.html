@@ -282,6 +282,13 @@
             <button class="kb-action-btn" @click="$store.knowledgeModal.useSelectedFor('export')" title="Export Selected">
               <span class="material-symbols-outlined" style="font-size:15px">download</span> Export
             </button>
+            <span style="border-left:1px solid var(--color-border);height:18px;margin:0 2px"></span>
+            <button class="kb-action-btn" @click="$store.knowledgeModal.sendToObsidian()" title="Send selected files to Obsidian vault as .md with YAML frontmatter">
+              <span class="material-symbols-outlined" style="font-size:15px">upload_file</span> Obsidian
+            </button>
+            <button class="kb-action-btn" @click="$store.knowledgeModal.pullFromObsidian()" title="Pull .md files from Obsidian vault into Knowledge Base">
+              <span class="material-symbols-outlined" style="font-size:15px">download</span> From Obsidian
+            </button>
           </div>
           <button class="kb-btn-clear" @click="$store.knowledgeModal.clearSelection()" title="Clear selection">
             <span class="material-symbols-outlined" style="font-size:15px">close</span>

@@ -2,6 +2,55 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v7.5.9] - 2026-07-19
+
+### BioDockify ↔ Obsidian Integration
+
+Bidirectional file sync between BioDockify Knowledge Base and Obsidian vault.
+Pharma researchers who use Obsidian for notes and literature management can
+now sync their KB entries to an Obsidian vault, and pull Obsidian notes back
+into BioDockify.
+
+#### New: `modules/obsidian/sync.py`
+- `export_to_vault()` — exports KB entries as `.md` files with Obsidian-standard
+  YAML frontmatter (title, tags, source, category, created, bioid, biodockify
+  block). Compatible with Dataview, Tag Wrangler, and other Obsidian plugins.
+- `import_from_vault()` — scans vault directory for `.md` files, parses
+  frontmatter, imports into KB. Round-trip safe via `bioid` field (updates
+  existing entries instead of creating duplicates).
+- `get_vault_status()` — file count, categories, last modified timestamp.
+- `generate_frontmatter()` / `parse_frontmatter()` — pure functions for
+  YAML frontmatter generation and parsing (no external YAML dependency).
+
+#### New: `api/obsidian_sync.py`
+- 4 actions: `status`, `export`, `import`, `configure`
+- Auth required (faculty-only)
+- `export` accepts `entry_ids` (selected) or `category` (all in category)
+- `import` scans entire vault recursively
+
+#### Modified: Knowledge Base UI
+- `knowledge-store.js`: added `sendToObsidian()`, `pullFromObsidian()`,
+  `obsidianStatus()` methods
+- `knowledge-modal.html`: added "📤 Obsidian" and "📥 From Obsidian" buttons
+  in selection action bar (next to existing Thesis, Review, Podcast, Slides,
+  Export buttons)
+
+#### New: `docs/guides/obsidian-integration.md`
+- Setup guide (Docker volume default + host bind mount)
+- Frontmatter format documentation with Dataview query examples
+- Round-trip sync explanation
+- Troubleshooting table
+
+#### New: `tests/test_obsidian_sync.py`
+- 18 tests: frontmatter generation (5), parsing (3), export (2), import (2),
+  status (2), API handler contract (2), KB header stripping (2)
+- All 18 pass. No regressions (45/45 total with AI Engine tests).
+
+#### Vault path configuration
+- Default: `/a0/usr/obsidian_vault/` (inside biodockify_usr volume)
+- Configurable via host bind mount in docker-compose.yml
+- Obsidian is optional — feature only activates if user configures vault
+
 ## [v7.5.8] - 2026-07-19
 
 ### Fix: copy ALL llama.cpp shared libraries (not just the binary)
