@@ -14,8 +14,8 @@ REM ============================================================================
 
 setlocal EnableDelayedExpansion
 
-set MODEL_FILE=bonsai-8b-Q1_0.gguf
-set MODEL_URL=https://huggingface.co/prism-ml/Bonsai-8B-gguf/resolve/main/bonsai-8b-Q1_0.gguf
+set MODEL_FILE=Bonsai-8B-Q1_0.gguf
+set MODEL_URL=https://huggingface.co/prism-ml/Bonsai-8B-gguf/resolve/main/Bonsai-8B-Q1_0.gguf
 set VOLUME_NAME=biodockify_models
 set SIDECAR_SERVICE=llama-server
 set HEALTH_URL=http://localhost:8081/health

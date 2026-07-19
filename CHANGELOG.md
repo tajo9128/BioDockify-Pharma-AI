@@ -2,6 +2,45 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v7.5.6] - 2026-07-19
+
+### Critical fixes for the BioDockify AI Engine (two more release-blockers)
+
+v7.5.5 still wouldn't start the sidecar — two more bugs surfaced during
+live install testing. Both are now fixed and guarded by regression tests.
+
+#### Critical fix #1: case-sensitive GGUF filename
+- The Hugging Face file is `Bonsai-8B-Q1_0.gguf` (capital B). v7.5.5
+  referenced `bonsai-8b-Q1_0.gguf` (lowercase) — HF URLs are
+  case-sensitive, so the install script got HTTP 404 and the model
+  never downloaded.
+- Fixed in `models.json`, both install scripts, `docker-compose.yml`
+  command block, and the install guide.
+- New regression test: `test_models_json_filename_case_correct` and
+  `test_docker_compose_uses_correct_gguf_filename`.
+
+#### Critical fix #2: wrong image namespace
+- The image `ghcr.io/ggerganov/llama.cpp:server` returns "not found" —
+  the `ggerganov` namespace is a deprecated mirror. The canonical
+  namespace is `ggml-org`.
+- Fixed to `ghcr.io/ggml-org/llama.cpp:server` in `docker-compose.yml`,
+  `runtimes.json`, docs, and the image-namespace regression test.
+
+#### Verified working end-to-end
+- Sidecar `ghcr.io/ggml-org/llama.cpp:server` pulls and starts.
+- Loads `Bonsai-8B-Q1_0.gguf` from the `biodockify_models` volume.
+- `/health` returns `{"status":"ok"}`.
+- `/v1/models` returns `[bonsai-8b]`.
+- Live chat test: prompt "name the three ICH pillars" →
+  "The three ICH pillars are Q (Quality), S (Safety), and E (Efficacy)."
+  (22 completion tokens).
+- biodockify container reaches sidecar via internal hostname
+  `http://llama-server:8080/v1`.
+
+#### Tests
+- 25/25 pass (added 2 new regression tests for filename case and
+  image namespace).
+
 ## [v7.5.5] - 2026-07-19
 
 ### Critical bug fix + hardening pass on the BioDockify AI Engine

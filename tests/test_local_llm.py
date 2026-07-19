@@ -63,6 +63,37 @@ def test_models_json_schema_for_bonsai_8b():
     assert r["context_length"] >= 8192
 
 
+def test_models_json_filename_case_correct():
+    """Regression guard: v7.5.5 shipped with lowercase `bonsai-8b-Q1_0.gguf`
+    in the catalog, which 404s on Hugging Face (URLs are case-sensitive).
+    The real file on HF is `Bonsai-8B-Q1_0.gguf` (capital B).
+    """
+    from modules.local_llm import load_catalog
+    cat = load_catalog(force=True)
+    g = cat["models"]["bonsai-8b"]["gguf"]
+    assert g["filename"] == "Bonsai-8B-Q1_0.gguf", (
+        f"Filename must be exactly 'Bonsai-8B-Q1_0.gguf' (capital B). "
+        f"Got: {g['filename']}"
+    )
+    assert g["filename"] in g["url"], "URL must contain the filename"
+    # Sanity check: no lowercase variant anywhere
+    assert "bonsai-8b-q1_0" not in g["url"].lower().rsplit("/", 1)[-1].lower() \
+           or g["filename"] == "Bonsai-8B-Q1_0.gguf"
+
+
+def test_docker_compose_uses_correct_gguf_filename():
+    """The compose sidecar command must reference the actual GGUF filename
+    that exists on disk inside the volume."""
+    path = PROJECT_ROOT / "docker-compose.yml"
+    with open(path, encoding="utf-8") as f:
+        compose = yaml.safe_load(f)
+    cmd = compose["services"]["llama-server"]["command"]
+    model_arg = cmd[cmd.index("-m") + 1]
+    assert model_arg == "/models/Bonsai-8B-Q1_0.gguf", (
+        f"Sidecar -m arg must be /models/Bonsai-8B-Q1_0.gguf. Got: {model_arg}"
+    )
+
+
 def test_models_json_is_valid_json():
     path = PROJECT_ROOT / "modules" / "local_llm" / "models.json"
     with open(path, encoding="utf-8") as f:
@@ -323,7 +354,7 @@ def test_docker_compose_has_sidecar_service_with_correct_image():
     assert "server-light" not in img, (
         f"Image {img} does not exist on ghcr.io — use 'server' instead"
     )
-    assert img.startswith("ghcr.io/ggerganov/llama.cpp:server"), (
+    assert img.startswith("ghcr.io/ggml-org/llama.cpp:server"), (
         f"Unexpected image: {img}"
     )
 

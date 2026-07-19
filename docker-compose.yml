@@ -100,10 +100,12 @@ services:
   # ===========================================================================
   llama-server:
     # Official llama.cpp server image (CPU, multi-arch: linux/amd64 + linux/arm64).
-    # For NVIDIA GPU acceleration, swap to: ghcr.io/ggerganov/llama.cpp:server-cuda
+    # Canonical namespace is ggml-org. (The ggerganov namespace was deprecated
+    # and now returns 'not found'. Use ggml-org to avoid pull failures.)
+    # For NVIDIA GPU acceleration, swap to: ghcr.io/ggml-org/llama.cpp:server-cuda
     # and add `deploy.resources.reservations.devices` (see troubleshooting doc).
     # NOTE: there is no `server-light` tag — `server` IS the slim server-only image.
-    image: ghcr.io/ggerganov/llama.cpp:server
+    image: ghcr.io/ggml-org/llama.cpp:server
     container_name: biodockify-llama-server
     profiles: ["local-llm"]
     ports:
@@ -116,7 +118,7 @@ services:
     #   https://github.com/ggml-org/llama.cpp/blob/master/docs/docker.md
     command:
       - "-m"
-      - "/models/bonsai-8b-Q1_0.gguf"
+      - "/models/Bonsai-8B-Q1_0.gguf"
       - "--host"
       - "0.0.0.0"
       - "--port"

@@ -21,10 +21,10 @@
       "litellm_provider": "lm_studio",
       "compose_profile": "local-llm",
       "compose_service": "llama-server",
-      "image": "ghcr.io/ggerganov/llama.cpp:server",
+      "image": "ghcr.io/ggml-org/llama.cpp:server",
       "supports_gpu": true,
       "supports_cpu": true,
-      "gpu_image": "ghcr.io/ggerganov/llama.cpp:server-cuda",
+      "gpu_image": "ghcr.io/ggml-org/llama.cpp:server-cuda",
       "tags": ["default", "bundled", "offline", "air-gapped"]
     },
     "host_ollama": {

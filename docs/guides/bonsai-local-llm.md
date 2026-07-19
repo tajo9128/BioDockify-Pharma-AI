@@ -35,7 +35,7 @@ pharma-tuned 8B model is a one-line JSON edit — no code changes.
             │   ┌───────────────┐    ┌──────────────────────┐  │
             │   │  biodockify   │───▶│   llama-server        │  │
             │   │  (UI + API)   │ HTTP│   (sidecar, opt-in)  │  │
-            │   └───────────────┘ /v1│  ghcr.io/ggerganov/  │  │
+            │   └───────────────┘ /v1│  ghcr.io/ggml-org/   │  │
             │                         │  llama.cpp:server-   │  │
             │                         │  light               │  │
             │                         └──────────┬───────────┘  │
@@ -99,7 +99,7 @@ bash scripts/install_bonsai.sh
 1. Verifies Docker is running.
 2. Probes host RAM and GPU. Warns (does not block) if below minimum.
 3. Creates the `biodockify_models` named volume if missing.
-4. Downloads `bonsai-8b-Q1_0.gguf` (~1.15 GB) from Hugging Face into the
+4. Downloads `Bonsai-8B-Q1_0.gguf` (~1.16 GB) from Hugging Face into the
    volume via a one-shot alpine container. (Nothing is installed on your host
    filesystem outside Docker.)
 5. Starts the `llama-server` sidecar via `docker compose --profile local-llm up -d`.

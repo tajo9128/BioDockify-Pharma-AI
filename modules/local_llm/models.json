@@ -15,8 +15,8 @@
       "pharma_fit": "Default BioDockify AI Engine model for private pharma research. Suitable for: literature review drafting, ICH/CONSORT compliance checks, claim extraction, mechanism-of-action explanation, ADMET result interpretation, thesis section scaffolding.",
       "gguf": {
         "repo_id": "prism-ml/Bonsai-8B-gguf",
-        "filename": "bonsai-8b-Q1_0.gguf",
-        "url": "https://huggingface.co/prism-ml/Bonsai-8B-gguf/resolve/main/bonsai-8b-Q1_0.gguf",
+        "filename": "Bonsai-8B-Q1_0.gguf",
+        "url": "https://huggingface.co/prism-ml/Bonsai-8B-gguf/resolve/main/Bonsai-8B-Q1_0.gguf",
         "sha256": "",
         "size_gb": 1.15,
         "quantization": "1-bit"

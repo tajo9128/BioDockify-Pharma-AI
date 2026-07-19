@@ -10,8 +10,9 @@
 # What this script does:
 #   1. Verifies Docker daemon is running and the biodockify compose project exists
 #   2. Detects host RAM + GPU (CPU/CUDA/Apple Silicon)
-#   3. Downloads bonsai-8b-Q1_0.gguf into the `biodockify_models` named volume
+#   3. Downloads Bonsai-8B-Q1_0.gguf into the `biodockify_models` named volume
 #      via a one-shot alpine container (no curl needed on host)
+#      NOTE: filename is case-sensitive (capital B). Lowercase URLs 404 on HF.
 #   4. Brings up the llama-server sidecar with the local-llm profile
 #   5. Polls the sidecar /health endpoint until ready
 #
@@ -28,8 +29,8 @@
 set -euo pipefail
 
 MODEL_ID="${BONSAI_MODEL_ID:-bonsai-8b}"
-MODEL_FILE="bonsai-8b-Q1_0.gguf"
-MODEL_URL="https://huggingface.co/prism-ml/Bonsai-8B-gguf/resolve/main/bonsai-8b-Q1_0.gguf"
+MODEL_FILE="Bonsai-8B-Q1_0.gguf"
+MODEL_URL="https://huggingface.co/prism-ml/Bonsai-8B-gguf/resolve/main/Bonsai-8B-Q1_0.gguf"
 MODEL_SIZE_GB_APPROX="1.15"
 VOLUME_NAME="biodockify_models"
 SIDECAR_SERVICE="llama-server"
