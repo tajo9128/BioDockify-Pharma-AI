@@ -1,12 +1,12 @@
 import { createStore } from "/js/AlpineStore.js";
 
 const model = {
-  versionNo: "v7.5.6",
+  versionNo: "v7.5.7",
   commitTime: "",
 
   get versionLabel() {
     // Always show current version — gitinfo may have stale tags
-    return `BioDockify v7.5.6`;
+    return `BioDockify v7.5.7`;
   },
 
   init() {

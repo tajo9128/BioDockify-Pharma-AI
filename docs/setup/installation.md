@@ -564,21 +564,14 @@ no API spend**.
 - **Cost-free**: routine academic-writing tasks (ICH compliance, claim
   verification, thesis scaffolding) cost nothing in tokens.
 
-#### Install (one-time, ~2 minutes)
+#### Install (one-time, automatic)
 
-**Windows:**
-```bat
-scripts\install_bonsai.bat
-```
+**There is nothing to install separately.** Just run your normal
+`docker compose up -d` — the model downloads automatically on first
+start (~1.1 GB, one-time). Subsequent starts are instant.
 
-**Linux / macOS:**
-```bash
-bash scripts/install_bonsai.sh
-```
-
-The script downloads ~1.15 GB into a Docker volume (not your image), starts
-the sidecar, and verifies health. Full details, hardware requirements, and
-troubleshooting are in **[docs/guides/bonsai-local-llm.md](../guides/bonsai-local-llm.md)**.
+Full details, hardware requirements, and troubleshooting are in
+**[docs/guides/bonsai-local-llm.md](../guides/bonsai-local-llm.md)**.
 
 #### Use it
 

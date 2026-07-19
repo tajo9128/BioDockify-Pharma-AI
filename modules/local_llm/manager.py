@@ -21,14 +21,16 @@ from typing import Dict, Any, Optional
 log = logging.getLogger("local_llm.manager")
 
 # --- Constants (also referenced by docs/install scripts) -------------------
-SIDECAR_HOST = os.environ.get("LOCAL_LLM_HOST", "llama-server")
+# llama-server runs INSIDE the BioDockify container (bundled, not a sidecar).
+# Model is stored at /a0/usr/ai_models/ in the biodockify_usr volume.
+SIDECAR_HOST = os.environ.get("LOCAL_LLM_HOST", "localhost")
 SIDECAR_PORT = int(os.environ.get("LOCAL_LLM_PORT", "8080"))
 SIDECAR_HEALTH_PATH = "/health"
 SIDECAR_V1_BASE = f"http://{SIDECAR_HOST}:{SIDECAR_PORT}/v1"
 SIDECAR_HEALTH_URL = f"http://{SIDECAR_HOST}:{SIDECAR_PORT}{SIDECAR_HEALTH_PATH}"
 
-# Where the GGUF must be inside the sidecar container
-SIDECAR_MODEL_PATH = "/models"
+# Where the GGUF lives inside the container (biodockify_usr volume)
+SIDECAR_MODEL_PATH = "/a0/usr/ai_models"
 
 _CATALOG_CACHE: Optional[Dict[str, Any]] = None
 _RUNTIMES_CACHE: Optional[Dict[str, Any]] = None
@@ -74,13 +76,13 @@ def load_runtimes(force: bool = False) -> Dict[str, Any]:
         return _RUNTIMES_CACHE
     except Exception as e:
         log.warning(f"Failed to load runtimes registry: {e}")
-        return {"_meta": {"default_runtime": "llama_cpp_sidecar"}, "runtimes": {}}
+        return {"_meta": {"default_runtime": "llama_cpp_local"}, "runtimes": {}}
 
 
 def get_default_runtime() -> Dict[str, Any]:
     """Return the currently-active runtime entry."""
     rt = load_runtimes()
-    rid = rt.get("_meta", {}).get("default_runtime", "llama_cpp_sidecar")
+    rid = rt.get("_meta", {}).get("default_runtime", "llama_cpp_local")
     return rt.get("runtimes", {}).get(rid, {})
 
 
@@ -155,7 +157,7 @@ class LocalLLMManager:
         """Call the active runtime's model-listing endpoint (OpenAI-compatible
         for llama.cpp/LM Studio/vLLM/MLX; /api/tags for Ollama)."""
         urls = self._runtime_urls()
-        rid = (self.runtimes.get("_meta") or {}).get("default_runtime", "llama_cpp_sidecar")
+        rid = (self.runtimes.get("_meta") or {}).get("default_runtime", "llama_cpp_local")
         is_ollama = "ollama" in rid
 
         def _do() -> Dict[str, Any]:
@@ -207,7 +209,7 @@ class LocalLLMManager:
         rec = recommend_model(hw, catalog)
 
         notes = []
-        rid = (self.runtimes.get("_meta") or {}).get("default_runtime", "llama_cpp_sidecar")
+        rid = (self.runtimes.get("_meta") or {}).get("default_runtime", "llama_cpp_local")
         rt_info = self.runtimes.get("runtimes", {}).get(rid, {})
         if not sidecar_health.get("reachable"):
             if rt_info.get("kind") == "bundled":

@@ -64,7 +64,7 @@
     provider: "lm_studio"
     name: "bonsai-8b"
     api_key: ""
-    api_base: "http://llama-server:8080/v1"
+    api_base: "http://localhost:8080/v1"
     ctx_length: 32768
     ctx_history: 0.7
     vision: false
@@ -72,6 +72,6 @@
     provider: "lm_studio"
     name: "bonsai-8b"
     api_key: ""
-    api_base: "http://llama-server:8080/v1"
+    api_base: "http://localhost:8080/v1"
     ctx_length: 32768
     ctx_input: 0.7

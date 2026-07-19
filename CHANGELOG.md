@@ -2,6 +2,61 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v7.5.7] - 2026-07-19
+
+### Local AI Engine bundled inside BioDockify — one `docker compose up` does everything
+
+The biggest change: **llama-server is now bundled inside the BioDockify
+Docker image itself.** No separate sidecar container, no separate image
+pull, no profiles, no scripts for students to run. One command starts
+everything.
+
+#### Architecture change (sidecar → bundled)
+- **Dockerfile.release**: multi-stage build — Stage 1 extracts the
+  `llama-server` binary from `ghcr.io/ggml-org/llama.cpp:server`,
+  Stage 2 copies it into the BioDockify image at `/usr/local/bin/`.
+  Installs `libgomp1` (OpenMP runtime for CPU inference).
+- **exe/init_bonsai.sh**: one-time model auto-downloader. Checks if
+  `Bonsai-8B-Q1_0.gguf` exists in `/a0/usr/ai_models/` (biodockify_usr
+  volume). If not, downloads ~1.1 GB from HuggingFace. Skips download
+  if already present. Non-blocking — failure doesn't prevent BioDockify
+  from starting.
+- **exe/init_and_run_llama.sh**: supervisord entrypoint for llama-server.
+  Calls init_bonsai.sh, then execs llama-server with the model.
+- **supervisord.conf**: added `[program:run_llama_server]` section that
+  starts llama-server via init_and_run_llama.sh on container startup.
+
+#### Docker-compose simplified
+- Removed `bonsai-init` one-shot service (no longer needed).
+- Removed `llama-server` sidecar service (now bundled).
+- Removed `biodockify_models` volume — model now stored in existing
+  `biodockify_usr` volume at `/a0/usr/ai_models/`.
+- Single container: `docker compose up -d` starts everything.
+- Student workflow is now one command: `docker compose up -d` → open
+  http://localhost → select preset "BioDockify AI Engine — Local".
+
+#### What students see
+1. `docker compose up -d` (the only command)
+2. BioDockify starts, llama-server starts inside the same container
+3. On first run, Bonsai-8B auto-downloads (~1.1 GB, one-time)
+4. Open http://localhost → select the local preset → send a test message
+
+No profiles, no scripts, no separate images. The local AI engine is
+part of the software, not an add-on.
+
+#### Test updates
+- 27/27 tests pass.
+- Removed sidecar-related tests (sidecar is gone).
+- Added tests for: Dockerfile multi-stage build, exe script existence,
+  compose is single-container, no models volume.
+
+#### Notes
+- Model auto-download requires internet on first run. Subsequent starts
+  are instant (model already in volume).
+- If download fails, BioDockify still starts — use cloud presets.
+- To free disk space: `docker compose down -v` removes all volumes
+  including the downloaded model.
+
 ## [v7.5.6] - 2026-07-19
 
 ### Critical fixes for the BioDockify AI Engine (two more release-blockers)

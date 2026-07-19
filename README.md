@@ -270,7 +270,7 @@ Your research data lives in 3 places inside the container. **All 3 must be mount
 - **Docker Desktop** (Windows/macOS) or Docker Engine (Linux) — required
 - **An AI model** — pick one of:
   - **Cloud** (default): any provider API key (OpenRouter, OpenAI, Anthropic, etc.), **or**
-  - **Local & private** (optional): the bundled **BioDockify AI Engine** runs Bonsai-8B on your own machine with **no cloud, no egress, no API spend**. Ideal for air-gapped labs, PHI case reports, and unpublished compound data. See [docs/guides/bonsai-local-llm.md](docs/guides/bonsai-local-llm.md) and run `scripts/install_bonsai.sh` (Linux/macOS) or `scripts\install_bonsai.bat` (Windows), or use host **Ollama** (see Installation guide).
+  - **Local & private** (optional): the bundled **BioDockify AI Engine** runs Bonsai-8B on your own machine with **no cloud, no egress, no API spend**. Ideal for air-gapped labs, PHI case reports, and unpublished compound data. **Just run `docker compose up -d` — the model downloads automatically on first run.** See [docs/guides/bonsai-local-llm.md](docs/guides/bonsai-local-llm.md) or use host **Ollama** (see Installation guide).
 - 8GB+ RAM recommended (12GB+ for large docking jobs)
 
 ### 1. Run with persistence (REQUIRED)

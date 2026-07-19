@@ -3,9 +3,16 @@ version: '3.8'
 # ╔══════════════════════════════════════════════════════════════════════════╗
 # ║  BioDockify Pharma AI — Docker Configuration                           ║
 # ║                                                                          ║
-# ║  ⚠️  YOU MUST USE ALL 3 VOLUMES BELOW. Without them, research data is  ║
+# ║  Students: just run `docker compose up -d` and open http://localhost    ║
+# ║  Everything is automatic:                                                ║
+# ║    ✓ BioDockify starts                                                   ║
+# ║    ✓ Local AI Engine (Bonsai-8B) downloads on first run (~1.1 GB)       ║
+# ║    ✓ llama.cpp server starts inside the container automatically         ║
+# ║    ✓ No scripts, no profiles, no technical knowledge needed              ║
+# ║                                                                          ║
+# ║  ⚠️  YOU MUST USE ALL 3 VOLUMES BELOW. Without them, research data is   ║
 # ║     lost when the container is deleted. This includes knowledge base,    ║
-# ║     agent memory, chats, settings, AND backups.                         ║
+# ║     agent memory, chats, settings, AND backups.                          ║
 # ║                                                                          ║
 # ║  ✅ WITH volumes: data persists forever across container restarts/updates║
 # ║  ❌ WITHOUT volumes: ALL data is gone on container delete               ║
@@ -23,7 +30,7 @@ services:
       - "80:50001"
     volumes:
       # === ALL 3 REQUIRED VOLUMES (data persists across container deletion) ===
-      - biodockify_usr:/a0/usr          # workspace, chats, projects, plugins, backups
+      - biodockify_usr:/a0/usr          # workspace, chats, projects, plugins, backups, local AI models
       - biodockify_data:/a0/data        # knowledge base, deep research sessions
       - biodockify_a0proj:/a0/.a0proj   # agent memory (FAISS), instructions, project config
 
@@ -34,18 +41,15 @@ services:
       - PORT=50001
       - TZ=Asia/Kolkata
 
-      # === OPTIONAL: LLM PROVIDERS ===
-      # Set API keys for your preferred LLM providers (these override manual entry in Settings UI)
+      # === OPTIONAL: LLM PROVIDERS (cloud — fully optional, not required) ===
+      # BioDockify works fully offline with the bundled Bonsai-8B local engine.
+      # Set API keys ONLY if you want to ALSO use cloud models (Claude, GPT, etc.)
       # - OPENAI_API_KEY=sk-your-key-here
       # - ANTHROPIC_API_KEY=sk-ant-your-key-here
       # - DEEPSEEK_API_KEY=sk-your-key-here
       # - OPENROUTER_API_KEY=sk-or-your-key-here
       # - GEMINI_API_KEY=your-key-here
       # - GROQ_API_KEY=gsk_your-key-here
-
-      # === OPTIONAL: LOCAL LLM (Ollama) ===
-      # If running Ollama on your host machine, uncomment and configure:
-      # - OLLAMA_URL=http://host.docker.internal:11434
 
       # === OPTIONAL: SEARXNG INSTANCE ===
       # BioDockify includes a built-in SearXNG instance for web search.
@@ -64,86 +68,10 @@ services:
       - "host.docker.internal:host-gateway"
 
     restart: unless-stopped
-    # Optional: resource limits (prevents container from using all system memory)
-    # deploy:
-    #   resources:
-    #     limits:
-    #       memory: 8G
-    #       cpus: '4'
-
-    # === OPTIONAL DEPENDENCY: BioDockify AI Engine (local LLM sidecar) ===
-    # Not required for normal operation. Set required: false so biodockify
-    # still starts even if the sidecar is disabled / uninstalled.
-    depends_on:
-      llama-server:
-        condition: service_started
-        required: false
-
-  # ===========================================================================
-  # BioDockify AI Engine — local LLM sidecar (OPT-IN via --profile local-llm)
-  # ============================================================================
-  # Runs Bonsai-8B (or any future model from modules/local_llm/models.json)
-  # privately on your machine. Used for air-gapped pharma research labs and
-  # private inference with no PHI/compound egress.
-  #
-  # Activation:
-  #   1) bash scripts/install_bonsai.sh    (Linux/macOS)
-  #      scripts\install_bonsai.bat        (Windows)
-  #   2) docker compose --profile local-llm up -d
-  #
-  # Deactivation / removal:
-  #   docker compose --profile local-llm stop llama-server
-  #   docker volume rm biodockify_models
-  #
-  # Default `docker compose up` (no profile) does NOT start this service.
-  # The model lives in a named volume so image updates never re-download it.
-  # ===========================================================================
-  llama-server:
-    # Official llama.cpp server image (CPU, multi-arch: linux/amd64 + linux/arm64).
-    # Canonical namespace is ggml-org. (The ggerganov namespace was deprecated
-    # and now returns 'not found'. Use ggml-org to avoid pull failures.)
-    # For NVIDIA GPU acceleration, swap to: ghcr.io/ggml-org/llama.cpp:server-cuda
-    # and add `deploy.resources.reservations.devices` (see troubleshooting doc).
-    # NOTE: there is no `server-light` tag — `server` IS the slim server-only image.
-    image: ghcr.io/ggml-org/llama.cpp:server
-    container_name: biodockify-llama-server
-    profiles: ["local-llm"]
-    ports:
-      # Host 8081 -> sidecar 8080. Choose 8081 to avoid clashes with common dev ports.
-      - "8081:8080"
-    volumes:
-      - biodockify_models:/models
-    # The server image's entrypoint is /app/llama-server, which takes CLI args
-    # (NOT env vars). Args here match the upstream docs:
-    #   https://github.com/ggml-org/llama.cpp/blob/master/docs/docker.md
-    command:
-      - "-m"
-      - "/models/Bonsai-8B-Q1_0.gguf"
-      - "--host"
-      - "0.0.0.0"
-      - "--port"
-      - "8080"
-      - "-c"
-      - "32768"
-      - "-a"
-      - "bonsai-8b"   # published as model id in /v1/models (must match preset)
-    healthcheck:
-      # /health endpoint is provided by llama-server. Pure-bash TCP+HTTP probe —
-      # avoids depending on wget/curl being present in the slim server image.
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && printf 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 && head -n1 <&3 | grep -q 200 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 90s
-    deploy:
-      resources:
-        limits:
-          memory: 6G
-    restart: unless-stopped
 
 volumes:
   biodockify_usr:
-    # User workspace, chats, projects, plugins, backups
+    # User workspace, chats, projects, plugins, backups, local AI models
     name: biodockify_usr
   biodockify_data:
     # Knowledge base, deep research sessions
@@ -151,8 +79,3 @@ volumes:
   biodockify_a0proj:
     # Agent memory (FAISS vector DB), instructions, project config
     name: biodockify_a0proj
-  biodockify_models:
-    # BioDockify AI Engine — local LLM weights (GGUF). Populated by
-    # scripts/install_bonsai.sh / .bat. Lives outside the image so updates
-    # never re-download multi-GB models.
-    name: biodockify_models

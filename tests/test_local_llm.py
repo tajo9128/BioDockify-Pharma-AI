@@ -81,16 +81,14 @@ def test_models_json_filename_case_correct():
            or g["filename"] == "Bonsai-8B-Q1_0.gguf"
 
 
-def test_docker_compose_uses_correct_gguf_filename():
-    """The compose sidecar command must reference the actual GGUF filename
-    that exists on disk inside the volume."""
-    path = PROJECT_ROOT / "docker-compose.yml"
+def test_startup_script_uses_correct_gguf_filename():
+    """The startup script must reference the actual GGUF filename (case-sensitive).
+    The HF file is Bonsai-8B-Q1_0.gguf (capital B), not bonsai-8b-Q1_0.gguf."""
+    path = PROJECT_ROOT / "exe" / "init_and_run_llama.sh"
     with open(path, encoding="utf-8") as f:
-        compose = yaml.safe_load(f)
-    cmd = compose["services"]["llama-server"]["command"]
-    model_arg = cmd[cmd.index("-m") + 1]
-    assert model_arg == "/models/Bonsai-8B-Q1_0.gguf", (
-        f"Sidecar -m arg must be /models/Bonsai-8B-Q1_0.gguf. Got: {model_arg}"
+        src = f.read()
+    assert "Bonsai-8B-Q1_0.gguf" in src, (
+        "Startup script must reference Bonsai-8B-Q1_0.gguf (capital B)"
     )
 
 
@@ -108,8 +106,8 @@ def test_models_json_is_valid_json():
 def test_runtimes_json_loads_and_has_default():
     from modules.local_llm import load_runtimes, get_default_runtime
     rt = load_runtimes(force=True)
-    assert rt["_meta"]["default_runtime"] == "llama_cpp_sidecar"
-    assert "llama_cpp_sidecar" in rt["runtimes"]
+    assert rt["_meta"]["default_runtime"] == "llama_cpp_local"
+    assert "llama_cpp_local" in rt["runtimes"]
     d = get_default_runtime()
     assert d["display_name"]
     assert d["endpoint"]["api_base"].startswith("http://")
@@ -231,7 +229,7 @@ async def test_get_model_status_returns_well_formed_dict():
     # Engine branding
     assert status["engine_name"] == "BioDockify AI Engine"
     # Runtime block
-    assert status["runtime"]["id"] == "llama_cpp_sidecar"
+    assert status["runtime"]["id"] == "llama_cpp_local"
     assert status["runtime"]["litellm_provider"] == "lm_studio"
 
 
@@ -331,82 +329,99 @@ def test_local_engine_preset_uses_api_key_exempt_provider():
         "Local preset must use an API-key-exempt provider; "
         "otherwise the UI shows a misleading 'missing API key' banner."
     )
-    # api_base must point at the sidecar hostname (Docker-internal)
-    assert "llama-server" in bonsai["chat"]["api_base"], (
-        "Local preset api_base must reference the llama-server sidecar"
+    # api_base must point at localhost (bundled llama-server runs inside container)
+    assert "localhost" in bonsai["chat"]["api_base"], (
+        "Local preset api_base must reference localhost (bundled llama-server)"
     )
 
 
 # ---------------------------------------------------------------------------
-# Docker-compose wiring
+# Dockerfile — bundled llama-server (multi-stage build)
 # ---------------------------------------------------------------------------
 
-def test_docker_compose_has_sidecar_service_with_correct_image():
-    """v7.5.4 shipped with the wrong image (server-light does not exist).
-    This test guards against regression."""
+def test_dockerfile_bundles_llama_server_binary():
+    """The Dockerfile must use a multi-stage build to copy llama-server
+    from the official llama.cpp image into the BioDockify image."""
+    path = PROJECT_ROOT / "Dockerfile.release"
+    with open(path, encoding="utf-8") as f:
+        src = f.read()
+    assert "FROM ghcr.io/ggml-org/llama.cpp:server AS llama-src" in src, (
+        "Dockerfile must have a multi-stage FROM for llama.cpp:server"
+    )
+    assert "COPY --from=llama-src" in src, (
+        "Dockerfile must COPY the llama-server binary from the llama-src stage"
+    )
+    assert "llama-server" in src, (
+        "Dockerfile must reference the llama-server binary"
+    )
+
+
+def test_dockerfile_has_no_bonsai_server_light_reference():
+    """Regression: the server-light tag does not exist on GHCR."""
+    path = PROJECT_ROOT / "Dockerfile.release"
+    with open(path, encoding="utf-8") as f:
+        src = f.read()
+    assert "server-light" not in src, (
+        "server-light does not exist — use ghcr.io/ggml-org/llama.cpp:server"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Startup scripts — bundled auto-download + auto-start
+# ---------------------------------------------------------------------------
+
+def test_exe_init_bonsai_sh_exists_and_executable():
+    """init_bonsai.sh auto-downloads the model on first run."""
+    path = PROJECT_ROOT / "exe" / "init_bonsai.sh"
+    assert path.exists(), "exe/init_bonsai.sh missing"
+    with open(path, encoding="utf-8") as f:
+        src = f.read()
+    assert "Bonsai-8B-Q1_0.gguf" in src, "script must reference the GGUF filename"
+    assert "1158654496" in src, "script must check expected file size"
+
+
+def test_exe_init_and_run_llama_sh_exists_and_executable():
+    """init_and_run_llama.sh is the supervisord entrypoint for llama-server."""
+    path = PROJECT_ROOT / "exe" / "init_and_run_llama.sh"
+    assert path.exists(), "exe/init_and_run_llama.sh missing"
+    with open(path, encoding="utf-8") as f:
+        src = f.read()
+    assert "llama-server" in src or "exec llama" in src, (
+        "script must exec llama-server"
+    )
+    assert "/a0/exe/init_bonsai.sh" in src, (
+        "script must call init_bonsai.sh for first-run download"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Docker-compose — single container, no sidecar
+# ---------------------------------------------------------------------------
+
+def test_docker_compose_is_single_container_no_sidecar():
+    """Since v7.5.7, llama-server is bundled inside the BioDockify container.
+    There should be no separate llama-server service in docker-compose.yml."""
     path = PROJECT_ROOT / "docker-compose.yml"
     with open(path, encoding="utf-8") as f:
         compose = yaml.safe_load(f)
     services = compose["services"]
-    assert "llama-server" in services, "sidecar service missing"
-    img = services["llama-server"]["image"]
-    # server-light does NOT exist; only server / server-cuda / etc do
-    assert "server-light" not in img, (
-        f"Image {img} does not exist on ghcr.io — use 'server' instead"
+    assert "llama-server" not in services, (
+        "llama-server is now bundled — no separate sidecar service in compose"
     )
-    assert img.startswith("ghcr.io/ggml-org/llama.cpp:server"), (
-        f"Unexpected image: {img}"
+    assert "bonsai-init" not in services, (
+        "bonsai-init is now part of the bundled entrypoint — no init service in compose"
     )
+    assert "biodockify" in services, "biodockify service must be present"
 
 
-def test_docker_compose_sidecar_uses_cli_args_not_env_vars():
-    """The llama.cpp server image takes CLI args, NOT env vars. v7.5.4
-    incorrectly used MODEL/HOST/PORT/CTX_SIZE env vars that the image ignores.
-    This test ensures the command: block is present and env vars aren't."""
+def test_docker_compose_has_no_models_volume():
+    """Model now lives in /a0/usr/ai_models/ inside the existing biodockify_usr
+    volume. No separate biodockify_models volume needed."""
     path = PROJECT_ROOT / "docker-compose.yml"
     with open(path, encoding="utf-8") as f:
         compose = yaml.safe_load(f)
-    sidecar = compose["services"]["llama-server"]
-    assert "command" in sidecar, (
-        "Sidecar must use 'command:' CLI args, not env vars (the image ignores env)"
-    )
-    cmd = sidecar["command"]
-    assert "-m" in cmd and "--host" in cmd and "--port" in cmd, (
-        "command must include -m, --host, --port args"
-    )
-    # The bogus env vars from v7.5.4 must be gone
-    env = sidecar.get("environment") or []
-    env_keys = []
-    for e in env:
-        if isinstance(e, str) and "=" in e:
-            env_keys.append(e.split("=", 1)[0])
-        elif isinstance(e, dict):
-            env_keys.extend(e.keys())
-    for forbidden in ("MODEL", "HOST", "PORT", "CTX_SIZE"):
-        assert forbidden not in env_keys, (
-            f"Sidecar must not set env var {forbidden} — the image ignores it. "
-            "Use the 'command:' block instead."
-        )
-
-
-def test_docker_compose_biodockify_does_not_hard_require_sidecar():
-    """biodockify must start even if the sidecar profile isn't enabled."""
-    path = PROJECT_ROOT / "docker-compose.yml"
-    with open(path, encoding="utf-8") as f:
-        compose = yaml.safe_load(f)
-    bio = compose["services"]["biodockify"]
-    deps = bio.get("depends_on", {}) or {}
-    side_dep = deps.get("llama-server", {})
-    assert side_dep.get("required") is False, (
-        "biodockify must declare depends_on.llama-server.required: false "
-        "so the main app starts without the opt-in sidecar"
-    )
-
-
-def test_docker_compose_has_models_volume():
-    path = PROJECT_ROOT / "docker-compose.yml"
-    with open(path, encoding="utf-8") as f:
-        compose = yaml.safe_load(f)
-    assert "biodockify_models" in compose.get("volumes", {}), (
-        "biodockify_models named volume missing"
+    volumes = compose.get("volumes", {})
+    assert "biodockify_models" not in volumes, (
+        "Model is now in /a0/usr/ai_models/ inside biodockify_usr — "
+        "separate biodockify_models volume removed"
     )

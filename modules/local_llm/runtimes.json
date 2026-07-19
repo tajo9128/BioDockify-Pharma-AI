@@ -2,30 +2,28 @@
   "_meta": {
     "schema_version": 1,
     "description": "BioDockify AI Engine — runtime registry. The Brain talks to whichever runtime is selected here through a single OpenAI-compatible endpoint (api_base), so swapping llama.cpp for Ollama / MLX / vLLM / TensorRT is a data-only change. No Brain or Agent Zero code changes required.",
-    "default_runtime": "llama_cpp_sidecar",
+    "default_runtime": "llama_cpp_local",
     "brain_contract": "All runtimes MUST expose POST /v1/chat/completions and GET /v1/models (OpenAI-compatible). The Brain never knows which runtime is active."
   },
   "runtimes": {
-    "llama_cpp_sidecar": {
-      "display_name": "llama.cpp (bundled sidecar)",
+    "llama_cpp_local": {
+      "display_name": "llama.cpp (bundled in BioDockify)",
       "kind": "bundled",
-      "description": "The default BioDockify AI Engine runtime. A llama.cpp llama-server container started by docker-compose --profile local-llm. CPU-only by default; swap to server-cuda image for NVIDIA. Best for air-gapped labs — no external processes required.",
+      "description": "The default BioDockify AI Engine runtime. llama-server runs inside the BioDockify container, started automatically by supervisord on container startup. Model auto-downloads on first run. No separate sidecar, no profiles, no student setup needed. CPU-only by default.",
       "endpoint": {
-        "api_base": "http://llama-server:8080/v1",
+        "api_base": "http://localhost:8080/v1",
         "health_path": "/health",
         "models_path": "/v1/models",
         "container_port": 8080,
-        "host_port": 8081,
-        "container_name": "biodockify-llama-server"
+        "model_path": "/a0/usr/ai_models"
       },
       "litellm_provider": "lm_studio",
-      "compose_profile": "local-llm",
-      "compose_service": "llama-server",
-      "image": "ghcr.io/ggml-org/llama.cpp:server",
+      "image": "ghcr.io/ggml-org/llama.cpp:server (binary copied into BioDockify image via multi-stage build)",
+      "model_store": "/a0/usr/ai_models/Bonsai-8B-Q1_0.gguf",
+      "auto_download": true,
       "supports_gpu": true,
       "supports_cpu": true,
-      "gpu_image": "ghcr.io/ggml-org/llama.cpp:server-cuda",
-      "tags": ["default", "bundled", "offline", "air-gapped"]
+      "tags": ["default", "bundled", "offline", "air-gapped", "automatic"]
     },
     "host_ollama": {
       "display_name": "Host Ollama",

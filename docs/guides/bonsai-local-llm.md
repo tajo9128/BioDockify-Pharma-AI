@@ -6,6 +6,10 @@
 > required for normal use; cloud presets (Max Power / Balance / Cost
 > Efficient) keep working unchanged.
 
+> **Students: just run `docker compose up -d` and open http://localhost.**
+> The model downloads automatically on first run. No scripts, no terminal
+> commands, no technical knowledge needed.
+
 > **Pharma research focus.** Run a private LLM entirely on your own machine —
 > no PHI, compound structures, or case-report data ever leaves your lab. This
 > matters for **air-gapped / GxP / regulatory environments**, for thesis
@@ -14,52 +18,60 @@
 
 ## What it is
 
-The BioDockify AI Engine is an **optional** local LLM runtime that runs as a
-Docker sidecar alongside BioDockify. It uses [llama.cpp](https://github.com/ggerganov/llama.cpp)
+The BioDockify AI Engine is a **bundled** local LLM runtime that runs
+**inside the BioDockify container itself** — no separate sidecar, no extra
+image pull, no profiles. It uses [llama.cpp](https://github.com/ggml-org/llama.cpp)
 to serve a small but capable model ([Bonsai-8B](https://huggingface.co/prism-ml/Bonsai-8B-gguf),
-~1.15 GB, 1-bit) on your own hardware. BioDockify talks to it through a
-standard OpenAI-compatible HTTP endpoint, so the Brain layer is unchanged and
-tomorrow you can swap in Ollama / LM Studio / vLLM / mlx_lm.server with zero
-code changes.
+~1.15 GB, 1-bit) on your own hardware.
+
+BioDockify talks to llama-server through a standard OpenAI-compatible HTTP
+endpoint (`http://localhost:8080/v1`), so the Brain layer is unchanged and
+you can swap in Ollama / LM Studio / vLLM / mlx_lm.server with zero code
+changes.
 
 **Bonsai-8B is not hardcoded.** It is the *default* entry in a data-driven
-catalog (`modules/local_llm/models.json`). Adding Gemma, Phi, Qwen, or a future
-pharma-tuned 8B model is a one-line JSON edit — no code changes.
+catalog (`modules/local_llm/models.json`). Adding Gemma, Phi, Qwen, or a
+future pharma-tuned 8B model is a one-line JSON edit — no code changes.
 
 ## Architecture
 
 ```
-            ┌──────────────────────────────────────────────────┐
-            │  Docker Desktop on your laptop / lab workstation │
-            │                                                  │
-            │   ┌───────────────┐    ┌──────────────────────┐  │
-            │   │  biodockify   │───▶│   llama-server        │  │
-            │   │  (UI + API)   │ HTTP│   (sidecar, opt-in)  │  │
-            │   └───────────────┘ /v1│  ghcr.io/ggml-org/   │  │
-            │                         │  llama.cpp:server-   │  │
-            │                         │  light               │  │
-            │                         └──────────┬───────────┘  │
-            │                                    │ mounts       │
-            │                         ┌──────────▼───────────┐  │
-            │                         │ biodockify_models    │  │
-            │                         │ (named volume)       │  │
-            │                         │ /models/bonsai-8b-…  │  │
-            │                         └──────────────────────┘  │
-            └──────────────────────────────────────────────────┘
-                                  │
-                            (no cloud)
+┌─────────────────────────────────────────────┐
+│  Docker Desktop on your laptop               │
+│                                              │
+│  ┌─────────────────────────────────────┐    │
+│  │  BioDockify container                │    │
+│  │                                      │    │
+│  │  ┌─────────┐  HTTP   ┌────────────┐ │    │
+│  │  │  UI     │ ──────▶ │ llama-     │ │    │
+│  │  │ + API   │  /v1    │ server     │ │    │
+│  │  └─────────┘         └─────┬──────┘ │    │
+│  │                            │ reads  │    │
+│  │              ┌──────────────▼──────┐ │    │
+│  │              │ /a0/usr/ai_models/  │ │    │
+│  │              │ Bonsai-8B-Q1_0.gguf │ │    │
+│  │              └─────────────────────┘ │    │
+│  └─────────────────────────────────────┘    │
+│                    │                         │
+│              biodockify_usr volume           │
+│              (persists across restarts)      │
+└─────────────────────────────────────────────┘
+                      │
+                (no cloud)
 ```
 
-Key properties:
+### Key properties
 
-- The **model lives in a Docker volume**, not in the image. Image updates never
-  re-download the ~1.15 GB GGUF.
-- The sidecar is **opt-in** via `docker compose --profile local-llm up`. A
-  plain `docker compose up` is unchanged.
-- BioDockify declares `depends_on: llama-server (required: false)` so it
-  starts fine even when the sidecar is absent.
-- The sidecar exposes an **OpenAI-compatible `/v1`** endpoint. The Brain uses
-  LiteLLM as usual; no provider code changes.
+- **llama-server is bundled** inside the BioDockify image (multi-stage Docker
+  build). No separate image pull, no sidecar container.
+- The **model auto-downloads** on first `docker compose up` (~1.1 GB,
+  one-time). Subsequent starts are instant.
+- The **model lives in `biodockify_usr`** volume at `/a0/usr/ai_models/`,
+  not in the image. Image updates never re-download the model.
+- `docker compose up -d` starts everything — **one command, one container**.
+- llama-server exposes `http://localhost:8080/v1` (OpenAI-compatible).
+- If download fails (no internet), BioDockify still starts — use cloud
+  presets in Settings.
 
 ## Hardware requirements
 
@@ -70,40 +82,24 @@ Key properties:
 | Disk            | 2 GB free | 4 GB free |
 | OS              | Windows 10+, macOS 11+, Linux x86_64 | same |
 
-**Apple Silicon (M1/M2/M3/M4):** works via the llama.cpp sidecar. For the
+**Apple Silicon (M1/M2/M3/M4):** works via the bundled llama-server. For the
 fastest experience on Apple Silicon you can alternatively run `mlx_lm.server`
 on the host and point BioDockify at it like any Ollama/LM Studio provider.
 
 **CPU-only laptops:** Bonsai-8B at 1-bit is *usable* on CPU but slow
 (roughly 3–8 tok/s on a modern i5/Ryzen). For routine student work on a
 weak laptop, host Ollama (see existing Ollama docs) is often the better
-choice; this bundled sidecar is intended for the **private / air-gapped**
+choice; this bundled engine is intended for the **private / air-gapped**
 use case.
 
-## Install (one-time)
+## Install (one-time, automatic)
 
-### Windows
+**There is nothing to install.** `docker compose up -d` handles everything:
 
-```bat
-scripts\install_bonsai.bat
-```
-
-### Linux / macOS
-
-```bash
-bash scripts/install_bonsai.sh
-```
-
-### What the installer does
-
-1. Verifies Docker is running.
-2. Probes host RAM and GPU. Warns (does not block) if below minimum.
-3. Creates the `biodockify_models` named volume if missing.
-4. Downloads `Bonsai-8B-Q1_0.gguf` (~1.16 GB) from Hugging Face into the
-   volume via a one-shot alpine container. (Nothing is installed on your host
-   filesystem outside Docker.)
-5. Starts the `llama-server` sidecar via `docker compose --profile local-llm up -d`.
-6. Polls `http://localhost:8081/health` until the sidecar is ready (≤90 s).
+1. Starts BioDockify.
+2. On first run, auto-downloads Bonsai-8B (~1.1 GB) into the persistent
+   volume. This happens once — subsequent starts are instant.
+3. Starts llama-server inside the container automatically.
 
 ### Final step (in the UI) — pick Bonsai for either or both slots
 
@@ -158,14 +154,6 @@ Available templates:
 | `thesis`          | Methods / Results / Discussion drafting (IMRaD) |
 | `ich`             | CONSORT / STROBE / PRISMA / ARRIVE / ICH compliance checks |
 
-To preview a rendered template (no LLM call):
-
-```bash
-curl -X POST http://localhost/api/local_llm \
-  -H "Content-Type: application/json" \
-  -d '{"action":"prompts","task":"admet"}'
-```
-
 ## Status & health
 
 Check the engine status from the API:
@@ -176,53 +164,15 @@ curl -X POST http://localhost/api/local_llm \
   -d '{"action":"status"}'
 ```
 
-Example response:
-
-```json
-{
-  "status": "ok",
-  "engine_name": "BioDockify AI Engine",
-  "default_model": "bonsai-8b",
-  "model": { "display_name": "Bonsai-8B (1-bit)", "size_gb": 1.15, "context_length": 32768 },
-  "sidecar": {
-    "running": true,
-    "latency_ms": 12,
-    "loaded_models": ["bonsai-8b"],
-    "endpoint": "http://llama-server:8080/v1"
-  },
-  "hardware": { "ram_total_gb": 16.0, "vram_total_gb": 4.0, "gpu_present": true, "gpu_name": "NVIDIA ...", "apple_silicon": false },
-  "preset_name": "BioDockify AI Engine — Local (Bonsai-8B)",
-  "notes": ["Sidecar is healthy."]
-}
-```
-
 Other actions:
 - `{"action":"hardware"}` — detected RAM/VRAM/GPU + model recommendation
 - `{"action":"catalog"}` — list of installable models from `models.json`
+- `{"action":"runtimes"}` — registered backends (bundled llama.cpp, host
+  Ollama, host LM Studio, future vLLM / MLX)
 - `{"action":"prompts"}` — list available pharma prompt templates
-- `{"action":"readiness"}` — pre-flight checks for the install script
-
-## Privacy & compliance notes
-
-- **No egress.** The sidecar talks only to BioDockify over the internal Docker
-  network. No prompts, KB content, or generated text is sent anywhere.
-- **No telemetry.** The BioDockify AI Engine does not phone home.
-- **HIPAA / GDPR friendly.** Because nothing leaves the host, the local engine
-  is suitable for case reports containing PHI, internal assay data, and
-  unpublished compound series.
-- **Reproducibility.** A thesis written with a local Bonsai-8B in 2026 can be
-  re-run in 2030 with the same model file. Cloud models cannot guarantee this.
-
-## Removing the local engine
-
-```bash
-docker compose --profile local-llm stop llama-server
-docker compose --profile local-llm rm -f llama-server
-docker volume rm biodockify_models   # frees the ~1.15 GB
-```
-
-Then switch back to a cloud preset (Max Power / Balance / Cost Efficient) in
-Settings → Models. BioDockify continues to work normally.
+- `{"action":"readiness"}` — pre-flight checks
+- `{"action":"benchmark"}` — run a 50-token pharma prompt and get tok/s
+  with Good (≥20) / OK (≥8) / Slow verdict
 
 ## In-app diagnostics panel
 
@@ -244,11 +194,11 @@ All data comes from the `/api/local_llm` actions
 ## Swapping runtimes (data-driven, no code)
 
 The Brain talks to whichever runtime is active via a single OpenAI-compatible
-endpoint. Switching from the bundled llama.cpp sidecar to host Ollama is a
-two-line data change:
+endpoint. Switching from the bundled llama.cpp to host Ollama is a two-line
+data change:
 
 1. Edit `modules/local_llm/runtimes.json` → change
-   `_meta.default_runtime` from `"llama_cpp_sidecar"` to `"host_ollama"`.
+   `_meta.default_runtime` from `"llama_cpp_local"` to `"host_ollama"`.
 2. Update the preset's `api_base` in
    `plugins/_model_config/default_presets.yaml` to match (e.g.
    `http://host.docker.internal:11434` for Ollama).
@@ -272,19 +222,45 @@ Edit `modules/local_llm/models.json`:
 }
 ```
 
-Then add a preset in `plugins/_model_config/default_presets.yaml` pointing at
-`http://llama-server:8080/v1` and update the installer's `MODEL_FILE` /
-`MODEL_URL`. No Python or JavaScript changes required.
+Then update the startup script (`exe/init_bonsai.sh`) to download the new
+model file, and add a preset in
+`plugins/_model_config/default_presets.yaml` pointing at
+`http://localhost:8080/v1`. No Python or JavaScript changes required.
+
+## Privacy & compliance notes
+
+- **No egress.** llama-server talks only to BioDockify via `localhost`.
+  No prompts, KB content, or generated text is sent anywhere.
+- **No telemetry.** The BioDockify AI Engine does not phone home.
+- **HIPAA / GDPR friendly.** Because nothing leaves the host, the local engine
+  is suitable for case reports containing PHI, internal assay data, and
+  unpublished compound series.
+- **Reproducibility.** A thesis written with a local Bonsai-8B in 2026 can be
+  re-run in 2030 with the same model file. Cloud models cannot guarantee this.
+
+## Removing the local engine
+
+```bash
+docker compose down -v   # removes ALL volumes including the downloaded model
+docker compose up -d      # restarts clean — model will re-download on next start
+```
+
+To free disk space without restarting:
+```bash
+docker exec biodockify rm -rf /a0/usr/ai_models/
+```
+
+Then switch back to a cloud preset (Max Power / Balance / Cost Efficient) in
+Settings → Models. BioDockify continues to work normally.
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
-| Sidecar `unhealthy` after 90 s | `docker compose --profile local-llm logs llama-server` |
-| `manifest unknown` or image pull fails | You may be on v7.5.4 which referenced a non-existent `server-light` tag. Update to v7.5.5+ which uses the correct `server` image. |
-| `model file not found` in sidecar logs | Re-run the install script; verify `docker run --rm -v biodockify_models:/models alpine ls -la /models` |
+| Model didn't download on first start | Check internet. Restart: `docker compose restart`. Download happens in background. |
+| `manifest unknown` when building | You may be on an old Dockerfile. Update to v7.5.7+ which uses `ghcr.io/ggml-org/llama.cpp:server`. |
 | Very slow CPU inference | Switch to host Ollama preset (see main Installation docs), or add a GPU |
-| Port 8081 already in use | Edit `docker-compose.yml` and change `8081:8080` to a free host port; also update `HEALTH_URL` in the install scripts |
-| GPU not detected in WSL2 | NVIDIA GPU passthrough on Windows Docker Desktop requires `nvidia-container-toolkit`; the bundled sidecar image falls back to CPU. For native GPU acceleration, swap to `host_ollama` runtime (Ollama installed on the host) and update the preset `api_base`. |
+| GPU not detected in WSL2 | NVIDIA GPU passthrough on Windows Docker Desktop requires `nvidia-container-toolkit`. For native GPU acceleration, use host Ollama. |
 | Preset shows "missing API key" | Should not happen — `lm_studio` is in `LOCAL_PROVIDERS`. If you see it, verify `_model_config` plugin is enabled |
-| Brain not reaching the sidecar | Confirm both services are on the same Docker network (`docker network inspect biodockify-pharma-ai_default`) and that the preset `api_base` is `http://llama-server:8080/v1` (the container hostname, not `localhost`) |
+| `curl: (7) Connection refused` on port 8080 | llama-server starts in background via supervisord. Wait 30-60 seconds after `docker compose up` for it to load the model. |
+| Want to force re-download | `docker exec biodockify rm /a0/usr/ai_models/Bonsai-8B-Q1_0.gguf && docker compose restart` |

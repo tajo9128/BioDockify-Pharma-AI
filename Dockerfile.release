@@ -1,4 +1,17 @@
+# ─── Stage 1: Extract llama-server binary from official image ───
+FROM ghcr.io/ggml-org/llama.cpp:server AS llama-src
+
+# ─── Stage 2: BioDockify Pharma AI ───
 FROM tajo9128/biodockify-pharma-ai:v7.0.7
+
+# ─── Bundle llama-server from Stage 1 ───
+COPY --from=llama-src /app/llama-server /usr/local/bin/llama-server
+RUN chmod +x /usr/local/bin/llama-server && \
+    echo "llama-server bundled: $(llama-server --version 2>&1 | head -1)" || true
+
+# ─── Install libgomp1 (OpenMP runtime for llama-server CPU inference) ───
+RUN apt-get update -qq && apt-get install -y -qq libgomp1 2>/dev/null && \
+    echo "libgomp1 installed" || echo "libgomp1 install skipped (already present or unavailable)"
 
 COPY . /a0/
 
@@ -61,7 +74,27 @@ RUN mkdir -p /a0/.cache/sentence-transformers && \
     echo "sentence-transformers model cached" || \
     echo "sentence-transformers model cache failed — will try HuggingFace at runtime"
 
+# ─── Install llama-server supervisord config ───
+RUN mkdir -p /etc/supervisor/conf.d && \
+    cat > /etc/supervisor/conf.d/llama-server.conf << 'SUPERVISOR_EOF'
+[program:run_llama_server]
+command=/a0/exe/init_and_run_llama.sh
+environment=MODEL_PATH=/a0/usr/ai_models/Bonsai-8B-Q1_0.gguf
+user=root
+directory=/a0
+stopwaitsecs=30
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
+autorestart=true
+startretries=3
+stopasgroup=true
+killasgroup=true
+SUPERVISOR_EOF
+
 EXPOSE 50001
+EXPOSE 8080
 # Persist user data, agent memory, and knowledge base separately so each survives
 VOLUME ["/a0/usr", "/a0/.a0proj", "/a0/data"]
 HEALTHCHECK --interval=30s --timeout=15s --retries=3 CMD \
