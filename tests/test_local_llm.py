@@ -366,22 +366,37 @@ def test_dockerfile_has_no_bonsai_server_light_reference():
     )
 
 
+def test_dockerfile_bundles_bonsai_model():
+    """The Dockerfile must COPY the Bonsai-8B model into the image."""
+    path = PROJECT_ROOT / "Dockerfile.release"
+    with open(path, encoding="utf-8") as f:
+        src = f.read()
+    assert "COPY Bonsai-8B-Q1_0.gguf" in src, (
+        "Dockerfile must COPY the Bonsai model into the image"
+    )
+    assert "/opt/llama-server/models" in src, (
+        "Model must be stored at /opt/llama-server/models/"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Startup scripts — bundled auto-download + auto-start
 # ---------------------------------------------------------------------------
 
 def test_exe_init_bonsai_sh_exists_and_executable():
-    """init_bonsai.sh auto-downloads the model on first run."""
+    """init_bonsai.sh verifies the bundled model (no download)."""
     path = PROJECT_ROOT / "exe" / "init_bonsai.sh"
     assert path.exists(), "exe/init_bonsai.sh missing"
     with open(path, encoding="utf-8") as f:
         src = f.read()
     assert "Bonsai-8B-Q1_0.gguf" in src, "script must reference the GGUF filename"
     assert "1158654496" in src, "script must check expected file size"
+    assert "/opt/llama-server/models" in src, "model must be in /opt/llama-server/models/"
 
 
 def test_exe_init_and_run_llama_sh_exists_and_executable():
-    """init_and_run_llama.sh is the supervisord entrypoint for llama-server."""
+    """init_and_run_llama.sh is the supervisord entrypoint for llama-server.
+    Model is bundled in the image — script verifies it exists then starts server."""
     path = PROJECT_ROOT / "exe" / "init_and_run_llama.sh"
     assert path.exists(), "exe/init_and_run_llama.sh missing"
     with open(path, encoding="utf-8") as f:
@@ -389,8 +404,8 @@ def test_exe_init_and_run_llama_sh_exists_and_executable():
     assert "llama-server" in src or "exec llama" in src, (
         "script must exec llama-server"
     )
-    assert "/a0/exe/init_bonsai.sh" in src, (
-        "script must call init_bonsai.sh for first-run download"
+    assert "/opt/llama-server/models" in src, (
+        "script must reference bundled model path"
     )
 
 
@@ -415,13 +430,13 @@ def test_docker_compose_is_single_container_no_sidecar():
 
 
 def test_docker_compose_has_no_models_volume():
-    """Model now lives in /a0/usr/ai_models/ inside the existing biodockify_usr
-    volume. No separate biodockify_models volume needed."""
+    """Model is bundled inside the Docker image at /opt/llama-server/models/.
+    No separate volume needed for the model."""
     path = PROJECT_ROOT / "docker-compose.yml"
     with open(path, encoding="utf-8") as f:
         compose = yaml.safe_load(f)
     volumes = compose.get("volumes", {})
     assert "biodockify_models" not in volumes, (
-        "Model is now in /a0/usr/ai_models/ inside biodockify_usr — "
-        "separate biodockify_models volume removed"
+        "Model is bundled in the Docker image at /opt/llama-server/models/ — "
+        "separate biodockify_models volume not needed"
     )

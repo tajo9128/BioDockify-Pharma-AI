@@ -7,8 +7,8 @@
 > Efficient) keep working unchanged.
 
 > **Students: just run `docker compose up -d` and open http://localhost.**
-> The model downloads automatically on first run. No scripts, no terminal
-> commands, no technical knowledge needed.
+> The model is bundled inside the Docker image — ready immediately on first
+> start. No scripts, no terminal commands, no downloads, no technical knowledge needed.
 
 > **Pharma research focus.** Run a private LLM entirely on your own machine —
 > no PHI, compound structures, or case-report data ever leaves your lab. This
@@ -64,8 +64,8 @@ future pharma-tuned 8B model is a one-line JSON edit — no code changes.
 
 - **llama-server is bundled** inside the BioDockify image (multi-stage Docker
   build). No separate image pull, no sidecar container.
-- The **model auto-downloads** on first `docker compose up` (~1.1 GB,
-  one-time). Subsequent starts are instant.
+- The **model is bundled** inside the Docker image (~1.1 GB). Ready
+  immediately on first start — no download needed.
 - The **model lives in `biodockify_usr`** volume at `/a0/usr/ai_models/`,
   not in the image. Image updates never re-download the model.
 - `docker compose up -d` starts everything — **one command, one container**.
@@ -97,8 +97,7 @@ use case.
 **There is nothing to install.** `docker compose up -d` handles everything:
 
 1. Starts BioDockify.
-2. On first run, auto-downloads Bonsai-8B (~1.1 GB) into the persistent
-   volume. This happens once — subsequent starts are instant.
+2. Bonsai-8B is already bundled in the image — ready immediately.
 3. Starts llama-server inside the container automatically.
 
 ### Final step (in the UI) — pick Bonsai for either or both slots
@@ -257,10 +256,8 @@ Settings → Models. BioDockify continues to work normally.
 
 | Symptom | Fix |
 |---------|-----|
-| Model didn't download on first start | Check internet. Restart: `docker compose restart`. Download happens in background. |
-| `manifest unknown` when building | You may be on an old Dockerfile. Update to v7.5.7+ which uses `ghcr.io/ggml-org/llama.cpp:server`. |
+| `manifest unknown` when building | You may be on an old Dockerfile. Update to v7.6.0+ which uses `ghcr.io/ggml-org/llama.cpp:server`. |
 | Very slow CPU inference | Switch to host Ollama preset (see main Installation docs), or add a GPU |
 | GPU not detected in WSL2 | NVIDIA GPU passthrough on Windows Docker Desktop requires `nvidia-container-toolkit`. For native GPU acceleration, use host Ollama. |
 | Preset shows "missing API key" | Should not happen — `lm_studio` is in `LOCAL_PROVIDERS`. If you see it, verify `_model_config` plugin is enabled |
 | `curl: (7) Connection refused` on port 8080 | llama-server starts in background via supervisord. Wait 30-60 seconds after `docker compose up` for it to load the model. |
-| Want to force re-download | `docker exec biodockify rm /a0/usr/ai_models/Bonsai-8B-Q1_0.gguf && docker compose restart` |

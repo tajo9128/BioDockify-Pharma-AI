@@ -2,6 +2,36 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v7.6.1] - 2026-07-19
+
+### Bonsai-8B model bundled inside Docker image — no download needed
+
+The Bonsai-8B model (1.1 GB) is now **bundled inside the Docker image** at
+`/opt/llama-server/models/Bonsai-8B-Q1_0.gguf`. No auto-download on first
+run — the model is ready immediately when the container starts.
+
+#### What changed
+- **Dockerfile.release**: `COPY Bonsai-8B-Q1_0.gguf /opt/llama-server/models/`
+  — model is baked into the image during build.
+- **Supervisord config**: `MODEL_PATH=/opt/llama-server/models/Bonsai-8B-Q1_0.gguf`
+- **exe/init_and_run_llama.sh**: simplified — just verifies model exists and
+  starts llama-server. No download logic.
+- **exe/init_bonsai.sh**: simplified — just verifies bundled model exists.
+- **modules/local_llm/manager.py**: `SIDECAR_MODEL_PATH=/opt/llama-server/models`
+- **modules/local_llm/models.json**: added `local_path` and `bundled_in_image` fields.
+- **Docs**: removed all "auto-downloads on first run" language.
+- **Tests**: updated to reflect bundled model path. 46/46 pass.
+
+#### Image size impact
+- Before: ~13.7 GB (no model bundled)
+- After: ~14.8 GB (model bundled, +1.1 GB)
+
+#### Student experience
+1. `docker compose up -d`
+2. Open http://localhost
+3. Select preset "BioDockify AI Engine — Local (Bonsai-8B)"
+4. Send a test message — works immediately, no waiting for download
+
 ## [v7.6.0] - 2026-07-19
 
 ### Graphify Knowledge Graph — AI agents can now understand the entire codebase

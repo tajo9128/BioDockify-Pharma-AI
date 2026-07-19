@@ -21,6 +21,14 @@ RUN chmod +x /opt/llama-server/llama-server && \
 RUN apt-get update -qq && apt-get install -y -qq libgomp1 2>/dev/null && \
     echo "libgomp1 installed" || echo "libgomp1 install skipped (already present or unavailable)"
 
+# ─── Bundle Bonsai-8B model (1.1 GB) ───
+# Model is stored at /opt/llama-server/models/ (inside image, not a volume).
+# This ensures the model is available immediately on first start — no download.
+# The model file is in .gitignore (too large for git) but included in Docker build context.
+COPY Bonsai-8B-Q1_0.gguf /opt/llama-server/models/Bonsai-8B-Q1_0.gguf
+RUN ls -la /opt/llama-server/models/Bonsai-8B-Q1_0.gguf && \
+    echo "Bonsai-8B model bundled ($(du -h /opt/llama-server/models/Bonsai-8B-Q1_0.gguf | cut -f1))"
+
 COPY . /a0/
 
 # ─── Cleanup + Rebrand ───
@@ -87,7 +95,7 @@ RUN mkdir -p /etc/supervisor/conf.d && \
     cat > /etc/supervisor/conf.d/llama-server.conf << 'SUPERVISOR_EOF'
 [program:run_llama_server]
 command=/a0/exe/init_and_run_llama.sh
-environment=MODEL_PATH=/a0/usr/ai_models/Bonsai-8B-Q1_0.gguf
+environment=MODEL_PATH=/opt/llama-server/models/Bonsai-8B-Q1_0.gguf
 user=root
 directory=/a0
 stopwaitsecs=30

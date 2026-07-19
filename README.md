@@ -40,7 +40,7 @@
 |---------|---------|
 | **Model** | [Bonsai-8B](https://huggingface.co/prism-ml/Bonsai-8B-gguf) — 1-bit, ~1.15 GB, 64K context, Apache-2.0 license |
 | **Engine** | [llama.cpp](https://github.com/ggml-org/llama.cpp) server, bundled inside the BioDockify Docker image |
-| **Setup** | `docker compose up -d` — that's it. Model auto-downloads on first run (~1.1 GB, one-time). |
+| **Setup** | `docker compose up -d` — that's it. Model is bundled in the image, ready immediately. |
 | **Endpoint** | `http://localhost:8080/v1` (OpenAI-compatible, LiteLLM via `lm_studio` provider) |
 | **Pharma Prompt Library** | 8 domain templates: Literature Review, MOA Explanation, Docking Interpretation, ADMET Analysis, Claim Verification (JSON), Thesis Drafting (IMRaD), ICH Compliance (CONSORT/STROBE/PRISMA/ARRIVE) |
 | **In-app panel** | Right-canvas rail → "BioDockify AI Engine" (brain icon) → 4 tabs: Status, Models, Runtimes, Benchmark |
@@ -148,7 +148,7 @@ Output: Per-pose MM-GBSA energies, Z-scores, and consensus with Vina (`0.4*Vina_
 
 ### Students: just run `docker compose up -d` and open http://localhost
 
-That's it. BioDockify starts, the local AI engine (Bonsai-8B) auto-downloads on first run (~1.1 GB, one-time), and everything works offline.
+That's it. BioDockify starts, the local AI engine (Bonsai-8B) is bundled in the image and ready immediately, and everything works offline.
 
 ```bash
 docker compose up -d
@@ -230,7 +230,7 @@ All user data is stored across 3 Docker volumes:
 | **🧩 User plugins** | `/a0/usr/plugins/` | ✅ Yes |
 | **🛠️ User skills** | `/a0/usr/skills/` | ✅ Yes |
 | **💾 Backups** | `/a0/usr/backups/` | ✅ Yes + on PC if host-mounted |
-| **🤖 Local AI model** | `/a0/usr/ai_models/` | ✅ Yes (auto-downloaded on first run) |
+| **🤖 Local AI model** | `/opt/llama-server/models/` | ✅ Yes (bundled in image) |
 
 ### Volume 2: `/a0/data` (biodockify_data)
 
@@ -304,7 +304,7 @@ The biggest architectural change: **llama-server is now bundled inside the BioDo
 
 | Before (v7.5.2) | After (v7.5.8) |
 |---|---|
-| No local AI option | **Bonsai-8B bundled** (1-bit, ~1.15 GB, auto-downloads) |
+| No local AI option | **Bonsai-8B bundled** (1-bit, ~1.15 GB, ready immediately) |
 | Only cloud API keys | **Works fully offline** — no cloud, no egress, no API spend |
 | 0 statistics types (original had 16) | **56 analysis types** (restored from original BioDockify) |
 | No pharma prompt templates | **8 pharma-specific prompt templates** (literature, MOA, docking, ADMET, claims, thesis, ICH) |
@@ -320,7 +320,7 @@ The biggest architectural change: **llama-server is now bundled inside the BioDo
 ### Technical details
 
 - **Dockerfile.release**: multi-stage build — extracts llama-server + all ~30 shared libraries from `ghcr.io/ggml-org/llama.cpp:server`, copies to `/opt/llama-server/`, registers with `ldconfig`
-- **exe/init_bonsai.sh**: auto-downloads Bonsai-8B-Q1_0.gguf to `/a0/usr/ai_models/` on first run (skips if present)
+- **exe/init_bonsai.sh**: verifies bundled model at `/opt/llama-server/models/` (no download needed)
 - **exe/init_and_run_llama.sh**: supervisord entrypoint — calls init_bonsai.sh then execs llama-server
 - **docker-compose.yml**: single container, 3 volumes (no sidecar, no init container, no extra volume)
 - **modules/local_llm/**: data-driven model catalog + runtime registry + pharma prompt library + hardware detection

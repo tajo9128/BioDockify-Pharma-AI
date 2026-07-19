@@ -17,9 +17,11 @@
         "repo_id": "prism-ml/Bonsai-8B-gguf",
         "filename": "Bonsai-8B-Q1_0.gguf",
         "url": "https://huggingface.co/prism-ml/Bonsai-8B-gguf/resolve/main/Bonsai-8B-Q1_0.gguf",
+        "local_path": "/opt/llama-server/models/Bonsai-8B-Q1_0.gguf",
         "sha256": "",
         "size_gb": 1.15,
-        "quantization": "1-bit"
+        "quantization": "1-bit",
+        "bundled_in_image": true
       },
       "ollama_alternative": "digitsflow/bonsai-8b",
       "requirements": {

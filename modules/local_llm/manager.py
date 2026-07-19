@@ -29,8 +29,8 @@ SIDECAR_HEALTH_PATH = "/health"
 SIDECAR_V1_BASE = f"http://{SIDECAR_HOST}:{SIDECAR_PORT}/v1"
 SIDECAR_HEALTH_URL = f"http://{SIDECAR_HOST}:{SIDECAR_PORT}{SIDECAR_HEALTH_PATH}"
 
-# Where the GGUF lives inside the container (biodockify_usr volume)
-SIDECAR_MODEL_PATH = "/a0/usr/ai_models"
+# Where the GGUF lives inside the container (bundled in Docker image)
+SIDECAR_MODEL_PATH = "/opt/llama-server/models"
 
 _CATALOG_CACHE: Optional[Dict[str, Any]] = None
 _RUNTIMES_CACHE: Optional[Dict[str, Any]] = None
