@@ -101,3 +101,13 @@ docker-compose*.yml
 .env.*
 *.pem
 *.key
+
+# Bonsai model — downloaded via RUN curl in Dockerfile, not COPYied from build context.
+# Keeping it out of the context avoids a 1.1 GB duplication and speeds up builds.
+Bonsai-8B-Q1_0.gguf
+*.gguf
+
+# Graphify cache (graph.json and GRAPH_REPORT.md ARE included for AI agent context)
+graphify-out/cache/
+graphify-out/converted/
+graphify-out/manifest.json

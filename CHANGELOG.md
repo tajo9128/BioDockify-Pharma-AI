@@ -2,6 +2,30 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v7.6.3] - 2026-07-20
+
+### Fix: model duplication removed — image 20.9 GB → ~14.8 GB
+
+v7.6.2 fixed the CI build by downloading the model via `RUN curl`, but the
+Bonsai-8B model was also being copied into the image a SECOND time via
+`COPY . /a0/` because the local `Bonsai-8B-Q1_0.gguf` (1.1 GB) was in the
+build context and not excluded by `.dockerignore`.
+
+Result: the model existed twice in the image — once at
+`/opt/llama-server/models/Bonsai-8B-Q1_0.gguf` (from RUN curl) and once at
+`/a0/Bonsai-8B-Q1_0.gguf` (from COPY). That's the +1.1 GB of unexplained
+bloat on top of the expected +1.1 GB model.
+
+Fix: added `Bonsai-8B-Q1_0.gguf` and `*.gguf` to `.dockerignore` so the
+local file is never sent to the Docker daemon as build context. The model
+is still bundled via the `RUN curl` layer — no functional change, just
+removes the duplication.
+
+#### Verification (local)
+- Build context size: 1.6 GB → 413 MB (1.1 GB model excluded)
+- `COPY . /a0/` layer: 411 MB (no longer includes the 1.1 GB model)
+- Expected final image size: ~14.8 GB (down from 20.9 GB)
+
 ## [v7.6.2] - 2026-07-19
 
 ### Fix: Bonsai model bundled via RUN curl (CI-compatible)
