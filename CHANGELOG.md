@@ -2,6 +2,33 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v7.6.2] - 2026-07-19
+
+### Fix: Bonsai model bundled via RUN curl (CI-compatible)
+
+v7.6.1 used `COPY Bonsai-8B-Q1_0.gguf` in the Dockerfile, but the model file
+is in `.gitignore` (too large for git), so CI could never build the image —
+the build step failed with "file not found" because the file wasn't in the
+GitHub Actions checkout.
+
+Fix: download the model from HuggingFace **inside the Dockerfile** via
+`RUN curl`. The model is baked into an image layer at
+`/opt/llama-server/models/Bonsai-8B-Q1_0.gguf` — same end result (bundled,
+no runtime download), but works in CI without bloating the git repo or
+requiring Git LFS (which has a 1 GB free quota).
+
+#### What changed
+- **Dockerfile.release**: replaced `COPY Bonsai-8B-Q1_0.gguf` with
+  `RUN curl -L -o /opt/llama-server/models/Bonsai-8B-Q1_0.gguf <HF URL>`.
+  Model downloads once during build, then is cached in the image layer.
+- **Tests**: `test_dockerfile_bundles_bonsai_model` updated to verify
+  the RUN curl + HF URL + destination path instead of COPY.
+- **46/46 tests pass.**
+
+#### Image size impact
+- Image grows by ~1.1 GB during build (the model layer)
+- Final image: ~14.8 GB (llama-server + Bonsai-8B model + BioDockify)
+
 ## [v7.6.1] - 2026-07-19
 
 ### Bonsai-8B model bundled inside Docker image — no download needed

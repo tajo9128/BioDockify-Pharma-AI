@@ -367,12 +367,21 @@ def test_dockerfile_has_no_bonsai_server_light_reference():
 
 
 def test_dockerfile_bundles_bonsai_model():
-    """The Dockerfile must COPY the Bonsai-8B model into the image."""
+    """The Dockerfile must bundle the Bonsai-8B model into the image.
+
+    We download it via RUN curl (not COPY) because the model file is in
+    .gitignore (too large for git) and CI needs to fetch it at build time.
+    The downloaded file lands at /opt/llama-server/models/ — baked into the
+    image, no runtime download needed.
+    """
     path = PROJECT_ROOT / "Dockerfile.release"
     with open(path, encoding="utf-8") as f:
         src = f.read()
-    assert "COPY Bonsai-8B-Q1_0.gguf" in src, (
-        "Dockerfile must COPY the Bonsai model into the image"
+    assert "Bonsai-8B-Q1_0.gguf" in src, (
+        "Dockerfile must reference the Bonsai-8B model"
+    )
+    assert "https://huggingface.co/prism-ml/Bonsai-8B-gguf/resolve/main/Bonsai-8B-Q1_0.gguf" in src, (
+        "Dockerfile must download the model from the correct HF URL"
     )
     assert "/opt/llama-server/models" in src, (
         "Model must be stored at /opt/llama-server/models/"
