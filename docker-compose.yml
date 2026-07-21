@@ -27,7 +27,8 @@ services:
     container_name: biodockify
     ports:
       # Direct access: open http://localhost in your browser
-      - "80:50001"
+      # Container listens on port 80 internally (uvicorn binds 0.0.0.0:80)
+      - "80:80"
     volumes:
       # === ALL 3 REQUIRED VOLUMES (data persists across container deletion) ===
       - biodockify_usr:/a0/usr          # workspace, chats, projects, plugins, backups, local AI models
