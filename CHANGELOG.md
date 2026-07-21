@@ -2,6 +2,34 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v7.6.4] - 2026-07-21
+
+### Critical fix: llama-server now actually starts on container boot
+
+v7.6.1-v7.6.3 bundled the Bonsai-8B model and a llama-server program
+config, but **llama-server never started** because supervisord was
+ignoring the config file.
+
+#### Root cause
+The Dockerfile created `/etc/supervisor/conf.d/llama-server.conf` as a
+separate file. But supervisord is started with
+`-c /etc/supervisor/conf.d/supervisord.conf`, which means it only reads
+THAT specific file — not other `.conf` files in the same directory
+(supervisord's `[include]` directive was never set). The llama-server
+program was silently ignored on every container start.
+
+#### Fix
+Append the `[program:run_llama_server]` block directly to the main
+`/etc/supervisor/conf.d/supervisord.conf` file in the Dockerfile, instead
+of creating a separate file that gets ignored.
+
+#### Verified end-to-end (local build)
+- `run_llama_server` RUNNING in supervisord (pid 25) ✓
+- `/health` returns `{"status":"ok"}` ✓
+- `/v1/models` returns `['bonsai-8b']` ✓
+- Chat test: "what is ICH E6 GCP?" → valid reply ✓
+- Port 80 serves BioDockify UI (HTTP 200, "BioDockify AI" title) ✓
+
 ## [v7.6.3] - 2026-07-20
 
 ### Fix: model duplication removed — image 20.9 GB → ~14.8 GB

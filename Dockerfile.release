@@ -95,24 +95,17 @@ RUN mkdir -p /a0/.cache/sentence-transformers && \
     echo "sentence-transformers model cached" || \
     echo "sentence-transformers model cache failed — will try HuggingFace at runtime"
 
-# ─── Install llama-server supervisord config ───
-RUN mkdir -p /etc/supervisor/conf.d && \
-    cat > /etc/supervisor/conf.d/llama-server.conf << 'SUPERVISOR_EOF'
-[program:run_llama_server]
-command=/a0/exe/init_and_run_llama.sh
-environment=MODEL_PATH=/opt/llama-server/models/Bonsai-8B-Q1_0.gguf
-user=root
-directory=/a0
-stopwaitsecs=30
-stdout_logfile=/dev/stdout
-stdout_logfile_maxbytes=0
-stderr_logfile=/dev/stderr
-stderr_logfile_maxbytes=0
-autorestart=true
-startretries=3
-stopasgroup=true
-killasgroup=true
-SUPERVISOR_EOF
+# ─── Add llama-server to supervisord ───
+# supervisord is started with -c /etc/supervisor/conf.d/supervisord.conf,
+# which means it only reads THAT file (not other .conf files in the dir).
+# So we APPEND the llama-server program block to the main config file.
+RUN MAIN_CONF=/etc/supervisor/conf.d/supervisord.conf && \
+    if [ -f "$MAIN_CONF" ]; then \
+      printf '\n[program:run_llama_server]\ncommand=/a0/exe/init_and_run_llama.sh\nenvironment=MODEL_PATH="/opt/llama-server/models/Bonsai-8B-Q1_0.gguf"\nuser=root\ndirectory=/a0\nstopwaitsecs=30\nstdout_logfile=/dev/stdout\nstdout_logfile_maxbytes=0\nstderr_logfile=/dev/stderr\nstderr_logfile_maxbytes=0\nautorestart=true\nstartretries=3\nstopasgroup=true\nkillasgroup=true\n' >> "$MAIN_CONF" && \
+      echo "llama-server program appended to $MAIN_CONF"; \
+    else \
+      echo "ERROR: $MAIN_CONF not found — llama-server will not auto-start" && exit 1; \
+    fi
 
 EXPOSE 50001
 EXPOSE 8080
