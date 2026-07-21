@@ -2,6 +2,52 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v7.6.5] - 2026-07-21
+
+### Rollback: remove Bonsai bundling — back to ~13 GB working image
+
+The Bonsai-8B bundling experiment (v7.5.4–v7.6.4) caused recurring problems:
+- Image bloat (13 GB → 20+ GB)
+- OOM crashes on machines with 8 GB RAM (Bonsai + UI + SearXNG + sentence-transformers exceeded available memory)
+- Container instability and startup failures
+- CI build failures from various bundling attempts
+
+This release **rolls back all Bonsai/llama-server bundling** from the Docker image.
+The image is back to ~13 GB — the stable, working size.
+
+#### What was removed from the Docker image
+- Multi-stage build with `ghcr.io/ggml-org/llama.cpp:server` (Stage 1)
+- `COPY --from=llama-src /app/ /opt/llama-server/` (binary + 27 shared libraries)
+- `RUN curl ... Bonsai-8B-Q1_0.gguf` (1.1 GB model download during build)
+- `apt-get install libgomp1` (OpenMP runtime)
+- `[program:run_llama_server]` supervisord block
+- `EXPOSE 8080`
+- `exe/init_bonsai.sh` and `exe/init_and_run_llama.sh` startup scripts
+
+#### What was KEPT (still in the repo, just not bundled into the image)
+- `modules/local_llm/` — model catalog, runtime registry, pharma prompts, manager
+- `api/local_llm.py` — status/hardware/catalog/runtimes/prompts/readiness/benchmark API
+- `webui/components/local_llm/local_llm.html` — AI Engine panel (Status/Models/Runtimes/Benchmark tabs)
+- `extensions/webui/right_canvas_register_surfaces/register-local_llm.js`
+- `plugins/_model_config/default_presets.yaml` — Bonsai preset entry
+- `modules/obsidian/` + `api/obsidian_sync.py` — Obsidian integration
+- `graphify-out/` — Graphify knowledge graph
+- All statistics, KB, Academic Writer, and other pharma modules
+
+These remain functional for users who want to connect an EXTERNAL local LLM
+(host Ollama, LM Studio, or a separate llama-server) via the Settings UI.
+
+#### How to use a local LLM now (optional, not bundled)
+1. Install Ollama on your host machine: https://ollama.com/download
+2. Pull a model: `ollama pull llama3.2` (or any model)
+3. In BioDockify → Settings → Models → pick "Ollama" provider
+4. Set API base to `http://host.docker.internal:11434`
+
+Or use any cloud provider as before. Bonsai is no longer bundled.
+
+#### Tests
+- 41/41 pass (removed 6 bundled-specific tests, added 1 rollback regression test)
+
 ## [v7.6.4] - 2026-07-21
 
 ### Critical fix: llama-server now actually starts on container boot

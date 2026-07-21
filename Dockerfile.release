@@ -1,38 +1,4 @@
-# ─── Stage 1: Extract llama-server from official image ───
-# The llama.cpp server image has ~30 shared libraries (libggml-cpu-*.so,
-# libllama-*.so, etc.) alongside the main binary. We copy the ENTIRE /app/
-# directory to ensure all dependencies are present.
-FROM ghcr.io/ggml-org/llama.cpp:server AS llama-src
-
-# ─── Stage 2: BioDockify Pharma AI ───
 FROM tajo9128/biodockify-pharma-ai:v7.0.7
-
-# ─── Bundle entire llama-server runtime from Stage 1 ───
-# Copy all shared libraries + binary from /app/ to /opt/llama-server/
-# Then create a symlink so 'llama-server' is on PATH.
-COPY --from=llama-src /app/ /opt/llama-server/
-RUN chmod +x /opt/llama-server/llama-server && \
-    ln -sf /opt/llama-server/llama-server /usr/local/bin/llama-server && \
-    echo "/opt/llama-server" > /etc/ld.so.conf.d/llama-server.conf && \
-    ldconfig && \
-    echo "llama-server bundled: $(ls /opt/llama-server/*.so | wc -l) shared libraries"
-
-# ─── Install libgomp1 (OpenMP runtime for llama-server CPU inference) ───
-RUN apt-get update -qq && apt-get install -y -qq libgomp1 2>/dev/null && \
-    echo "libgomp1 installed" || echo "libgomp1 install skipped (already present or unavailable)"
-
-# ─── Bundle Bonsai-8B model (1.1 GB) ───
-# Download the model from Hugging Face during the Docker build and store it
-# inside the image at /opt/llama-server/models/. This bakes it into an image
-# layer so it's available immediately on first start — no runtime download.
-# We download (not COPY) because the model is in .gitignore (too large for git)
-# and this must work in CI where the file isn't in the build context.
-RUN mkdir -p /opt/llama-server/models && \
-    curl -L --fail --progress-bar \
-      -o /opt/llama-server/models/Bonsai-8B-Q1_0.gguf \
-      https://huggingface.co/prism-ml/Bonsai-8B-gguf/resolve/main/Bonsai-8B-Q1_0.gguf && \
-    ls -la /opt/llama-server/models/Bonsai-8B-Q1_0.gguf && \
-    echo "Bonsai-8B model bundled ($(du -h /opt/llama-server/models/Bonsai-8B-Q1_0.gguf | cut -f1))"
 
 COPY . /a0/
 
@@ -95,20 +61,7 @@ RUN mkdir -p /a0/.cache/sentence-transformers && \
     echo "sentence-transformers model cached" || \
     echo "sentence-transformers model cache failed — will try HuggingFace at runtime"
 
-# ─── Add llama-server to supervisord ───
-# supervisord is started with -c /etc/supervisor/conf.d/supervisord.conf,
-# which means it only reads THAT file (not other .conf files in the dir).
-# So we APPEND the llama-server program block to the main config file.
-RUN MAIN_CONF=/etc/supervisor/conf.d/supervisord.conf && \
-    if [ -f "$MAIN_CONF" ]; then \
-      printf '\n[program:run_llama_server]\ncommand=/a0/exe/init_and_run_llama.sh\nenvironment=MODEL_PATH="/opt/llama-server/models/Bonsai-8B-Q1_0.gguf"\nuser=root\ndirectory=/a0\nstopwaitsecs=30\nstdout_logfile=/dev/stdout\nstdout_logfile_maxbytes=0\nstderr_logfile=/dev/stderr\nstderr_logfile_maxbytes=0\nautorestart=true\nstartretries=3\nstopasgroup=true\nkillasgroup=true\n' >> "$MAIN_CONF" && \
-      echo "llama-server program appended to $MAIN_CONF"; \
-    else \
-      echo "ERROR: $MAIN_CONF not found — llama-server will not auto-start" && exit 1; \
-    fi
-
 EXPOSE 50001
-EXPOSE 8080
 # Persist user data, agent memory, and knowledge base separately so each survives
 VOLUME ["/a0/usr", "/a0/.a0proj", "/a0/data"]
 HEALTHCHECK --interval=30s --timeout=15s --retries=3 CMD \

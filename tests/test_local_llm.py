@@ -81,17 +81,6 @@ def test_models_json_filename_case_correct():
            or g["filename"] == "Bonsai-8B-Q1_0.gguf"
 
 
-def test_startup_script_uses_correct_gguf_filename():
-    """The startup script must reference the actual GGUF filename (case-sensitive).
-    The HF file is Bonsai-8B-Q1_0.gguf (capital B), not bonsai-8b-Q1_0.gguf."""
-    path = PROJECT_ROOT / "exe" / "init_and_run_llama.sh"
-    with open(path, encoding="utf-8") as f:
-        src = f.read()
-    assert "Bonsai-8B-Q1_0.gguf" in src, (
-        "Startup script must reference Bonsai-8B-Q1_0.gguf (capital B)"
-    )
-
-
 def test_models_json_is_valid_json():
     path = PROJECT_ROOT / "modules" / "local_llm" / "models.json"
     with open(path, encoding="utf-8") as f:
@@ -336,85 +325,24 @@ def test_local_engine_preset_uses_api_key_exempt_provider():
 
 
 # ---------------------------------------------------------------------------
-# Dockerfile — bundled llama-server (multi-stage build)
+# Dockerfile — Bonsai is NOT bundled (rolled back in v7.6.5)
 # ---------------------------------------------------------------------------
 
-def test_dockerfile_bundles_llama_server_binary():
-    """The Dockerfile must use a multi-stage build to copy llama-server
-    from the official llama.cpp image into the BioDockify image."""
+def test_dockerfile_does_not_bundle_bonsai():
+    """v7.6.5 rolled back the Bonsai bundling to keep the image at ~13 GB and
+    avoid OOM on low-RAM machines. The Dockerfile must NOT contain any
+    llama-server or Bonsai model references."""
     path = PROJECT_ROOT / "Dockerfile.release"
     with open(path, encoding="utf-8") as f:
         src = f.read()
-    assert "FROM ghcr.io/ggml-org/llama.cpp:server AS llama-src" in src, (
-        "Dockerfile must have a multi-stage FROM for llama.cpp:server"
+    assert "llama.cpp:server" not in src, (
+        "Dockerfile must not bundle llama-server (rolled back in v7.6.5)"
     )
-    assert "COPY --from=llama-src" in src, (
-        "Dockerfile must COPY the llama-server binary from the llama-src stage"
+    assert "Bonsai-8B-Q1_0.gguf" not in src, (
+        "Dockerfile must not bundle the Bonsai model (rolled back in v7.6.5)"
     )
-    assert "llama-server" in src, (
-        "Dockerfile must reference the llama-server binary"
-    )
-
-
-def test_dockerfile_has_no_bonsai_server_light_reference():
-    """Regression: the server-light tag does not exist on GHCR."""
-    path = PROJECT_ROOT / "Dockerfile.release"
-    with open(path, encoding="utf-8") as f:
-        src = f.read()
-    assert "server-light" not in src, (
-        "server-light does not exist — use ghcr.io/ggml-org/llama.cpp:server"
-    )
-
-
-def test_dockerfile_bundles_bonsai_model():
-    """The Dockerfile must bundle the Bonsai-8B model into the image.
-
-    We download it via RUN curl (not COPY) because the model file is in
-    .gitignore (too large for git) and CI needs to fetch it at build time.
-    The downloaded file lands at /opt/llama-server/models/ — baked into the
-    image, no runtime download needed.
-    """
-    path = PROJECT_ROOT / "Dockerfile.release"
-    with open(path, encoding="utf-8") as f:
-        src = f.read()
-    assert "Bonsai-8B-Q1_0.gguf" in src, (
-        "Dockerfile must reference the Bonsai-8B model"
-    )
-    assert "https://huggingface.co/prism-ml/Bonsai-8B-gguf/resolve/main/Bonsai-8B-Q1_0.gguf" in src, (
-        "Dockerfile must download the model from the correct HF URL"
-    )
-    assert "/opt/llama-server/models" in src, (
-        "Model must be stored at /opt/llama-server/models/"
-    )
-
-
-# ---------------------------------------------------------------------------
-# Startup scripts — bundled auto-download + auto-start
-# ---------------------------------------------------------------------------
-
-def test_exe_init_bonsai_sh_exists_and_executable():
-    """init_bonsai.sh verifies the bundled model (no download)."""
-    path = PROJECT_ROOT / "exe" / "init_bonsai.sh"
-    assert path.exists(), "exe/init_bonsai.sh missing"
-    with open(path, encoding="utf-8") as f:
-        src = f.read()
-    assert "Bonsai-8B-Q1_0.gguf" in src, "script must reference the GGUF filename"
-    assert "1158654496" in src, "script must check expected file size"
-    assert "/opt/llama-server/models" in src, "model must be in /opt/llama-server/models/"
-
-
-def test_exe_init_and_run_llama_sh_exists_and_executable():
-    """init_and_run_llama.sh is the supervisord entrypoint for llama-server.
-    Model is bundled in the image — script verifies it exists then starts server."""
-    path = PROJECT_ROOT / "exe" / "init_and_run_llama.sh"
-    assert path.exists(), "exe/init_and_run_llama.sh missing"
-    with open(path, encoding="utf-8") as f:
-        src = f.read()
-    assert "llama-server" in src or "exec llama" in src, (
-        "script must exec llama-server"
-    )
-    assert "/opt/llama-server/models" in src, (
-        "script must reference bundled model path"
+    assert "run_llama_server" not in src, (
+        "Dockerfile must not add a llama-server supervisord program"
     )
 
 
