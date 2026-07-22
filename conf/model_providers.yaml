@@ -137,6 +137,13 @@ chat:
       api_base: https://api.venice.ai/api/v1
       venice_parameters:
         include_venice_system_prompt: false
+  mimo:
+    name: Xiaomi Mimo
+    litellm_provider: openai
+    models_list:
+      endpoint_url: "/models"
+    kwargs:
+      api_base: https://token-plan-sgp.xiaomimimo.com/v1
   xai:
     name: xAI
     litellm_provider: xai

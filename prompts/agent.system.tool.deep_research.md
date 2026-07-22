@@ -22,7 +22,7 @@ async def research():
         "action": "collect",
         "topic": "EGFR inhibitors in non-small cell lung cancer",
         "max_sources": 100,
-        "databases": ["pubmed", "semantic_scholar", "europe_pmc"],
+        "databases": ["pubmed", "semantic_scholar", "crossref", "openalex", "europe_pmc", "biorxiv", "arxiv", "drugbank", "chembl", "kegg"],
     }, None)
     session_id = result.get("session_id")
     print("Session:", session_id)
@@ -43,5 +43,8 @@ asyncio.run(research())
 **Critical rules:**
 1. ALWAYS set a clear topic. Deep Research will gather comprehensively.
 2. Sources auto-store to KB as `deep_research` category — they appear in the Knowledge Base UI.
-3. For a thesis, combine Deep Research (broad gathering) + targeted Literature Search (specific subtopics).
-4. After Deep Research completes, suggest the user write their thesis/review — the Academic Writer will pull these sources from KB.
+3. **CRITICAL: ONLY save papers where FULL-TEXT is successfully retrieved. Skip abstracts-only papers. Save each full article as DOCX + PDF.**
+4. For a thesis, combine Deep Research (broad gathering) + targeted Literature Search (specific subtopics).
+5. After Deep Research completes, suggest the user write their thesis/review — the Academic Writer will pull these sources from KB.
+6. Use ALL 10 databases: pubmed, semantic_scholar, crossref, openalex, europe_pmc, biorxiv, arxiv, drugbank, chembl, kegg
+7. **NEVER save abstracts, metadata-only, or summaries. If full text is unavailable, SKIP the paper entirely.**

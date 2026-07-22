@@ -37,8 +37,10 @@ asyncio.run(search())
 **Critical rules:**
 1. ALWAYS use this tool for literature — never fabricate DOIs, titles, or abstracts.
 2. Set `store_to_kb: True` so papers flow into the Knowledge Base for the Academic Writer.
-3. For comprehensive reviews, search across MULTIPLE databases (pubmed, semantic_scholar, europe_pmc) and combine.
-4. Full text retrieval is automatic — Europe PMC open-access papers get full text; others get abstracts.
-5. To gather 200+ papers for a thesis, run multiple searches with related query terms.
+3. For comprehensive reviews, search across ALL 10 databases (pubmed, semantic_scholar, europe_pmc, openalex, crossref, arxiv, biorxiv, drugbank, chembl, kegg) and combine.
+4. Full text retrieval is automatic — Europe PMC open-access papers get full text via XML; others attempt PDF download via Sci-Hub, Unpaywall, or publisher links.
+5. **CRITICAL: ONLY save papers where FULL-TEXT is successfully retrieved. Skip abstracts-only papers. Save each full article as DOCX + PDF.**
+6. To gather 200+ papers for a thesis, run multiple searches with related query terms across all databases.
+7. **NEVER save abstracts, metadata-only, or summaries. If full text is unavailable, SKIP the paper entirely.**
 
-**Databases available:** pubmed, semantic_scholar, europe_pmc, arxiv, biorxiv, elsevier, springer, scopus, wos, google_scholar
+**Databases available:** pubmed, semantic_scholar, europe_pmc, openalex, crossref, arxiv, biorxiv, drugbank, chembl, kegg

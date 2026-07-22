@@ -186,6 +186,94 @@ export const store = createStore("backupRecovery", {
     } catch (e) {}
   },
 
+  // === Docker Volume Restore ===
+  dockerVolumes: [],
+  dockerVolumeLoading: false,
+  dockerVolumeScanning: false,
+  selectedVolume: null,
+  volumeInspectData: null,
+  selectedVolumeItems: [],
+  dockerAvailable: true,
+  _overwritePolicy: "skip",
+
+  async scanDockerVolumes() {
+    this.dockerVolumeScanning = true;
+    this.error = "";
+    try {
+      const resp = await callJsonApi("docker_volume_restore", { action: "scan" });
+      if (resp.error) {
+        this.error = resp.error;
+        this.dockerAvailable = resp.docker_available !== false;
+        return;
+      }
+      this.dockerVolumes = resp.volumes || [];
+      this.dockerAvailable = true;
+      this.message = resp.message || `Found ${this.dockerVolumes.length} volumes`;
+      setTimeout(() => this.message = "", 5000);
+    } catch (e) {
+      this.dockerAvailable = false;
+      this.error = "Docker volume scan failed: " + e.message;
+    }
+    this.dockerVolumeScanning = false;
+  },
+
+  async inspectDockerVolume(volumeName) {
+    this.dockerVolumeLoading = true;
+    this.error = "";
+    try {
+      const resp = await callJsonApi("docker_volume_restore", {
+        action: "inspect",
+        volume_name: volumeName,
+      });
+      if (resp.error) { this.error = resp.error; return; }
+      this.selectedVolume = volumeName;
+      this.volumeInspectData = resp;
+      this.selectedVolumeItems = Object.keys(resp.bio_data_found || {});
+    } catch (e) {
+      this.error = "Inspect failed: " + e.message;
+    }
+    this.dockerVolumeLoading = false;
+  },
+
+  async restoreFromDockerVolume(volumeName, overwritePolicy, selectedItems) {
+    if (!volumeName) { this.error = "No volume selected"; return; }
+    if (!confirm(`Restore data from volume "${volumeName}"? This may overwrite existing data.`)) return;
+    this.restoring = true;
+    this.error = "";
+    this.message = `Restoring from volume ${volumeName}...`;
+    try {
+      const resp = await callJsonApi("docker_volume_restore", {
+        action: "restore",
+        volume_name: volumeName,
+        overwrite_policy: overwritePolicy || "skip",
+        selected_items: selectedItems || [],
+      });
+      if (resp.success) {
+        this.message = resp.message || `Restored ${resp.total_files} files from ${volumeName}`;
+        setTimeout(() => this.message = "", 8000);
+      } else {
+        this.error = resp.error || "Restore failed";
+      }
+    } catch (e) {
+      this.error = "Volume restore failed: " + e.message;
+    }
+    this.restoring = false;
+  },
+
+  toggleVolumeItem(item) {
+    const idx = this.selectedVolumeItems.indexOf(item);
+    if (idx >= 0) this.selectedVolumeItems.splice(idx, 1);
+    else this.selectedVolumeItems.push(item);
+  },
+
+  selectAllVolumeItems(items) {
+    this.selectedVolumeItems = [...items];
+  },
+
+  deselectAllVolumeItems() {
+    this.selectedVolumeItems = [];
+  },
+
   // Upload backup from PC and auto-restore
   restoringFromUpload: false,
   uploadFilename: "",

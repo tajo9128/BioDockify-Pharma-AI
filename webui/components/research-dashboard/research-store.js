@@ -83,27 +83,48 @@ export const store = createStore("researchDashboard", {
       try { $store.projects.openProjectsModal(); } catch {}
     }
 
-    // 2. Get department-specific databases
-    const deptDbs = {
-      pharma_chemistry: "PubMed, SciFinder, Reaxys, ChEMBL, DrugBank",
-      pharmacognosy: "PubMed, NAPRALERT, KNapsack, ChemSpider, PubChem",
-      pharmacology: "PubMed, DrugBank, ChEMBL, KEGG, Reactome",
-      pharmaceutics: "PubMed, FDA Orange Book, Excipient DB",
-      clinical_pharmacy: "PubMed, ClinicalTrials.gov, Cochrane, Embase",
-    };
-    const dbs = deptDbs[this.newDepartment] || "PubMed, Semantic Scholar, Google Scholar";
+    // 2. All 10 databases for comprehensive search
+    const allDbs = "PubMed, Semantic Scholar, CrossRef, OpenAlex, Europe PMC, bioRxiv, arXiv, DrugBank, ChEMBL, KEGG";
 
-    // 3. Send research prompt to agent
+    // 3. Send research prompt to agent with full-text-only instructions
     let prompt = `Research task: ${this.newTopic}\n`;
     prompt += `Type: ${this.newType}\n`;
     prompt += `Department: ${this.departments.find(d => d.id === this.newDepartment)?.name || this.newDepartment}\n`;
     if (this.newNotes.trim()) prompt += `Topics: ${this.newNotes}\n`;
     if (this.newComments.trim()) prompt += `Instructions: ${this.newComments}\n`;
-    prompt += `\nPlease:\n`;
-    prompt += `1. Search databases: ${dbs}\n`;
-    prompt += `2. Synthesize findings into a literature review\n`;
-    prompt += `3. Save papers to Knowledge Base with #${this.newType} tag\n`;
-    prompt += `4. Track progress and provide updates\n`;
+    prompt += `\nPlease execute the following TWO-ROUND literature collection:\n\n`;
+    prompt += `=== ROUND 1: Direct Full-Text Download ===\n`;
+    prompt += `1. Search ALL 10 databases: ${allDbs}\n`;
+    prompt += `2. For EVERY paper found, attempt to download the FULL-TEXT PDF immediately using:\n`;
+    prompt += `   - Europe PMC full-text XML (open access)\n`;
+    prompt += `   - Unpaywall API (legal open-access links)\n`;
+    prompt += `   - Publisher direct PDF links\n`;
+    prompt += `   - bioRxiv/arXiv direct PDF downloads\n`;
+    prompt += `   - Any other合法 open-access source\n`;
+    prompt += `3. Save ONLY papers where full text was successfully downloaded. Skip everything else.\n\n`;
+    prompt += `=== ROUND 2: Hacker Agent Full-Text Retrieval ===\n`;
+    prompt += `4. After Round 1, take ALL papers that FAILED to get full text in Round 1\n`;
+    prompt += `5. Deploy the Hacker Agent to aggressively retrieve full text for each failed paper using:\n`;
+    prompt += `   - Sci-Hub mirrors (try multiple domains)\n`;
+    prompt += `   - LibGen / Library Genesis\n`;
+    prompt += `   - Google Scholar PDF links\n`;
+    prompt += `   - ResearchGate full-text requests\n`;
+    prompt += `   - Author personal pages / institutional repositories\n`;
+    prompt += `   - Wayback Machine / cached PDFs\n`;
+    prompt += `   - Stealth browser scraping of publisher pages\n`;
+    prompt += `   - Any other method to obtain the complete article\n`;
+    prompt += `6. Save each newly retrieved full article to Knowledge Base\n\n`;
+    prompt += `=== STORAGE RULES (STRICT) ===\n`;
+    prompt += `7. Save each full article as BOTH formatted DOCX + original PDF in Knowledge Base with #${this.newType} tag\n`;
+    prompt += `8. Synthesize ALL full-text articles into a comprehensive literature review\n`;
+    prompt += `9. Track progress and provide updates after each round\n\n`;
+    prompt += `\nCRITICAL RULES — READ CAREFULLY:\n`;
+    prompt += `- NEVER save abstracts — they are useless for research\n`;
+    prompt += `- NEVER save metadata-only (title, authors, DOI without full text)\n`;
+    prompt += `- NEVER save summaries, snippets, or partial content\n`;
+    prompt += `- ONLY save papers where you have the COMPLETE article body text\n`;
+    prompt += `- If full text cannot be obtained after both rounds, DISCARD the paper — do not save it\n`;
+    prompt += `- Every saved paper MUST have: Introduction, Methods, Results, Discussion, References — the full article\n`;
 
     const input = document.querySelector("#chat-input, #chat-bar-input textarea, .chat-bar-input textarea");
     if (input) {
