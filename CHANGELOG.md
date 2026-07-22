@@ -2,6 +2,47 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v7.6.6] - 2026-07-21
+
+### Fix: MD Lite — PDBFixer now properly installed + canonical preparation pipeline
+
+The root cause of every MD Lite "missing H atoms" failure was that
+**PDBFixer was never actually installed in the Docker image.** The engine
+code referenced it (`from pdbfixer import PDBFixer`), but `pdbfixer` was
+not in any requirements file or Dockerfile. Every call silently failed,
+fell back to OpenMM's `addHydrogens` (which can't handle terminal residues),
+and crashed with "No template found for residue X — missing N H atoms".
+
+#### Root cause (confirmed)
+```
+$ docker run --rm biodockify-pharma-ai:latest \
+    /opt/venv-a0/bin/python -c 'import pdbfixer'
+ModuleNotFoundError: No module named 'pdbfixer'
+```
+
+#### Fix
+- **Dockerfile.release**: added `pdbfixer>=2.0.0` to BOTH venvs
+  (`/opt/venv-a0` and `/opt/venv`). Now PDBFixer is installed at build time.
+- **modules/md_lite/preparation.py**: complete rewrite with the canonical
+  PDBFixer pipeline (7 steps in correct order):
+  1. `findMissingResidues()` — identify chain breaks
+  2. `findNonstandardResidues()` + `replaceNonstandardResidues()` — fix SEP/TPO/MSE
+  3. `removeHeterogens(keepWater=True)` — strip non-protein
+  4. `findMissingAtoms()` + `addMissingAtoms()` — rebuild heavy atoms
+  5. `addMissingHydrogens(pH=7.0)` — add H atoms (THE fix for missing-H errors)
+- Added `prepare_ligand()` — handles SDF/MOL2/PDB/PDBQT (Vina output via Meeko),
+  adds H, generates 3D, sets residue name
+- Added `prepare_complex()` — preps protein + ligand separately, then merges
+
+#### Why this is the actual fix (not another band-aid)
+The previous patches added PDBFixer calls to engine.py but never installed
+the package. The calls always hit the except block and fell through to the
+broken fallback. Now PDBFixer is installed at Docker build time, so
+`addMissingHydrogens(pH=7.0)` actually runs and adds all missing H atoms
+before `createSystem` is called.
+
+#### Tests: 41/41 pass
+
 ## [v7.6.5] - 2026-07-21
 
 ### Rollback: remove Bonsai bundling — back to ~13 GB working image
