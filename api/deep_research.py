@@ -117,28 +117,35 @@ class DeepResearchHandler(ApiHandler):
         with open(session_path, "w", encoding="utf-8") as f:
             json.dump({"topic": topic, "sources": unique_sources, "stats": stats, "created_at": datetime.now().isoformat()}, f, ensure_ascii=False, indent=2)
 
-        # ── AUTO-STORE to Knowledge Base (with full text when available) ──
-        # Uses auto_store (stdlib-only, no Flask dependency — works in any Python env)
+        # ── AUTO-STORE to Knowledge Base — ONLY full-text articles ──
+        # User requirement: metadata/abstracts must NOT be saved to KB.
+        # Only full-text articles get stored (so they're citable in theses).
+        kb_stored = 0
+        kb_skipped = 0
         try:
             from modules.knowledge.auto_store import auto_store
             for src in unique_sources[:30]:
                 title = src.get("title", "Untitled")
                 authors = ", ".join(src.get("authors", [])[:5])
-                abstract = src.get("abstract", "")
                 full_text = src.get("full_text", "")
-                if full_text:
-                    content = f"**Authors:** {authors}\n**Year:** {src.get('year','')}\n**Source:** {src.get('database','')}\n\n## Full Text\n\n{full_text}"
-                else:
-                    content = f"**Authors:** {authors}\n**Year:** {src.get('year','')}\n**Source:** {src.get('database','')}\n\n## Abstract\n\n{abstract}"
+
+                # SKIP if no full text (only metadata/abstract available)
+                if not full_text or len(full_text) < 2000:
+                    kb_skipped += 1
+                    continue
+
+                content = f"**Authors:** {authors}\n**Year:** {src.get('year','')}\n**Source:** {src.get('database','')}\n**DOI:** {src.get('doi','')}\n**PMID:** {src.get('pmid','')}\n**URL:** {src.get('url','')}\n\n## Full Text\n\n{full_text}"
+
                 auto_store(
                     module_name="deep_research",
                     title=title,
                     content=content,
                     source=f"Research: {topic}",
                     tags=["deep_research", src.get('database',''), topic[:30]],
-                    metadata={"doi": src.get("doi",""), "pmid": src.get("pmid",""), "full_text": bool(full_text)},
+                    metadata={"doi": src.get("doi",""), "pmid": src.get("pmid",""), "full_text": True},
                     category="deep_research",
                 )
+                kb_stored += 1
         except Exception as e:
             log.warning(f"KB store failed: {e}")
 
@@ -148,6 +155,8 @@ class DeepResearchHandler(ApiHandler):
             "topic": topic,
             "sources": unique_sources[:50],
             "stats": stats,
+            "kb_stored": kb_stored,
+            "kb_skipped": kb_skipped,
             "full_text_fetched": full_text_count,
         }
 
@@ -225,17 +234,23 @@ class DeepResearchHandler(ApiHandler):
 
         sources = session.get("scanned_sources", session.get("sources", []))[:max_store]
         stored = 0
+        skipped = 0
         for src in sources:
             try:
                 title = src.get("title", "Untitled")
                 authors = ", ".join(src.get("authors", [])[:5])
                 year = src.get("year", "")
-                abstract = src.get("abstract", "")
+                full_text = src.get("full_text", "")
                 doi = src.get("doi", "")
                 journal = src.get("journal", "")
                 database = src.get("database", "")
 
-                content = f"**Authors:** {authors}\n**Year:** {year}\n**Journal:** {journal}\n**Database:** {database}\n**DOI:** {doi}\n\n## Abstract\n\n{abstract}"
+                # SKIP if no full text — only full articles go into KB
+                if not full_text or len(full_text) < 2000:
+                    skipped += 1
+                    continue
+
+                content = f"**Authors:** {authors}\n**Year:** {year}\n**Journal:** {journal}\n**Database:** {database}\n**DOI:** {doi}\n**URL:** {src.get('url','')}\n\n## Full Text\n\n{full_text}"
 
                 # Store in knowledge base
                 from modules.knowledge.auto_store import auto_store
@@ -245,7 +260,7 @@ class DeepResearchHandler(ApiHandler):
                     content=content,
                     source=f"Deep Research: {topic}",
                     tags=["deep_research", database, str(year), topic[:30]],
-                    metadata={"doi": doi, "pmid": src.get("pmid", ""), "citations": src.get("citations", 0)},
+                    metadata={"doi": doi, "pmid": src.get("pmid", ""), "citations": src.get("citations", 0), "full_text": True},
                     category="deep_research",
                 )
                 stored += 1
@@ -270,7 +285,7 @@ class DeepResearchHandler(ApiHandler):
             category="deep_research",
         )
 
-        return {"status": "ok", "stored": stored, "session_id": session_id, "topic": topic}
+        return {"status": "ok", "stored": stored, "skipped": skipped, "session_id": session_id, "topic": topic}
 
     def _get_status(self, input: dict) -> dict:
         session_id = input.get("session_id", "")

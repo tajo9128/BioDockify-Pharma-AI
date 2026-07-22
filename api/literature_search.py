@@ -67,22 +67,27 @@ class LiteratureSearch(ApiHandler):
         except Exception as e:
             logger.warning(f"Full text fetch error: {e}")
 
-        # Store to knowledge base — with full text if available
-        # Uses auto_store (stdlib-only, no Flask dependency — works in any Python env)
+        # Store to knowledge base — ONLY full-text articles (no metadata-only entries)
+        # The user requirement: "metadata and other literature details must NOT save
+        # at knowledge base — only full article must save."
+        # So we skip any paper where full_text is empty/short — abstracts and
+        # metadata-only entries clutter the KB and can't be cited in theses.
         kb_stored = 0
+        kb_skipped = 0
         if store_to_kb and papers:
             try:
                 from modules.knowledge.auto_store import auto_store
                 for paper in papers[:20]:
                     title = paper.get("title", "Untitled")
                     authors = ", ".join(paper.get("authors", [])[:5])
-                    abstract = paper.get("abstract", "")
                     full_text = paper.get("full_text", "")
 
-                    if full_text:
-                        content = f"**Authors:** {authors}\n**Year:** {paper.get('year', '')}\n**Journal:** {paper.get('journal', '')}\n**Database:** {database}\n**DOI:** {paper.get('doi', '')}\n**PMID:** {paper.get('pmid', '')}\n**URL:** {paper.get('url', '')}\n\n## Full Text\n\n{full_text}"
-                    else:
-                        content = f"**Authors:** {authors}\n**Year:** {paper.get('year', '')}\n**Journal:** {paper.get('journal', '')}\n**Database:** {database}\n**DOI:** {paper.get('doi', '')}\n**PMID:** {paper.get('pmid', '')}\n**URL:** {paper.get('url', '')}\n\n## Abstract\n\n{abstract}"
+                    # SKIP if no full text (only metadata/abstract available)
+                    if not full_text or len(full_text) < 2000:
+                        kb_skipped += 1
+                        continue
+
+                    content = f"**Authors:** {authors}\n**Year:** {paper.get('year', '')}\n**Journal:** {paper.get('journal', '')}\n**Database:** {database}\n**DOI:** {paper.get('doi', '')}\n**PMID:** {paper.get('pmid', '')}\n**URL:** {paper.get('url', '')}\n\n## Full Text\n\n{full_text}"
 
                     auto_store(
                         module_name="literature_search",
@@ -90,7 +95,7 @@ class LiteratureSearch(ApiHandler):
                         content=content,
                         source=f"Literature Search: {database}",
                         tags=["literature", database, query[:30]],
-                        metadata={"doi": paper.get("doi", ""), "pmid": paper.get("pmid", ""), "full_text": bool(full_text)},
+                        metadata={"doi": paper.get("doi", ""), "pmid": paper.get("pmid", ""), "full_text": True},
                         category="literature",
                     )
                     kb_stored += 1
@@ -103,6 +108,7 @@ class LiteratureSearch(ApiHandler):
             "query": query,
             "database": database,
             "kb_stored": kb_stored,
+            "kb_skipped": kb_skipped,
             "full_text_fetched": full_text_count,
         }
 
