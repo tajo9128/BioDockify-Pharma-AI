@@ -20,6 +20,8 @@ Alpine.data("mdLite", () => ({
   // Live monitor
   liveLog: [],
   mmpbsaLoading: false, mmpbsaResult: null,
+  advancedLoading: false, advancedResult: null,
+  showAdvanced: false,
 
   init() {
     this.checkHealth();
@@ -179,6 +181,17 @@ Alpine.data("mdLite", () => ({
       else this.errorMessage = r.mmpbsa?.error || r.error || "MM-PBSA failed";
     } catch (e) { this.errorMessage = "MM-PBSA: " + (e.message || "API unavailable"); }
     this.mmpbsaLoading = false;
+  },
+
+  async runAdvancedAnalysis() {
+    this.advancedLoading = true; this.advancedResult = null; this.errorMessage = "";
+    this.showAdvanced = true;
+    try {
+      const r = await callJsonApi("md_lite", { action: "analyze_advanced", job_id: this.jobId });
+      this.advancedResult = r;
+      if (r.status !== "ok" && r.error) this.errorMessage = r.error;
+    } catch (e) { this.errorMessage = "Advanced analysis: " + (e.message || "API unavailable"); }
+    this.advancedLoading = false;
   },
 
   resetAll() {

@@ -2,6 +2,56 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v7.7.0] - 2026-07-21
+
+### MD Lite upgraded to publication-grade MD analysis suite
+
+Integrated MDAnalysis to transform MD Lite from basic RMSD/RMSF to a
+full publication-grade molecular dynamics analysis suite with 10 advanced
+analyses relevant to pharmaceutical research.
+
+#### New: modules/md_lite/advanced_analysis.py
+10 publication-grade trajectory analyses powered by MDAnalysis:
+
+| # | Analysis | Pharma Relevance |
+|---|----------|-----------------|
+| 1 | **Hydrogen Bond Analysis** | Residue-resolved H-bonds with distances, angles, occupancy % |
+| 2 | **Water Bridge Analysis** | Water-mediated protein-ligand interactions (SBDD) |
+| 3 | **Native Contacts (Q)** | Protein stability upon ligand binding |
+| 4 | **Radial Distribution Function** | Solvation shell structure, hydration energetics |
+| 5 | **Ramachandran Plot** | Backbone φ/ψ conformational shifts |
+| 6 | **PCA / Essential Dynamics** | Dominant collective motions, allostery |
+| 7 | **H-Bond Lifetimes** | Binding kinetics (residence time) |
+| 8 | **Ligand-Residue Distances** | Binding pose stability over time |
+| 9 | **Secondary Structure (DSSP)** | α-helix / β-sheet content |
+| 10 | **Dielectric Constant** | Electrostatic analysis |
+
+Each analysis produces:
+- Summary metrics (numbers for tables)
+- Base64-encoded matplotlib plot (dark theme, displayed inline in UI)
+
+#### New: API action `analyze_advanced`
+`POST /api/md_lite` with `action: "analyze_advanced"` runs all (or selected)
+analyses on a completed trajectory. Reads DCD/XTC/TRR/NC files natively.
+
+#### Updated: MD Lite UI
+- "Publication-Grade Analysis" button added to results view
+- Results panel shows all 10 analyses with plots and data tables
+- H-bond table shows donor, acceptor, occupancy %, distance, angle
+- Native contacts shows Q fraction with stability verdict
+- PCA shows variance explained + PC1 vs PC2 projection
+- Ligand distances shows per-residue binding-site tracking
+
+#### Updated: Dockerfile.release
+Added `mdanalysis>=2.7.0` to both Python venvs. MDAnalysis reads MD Lite's
+existing trajectory.dcd output natively and has an OpenMM converter bridge.
+
+#### Also fixed in this version
+- KB storage: only full-text articles saved (no metadata/abstract-only entries)
+- PDBFixer installed in Docker image (fixes MD "missing H atoms" error)
+
+Tests: 41/41 pass.
+
 ## [v7.6.6] - 2026-07-21
 
 ### Fix: MD Lite — PDBFixer now properly installed + canonical preparation pipeline

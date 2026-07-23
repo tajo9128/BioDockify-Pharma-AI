@@ -13,18 +13,19 @@ _jobs = {}  # in-memory job tracking: job_id -> threading.Thread
 class MDLite(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
         action = input.get("action", "")
-        if action == "health":         return self._health()
-        if action == "prepare":        return self._prepare(input)
-        if action == "prepare_complex": return self._prepare_complex(input)
-        if action == "run":            return self._run(input)
-        if action == "status":         return self._status(input)
-        if action == "stop":           return self._stop(input)
-        if action == "results":        return self._results(input)
-        if action == "download":       return self._download(input)
-        if action == "import_docking": return self._import_docking(input)
-        if action == "mmpbsa":         return self._mmpbsa(input)
-        return {"actions": ["health","prepare","prepare_complex","run","status","stop","results","download","import_docking","mmpbsa"],
-                "hint": "1. prepare_complex (auto-prepare protein+ligand) → 2. run (start MD) → 3. status (poll) → 4. results (analysis)"}
+        if action == "health":           return self._health()
+        if action == "prepare":          return self._prepare(input)
+        if action == "prepare_complex":  return self._prepare_complex(input)
+        if action == "run":              return self._run(input)
+        if action == "status":           return self._status(input)
+        if action == "stop":             return self._stop(input)
+        if action == "results":          return self._results(input)
+        if action == "download":         return self._download(input)
+        if action == "import_docking":   return self._import_docking(input)
+        if action == "mmpbsa":           return self._mmpbsa(input)
+        if action == "analyze_advanced": return await self._analyze_advanced(input)
+        return {"actions": ["health","prepare","prepare_complex","run","status","stop","results","download","import_docking","mmpbsa","analyze_advanced"],
+                "hint": "1. prepare_complex (auto-prepare protein+ligand) → 2. run (start MD) → 3. status (poll) → 4. results (basic analysis) → 5. analyze_advanced (publication-grade analysis)"}
 
     def _health(self):
         try:
@@ -265,3 +266,52 @@ class MDLite(ApiHandler):
             shutil.copy(ligand_src, os.path.join(new_dir, "docked_ligand.pdbqt"))
         return {"status": "ok", "job_id": new_job, "imported_from": job_id,
                 "hint": "Files imported. Run prepare to minimize the system."}
+
+    async def _analyze_advanced(self, input):
+        """Run publication-grade trajectory analysis via MDAnalysis.
+
+        Runs 10 advanced analyses on a completed MD trajectory:
+          hbonds_advanced, water_bridges, native_contacts, rdf,
+          ramachandran, pca, hbond_lifetimes, ligand_distances,
+          secondary_structure, dielectric
+        """
+        import asyncio
+        job_id = input.get("job_id", "")
+        if not job_id:
+            return {"status": "error", "error": "job_id required"}
+
+        job_dir = os.path.join(WORKDIR, job_id)
+        if not os.path.isdir(job_dir):
+            return {"status": "error", "error": f"Job directory not found: {job_id}"}
+
+        # Find trajectory and topology
+        traj_path = os.path.join(job_dir, "trajectory.dcd")
+        if not os.path.exists(traj_path):
+            for ext in [".xtc", ".trr", ".nc", ".dtr"]:
+                alt = os.path.join(job_dir, f"trajectory{ext}")
+                if os.path.exists(alt):
+                    traj_path = alt
+                    break
+
+        top_path = os.path.join(job_dir, "prepared.pdb")
+        if not os.path.exists(top_path):
+            top_path = os.path.join(job_dir, "topology.pdb")
+        if not os.path.exists(top_path):
+            for name in ["input.pdb", "protein.pdb", "system.pdb"]:
+                alt = os.path.join(job_dir, name)
+                if os.path.exists(alt):
+                    top_path = alt
+                    break
+
+        if not os.path.exists(traj_path):
+            return {"status": "error", "error": "No trajectory file found. Run MD simulation first."}
+        if not os.path.exists(top_path):
+            return {"status": "error", "error": "No topology file found."}
+
+        analyses = input.get("analyses")  # None = all
+
+        def _do():
+            from modules.md_lite.advanced_analysis import analyze_advanced
+            return analyze_advanced(traj_path, top_path, job_dir, analyses)
+
+        return await asyncio.to_thread(_do)

@@ -209,6 +209,130 @@
             </div>
             <div x-show="mmpbsaResult.interpretation" style="font-size:0.56rem;color:#a78bfa;padding:4px 8px;background:rgba(139,92,246,.06);border-radius:4px" x-text="mmpbsaResult.interpretation"></div>
           </div>
+
+          <!-- Advanced Analysis Button -->
+          <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn" @click="runAdvancedAnalysis()" :disabled="advancedLoading || !jobId"
+                    style="background:#1e3a5f;color:#00d4aa;border:1px solid #00d4aa33;padding:4px 12px;border-radius:5px;font-size:0.6rem;cursor:pointer">
+              <span x-show="advancedLoading" class="material-symbols-outlined spinning" style="font-size:14px;vertical-align:middle">progress_activity</span>
+              <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle">science</span>
+              Publication-Grade Analysis
+            </button>
+          </div>
+
+          <!-- Advanced Analysis Results -->
+          <div x-show="advancedResult && advancedResult.status === 'ok'" style="margin-top:10px">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+              <span class="material-symbols-outlined" style="font-size:16px;color:#00d4aa">analytics</span>
+              <h4 style="font-size:0.65rem;font-weight:700;margin:0">Publication-Grade Analysis (MDAnalysis)</h4>
+              <span x-show="advancedResult" style="font-size:0.5rem;color:var(--color-text-muted)" x-text="(advancedResult.analyses_run||[]).length + ' completed, ' + (advancedResult.analyses_failed||[]).length + ' failed'"></span>
+            </div>
+
+            <!-- H-Bonds Advanced -->
+            <template x-if="advancedResult?.hbonds_advanced?.plot_b64">
+              <div class="mc" style="border-left:3px solid #f59e0b;margin-bottom:6px">
+                <h4 style="font-size:0.58rem">🔗 Hydrogen Bonds (Residue-Resolved)</h4>
+                <img :src="'data:image/png;base64,'+advancedResult.hbonds_advanced.plot_b64" style="width:100%;border-radius:4px" />
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+                  <div class="mmet"><small>Total H-bonds</small><b x-text="advancedResult.hbonds_advanced.total_hbonds||0"></b></div>
+                  <div class="mmet"><small>Unique pairs</small><b x-text="advancedResult.hbonds_advanced.unique_pairs||0"></b></div>
+                  <div class="mmet"><small>Avg/frame</small><b x-text="advancedResult.hbonds_advanced.avg_per_frame||0"></b></div>
+                </div>
+                <template x-if="advancedResult.hbonds_advanced.top_hbonds?.length">
+                  <table style="width:100%;font-size:0.5rem;margin-top:4px;border-collapse:collapse">
+                    <thead><tr style="color:var(--color-text-muted)"><th style="text-align:left;padding:2px">Donor</th><th>Acceptor</th><th>Occ%</th><th>Dist Å</th><th>Angle°</th></tr></thead>
+                    <tbody>
+                      <template x-for="hb in advancedResult.hbonds_advanced.top_hbonds.slice(0,8)" :key="hb.donor">
+                        <tr style="border-top:1px solid var(--color-border)">
+                          <td style="padding:2px" x-text="hb.donor"></td>
+                          <td style="text-align:center" x-text="hb.acceptor"></td>
+                          <td style="text-align:center;color:#22c55e" x-text="hb.occupancy_pct"></td>
+                          <td style="text-align:center" x-text="hb.avg_dist_angstrom"></td>
+                          <td style="text-align:center" x-text="hb.avg_angle_deg"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </template>
+              </div>
+            </template>
+
+            <!-- Native Contacts -->
+            <template x-if="advancedResult?.native_contacts?.plot_b64">
+              <div class="mc" style="border-left:3px solid #22c55e;margin-bottom:6px">
+                <h4 style="font-size:0.58rem">📊 Native Contacts (Q fraction)</h4>
+                <img :src="'data:image/png;base64,'+advancedResult.native_contacts.plot_b64" style="width:100%;border-radius:4px" />
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+                  <div class="mmet"><small>Mean Q</small><b x-text="advancedResult.native_contacts.mean_Q||'—'"></b></div>
+                  <div class="mmet"><small>Final Q</small><b x-text="advancedResult.native_contacts.final_Q||'—'"></b></div>
+                  <div class="mmet"><small>Stability</small><b style="font-size:0.6rem" x-text="advancedResult.native_contacts.stability||'—'"></b></div>
+                </div>
+              </div>
+            </template>
+
+            <!-- Water Bridges -->
+            <template x-if="advancedResult?.water_bridges?.plot_b64">
+              <div class="mc" style="border-left:3px solid #3b82f6;margin-bottom:6px">
+                <h4 style="font-size:0.58rem">💧 Water-Mediated Bridges</h4>
+                <img :src="'data:image/png;base64,'+advancedResult.water_bridges.plot_b64" style="width:100%;border-radius:4px" />
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+                  <div class="mmet"><small>Total bridges</small><b x-text="advancedResult.water_bridges.total_bridges||0"></b></div>
+                  <div class="mmet"><small>Water molecules</small><b x-text="advancedResult.water_bridges.unique_water_molecules||0"></b></div>
+                </div>
+              </div>
+            </template>
+
+            <!-- RDF -->
+            <template x-if="advancedResult?.rdf?.plot_b64">
+              <div class="mc" style="border-left:3px solid #8b5cf6;margin-bottom:6px">
+                <h4 style="font-size:0.58rem">🔄 Radial Distribution Function</h4>
+                <img :src="'data:image/png;base64,'+advancedResult.rdf.plot_b64" style="width:100%;border-radius:4px" />
+                <div style="font-size:0.5rem;color:var(--color-text-muted);margin-top:2px" x-text="'First solvation shell peak: ' + (advancedResult.rdf.first_shell_peak_angstrom||'—') + ' Å'"></div>
+              </div>
+            </template>
+
+            <!-- Ramachandran -->
+            <template x-if="advancedResult?.ramachandran?.plot_b64">
+              <div class="mc" style="border-left:3px solid #00d4aa;margin-bottom:6px">
+                <h4 style="font-size:0.58rem">📐 Ramachandran Plot</h4>
+                <img :src="'data:image/png;base64,'+advancedResult.ramachandran.plot_b64" style="width:70%;margin:auto;display:block;border-radius:4px" />
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+                  <div class="mmet"><small>α-helix</small><b x-text="(advancedResult.ramachandran.alpha_pct||0)+'%'"></b></div>
+                  <div class="mmet"><small>β-sheet</small><b x-text="(advancedResult.ramachandran.beta_pct||0)+'%'"></b></div>
+                </div>
+              </div>
+            </template>
+
+            <!-- PCA -->
+            <template x-if="advancedResult?.pca?.plot_b64">
+              <div class="mc" style="border-left:3px solid #f59e0b;margin-bottom:6px">
+                <h4 style="font-size:0.58rem">🎯 PCA / Essential Dynamics</h4>
+                <img :src="'data:image/png;base64,'+advancedResult.pca.plot_b64" style="width:100%;border-radius:4px" />
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+                  <div class="mmet"><small>PC1 variance</small><b x-text="(advancedResult.pca.pc1_variance_pct||0)+'%'"></b></div>
+                  <div class="mmet"><small>PC2 variance</small><b x-text="(advancedResult.pca.pc2_variance_pct||0)+'%'"></b></div>
+                </div>
+              </div>
+            </template>
+
+            <!-- Ligand Distances -->
+            <template x-if="advancedResult?.ligand_distances?.plot_b64">
+              <div class="mc" style="border-left:3px solid #3b82f6;margin-bottom:6px">
+                <h4 style="font-size:0.58rem">📏 Ligand–Residue Distances</h4>
+                <img :src="'data:image/png;base64,'+advancedResult.ligand_distances.plot_b64" style="width:100%;border-radius:4px" />
+                <div style="font-size:0.5rem;color:var(--color-text-muted);margin-top:2px" x-text="(advancedResult.ligand_distances.n_residues_tracked||0) + ' binding-site residues tracked'"></div>
+              </div>
+            </template>
+
+            <!-- H-Bond Lifetimes -->
+            <template x-if="advancedResult?.hbond_lifetimes?.plot_b64">
+              <div class="mc" style="border-left:3px solid #ec4899;margin-bottom:6px">
+                <h4 style="font-size:0.58rem">⏱️ H-Bond Lifetimes (Autocorrelation)</h4>
+                <img :src="'data:image/png;base64,'+advancedResult.hbond_lifetimes.plot_b64" style="width:100%;border-radius:4px" />
+                <div style="font-size:0.5rem;color:var(--color-text-muted);margin-top:2px" x-text="advancedResult.hbond_lifetimes.note||''"></div>
+              </div>
+            </template>
+          </div>
         </div>
       </template>
     </div>
