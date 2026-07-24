@@ -77,7 +77,7 @@ class LiteratureSearch(ApiHandler):
         if store_to_kb and papers:
             try:
                 from modules.knowledge.auto_store import auto_store
-                for paper in papers[:20]:
+                for paper in papers[:50]:
                     title = paper.get("title", "Untitled")
                     authors = ", ".join(paper.get("authors", [])[:5])
                     full_text = paper.get("full_text", "")
