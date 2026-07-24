@@ -449,12 +449,15 @@ class LiteratureSearch(ApiHandler):
             return [], 0
 
     async def _search_europe_pmc(self, query: str, max_results: int):
-        """Search Europe PMC — free biomedical literature database."""
+        """Search Europe PMC — free biomedical literature database.
+        
+        Uses resultType=core to get pmcid, doi, fullTextUrl for full-text retrieval.
+        """
         try:
             encoded = urllib.parse.quote(query)
             url = (
                 f"https://www.ebi.ac.uk/europepmc/webservices/rest/search"
-                f"?query={encoded}&resultType=lite&pageSize={max_results}"
+                f"?query={encoded}&resultType=core&pageSize={max_results}"
                 f"&format=json&sort=RELEVANCE"
             )
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
@@ -464,6 +467,27 @@ class LiteratureSearch(ApiHandler):
             papers = []
             for r in data.get("resultList", {}).get("result", []):
                 authors = (r.get("authorString", "") or "").split(", ")[:5]
+                
+                # Extract PMCID (needed for Tier 1 fullTextXML)
+                pmcid = r.get("pmcid", "") or ""
+                
+                # Extract DOI
+                doi = r.get("doi", "") or ""
+                
+                # Extract full text / PDF URLs from fullTextUrlList
+                full_text_url = ""
+                pdf_url = ""
+                ft_list = r.get("fullTextUrlList", {}).get("fullTextUrl", [])
+                for ft in ft_list:
+                    ft_url = ft.get("url", "")
+                    ft_style = ft.get("style", "")
+                    ft_doc_style = ft.get("documentStyle", "")
+                    if "pdf" in ft_style.lower() or "pdf" in ft_doc_style.lower() or ft_url.endswith(".pdf"):
+                        if not pdf_url:
+                            pdf_url = ft_url
+                    elif ft_url and not full_text_url:
+                        full_text_url = ft_url
+                
                 papers.append({
                     "id": r.get("id", ""),
                     "title": r.get("title", ""),
@@ -471,6 +495,11 @@ class LiteratureSearch(ApiHandler):
                     "authors": authors,
                     "journal": r.get("journalTitle", ""),
                     "year": str(r.get("pubYear", "")),
+                    "doi": doi,
+                    "pmid": r.get("pmid", "") or r.get("id", ""),
+                    "pmcid": pmcid,
+                    "full_text_url": full_text_url,
+                    "pdf_url": pdf_url,
                     "url": f"https://europepmc.org/article/{r.get('source','')}/{r.get('id','')}",
                     "database": "Europe PMC",
                 })
@@ -481,13 +510,16 @@ class LiteratureSearch(ApiHandler):
             return [], 0
 
     async def _search_biorxiv(self, query: str, max_results: int):
-        """Search bioRxiv + medRxiv preprints via Europe PMC."""
+        """Search bioRxiv + medRxiv preprints via Europe PMC.
+        
+        Uses resultType=core to get pmcid, doi, fullTextUrl for full-text retrieval.
+        """
         try:
             encoded = urllib.parse.quote(query)
             url = (
                 f"https://www.ebi.ac.uk/europepmc/webservices/rest/search"
                 f"?query={encoded}%20AND%20(SRC:PPR%20OR%20SRC:MED)"
-                f"&resultType=lite&pageSize={max_results}"
+                f"&resultType=core&pageSize={max_results}"
                 f"&format=json&sort=RELEVANCE"
             )
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
@@ -497,6 +529,22 @@ class LiteratureSearch(ApiHandler):
             papers = []
             for r in data.get("resultList", {}).get("result", []):
                 authors = (r.get("authorString", "") or "").split(", ")[:5]
+                
+                pmcid = r.get("pmcid", "") or ""
+                doi = r.get("doi", "") or ""
+                
+                full_text_url = ""
+                pdf_url = ""
+                ft_list = r.get("fullTextUrlList", {}).get("fullTextUrl", [])
+                for ft in ft_list:
+                    ft_url = ft.get("url", "")
+                    ft_style = ft.get("style", "")
+                    if "pdf" in ft_style.lower() or ft_url.endswith(".pdf"):
+                        if not pdf_url:
+                            pdf_url = ft_url
+                    elif ft_url and not full_text_url:
+                        full_text_url = ft_url
+                
                 papers.append({
                     "id": r.get("id", ""),
                     "title": r.get("title", ""),
@@ -504,6 +552,11 @@ class LiteratureSearch(ApiHandler):
                     "authors": authors,
                     "journal": r.get("bookOrReportDetails", {}).get("publisher", "bioRxiv") if isinstance(r.get("bookOrReportDetails"), dict) else "bioRxiv",
                     "year": str(r.get("pubYear", "")),
+                    "doi": doi,
+                    "pmid": r.get("pmid", "") or r.get("id", ""),
+                    "pmcid": pmcid,
+                    "full_text_url": full_text_url,
+                    "pdf_url": pdf_url,
                     "url": f"https://europepmc.org/article/PPR/{r.get('id','')}",
                     "database": "bioRxiv/medRxiv",
                 })

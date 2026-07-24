@@ -126,6 +126,26 @@ def auto_store(module_name, title, content, source="", tags=None, metadata=None,
         else:
             formatted_content = str(content)
 
+        # ── VALIDATION: Prevent storing stubs for literature entries ──
+        # If this is a literature/deep_research entry, require substantial content.
+        # Stubs like "Full article saved as PDF and DOCX." or abstracts-only
+        # violate the user requirement: "no abstracts, no metadata — only full articles."
+        if category in ("literature", "deep_research"):
+            # Check for common stub patterns
+            stub_patterns = [
+                "Full article saved as PDF",
+                "Full article saved as DOCX",
+                "Abstract not available",
+                "Full text not available",
+                "No full text found",
+            ]
+            is_stub = any(pattern in formatted_content for pattern in stub_patterns)
+            
+            # Require at least 2000 chars of actual content for literature entries
+            if is_stub or len(formatted_content) < 2000:
+                log.warning(f"SKIP storing literature stub [{category}]: {title[:50]} ({len(formatted_content)} chars)")
+                return None
+
         # Ensure category directory exists
         cat_dir = os.path.join(KB_DIR, category)
         os.makedirs(cat_dir, exist_ok=True)

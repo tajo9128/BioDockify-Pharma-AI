@@ -52,6 +52,7 @@ print("Stored:", entry["id"], "→", entry["file"])
 3. **Do NOT** use `memory_save` for user-visible content. `memory_save` writes to your internal recall vector DB; the KB UI cannot see it. These are two separate systems.
 4. **Do NOT** manually write `.md` files to `/a0/data/knowledge_base/` and edit `index.json` yourself — this risks corrupting the index. Always go through `auto_store`.
 5. Content can be a string (markdown), dict, or list. Dicts/lists are pretty-formatted as markdown automatically.
+6. **NEVER store stubs, abstracts, or metadata-only entries for literature.** If full text retrieval fails, DO NOT save the article. `auto_store` will reject entries shorter than 2000 chars for literature/deep_research categories. Skip and move on to the next article.
 
 **To read the Knowledge Base** (browse what's already stored):
 ```python
