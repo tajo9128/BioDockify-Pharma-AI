@@ -202,8 +202,12 @@ export const store = createStore("backupRecovery", {
     try {
       const resp = await callJsonApi("docker_volume_restore", { action: "scan" });
       if (resp.error) {
-        this.error = resp.error;
         this.dockerAvailable = resp.docker_available !== false;
+        if (!this.dockerAvailable) {
+          this.error = "Docker socket not mounted. Add `-v /var/run/docker.sock:/var/run/docker.sock` to your docker run command.";
+        } else {
+          this.error = resp.error;
+        }
         return;
       }
       this.dockerVolumes = resp.volumes || [];
@@ -212,7 +216,7 @@ export const store = createStore("backupRecovery", {
       setTimeout(() => this.message = "", 5000);
     } catch (e) {
       this.dockerAvailable = false;
-      this.error = "Docker volume scan failed: " + e.message;
+      this.error = "Docker volume scan failed: Docker socket not mounted. Add `-v /var/run/docker.sock:/var/run/docker.sock` to your docker run command.";
     }
     this.dockerVolumeScanning = false;
   },

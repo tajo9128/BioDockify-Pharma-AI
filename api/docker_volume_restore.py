@@ -3,16 +3,21 @@
 When a container is deleted, its Docker volumes may persist with user data.
 This handler scans all Docker volumes, identifies orphaned ones containing
 BioDockify data, and allows one-click restore.
+
+Uses Docker socket directly (no Docker CLI required).
 """
-import asyncio
 import json
 import logging
 import os
 import shutil
 import datetime
+import http.client
+import socket
 from helpers.api import ApiHandler, Request, Response
 
 log = logging.getLogger("docker_volume_restore")
+
+DOCKER_SOCKET = "/var/run/docker.sock"
 
 # Paths that indicate a volume contains BioDockify data
 BIO_MARKERS = [
@@ -34,15 +39,39 @@ RESTORE_TARGETS = {
 }
 
 
-async def _run_docker(*args):
-    """Run a docker command asynchronously and return stdout."""
-    proc = await asyncio.create_subprocess_exec(
-        "docker", *args,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    stdout, stderr = await proc.communicate()
-    return stdout.decode().strip(), stderr.decode().strip(), proc.returncode
+class _UnixHTTPConnection(http.client.HTTPConnection):
+    """HTTP connection over a Unix socket."""
+
+    def __init__(self, socket_path, timeout=10):
+        super().__init__("localhost", timeout=timeout)
+        self._socket_path = socket_path
+
+    def connect(self):
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.settimeout(self.timeout)
+        self.sock.connect(self._socket_path)
+
+
+def _docker_api(method, path, body=None):
+    """Call Docker Engine API via Unix socket. Returns parsed JSON or None."""
+    if not os.path.exists(DOCKER_SOCKET):
+        return None, "Docker socket not found. Mount /var/run/docker.sock to enable."
+    try:
+        conn = _UnixHTTPConnection(DOCKER_SOCKET, timeout=15)
+        headers = {"Content-Type": "application/json"}
+        conn.request(method, f"http://localhost{path}", body=body, headers=headers)
+        resp = conn.getresponse()
+        data = resp.read().decode()
+        conn.close()
+        if resp.status >= 400:
+            return None, f"Docker API error {resp.status}: {data[:200]}"
+        return json.loads(data) if data else {}, None
+    except FileNotFoundError:
+        return None, "Docker socket not available. Mount /var/run/docker.sock to enable volume restore."
+    except ConnectionRefusedError:
+        return None, "Docker daemon not responding."
+    except Exception as e:
+        return None, f"Docker API error: {e}"
 
 
 def _is_bio_volume(contents):
@@ -50,8 +79,7 @@ def _is_bio_volume(contents):
     if not contents:
         return False, []
     found = [m for m in BIO_MARKERS if m in contents]
-    score = len(found)
-    return score >= 1, found
+    return len(found) >= 1, found
 
 
 def _get_dir_size(path):
@@ -91,17 +119,17 @@ class DockerVolumeRestoreHandler(ApiHandler):
         action = input.get("action", "scan")
 
         if action == "scan":
-            return await self._scan_volumes()
+            return self._scan_volumes()
         elif action == "inspect":
-            return await self._inspect_volume(input.get("volume_name", ""))
+            return self._inspect_volume(input.get("volume_name", ""))
         elif action == "restore":
-            return await self._restore_from_volume(
+            return self._restore_from_volume(
                 input.get("volume_name", ""),
                 input.get("overwrite_policy", "skip"),
                 input.get("selected_items", []),
             )
         elif action == "download":
-            return await self._download_from_volume(
+            return self._download_from_volume(
                 input.get("volume_name", ""),
                 input.get("item", ""),
             )
@@ -111,47 +139,56 @@ class DockerVolumeRestoreHandler(ApiHandler):
             "description": "Scan, inspect, and restore from Docker volumes",
         }
 
-    async def _scan_volumes(self):
+    def _check_docker(self):
+        """Check if Docker socket is available."""
+        if not os.path.exists(DOCKER_SOCKET):
+            return None, (
+                "Docker socket not available. "
+                "Add `-v /var/run/docker.sock:/var/run/docker.sock` to your docker run command to enable volume restore."
+            )
+        # Quick version check
+        data, err = _docker_api("GET", "/version")
+        if err:
+            return None, err
+        return data, None
+
+    def _scan_volumes(self):
         """Scan all Docker volumes for orphaned ones with BioDockify data."""
-        # Check if docker is available
-        stdout, stderr, rc = await _run_docker("version", "--format", "{{.Server.Version}}")
-        if rc != 0:
+        # Check Docker availability
+        version_info, err = self._check_docker()
+        if err:
             return {
                 "success": False,
-                "error": "Docker not available. Mount /var/run/docker.sock to enable volume restore.",
+                "error": err,
                 "docker_available": False,
             }
 
         # List all volumes
-        stdout, stderr, rc = await _run_docker("volume", "ls", "--format", "{{.Name}}")
-        if rc != 0:
-            return {"success": False, "error": f"Failed to list volumes: {stderr}"}
+        data, err = _docker_api("GET", "/volumes")
+        if err:
+            return {"success": False, "error": f"Failed to list volumes: {err}"}
 
-        volume_names = [v.strip() for v in stdout.split("\n") if v.strip()]
+        volumes_raw = data.get("Volumes", [])
         volumes = []
 
-        for vol_name in volume_names:
+        for vol in volumes_raw:
+            vol_name = vol.get("Name", "")
+            mountpoint = vol.get("Mountpoint", "")
+            created = vol.get("CreatedAt", "")
+            labels = vol.get("Labels") or {}
+
             # Check if attached to any container
-            ctrs_out, _, _ = await _run_docker(
-                "ps", "-a", "--filter", f"volume={vol_name}",
-                "--format", "{{.Names}}|{{.Status}}|{{.Image}}"
+            containers_data, _ = _docker_api(
+                "GET", f"/containers/json?all=true&filters={json.dumps({'volume': [vol_name]})}"
             )
             containers = []
-            if ctrs_out.strip():
-                for line in ctrs_out.strip().split("\n"):
-                    parts = line.split("|")
+            if containers_data:
+                for c in containers_data:
                     containers.append({
-                        "name": parts[0] if len(parts) > 0 else "",
-                        "status": parts[1] if len(parts) > 1 else "",
-                        "image": parts[2] if len(parts) > 2 else "",
+                        "name": c.get("Names", [""])[0].lstrip("/"),
+                        "status": c.get("Status", ""),
+                        "image": c.get("Image", ""),
                     })
-
-            # Get mountpoint
-            inspect_out, _, _ = await _run_docker(
-                "volume", "inspect", vol_name,
-                "--format", "{{.Mountpoint}}"
-            )
-            mountpoint = inspect_out.strip()
 
             # List contents
             contents = []
@@ -165,11 +202,8 @@ class DockerVolumeRestoreHandler(ApiHandler):
             has_bio, markers = _is_bio_volume(contents)
 
             # Calculate size
-            size_mb = 0
-            file_count = 0
-            if mountpoint and os.path.isdir(mountpoint):
-                size_mb = _get_dir_size(mountpoint)
-                file_count = _count_files(mountpoint)
+            size_mb = _get_dir_size(mountpoint) if mountpoint and os.path.isdir(mountpoint) else 0
+            file_count = _count_files(mountpoint) if mountpoint and os.path.isdir(mountpoint) else 0
 
             volumes.append({
                 "name": vol_name,
@@ -182,9 +216,11 @@ class DockerVolumeRestoreHandler(ApiHandler):
                 "content_count": len(contents),
                 "size_mb": size_mb,
                 "file_count": file_count,
+                "created": created,
+                "labels": labels,
             })
 
-        # Sort: orphaned with BioDockify data first, then orphaned, then rest
+        # Sort: orphaned with BioDockify data first
         volumes.sort(key=lambda v: (
             not (v["is_orphan"] and v["has_bio_data"]),
             not v["is_orphan"],
@@ -196,6 +232,7 @@ class DockerVolumeRestoreHandler(ApiHandler):
 
         return {
             "success": True,
+            "docker_available": True,
             "volumes": volumes,
             "total": len(volumes),
             "orphaned_count": orphaned_count,
@@ -203,21 +240,18 @@ class DockerVolumeRestoreHandler(ApiHandler):
             "message": f"Found {len(volumes)} volumes: {orphaned_count} orphaned, {bio_count} with BioDockify data.",
         }
 
-    async def _inspect_volume(self, volume_name):
-        """Deep inspect a specific volume — list full directory tree."""
+    def _inspect_volume(self, volume_name):
+        """Deep inspect a specific volume."""
         if not volume_name:
             return {"success": False, "error": "No volume name provided"}
 
-        # Get mountpoint
-        stdout, stderr, rc = await _run_docker(
-            "volume", "inspect", volume_name,
-            "--format", "{{.Mountpoint}}"
-        )
-        if rc != 0:
-            return {"success": False, "error": f"Volume not found: {volume_name}"}
+        # Get volume details
+        data, err = _docker_api("GET", f"/volumes/{volume_name}")
+        if err:
+            return {"success": False, "error": f"Volume not found: {err}"}
 
-        mountpoint = stdout.strip()
-        if not os.path.isdir(mountpoint):
+        mountpoint = data.get("Mountpoint", "")
+        if not mountpoint or not os.path.isdir(mountpoint):
             return {"success": False, "error": f"Mount point not accessible: {mountpoint}"}
 
         # Build directory tree
@@ -225,7 +259,7 @@ class DockerVolumeRestoreHandler(ApiHandler):
         for root, dirs, files in os.walk(mountpoint):
             rel = os.path.relpath(root, mountpoint)
             depth = rel.count(os.sep) if rel != "." else 0
-            if depth > 4:  # Limit depth
+            if depth > 4:
                 continue
             for d in dirs:
                 tree.append({
@@ -258,27 +292,24 @@ class DockerVolumeRestoreHandler(ApiHandler):
             "success": True,
             "volume_name": volume_name,
             "mountpoint": mountpoint,
-            "tree": tree[:500],  # Limit to 500 entries
+            "tree": tree[:500],
             "bio_data_found": bio_data_found,
             "total_size_mb": _get_dir_size(mountpoint),
             "total_files": _count_files(mountpoint),
         }
 
-    async def _restore_from_volume(self, volume_name, overwrite_policy="skip", selected_items=None):
+    def _restore_from_volume(self, volume_name, overwrite_policy="skip", selected_items=None):
         """Restore data from a Docker volume to the container."""
         if not volume_name:
             return {"success": False, "error": "No volume name provided"}
 
-        # Get mountpoint
-        stdout, stderr, rc = await _run_docker(
-            "volume", "inspect", volume_name,
-            "--format", "{{.Mountpoint}}"
-        )
-        if rc != 0:
-            return {"success": False, "error": f"Volume not found: {volume_name}"}
+        # Get volume details
+        data, err = _docker_api("GET", f"/volumes/{volume_name}")
+        if err:
+            return {"success": False, "error": f"Volume not found: {err}"}
 
-        src_root = stdout.strip()
-        if not os.path.isdir(src_root):
+        src_root = data.get("Mountpoint", "")
+        if not src_root or not os.path.isdir(src_root):
             return {"success": False, "error": f"Mount point not accessible: {src_root}"}
 
         restored = []
@@ -287,10 +318,8 @@ class DockerVolumeRestoreHandler(ApiHandler):
 
         # Determine what to restore
         if selected_items:
-            # Restore only selected items
             items_to_restore = selected_items
         else:
-            # Restore all recognized BioDockify data
             items_to_restore = [
                 item for item in os.listdir(src_root)
                 if item in RESTORE_TARGETS
@@ -301,7 +330,6 @@ class DockerVolumeRestoreHandler(ApiHandler):
             dst_path = RESTORE_TARGETS.get(item)
 
             if not dst_path:
-                # Try to figure out destination from item name
                 if item.startswith("a0/"):
                     dst_path = "/" + item
                 else:
@@ -318,7 +346,6 @@ class DockerVolumeRestoreHandler(ApiHandler):
                             skipped.append({"item": item, "reason": "exists, skip policy"})
                             continue
                         elif overwrite_policy == "overwrite":
-                            # Merge: copy newer files
                             file_count = 0
                             for root, dirs, files in os.walk(src_path):
                                 rel = os.path.relpath(root, src_path)
@@ -336,7 +363,6 @@ class DockerVolumeRestoreHandler(ApiHandler):
                         file_count = sum(1 for _, _, files in os.walk(src_path) for f in files)
                         restored.append({"item": item, "files": file_count, "action": "copied"})
                 else:
-                    # Single file
                     os.makedirs(os.path.dirname(dst_path), exist_ok=True)
                     if os.path.exists(dst_path) and overwrite_policy == "skip":
                         skipped.append({"item": item, "reason": "exists, skip policy"})
@@ -360,21 +386,18 @@ class DockerVolumeRestoreHandler(ApiHandler):
                        + (" Restart container to apply." if total_files > 0 else ""),
         }
 
-    async def _download_from_volume(self, volume_name, item):
+    def _download_from_volume(self, volume_name, item):
         """Download a specific file from a Docker volume."""
         from flask import send_file
 
         if not volume_name or not item:
             return {"success": False, "error": "Volume name and item required"}
 
-        stdout, stderr, rc = await _run_docker(
-            "volume", "inspect", volume_name,
-            "--format", "{{.Mountpoint}}"
-        )
-        if rc != 0:
-            return {"success": False, "error": f"Volume not found: {volume_name}"}
+        data, err = _docker_api("GET", f"/volumes/{volume_name}")
+        if err:
+            return {"success": False, "error": f"Volume not found: {err}"}
 
-        mountpoint = stdout.strip()
+        mountpoint = data.get("Mountpoint", "")
         file_path = os.path.join(mountpoint, item)
 
         # Security: prevent path traversal

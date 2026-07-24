@@ -182,7 +182,9 @@
       </template>
 
       <div x-show="!$store.backupRecovery.dockerAvailable" class="error" style="margin-top:8px">
-        Docker socket not available. Mount <code>/var/run/docker.sock</code> to enable volume restore.
+        <b>Docker socket not mounted.</b> To enable volume restore, add this to your <code>docker run</code> command:<br>
+        <code style="font-size:.6rem;word-break:break-all">-v /var/run/docker.sock:/var/run/docker.sock</code><br>
+        <span style="font-size:.58rem;opacity:0.8">Or in docker-compose.yml under volumes: <code>/var/run/docker.sock:/var/run/docker.sock</code></span>
       </div>
     </div>
   </template>
