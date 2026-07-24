@@ -6,6 +6,7 @@
 
 ### HOW TO USE — Follow this EXACT workflow:
 
+**IMPORTANT: Use the framework Python which has all dependencies:**
 ```python
 import sys; sys.path.insert(0, "/a0")
 import asyncio

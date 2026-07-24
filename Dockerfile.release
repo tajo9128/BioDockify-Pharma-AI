@@ -61,6 +61,17 @@ RUN mkdir -p /a0/.cache/sentence-transformers && \
     echo "sentence-transformers model cached" || \
     echo "sentence-transformers model cache failed — will try HuggingFace at runtime"
 
+# ─── Make framework venv Python the default python3 ───
+# The agent's code_execution_tool uses /bin/bash → python3.
+# That must resolve to the framework venv (/opt/venv-a0) which has Flask,
+# litellm, and all API modules. The execution venv (/opt/venv) is for
+# user-installed packages only.
+RUN ln -sf /opt/venv-a0/bin/python /usr/local/bin/python3 && \
+    ln -sf /opt/venv-a0/bin/python /usr/local/bin/python && \
+    ln -sf /opt/venv-a0/bin/pip /usr/local/bin/pip3 && \
+    ln -sf /opt/venv-a0/bin/pip /usr/local/bin/pip && \
+    echo "Framework venv python3 set as default"
+
 EXPOSE 50001
 # Persist user data, agent memory, and knowledge base separately so each survives
 VOLUME ["/a0/usr", "/a0/.a0proj", "/a0/data"]
