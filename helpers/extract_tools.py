@@ -110,8 +110,15 @@ def json_parse_dirty(json: str) -> dict[str, Any] | None:
     if not json or not isinstance(json, str):
         return None
 
+    # Strip reasoning model thinking tags (deepseek-reasoner, etc.)
+    # These models output <think>chain of thought</think> before the actual response.
+    # The thinking text often contains { which confuses the JSON parser.
+    cleaned = re.sub(r'<think>.*?</think>', '', json, flags=re.DOTALL).strip()
+    if not cleaned:
+        cleaned = json.strip()
+
     # First, try the standard JSON extraction
-    ext_json = extract_json_object_string(json.strip())
+    ext_json = extract_json_object_string(cleaned)
     if ext_json:
         try:
             data = DirtyJson.parse_string(ext_json)
@@ -122,9 +129,20 @@ def json_parse_dirty(json: str) -> dict[str, Any] | None:
 
     # Fallback: parse DSML/XML-style tool calls (DeepSeek and other models
     # that emit native XML tool-call formats instead of JSON)
-    dsml_result = _parse_dsml_tool_calls(json)
+    dsml_result = _parse_dsml_tool_calls(cleaned)
     if dsml_result:
         return dsml_result
+
+    # Last resort: try parsing the original text (in case thinking tags were part of content)
+    if cleaned != json.strip():
+        ext_json = extract_json_object_string(json.strip())
+        if ext_json:
+            try:
+                data = DirtyJson.parse_string(ext_json)
+                if isinstance(data, dict):
+                    return data
+            except Exception:
+                pass
 
     return None
 
