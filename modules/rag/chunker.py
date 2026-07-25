@@ -86,18 +86,40 @@ def extract_text_from_file(filepath: str) -> str:
 
 def chunk_document(text: str, doc_id: str = "", max_chunk_chars: int = 500, overlap_chars: int = 50) -> List[Dict[str, Any]]:
     """Split document text into hierarchical chunks.
-    
+
+    Uses table-aware chunking if available (keeps markdown tables intact),
+    falls back to section/paragraph/sentence splitting.
+
     Args:
         text: Document text content
         doc_id: Document identifier
         max_chunk_chars: Maximum characters per chunk
         overlap_chars: Overlap between consecutive chunks
-    
+
     Returns:
         List of chunk dicts with metadata
     """
     if not text or not text.strip():
         return []
+
+    # Try table-aware chunking first (prevents splitting tables mid-row)
+    try:
+        from modules.rag.table_chunker import chunk_text_table_aware
+        table_chunks = chunk_text_table_aware(text, max_chars=max_chunk_chars * 3,
+                                               overlap=overlap_chars)
+        if table_chunks:
+            chunks = []
+            for i, chunk_text in enumerate(table_chunks):
+                chunks.append({
+                    "doc_id": doc_id,
+                    "section_idx": 0,
+                    "para_idx": i,
+                    "text": chunk_text,
+                    "char_count": len(chunk_text),
+                })
+            return chunks
+    except ImportError:
+        pass  # Fall through to existing approach
 
     chunks = []
     sections = _split_sections(text)

@@ -392,6 +392,8 @@ class KnowledgeHandler(ApiHandler):
             return self._run_transformation(input)
         elif action == "generate_podcast":
             return self._generate_podcast(input)
+        elif action == "kb_chat":
+            return await self._kb_chat(input)
 
         return {"status": "error", "error": f"Unknown action: {action}"}
 
@@ -1078,4 +1080,185 @@ class KnowledgeHandler(ApiHandler):
             "speakers": speakers,
             "source_count": source_text.count("---"),
             "instruction": "Send this prompt to the agent to generate the podcast script. Use the Podcast tab in Knowledge Base for TTS generation.",
+        }
+
+    # ─────────────────────────────────────────────────────────────────────
+    # KB CHAT — Retrieval-Grounded Q&A with Citations
+    # ─────────────────────────────────────────────────────────────────────
+    # Replaces the broken "paste titles into textarea" approach with a real
+    # RAG pipeline: hybrid search → context block → LLM → citation normalization.
+    # All logic is additive — does not modify existing query/store actions.
+
+    async def _kb_chat(self, input: dict) -> dict:
+        """Retrieval-grounded KB chat with citations.
+
+        1. Runs hybrid search (BM25 + vector) on the query
+        2. Builds a <retrieved_context> block with [n] citation labels
+        3. Sends to the configured LLM with a citation-aware system prompt
+        4. Normalizes [n] markers into [citation:entry_id] links
+        5. Returns {answer, citations, sources_found}
+
+        This does NOT touch Agent Zero's chat pipeline — it's a standalone
+        KB-only Q&A endpoint that the KB panel calls directly.
+        """
+        import asyncio
+
+        query = (input.get("query") or "").strip()
+        category = input.get("category", "")
+        top_k = int(input.get("top_k", 8))
+
+        if not query:
+            return {"status": "error", "error": "Query required"}
+
+        # ── Step 1: Retrieve relevant chunks ──
+        index = _load_index()
+        entries = index.get("entries", [])
+
+        # Filter by category if specified
+        if category:
+            entries = [e for e in entries if e.get("category") == category]
+
+        if not entries:
+            return {"status": "ok", "answer": "No knowledge base entries found.",
+                    "citations": [], "sources_found": 0}
+
+        # Read full content for each entry
+        def _load_chunks():
+            chunks = []
+            for entry in entries:
+                filepath = entry.get("file", "")
+                if not filepath or not os.path.isfile(filepath):
+                    continue
+                try:
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    # Chunk the content for better retrieval
+                    try:
+                        from modules.rag.table_chunker import chunk_text_table_aware
+                        text_chunks = chunk_text_table_aware(content, max_chars=2000)
+                    except ImportError:
+                        text_chunks = [content[:2000]]
+
+                    for i, chunk_text in enumerate(text_chunks[:5]):  # max 5 chunks per entry
+                        chunks.append({
+                            "content": chunk_text,
+                            "entry_id": entry.get("id", ""),
+                            "title": entry.get("title", ""),
+                            "source": entry.get("source", ""),
+                            "category": entry.get("category", ""),
+                            "chunk_idx": i,
+                        })
+                except Exception:
+                    pass
+            return chunks
+
+        chunks = await asyncio.to_thread(_load_chunks)
+
+        if not chunks:
+            return {"status": "ok", "answer": "Could not read any KB entries.",
+                    "citations": [], "sources_found": 0}
+
+        # ── Step 2: Hybrid search ──
+        def _search():
+            try:
+                from modules.rag.hybrid_search import HybridSearcher
+                searcher = HybridSearcher()
+                searcher.index(chunks)
+                return searcher.search(query, top_k=top_k)
+            except ImportError:
+                # Fallback: simple keyword matching
+                query_lower = query.lower()
+                scored = []
+                for chunk in chunks:
+                    score = sum(1 for word in query_lower.split()
+                                if word in chunk.get("content", "").lower())
+                    if score > 0:
+                        chunk["hybrid_score"] = score
+                        scored.append(chunk)
+                return sorted(scored, key=lambda x: x.get("hybrid_score", 0),
+                              reverse=True)[:top_k]
+
+        results = await asyncio.to_thread(_search)
+
+        if not results:
+            return {"status": "ok",
+                    "answer": f"No relevant entries found for: '{query}'. Try different search terms or add more articles to the Knowledge Base.",
+                    "citations": [], "sources_found": 0}
+
+        # ── Step 3: Build citation context ──
+        from modules.rag.citations import CitationRegistry, render_context, normalize_citations, CITATION_PROMPT
+
+        registry = CitationRegistry()
+        context_block = render_context(results, registry, max_chars=10000)
+
+        # ── Step 4: Send to LLM ──
+        def _call_llm():
+            full_prompt = f"{CITATION_PROMPT}\n\n{context_block}\n\nUser question: {query}"
+
+            # Try to use the configured LLM via LiteLLM
+            try:
+                import litellm
+                # Determine model from Agent Zero settings
+                import json as _json
+                config_path = os.path.join(os.path.dirname(KB_DIR),
+                                           "usr", "plugins", "_model_config", "config.json")
+                model_name = "gpt-4o-mini"  # fallback
+                api_base = ""
+                provider = "openai"
+
+                if os.path.isfile(config_path):
+                    try:
+                        with open(config_path) as f:
+                            cfg = _json.load(f)
+                        chat = cfg.get("chat_model", {})
+                        provider = chat.get("provider", "openai")
+                        model_name = chat.get("name", "gpt-4o-mini")
+                        api_base = chat.get("api_base", "")
+                    except Exception:
+                        pass
+
+                # Build LiteLLM model string
+                if provider == "lm_studio" and api_base:
+                    llm_model = f"lm_studio/{model_name}"
+                    kwargs = {"api_base": api_base}
+                elif provider == "ollama" and api_base:
+                    llm_model = f"ollama/{model_name}"
+                    kwargs = {"api_base": api_base}
+                else:
+                    llm_model = model_name
+                    kwargs = {}
+
+                response = litellm.completion(
+                    model=llm_model,
+                    messages=[{"role": "user", "content": full_prompt}],
+                    max_tokens=1500,
+                    temperature=0.3,
+                    **kwargs,
+                )
+                return response.choices[0].message.content
+
+            except Exception as e:
+                log.warning(f"LLM call failed: {e}")
+                # Fallback: return the raw context without LLM processing
+                return None
+
+        answer = await asyncio.to_thread(_call_llm)
+
+        if not answer:
+            # LLM failed — return the retrieved context as a summary
+            answer = "## Retrieved Sources\n\n"
+            for r in results[:5]:
+                n = registry.register("kb", str(r.get("entry_id", "")),
+                                      r.get("title", ""), r.get("content", ""))
+                answer += f"**[{n}] {r.get('title', 'Untitled')}**\n{r.get('content', '')[:500]}...\n\n"
+        else:
+            # Normalize citations in the answer
+            answer = normalize_citations(answer, registry)
+
+        return {
+            "status": "ok",
+            "answer": answer,
+            "citations": registry.to_dict()["citations"],
+            "sources_found": len(results),
+            "query": query,
         }

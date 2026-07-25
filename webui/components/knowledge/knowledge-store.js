@@ -582,10 +582,6 @@ export const store = createStore("knowledgeModal", {
 
   chatWithKB() {
     this.activeTab = "chat";
-    if (!this.chatMessages.length && this.entries.length) {
-      const ctx = this.entries.slice(0, 30).map(e => `${e.question}: ${e.answer}`).join("\n").substring(0, 4000);
-      this.chatMessages = [{ role: "system", content: `Knowledge base:\n${ctx}` }];
-    }
   },
 
   async sendMessage() {
@@ -595,12 +591,32 @@ export const store = createStore("knowledgeModal", {
     this.chatInput = "";
     this.chatLoading = true;
     try {
-      const ctx = this.entries.slice(0, 30).map(e => `${e.question}: ${e.answer}`).join("\n").substring(0, 4000);
-      const prompt = `Based on this knowledge base:\n${ctx}\n\nAnswer: ${msg}`;
-      const input = document.getElementById("chat-input") || document.querySelector("textarea[data-chat-input]");
-      if (input) { input.value = prompt; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); }
-      this.chatMessages.push({ role: "assistant", content: "Sent to Agent Zero. Check the chat panel for the response." });
-    } catch (e) { this.chatMessages.push({ role: "assistant", content: "Error: " + e.message }); }
+      // Real RAG: call kb_chat API (hybrid search + LLM + citations)
+      const r = await callJsonApi("knowledge", {
+        action: "kb_chat",
+        query: msg,
+        top_k: 8,
+      });
+      if (r.status === "ok") {
+        // Render answer with citation links
+        let answer = r.answer || "No answer generated.";
+        // Attach clickable citations
+        const citations = r.citations || [];
+        if (citations.length > 0) {
+          answer += "\n\n**Sources:**\n";
+          for (const c of citations) {
+            answer += `[${c.label}] ${c.display}\n`;
+          }
+        }
+        this.chatMessages.push({ role: "assistant", content: answer });
+        // Store citations for the UI to render as clickable links
+        this._lastCitations = citations;
+      } else {
+        this.chatMessages.push({ role: "assistant", content: r.error || "KB chat failed." });
+      }
+    } catch (e) {
+      this.chatMessages.push({ role: "assistant", content: "Error: " + e.message });
+    }
     this.chatLoading = false;
   },
 
