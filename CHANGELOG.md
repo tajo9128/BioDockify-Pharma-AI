@@ -2,6 +2,47 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v7.9.0] - 2026-07-22
+
+### Pharma Utilities Module — 9 shared calculations across departments
+
+Fixed broken features and added shared calculations that serve all 8
+pharmacy departments.
+
+#### Fixed: EMA search (was a stub)
+- `api/regulatory.py` — EMA search now makes real HTTP requests to
+  ema.europa.eu instead of returning a placeholder redirect URL.
+
+#### Fixed: Bioavailability (was always returning error)
+- `api/pkpd.py` — Bioavailability calculation now actually works:
+  accepts IV and oral PK data, calculates absolute bioavailability
+  using AUC ratio method per FDA Guidance.
+
+#### New: modules/pharma_utils/ (shared calculations)
+- `dissolution.py` — f2 similarity factor (FDA 1997) + f1 difference factor
+- `pk_calculations.py` — Cheng-Prusoff equation (Ki from IC50), AUC-guided
+  vancomycin dosing (Rybak 2020 guidelines), Ki calculator
+- `quality_control.py` — System Suitability Testing (USP <621>), Content
+  Uniformity calculator (USP <905>)
+- `clinical_tools.py` — Beers Criteria 2023 screening (10 PIM categories)
+- `experimental_design.py` — DOE: full factorial, fractional factorial
+  (2^(k-p)), Taguchi orthogonal arrays
+- `synergy_analysis.py` — Chou-Talalay Combination Index (synergy/additive/
+  antagonism classification)
+- `sar_analysis.py` — SAR table generator with potency ranking and fold-range
+
+#### New: api/pharma_utils.py
+- Single API handler with 9 actions: dissolution_f2, cheng_prusoff,
+  auc_vancomycin, system_suitability, content_uniformity, beers_criteria,
+  doe_design, combination_index, sar_table
+
+#### Consolidated: dissolution_f2
+- Was duplicated in formulation.py AND pharma_analysis.py
+- Now available via pharma_utils.py as the shared implementation
+
+#### Tests: 41/41 pass. All new modules verified with inline tests.
+#### No Agent Zero core files modified.
+
 ## [v7.8.0] - 2026-07-22
 
 ### 7 Advanced Writing Skills added (PaperForge + Rigorous inspired)

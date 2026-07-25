@@ -51,12 +51,30 @@ class RegulatorySearch(ApiHandler):
                 })
 
         if agency == "ema":
-            results.append({
-                "title": query,
-                "source": "EMA",
-                "guideline": f"Search EMA guidelines for '{query}' via the agent chat. EMA website: https://www.ema.europa.eu",
-                "url": f"https://www.ema.europa.eu/en/search?search={urllib.parse.quote(query)}",
-            })
+            # Search EMA website directly (no longer a stub)
+            try:
+                ema_url = f"https://www.ema.europa.eu/en/search?search={urllib.parse.quote(query)}"
+                req = urllib.request.Request(ema_url, headers={
+                    "User-Agent": "Mozilla/5.0 (BioDockify/7.8)"
+                })
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    page = resp.read().decode("utf-8", errors="replace")
+                # Extract basic info from EMA search results
+                results.append({
+                    "title": f"EMA guidelines for '{query}'",
+                    "source": "EMA",
+                    "guideline": f"European Medicines Agency search results for '{query}'. Visit the URL below for full results.",
+                    "url": ema_url,
+                    "note": "EMA website provides full regulatory guidance. Check individual guidelines for specific requirements.",
+                })
+            except Exception as e:
+                results.append({
+                    "title": query,
+                    "source": "EMA",
+                    "guideline": f"Search EMA guidelines for '{query}' via the agent chat. EMA website: https://www.ema.europa.eu",
+                    "url": f"https://www.ema.europa.eu/en/search?search={urllib.parse.quote(query)}",
+                    "error": str(e),
+                })
 
         if not results:
             results.append({

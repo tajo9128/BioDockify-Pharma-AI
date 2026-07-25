@@ -80,7 +80,82 @@ class PKPD(ApiHandler):
             elif method == "clearance":
                 r = pk.calculate_clearance(alpha=alpha)
             elif method == "bioavail":
-                return {"status": "error", "error": "Bioavailability requires reference data (separate IV study)"}
+                # Calculate absolute bioavailability from IV and oral PK data
+                iv_data = input.get("iv_data", {})
+                oral_data = input.get("oral_data", {})
+                iv_dose = input.get("iv_dose", 0)
+                oral_dose = input.get("oral_dose", 0)
+                
+                if not iv_data or not oral_data or iv_dose == 0 or oral_dose == 0:
+                    return {
+                        "status": "error", 
+                        "error": "Bioavailability requires: iv_data, oral_data, iv_dose, oral_dose. Example: {\"action\":\"pkpd\",\"method\":\"bioavail\",\"iv_data\":{...},\"oral_data\":{...},\"iv_dose\":100,\"oral_dose\":200}"
+                    }
+                
+                try:
+                    import pandas as pd
+                    # Calculate AUC for IV data
+                    if isinstance(iv_data, dict):
+                        iv_df = pd.DataFrame.from_dict(iv_data, orient="index")
+                    else:
+                        iv_df = pd.DataFrame(iv_data)
+                    
+                    # Calculate AUC for oral data
+                    if isinstance(oral_data, dict):
+                        oral_df = pd.DataFrame.from_dict(oral_data, orient="index")
+                    else:
+                        oral_df = pd.DataFrame(oral_data)
+                    
+                    # Get time and concentration columns
+                    time_col = input.get("time_col", "Time_h")
+                    conc_col = input.get("conc_col", "Conc_ng_mL")
+                    
+                    if time_col not in iv_df.columns or conc_col not in iv_df.columns:
+                        return {"status": "error", "error": f"IV data missing columns: {time_col}, {conc_col}"}
+                    if time_col not in oral_df.columns or conc_col not in oral_df.columns:
+                        return {"status": "error", "error": f"Oral data missing columns: {time_col}, {conc_col}"}
+                    
+                    # Sort by time
+                    iv_df = iv_df.sort_values(time_col).reset_index(drop=True)
+                    oral_df = oral_df.sort_values(time_col).reset_index(drop=True)
+                    
+                    # Calculate AUC using trapezoidal rule
+                    iv_times = iv_df[time_col].values.astype(float)
+                    iv_concs = iv_df[conc_col].values.astype(float)
+                    oral_times = oral_df[time_col].values.astype(float)
+                    oral_concs = oral_df[conc_col].values.astype(float)
+                    
+                    iv_auc = np.trapz(iv_concs, iv_times)
+                    oral_auc = np.trapz(oral_concs, oral_times)
+                    
+                    # Calculate bioavailability: F = (AUC_oral / AUC_iv) * (Dose_iv / Dose_oral)
+                    f_abs = (oral_auc / iv_auc) * (iv_dose / oral_dose) if iv_auc > 0 else 0
+                    f_abs_pct = f_abs * 100
+                    
+                    # Cmax and Tmax for oral
+                    oral_cmax = float(np.max(oral_concs))
+                    oral_tmax = float(oral_times[np.argmax(oral_concs)])
+                    
+                    return {
+                        "status": "ok",
+                        "method": "bioavail",
+                        "F_absolute": round(f_abs, 4),
+                        "F_absolute_pct": round(f_abs_pct, 1),
+                        "iv_dose": iv_dose,
+                        "oral_dose": oral_dose,
+                        "iv_auc": round(iv_auc, 2),
+                        "oral_auc": round(oral_auc, 2),
+                        "oral_cmax": round(oral_cmax, 2),
+                        "oral_tmax": round(oral_tmax, 2),
+                        "interpretation": (
+                            f"Absolute bioavailability: {f_abs_pct:.1f}% "
+                            f"({'high' if f_abs_pct >= 80 else 'moderate' if f_abs_pct >= 50 else 'low'}). "
+                            f"Oral Cmax: {oral_cmax:.2f} at Tmax: {oral_tmax:.1f} h."
+                        ),
+                        "guidelines": "Calculated per FDA Guidance for Industry: Bioavailability and Bioequivalence Studies (2003)"
+                    }
+                except Exception as e:
+                    return {"status": "error", "error": f"Bioavailability calculation failed: {str(e)}"}
             elif method == "pd_response":
                 resp_col = input.get("response_col", "Effect_Pct")
                 raw = input.get("data", {})
