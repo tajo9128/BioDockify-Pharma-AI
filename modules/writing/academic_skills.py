@@ -289,6 +289,211 @@ def grade_assessment_template() -> Dict[str, Any]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Skill 6: Citation Network Visualization (Research Rabbit-inspired)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def build_citation_network(kb_entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Build a citation network from KB entries (Research Rabbit-inspired).
+
+    Analyzes KB entries to find:
+    - Shared citations between papers
+    - Common authors
+    - Common topics/drugs/targets
+    - Citation clusters (groups of related papers)
+
+    Args:
+        kb_entries: List of KB entry dicts with keys: id, title, tags, authors, doi, pmid
+
+    Returns:
+        Network data with nodes (papers) and edges (connections)
+    """
+    import re
+    from collections import defaultdict
+
+    nodes = []
+    edges = []
+    author_index = defaultdict(list)  # author → list of entry IDs
+    doi_index = {}  # doi → entry ID
+    tag_index = defaultdict(list)  # tag → list of entry IDs
+
+    # Build indexes
+    for entry in kb_entries:
+        entry_id = entry.get("id", "")
+        title = entry.get("title", "Untitled")
+        authors = entry.get("authors", [])
+        doi = entry.get("doi", "")
+        pmid = entry.get("pmid", "")
+        tags = entry.get("tags", [])
+
+        nodes.append({
+            "id": entry_id,
+            "title": title[:80],
+            "authors": authors[:3],
+            "doi": doi,
+            "pmid": pmid,
+            "tags": tags,
+            "year": entry.get("year", ""),
+        })
+
+        # Index by authors
+        if isinstance(authors, list):
+            for author in authors:
+                if isinstance(author, str) and len(author) > 2:
+                    author_index[author.lower()].append(entry_id)
+        elif isinstance(authors, str):
+            for author in authors.split(","):
+                author = author.strip()
+                if len(author) > 2:
+                    author_index[author.lower()].append(entry_id)
+
+        # Index by DOI
+        if doi:
+            doi_index[doi.lower()] = entry_id
+
+        # Index by tags
+        if isinstance(tags, list):
+            for tag in tags:
+                tag_index[tag.lower()].append(entry_id)
+
+    # Build edges based on shared authors
+    for author, entry_ids in author_index.items():
+        if len(entry_ids) > 1:
+            for i, id1 in enumerate(entry_ids):
+                for id2 in entry_ids[i+1:]:
+                    edges.append({
+                        "source": id1,
+                        "target": id2,
+                        "type": "shared_author",
+                        "weight": 1.0,
+                        "label": author,
+                    })
+
+    # Build edges based on shared tags (topics)
+    for tag, entry_ids in tag_index.items():
+        if len(entry_ids) > 1 and len(entry_ids) < 20:  # skip very common tags
+            for i, id1 in enumerate(entry_ids):
+                for id2 in entry_ids[i+1:]:
+                    edges.append({
+                        "source": id1,
+                        "target": id2,
+                        "type": "shared_topic",
+                        "weight": 0.5,
+                        "label": tag,
+                    })
+
+    # Deduplicate edges (keep highest weight)
+    edge_map = {}
+    for edge in edges:
+        key = tuple(sorted([edge["source"], edge["target"]]))
+        if key not in edge_map or edge["weight"] > edge_map[key]["weight"]:
+            edge_map[key] = edge
+    edges = list(edge_map.values())
+
+    # Find clusters (simple connected components)
+    clusters = _find_clusters(nodes, edges)
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "clusters": clusters,
+        "stats": {
+            "total_papers": len(nodes),
+            "total_connections": len(edges),
+            "shared_author_connections": len([e for e in edges if e["type"] == "shared_author"]),
+            "shared_topic_connections": len([e for e in edges if e["type"] == "shared_topic"]),
+            "clusters_found": len(clusters),
+        },
+    }
+
+
+def _find_clusters(nodes: List[Dict], edges: List[Dict]) -> List[Dict[str, Any]]:
+    """Find connected components in the citation graph."""
+    from collections import defaultdict
+    # Build adjacency list
+    adj = defaultdict(set)
+    for edge in edges:
+        adj[edge["source"]].add(edge["target"])
+        adj[edge["target"]].add(edge["source"])
+
+    visited = set()
+    clusters = []
+
+    for node in nodes:
+        nid = node["id"]
+        if nid in visited:
+            continue
+
+        # BFS to find connected component
+        queue = [nid]
+        component = []
+        while queue:
+            current = queue.pop(0)
+            if current in visited:
+                continue
+            visited.add(current)
+            component.append(current)
+            for neighbor in adj.get(current, []):
+                if neighbor not in visited:
+                    queue.append(neighbor)
+
+        if len(component) > 1:
+            # Get cluster label from most common tag
+            cluster_tags = defaultdict(int)
+            for nid in component:
+                node_data = next((n for n in nodes if n["id"] == nid), {})
+                for tag in node_data.get("tags", []):
+                    cluster_tags[tag] += 1
+            top_tag = max(cluster_tags, key=cluster_tags.get) if cluster_tags else "uncategorized"
+
+            clusters.append({
+                "id": len(clusters),
+                "label": top_tag,
+                "size": len(component),
+                "papers": component,
+            })
+
+    return clusters
+
+
+def generate_citation_graph_mermaid(kb_entries: List[Dict[str, Any]]) -> str:
+    """Generate a Mermaid diagram of the citation network.
+
+    Args:
+        kb_entries: List of KB entry dicts
+
+    Returns:
+        Mermaid diagram string for rendering in UI
+    """
+    network = build_citation_network(kb_entries)
+
+    lines = ["graph LR"]
+    lines.append("    %% Citation Network (BioDockify AI Engine)")
+    lines.append("")
+
+    # Add nodes
+    for node in network["nodes"][:30]:  # limit to 30 nodes for readability
+        node_id = node["id"].replace("-", "_")
+        title = node["title"][:40]
+        lines.append(f"    {node_id}[\"{title}\"]")
+
+    lines.append("")
+
+    # Add edges
+    for edge in network["edges"][:50]:  # limit to 50 edges
+        source = edge["source"].replace("-", "_")
+        target = edge["target"].replace("-", "_")
+        edge_type = edge["type"]
+        label = edge.get("label", "")[:20]
+
+        if edge_type == "shared_author":
+            lines.append(f"    {source} -->|{label}| {target}")
+        elif edge_type == "shared_topic":
+            lines.append(f"    {source} -.->|{label}| {target}")
+
+    return "\n".join(lines)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Skill 4: Multi-Perspective Peer Review Simulator
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -406,7 +611,7 @@ def build_review_prompt(manuscript_text: str, reviewer_role: str) -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 
 def audit_claims(text: str, citations: List[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Audit text for claim-faithfulness issues.
+    """Audit text for claim-faithfulness issues (Jenni AI-inspired).
 
     Checks for:
     1. Uncited factual claims (claims with no citation)
@@ -414,19 +619,22 @@ def audit_claims(text: str, citations: List[Dict[str, Any]] = None) -> Dict[str,
     3. Overclaiming (claim stronger than evidence supports)
     4. Hallucinated citations (citation that doesn't exist)
     5. Missing context (claim ignores important caveats)
+    6. Claim confidence scoring (0-100%) based on citation quality
+    7. Contradiction detection (find conflicting claims)
 
     Args:
         text: The manuscript text to audit
         citations: Optional list of citation metadata for verification
 
     Returns:
-        Audit report with issues categorized by severity
+        Audit report with issues categorized by severity and confidence scores
     """
     import re
 
     issues = []
     claims_found = 0
     citations_found = 0
+    claim_confidences = []
 
     # Find sentences with factual claims (heuristic)
     claim_patterns = [
@@ -453,12 +661,22 @@ def audit_claims(text: str, citations: List[Dict[str, Any]] = None) -> Dict[str,
 
         if has_claim:
             claims_found += 1
+            
+            # Calculate claim confidence (0-100%)
+            confidence = _calculate_claim_confidence(sentence, has_citation, citations)
+            claim_confidences.append({
+                "sentence": sentence[:150],
+                "confidence": confidence,
+                "has_citation": has_citation,
+            })
+            
             if not has_citation:
                 issues.append({
                     "type": "uncited_claim",
                     "severity": "high",
                     "sentence": sentence[:200],
                     "message": "Factual claim without citation. Add a reference.",
+                    "confidence": confidence,
                 })
 
         if has_citation:
@@ -481,6 +699,10 @@ def audit_claims(text: str, citations: List[Dict[str, Any]] = None) -> Dict[str,
                 "message": message,
             })
 
+    # Detect contradictions (Jenni AI-inspired)
+    contradiction_issues = _detect_contradictions(text)
+    issues.extend(contradiction_issues)
+
     # Count by severity
     severity_counts = {
         "critical": len([i for i in issues if i.get("severity") == "critical"]),
@@ -489,6 +711,9 @@ def audit_claims(text: str, citations: List[Dict[str, Any]] = None) -> Dict[str,
         "low": len([i for i in issues if i.get("severity") == "low"]),
     }
 
+    # Calculate overall confidence
+    avg_confidence = sum(c["confidence"] for c in claim_confidences) / len(claim_confidences) if claim_confidences else 0
+    
     # Integrity gate: PASS only if no critical/high issues
     passed = severity_counts["critical"] == 0 and severity_counts["high"] == 0
 
@@ -500,9 +725,96 @@ def audit_claims(text: str, citations: List[Dict[str, Any]] = None) -> Dict[str,
         "issues": issues[:20],  # cap for response size
         "total_issues": len(issues),
         "severity_breakdown": severity_counts,
+        "confidence_scores": {
+            "average_confidence": round(avg_confidence, 1),
+            "high_confidence_claims": len([c for c in claim_confidences if c["confidence"] >= 80]),
+            "low_confidence_claims": len([c for c in claim_confidences if c["confidence"] < 50]),
+        },
+        "claim_confidences": claim_confidences[:10],  # top 10 claims
         "integrity_gate": "PASSED" if passed else "FAILED — resolve high-severity issues before submission",
         "recommendation": (
-            "All claims are properly cited. Document is submission-ready." if passed
+            "All claims are properly cited with high confidence. Document is submission-ready." if passed
             else f"Found {severity_counts['high']} high-severity and {severity_counts['medium']} medium-severity issues. Review and fix before submission."
         ),
     }
+
+
+def _calculate_claim_confidence(sentence: str, has_citation: bool, citations: List[Dict[str, Any]] = None) -> float:
+    """Calculate confidence score for a claim (0-100%).
+    
+    Factors:
+    - Has citation: +40%
+    - Specific numbers/measurements: +20%
+    - Hedging language (suggests, may): +10%
+    - Absolute language (proves, cures): -20%
+    - Multiple citations: +10%
+    """
+    import re
+    confidence = 50.0  # base confidence
+    
+    # Has citation
+    if has_citation:
+        confidence += 40
+    
+    # Specific numbers/measurements
+    if re.search(r"\d+(?:\.\d+)?\s*(?:mg|ug|ng|nM|uM|mM|kcal|kJ|fold|%)", sentence):
+        confidence += 20
+    
+    # Hedging language (good for pharma)
+    hedging_words = ["suggests", "indicates", "may", "might", "could", "appears", "seems"]
+    if any(word in sentence.lower() for word in hedging_words):
+        confidence += 10
+    
+    # Absolute language (risky for pharma)
+    absolute_words = ["proves", "cures", "eliminates", "always", "never", "guaranteed"]
+    if any(word in sentence.lower() for word in absolute_words):
+        confidence -= 20
+    
+    # Multiple citations
+    citation_count = len(re.findall(r"\[(\d{1,3})\]", sentence))
+    if citation_count > 1:
+        confidence += 10
+    
+    return max(0, min(100, confidence))
+
+
+def _detect_contradictions(text: str) -> List[Dict[str, Any]]:
+    """Detect potential contradictions in the text (Jenni AI-inspired).
+    
+    Looks for:
+    - Conflicting numerical claims
+    - Opposing statements about the same drug/target
+    - Contradictory safety claims
+    """
+    import re
+    issues = []
+    
+    # Look for conflicting numbers about the same subject
+    # Example: "IC50 is 4.2 nM" vs "IC50 is 12.3 nM" for the same drug
+    ic50_pattern = re.compile(r"IC50\s+(?:of|is|=)\s+(\d+(?:\.\d+)?)\s*(nM|uM|mM)", re.IGNORECASE)
+    matches = list(ic50_pattern.finditer(text))
+    
+    if len(matches) > 1:
+        # Check if there are conflicting values
+        values = [(m.group(1), m.group(2)) for m in matches]
+        if len(set(values)) > 1:
+            issues.append({
+                "type": "contradiction",
+                "severity": "critical",
+                "message": f"Conflicting IC50 values found: {values}. Verify which is correct.",
+                "category": "numerical_contradiction",
+            })
+    
+    # Look for conflicting safety claims
+    safety_positive = len(re.findall(r"\b(safe|well.tolerated|no adverse)\b", text, re.IGNORECASE))
+    safety_negative = len(re.findall(r"\b(toxic|adverse|side.effect|contraindicated)\b", text, re.IGNORECASE))
+    
+    if safety_positive > 0 and safety_negative > 0:
+        issues.append({
+            "type": "potential_contradiction",
+            "severity": "medium",
+            "message": "Text contains both positive and negative safety claims. Verify consistency.",
+            "category": "safety_contradiction",
+        })
+    
+    return issues

@@ -31,7 +31,8 @@ class WritingTools(ApiHandler):
         if action == "prisma_pipeline":          return self._prisma_pipeline(input)
         if action == "peer_review":              return self._peer_review(input)
         if action == "integrity_audit":          return self._integrity_audit(input)
-        return {"actions": ["export-latex","export-docx","gap-analysis","literature-matrix","prisma-flowchart","faculty-review","verify-citations","suggest-journals","kb_sources","kb_categories","pharma_citation_verify","pharma_reporting_check","pharma_scorecard","equator_checklist","ai_disclosure","prisma_pipeline","peer_review","integrity_audit"]}
+        if action == "citation_network":         return self._citation_network(input)
+        return {"actions": ["export-latex","export-docx","gap-analysis","literature-matrix","prisma-flowchart","faculty-review","verify-citations","suggest-journals","kb_sources","kb_categories","pharma_citation_verify","pharma_reporting_check","pharma_scorecard","equator_checklist","ai_disclosure","prisma_pipeline","peer_review","integrity_audit","citation_network"]}
 
     def _kb_categories(self, input: dict) -> dict:
         """List all KB categories with entry counts — for the writer's category dropdown."""
@@ -997,3 +998,41 @@ def _sanitize(text: str) -> str:
         citations = input.get("citations", [])
         result = audit_claims(text, citations)
         return {"status": "ok", **result}
+
+    def _citation_network(self, input: dict) -> dict:
+        """Skill 6: Citation Network Visualization (Research Rabbit-inspired).
+
+        Builds a citation network from KB entries showing connections between papers.
+        """
+        from modules.writing.academic_skills import build_citation_network, generate_citation_graph_mermaid
+
+        # Load KB entries
+        index_path = "/a0/data/knowledge_base/index.json"
+        try:
+            import json
+            with open(index_path, "r", encoding="utf-8") as f:
+                index = json.load(f)
+            entries = index.get("entries", [])
+        except Exception as e:
+            return {"status": "error", "error": f"Failed to load KB index: {e}"}
+
+        # Filter by category if specified
+        category = input.get("category")
+        if category:
+            entries = [e for e in entries if e.get("category") == category]
+
+        if not entries:
+            return {"status": "ok", "message": "No KB entries found", "nodes": [], "edges": []}
+
+        # Build citation network
+        network = build_citation_network(entries)
+
+        # Generate Mermaid diagram
+        mermaid = generate_citation_graph_mermaid(entries)
+
+        return {
+            "status": "ok",
+            **network,
+            "mermaid": mermaid,
+            "message": f"Found {network['stats']['total_papers']} papers with {network['stats']['total_connections']} connections",
+        }
