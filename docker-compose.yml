@@ -38,6 +38,11 @@ services:
       # === RECOMMENDED: Mount host folder so backups appear on your PC ===
       - ~/biodockify-backups:/a0/usr/backups
 
+      # === DOCKER SOCKET (required for Backup & Restore volume listing) ===
+      # Gives the container permission to list, inspect, and restore Docker volumes.
+      # Without this mount the "Restore from Docker Volume" feature cannot see your volumes.
+      - /var/run/docker.sock:/var/run/docker.sock
+
     environment:
       - PORT=50001
       - TZ=Asia/Kolkata
