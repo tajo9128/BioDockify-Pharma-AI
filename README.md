@@ -214,11 +214,16 @@ All research data lives in folders YOU create on your PC. Delete the container? 
 
 **Step 1 — Create 2 folders on your PC:**
 ```
-F:/biodockify_pharma_usr     ← ALL your research data lives here
-F:/biodockify-backups        ← backups go here
+F:\biodockify_pharma_usr     ← ALL your research data lives here
+F:\biodockify-backups        ← backups go here
 ```
 
 **Step 2 — Edit `docker-compose.yml`, set your paths:**
+
+> ⚠️ **Windows users**: use **forward slashes** (`F:/folder`) NOT backslashes.
+> Copy path from Explorer → replace all `\` with `/`.
+> Example: `F:\biodockify_pharma_usr` → `F:/biodockify_pharma_usr`
+
 ```yaml
 volumes:
   # YOUR data folder → container path (do not change /a0/usr)
