@@ -208,33 +208,40 @@ services:
 
 **Option C — Automatic**: Backups run daily at 3 AM + on every container restart. They appear in `~/biodockify-backups/` on your PC.
 
----
+### Your Data = Your Folders on Your PC
 
-## Data Persistence — What Survives Container Deletion
+All research data lives in folders YOU create on your PC. Delete the container? Your data stays. Recreate it? Point to the same folders.
 
-All user data lives in a **host folder on your PC** (bind-mounted to `/a0/usr`). The `/a0/data` and `/a0/.a0proj` paths are automatically symlinked into `/a0/usr` at startup.
+**Step 1 — Create 2 folders on your PC:**
+```
+F:\biodockify_pharma_usr     ← ALL your research data lives here
+F:\biodockify-backups        ← backups go here
+```
 
-| Data | Container Path | Host Folder |
-|---|---|---|
-| **💬 Chat history** | `/a0/usr/chats/` | Your `biodockify_pharma_usr` folder |
-| **⚙️ Settings** | `/a0/usr/settings.json` | Your `biodockify_pharma_usr` folder |
-| **🔑 API keys** | `/a0/usr/secrets.env` | Your `biodockify_pharma_usr` folder |
-| **📂 Projects** | `/a0/usr/projects/` | Your `biodockify_pharma_usr` folder |
-| **📚 Knowledge base** | `/a0/data/` → `/a0/usr/data/` | Your `biodockify_pharma_usr` folder |
-| **🧠 Agent memory** | `/a0/.a0proj/` → `/a0/usr/.a0proj/` | Your `biodockify_pharma_usr` folder |
-| **💾 Backups** | `/app/data/` | Your `biodockify-backups` folder |
+**Step 2 — Edit `docker-compose.yml`, set your paths:**
+```yaml
+volumes:
+  # YOUR data folder → container path (do not change /a0/usr)
+  - F:\biodockify_pharma_usr:/a0/usr
 
-### Backup & Restore
+  # YOUR backup folder → container path (do not change /app/data)
+  - F:\biodockify-backups:/app/data
+```
 
-1. **Backup to PC**: Open **Backup & Recovery** panel → click **"Save to PC"**. Backups also auto-run daily at 3 AM. All backups appear in your `biodockify-backups` folder on your PC.
-2. **Restore from PC**: Open **Backup & Recovery** panel → select a backup → click **"Restore"**. Or double-click `restore-data.bat` on Windows.
-
-### Upgrading
-
+**Step 3 — Start:**
 ```bash
-docker compose down          # stop old container
-docker compose pull          # pull new image
-docker compose up -d         # start with same host folders — data comes back
+docker compose up -d
+```
+
+**Backup & Restore:**
+- **Backup to PC**: Backup panel → "Save to PC" → saves to your `F:\biodockify-backups` folder
+- **Restore from PC**: Backup panel → select backup → "Restore"
+
+**Upgrading:**
+```bash
+docker compose down
+docker compose pull
+docker compose up -d        # same folders → data comes back
 ```
 
 ---
