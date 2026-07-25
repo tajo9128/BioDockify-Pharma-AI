@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://hub.docker.com/r/tajo9128/biodockify-pharma-ai"><img src="https://img.shields.io/badge/docker-tajo9128%2Fbiodockify--pharma--ai-blue.svg" alt="Docker"/></a>
-  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v7.5.8-green.svg" alt="Version"/></a>
+  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v7.9.2-green.svg" alt="Version"/></a>
   <a href="https://github.com/tajo9128/BioDockify-Pharma-AI"><img src="https://img.shields.io/badge/GitHub-BioDockify--Pharma--AI-181717?style=flat&logo=github" alt="GitHub"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"/></a>
   <a href="docs/user-guide/README.md"><img src="https://img.shields.io/badge/docs-user%20guide-lightgrey.svg" alt="Documentation"/></a>
@@ -355,6 +355,108 @@ The biggest architectural change: **llama-server is now bundled inside the BioDo
 - **Backups visible on PC**: Container mounts `~/biodockify-backups:/a0/usr/backups`
 - **Save to PC / Restore from PC buttons**: Real download/upload flow
 - **Daily auto-backup**: Cron job at 3 AM + on-startup backup
+
+---
+
+## What's New in v7.9.2
+
+### Full pharma department module architecture refactor + advanced writing skills
+
+This release upgrades the Academic Writer, expands all 8 pharmacy departments,
+and refactors the module architecture for testability.
+
+#### Academic Writer — Advanced Writing Skills (from PaperForge + Rigorous)
+- **De-AIGC Rewrite** — detects AI-typical patterns, calculates AIGC risk score
+  (0-100), suggests human-sounding rewrites for journal submission
+- **Section Analyzer (S1-S10)** — per-section quality scoring: Abstract,
+  Introduction, Methods, Results, Discussion, Conclusion, References
+- **Citation Gap Finder** — detects pharma claims without citations (IC50,
+  safety, regulatory, clinical trial)
+- **Terminology Checker** — catches inconsistent abbreviations, drug names, units
+- **Scientific Rigor Review (R1-R7)** — 7 dimensions: Originality, Impact,
+  Ethics, Data Availability, Statistical Rigor, Technical Accuracy, Consistency
+- **Quality Control Layer** — deduplicates and curates review feedback
+- **Executive Summary** — 2-step synthesis: strengths, weaknesses, action items,
+  verdict (READY FOR SUBMISSION / NEEDS REVISION)
+
+#### EQUATOR Reporting Guidelines + AI Disclosure + PRISMA Pipeline
+- **6 EQUATOR guidelines**: CONSORT (clinical trials, 37 items), STROBE
+  (observational, 22 items), ARRIVE (animal research, 23 items), STARD
+  (diagnostic accuracy, 22 items), TRIPOD (prediction models, 23 items),
+  CHEERS (health economics, 24 items)
+- **AI Usage Disclosure generator** — venue-specific statements for ICMJE
+  (NEJM/Lancet/JAMA/BMJ), Nature Portfolio, Science, IEEE, ACL/EMNLP,
+  FDA/EMA regulatory submissions
+- **PRISMA systematic review pipeline** — 34-item checklist, flow diagram
+  builder, RoB 2 (RCTs), ROBINS-I (non-randomized), GRADE certainty
+
+#### Perplexity-style Citations
+- **Source type prefixes**: `[kb:1]`, `[web:2]`, `[page:3]`, `[pubmed:5]`
+- **Hybrid search**: BM25 (keyword) + FAISS (vector) + Reciprocal Rank Fusion
+- **Grounded KB Chat**: real RAG endpoint replacing the broken textarea hack
+- **Table-aware chunking**: docking/ADMET/SAR tables kept intact
+
+#### Obsidian Integration
+- **Bidirectional sync**: BioDockify ↔ Obsidian vault (manual button click)
+- **Frontmatter**: Obsidian-standard YAML (title, tags, source, category, created)
+- **In-app panel**: right-canvas rail → "BioDockify AI Engine" → Status/Models/
+  Runtimes/Benchmark tabs
+
+#### MD Lite — Publication-Grade Analysis Suite
+- **10 advanced analyses** via MDAnalysis: H-bond (residue-resolved, occupancy,
+  distances), Water Bridges, Native Contacts (Q fraction), RDF (solvation
+  shells), Ramachandran, PCA/Essential Dynamics, H-bond Lifetimes,
+  Ligand-Residue Distances, Secondary Structure (DSSP), Dielectric Constant
+- **PDBFixer installed** — fixes missing H atoms, terminal residues, missing
+  atoms that caused "No template found for residue X" errors
+
+#### Pharma Departments — All 8 Upgraded
+- **Pharmaceutics**: 6→10 actions + DOE (full factorial/fractional/Taguchi)
+- **Clinical Pharmacy**: DDI database 15→50+ pairs, AUC-vancomycin, Beers
+  Criteria 2023, STOPP/START v2
+- **Pharma Analysis**: ICH Q2(R2) validation, USP <621> chromatography
+- **Natural Products**: 6→12 plants, IC50 4PL, dereplication
+- **Regulatory**: Fixed EMA search (was stub)
+- **Pharmacology**: Unchanged (already strong at 7 actions)
+- **Medicinal Chemistry**: Unchanged (already strong at 10 actions)
+- **MD Lite**: 10+11 actions (basic + advanced analysis)
+
+#### Literature Search — Fixed
+- Fixed PubMed PMCID extraction (was returning empty → Tier-1 full text broken)
+- Added Europe PMC PMCID resolver
+- Added openAccessPdf to Semantic Scholar fields
+- deep_research PubMed: switched esummary → efetch (restores abstracts)
+- Database name normalization (case-sensitive fix)
+
+#### Architecture
+- Proper `modules/` directories: clinical (7 files), formulation (4),
+  pharma_analysis (3), natural_products (4)
+- `modules/pharma_utils/` — shared calculations (f2, Cheng-Prusoff, SST,
+  content uniformity, Beers, DOE, Chou-Talalay, SAR)
+- `modules/obsidian/` — bidirectional sync engine
+- `modules/rag/` — citations, hybrid search, table chunker
+- `modules/writing/` — 12 advanced writing skills
+- 41 tests passing
+
+#### Version history (v7.5.2 → v7.9.2)
+
+| Version | Key Changes |
+|---------|-------------|
+| v7.9.2 | Phase 3 architecture refactor — proper module directories |
+| v7.9.1 | Expanded clinical DB + new clinical tools + plant DB |
+| v7.9.0 | Pharma Utilities Module — 9 shared calculations |
+| v7.8.0 | 7 advanced writing skills (PaperForge + Rigorous inspired) |
+| v7.7.1 | 5 advanced research skills (EQUATOR, AI disclosure, PRISMA, peer review, integrity gate) |
+| v7.7.0 | MD Lite publication-grade analysis suite (MDAnalysis) |
+| v7.6.6 | PDBFixer installed — MD "missing H atoms" root cause fixed |
+| v7.6.5 | Rollback Bonsai bundling to ~13 GB working image |
+| v7.6.0 | Graphify knowledge graph for AI agent codebase understanding |
+| v7.5.9 | Obsidian bidirectional sync |
+| v7.5.8 | BioDockify AI Engine bundled (one docker compose up) |
+| v7.5.5 | Critical llama.cpp fix + Runtime Manager + Model Manager UI + benchmark |
+| v7.5.4 | AI Engine (local LLM), model catalog, pharma prompts, install scripts |
+| v7.5.3 | Statistics module full restoration (16→56 analysis types) |
+| v7.5.2 | 5 stability sprints: security, backend, frontend, Docker, docs |
 
 ---
 

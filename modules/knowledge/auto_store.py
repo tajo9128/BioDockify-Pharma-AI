@@ -63,10 +63,18 @@ MODULE_TO_CATEGORY = {
     "writing": "notes",
     "thesis": "notes",
     # Clinical
+    "clinical": "clinical_trials",
     "clinical_trials": "clinical_trials",
     # Pharmacology & Medicinal Chemistry
     "pharmacology": "pharmacology",
     "medicinal_chemistry": "medicinal_chemistry",
+    # Formulation / Pharmaceutics
+    "formulation": "formulation",
+    "pharma_utils": "formulation",
+    # Pharma Analysis / Quality Control
+    "pharma_analysis": "pharma_analysis",
+    # Natural Products
+    "natural_products": "natural_products",
     # Knowledge
     "knowledge": "notes",
     # Uploads

@@ -34,16 +34,20 @@ print("Stored:", entry["id"], "→", entry["file"])
 **Module → Category auto-detection** (omit `category` to use these):
 - `literature_search` → literature
 - `deep_research` → deep_research
-- `docking_run`, `docking_mmgbsa`, `docking_analysis`, `md_lite` → docking
+- `docking_run`, `docking_mmgbsa`, `docking_analysis` → docking
+- `md_lite` → md_simulation
 - `qsar3d` → qsar
 - `pharmacophore` → pharmacophore
 - `drug_analysis`, `admet_predict`, `drug_properties` → drug_analysis
-- `statistics_analyze` → statistics
-- `faculty`, `faculty_tools` → faculty
+- `statistics_analyze`, `statistics_auto` → statistics
+- `faculty`, `faculty_tools`, `ppt_master` → faculty
 - `pharmacology` → pharmacology
 - `medicinal_chemistry` → medicinal_chemistry
-- `clinical_trials` → clinical_trials
-- `knowledge`, `upload`, `notes` → notes
+- `clinical`, `clinical_trials` → clinical_trials
+- `formulation`, `pharma_utils` → formulation
+- `pharma_analysis` → pharma_analysis
+- `natural_products` → natural_products
+- `knowledge`, `upload`, `notes`, `writing` → notes
 - anything else → misc
 
 **Critical rules:**
