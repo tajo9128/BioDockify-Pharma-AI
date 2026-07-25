@@ -32,7 +32,15 @@ class WritingTools(ApiHandler):
         if action == "peer_review":              return self._peer_review(input)
         if action == "integrity_audit":          return self._integrity_audit(input)
         if action == "citation_network":         return self._citation_network(input)
-        return {"actions": ["export-latex","export-docx","gap-analysis","literature-matrix","prisma-flowchart","faculty-review","verify-citations","suggest-journals","kb_sources","kb_categories","pharma_citation_verify","pharma_reporting_check","pharma_scorecard","equator_checklist","ai_disclosure","prisma_pipeline","peer_review","integrity_audit","citation_network"]}
+        # ── Advanced Writing Skills (v7.8.0+) ──
+        if action == "de_aigc":                  return self._de_aigc(input)
+        if action == "section_analysis":         return self._section_analysis(input)
+        if action == "citation_gaps":            return self._citation_gaps(input)
+        if action == "terminology_check":        return self._terminology_check(input)
+        if action == "scientific_rigor":         return self._scientific_rigor(input)
+        if action == "quality_control":          return self._quality_control(input)
+        if action == "executive_summary":        return self._executive_summary(input)
+        return {"actions": ["export-latex","export-docx","gap-analysis","literature-matrix","prisma-flowchart","faculty-review","verify-citations","suggest-journals","kb_sources","kb_categories","pharma_citation_verify","pharma_reporting_check","pharma_scorecard","equator_checklist","ai_disclosure","prisma_pipeline","peer_review","integrity_audit","citation_network","de_aigc","section_analysis","citation_gaps","terminology_check","scientific_rigor","quality_control","executive_summary"]}
 
     def _kb_categories(self, input: dict) -> dict:
         """List all KB categories with entry counts — for the writer's category dropdown."""
@@ -1036,3 +1044,111 @@ def _sanitize(text: str) -> str:
             "mermaid": mermaid,
             "message": f"Found {network['stats']['total_papers']} papers with {network['stats']['total_connections']} connections",
         }
+
+    # ─────────────────────────────────────────────────────────────────────
+    # Advanced Writing Skills (v7.8.0+) — PaperForge + Rigorous inspired
+    # ─────────────────────────────────────────────────────────────────────
+
+    def _de_aigc(self, input: dict) -> dict:
+        """Skill 1: De-AIGC rewrite (anti-AI-tone polishing).
+
+        Detects AI-typical patterns and suggests human-sounding rewrites.
+        """
+        from modules.writing.advanced_writing import de_aigc_rewrite
+
+        text = input.get("text", "")
+        aggressiveness = input.get("aggressiveness", "moderate")
+
+        if not text or len(text) < 50:
+            return {"status": "error", "error": "Provide text (min 50 chars)"}
+
+        result = de_aigc_rewrite(text, aggressiveness)
+        return {"status": "ok", **result}
+
+    def _section_analysis(self, input: dict) -> dict:
+        """Skill 2: Section-by-section analysis (S1-S10).
+
+        Analyzes each manuscript section against quality criteria.
+        """
+        from modules.writing.advanced_writing import analyze_sections
+
+        text = input.get("text", "")
+        if not text or len(text) < 100:
+            return {"status": "error", "error": "Provide manuscript text (min 100 chars)"}
+
+        result = analyze_sections(text)
+        return {"status": "ok", **result}
+
+    def _citation_gaps(self, input: dict) -> dict:
+        """Skill 3: Citation gap identification.
+
+        Finds claims that lack citations (gaps in the reference list).
+        """
+        from modules.writing.advanced_writing import find_citation_gaps
+
+        text = input.get("text", "")
+        if not text or len(text) < 100:
+            return {"status": "error", "error": "Provide manuscript text (min 100 chars)"}
+
+        result = find_citation_gaps(text)
+        return {"status": "ok", **result}
+
+    def _terminology_check(self, input: dict) -> dict:
+        """Skill 4: Terminology consistency checker.
+
+        Detects inconsistent drug names, abbreviations, and notation.
+        """
+        from modules.writing.advanced_writing import check_terminology
+
+        text = input.get("text", "")
+        if not text or len(text) < 100:
+            return {"status": "error", "error": "Provide manuscript text (min 100 chars)"}
+
+        result = check_terminology(text)
+        return {"status": "ok", **result}
+
+    def _scientific_rigor(self, input: dict) -> dict:
+        """Skill 5: Scientific rigor review (R1-R7).
+
+        Reviews manuscript for scientific rigor across 7 dimensions.
+        """
+        from modules.writing.advanced_writing import scientific_rigor_review
+
+        text = input.get("text", "")
+        if not text or len(text) < 100:
+            return {"status": "error", "error": "Provide manuscript text (min 100 chars)"}
+
+        result = scientific_rigor_review(text)
+        return {"status": "ok", **result}
+
+    def _quality_control(self, input: dict) -> dict:
+        """Skill 6: Quality control validation layer.
+
+        Validates and deduplicates outputs from multiple review agents.
+        """
+        from modules.writing.advanced_writing import validate_review_outputs
+
+        review_results = input.get("review_results", [])
+        if not review_results:
+            return {"status": "error", "error": "Provide review_results list"}
+
+        result = validate_review_outputs(review_results)
+        return {"status": "ok", **result}
+
+    def _executive_summary(self, input: dict) -> dict:
+        """Skill 7: Executive summary generator.
+
+        Generates a 2-step executive summary of all review results.
+        """
+        from modules.writing.advanced_writing import generate_executive_summary
+
+        section_analysis = input.get("section_analysis", {})
+        terminology_check = input.get("terminology_check", {})
+        rigor_review = input.get("rigor_review", {})
+        citation_gaps = input.get("citation_gaps", {})
+        aigc_check = input.get("aigc_check", {})
+
+        result = generate_executive_summary(
+            section_analysis, terminology_check, rigor_review, citation_gaps, aigc_check
+        )
+        return {"status": "ok", **result}

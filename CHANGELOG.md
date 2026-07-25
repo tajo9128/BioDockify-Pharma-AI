@@ -2,6 +2,66 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v7.8.0] - 2026-07-22
+
+### 7 Advanced Writing Skills added (PaperForge + Rigorous inspired)
+
+Independently implemented based on publicly documented methodologies.
+No third-party code is copied.
+
+#### Skill 1: De-AIGC Rewrite (Anti-AI-Tone Polishing)
+- Detects AI-typical patterns: filler phrases, template openers, passive
+  voice overuse, repeated trigrams, long sentences
+- Calculates AIGC risk score (0-100) with risk level (Low/Medium/High)
+- Provides rewrite suggestions with reasons
+- API: `POST /api/writing` with `action: "de_aigc"`, `text: "..."`
+
+#### Skill 2: Section-by-Section Analysis (S1-S10)
+- 8 section types: Title/Keywords, Abstract, Introduction, Methods,
+  Results, Discussion, Conclusion, References
+- Each section evaluated against 5-6 quality criteria
+- Reports pass rate per section and overall
+- API: `POST /api/writing` with `action: "section_analysis"`, `text: "..."`
+
+#### Skill 3: Citation Gap Identification
+- Finds claims that lack citations (pharma-specific patterns)
+- Detects: potency values (IC50/EC50), PK/PD claims, safety claims,
+  regulatory claims (FDA/EMA/ICH), clinical trial claims
+- Reports high-severity gaps (pharma claims without citations)
+- API: `POST /api/writing` with `action: "citation_gaps"`, `text: "..."`
+
+#### Skill 4: Terminology Consistency Checker
+- Detects inconsistent abbreviations (defined vs used)
+- Catches inconsistent terminology (dataset vs data set)
+- Tracks unit usage across manuscript
+- API: `POST /api/writing` with `action: "terminology_check"`, `text: "..."`
+
+#### Skill 5: Scientific Rigor Review (R1-R7)
+- 7 dimensions: Originality, Impact, Ethics, Data Availability,
+  Statistical Rigor, Technical Accuracy, Consistency
+- Checks for: named statistical tests, confidence intervals, effect
+  sizes, ethics statements, data availability, primary endpoints
+- Returns per-dimension scores and overall verdict
+- API: `POST /api/writing` with `action: "scientific_rigor"`, `text: "..."`
+
+#### Skill 6: Quality Control Validation Layer
+- Takes raw outputs from multiple review agents
+- Deduplicates issues across review dimensions
+- Sorts by severity, returns curated actionable feedback
+- API: `POST /api/writing` with `action: "quality_control"`,
+  `review_results: [...]`
+
+#### Skill 7: Executive Summary Generator
+- 2-step synthesis: metrics collection → balanced assessment
+- Reports: strengths, weaknesses, action items, overall verdict
+- Verdict: "READY FOR SUBMISSION" or "NEEDS REVISION"
+- API: `POST /api/writing` with `action: "executive_summary"`
+
+#### Files
+- `modules/writing/advanced_writing.py` (NEW) — all 7 skills, ~500 lines
+- `api/writing.py` — 7 new actions wired
+- Tests: 41/41 pass
+
 ## [v7.7.1] - 2026-07-22
 
 ### 5 Advanced Research Skills added to Academic Writer
