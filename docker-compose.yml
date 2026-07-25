@@ -9,7 +9,7 @@ version: '3.8'
 # ║    ✓ Cloud or local Ollama/LM Studio LLM (user's choice)                ║
 # ║    ✓ No scripts, no profiles, no technical knowledge needed              ║
 # ║                                                                          ║
-# ║  ⚠️  YOU MUST USE ALL 3 VOLUMES BELOW. Without them, research data is   ║
+# ║  ⚠️  YOU MUST USE THE VOLUME BELOW. Without it, ALL research data is    ║
 # ║     lost when the container is deleted. This includes knowledge base,    ║
 # ║     agent memory, chats, settings, AND backups.                          ║
 # ║                                                                          ║
@@ -29,10 +29,8 @@ services:
       # Container listens on port 80 internally (uvicorn binds 0.0.0.0:80)
       - "80:80"
     volumes:
-      # === ALL 3 REQUIRED VOLUMES (data persists across container deletion) ===
-      - biodockify_usr:/a0/usr          # workspace, chats, projects, plugins, backups, local AI models
-      - biodockify_data:/a0/data        # knowledge base, deep research sessions
-      - biodockify_a0proj:/a0/.a0proj   # agent memory (FAISS), instructions, project config
+      # === REQUIRED VOLUME (data persists across container deletion) ===
+      - biodockify_pharma_usr:/a0/usr   # ALL data: workspace, chats, projects, plugins, knowledge base, agent memory
 
       # === RECOMMENDED: Mount host folder so backups appear on your PC ===
       - ~/biodockify-backups:/a0/usr/backups
@@ -75,12 +73,6 @@ services:
     restart: unless-stopped
 
 volumes:
-  biodockify_usr:
-    # User workspace, chats, projects, plugins, backups, local AI models
-    name: biodockify_usr
-  biodockify_data:
-    # Knowledge base, deep research sessions
-    name: biodockify_data
-  biodockify_a0proj:
-    # Agent memory (FAISS vector DB), instructions, project config
-    name: biodockify_a0proj
+  biodockify_pharma_usr:
+    # ALL persistent data: workspace, chats, projects, plugins, knowledge base, agent memory
+    external: true
