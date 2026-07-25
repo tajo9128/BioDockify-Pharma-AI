@@ -183,11 +183,11 @@ services:
     ports:
       - "80:80"
     volumes:
-      # Single volume for ALL persistent data
+      # ALL persistent data (workspace, chats, knowledge, memory)
       - biodockify_pharma_usr:/a0/usr
-      # Mount host folder so backups appear on your PC
+      # Backups appear on your PC at ~/biodockify-backups
       - ~/biodockify-backups:/a0/usr/backups
-      # Docker socket (required for Backup & Restore volume listing)
+      # Docker socket (for Backup & Restore volume listing)
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - TZ=Asia/Kolkata
@@ -201,7 +201,7 @@ services:
 
 volumes:
   biodockify_pharma_usr:
-    external: true
+    name: biodockify_pharma_usr
 ```
 
 ### Backup to PC
@@ -216,9 +216,7 @@ volumes:
 
 ## Data Persistence — What Survives Container Deletion
 
-All user data is stored in a **single Docker volume** (`biodockify_pharma_usr` mounted at `/a0/usr`). The `/a0/data` and `/a0/.a0proj` paths are symlinks into this volume, so everything persists in one place.
-
-### `/a0/usr` — All Persistent Data
+All user data lives in **one Docker volume** (`biodockify_pharma_usr` → `/a0/usr`). The `/a0/data` and `/a0/.a0proj` paths are automatically symlinked into this volume at startup.
 
 | Data | Path | Survives? |
 |---|---|---|
@@ -226,27 +224,23 @@ All user data is stored in a **single Docker volume** (`biodockify_pharma_usr` m
 | **⚙️ Settings** | `/a0/usr/settings.json` | ✅ Yes |
 | **🔑 API keys & secrets** | `/a0/usr/secrets.env` | ✅ Yes |
 | **📂 Projects** | `/a0/usr/projects/` | ✅ Yes |
-| **📄 Workdir files** | `/a0/usr/workdir/` | ✅ Yes |
-| **🧩 User plugins** | `/a0/usr/plugins/` | ✅ Yes |
-| **🛠️ User skills** | `/a0/usr/skills/` | ✅ Yes |
-| **💾 Backups** | `/a0/usr/backups/` | ✅ Yes + on PC if host-mounted |
-| **📚 Knowledge base** | `/a0/data/knowledge_base/` → `/a0/usr/data/` | ✅ Yes |
-| **🧠 Agent memory (FAISS)** | `/a0/.a0proj/memory/` → `/a0/usr/.a0proj/` | ✅ Yes |
-| **📋 Instructions** | `/a0/.a0proj/instructions/` → `/a0/usr/.a0proj/` | ✅ Yes |
-| **⚙️ Project config** | `/a0/.a0proj/project.json` → `/a0/usr/.a0proj/` | ✅ Yes |
+| **📚 Knowledge base** | `/a0/data/` → `/a0/usr/data/` | ✅ Yes |
+| **🧠 Agent memory (FAISS)** | `/a0/.a0proj/` → `/a0/usr/.a0proj/` | ✅ Yes |
+| **💾 Backups** | `/a0/usr/backups/` → `~/biodockify-backups/` on PC | ✅ Yes |
 
-### 3-Year PhD — Long-Term Memory Strategy
+### Backup & Restore (2 options)
 
-1. **Automatic memory**: The FAISS vector DB stores conversations, solutions, and facts automatically. It persists in the `biodockify_pharma_usr` Docker volume.
-2. **Regular backups**: Open **Backup & Recovery** panel → **"Save to PC"** to download a .zip to your Downloads folder. Or double-click `backup-data.bat` on Windows. Backups also run automatically at 3 AM daily.
-3. **Host backup folder**: Mount `~/biodockify-backups:/a0/usr/backups` — backups appear directly in your file manager at `~/biodockify-backups/`. Survives container deletion AND `docker volume rm`.
-4. **Migration**: When upgrading to a new version:
-   ```bash
-   docker compose down          # stop old container
-   docker compose pull          # pull new image
-   docker compose up -d         # start with new image + existing volumes
-   ```
-   All data returns automatically — no migration needed.
+1. **Backup to PC**: Open **Backup & Recovery** panel → click **"Save to PC"**. Backups also auto-run daily at 3 AM. All backups appear in `~/biodockify-backups/` on your PC.
+2. **Restore from PC**: Open **Backup & Recovery** panel → select a backup → click **"Restore"**. Or double-click `backup-data.bat` / `restore-data.bat` on Windows.
+
+### Upgrading
+
+```bash
+docker compose down          # stop old container
+docker compose pull          # pull new image
+docker compose up -d         # start with new image + existing volumes
+```
+All data returns automatically — the volume persists.
 
 ---
 

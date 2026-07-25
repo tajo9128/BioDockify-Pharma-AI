@@ -2,6 +2,28 @@
 
 echo "Running initialization script..."
 
+# ─── Consolidate data: /a0/data and /a0/.a0proj → /a0/usr ───
+# The base image has VOLUME directives that create anonymous volumes at these paths.
+# We want ALL persistent data under /a0/usr (single user-facing volume).
+# On first start: copy existing data into /a0/usr, then replace dirs with symlinks.
+# On subsequent starts: dirs are already symlinks (from image build), but Docker
+# mounts anonymous volumes on top — so we re-create symlinks every time.
+if [ -d /a0/data ] && [ ! -L /a0/data ]; then
+    # /a0/data is a real dir (anonymous volume) — copy contents into /a0/usr
+    mkdir -p /a0/usr/data
+    cp -a /a0/data/. /a0/usr/data/ 2>/dev/null
+fi
+if [ -d /a0/.a0proj ] && [ ! -L /a0/.a0proj ]; then
+    # /a0/.a0proj is a real dir (anonymous volume) — copy contents into /a0/usr
+    mkdir -p /a0/usr/.a0proj
+    cp -a /a0/.a0proj/. /a0/usr/.a0proj/ 2>/dev/null
+fi
+# Replace with symlinks so all future writes go to /a0/usr
+rm -rf /a0/data /a0/.a0proj 2>/dev/null
+ln -sf /a0/usr/data /a0/data
+ln -sf /a0/usr/.a0proj /a0/.a0proj
+echo "[init] Data consolidated: /a0/data → /a0/usr/data, /a0/.a0proj → /a0/usr/.a0proj"
+
 # branch from parameter
 if [ -z "$1" ]; then
     echo "Error: Branch parameter is empty. Please provide a valid branch name."
