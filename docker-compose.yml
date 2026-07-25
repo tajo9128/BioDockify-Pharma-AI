@@ -7,11 +7,13 @@
 # ║    ✓ Cloud or local Ollama/LM Studio LLM (user's choice)                ║
 # ║    ✓ No scripts, no profiles, no technical knowledge needed              ║
 # ║                                                                          ║
-# ║  ⚠️  THE -v FLAG IS REQUIRED. Without it, ALL data is lost on delete.   ║
+# ║  ⚠️  THE -v FLAGS ARE REQUIRED. Without them, ALL data is lost.         ║
 # ║                                                                          ║
-# ║  Data lives in named volume `biodockify_pharma_usr`.                     ║
-# ║  Backups go to ~/biodockify-backups on your PC.                          ║
-# ║  Use the in-app Backup panel to save/restore.                            ║
+# ║  HOW IT WORKS:                                                           ║
+# ║    • ALL your research data lives in a folder on YOUR PC (host path)     ║
+# ║    • Backups go to a second folder on YOUR PC                            ║
+# ║    • Delete the container? Your data is safe on your PC.                 ║
+# ║    • Recreate the container → point to the same folders → done.          ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 
 services:
@@ -24,13 +26,27 @@ services:
     ports:
       - "80:80"
     volumes:
-      # === ALL PERSISTENT DATA ===
-      - biodockify_pharma_usr:/a0/usr
+      # ═══════════════════════════════════════════════════════════════════
+      #  CHANGE THESE 2 PATHS TO YOUR OWN PC FOLDERS
+      # ═══════════════════════════════════════════════════════════════════
 
-      # === BACKUPS ON YOUR PC ===
-      - ~/biodockify-backups:/a0/usr/backups
+      # 1) ALL DATA — workspace, chats, knowledge base, agent memory, plugins
+      #    Host path:  YOUR folder on your PC (create it first)
+      #    Container:  /a0/usr (do not change)
+      #
+      #    Windows:  - F:\biodockify_pharma_usr:/a0/usr
+      #    Mac/Linux: - ~/biodockify_pharma_usr:/a0/usr
+      - F:\biodockify_pharma_usr:/a0/usr
 
-      # === DOCKER SOCKET (for Backup & Restore volume listing) ===
+      # 2) BACKUPS — auto-backups + manual saves go here
+      #    Host path:  YOUR backup folder on your PC (create it first)
+      #    Container:  /app/data (do not change)
+      #
+      #    Windows:  - F:\biodockify-backups:/app/data
+      #    Mac/Linux: - ~/biodockify-backups:/app/data
+      - F:\biodockify-backups:/app/data
+
+      # 3) DOCKER SOCKET — enables Backup panel to list Docker volumes
       - /var/run/docker.sock:/var/run/docker.sock
 
     environment:
@@ -49,7 +65,3 @@ services:
       - "host.docker.internal:host-gateway"
 
     restart: unless-stopped
-
-volumes:
-  biodockify_pharma_usr:
-    name: biodockify_pharma_usr

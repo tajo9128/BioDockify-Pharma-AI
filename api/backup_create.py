@@ -61,7 +61,7 @@ class BackupCreate(ApiHandler):
 class AutoBackupQuickHandler(ApiHandler):
     """Auto-backup and restore for accidental data loss."""
 
-    BACKUP_DIR = "/a0/usr/backups"
+    BACKUP_DIR = "/app/data"
     DATA_DIR = "/a0/usr"
     MAX_BACKUPS = 7
 

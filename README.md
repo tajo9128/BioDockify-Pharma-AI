@@ -183,11 +183,11 @@ services:
     ports:
       - "80:80"
     volumes:
-      # ALL persistent data (workspace, chats, knowledge, memory)
-      - biodockify_pharma_usr:/a0/usr
-      # Backups appear on your PC at ~/biodockify-backups
-      - ~/biodockify-backups:/a0/usr/backups
-      # Docker socket (for Backup & Restore volume listing)
+      # 1) ALL DATA — change host path to YOUR folder
+      - F:\biodockify_pharma_usr:/a0/usr
+      # 2) BACKUPS — change host path to YOUR backup folder
+      - F:\biodockify-backups:/app/data
+      # 3) DOCKER SOCKET (for volume listing)
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - TZ=Asia/Kolkata
@@ -198,10 +198,6 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
-
-volumes:
-  biodockify_pharma_usr:
-    name: biodockify_pharma_usr
 ```
 
 ### Backup to PC
@@ -216,31 +212,30 @@ volumes:
 
 ## Data Persistence — What Survives Container Deletion
 
-All user data lives in **one Docker volume** (`biodockify_pharma_usr` → `/a0/usr`). The `/a0/data` and `/a0/.a0proj` paths are automatically symlinked into this volume at startup.
+All user data lives in a **host folder on your PC** (bind-mounted to `/a0/usr`). The `/a0/data` and `/a0/.a0proj` paths are automatically symlinked into `/a0/usr` at startup.
 
-| Data | Path | Survives? |
+| Data | Container Path | Host Folder |
 |---|---|---|
-| **💬 Chat history** | `/a0/usr/chats/` | ✅ Yes |
-| **⚙️ Settings** | `/a0/usr/settings.json` | ✅ Yes |
-| **🔑 API keys & secrets** | `/a0/usr/secrets.env` | ✅ Yes |
-| **📂 Projects** | `/a0/usr/projects/` | ✅ Yes |
-| **📚 Knowledge base** | `/a0/data/` → `/a0/usr/data/` | ✅ Yes |
-| **🧠 Agent memory (FAISS)** | `/a0/.a0proj/` → `/a0/usr/.a0proj/` | ✅ Yes |
-| **💾 Backups** | `/a0/usr/backups/` → `~/biodockify-backups/` on PC | ✅ Yes |
+| **💬 Chat history** | `/a0/usr/chats/` | Your `biodockify_pharma_usr` folder |
+| **⚙️ Settings** | `/a0/usr/settings.json` | Your `biodockify_pharma_usr` folder |
+| **🔑 API keys** | `/a0/usr/secrets.env` | Your `biodockify_pharma_usr` folder |
+| **📂 Projects** | `/a0/usr/projects/` | Your `biodockify_pharma_usr` folder |
+| **📚 Knowledge base** | `/a0/data/` → `/a0/usr/data/` | Your `biodockify_pharma_usr` folder |
+| **🧠 Agent memory** | `/a0/.a0proj/` → `/a0/usr/.a0proj/` | Your `biodockify_pharma_usr` folder |
+| **💾 Backups** | `/app/data/` | Your `biodockify-backups` folder |
 
-### Backup & Restore (2 options)
+### Backup & Restore
 
-1. **Backup to PC**: Open **Backup & Recovery** panel → click **"Save to PC"**. Backups also auto-run daily at 3 AM. All backups appear in `~/biodockify-backups/` on your PC.
-2. **Restore from PC**: Open **Backup & Recovery** panel → select a backup → click **"Restore"**. Or double-click `backup-data.bat` / `restore-data.bat` on Windows.
+1. **Backup to PC**: Open **Backup & Recovery** panel → click **"Save to PC"**. Backups also auto-run daily at 3 AM. All backups appear in your `biodockify-backups` folder on your PC.
+2. **Restore from PC**: Open **Backup & Recovery** panel → select a backup → click **"Restore"**. Or double-click `restore-data.bat` on Windows.
 
 ### Upgrading
 
 ```bash
 docker compose down          # stop old container
 docker compose pull          # pull new image
-docker compose up -d         # start with new image + existing volumes
+docker compose up -d         # start with same host folders — data comes back
 ```
-All data returns automatically — the volume persists.
 
 ---
 

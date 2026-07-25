@@ -2,11 +2,11 @@
 # BioDockify Auto-Backup Script
 # Runs on container startup + daily at 3 AM via cron
 # Creates a zip of ALL critical data: /a0/usr, /a0/.a0proj, /a0/data
-# Backups survive container deletion (stored in /a0/usr/backups volume)
+# Backups survive container deletion (stored in /app/data host bind mount)
 
 set -e
 
-BACKUP_DIR="/a0/usr/backups"
+BACKUP_DIR="/app/data"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_PATH="${BACKUP_DIR}/auto_backup_${TIMESTAMP}"
 MAX_BACKUPS=7
