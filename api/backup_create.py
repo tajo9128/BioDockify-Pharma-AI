@@ -1,4 +1,5 @@
-﻿from helpers.api import ApiHandler, Request, Response, send_file
+﻿import asyncio
+from helpers.api import ApiHandler, Request, Response, send_file
 from helpers.backup import BackupService
 from helpers.persist_chat import save_tmp_chats
 
@@ -73,19 +74,25 @@ class AutoBackupQuickHandler(ApiHandler):
     def requires_loopback(cls) -> bool:
         return False
 
-    async def process(self, input: dict, request: Request) -> dict:
+    async def process(self, input: dict, request: Request) -> dict | Response:
         action = input.get("action", "status")
 
         if action == "create":
             return self._create_backup()
         elif action == "restore":
             return self._restore_latest()
+        elif action == "restore_specific":
+            return self._restore_specific(input.get("backup_name", ""))
+        elif action == "restore_from_upload":
+            return await self._restore_from_upload(input, request)
+        elif action == "download":
+            return self._download_backup(input.get("backup_id", ""))
+        elif action == "delete":
+            return self._delete_backup(input.get("id", ""))
         elif action == "status":
             return self._get_status()
         elif action == "list":
             return self._list_backups()
-        elif action == "restore_specific":
-            return self._restore_specific(input.get("backup_name", ""))
 
         return {"status": "error", "error": f"Unknown action: {action}"}
 
@@ -149,6 +156,104 @@ class AutoBackupQuickHandler(ApiHandler):
             restored.append(item)
         return {"status": "ok", "restored": restored, "backup": backup_name, "message": f"Restored from {backup_name}"}
 
+    async def _restore_from_upload(self, input: dict, request: Request) -> dict:
+        """Restore from an uploaded ZIP file."""
+        import os, shutil, zipfile, tempfile
+
+        try:
+            # Get uploaded file from request
+            upload = None
+            if hasattr(request, 'files') and request.files:
+                upload = request.files.get('backup_file')
+            if not upload and hasattr(request, 'form'):
+                upload = (await request.form()).get('backup_file')
+            if not upload:
+                return {"success": False, "error": "No file uploaded"}
+
+            # Save uploaded ZIP to temp
+            tmp_dir = tempfile.mkdtemp()
+            zip_path = os.path.join(tmp_dir, "upload.zip")
+            if hasattr(upload, 'read'):
+                data = upload.read()
+                if asyncio.iscoroutine(data):
+                    data = await data
+                with open(zip_path, "wb") as f:
+                    f.write(data)
+            else:
+                shutil.copy2(upload.filename if hasattr(upload, 'filename') else str(upload), zip_path)
+
+            # Extract ZIP
+            extract_dir = os.path.join(tmp_dir, "extracted")
+            with zipfile.ZipFile(zip_path, 'r') as zf:
+                zf.extractall(extract_dir)
+
+            # Find the actual backup content (may be nested in a subfolder)
+            items = os.listdir(extract_dir)
+            source_dir = extract_dir
+            if len(items) == 1 and os.path.isdir(os.path.join(extract_dir, items[0])):
+                source_dir = os.path.join(extract_dir, items[0])
+
+            # Restore files to DATA_DIR
+            restored = []
+            for item in os.listdir(source_dir):
+                src = os.path.join(source_dir, item)
+                dst = os.path.join(self.DATA_DIR, item)
+                if os.path.isdir(src):
+                    shutil.copytree(src, dst, dirs_exist_ok=True)
+                else:
+                    shutil.copy2(src, dst)
+                restored.append(item)
+
+            # Cleanup
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+            return {"success": True, "restored_files": len(restored), "restored": restored,
+                    "message": f"Restored {len(restored)} items from uploaded backup"}
+
+        except Exception as e:
+            return {"success": False, "error": f"Upload restore failed: {str(e)}"}
+
+    def _download_backup(self, backup_id: str) -> Response:
+        """Download a backup as ZIP."""
+        import os, shutil, tempfile
+
+        if not backup_id:
+            # Use latest backup
+            all_backups = sorted([d for d in os.listdir(self.BACKUP_DIR) if d.startswith("auto_backup_")])
+            if not all_backups:
+                return Response("No backups found", status_code=404)
+            backup_id = all_backups[-1]
+
+        backup_path = os.path.join(self.BACKUP_DIR, backup_id)
+        if not os.path.isdir(backup_path):
+            return Response(f"Backup not found: {backup_id}", status_code=404)
+
+        # Create ZIP from backup directory
+        tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+        tmp.close()
+        shutil.make_archive(tmp.name.replace(".zip", ""), 'zip', backup_path)
+
+        return send_file(
+            tmp.name,
+            as_attachment=True,
+            download_name=f"{backup_id}.zip",
+            mimetype='application/zip'
+        )
+
+    def _delete_backup(self, backup_id: str) -> dict:
+        """Delete a specific backup."""
+        import os, shutil
+
+        if not backup_id:
+            return {"status": "error", "error": "No backup ID provided"}
+
+        backup_path = os.path.join(self.BACKUP_DIR, backup_id)
+        if not os.path.isdir(backup_path):
+            return {"status": "error", "error": f"Backup not found: {backup_id}"}
+
+        shutil.rmtree(backup_path, ignore_errors=True)
+        return {"status": "ok", "message": f"Deleted backup: {backup_id}"}
+
     def _get_status(self) -> dict:
         """Get auto-backup status."""
         import os
@@ -166,8 +271,16 @@ class AutoBackupQuickHandler(ApiHandler):
     def _list_backups(self) -> dict:
         """List all auto-backups."""
         import os
+        from datetime import datetime
+
         all_backups = sorted([d for d in os.listdir(self.BACKUP_DIR) if d.startswith("auto_backup_")], reverse=True)
-        return {"status": "ok", "backups": all_backups}
+        backup_list = []
+        for b in all_backups:
+            bp = os.path.join(self.BACKUP_DIR, b)
+            size_mb = round(sum(os.path.getsize(os.path.join(dp, f)) for dp, _, fns in os.walk(bp) for f in fns) / 1048576, 2) if os.path.isdir(bp) else 0
+            created = datetime.fromtimestamp(os.path.getmtime(bp)).strftime("%Y-%m-%d %H:%M") if os.path.isdir(bp) else ""
+            backup_list.append({"id": b, "zip_size_mb": size_mb, "has_zip": size_mb > 0, "complete": True, "created_at": created})
+        return {"status": "ok", "backups": backup_list}
 
     def _clean_old_backups(self):
         """Keep only the last MAX_BACKUPS backups."""

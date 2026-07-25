@@ -45,9 +45,9 @@ export const store = createStore("backupRecovery", {
     if (!confirm(`Restore backup ${backupId}? This may overwrite current data.`)) return;
     this.restoring = true; this.error = ""; this.message = "Restoring backup...";
     try {
-      const resp = await callJsonApi("backup_auto", { action: "restore", id: backupId });
+      const resp = await callJsonApi("backup_auto", { action: "restore_specific", backup_name: backupId });
       if (resp.error) { this.error = resp.error; return; }
-      this.message = `Backup restored: ${resp.restored || 0} items recovered`;
+      this.message = `Backup restored: ${(resp.restored || []).length} items recovered`;
       setTimeout(() => this.message = "", 5000);
     } catch (e) { this.error = "Restore failed: " + e.message; }
     this.restoring = false;
@@ -57,7 +57,7 @@ export const store = createStore("backupRecovery", {
     if (!confirm(`Delete backup ${backupId}?`)) return;
     try {
       const resp = await callJsonApi("backup_auto", { action: "delete", id: backupId });
-      if (resp.error) { this.error = resp.error; return; }
+      if (resp.status === "error" || resp.error) { this.error = resp.error || "Delete failed"; return; }
       this.message = "Backup deleted";
       setTimeout(() => this.message = "", 3000);
       await this.loadBackups();
