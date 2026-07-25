@@ -16,7 +16,7 @@
   <img src="assets/screenshot.png" alt="BioDockify Pharma AI Screenshot" width="800">
 </p>
 
-**BioDockify Pharma AI** is a pharmaceutical research platform built on the **Agent Zero v2.0** core, with **25+ integrated modules** covering all 8 pharmacy departments. It features a **bundled local AI engine** (Bonsai-8B, 1-bit, runs offline with zero cloud dependency), AutoDock Vina molecular docking with MM-GBSA free energy scoring, OpenMM molecular dynamics (MD Lite), **56 biostatistics analysis types** (SPSS/jamovi-level), a 25-stage autonomous research pipeline, literature search across 10 databases with automatic full-text retrieval, QSAR modeling, pharmacophore screening, 8 department modules (Pharmaceutics, Clinical Pharmacy, Pharma Analysis, Natural Products, Regulatory Affairs, Pharmacology, Medicinal Chemistry), a Knowledge Base redesigned as Open Notebook LM, an Academic Writer with pharma-specific claim verification and ICH compliance checks, a 36,145-journal recommender, 4 AI sub-agents, and bulletproof backup to PC.
+**BioDockify Pharma AI** is a pharmaceutical research platform built on the **Agent Zero v2.0** core, with **25+ integrated modules** covering all 8 pharmacy departments. It features AutoDock Vina molecular docking with MM-GBSA free energy scoring, OpenMM molecular dynamics (MD Lite) with publication-grade trajectory analysis (MDAnalysis), **56 biostatistics analysis types** (SPSS/jamovi-level), **12 advanced Academic Writer skills** (EQUATOR reporting guidelines, PRISMA systematic review pipeline, per-section quality scoring, De-AIGC rewrite, claim verification), **7-level drug interaction database** (50+ clinically significant pairs), **Perplexity-style citation system** with hybrid search (BM25 + FAISS + RRF), Obsidian bidirectional sync, a Knowledge Base with retrieval-grounded RAG chat, an Academic Writer with pharma-specific claim verification and ICH compliance checks, a 36,145-journal recommender, 4 AI sub-agents, and bulletproof backup to PC.
 
 ---
 
@@ -32,24 +32,23 @@
 
 ## Features
 
-### BioDockify AI Engine — Local LLM (NEW in v7.5.8)
+### BioDockify AI Engine — Local LLM Support
 
 **Runs fully offline. No cloud. No API spend. No PHI/compound data egress.**
 
+BioDockify supports any OpenAI-compatible local LLM through its AI Engine module. Bonsai-8B is one model option (installed separately), but you can use any model via Ollama, LM Studio, or any OpenAI-compatible server.
+
 | Feature | Details |
 |---------|---------|
-| **Model** | [Bonsai-8B](https://huggingface.co/prism-ml/Bonsai-8B-gguf) — 1-bit, ~1.15 GB, 64K context, Apache-2.0 license |
-| **Engine** | [llama.cpp](https://github.com/ggml-org/llama.cpp) server, bundled inside the BioDockify Docker image |
-| **Setup** | `docker compose up -d` — that's it. Model is bundled in the image, ready immediately. |
-| **Endpoint** | `http://localhost:8080/v1` (OpenAI-compatible, LiteLLM via `lm_studio` provider) |
-| **Pharma Prompt Library** | 8 domain templates: Literature Review, MOA Explanation, Docking Interpretation, ADMET Analysis, Claim Verification (JSON), Thesis Drafting (IMRaD), ICH Compliance (CONSORT/STROBE/PRISMA/ARRIVE) |
+| **Supported models** | Any OpenAI-compatible model via Ollama, LM Studio, vLLM, mlx_lm.server, or llama.cpp |
+| **Setup** | Install Ollama/LM Studio on host → set in Settings → Models. Works fully offline. |
+| **Pharma Prompt Library** | 8 domain templates: Literature Review, MOA, Docking, ADMET, Claims, Thesis, ICH Compliance |
 | **In-app panel** | Right-canvas rail → "BioDockify AI Engine" (brain icon) → 4 tabs: Status, Models, Runtimes, Benchmark |
-| **Benchmark** | Built-in tok/s test with Good/OK/Slow verdict using a pharma-specific prompt |
-| **Model catalog** | Data-driven (`modules/local_llm/models.json`) — adding Gemma/Phi/Qwen is a one-line JSON edit, zero code changes |
-| **Runtime registry** | Data-driven (`modules/local_llm/runtimes.json`) — 5 backends: bundled llama.cpp, host Ollama, host LM Studio, future vLLM, future MLX |
-| **Preset** | "BioDockify AI Engine — Local (Bonsai-8B)" — one click in Settings → Models |
+| **Benchmark** | Built-in tok/s test with Good/OK/Slow verdict |
+| **Model catalog** | Data-driven (`modules/local_llm/models.json`) — adding models is a JSON edit, zero code changes |
+| **Runtime registry** | Data-driven (`modules/local_llm/runtimes.json`) — host Ollama, host LM Studio, future vLLM, future MLX |
 | **Privacy** | No telemetry, no egress, HIPAA/GDPR friendly, fully reproducible thesis work |
-| **Smoke tests** | 27/27 pass (`tests/test_local_llm.py`) — guards against image, filename, namespace, schema regressions |
+| **Smoke tests** | 27/27 pass (`tests/test_local_llm.py`) |
 
 ### 22 Consolidated Research Modules
 
@@ -148,7 +147,7 @@ Output: Per-pose MM-GBSA energies, Z-scores, and consensus with Vina (`0.4*Vina_
 
 ### Students: just run `docker compose up -d` and open http://localhost
 
-That's it. BioDockify starts, the local AI engine (Bonsai-8B) is bundled in the image and ready immediately, and everything works offline.
+That's it. BioDockify starts with all features ready. Connect a local LLM via Ollama/LM Studio for offline AI, or use any cloud provider.
 
 ```bash
 docker compose up -d
@@ -161,18 +160,18 @@ docker compose up -d
 
 - **Docker Desktop** (Windows/macOS) or Docker Engine (Linux) — required
 - **8GB+ RAM** recommended (12GB+ for large docking jobs)
-- **Internet** — only needed for the one-time model download (~1.1 GB). After that, everything works fully offline.
+- **Internet** — needed to pull the Docker image (~18 GB). Once pulled, BioDockify works offline. Add a local LLM via Ollama/LM Studio for fully offline AI chat.
 
 ### AI Model Options
 
 | Option | Setup | Privacy | Cost |
 |--------|-------|---------|------|
-| **BioDockify AI Engine** (Bonsai-8B) | Automatic — bundled inside the container | Full (no egress) | Free |
+| **Host Ollama** | Install Ollama on host, set in Settings | Full (no egress) | Free |
 | **Cloud providers** (OpenRouter, OpenAI, Anthropic, etc.) | Add API key in Settings → API Keys | Low (data sent to cloud) | Per-token |
 | **Host Ollama** | Install Ollama on host, configure in Settings | Full (no egress) | Free |
 | **Host LM Studio** | Install LM Studio on host, configure in Settings | Full (no egress) | Free |
 
-You can mix: Bonsai for main (offline) + cloud for utility (optional). Fully user-driven.
+You can mix: local Ollama for main (offline) + cloud for utility (optional). Fully user-driven.
 
 ### Docker Compose (full template)
 

@@ -5,9 +5,8 @@ version: '3.8'
 # ║                                                                          ║
 # ║  Students: just run `docker compose up -d` and open http://localhost    ║
 # ║  Everything is automatic:                                                ║
-# ║    ✓ BioDockify starts                                                   ║
-# ║    ✓ Local AI Engine (Bonsai-8B) downloads on first run (~1.1 GB)       ║
-# ║    ✓ llama.cpp server starts inside the container automatically         ║
+# ║    ✓ BioDockify starts with all 8 department modules                     ║
+# ║    ✓ Cloud or local Ollama/LM Studio LLM (user's choice)                ║
 # ║    ✓ No scripts, no profiles, no technical knowledge needed              ║
 # ║                                                                          ║
 # ║  ⚠️  YOU MUST USE ALL 3 VOLUMES BELOW. Without them, research data is   ║
