@@ -277,6 +277,51 @@ class NaturalProductsHandler(ApiHandler):
                 "parts_used": "Leaves",
                 "reference": "Brinkhaus et al., Phytomedicine 2000"
             },
+            "salix_alba": {
+                "common_name": "White Willow Bark",
+                "family": "Salicaceae",
+                "traditional_use": "Analgesic, anti-inflammatory, antipyretic",
+                "active_compounds": ["Salicin", "Salicylic acid", "Flavonoids"],
+                "pharmacological": "COX inhibition (natural aspirin precursor)",
+                "parts_used": "Bark",
+                "reference": "Gao et al., J Tradit Complement Med 2020"
+            },
+            "gingko_biloba": {
+                "common_name": "Ginkgo",
+                "family": "Ginkgoaceae",
+                "traditional_use": "Cognitive enhancement, peripheral circulation",
+                "active_compounds": ["Ginkgolide A", "Ginkgolide B", "Bilobalide", "Flavonoids"],
+                "pharmacological": "Neuroprotective, antiplatelet, antioxidant",
+                "parts_used": "Leaves",
+                "reference": "Tan et al., J Ethnopharmacol 2015"
+            },
+            "silybum_marianum": {
+                "common_name": "Milk Thistle",
+                "family": "Asteraceae",
+                "traditional_use": "Liver protection, hepatoprotective",
+                "active_compounds": ["Silymarin", "Silybin", "Isosilibinin"],
+                "pharmacological": "Hepatoprotective, antioxidant, anti-inflammatory",
+                "parts_used": "Seeds",
+                "reference": "Federico et al., Molecules 2017"
+            },
+            "panax_ginseng": {
+                "common_name": "Ginseng",
+                "family": "Araliaceae",
+                "traditional_use": "Adaptogen, vitality, cognitive enhancement",
+                "active_compounds": ["Ginsenoside Rb1", "Ginsenoside Rg1", "Ginsenoside Rg3"],
+                "pharmacological": "Immunomodulatory, anti-cancer, neuroprotective",
+                "parts_used": "Root",
+                "reference": "Liu et al., J Ginseng Res 2019"
+            },
+            "cannabis_sativa": {
+                "common_name": "Hemp/Cannabis",
+                "family": "Cannabaceae",
+                "traditional_use": "Analgesic, anti-inflammatory, anxiolytic",
+                "active_compounds": ["THC (Δ9-tetrahydrocannabinol)", "CBD (cannabidiol)", "CBG (cannabigerol)", "CBC (cannabichromene)"],
+                "pharmacological": "CB1/CB2 receptor agonism/antagonism, 5-HT1A agonism (CBD)",
+                "parts_used": "Flowers, leaves, resin",
+                "reference": "Mechoulam et al., Nat Rev Neurosci 2020"
+            },
         }
 
         if plant_name and plant_name in plants:
