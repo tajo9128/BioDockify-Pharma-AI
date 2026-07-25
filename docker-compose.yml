@@ -28,6 +28,10 @@ services:
     volumes:
       # ═══════════════════════════════════════════════════════════════════
       #  CHANGE THESE 2 PATHS TO YOUR OWN PC FOLDERS
+      #
+      #  ⚠️  Windows users: use FORWARD SLASHES (F:/folder) NOT backslashes
+      #     Copy path from Explorer → replace all \ with /
+      #     Example: F:\biodockify_pharma_usr → F:/biodockify_pharma_usr
       # ═══════════════════════════════════════════════════════════════════
 
       # 1) ALL DATA — workspace, chats, knowledge base, agent memory, plugins
