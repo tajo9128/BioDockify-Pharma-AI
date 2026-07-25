@@ -112,18 +112,43 @@ class MDLite(ApiHandler):
         """Prepare a protein-ligand complex for MD — bridges docking → MD gap.
 
         Takes protein PDB + docked ligand PDBQT → prepared complex PDB ready for MD.
+        Accepts either file paths OR inline content (base64 or raw text).
         Uses PDBFixer for protein prep, RDKit for ligand prep.
         """
         protein_path = input.get("protein_pdb", "")
         ligand_path = input.get("ligand_pdbqt", "")
+        protein_content = input.get("protein_pdb_content", "")
+        ligand_content = input.get("ligand_pdbqt_content", "")
         job_id = input.get("job_id") or str(uuid.uuid4())[:8]
         job_dir = os.path.join(WORKDIR, job_id)
         os.makedirs(job_dir, exist_ok=True)
 
+        # Resolve protein: use path if exists, else save inline content
         if not protein_path or not os.path.exists(protein_path):
-            return {"error": "protein_pdb path required and must exist"}
+            if protein_content and len(protein_content) > 50:
+                import base64 as _b64
+                if not protein_content.startswith(("ATOM", "HETATM", "MODEL", "REMARK")):
+                    try: protein_content = _b64.b64decode(protein_content).decode("utf-8", errors="replace")
+                    except Exception: pass
+                protein_path = os.path.join(job_dir, "protein.pdb")
+                with open(protein_path, "w", encoding="utf-8") as f:
+                    f.write(protein_content)
+            else:
+                return {"error": "protein_pdb path required and must exist, or provide protein_pdb_content"}
+
+        # Resolve ligand: use path if exists, else save inline content
         if not ligand_path or not os.path.exists(ligand_path):
-            return {"error": "ligand_pdbqt path required and must exist"}
+            if ligand_content and len(ligand_content) > 50:
+                import base64 as _b64
+                if not ligand_content.startswith(("HETATM", "ATOM", "@<TRIPOS")):
+                    try: ligand_content = _b64.b64decode(ligand_content).decode("utf-8", errors="replace")
+                    except Exception: pass
+                ext = ".pdbqt" if "ATOM" in ligand_content or "HETATM" in ligand_content else ".sdf"
+                ligand_path = os.path.join(job_dir, f"ligand{ext}")
+                with open(ligand_path, "w", encoding="utf-8") as f:
+                    f.write(ligand_content)
+            else:
+                return {"error": "ligand_pdbqt path required and must exist, or provide ligand_pdbqt_content"}
 
         try:
             from modules.md_lite.preparation import prepare_complex
