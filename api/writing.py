@@ -25,7 +25,13 @@ class WritingTools(ApiHandler):
         if action == "pharma_citation_verify":  return self._pharma_citation_verify(input)
         if action == "pharma_reporting_check":  return self._pharma_reporting_check(input)
         if action == "pharma_scorecard":        return self._pharma_scorecard(input)
-        return {"actions": ["export-latex","export-docx","gap-analysis","literature-matrix","prisma-flowchart","faculty-review","verify-citations","suggest-journals","kb_sources","kb_categories","pharma_citation_verify","pharma_reporting_check","pharma_scorecard"]}
+        # ── Advanced Research Skills (v7.7.1+) ──
+        if action == "equator_checklist":        return self._equator_checklist(input)
+        if action == "ai_disclosure":            return self._ai_disclosure(input)
+        if action == "prisma_pipeline":          return self._prisma_pipeline(input)
+        if action == "peer_review":              return self._peer_review(input)
+        if action == "integrity_audit":          return self._integrity_audit(input)
+        return {"actions": ["export-latex","export-docx","gap-analysis","literature-matrix","prisma-flowchart","faculty-review","verify-citations","suggest-journals","kb_sources","kb_categories","pharma_citation_verify","pharma_reporting_check","pharma_scorecard","equator_checklist","ai_disclosure","prisma_pipeline","peer_review","integrity_audit"]}
 
     def _kb_categories(self, input: dict) -> dict:
         """List all KB categories with entry counts — for the writer's category dropdown."""
@@ -850,3 +856,144 @@ def _sanitize(text: str) -> str:
                   ("~", "\\textasciitilde "), ("^", "\\textasciicircum ")]:
         text = text.replace(c, r)
     return text
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Advanced Research Skills (v7.7.1+) — EQUATOR, AI Disclosure, PRISMA,
+# Peer Review Simulator, Integrity Gate
+# ═══════════════════════════════════════════════════════════════════════════
+
+    def _equator_checklist(self, input: dict) -> dict:
+        """Skill 1: EQUATOR reporting guidelines compliance checklist.
+
+        Returns the full checklist for a study type, or lists all available guidelines.
+        """
+        from modules.writing.equator_guidelines import get_guideline, list_all_guidelines
+
+        study_type = input.get("study_type", "")
+        if not study_type or study_type == "list":
+            return {"status": "ok", "guidelines": list_all_guidelines()}
+
+        guideline = get_guideline(study_type)
+        return {
+            "status": "ok",
+            "guideline": guideline["name"],
+            "full_name": guideline["full_name"],
+            "applies_to": guideline["applies_to"],
+            "url": guideline["url"],
+            "items": guideline["items"],
+            "total_items": len(guideline["items"]),
+        }
+
+    def _ai_disclosure(self, input: dict) -> dict:
+        """Skill 2: AI usage disclosure statement generator.
+
+        Generates a venue-specific AI-usage statement for publication.
+        """
+        from modules.writing.academic_skills import generate_ai_disclosure, VENUE_AI_POLICIES
+
+        venue = input.get("venue", "icmje")
+        tool_name = input.get("tool_name", "BioDockify AI Engine")
+        tasks = input.get("tasks", ["literature screening", "data analysis assistance"])
+        author_role = input.get("author_role", "reviewed and edited")
+
+        if venue == "list":
+            venues = []
+            for key, v in VENUE_AI_POLICIES.items():
+                venues.append({
+                    "key": key,
+                    "name": v["name"],
+                    "requires_disclosure": v["requires_disclosure"],
+                    "placement": v["placement"],
+                })
+            return {"status": "ok", "venues": venues}
+
+        result = generate_ai_disclosure(venue, tool_name, tasks, author_role)
+        return {"status": "ok", **result}
+
+    def _prisma_pipeline(self, input: dict) -> dict:
+        """Skill 3: PRISMA systematic review + meta-analysis pipeline.
+
+        Returns PRISMA checklist, RoB template, or GRADE template.
+        """
+        from modules.writing.academic_skills import (
+            PRISMA_2020_CHECKLIST, build_prisma_flow_diagram,
+            risk_of_bias_checklist, grade_assessment_template
+        )
+
+        sub = input.get("sub", "checklist")
+
+        if sub == "checklist":
+            return {"status": "ok", "checklist": PRISMA_2020_CHECKLIST,
+                    "total_items": len(PRISMA_2020_CHECKLIST)}
+
+        if sub == "flow_diagram":
+            result = build_prisma_flow_diagram(
+                identified=input.get("identified", 0),
+                screened=input.get("screened", 0),
+                excluded_title=input.get("excluded_title", 0),
+                full_text_assessed=input.get("full_text_assessed", 0),
+                excluded_full_text=input.get("excluded_full_text", 0),
+                included=input.get("included", 0),
+                reasons_excluded=input.get("reasons_excluded", []),
+            )
+            return {"status": "ok", **result}
+
+        if sub == "risk_of_bias":
+            study_type = input.get("study_type", "rct")
+            return {"status": "ok", **risk_of_bias_checklist(study_type)}
+
+        if sub == "grade":
+            return {"status": "ok", **grade_assessment_template()}
+
+        return {"status": "ok", "sub_actions": ["checklist", "flow_diagram", "risk_of_bias", "grade"]}
+
+    def _peer_review(self, input: dict) -> dict:
+        """Skill 4: Multi-perspective peer review simulator.
+
+        Returns review panel config or generates a review prompt for the LLM.
+        """
+        from modules.writing.academic_skills import PEER_REVIEW_PANEL, build_review_prompt
+
+        manuscript = input.get("manuscript", "")
+        reviewer = input.get("reviewer", "")
+
+        if not manuscript and not reviewer:
+            return {
+                "status": "ok",
+                "panel": [
+                    {"role": r["role"], "persona": r["persona"],
+                     "focus_areas": r["focus_areas"],
+                     "scoring_dimensions": r["scoring_dimensions"]}
+                    for r in PEER_REVIEW_PANEL["reviewers"]
+                ],
+            }
+
+        if reviewer and manuscript:
+            prompt = build_review_prompt(manuscript, reviewer)
+            return {"status": "ok", "reviewer": reviewer, "prompt": prompt}
+
+        if manuscript:
+            # Generate prompts for all reviewers
+            prompts = {}
+            for r in PEER_REVIEW_PANEL["reviewers"]:
+                role_key = r["role"].lower().replace(" ", "_")
+                prompts[role_key] = build_review_prompt(manuscript, r["role"])
+            return {"status": "ok", "prompts": prompts}
+
+        return {"status": "error", "error": "Provide manuscript text and/or reviewer role"}
+
+    def _integrity_audit(self, input: dict) -> dict:
+        """Skill 5: L3 claim-faithfulness integrity gate.
+
+        Audits manuscript text for uncited claims, overclaiming, and integrity issues.
+        """
+        from modules.writing.academic_skills import audit_claims
+
+        text = input.get("text", input.get("manuscript", ""))
+        if not text or len(text) < 50:
+            return {"status": "error", "error": "Provide manuscript text (min 50 chars)"}
+
+        citations = input.get("citations", [])
+        result = audit_claims(text, citations)
+        return {"status": "ok", **result}

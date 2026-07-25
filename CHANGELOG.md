@@ -2,6 +2,60 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v7.7.1] - 2026-07-22
+
+### 5 Advanced Research Skills added to Academic Writer
+
+Independently implemented based on publicly documented standards (EQUATOR
+Network, ICMJE, Cochrane Handbook, GRADE Working Group). No third-party
+code copied.
+
+#### Skill 1: EQUATOR Reporting Guidelines
+- `modules/writing/equator_guidelines.py` — 6 pharma-relevant guidelines:
+  CONSORT 2010 (clinical trials, 37 items), STROBE (observational, 22 items),
+  ARRIVE 2.0 (animal research, 23 items), STARD 2015 (diagnostic accuracy,
+  22 items), TRIPOD (prediction models, 23 items), CHEERS 2022 (health
+  economics, 24 items)
+- Auto-detection: maps study_type to appropriate guideline
+- API: `POST /api/writing` with `action: "equator_checklist"`, `study_type: "rct"` (or "list" for all)
+
+#### Skill 2: AI Usage Disclosure Generator
+- `modules/writing/academic_skills.py` — venue-specific AI-usage statements
+  for: ICMJE (NEJM/Lancet/JAMA/BMJ), Nature Portfolio, Science, IEEE,
+  ACL/EMNLP, FDA/EMA regulatory submissions
+- Generates compliant disclosure text with tool name, tasks, author role
+- API: `POST /api/writing` with `action: "ai_disclosure"`, `venue: "icmje"`
+
+#### Skill 3: PRISMA Systematic Review + Meta-Analysis Pipeline
+- PRISMA 2020 checklist (34 items)
+- PRISMA flow diagram builder (Mermaid format)
+- RoB 2 (RCTs) — 6 domains with signal questions
+- ROBINS-I (non-randomized) — 7 domains
+- GRADE certainty-of-evidence template (8 domains, 4 certainty levels)
+- API: `POST /api/writing` with `action: "prisma_pipeline"`,
+  `sub: "checklist" | "flow_diagram" | "risk_of_bias" | "grade"`
+
+#### Skill 4: Multi-Perspective Peer Review Simulator
+- 5-person review panel: Editor-in-Chief, Methodology Reviewer, Domain
+  Expert, Regulatory Reviewer, Devil's Advocate
+- Each reviewer has unique focus areas and scoring dimensions
+- `build_review_prompt()` generates LLM prompts per reviewer role
+- API: `POST /api/writing` with `action: "peer_review"`,
+  `manuscript: "..."`, `reviewer: "methodology_reviewer"` (or all)
+
+#### Skill 5: L3 Claim-Faithfulness Integrity Gate
+- Audits manuscript text for: uncited factual claims, overclaiming patterns,
+  missing safety caveats, novelty overclaims, cure/eradicate language
+- Pharma-specific overclaim patterns (safety, novelty, proof language)
+- Integrity gate: PASS only if no high-severity issues
+- API: `POST /api/writing` with `action: "integrity_audit"`, `text: "..."`
+
+#### Wiring
+- All 5 skills wired into `api/writing.py` as new additive actions
+- Uses `modules/writing/equator_guidelines.py` and `modules/writing/academic_skills.py`
+- All actions logged to `modules/knowledge/auto_store.py` for KB integration
+- Tests: 41/41 pass
+
 ## [v7.7.0] - 2026-07-21
 
 ### MD Lite upgraded to publication-grade MD analysis suite
