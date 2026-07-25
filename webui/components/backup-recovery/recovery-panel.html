@@ -4,41 +4,26 @@
   </script>
 </head><body><div x-data class="recovery-panel" x-init="$store.backupRecovery.loadBackups()">
   <div class="panel-header"><span class="material-symbols-outlined panel-icon">backup</span><h2>Backup & Recovery</h2></div>
-  <p class="desc">Protect your research. Backups capture agent memory, knowledge base, and workspace — and survive container deletion.</p>
+  <p class="desc">Protect your research. Backups save to your configured folder on your PC. Survives container deletion.</p>
 
-  <!-- Primary actions: 5 methods -->
+  <!-- Only 2 buttons: Save to PC and Restore from PC -->
   <div class="backup-methods">
-    <div class="bm-card" @click="$store.backupRecovery.createBackup()">
-      <span class="material-symbols-outlined bm-icon">save</span>
-      <span class="bm-title">Backup Now</span>
-      <span class="bm-desc">Save everything to Docker volume</span>
-    </div>
-    <div class="bm-card" style="border-color:#22c55e;background:rgba(34,197,94,0.05)" @click="$store.backupRecovery.backupToPC()">
+    <div class="bm-card" style="border-color:#22c55e;background:rgba(34,197,94,0.05)" @click="$store.backupRecovery.createBackup()">
       <span class="material-symbols-outlined bm-icon" style="color:#22c55e">computer</span>
       <span class="bm-title">Save to PC</span>
-      <span class="bm-desc">Download backup ZIP to your computer</span>
+      <span class="bm-desc">Backup to your configured folder</span>
     </div>
     <div class="bm-card" style="border-color:#4fc3f7;background:rgba(79,195,247,0.05)" @click="$store.backupRecovery.triggerUploadRestore()">
       <span class="material-symbols-outlined bm-icon" style="color:#4fc3f7">upload_file</span>
       <span class="bm-title">Restore from PC</span>
       <span class="bm-desc">Upload a backup ZIP to restore</span>
     </div>
-    <div class="bm-card" style="border-color:#f59e0b;background:rgba(245,158,11,0.05)" @click="$store.backupRecovery.scanDockerVolumes()">
-      <span class="material-symbols-outlined bm-icon" style="color:#f59e0b">storage</span>
-      <span class="bm-title">Docker Volume</span>
-      <span class="bm-desc">Recover data from deleted containers</span>
-    </div>
-    <div class="bm-card" @click="$store.backupRecovery.loadBackups()">
-      <span class="material-symbols-outlined bm-icon">refresh</span>
-      <span class="bm-title">Refresh</span>
-      <span class="bm-desc">Reload backup list</span>
-    </div>
   </div>
 
   <!-- Status banner -->
   <div class="info-banner">
     <span class="material-symbols-outlined" style="font-size:14px;color:var(--color-text-muted)">info</span>
-    <span><b>What's backed up:</b> agent memory (.a0proj), knowledge base (/a0/data), workspace (/a0/usr). All three locations captured in every backup ZIP.</span>
+    <span><b>What's backed up:</b> agent memory (.a0proj), knowledge base (/a0/data), workspace (/a0/usr). All captured in every backup ZIP.</span>
   </div>
 
   <div x-show="$store.backupRecovery.message" class="msg" x-text="$store.backupRecovery.message"></div>
@@ -65,9 +50,6 @@
             </span>
           </div>
           <div class="backup-actions">
-            <button class="btn-sm" @click="$store.backupRecovery.backupToPC(b.id)" :disabled="!b.has_zip" title="Download to PC">
-              <span class="material-symbols-outlined" style="font-size:13px">download</span>
-            </button>
             <button class="btn-sm" @click="$store.backupRecovery.restoreBackup(b.id)" :disabled="!b.has_zip || $store.backupRecovery.restoring">Restore</button>
             <button class="btn-sm-danger" @click="$store.backupRecovery.deleteBackup(b.id)" title="Delete">Delete</button>
           </div>
@@ -79,115 +61,8 @@
   <div x-show="!$store.backupRecovery.hasBackups && !$store.backupRecovery.loading" class="empty">
     <span class="material-symbols-outlined" style="font-size:36px;color:var(--color-text-muted);opacity:0.4">backup</span>
     <p>No backups yet.</p>
-    <p class="hint">Click <b>Backup Now</b> above to create your first backup. Then use <b>Save to PC</b> to keep a copy on your computer.</p>
+    <p class="hint">Click <b>Save to PC</b> above to create your first backup.</p>
   </div>
-
-  <!-- Docker Volume Restore Section -->
-  <template x-if="$store.backupRecovery.dockerVolumes.length > 0 || $store.backupRecovery.dockerVolumeScanning">
-    <div class="volume-section">
-      <div class="volume-header">
-        <span class="material-symbols-outlined" style="font-size:18px;color:#f59e0b">storage</span>
-        <h3>Docker Volumes</h3>
-        <span class="backup-count" x-text="$store.backupRecovery.dockerVolumes.length + ' volumes'"></span>
-      </div>
-
-      <div x-show="$store.backupRecovery.dockerVolumeScanning" class="loading">Scanning Docker volumes...</div>
-
-      <!-- Volume List -->
-      <template x-for="v in $store.backupRecovery.dockerVolumes" :key="v.name">
-        <div class="volume-card" :class="{ 'orphaned': v.is_orphan, 'has-bio': v.has_bio_data }">
-          <div class="volume-info">
-            <div class="volume-name-row">
-              <span class="volume-name" x-text="v.name.length > 40 ? v.name.substring(0, 20) + '...' + v.name.substring(v.name.length - 15) : v.name"></span>
-              <span class="badge" x-show="v.is_orphan" style="color:#f59e0b">ORPHANED</span>
-              <span class="badge" x-show="v.has_bio_data" style="color:#22c55e">BIODOCKIFY</span>
-              <span class="badge" x-show="!v.is_orphan" style="color:var(--color-text-muted)">IN USE</span>
-            </div>
-            <div class="volume-meta">
-              <span x-text="v.size_mb + ' MB'"></span>
-              <span x-text="v.file_count + ' files'"></span>
-              <span x-show="v.bio_markers.length > 0" x-text="'(' + v.bio_markers.join(', ') + ')'"></span>
-            </div>
-          </div>
-          <div class="volume-actions">
-            <button class="btn-sm" @click="$store.backupRecovery.inspectDockerVolume(v.name)" :disabled="$store.backupRecovery.dockerVolumeLoading">
-              <span class="material-symbols-outlined" style="font-size:13px">search</span> Inspect
-            </button>
-            <button class="btn-sm btn-restore" @click="$store.backupRecovery.restoreFromDockerVolume(v.name, 'skip', [])" :disabled="$store.backupRecovery.restoring" x-show="v.has_bio_data">
-              <span class="material-symbols-outlined" style="font-size:13px">restore</span> Restore
-            </button>
-          </div>
-        </div>
-      </template>
-
-      <!-- Volume Detail / Inspect Panel -->
-      <template x-if="$store.backupRecovery.selectedVolume && $store.backupRecovery.volumeInspectData">
-        <div class="volume-detail">
-          <div class="volume-detail-header">
-            <span class="material-symbols-outlined" style="font-size:18px;color:#f59e0b">folder_open</span>
-            <h4 x-text="'Volume: ' + $store.backupRecovery.selectedVolume"></h4>
-            <button class="btn-sm" @click="$store.backupRecovery.selectedVolume = null; $store.backupRecovery.volumeInspectData = null" style="margin-left:auto">Close</button>
-          </div>
-
-          <div class="volume-stats">
-            <div class="stat-box">
-              <span class="stat-label">Total Size</span>
-              <span class="stat-value" x-text="$store.backupRecovery.volumeInspectData.total_size_mb + ' MB'"></span>
-            </div>
-            <div class="stat-box">
-              <span class="stat-label">Total Files</span>
-              <span class="stat-value" x-text="$store.backupRecovery.volumeInspectData.total_files"></span>
-            </div>
-          </div>
-
-          <!-- BioDockify data items found -->
-          <template x-if="Object.keys($store.backupRecovery.volumeInspectData.bio_data_found || {}).length > 0">
-            <div class="bio-items">
-              <div class="bio-items-header">
-                <h5>Recoverable Data</h5>
-                <div style="display:flex;gap:4px">
-                  <button class="btn-xs" @click="$store.backupRecovery.selectAllVolumeItems(Object.keys($store.backupRecovery.volumeInspectData.bio_data_found))">All</button>
-                  <button class="btn-xs" @click="$store.backupRecovery.deselectAllVolumeItems()">None</button>
-                </div>
-              </div>
-              <template x-for="[item, info] in Object.entries($store.backupRecovery.volumeInspectData.bio_data_found)" :key="item">
-                <label class="bio-item-row">
-                  <input type="checkbox" :checked="$store.backupRecovery.selectedVolumeItems.includes(item)" @change="$store.backupRecovery.toggleVolumeItem(item)">
-                  <span class="bio-item-name" x-text="item"></span>
-                  <span class="bio-item-meta" x-text="(info.is_dir ? info.file_count + ' files' : '1 file') + ' (' + info.size_mb + ' MB)'"></span>
-                </label>
-              </template>
-
-              <div class="restore-bar">
-                <select x-model="$store.backupRecovery._overwritePolicy" class="restore-select">
-                  <option value="skip">Skip existing</option>
-                  <option value="overwrite">Overwrite existing</option>
-                </select>
-                <button class="btn-sm btn-restore"
-                  @click="$store.backupRecovery.restoreFromDockerVolume($store.backupRecovery.selectedVolume, $store.backupRecovery._overwritePolicy || 'skip', $store.backupRecovery.selectedVolumeItems)"
-                  :disabled="$store.backupRecovery.restoring || $store.backupRecovery.selectedVolumeItems.length === 0">
-                  <span class="material-symbols-outlined" style="font-size:13px">restore</span>
-                  Restore Selected (<span x-text="$store.backupRecovery.selectedVolumeItems.length"></span> items)
-                </button>
-              </div>
-            </div>
-          </template>
-
-          <template x-if="Object.keys($store.backupRecovery.volumeInspectData.bio_data_found || {}).length === 0">
-            <div class="empty" style="padding:12px">
-              <p style="font-size:.65rem">No recognizable BioDockify data found in this volume.</p>
-            </div>
-          </template>
-        </div>
-      </template>
-
-      <div x-show="!$store.backupRecovery.dockerAvailable" class="error" style="margin-top:8px">
-        <b>Docker socket not mounted.</b> To enable volume restore, add this to your <code>docker run</code> command:<br>
-        <code style="font-size:.6rem;word-break:break-all">-v /var/run/docker.sock:/var/run/docker.sock</code><br>
-        <span style="font-size:.58rem;opacity:0.8">Or in docker-compose.yml under volumes: <code>/var/run/docker.sock:/var/run/docker.sock</code></span>
-      </div>
-    </div>
-  </template>
 
   <style>
     .recovery-panel{padding:14px 16px;height:100%;overflow-y:auto;display:flex;flex-direction:column}
@@ -223,39 +98,5 @@
     .empty{padding:24px 16px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
     .empty p{margin:0;font-size:.7rem;color:var(--color-text-muted)}
     .hint{font-size:.6rem;color:var(--color-text-muted);font-style:italic;line-height:1.4;max-width:280px}
-    /* Docker Volume Restore */
-    .volume-section{margin-top:12px;border-top:1px solid var(--color-border);padding-top:10px}
-    .volume-header{display:flex;align-items:center;gap:6px;margin-bottom:8px}
-    .volume-header h3{font-size:.72rem;color:var(--color-text);margin:0;font-weight:600;flex:1}
-    .volume-card{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;margin-bottom:4px;transition:all .15s}
-    .volume-card.orphaned{border-left:3px solid #f59e0b}
-    .volume-card.has-bio{border-left:3px solid #22c55e}
-    .volume-card.orphaned.has-bio{border-left:3px solid #22c55e;background:rgba(34,197,94,0.03)}
-    .volume-info{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
-    .volume-name-row{display:flex;align-items:center;gap:6px}
-    .volume-name{font-size:.66rem;font-weight:600;color:var(--color-text);font-family:var(--font-mono)}
-    .volume-meta{font-size:.56rem;color:var(--color-text-muted);display:flex;gap:6px;flex-wrap:wrap}
-    .volume-actions{display:flex;gap:4px;flex-shrink:0}
-    .btn-restore{background:#22c55e;color:white}
-    .btn-restore:disabled{opacity:.4;cursor:not-allowed}
-    .btn-xs{padding:3px 8px;border-radius:4px;cursor:pointer;border:none;font-size:.55rem;background:var(--color-border);color:var(--color-text)}
-    .btn-xs:hover{background:var(--color-primary);color:white}
-    .volume-detail{margin-top:8px;padding:10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px}
-    .volume-detail-header{display:flex;align-items:center;gap:6px;margin-bottom:8px}
-    .volume-detail-header h4{font-size:.68rem;color:var(--color-text);margin:0;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .volume-stats{display:flex;gap:8px;margin-bottom:8px}
-    .stat-box{flex:1;padding:6px 8px;background:color-mix(in srgb,var(--color-primary) 5%,var(--color-panel));border:1px solid var(--color-border);border-radius:5px;text-align:center}
-    .stat-label{display:block;font-size:.52rem;color:var(--color-text-muted)}
-    .stat-value{display:block;font-size:.72rem;font-weight:700;color:var(--color-text)}
-    .bio-items{margin-top:6px}
-    .bio-items-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-    .bio-items-header h5{font-size:.66rem;color:var(--color-text);margin:0;font-weight:600}
-    .bio-item-row{display:flex;align-items:center;gap:6px;padding:5px 8px;border-bottom:1px solid var(--color-border);cursor:pointer;transition:background .1s}
-    .bio-item-row:hover{background:color-mix(in srgb,var(--color-primary) 5%,var(--color-panel))}
-    .bio-item-row input[type=checkbox]{width:14px;height:14px;accent-color:var(--color-primary)}
-    .bio-item-name{font-size:.64rem;font-weight:600;color:var(--color-text);flex:1;font-family:var(--font-mono)}
-    .bio-item-meta{font-size:.54rem;color:var(--color-text-muted)}
-    .restore-bar{display:flex;gap:6px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid var(--color-border)}
-    .restore-select{padding:5px 8px;border-radius:5px;border:1px solid var(--color-border);font-size:.6rem;background:var(--color-panel);color:var(--color-text)}
   </style>
 </div></body></html>
