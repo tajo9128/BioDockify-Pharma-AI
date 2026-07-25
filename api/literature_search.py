@@ -11,7 +11,18 @@ logger = logging.getLogger("literature_search")
 class LiteratureSearch(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
         query = (input.get("query", "") or "").strip()
-        database = input.get("database", "pubmed").strip()
+        database = input.get("database", "pubmed").strip().lower().replace(" ", "_")
+        # Normalize common aliases
+        DB_ALIASES = {
+            "europepmc": "europe_pmc",
+            "europe-pmc": "europe_pmc",
+            "semantic-scholar": "semantic_scholar",
+            "semanticscholar": "semantic_scholar",
+            "s2": "semantic_scholar",
+            "google-scholar": "google_scholar",
+            "googlescholar": "google_scholar",
+        }
+        database = DB_ALIASES.get(database, database)
         max_results = min(int(input.get("max_results", 10) or 10), 50)
         store_to_kb = input.get("store_to_kb", False)
 
@@ -170,10 +181,19 @@ class LiteratureSearch(ApiHandler):
 
                 doi_val = self._get_text(article_data.find(".//ELocationID[@EIdType='doi']"))
 
+                # Extract PMCID from ArticleIdList (NCBI EFetch format)
+                pmcid = ""
+                aid_list = article_data.find(".//ArticleIdList")
+                if aid_list is not None:
+                    for aid in aid_list.findall("ArticleId"):
+                        if aid.attrib.get("IdType") == "pmc":
+                            pmcid = (aid.text or "").strip()
+                            break
+
                 papers.append({
                     "id": pmid,
                     "pmid": pmid,
-                    "pmcid": self._get_text(medline.find(".//PMCID")) if medline is not None else "",
+                    "pmcid": pmcid,
                     "doi": doi_val or "",
                     "title": title or "No title",
                     "abstract": abstract or "",
@@ -184,15 +204,12 @@ class LiteratureSearch(ApiHandler):
                     "database": "PubMed",
                 })
 
-            # Resolve PMCIDs in batch via Europe PMC (enables Tier 1 full text)
-            # Optional enhancement — skip gracefully if helper not available
+            # Resolve PMCIDs for papers that don't have them via Europe PMC
             if papers:
-                resolver = getattr(self, "_batch_resolve_pmcids", None)
-                if callable(resolver):
-                    try:
-                        resolver(papers)
-                    except Exception as e:
-                        logger.debug(f"PMCID batch resolve skipped: {e}")
+                try:
+                    self._resolve_pmcids_via_europe_pmc(papers)
+                except Exception as e:
+                    logger.debug(f"PMCID batch resolve skipped: {e}")
 
             return papers, count
         except Exception as e:
@@ -204,7 +221,7 @@ class LiteratureSearch(ApiHandler):
             url = (
                 "https://api.semanticscholar.org/graph/v1/paper/search?"
                 f"query={urllib.parse.quote(query)}&limit={max_results}"
-                "&fields=title,abstract,authors,journal,year,externalIds,url"
+                "&fields=title,abstract,authors,journal,year,externalIds,url,openAccessPdf"
             )
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
             with urllib.request.urlopen(req, timeout=30) as resp:
@@ -212,6 +229,14 @@ class LiteratureSearch(ApiHandler):
 
             papers = []
             for p in data.get("data", []):
+                # Extract openAccessPdf URL if available (unblocks Tier-3b full text)
+                open_access_pdf = ""
+                oap = p.get("openAccessPdf")
+                if isinstance(oap, dict):
+                    open_access_pdf = oap.get("url", "")
+                elif isinstance(oap, str):
+                    open_access_pdf = oap
+
                 papers.append({
                     "id": p.get("paperId", ""),
                     "title": p.get("title", "No title"),
@@ -220,6 +245,7 @@ class LiteratureSearch(ApiHandler):
                     "journal": (p.get("journal") or {}).get("name", ""),
                     "year": str(p.get("year", "")),
                     "url": p.get("url", ""),
+                    "openAccessPdf": open_access_pdf,
                     "database": "Semantic Scholar",
                 })
             return papers, data.get("total", 0)
@@ -575,3 +601,40 @@ class LiteratureSearch(ApiHandler):
         if hasattr(element, 'itertext'):
             return "".join(element.itertext()).strip()
         return ""
+
+    def _resolve_pmcids_via_europe_pmc(self, papers: list):
+        """Resolve PMCIDs for papers that have a PMID but no PMCID.
+
+        Queries Europe PMC's search API with each PMID to find the
+        corresponding PMCID. This unblocks Tier-1 full-text retrieval.
+        """
+        import urllib.request
+        import json as _json
+        import time as _time
+
+        missing = [p for p in papers if not p.get("pmcid") and p.get("pmid")]
+        if not missing:
+            return
+
+        resolved = 0
+        for paper in missing[:20]:  # cap at 20 to avoid rate limits
+            pmid = paper["pmid"]
+            try:
+                url = f"https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=PMID:{pmid}&resultType=core&format=json"
+                req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    data = _json.loads(resp.read().decode("utf-8"))
+                    results = data.get("resultList", {}).get("result", [])
+                    if results:
+                        pmcid = results[0].get("pmcid", "")
+                        if pmcid:
+                            if not pmcid.upper().startswith("PMC"):
+                                pmcid = "PMC" + pmcid
+                            paper["pmcid"] = pmcid
+                            resolved += 1
+                _time.sleep(0.3)  # be nice to Europe PMC API
+            except Exception:
+                pass  # silent — this is a best-effort enhancement
+
+        if resolved:
+            logger.info(f"Europe PMC resolved {resolved}/{len(missing)} PMCIDs")

@@ -311,7 +311,7 @@ class DeepResearchHandler(ApiHandler):
     # ── Database Scrapers ──
 
     async def _search_pubmed(self, topic: str, limit: int, year_from: str = "", year_to: str = "") -> List[Dict]:
-        """Search PubMed via E-utilities API."""
+        """Search PubMed via E-utilities API (esearch + efetch for full data)."""
         results = []
         try:
             query = urllib.parse.quote(topic)
@@ -325,24 +325,90 @@ class DeepResearchHandler(ApiHandler):
 
             if ids:
                 id_str = ",".join(ids[:100])
-                url2 = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id={id_str}&retmode=json"
+                # Use efetch (not esummary) — returns full abstracts + PMCIDs
+                import xml.etree.ElementTree as ET
+                url2 = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id={id_str}&retmode=xml&rettype=abstract"
                 req2 = urllib.request.Request(url2, headers={"User-Agent": "BioDockify/7.0"})
                 resp2 = urllib.request.urlopen(req2, timeout=30)
-                details = json.loads(resp2.read())
-                for pid in ids[:100]:
-                    rec = details.get("result", {}).get(pid, {})
-                    if rec:
-                        results.append({
-                            "title": rec.get("title", ""),
-                            "authors": [a.get("name", "") for a in rec.get("authors", [])],
-                            "year": rec.get("pubdate", "")[:4],
-                            "journal": rec.get("source", ""),
-                            "pmid": pid,
-                            "doi": rec.get("elocationid", ""),
-                            "abstract": "",
-                            "database": "PubMed",
-                            "citations": 0,
-                        })
+                root = ET.fromstring(resp2.read())
+
+                for article in root.findall(".//PubmedArticle"):
+                    pmid = ""
+                    pmid_elem = article.find(".//PMID")
+                    if pmid_elem is not None:
+                        pmid = (pmid_elem.text or "").strip()
+
+                    title = ""
+                    title_elem = article.find(".//ArticleTitle")
+                    if title_elem is not None:
+                        title = "".join(title_elem.itertext()).strip()
+
+                    # Get abstract
+                    abstract_parts = []
+                    for abs_text in article.findall(".//Abstract/AbstractText"):
+                        label = abs_text.attrib.get("Label", "")
+                        text = "".join(abs_text.itertext()).strip()
+                        if label:
+                            abstract_parts.append(f"{label}: {text}")
+                        else:
+                            abstract_parts.append(text)
+                    abstract = " ".join(abstract_parts)
+
+                    # Get authors
+                    authors = []
+                    for author in article.findall(".//Author"):
+                        last = author.find("LastName")
+                        init = author.find("Initials")
+                        name = ""
+                        if last is not None and last.text:
+                            name = last.text
+                        if init is not None and init.text:
+                            name += " " + init.text
+                        if name:
+                            authors.append(name)
+
+                    # Get journal and year
+                    journal = ""
+                    journal_elem = article.find(".//Journal/Title")
+                    if journal_elem is not None:
+                        journal = (journal_elem.text or "").strip()
+
+                    year = ""
+                    year_elem = article.find(".//PubDate/Year")
+                    if year_elem is not None:
+                        year = (year_elem.text or "").strip()
+                    else:
+                        medline = article.find(".//MedlineDate")
+                        if medline is not None and medline.text:
+                            year = medline.text[:4]
+
+                    # Get DOI
+                    doi = ""
+                    doi_elem = article.find(".//ELocationID[@EIdType='doi']")
+                    if doi_elem is not None:
+                        doi = (doi_elem.text or "").strip()
+
+                    # Get PMCID from ArticleIdList
+                    pmcid = ""
+                    aid_list = article.find(".//ArticleIdList")
+                    if aid_list is not None:
+                        for aid in aid_list.findall("ArticleId"):
+                            if aid.attrib.get("IdType") == "pmc":
+                                pmcid = (aid.text or "").strip()
+                                break
+
+                    results.append({
+                        "title": title,
+                        "authors": authors[:5],
+                        "year": year,
+                        "journal": journal,
+                        "pmid": pmid,
+                        "pmcid": pmcid,
+                        "doi": doi,
+                        "abstract": abstract,
+                        "database": "PubMed",
+                        "citations": 0,
+                    })
         except Exception as e:
             log.warning(f"PubMed search failed: {e}")
         return results
@@ -352,11 +418,19 @@ class DeepResearchHandler(ApiHandler):
         results = []
         try:
             query = urllib.parse.quote(topic)
-            url = f"https://api.semanticscholar.org/graph/v1/paper/search?query={query}&limit={min(limit, 100)}&fields=title,authors,year,abstract,citationCount,journal,externalIds"
+            url = f"https://api.semanticscholar.org/graph/v1/paper/search?query={query}&limit={min(limit, 100)}&fields=title,authors,year,abstract,citationCount,journal,externalIds,openAccessPdf"
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0"})
             resp = urllib.request.urlopen(req, timeout=30)
             data = json.loads(resp.read())
             for paper in data.get("data", []):
+                # Extract openAccessPdf URL (unblocks Tier-3b full text retrieval)
+                open_access_pdf = ""
+                oap = paper.get("openAccessPdf")
+                if isinstance(oap, dict):
+                    open_access_pdf = oap.get("url", "")
+                elif isinstance(oap, str):
+                    open_access_pdf = oap
+
                 results.append({
                     "title": paper.get("title", ""),
                     "authors": [a.get("name", "") for a in paper.get("authors", [])],
@@ -365,6 +439,7 @@ class DeepResearchHandler(ApiHandler):
                     "abstract": paper.get("abstract", ""),
                     "doi": paper.get("externalIds", {}).get("DOI", ""),
                     "pmid": paper.get("externalIds", {}).get("PubMed", ""),
+                    "openAccessPdf": open_access_pdf,
                     "citations": paper.get("citationCount", 0),
                     "database": "Semantic Scholar",
                 })
@@ -435,7 +510,7 @@ class DeepResearchHandler(ApiHandler):
         results = []
         try:
             query = urllib.parse.quote(topic)
-            url = f"http://export.arxiv.org/api/query?search_query=all:{query}&start=0&max_results={min(limit, 100)}&sortBy=relevance"
+            url = f"https://export.arxiv.org/api/query?search_query=all:{query}&start=0&max_results={min(limit, 100)}&sortBy=relevance"
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0"})
             resp = urllib.request.urlopen(req, timeout=30)
             xml = resp.read().decode("utf-8")

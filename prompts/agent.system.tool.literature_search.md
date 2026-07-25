@@ -58,7 +58,9 @@ asyncio.run(search())
 
 5. **If `kb_stored` is 0** (no papers had full text), tell the user: "No full-text articles were available for download. Try a different search query or database." Do NOT try to save them manually.
 
-6. **Search ALL 10 databases** for comprehensive coverage: `europe_pmc`, `pubmed`, `semantic_scholar`, `biorxiv`, `arxiv`, `openalex`, `crossref`, `drugbank`, `chembl`, `kegg`
+6. **Search these databases** for comprehensive coverage: `europe_pmc`, `pubmed`, `semantic_scholar`, `biorxiv`, `arxiv`
+   - These 5 databases are FULLY IMPLEMENTED and return real results.
+   - Do NOT use `openalex`, `crossref`, `drugbank`, `chembl`, `kegg` — they are NOT implemented and will return 0 results.
 
 7. **Run multiple searches** with different query terms to get 50-200 papers for a thesis.
 
@@ -107,4 +109,4 @@ for paper in failed_papers:
 
 ---
 
-**Databases available:** europe_pmc, pubmed, semantic_scholar, openalex, crossref, arxiv, biorxiv, drugbank, chembl, kegg
+**Databases available:** europe_pmc, pubmed, semantic_scholar, arxiv, biorxiv
