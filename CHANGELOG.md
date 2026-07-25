@@ -2,6 +2,45 @@
 
 All notable changes to BioDockify Pharma AI.
 
+## [v7.9.2] - 2026-07-22
+
+### Phase 3 Architecture Refactor — proper module directories
+
+Completed the architecture refactor: calculation logic now lives in proper
+`modules/` directories (not scattered across API handlers).
+
+#### New: modules/clinical/ (6 files)
+- `drug_interactions.py` — 50+ DDI pairs with check_drug_interaction()
+- `tdm.py` — Therapeutic Drug Monitoring with 10 drug reference ranges
+- `renal.py` — CKD-EPI 2021 + renal dose adjustment + drug-specific guidance
+- `hepatic.py` — Child-Pugh classification + hepatic dose adjustment
+- `adr.py` — Naranjo ADR causality assessment (10-question scale)
+- `vancomycin.py` — AUC-guided vancomycin dosing (Rybak 2020)
+- `geriatrics.py` — Beers Criteria 2023 + STOPP/START v2 screening
+
+#### New: modules/formulation/ (4 files)
+- `release_kinetics.py` — Zero-order, First-order, Higuchi, Korsmeyer-Peppas, Weibull fitting
+- `stability.py` — ICH Q1E shelf-life prediction (Arrhenius extrapolation)
+- `dissolution_profile.py` — f2/f1 dissolution comparison
+- `excipient_db.py` — 11 common pharmaceutical excipients
+
+#### New: modules/pharma_analysis/ (3 files)
+- `method_validation.py` — ICH Q2(R2) linearity, accuracy, precision
+- `chromatography.py` — Theoretical plates, tailing factor, resolution (USP <621>)
+- `lod_loq.py` — LOD/LOQ via S/N and standard deviation methods
+
+#### New: modules/natural_products/ (4 files)
+- `ic50_fitting.py` — 4-parameter logistic regression IC50 with scipy fallback
+- `dereplication.py` — Molecular formula parser, exact mass, DBE, compound class
+- `plant_database.py` — 12 medicinal plants with ethnopharmacological data
+- `phytochemical_screen.py` — 7 compound class screening protocols
+
+#### Modified: api/clinical.py
+Refactored to thin wrapper: all calculation logic delegates to modules/clinical/.
+API handler only handles HTTP/JSON concerns and KB storage.
+
+#### Tests: 41/41 pass. No Agent Zero core files modified.
+
 ## [v7.9.0] - 2026-07-22
 
 ### Pharma Utilities Module — 9 shared calculations across departments
