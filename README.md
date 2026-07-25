@@ -181,12 +181,14 @@ services:
     image: tajo9128/biodockify-pharma-ai:latest
     container_name: biodockify
     ports:
-      - "80:50001"
+      - "80:80"
     volumes:
-      - biodockify_usr:/a0/usr          # workspace, chats, projects, backups
-      - biodockify_data:/a0/data        # knowledge base, deep research
-      - biodockify_a0proj:/a0/.a0proj   # agent memory (FAISS), instructions
+      # Single volume for ALL persistent data
+      - biodockify_pharma_usr:/a0/usr
+      # Mount host folder so backups appear on your PC
       - ~/biodockify-backups:/a0/usr/backups
+      # Docker socket (required for Backup & Restore volume listing)
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - TZ=Asia/Kolkata
       # Optional cloud API keys (not required — local AI works without them)
@@ -198,9 +200,8 @@ services:
     restart: unless-stopped
 
 volumes:
-  biodockify_usr:
-  biodockify_data:
-  biodockify_a0proj:
+  biodockify_pharma_usr:
+    external: true
 ```
 
 ### Backup to PC
@@ -215,9 +216,9 @@ volumes:
 
 ## Data Persistence — What Survives Container Deletion
 
-All user data is stored across 3 Docker volumes:
+All user data is stored in a **single Docker volume** (`biodockify_pharma_usr` mounted at `/a0/usr`). The `/a0/data` and `/a0/.a0proj` paths are symlinks into this volume, so everything persists in one place.
 
-### Volume 1: `/a0/usr` (biodockify_usr)
+### `/a0/usr` — All Persistent Data
 
 | Data | Path | Survives? |
 |---|---|---|
@@ -229,35 +230,14 @@ All user data is stored across 3 Docker volumes:
 | **🧩 User plugins** | `/a0/usr/plugins/` | ✅ Yes |
 | **🛠️ User skills** | `/a0/usr/skills/` | ✅ Yes |
 | **💾 Backups** | `/a0/usr/backups/` | ✅ Yes + on PC if host-mounted |
-| **🤖 Local AI model** | `/opt/llama-server/models/` | ✅ Yes (bundled in image) |
-
-### Volume 2: `/a0/data` (biodockify_data)
-
-| Data | Path | Survives? |
-|---|---|---|
-| **📚 Knowledge base** | `/a0/data/knowledge_base/` | ✅ Yes |
-| **📚 Literature (papers)** | `/a0/data/knowledge_base/literature/` | ✅ Yes |
-| **🔬 Deep research sessions** | `/a0/data/knowledge_base/deep_research/` | ✅ Yes |
-| **🧬 Docking results** | `/a0/data/knowledge_base/docking/` | ✅ Yes |
-| **⚗️ MD simulations** | `/a0/data/knowledge_base/md_simulation/` | ✅ Yes |
-| **📊 QSAR models** | `/a0/data/knowledge_base/qsar/` | ✅ Yes |
-| **💊 Pharmacophore** | `/a0/data/knowledge_base/pharmacophore/` | ✅ Yes |
-| **📈 Statistics** | `/a0/data/knowledge_base/statistics/` | ✅ Yes |
-| **💊 Drug analysis** | `/a0/data/knowledge_base/drug_analysis/` | ✅ Yes |
-| **🫀 Pharmacology** | `/a0/data/knowledge_base/pharmacology/` | ✅ Yes |
-| **🧪 Medicinal Chemistry** | `/a0/data/knowledge_base/medicinal_chemistry/` | ✅ Yes |
-
-### Volume 3: `/a0/.a0proj` (biodockify_a0proj)
-
-| Data | Path | Survives? |
-|---|---|---|
-| **🧠 Agent memory (FAISS)** | `/a0/.a0proj/memory/` | ✅ Yes |
-| **📋 Instructions** | `/a0/.a0proj/instructions/` | ✅ Yes |
-| **⚙️ Project config** | `/a0/.a0proj/project.json` | ✅ Yes |
+| **📚 Knowledge base** | `/a0/data/knowledge_base/` → `/a0/usr/data/` | ✅ Yes |
+| **🧠 Agent memory (FAISS)** | `/a0/.a0proj/memory/` → `/a0/usr/.a0proj/` | ✅ Yes |
+| **📋 Instructions** | `/a0/.a0proj/instructions/` → `/a0/usr/.a0proj/` | ✅ Yes |
+| **⚙️ Project config** | `/a0/.a0proj/project.json` → `/a0/usr/.a0proj/` | ✅ Yes |
 
 ### 3-Year PhD — Long-Term Memory Strategy
 
-1. **Automatic memory**: The FAISS vector DB stores conversations, solutions, and facts automatically. It persists in the `biodockify_a0proj` Docker volume.
+1. **Automatic memory**: The FAISS vector DB stores conversations, solutions, and facts automatically. It persists in the `biodockify_pharma_usr` Docker volume.
 2. **Regular backups**: Open **Backup & Recovery** panel → **"Save to PC"** to download a .zip to your Downloads folder. Or double-click `backup-data.bat` on Windows. Backups also run automatically at 3 AM daily.
 3. **Host backup folder**: Mount `~/biodockify-backups:/a0/usr/backups` — backups appear directly in your file manager at `~/biodockify-backups/`. Survives container deletion AND `docker volume rm`.
 4. **Migration**: When upgrading to a new version:
@@ -321,7 +301,7 @@ The biggest architectural change: **llama-server is now bundled inside the BioDo
 - **Dockerfile.release**: multi-stage build — extracts llama-server + all ~30 shared libraries from `ghcr.io/ggml-org/llama.cpp:server`, copies to `/opt/llama-server/`, registers with `ldconfig`
 - **exe/init_bonsai.sh**: verifies bundled model at `/opt/llama-server/models/` (no download needed)
 - **exe/init_and_run_llama.sh**: supervisord entrypoint — calls init_bonsai.sh then execs llama-server
-- **docker-compose.yml**: single container, 3 volumes (no sidecar, no init container, no extra volume)
+- **docker-compose.yml**: single container, 1 volume + 1 backup bind mount (no sidecar, no init container)
 - **modules/local_llm/**: data-driven model catalog + runtime registry + pharma prompt library + hardware detection
 - **api/local_llm.py**: 7 actions (status, hardware, catalog, runtimes, prompts, readiness, benchmark)
 - **tests/test_local_llm.py**: 27 tests covering schema, runtime contract, compose wiring, startup scripts
