@@ -184,9 +184,9 @@ services:
       - "80:80"
     volumes:
       # 1) ALL DATA — change host path to YOUR folder
-      - F:\biodockify_pharma_usr:/a0/usr
+      - F:/biodockify_pharma_usr:/a0/usr
       # 2) BACKUPS — change host path to YOUR backup folder
-      - F:\biodockify-backups:/app/data
+      - F:/biodockify-backups:/app/data
       # 3) DOCKER SOCKET (for volume listing)
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -214,18 +214,18 @@ All research data lives in folders YOU create on your PC. Delete the container? 
 
 **Step 1 — Create 2 folders on your PC:**
 ```
-F:\biodockify_pharma_usr     ← ALL your research data lives here
-F:\biodockify-backups        ← backups go here
+F:/biodockify_pharma_usr     ← ALL your research data lives here
+F:/biodockify-backups        ← backups go here
 ```
 
 **Step 2 — Edit `docker-compose.yml`, set your paths:**
 ```yaml
 volumes:
   # YOUR data folder → container path (do not change /a0/usr)
-  - F:\biodockify_pharma_usr:/a0/usr
+  - F:/biodockify_pharma_usr:/a0/usr
 
   # YOUR backup folder → container path (do not change /app/data)
-  - F:\biodockify-backups:/app/data
+  - F:/biodockify-backups:/app/data
 ```
 
 **Step 3 — Start:**
@@ -234,7 +234,7 @@ docker compose up -d
 ```
 
 **Backup & Restore:**
-- **Backup to PC**: Backup panel → "Save to PC" → saves to your `F:\biodockify-backups` folder
+- **Backup to PC**: Backup panel → "Save to PC" → saves to your `F:/biodockify-backups` folder
 - **Restore from PC**: Backup panel → select backup → "Restore"
 
 **Upgrading:**

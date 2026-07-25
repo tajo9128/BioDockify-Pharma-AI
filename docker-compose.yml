@@ -34,17 +34,17 @@ services:
       #    Host path:  YOUR folder on your PC (create it first)
       #    Container:  /a0/usr (do not change)
       #
-      #    Windows:  - F:\biodockify_pharma_usr:/a0/usr
+      #    Windows:  - F:/biodockify_pharma_usr:/a0/usr
       #    Mac/Linux: - ~/biodockify_pharma_usr:/a0/usr
-      - F:\biodockify_pharma_usr:/a0/usr
+      - F:/biodockify_pharma_usr:/a0/usr
 
       # 2) BACKUPS — auto-backups + manual saves go here
       #    Host path:  YOUR backup folder on your PC (create it first)
       #    Container:  /app/data (do not change)
       #
-      #    Windows:  - F:\biodockify-backups:/app/data
+      #    Windows:  - F:/biodockify-backups:/app/data
       #    Mac/Linux: - ~/biodockify-backups:/app/data
-      - F:\biodockify-backups:/app/data
+      - F:/biodockify-backups:/app/data
 
       # 3) DOCKER SOCKET — enables Backup panel to list Docker volumes
       - /var/run/docker.sock:/var/run/docker.sock
