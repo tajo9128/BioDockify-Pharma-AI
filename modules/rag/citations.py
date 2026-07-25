@@ -31,13 +31,32 @@ log = logging.getLogger("rag.citations")
 _CODE_FENCE = re.compile(r"```.*?```", re.DOTALL)
 _INLINE_CODE = re.compile(r"`[^`]*`")
 _ORDINAL = re.compile(r"\[(\d{1,3})\]")
+_TYPE_ORDINAL = re.compile(r"\[(\w+):(\d{1,3})\]")  # [web:1], [kb:2], etc.
+
+# Supported source types (inspired by Perplexity's citation system)
+SOURCE_TYPES = {
+    "kb": "Knowledge Base entry",
+    "web": "Web search result",
+    "page": "Full web page content",
+    "conversation_history": "Previous conversation",
+    "pubmed": "PubMed article",
+    "semantic_scholar": "Semantic Scholar paper",
+    "arxiv": "arXiv preprint",
+    "europe_pmc": "Europe PMC article",
+}
 
 
 class CitationRegistry:
     """Tracks source → citation label mapping.
 
-    Each unique source gets a monotonic [n] label.
+    Each unique source gets a monotonic label.
     Same source referenced again gets the same label.
+
+    Supports source type prefixes (Perplexity-style):
+      - [kb:1] — Knowledge Base entry
+      - [web:2] — Web search result
+      - [page:3] — Full web page
+      - [conversation_history:4] — Previous conversation
     """
 
     def __init__(self):
@@ -46,10 +65,17 @@ class CitationRegistry:
         self._next: int = 1
 
     def register(self, source_type: str, source_id: str,
-                 display: str, snippet: str = "") -> int:
+                 display: str, snippet: str = "", url: str = "") -> int:
         """Register a source and return its citation label number.
 
         If the source was already registered, returns its existing label.
+
+        Args:
+            source_type: One of SOURCE_TYPES keys (kb, web, page, etc.)
+            source_id: Unique identifier for the source
+            display: Human-readable display name
+            snippet: Short text snippet from the source
+            url: Optional URL for web sources
         """
         key = f"{source_type}:{source_id}"
         if key in self._sources:
@@ -63,6 +89,7 @@ class CitationRegistry:
             "id": source_id,
             "display": display,
             "snippet": snippet[:200] if snippet else "",
+            "url": url or "",
         }
         return n
 
@@ -79,10 +106,17 @@ class CitationRegistry:
         return len(self._labels)
 
     def to_dict(self) -> Dict[str, Any]:
-        """Serialize for API response."""
+        """Serialize for API response (Perplexity-style structured citations)."""
         return {
             "citations": [
-                {"label": n, **meta}
+                {
+                    "label": n,
+                    "type": meta.get("type", "kb"),
+                    "id": meta.get("id", ""),
+                    "display": meta.get("display", ""),
+                    "snippet": meta.get("snippet", ""),
+                    "url": meta.get("url", ""),
+                }
                 for n, meta in sorted(self._labels.items())
             ]
         }
@@ -92,7 +126,8 @@ def render_context(chunks: List[Dict[str, Any]], registry: CitationRegistry,
                    max_chars: int = 12000) -> str:
     """Build a <retrieved_context> block with labeled passages.
 
-    Each chunk gets a [n] label. The block teaches the model to cite sources.
+    Each chunk gets a [type:n] label (Perplexity-style).
+    The block teaches the model to cite sources.
 
     Args:
         chunks: List of chunk dicts with keys: content, entry_id, title, source
@@ -108,8 +143,8 @@ def render_context(chunks: List[Dict[str, Any]], registry: CitationRegistry,
     lines = [
         "<retrieved_context>",
         "Use the following passages to answer the user's question.",
-        "Cite your sources using [n] notation (e.g. [1], [2]).",
-        "If multiple sources support a claim, stack them: [1][2].",
+        "Cite your sources using [type:n] notation (e.g. [kb:1], [web:2]).",
+        "If multiple sources support a claim, stack them: [kb:1][web:2].",
         "Do NOT cite sources for general knowledge not in these passages.",
         "Do NOT invent citation numbers — only use the numbers assigned below.",
         "",
@@ -124,12 +159,16 @@ def render_context(chunks: List[Dict[str, Any]], registry: CitationRegistry,
         entry_id = chunk.get("entry_id", chunk.get("id", ""))
         title = chunk.get("title", "Unknown")
         source = chunk.get("source", "")
+        source_type = chunk.get("source_type", "kb")
+        url = chunk.get("url", "")
 
-        n = registry.register("kb", str(entry_id), title, content)
+        n = registry.register(source_type, str(entry_id), title, content, url)
 
-        chunk_text = f"[{n}] {title}"
+        chunk_text = f"[{source_type}:{n}] {title}"
         if source:
             chunk_text += f" (Source: {source})"
+        if url:
+            chunk_text += f" ({url})"
         chunk_text += f"\n{content}\n"
 
         if total + len(chunk_text) > max_chars:
@@ -149,7 +188,11 @@ def render_context(chunks: List[Dict[str, Any]], registry: CitationRegistry,
 
 
 def normalize_citations(text: str, registry: CitationRegistry) -> str:
-    """Rewrite [n] markers in model output to [citation:id] format.
+    """Rewrite [n] and [type:n] markers in model output to [citation:id] format.
+
+    Handles both formats:
+      - [1] → [citation:entry_id] (legacy)
+      - [kb:1] → [citation:entry_id] (Perplexity-style)
 
     Carefully avoids rewriting inside code spans (```blocks``` and `inline`).
 
@@ -158,7 +201,7 @@ def normalize_citations(text: str, registry: CitationRegistry) -> str:
         registry: The CitationRegistry with registered sources
 
     Returns:
-        Text with [n] → [citation:entry_id] where applicable
+        Text with [n] or [type:n] → [citation:entry_id] where applicable
     """
     if not text or registry.count == 0:
         return text
@@ -172,15 +215,26 @@ def normalize_citations(text: str, registry: CitationRegistry) -> str:
             result_parts.append(seg_text)
             continue
 
-        # Replace [n] in non-code text
-        def _replace(m):
+        # Replace [type:n] in non-code text (Perplexity-style)
+        def _replace_typed(m):
+            source_type = m.group(1)
+            n = int(m.group(2))
+            label = registry.get_label(n)
+            if label:
+                return f"[citation:{label['id']}]"
+            return m.group(0)  # unknown citation — leave as-is
+
+        seg_text = _TYPE_ORDINAL.sub(_replace_typed, seg_text)
+
+        # Replace [n] in non-code text (legacy format)
+        def _replace_legacy(m):
             n = int(m.group(1))
             label = registry.get_label(n)
             if label:
                 return f"[citation:{label['id']}]"
             return m.group(0)  # unknown citation — leave as-is
 
-        seg_text = _ORDINAL.sub(_replace, seg_text)
+        seg_text = _ORDINAL.sub(_replace_legacy, seg_text)
         result_parts.append(seg_text)
 
     return "".join(result_parts)
@@ -226,10 +280,12 @@ def _split_code_segments(text: str) -> List[tuple]:
 CITATION_PROMPT = """You are answering questions based on retrieved knowledge base passages.
 
 CITATION RULES:
-1. Every factual claim MUST be followed by a citation marker [n] matching the passage number.
-2. If multiple passages support a claim, stack citations: [1][2].
-3. Copy citation numbers EXACTLY as assigned — do not invent new numbers.
-4. If a claim is NOT supported by any passage, say so explicitly: "This is not covered in the available sources."
-5. Prefer citing the most specific/relevant source.
-6. Structure your answer clearly, grouping related information.
+1. Every factual claim MUST be followed by a citation marker matching the passage number.
+2. Use the [type:n] format: [kb:1] for Knowledge Base, [web:2] for web sources, etc.
+3. If multiple passages support a claim, stack citations: [kb:1][web:2].
+4. Copy citation numbers EXACTLY as assigned — do not invent new numbers.
+5. If a claim is NOT supported by any passage, say so explicitly: "This is not covered in the available sources."
+6. Prefer citing the most specific/relevant source.
+7. Structure your answer clearly, grouping related information.
+8. When writing for pharmaceutical research, always cite clinical trial data, ICH guidelines, and regulatory standards.
 """
