@@ -4,9 +4,8 @@
 
 ---
 
-### HOW TO USE — Follow this EXACT workflow:
+### ⚡ FAST START — ONE CALL searches all 10 databases at once:
 
-**IMPORTANT: Use the framework Python which has all dependencies:**
 ```python
 import sys; sys.path.insert(0, "/a0")
 import asyncio
@@ -17,14 +16,40 @@ async def search():
     result = await h.process({
         "action": "search",
         "query": "your search query here",
-        "database": "europe_pmc",       # 10 databases: europe_pmc | pubmed | semantic_scholar | biorxiv | arxiv | google_scholar | scopus | wos | elsevier | springer
-        "max_results": 50,
-        "store_to_kb": True,            # ONLY stores papers that have full text
+        "database": "all",            # ← "all" searches all 10 databases IN PARALLEL
+        "max_results": 100,           # per database (1000 total potential)
+        "store_to_kb": True,          # auto-stores full-text papers to Knowledge Base
+    }, None)
+    print(f"Databases searched: {result.get('databases_searched')}")
+    print(f"Papers found: {result.get('papers_found')}")
+    print(f"Full text retrieved: {result.get('full_text_retrieved')}")
+    print(f"KB stored: {result.get('kb_stored')}")
+    print(f"KB skipped: {result.get('kb_skipped')}")
+
+asyncio.run(search())
+```
+
+---
+
+### Single-database search (for targeted follow-up):
+
+```python
+import sys; sys.path.insert(0, "/a0")
+import asyncio
+from api.literature_search import LiteratureSearch
+
+async def search():
+    h = LiteratureSearch()
+    result = await h.process({
+        "action": "search",
+        "query": "your search query here",
+        "database": "europe_pmc",     # 10 databases: europe_pmc | pubmed | semantic_scholar | biorxiv | arxiv | google_scholar | scopus | wos | elsevier | springer
+        "max_results": 100,
+        "store_to_kb": True,
     }, None)
     print("Found:", result.get("total"), "papers")
     print("Full text retrieved:", result.get("full_text_fetched"))
     print("KB stored:", result.get("kb_stored"))
-    print("KB skipped (no full text):", result.get("kb_skipped"))
 
 asyncio.run(search())
 ```
@@ -32,7 +57,7 @@ asyncio.run(search())
 ---
 
 ### WHAT HAPPENS AUTOMATICALLY (you do NOT need to do these):
-1. The tool searches the database and returns papers
+1. The tool searches the database(s) and returns papers
 2. For EACH paper, it automatically tries 3 tiers of full text retrieval:
    - Tier 1: Europe PMC fullTextXML (requires PMCID)
    - Tier 2: PDF download + text extraction
@@ -48,7 +73,7 @@ asyncio.run(search())
 
 2. **Set `store_to_kb: True`** — this is the ONLY way papers get into the Knowledge Base. The tool handles storage automatically.
 
-3. **NEVER call `auto_store()` directly for literature papers.** The `literature_search` tool already handles storage with full text validation. Calling `auto_store` directly bypasses the full text check and stores empty stubs.
+3. **NEVER call `auto_store()` directly for literature papers.** The `literature_search` tool already handles storage with full text validation.
 
 4. **NEVER store stubs.** A stub is any content like:
    - "Full article saved as PDF and DOCX."
@@ -58,7 +83,9 @@ asyncio.run(search())
 
 5. **If `kb_stored` is 0** (no papers had full text), tell the user: "No full-text articles were available for download. Try a different search query or database." Do NOT try to save them manually.
 
-6. **Search ALL 10 databases** for comprehensive coverage:
+6. **Use `database: "all"` for the first search** — this searches all 10 databases in parallel for maximum coverage (up to 1000 papers). Then use single-database searches for targeted follow-up on specific subtopics.
+
+7. **The 10 databases** (all fully implemented):
    - `europe_pmc` — BEST for full text (open access XML)
    - `pubmed` — biomedical literature (35M+ citations)
    - `semantic_scholar` — AI-powered search with citations
@@ -69,29 +96,23 @@ asyncio.run(search())
    - `wos` — Web of Science journals (via Crossref)
    - `elsevier` — ScienceDirect/Elsevier journals (via Crossref)
    - `springer` — Springer Nature journals (via Crossref)
-   - All 10 are FULLY IMPLEMENTED and return real results.
-
-7. **Run multiple searches** with different query terms to get 50-200 papers for a thesis.
 
 8. **After searching**, report to the user:
-   - How many papers were found
+   - How many databases were searched
+   - How many papers were found (total)
    - How many had full text retrieved
    - How many were stored to KB
    - How many were skipped (no full text)
 
 ---
 
-### WHAT TO DO IF FULL TEXT RETRIEVAL FAILS:
-- Do NOT try to save the paper anyway
-- Do NOT write metadata to the Knowledge Base
-- Simply SKIP the paper and move to the next one
-- Tell the user how many papers were skipped
-
----
-
 ### TWO-ROUND WORKFLOW (for comprehensive research):
 
-**Round 1:** Search ALL 10 databases with `store_to_kb: True`. This automatically downloads and stores all available full-text articles. Run all 10 searches in parallel for speed.
+**Round 1:** Search all 10 databases at once using `database: "all"` with `store_to_kb: True`. This automatically downloads and stores all available full-text articles. Use multiple query variations to maximize coverage:
+- Main topic: `"drug-drug interactions in elderly"`
+- Specific mechanism: `"CYP450 inhibition pharmacokinetics"`
+- Clinical outcome: `"adverse drug reactions polypharmacy"`
+- Each query returns up to 1000 papers across 10 databases.
 
 **Round 2:** For papers that failed Round 1 (no full text), try the Hacker Agent:
 ```python
@@ -102,7 +123,6 @@ retriever = FullTextRetriever()
 for paper in failed_papers:
     full_text = retriever.retrieve(paper)
     if full_text and len(full_text) > 2000:
-        # Only NOW store it
         from modules.knowledge.auto_store import auto_store
         auto_store(
             module_name="literature_search",

@@ -23,8 +23,12 @@ class LiteratureSearch(ApiHandler):
             "googlescholar": "google_scholar",
         }
         database = DB_ALIASES.get(database, database)
-        max_results = min(int(input.get("max_results", 10) or 10), 50)
+        max_results = min(int(input.get("max_results", 100) or 100), 200)
         store_to_kb = input.get("store_to_kb", False)
+
+        # ── BATCH SEARCH: all 10 databases in parallel ──
+        if database == "all" or database == "batch":
+            return await self._batch_search(query, max_results, store_to_kb)
 
         if not query:
             return {"error": "Search query required", "papers": [], "total": 0}
@@ -121,6 +125,126 @@ class LiteratureSearch(ApiHandler):
             "kb_stored": kb_stored,
             "kb_skipped": kb_skipped,
             "full_text_fetched": full_text_count,
+        }
+
+    async def _batch_search(self, query: str, max_per_db: int, store_to_kb: bool) -> dict:
+        """Search ALL 10 databases in parallel. Maximum coverage for first impression.
+
+        Returns aggregate stats: total found, full text retrieved, KB stored.
+        De-duplicates by DOI/PMID to avoid double-counting.
+        """
+        import asyncio
+
+        ALL_DATABASES = [
+            "europe_pmc", "pubmed", "semantic_scholar", "biorxiv", "arxiv",
+            "google_scholar", "scopus", "wos", "elsevier", "springer",
+        ]
+
+        async def _safe_search(db_name):
+            """Search one DB, return (db_name, papers, error). Never raises."""
+            try:
+                if db_name == "pubmed":
+                    papers, _ = await self._search_pubmed(query, max_per_db)
+                elif db_name == "semantic_scholar":
+                    papers, _ = await self._search_semantic_scholar(query, max_per_db)
+                elif db_name == "arxiv":
+                    papers, _ = await self._search_arxiv(query, max_per_db)
+                elif db_name == "google_scholar":
+                    papers, _ = await self._search_google_scholar(query, max_per_db)
+                elif db_name == "scopus":
+                    papers, _ = await self._search_scopus(query, max_per_db)
+                elif db_name == "wos":
+                    papers, _ = await self._search_wos(query, max_per_db)
+                elif db_name == "elsevier":
+                    papers, _ = await self._search_elsevier(query, max_per_db)
+                elif db_name == "springer":
+                    papers, _ = await self._search_springer(query, max_per_db)
+                elif db_name == "europe_pmc":
+                    papers, _ = await self._search_europe_pmc(query, max_per_db)
+                elif db_name == "biorxiv":
+                    papers, _ = await self._search_biorxiv(query, max_per_db)
+                else:
+                    papers = []
+                return (db_name, papers, None)
+            except Exception as e:
+                logger.warning(f"Batch search failed for {db_name}: {e}")
+                return (db_name, [], str(e))
+
+        # Run all 10 searches in parallel
+        logger.info(f"[Batch Search] Starting parallel search across {len(ALL_DATABASES)} databases for: {query}")
+        results = await asyncio.gather(*[_safe_search(db) for db in ALL_DATABASES])
+
+        # Aggregate + de-duplicate
+        all_papers = []
+        seen_dois = set()
+        seen_pmids = set()
+        db_stats = {}
+        for db_name, papers, err in results:
+            db_papers_added = 0
+            for p in papers:
+                doi = (p.get("doi") or "").lower().strip()
+                pmid = (p.get("pmid") or "").strip()
+                # Dedupe by DOI first, then PMID
+                if doi and doi in seen_dois:
+                    continue
+                if not doi and pmid and pmid in seen_pmids:
+                    continue
+                if doi:
+                    seen_dois.add(doi)
+                if pmid:
+                    seen_pmids.add(pmid)
+                p["source_database"] = db_name
+                all_papers.append(p)
+                db_papers_added += 1
+            db_stats[db_name] = {"found": len(papers), "added": db_papers_added, "error": err}
+
+        logger.info(f"[Batch Search] {len(all_papers)} unique papers from {len(ALL_DATABASES)} databases")
+
+        # Fetch full text for all unique papers
+        full_text_count = 0
+        kb_stored = 0
+        kb_skipped = 0
+
+        if store_to_kb and all_papers:
+            from modules.literature.full_text import FullTextRetriever
+            from modules.knowledge.auto_store import auto_store
+            retriever = FullTextRetriever()
+
+            for paper in all_papers:
+                try:
+                    full_text = await retriever.retrieve_async(paper) if hasattr(retriever, "retrieve_async") else retriever.retrieve(paper)
+                    if full_text and len(full_text) > 2000:
+                        full_text_count += 1
+                        try:
+                            auto_store(
+                                module_name="literature_search",
+                                title=paper.get("title", "Untitled"),
+                                content=f"**Authors:** {', '.join(paper.get('authors', [])[:5])}\n**Source:** {paper.get('source_database', 'unknown')}\n**DOI:** {paper.get('doi', 'N/A')}\n\n## Full Text\n\n{full_text}",
+                                source=paper.get("source_database", "Literature Search"),
+                                tags=["literature", "full_text", paper.get("source_database", "")],
+                                category="literature",
+                            )
+                            kb_stored += 1
+                        except Exception as e:
+                            logger.warning(f"KB store failed for '{paper.get('title','?')[:40]}': {e}")
+                            kb_skipped += 1
+                    else:
+                        kb_skipped += 1
+                except Exception as e:
+                    logger.warning(f"Full text failed for '{paper.get('title','?')[:40]}': {e}")
+                    kb_skipped += 1
+
+        return {
+            "status": "ok",
+            "query": query,
+            "database": "all",
+            "databases_searched": len(ALL_DATABASES),
+            "papers_found": len(all_papers),
+            "full_text_retrieved": full_text_count,
+            "kb_stored": kb_stored,
+            "kb_skipped": kb_skipped,
+            "db_stats": db_stats,
+            "message": f"Searched {len(ALL_DATABASES)} databases: found {len(all_papers)} unique papers, {full_text_count} full-text retrieved, {kb_stored} stored to KB.",
         }
 
     async def _search_pubmed(self, query: str, max_results: int):
