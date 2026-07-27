@@ -1049,8 +1049,31 @@ class Agent:
         Returns a response string (to break the loop) or None (to continue).
         Escalates recovery effort based on consecutive failure count.
         """
+        import re as _re
+
+        # Level 0: Empty or near-empty response (rate limit, timeout, or API error)
+        # Route as a friendly response to the user instead of showing ugly misformat error
+        stripped = msg.strip()
+        if not stripped or len(stripped) < 10:
+            PrintStyle(font_color="yellow", padding=True).print(
+                "⟳ Self-repair: empty/truncated response (possible rate limit), routing as response"
+            )
+            from tools.response import ResponseTool
+            tool = ResponseTool(
+                agent=self,
+                name="response",
+                method=None,
+                args={"text": msg or "I'm having trouble generating a response right now. This may be due to API rate limits. Please try again in a moment."},
+                message=msg,
+                loop_data=self.loop_data,
+            )
+            response = await tool.execute(text=msg or "I'm having trouble generating a response right now. This may be due to API rate limits. Please try again in a moment.")
+            if response.break_loop:
+                await tool.after_execution(response)
+            return response.message
+
         # Level 1: Pure conversational response (no braces at all) — route as response
-        if consecutive >= 2 and "{" not in msg and "}" not in msg:
+        if consecutive >= 1 and "{" not in msg and "}" not in msg:
             from tools.response import ResponseTool
             tool = ResponseTool(
                 agent=self,
@@ -1069,19 +1092,33 @@ class Agent:
                 return response.message
 
         # Level 2: Check if message contains a tool_name-like keyword with JSON args
-        if consecutive >= 3:
-            import re as _re
+        if consecutive >= 2:
             match = _re.search(r'(tool_name|tool)\s*[:=]\s*["\']?(\w+)["\']?', msg)
             if match:
                 extracted_name = match.group(2)
                 PrintStyle(font_color="yellow", padding=True).print(
                     f"⟳ Self-repair: extracted tool name '{extracted_name}' from misformat, retrying..."
                 )
-                # Try to reconstruct valid tool request
                 msg_fixed = f'{{"tool_name":"{extracted_name}","tool_args":{{}}}}'
-                # Recursive call — but limit depth via consecutive counter
                 if consecutive < 5:
                     return await self.process_tools(msg_fixed)
+
+        # Level 3: Response has JSON-like content but malformed — try to fix common issues
+        if consecutive >= 2 and "{" in msg:
+            # Try to extract any JSON block and fix it
+            json_match = _re.search(r'\{[^{}]*"tool_name"[^{}]*\}', msg, _re.DOTALL)
+            if json_match:
+                try:
+                    import json
+                    parsed = json.loads(json_match.group())
+                    if "tool_name" in parsed:
+                        msg_fixed = json.dumps(parsed)
+                        PrintStyle(font_color="yellow", padding=True).print(
+                            f"⟳ Self-repair: extracted JSON from malformed response"
+                        )
+                        return await self.process_tools(msg_fixed)
+                except (json.JSONDecodeError, Exception):
+                    pass
 
         return None
 
