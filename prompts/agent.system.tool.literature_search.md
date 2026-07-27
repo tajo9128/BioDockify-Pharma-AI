@@ -17,7 +17,7 @@ async def search():
     result = await h.process({
         "action": "search",
         "query": "your search query here",
-        "database": "europe_pmc",       # BEST for full text: europe_pmc | pubmed | semantic_scholar | biorxiv | arxiv
+        "database": "europe_pmc",       # 10 databases: europe_pmc | pubmed | semantic_scholar | biorxiv | arxiv | google_scholar | scopus | wos | elsevier | springer
         "max_results": 50,
         "store_to_kb": True,            # ONLY stores papers that have full text
     }, None)
@@ -58,9 +58,18 @@ asyncio.run(search())
 
 5. **If `kb_stored` is 0** (no papers had full text), tell the user: "No full-text articles were available for download. Try a different search query or database." Do NOT try to save them manually.
 
-6. **Search these databases** for comprehensive coverage: `europe_pmc`, `pubmed`, `semantic_scholar`, `biorxiv`, `arxiv`
-   - These 5 databases are FULLY IMPLEMENTED and return real results.
-   - Do NOT use `openalex`, `crossref`, `drugbank`, `chembl`, `kegg` — they are NOT implemented and will return 0 results.
+6. **Search ALL 10 databases** for comprehensive coverage:
+   - `europe_pmc` — BEST for full text (open access XML)
+   - `pubmed` — biomedical literature (35M+ citations)
+   - `semantic_scholar` — AI-powered search with citations
+   - `biorxiv` — biology preprints
+   - `arxiv` — physics/math/CS preprints
+   - `google_scholar` — broadest coverage (via Crossref)
+   - `scopus` — Scopus-indexed journals (via Crossref)
+   - `wos` — Web of Science journals (via Crossref)
+   - `elsevier` — ScienceDirect/Elsevier journals (via Crossref)
+   - `springer` — Springer Nature journals (via Crossref)
+   - All 10 are FULLY IMPLEMENTED and return real results.
 
 7. **Run multiple searches** with different query terms to get 50-200 papers for a thesis.
 
@@ -82,7 +91,7 @@ asyncio.run(search())
 
 ### TWO-ROUND WORKFLOW (for comprehensive research):
 
-**Round 1:** Search all 10 databases with `store_to_kb: True`. This automatically downloads and stores all available full-text articles.
+**Round 1:** Search ALL 10 databases with `store_to_kb: True`. This automatically downloads and stores all available full-text articles. Run all 10 searches in parallel for speed.
 
 **Round 2:** For papers that failed Round 1 (no full text), try the Hacker Agent:
 ```python
@@ -109,4 +118,4 @@ for paper in failed_papers:
 
 ---
 
-**Databases available:** europe_pmc, pubmed, semantic_scholar, arxiv, biorxiv
+**Databases available (10 total):** europe_pmc, pubmed, semantic_scholar, arxiv, biorxiv, google_scholar, scopus, wos, elsevier, springer

@@ -46,7 +46,7 @@ asyncio.run(research())
 3. **CRITICAL: ONLY save papers where FULL-TEXT is successfully retrieved. Skip abstracts-only papers. Save each full article as DOCX + PDF.**
 4. For a thesis, combine Deep Research (broad gathering) + targeted Literature Search (specific subtopics).
 5. After Deep Research completes, suggest the user write their thesis/review — the Academic Writer will pull these sources from KB.
-6. Use these databases: pubmed, semantic_scholar, europe_pmc, biorxiv, arxiv
-   - These 5 databases are FULLY IMPLEMENTED and return real results with full text.
-   - Do NOT use drugbank, chembl, kegg, openalex, crossref — they return 0 results.
+6. Use ALL 10 databases: europe_pmc, pubmed, semantic_scholar, biorxiv, arxiv, google_scholar, scopus, wos, elsevier, springer
+   - All 10 databases are FULLY IMPLEMENTED and return real results with full text.
+   - Run all 10 searches in parallel for maximum coverage.
 7. **NEVER save abstracts, metadata-only, or summaries. If full text is unavailable, SKIP the paper entirely.**
