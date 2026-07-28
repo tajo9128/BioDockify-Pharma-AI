@@ -47,13 +47,15 @@ class PharmacophoreHandler(ApiHandler):
         if action == "enhanced_fingerprint": return self._enhanced_fingerprint(input)
         if action == "enhanced_shape": return self._enhanced_shape(input)
         if action == "enhanced_protein_features": return self._enhanced_protein_features(input)
+        if action == "complete": return self._complete(input)
         return {
             "actions": [
                 "generate", "protein_model", "screen", "hypothesis", "nci_types",
                 "enhanced_detect", "enhanced_interactions", "enhanced_screen",
-                "enhanced_model", "enhanced_fingerprint", "enhanced_shape", "enhanced_protein_features"
+                "enhanced_model", "enhanced_fingerprint", "enhanced_shape",
+                "enhanced_protein_features", "complete"
             ],
-            "hint": "POST with action=generate to create a pharmacophore from SMILES"
+            "hint": "POST with action=complete for full pharmacophore analysis (2D, 3D, CSV, heatmap, distribution)"
         }
     
     def _generate(self, input: dict):
@@ -633,4 +635,39 @@ class PharmacophoreHandler(ApiHandler):
             return result
         except Exception as e:
             log.error(f"Protein features failed: {e}")
+            return {"success": False, "error": str(e)}
+
+    def _complete(self, input: dict):
+        """Complete pharmacophore analysis — 8 publication-grade outputs.
+
+        Inspired by Omixium's pharmacophore modeling pipeline.
+        Returns: 2D plot, 3D HTML, distance CSV, distance heatmap,
+        distribution plot, feature CSV, fingerprint summary, properties CSV.
+        """
+        smiles = input.get("smiles", "")
+        name = input.get("name", "Molecule")
+        if not smiles:
+            return {"error": "smiles is required"}
+
+        try:
+            from modules.pharmacophore.complete_analysis import complete_pharmacophore_analysis
+            result = complete_pharmacophore_analysis(smiles, name)
+
+            # Auto-store to KB
+            if result.get("success"):
+                try:
+                    from modules.knowledge.auto_store import auto_store
+                    auto_store("pharmacophore",
+                        "Complete Pharmacophore: " + name,
+                        {"smiles": smiles, "feature_summary": result.get("feature_summary"),
+                         "num_features": result.get("num_features"),
+                         "molecular_properties": result.get("molecular_properties")},
+                        source="Pharmacophore Complete Analysis",
+                        tags=["pharmacophore", "complete", smiles[:20]])
+                except Exception:
+                    pass
+
+            return result
+        except Exception as e:
+            log.error(f"Complete pharmacophore failed: {e}")
             return {"success": False, "error": str(e)}
