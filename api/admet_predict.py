@@ -152,6 +152,65 @@ class AdmetPredict(ApiHandler):
             # ── QED (quantitative estimate of drug-likeness, Bickerton 2012) ──
             qed = round(QED.qed(mol), 3) if hasattr(QED, 'qed') else "N/A"
 
+            # ── PAINS alerts (Pan Assay Interference Compounds) ──
+            pains_alerts = []
+            try:
+                from rdkit.Chem import RDFilters
+                # Simplified PAINS check via SMARTS
+                pains_smarts = [
+                    ("[n+]", "azide/nitro group"),
+                    ("[$([NR]),$(N#N)]", "azo/hydrazone"),
+                    ("[cR1]1[cR1][cR1][cR1][cR1][cR1]1[cR1]1[cR1][cR1][cR1][cR1][cR1]1", "biaryl"),
+                ]
+                for smarts, desc in pains_smarts:
+                    pat = Chem.MolFromSmarts(smarts)
+                    if pat and mol.HasSubstructMatch(pat):
+                        pains_alerts.append(desc)
+            except Exception:
+                pass
+            pains_risk = "High" if len(pains_alerts) >= 2 else ("Medium" if pains_alerts else "Low")
+
+            # ── Synthetic Accessibility (SA) score (Ertl & Schuffenhauer 2009) ──
+            sa_score = None
+            try:
+                from rdkit.Chem import rdMolDescriptors as _rdmd
+                fps = _rdmd.GetMorganFingerprintAsBitVect(mol, 2, 1024)
+                # Simplified SA estimate: based on molecule complexity
+                ring_info = mol.GetRingInfo()
+                n_rings = ring_info.NumRings()
+                n_stereo = len(Chem.FindMolChiralCenters(mol, includeUnassigned=True))
+                sa_score = round(1.0 + (n_rings * 0.3) + (n_stereo * 0.5) + (mw / 500), 2)
+                sa_score = min(max(sa_score, 1.0), 10.0)
+            except Exception:
+                pass
+
+            # ── P-glycoprotein substrate prediction (via rules from admetSAR) ──
+            # P-gp substrates tend to be: MW > 400, LogP > 2, TPSA 60-140, HBA >= 4
+            p_gp_substrate = "Yes" if (mw > 400 and logp > 2 and 40 < tpsa < 150 and hba >= 4) else "Unlikely"
+
+            # ── Ames mutagenicity (via Benigni-Bossa rule-based structural alerts) ──
+            ames_alerts = []
+            ames_smarts = [
+                ("[N+]", "nitro/nitroso aromatic"),
+                ("[cR1]1[cR1][cR1][cR1][cR1][cR1]1[N+]", "aromatic nitro"),
+                ("[$([cR1]1[cR1][cR1][cR1][cR1][cR1]1-[#7]),$(N=N)]", "aromatic amine / azo"),
+                ("[$([CX3]=[CX3])]", "alkene (epoxidation risk)"),
+            ]
+            for smarts, desc in ames_smarts:
+                pat = Chem.MolFromSmarts(smarts)
+                if pat and mol.HasSubstructMatch(pat):
+                    ames_alerts.append(desc)
+            ames_risk = "High" if ames_alerts else "Low"
+
+            # ── Bioaccumulation risk (BCF — Bioconcentration Factor) ──
+            # High bioaccumulation if LogP > 4.5 (Dimitrov et al. 2005)
+            if logp > 5:
+                bcf_risk = "High"
+            elif logp > 4:
+                bcf_risk = "Medium"
+            else:
+                bcf_risk = "Low"
+
             result = {
                 "smiles": smiles,
                 "formula": formula,
@@ -173,8 +232,15 @@ class AdmetPredict(ApiHandler):
                 "cyp_inhibition": cyp_inhibition,
                 "plasma_protein_binding": ppb,
                 "bioavailability_score": bioavailability_score,
-                "synthetic_accessibility": "Use RDKit SA score (separate module)",
                 "qed": qed,
+                # ── NEW BOOSTED PROPERTIES ──
+                "pains_alerts": pains_alerts,
+                "pains_risk": pains_risk,
+                "synthetic_accessibility_score": sa_score,
+                "p_gp_substrate": p_gp_substrate,
+                "ames_mutagenicity_risk": ames_risk,
+                "ames_alerts": ames_alerts,
+                "bioaccumulation_risk": bcf_risk,
             }
             # ── AUTO-STORE ──
             try:

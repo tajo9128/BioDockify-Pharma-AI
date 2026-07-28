@@ -54,27 +54,56 @@ class FullTextRetriever:
         """Run full retrieval. Returns full text string or None.
 
         Side effect: sets self._last_pdf_bytes if Tier 2 succeeded.
+
+        Strategy (5 tiers, tried in order):
+          Tier 1: Europe PMC fullTextXML (requires PMCID)
+          Tier 2: Unpaywall OA lookup (requires DOI + email)
+          Tier 3: OpenAlex OA location (requires DOI)
+          Tier 4: Direct PDF download (publisher landing page)
+          Tier 5: Hacker Agent (6 sub-strategies: CORE, S2, Jina, Playwright, Scholar, scrape)
         """
         self._last_pdf_bytes = None
 
+        # Tier 1: Europe PMC
         full_text = self._tier1_europe_pmc(paper)
-        if full_text:
-            logger.info(f"Tier 1 OK: {paper.get('title', '?')[:60]}")
+        if full_text and self._is_substantial_text(full_text):
+            logger.info(f"Tier 1 OK (Europe PMC): {paper.get('title', '?')[:60]}")
             return full_text
 
-        full_text, pdf_bytes = self._tier2_pdf_download(paper)
-        if full_text:
+        # Tier 2: Unpaywall
+        full_text, pdf_bytes = self._tier2_unpaywall(paper)
+        if full_text and self._is_substantial_text(full_text):
             self._last_pdf_bytes = pdf_bytes
-            logger.info(f"Tier 2 OK: {paper.get('title', '?')[:60]}")
+            logger.info(f"Tier 2 OK (Unpaywall): {paper.get('title', '?')[:60]}")
             return full_text
 
-        full_text = self._tier3_hacker_agent(paper)
-        if full_text:
-            logger.info(f"Tier 3 OK: {paper.get('title', '?')[:60]}")
+        # Tier 3: OpenAlex
+        full_text, pdf_bytes = self._tier3_openalex(paper)
+        if full_text and self._is_substantial_text(full_text):
+            self._last_pdf_bytes = pdf_bytes
+            logger.info(f"Tier 3 OK (OpenAlex): {paper.get('title', '?')[:60]}")
+            return full_text
+
+        # Tier 4: Direct PDF download
+        full_text, pdf_bytes = self._tier4_pdf_download(paper)
+        if full_text and self._is_substantial_text(full_text):
+            self._last_pdf_bytes = pdf_bytes
+            logger.info(f"Tier 4 OK (PDF): {paper.get('title', '?')[:60]}")
+            return full_text
+
+        # Tier 5: Hacker Agent
+        full_text = self._tier5_hacker_agent(paper)
+        if full_text and self._is_substantial_text(full_text):
+            logger.info(f"Tier 5 OK (Hacker): {paper.get('title', '?')[:60]}")
             return full_text
 
         logger.warning(f"ALL TIERS FAILED: {paper.get('title', '?')[:60]}")
         return None
+
+    async def retrieve_async(self, paper: Dict) -> Optional[str]:
+        """Async wrapper for retrieve() — runs in thread pool."""
+        import asyncio
+        return await asyncio.to_thread(self.retrieve, paper)
 
     def get_last_pdf_bytes(self) -> Optional[bytes]:
         """Return raw PDF bytes from the last successful Tier 2 download."""
@@ -106,25 +135,125 @@ class FullTextRetriever:
             return None
 
     # ═══════════════════════════════════════════════════════════════
-    # Tier 2: PDF download + pypdf extraction
+    # Tier 2: Unpaywall — best OA lookup by DOI (free API, no key needed)
     # ═══════════════════════════════════════════════════════════════
 
-    def _tier2_pdf_download(self, paper: Dict) -> Tuple[Optional[str], Optional[bytes]]:
-        """Download PDF from OA URL. Returns (text, pdf_bytes)."""
-        pdf_url = paper.get("full_text_url") or paper.get("pdf_url")
-        if not pdf_url:
+    def _tier2_unpaywall(self, paper: Dict) -> Tuple[Optional[str], Optional[bytes]]:
+        """Query Unpaywall for OA copy, then download + extract."""
+        doi = paper.get("doi", "").strip()
+        if not doi:
             return None, None
 
         try:
+            self._rate_limit(0.5)
+            # Unpaywall requires an email in the query
+            url = f"https://api.unpaywall.org/v2/{doi}?email=biodockify@example.com"
+            resp = self.session.get(url, timeout=15)
+
+            if resp.status_code != 200:
+                return None, None
+
+            data = resp.json()
+            best_oa = data.get("best_oa_location") or {}
+
+            # Prefer PDF, fall back to full-text landing page
+            pdf_url = best_oa.get("url_for_pdf")
+            landing_url = best_oa.get("url")
+            host_type = best_oa.get("host_type", "?")
+
+            if pdf_url:
+                text, pdf_bytes = self._download_and_extract_pdf(pdf_url)
+                if text:
+                    return text, pdf_bytes
+
+            if landing_url:
+                text = self._hack_jina(landing_url)
+                if text and self._is_substantial_text(text):
+                    return text, None
+
+            return None, None
+        except Exception as e:
+            logger.debug(f"Tier 2 (Unpaywall) failed: {e}")
+            return None, None
+
+    # ═══════════════════════════════════════════════════════════════
+    # Tier 3: OpenAlex — OA location lookup by DOI
+    # ═══════════════════════════════════════════════════════════════
+
+    def _tier3_openalex(self, paper: Dict) -> Tuple[Optional[str], Optional[bytes]]:
+        """Query OpenAlex for OA locations, try each PDF."""
+        doi = paper.get("doi", "").strip()
+        if not doi:
+            return None, None
+
+        try:
+            self._rate_limit(0.5)
+            url = f"https://api.openalex.org/works/doi:{doi}"
+            resp = self.session.get(url, timeout=15)
+
+            if resp.status_code != 200:
+                return None, None
+
+            data = resp.json()
+            oa_locations = data.get("open_access", {}) or {}
+            locations = data.get("locations", []) or []
+
+            # Collect candidate URLs
+            candidates = []
+            for loc in locations:
+                pdf_url = loc.get("pdf_url")
+                landing = loc.get("landing_page_url")
+                if pdf_url:
+                    candidates.append(pdf_url)
+                if landing and landing not in candidates:
+                    candidates.append(landing)
+
+            # Also check best_oa_location
+            best = oa_locations.get("oa_url") or data.get("best_oa_location", {}).get("pdf_url")
+            if best and best not in candidates:
+                candidates.insert(0, best)
+
+            for url in candidates[:5]:  # try up to 5 locations
+                if url.endswith(".pdf"):
+                    text, pdf_bytes = self._download_and_extract_pdf(url)
+                    if text:
+                        return text, pdf_bytes
+                else:
+                    text = self._hack_jina(url)
+                    if text and self._is_substantial_text(text):
+                        return text, None
+
+            return None, None
+        except Exception as e:
+            logger.debug(f"Tier 3 (OpenAlex) failed: {e}")
+            return None, None
+
+    # ═══════════════════════════════════════════════════════════════
+    # Tier 4: Direct PDF download (from publisher or OA URL)
+    # ═══════════════════════════════════════════════════════════════
+
+    def _tier4_pdf_download(self, paper: Dict) -> Tuple[Optional[str], Optional[bytes]]:
+        """Download PDF from known OA URL. Returns (text, pdf_bytes)."""
+        pdf_url = paper.get("full_text_url") or paper.get("pdf_url")
+        if not pdf_url:
+            return None, None
+        return self._download_and_extract_pdf(pdf_url)
+
+    def _download_and_extract_pdf(self, url: str) -> Tuple[Optional[str], Optional[bytes]]:
+        """Download PDF from URL and extract text. Returns (text, pdf_bytes)."""
+        try:
             self._rate_limit(2.0)
-            resp = self.session.get(pdf_url, timeout=45, stream=True)
+            resp = self.session.get(url, timeout=45, stream=True)
 
             if resp.status_code != 200 or len(resp.content) < 1000:
-                logger.debug(f"PDF download failed: HTTP {resp.status_code}")
+                return None, None
+
+            # Verify it's actually a PDF
+            if not resp.content[:5].startswith(b"%PDF"):
+                logger.debug(f"URL did not return PDF: {url[:60]}")
                 return None, None
 
             pdf_bytes = resp.content
-
             from pypdf import PdfReader
             reader = PdfReader(BytesIO(pdf_bytes))
             pages = []
@@ -134,30 +263,30 @@ class FullTextRetriever:
                     pages.append(text.strip())
 
             full = "\n\n".join(pages)
-            if len(full) > 200:
+            if len(full) > 500:
                 return full, pdf_bytes
             return None, None
         except Exception as e:
-            logger.warning(f"Tier 2 failed: {e}")
+            logger.debug(f"PDF download failed: {e}")
             return None, None
 
     # ═══════════════════════════════════════════════════════════════
-    # Tier 3: Hacker Agent — 6 sub-strategies
+    # Tier 5: Hacker Agent — 6 sub-strategies
     # ═══════════════════════════════════════════════════════════════
 
-    def _tier3_hacker_agent(self, paper: Dict) -> Optional[str]:
+    def _tier5_hacker_agent(self, paper: Dict) -> Optional[str]:
         """Try 6 sub-strategies in sequence until one returns valid text."""
         title = paper.get("title", "")
         doi = paper.get("doi", "")
         url = paper.get("url", "")
 
         strategies = [
-            ("3a-CORE.ac.uk",    lambda: self._hack_core_ac_uk(title, doi)),
-            ("3b-SemanticScholar", lambda: self._hack_semantic_scholar(paper)),
-            ("3c-JinaAI",        lambda: self._hack_jina(doi or url)),
-            ("3d-Playwright",    lambda: self._hack_playwright(doi or url)),
-            ("3e-GoogleScholar", lambda: self._hack_google_scholar(title)),
-            ("3f-RawScrape",     lambda: self._hack_raw_scrape(doi or url)),
+            ("5a-CORE.ac.uk",    lambda: self._hack_core_ac_uk(title, doi)),
+            ("5b-SemanticScholar", lambda: self._hack_semantic_scholar(paper)),
+            ("5c-JinaAI",        lambda: self._hack_jina(doi or url)),
+            ("5d-Playwright",    lambda: self._hack_playwright(doi or url)),
+            ("5e-GoogleScholar", lambda: self._hack_google_scholar(title)),
+            ("5f-RawScrape",     lambda: self._hack_raw_scrape(doi or url)),
         ]
 
         for label, strategy in strategies:
@@ -165,7 +294,6 @@ class FullTextRetriever:
                 logger.debug(f"Trying {label} for: {title[:60]}")
                 result = strategy()
                 if result and len(result) > 300:
-                    # Quality check — must have substantial body text
                     if self._is_substantial_text(result):
                         logger.info(f"  {label} SUCCESS ({len(result)} chars)")
                         return f"[Source: {label}]\n\n{result}"
@@ -177,13 +305,28 @@ class FullTextRetriever:
         return None
 
     def _is_substantial_text(self, text: str) -> bool:
-        """Heuristic: real article body has multiple paragraphs with varied word lengths."""
-        paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
-        if len(paragraphs) < 2:
+        """Heuristic: real article body must be substantial.
+
+        Strict rules (aligned with auto_store stub rejection):
+          - >= 3000 chars of body text (excludes abstracts)
+          - Multiple paragraphs with varied content
+          - Not boilerplate (high lexical diversity)
+        """
+        if not text or len(text) < 3000:
             return False
-        # Check average paragraph length
-        avg_len = sum(len(p) for p in paragraphs) / len(paragraphs)
-        return avg_len > 100
+
+        paragraphs = [p.strip() for p in text.split("\n\n") if p.strip() and len(p.strip()) > 50]
+        if len(paragraphs) < 3:
+            return False
+
+        # Lexical diversity check — real articles use varied vocabulary
+        words = text.lower().split()
+        if len(words) > 0:
+            unique_ratio = len(set(words)) / len(words)
+            if unique_ratio < 0.20:
+                return False
+
+        return True
 
     # ── 3a: CORE.ac.uk API ──
     def _hack_core_ac_uk(self, title: str, doi: str) -> Optional[str]:

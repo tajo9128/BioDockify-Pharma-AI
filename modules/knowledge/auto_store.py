@@ -100,6 +100,85 @@ def _save_index(index):
         log.error(f"Failed to save KB index: {e}")
 
 
+def _is_literature_stub(content: str) -> str:
+    """Validate that content is a REAL full article, not a stub/abstract/metadata.
+
+    Returns:
+        None — content is valid (a real full article)
+        str — reason for rejection (stub pattern detected)
+
+    A valid full article has:
+      - >= 3000 chars of body text
+      - Structured sections (## Introduction, ## Methods, ## Results, ## Discussion)
+        OR dense prose paragraphs
+      - NOT just title + authors + abstract
+    """
+    if not content:
+        return "empty content"
+    text = content.strip()
+
+    # --- Size gate ---
+    # A real full article is at least 3000 chars (~500 words / 1.5 pages).
+    # Abstracts are typically 200-300 words (~1500-2000 chars).
+    if len(text) < 3000:
+        return f"too short ({len(text)} chars, need >=3000 for full article)"
+
+    # --- Stub phrase patterns ---
+    stub_patterns = [
+        "Full article saved as PDF",
+        "Full article saved as DOCX",
+        "Full article saved as",
+        "Abstract not available",
+        "Full text not available",
+        "No full text found",
+        "Full text unavailable",
+        "Please download the PDF",
+        "Access required",
+        "Paywall — cannot access",
+        "Subscription required",
+        "Login required to view",
+        "Sign in to view",
+    ]
+    for pat in stub_patterns:
+        if pat.lower() in text.lower():
+            return f"stub phrase: '{pat}'"
+
+    # --- Abstract-only detection ---
+    # If content is short and contains "Abstract" but no body sections, it's an abstract
+    has_abstract = "abstract" in text.lower()[:1000]
+    has_body_sections = any(s in text.lower() for s in [
+        "## introduction", "## methods", "## methodology", "## materials and methods",
+        "## results", "## discussion", "## conclusion", "## references",
+        "introduction", "methods", "results", "discussion",
+    ])
+    if has_abstract and not has_body_sections and len(text) < 5000:
+        return "abstract-only (no body sections)"
+
+    # --- Metadata-only detection ---
+    # Content that is just key-value pairs (Title: X, Authors: Y, DOI: Z)
+    # without substantial prose
+    lines = [l.strip() for l in text.split("\n") if l.strip()]
+    if lines:
+        metadata_patterns = [
+            l.startswith(("Title:", "Authors:", "DOI:", "PMID:", "Journal:",
+                          "Published:", "Source:", "URL:", "Keywords:"))
+            for l in lines
+        ]
+        # If >60% of non-empty lines are metadata fields, it's metadata-only
+        metadata_ratio = sum(metadata_patterns) / len(lines)
+        if metadata_ratio > 0.6 and len(text) < 8000:
+            return "metadata-only (no article body)"
+
+    # --- Boilerplate detection ---
+    # Content that is mostly the same text repeated
+    unique_words = len(set(text.lower().split()))
+    total_words = len(text.split())
+    if total_words > 0 and unique_words / total_words < 0.25:
+        return "boilerplate (low lexical diversity)"
+
+    return None  # Valid full article
+
+
 def auto_store(module_name, title, content, source="", tags=None, metadata=None,
                category=None, store_as="md"):
     """Store ANY module output into the Knowledge Base automatically.
@@ -135,23 +214,13 @@ def auto_store(module_name, title, content, source="", tags=None, metadata=None,
             formatted_content = str(content)
 
         # ── VALIDATION: Prevent storing stubs for literature entries ──
-        # If this is a literature/deep_research entry, require substantial content.
-        # Stubs like "Full article saved as PDF and DOCX." or abstracts-only
-        # violate the user requirement: "no abstracts, no metadata — only full articles."
+        # HARD RULE: Only full articles (with body text) are stored.
+        # No abstracts, no metadata-only, no stubs. Ever.
         if category in ("literature", "deep_research"):
-            # Check for common stub patterns
-            stub_patterns = [
-                "Full article saved as PDF",
-                "Full article saved as DOCX",
-                "Abstract not available",
-                "Full text not available",
-                "No full text found",
-            ]
-            is_stub = any(pattern in formatted_content for pattern in stub_patterns)
-            
-            # Require at least 2000 chars of actual content for literature entries
-            if is_stub or len(formatted_content) < 2000:
-                log.warning(f"SKIP storing literature stub [{category}]: {title[:50]} ({len(formatted_content)} chars)")
+            is_stub = _is_literature_stub(formatted_content)
+            if is_stub:
+                log.warning(f"SKIP storing literature stub [{category}]: {title[:50]} "
+                            f"({len(formatted_content)} chars) — {is_stub}")
                 return None
 
         # Ensure category directory exists

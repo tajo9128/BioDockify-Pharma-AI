@@ -125,6 +125,14 @@ def _format_log(
 
 class DockingRun(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
+        # ── BATCH / VIRTUAL SCREENING MODE ──
+        # If input contains "smiles_list" or "ligand_list", dock multiple compounds
+        # in parallel against the same receptor. Returns ranked list by binding energy.
+        smiles_list = input.get("smiles_list", [])
+        ligand_list = input.get("ligand_list", [])
+        if smiles_list or ligand_list:
+            return await self._batch_screen(input, smiles_list, ligand_list)
+
         job_id = input.get("job_id", "")
         receptor = input.get("receptor_pdbqt", "") or input.get("receptor", "")
         ligand = input.get("ligand_pdbqt", "") or input.get("ligand", "")
@@ -353,3 +361,151 @@ class DockingRun(ApiHandler):
             msg = f"Docking error: {str(e)}"
             log.exception(msg)
             return {"status": "error", "error": msg}
+
+    async def _batch_screen(self, input: dict, smiles_list: list, ligand_list: list) -> dict:
+        """Virtual screening: dock multiple ligands against one receptor in parallel.
+
+        Args:
+            smiles_list: List of SMILES strings to dock (will be converted to PDBQT)
+            ligand_list: List of pre-prepared PDBQT file paths
+            receptor: Receptor PDBQT path (required)
+            center/size/exhaustiveness: Same as single docking
+
+        Returns:
+            Ranked list of compounds by binding energy (best first)
+        """
+        import asyncio
+        from api.docking_prepare import _sanitize_pdbqt
+
+        receptor = input.get("receptor_pdbqt", "") or input.get("receptor", "")
+        center = input.get("center", {"x": 0, "y": 0, "z": 0})
+        size = input.get("size", {"x": 20, "y": 20, "z": 20})
+        exhaustiveness = input.get("exhaustiveness", 32)
+        num_modes = input.get("num_modes", 9)
+        screen_id = input.get("job_id") or f"screen_{int(time.time())}"
+
+        if not receptor or not os.path.exists(receptor):
+            return {"error": "receptor_pdbqt path required for batch screening"}
+
+        screen_dir = os.path.join(JOBS_DIR, screen_id)
+        os.makedirs(screen_dir, exist_ok=True)
+
+        # Sanitize receptor once
+        _sanitize_pdbqt(receptor, is_ligand=False)
+
+        # Build list of (compound_id, ligand_path) to dock
+        compounds = []
+        for i, smi in enumerate(smiles_list):
+            compound_id = f"compound_{i+1}"
+            # Convert SMILES to PDBQT using Meeko
+            try:
+                lig_pdbqt = os.path.join(screen_dir, f"{compound_id}.pdbqt")
+                proc = await asyncio.to_thread(
+                    subprocess.run,
+                    ["mk_prepare_ligand.py", "-i", "/dev/stdin", "-o", lig_pdbqt],
+                    input=smi, capture_output=True, text=True, timeout=30
+                )
+                if os.path.exists(lig_pdbqt):
+                    compounds.append((compound_id, lig_pdbqt, smi))
+            except Exception as e:
+                log.warning(f"Failed to prepare {compound_id} from SMILES: {e}")
+
+        for lig_path in ligand_list:
+            if os.path.exists(lig_path):
+                compound_id = os.path.splitext(os.path.basename(lig_path))[0]
+                compounds.append((compound_id, lig_path, ""))
+
+        if not compounds:
+            return {"error": "No valid ligands to screen. Provide smiles_list or ligand_list."}
+
+        log.info(f"[Virtual Screening] Screening {len(compounds)} compounds against {receptor}")
+
+        async def _dock_one(compound_id, lig_path, smiles):
+            """Dock a single ligand. Returns result dict."""
+            try:
+                _sanitize_pdbqt(lig_path, is_ligand=True)
+                out_path = os.path.join(screen_dir, f"{compound_id}_docked.pdbqt")
+                log_path = os.path.join(screen_dir, f"{compound_id}_log.txt")
+
+                cmd = [
+                    "vina",
+                    "--receptor", receptor,
+                    "--ligand", lig_path,
+                    "--center_x", str(center["x"]),
+                    "--center_y", str(center["y"]),
+                    "--center_z", str(center["z"]),
+                    "--size_x", str(size["x"]),
+                    "--size_y", str(size["y"]),
+                    "--size_z", str(size["z"]),
+                    "--exhaustiveness", str(exhaustiveness),
+                    "--num_modes", str(num_modes),
+                    "--out", out_path,
+                    "--log", log_path,
+                    "--cpu", "2",  # limit CPU per compound for parallelism
+                ]
+                proc = await asyncio.to_thread(
+                    subprocess.run, cmd,
+                    capture_output=True, text=True, timeout=300
+                )
+                # Parse best energy from log
+                best_energy = None
+                if os.path.exists(log_path):
+                    with open(log_path) as f:
+                        for line in f:
+                            if line.strip().startswith("1"):
+                                parts = line.split()
+                                if len(parts) >= 2:
+                                    best_energy = float(parts[1])
+                                break
+                return {
+                    "compound_id": compound_id,
+                    "smiles": smiles,
+                    "binding_energy": best_energy,
+                    "status": "docked" if best_energy is not None else "failed",
+                    "output": out_path,
+                }
+            except Exception as e:
+                return {"compound_id": compound_id, "smiles": smiles,
+                        "binding_energy": None, "status": f"error: {e}"}
+
+        # Run all dockings in parallel (max 4 concurrent to avoid CPU overload)
+        semaphore = asyncio.Semaphore(4)
+
+        async def _docked(c):
+            async with semaphore:
+                return await _dock_one(*c)
+
+        results = await asyncio.gather(*[_docked(c) for c in compounds])
+
+        # Rank by binding energy (most negative = best)
+        docked = [r for r in results if r["binding_energy"] is not None]
+        failed = [r for r in results if r["binding_energy"] is None]
+        docked.sort(key=lambda r: r["binding_energy"])
+
+        # Store results to KB
+        try:
+            from modules.knowledge.auto_store import auto_store
+            auto_store(
+                "docking_run",
+                f"Virtual Screening: {len(docked)}/{len(compounds)} compounds docked",
+                {"screen_id": screen_id, "compounds_screened": len(compounds),
+                 "compounds_docked": len(docked), "compounds_failed": len(failed),
+                 "top_10": docked[:10]},
+                source="AutoDock Vina Virtual Screening",
+                tags=["docking", "virtual_screening", "batch"],
+                category="docking",
+            )
+        except Exception:
+            pass
+
+        return {
+            "status": "ok",
+            "screen_id": screen_id,
+            "total_compounds": len(compounds),
+            "successfully_docked": len(docked),
+            "failed": len(failed),
+            "ranked_results": docked,
+            "failed_compounds": failed,
+            "message": f"Virtual screening complete: {len(docked)}/{len(compounds)} compounds docked. "
+                       f"Best binding energy: {docked[0]['binding_energy'] if docked else 'N/A'} kcal/mol",
+        }
