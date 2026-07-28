@@ -257,11 +257,16 @@ class AdmetPredict(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
         smiles = input.get("smiles", "").strip()
         preset = input.get("preset", "").strip()
+        smiles_list = input.get("smiles_list", [])
+
+        # Batch mode: process multiple SMILES at once
+        if smiles_list:
+            return self._batch_analyze(smiles_list, input)
 
         if preset and preset in PRESET_LIBRARY:
             smiles = PRESET_LIBRARY[preset]
         if not smiles:
-            return {"error": "No SMILES provided"}
+            return {"error": "No SMILES provided. Provide smiles, preset, or smiles_list for batch mode."}
 
         try:
             from rdkit import Chem
@@ -439,6 +444,188 @@ class AdmetPredict(ApiHandler):
             except Exception:
                 pass
             return result
+        except ImportError:
+            return {"error": "RDKit not available"}
+        except Exception as e:
+            return {"error": str(e)}
+
+    def _batch_analyze(self, smiles_list, input):
+        """Batch ADMET analysis for multiple compounds (Omixium batch_analyzer style).
+
+        Input: smiles_list (list of SMILES strings), names (optional list)
+        Returns: summary table, distribution plots, CSV data.
+        """
+        names = input.get("names", [])
+
+        try:
+            from rdkit import Chem
+            from rdkit.Chem import Descriptors, Crippen, QED
+            from rdkit.Chem import rdMolDescriptors
+            from rdkit import RDLogger
+            RDLogger.DisableLog('rdApp.*')
+
+            results = []
+            failed = []
+
+            for i, smi in enumerate(smiles_list):
+                name = names[i] if i < len(names) else f"Compound_{i+1}"
+                mol = Chem.MolFromSmiles(str(smi).strip())
+                if mol is None:
+                    failed.append({"name": name, "smiles": smi, "error": "Invalid SMILES"})
+                    continue
+
+                try:
+                    mw = Descriptors.MolWt(mol)
+                    logp = Crippen.MolLogP(mol)
+                    tpsa = Descriptors.TPSA(mol)
+                    hbd = Descriptors.NumHDonors(mol)
+                    hba = Descriptors.NumHAcceptors(mol)
+                    rot = Descriptors.NumRotatableBonds(mol)
+                    qed = round(QED.qed(mol), 3)
+                    formula = rdMolDescriptors.CalcMolFormula(mol)
+
+                    # Lipinski
+                    lipinski_violations = []
+                    if hbd > 5: lipinski_violations.append(f"HBD {hbd}>5")
+                    if hba > 10: lipinski_violations.append(f"HBA {hba}>10")
+                    if mw > 500: lipinski_violations.append(f"MW {mw:.0f}>500")
+                    if logp > 5: lipinski_violations.append(f"LogP {logp:.1f}>5")
+
+                    # GI Absorption
+                    if tpsa <= 60 and logp >= 1.0:
+                        gi = "High"
+                    elif tpsa <= 120:
+                        gi = "High"
+                    elif tpsa <= 140:
+                        gi = "Medium"
+                    else:
+                        gi = "Low"
+
+                    # BBB (BOILED-Egg)
+                    from matplotlib.patches import Ellipse
+                    bbb_ellipse = Ellipse((38.117, 3.177), 82.061, 5.557, angle=-0.171887)
+                    bbb = bbb_ellipse.contains_point((tpsa, logp))
+
+                    # Bioavailability
+                    bio = 0.0
+                    if not lipinski_violations: bio += 0.25
+                    if tpsa <= 140 and rot <= 10: bio += 0.25
+                    if gi == "High": bio += 0.25
+                    if tpsa <= 140 and logp >= 0: bio += 0.25
+
+                    results.append({
+                        "name": name, "smiles": smi, "formula": formula,
+                        "mw": round(mw, 2), "logp": round(logp, 2),
+                        "tpsa": round(tpsa, 2), "hbd": hbd, "hba": hba,
+                        "rotatable_bonds": rot, "qed": qed,
+                        "lipinski_pass": len(lipinski_violations) == 0,
+                        "lipinski_violations": len(lipinski_violations),
+                        "gi_absorption": gi, "bbb_pass": bbb,
+                        "bioavailability_score": round(bio, 2),
+                    })
+                except Exception as e:
+                    failed.append({"name": name, "smiles": smi, "error": str(e)[:100]})
+
+            # Summary statistics
+            if results:
+                import numpy as np
+                mws = [r["mw"] for r in results]
+                logps = [r["logp"] for r in results]
+                lipinski_pass = sum(1 for r in results if r["lipinski_pass"])
+                gi_high = sum(1 for r in results if r["gi_absorption"] == "High")
+                bbb_pass = sum(1 for r in results if r["bbb_pass"])
+
+                summary = {
+                    "total_compounds": len(smiles_list),
+                    "successful": len(results),
+                    "failed": len(failed),
+                    "lipinski_pass_rate": f"{lipinski_pass}/{len(results)} ({100*lipinski_pass/len(results):.1f}%)",
+                    "gi_absorption_high": f"{gi_high}/{len(results)} ({100*gi_high/len(results):.1f}%)",
+                    "bbb_penetrant": f"{bbb_pass}/{len(results)} ({100*bbb_pass/len(results):.1f}%)",
+                    "avg_mw": round(float(np.mean(mws)), 1),
+                    "avg_logp": round(float(np.mean(logps)), 2),
+                    "avg_qed": round(float(np.mean([r["qed"] for r in results])), 3),
+                }
+            else:
+                summary = {"total_compounds": len(smiles_list), "successful": 0, "failed": len(failed)}
+
+            # Generate distribution plot
+            plot_b64 = None
+            if results:
+                try:
+                    import matplotlib
+                    matplotlib.use("Agg")
+                    import matplotlib.pyplot as plt
+                    import io, base64
+
+                    fig, axes = plt.subplots(2, 2, figsize=(10, 8))
+                    fig.suptitle(f"Batch ADMET Analysis — {len(results)} compounds", fontsize=12, fontweight="bold")
+
+                    # MW distribution
+                    axes[0, 0].hist(mws, bins=20, color="#2196F3", edgecolor="black", linewidth=0.5)
+                    axes[0, 0].axvline(500, color="red", linestyle="--", label="Lipinski MW limit")
+                    axes[0, 0].set_title("Molecular Weight"); axes[0, 0].legend(fontsize=7)
+
+                    # LogP distribution
+                    axes[0, 1].hist(logps, bins=20, color="#4CAF50", edgecolor="black", linewidth=0.5)
+                    axes[0, 1].axvline(5, color="red", linestyle="--", label="Lipinski LogP limit")
+                    axes[0, 1].set_title("Lipophilicity (LogP)"); axes[0, 1].legend(fontsize=7)
+
+                    # Lipinski pass/fail pie
+                    lip_counts = [lipinski_pass, len(results) - lipinski_pass]
+                    axes[1, 0].pie(lip_counts, labels=["Pass", "Fail"], colors=["#4CAF50", "#F44336"],
+                                   autopct="%1.1f%%", startangle=90)
+                    axes[1, 0].set_title("Lipinski Ro5 Compliance")
+
+                    # GI Absorption bar
+                    gi_counts = {}
+                    for r in results:
+                        gi_counts[r["gi_absorption"]] = gi_counts.get(r["gi_absorption"], 0) + 1
+                    axes[1, 1].bar(gi_counts.keys(), gi_counts.values(),
+                                   color=["#4CAF50", "#FF9800", "#F44336"][:len(gi_counts)])
+                    axes[1, 1].set_title("GI Absorption"); axes[1, 1].set_ylabel("Count")
+
+                    plt.tight_layout()
+                    buf = io.BytesIO()
+                    fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
+                    buf.seek(0)
+                    plot_b64 = base64.b64encode(buf.read()).decode()
+                    plt.close(fig)
+                except Exception:
+                    pass
+
+            # Build CSV
+            if results:
+                csv_lines = ["Name,SMILES,Formula,MW,LogP,TPSA,HBD,HBA,RotBonds,QED,Lipinski,GI_Absorption,BBB,Bioavailability"]
+                for r in results:
+                    csv_lines.append(f'"{r["name"]}","{r["smiles"]}","{r["formula"]}",{r["mw"]},{r["logp"]},{r["tpsa"]},{r["hbd"]},{r["hba"]},{r["rotatable_bonds"]},{r["qed"]},{"PASS" if r["lipinski_pass"] else "FAIL"},{r["gi_absorption"]},{"Yes" if r["bbb_pass"] else "No"},{r["bioavailability_score"]}')
+                csv_data = "\n".join(csv_lines)
+            else:
+                csv_data = ""
+
+            response = {
+                "status": "ok",
+                "mode": "batch",
+                "summary": summary,
+                "results": results,
+                "failed": failed,
+                "plot_b64": plot_b64,
+                "csv_data": csv_data,
+                "message": f"Batch ADMET: {len(results)}/{len(smiles_list)} compounds analyzed. "
+                           f"Lipinski pass: {summary.get('lipinski_pass_rate', 'N/A')}. "
+                           f"GI High: {summary.get('gi_absorption_high', 'N/A')}.",
+            }
+
+            # Auto-store
+            try:
+                from modules.knowledge.auto_store import auto_store
+                auto_store("admet_predict", f"Batch ADMET: {len(results)} compounds", summary,
+                           source="ADMET Batch Analysis", tags=["drug_analysis", "admet", "batch"])
+            except Exception:
+                pass
+
+            return response
+
         except ImportError:
             return {"error": "RDKit not available"}
         except Exception as e:
