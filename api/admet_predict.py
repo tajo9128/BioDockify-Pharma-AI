@@ -1,13 +1,19 @@
-"""ADMET Prediction — trained ML models + RDKit descriptors.
+"""ADMET Prediction — comprehensive drug-likeness + pharmacokinetic profiling.
 
-Replaces hard-coded heuristics with scientifically grounded predictions:
-- Lipinski/Veber/Golden Triangle: rule-based (correct)
-- BBB: BOILED-Egg model (Wager et al. 2010, J. Med. Chem.) — LogP + TPSA threshold
-- hERG: pkCSM-style model — MW + LogP + HBD + TPSA weighted score
-- GI Absorption: Caco-2 permeability proxy (Artursson & Karlsson, 1991)
-- Bioavailability: SwissADME-style probability (not a hard-coded constant)
-- CYP Inhibition: SMARTS-based metabolic soft spots (CYP1A2, 2C9, 2C19, 2D6, 3A4)
-- Plasma Protein Binding: LogP-based estimation (Valko et al. 2001)
+Based on peer-reviewed models with proper citations:
+- Lipinski Ro5: Lipinski (2001) Experimental and computational approaches
+- Veber: Veber (2002) Molecular Properties That Influence Oral Bioavailability
+- Egan: Egan (2000) Prediction of Drug Absorption Using Multivariate Statistics
+- Ghose: Ghose (1999) Qualitative and Quantitative Characterization of Known Drug Databases
+- Muegge: Muegge (2001) Simple Selection Criteria for Drug-like Chemical Matter
+- BOILED-Egg: Daina & Zoete (2016) A BOILED-Egg to Predict GI Absorption and BBB
+- PAINS: Baell & Holloway (2010) Pan Assay Interference Compounds (480+ filters)
+- Brenk: Brenk (2008) Lessons Learnt from Assembling Screening Libraries
+- CYP450: SMARTS-based metabolic soft spots (pkCSM / admetSAR)
+- hERG: pkCSM-inspired weighted score
+- Ames: Benigni-Bossa structural alerts
+- PPB: Valko et al. (2001) LogP correlation
+- QED: Bickerton et al. (2012) Quantitative Estimate of Drug-likeness
 """
 from helpers.api import ApiHandler, Request
 import logging
@@ -21,10 +27,16 @@ PRESET_LIBRARY = {
     "caffeine": "Cn1cnc2c1c(=O)n(c(=O)n2C)C",
     "warfarin": "CC(=O)OC(Cc1c(O)c2ccccc2oc1=O)C(c1ccccc1)=O",
     "sildenafil": "CCCC1=C2N(C(=O)N1CCC)CCCC2c3ccc(cc3)S(=O)(=O)N",
+    "paracetamol": "CC(=O)Nc1ccc(O)cc1",
+    "atorvastatin": "CC(C)c1n(CC[C@@H](O)C[C@@H](O)CC(O)=O)c(c2ccc(F)cc2)c(c1c1ccccc1)C(=O)Nc1ccccc1",
+    "omeprazole": "COc1ccc2[nH]c(S(=O)Cc3ncc(C)c(OC)c3C)nc2c1",
+    "paromomycin": "NC1C(O)C(OC2C(O)C(N)C(OC3OC(CO)C(O)C(N)C3O)C2O)OC1CO",
 }
 
 
-# ── CYP450 metabolic soft spot SMARTS (from pkCSM / admetSAR) ──
+# ═══════════════════════════════════════════════════════════════
+# CYP450 metabolic soft spot SMARTS (from pkCSM / admetSAR)
+# ═══════════════════════════════════════════════════════════════
 CYP_INHIBITION_PATTERNS = {
     "1A2": [
         ("[cR1]1[cR1][cR1][cR1][cR1][cR1]1", "planar aromatic (hetero)arene"),
@@ -67,6 +79,179 @@ def _check_cyp_inhibition(mol) -> dict:
     return risks
 
 
+def _pains_brenk_check(mol) -> dict:
+    """Check PAINS and Brenk structural alerts using RDKit FilterCatalog.
+
+    PAINS (Baell & Holloway 2010): 480+ curated filters for assay interference.
+    Brenk (2008): structural alerts for toxic/reactive/unstable fragments.
+    Much more reliable than hand-written SMARTS patterns.
+    """
+    from rdkit import Chem
+    from rdkit.Chem import FilterCatalog
+    from rdkit import RDLogger
+    RDLogger.DisableLog('rdApp.*')
+
+    result = {"pains": {"hits": False, "alerts": []}, "brenk": {"hits": False, "alerts": []}}
+
+    try:
+        # PAINS — Pan Assay Interference Compounds
+        params = FilterCatalog.FilterCatalogParams()
+        params.AddCatalog(FilterCatalog.FilterCatalogParams.FilterCatalogs.PAINS)
+        catalog = FilterCatalog.FilterCatalog(params)
+        entry = catalog.GetFirstMatch(mol)
+        if entry:
+            result["pains"]["hits"] = True
+            result["pains"]["alerts"].append(entry.GetDescription())
+            # Get all matches
+            matches = catalog.GetMatches(mol)
+            result["pains"]["alerts"] = [m.GetDescription() for m in matches]
+    except Exception as e:
+        log.debug(f"PAINS check failed: {e}")
+
+    try:
+        # Brenk — Structural alerts for drug discovery
+        params = FilterCatalog.FilterCatalogParams()
+        params.AddCatalog(FilterCatalog.FilterCatalogParams.FilterCatalogs.BRENK)
+        catalog = FilterCatalog.FilterCatalog(params)
+        entry = catalog.GetFirstMatch(mol)
+        if entry:
+            result["brenk"]["hits"] = True
+            result["brenk"]["alerts"].append(entry.GetDescription())
+            matches = catalog.GetMatches(mol)
+            result["brenk"]["alerts"] = [m.GetDescription() for m in matches]
+    except Exception as e:
+        log.debug(f"Brenk check failed: {e}")
+
+    return result
+
+
+def _druglikeness_egan(mol, logp, tpsa) -> dict:
+    """Egan (2000) Prediction of Drug Absorption Using Multivariate Statistics.
+
+    Rule-based upper bounds (95% CI) for the Egan egg model.
+    """
+    violations = []
+    if tpsa > 131.6:
+        violations.append(f"TPSA {tpsa:.1f} > 131.6")
+    if logp > 5.88:
+        violations.append(f"LogP {logp:.2f} > 5.88")
+    return {"pass": len(violations) == 0, "violations": violations}
+
+
+def _druglikeness_ghose(mol, logp, mw, mr, n_atoms) -> dict:
+    """Ghose (1999) Qualitative and Quantitative Characterization of Known Drug Databases.
+
+    Qualifying range: chance of missing good compounds < 20%.
+    Preferred range: interval containing 50% of drugs.
+    """
+    violations = []
+    if logp > 5.6 or logp < -0.4:
+        violations.append(f"LogP {logp:.2f} (range -0.4 to 5.6)")
+    if mw < 160 or mw > 480:
+        violations.append(f"MW {mw:.1f} (range 160-480)")
+    if mr < 40 or mr > 130:
+        violations.append(f"MR {mr:.1f} (range 40-130)")
+    if n_atoms < 20 or n_atoms > 70:
+        violations.append(f"N atoms {n_atoms} (range 20-70)")
+    return {"pass": len(violations) == 0, "violations": violations}
+
+
+def _druglikeness_muegge(mol, mw, logp, tpsa, n_rings, n_carbon, n_hetero, rot, hba, hbd) -> dict:
+    """Muegge (2001) Simple Selection Criteria for Drug-like Chemical Matter.
+
+    Pharmacophore point-based filter.
+    """
+    violations = []
+    if mw > 600 or mw < 200:
+        violations.append(f"MW {mw:.1f} (range 200-600)")
+    if logp > 5 or logp < -2:
+        violations.append(f"LogP {logp:.2f} (range -2 to 5)")
+    if tpsa > 150:
+        violations.append(f"TPSA {tpsa:.1f} > 150")
+    if n_rings > 7:
+        violations.append(f"N rings {n_rings} > 7")
+    if n_carbon < 5:
+        violations.append(f"N carbon {n_carbon} < 5")
+    if n_hetero < 2:
+        violations.append(f"N heteroatoms {n_hetero} < 2")
+    if rot > 15:
+        violations.append(f"Rot bonds {rot} > 15")
+    if hba > 10:
+        violations.append(f"HBA {hba} > 10")
+    if hbd > 5:
+        violations.append(f"HBD {hbd} > 5")
+    return {"pass": len(violations) == 0, "violations": violations}
+
+
+def _boiled_egg(logp, tpsa) -> dict:
+    """BOILED-Egg model (Daina & Zoete 2016, J. Chem. Inf. Model.).
+
+    Uses proper ellipse math from the original paper, not threshold hacks.
+    Returns HIA (white) and BBB (yolk) predictions.
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    from matplotlib.patches import Ellipse
+    import io, base64
+
+    # Ellipse parameters from the BOILED-Egg paper (Daina 2016)
+    hia_ellipse = Ellipse((71.051, 2.292), 142.081, 8.740, -1.031325)
+    bbb_ellipse = Ellipse((38.117, 3.177), 82.061, 5.557, -0.171887)
+
+    point = (tpsa, logp)
+    hia_pass = hia_ellipse.contains_point(point)
+    bbb_pass = bbb_ellipse.contains_point(point)
+
+    # Generate graphical plot
+    plot_b64 = None
+    try:
+        import matplotlib.pyplot as plt
+        fig, axis = plt.subplots(figsize=(6, 4))
+        axis.patch.set_facecolor("#f0f0f0")
+
+        # Draw HIA ellipse (white)
+        hia = Ellipse((71.051, 2.292), 142.081, 8.740, -1.031325,
+                       facecolor="white", edgecolor="#666", linewidth=1.5, alpha=0.8)
+        axis.add_artist(hia)
+
+        # Draw BBB ellipse (yolk)
+        bbb = Ellipse((38.117, 3.177), 82.061, 5.557, -0.171887,
+                       facecolor="#f59e0b", edgecolor="#d97706", linewidth=1.5, alpha=0.8)
+        axis.add_artist(bbb)
+
+        axis.set_xlim(-10, 200)
+        axis.set_ylim(-4, 8)
+        axis.set_xlabel("TPSA (Å²)", fontsize=10)
+        axis.set_ylabel("LogP", fontsize=10)
+        axis.set_title("BOILED-Egg (Daina & Zoete 2016)", fontsize=11, fontweight="bold")
+        axis.grid(alpha=0.3)
+
+        # Plot compound
+        color = "#22c55e" if hia_pass else "#ef4444"
+        axis.scatter(tpsa, logp, c=color, s=100, zorder=10, edgecolors="black", linewidths=1.5)
+        axis.annotate(f"TPSA={tpsa:.1f}\nLogP={logp:.2f}",
+                      (tpsa, logp), textcoords="offset points", xytext=(10, 10),
+                      fontsize=8, color=color)
+
+        # Legend
+        axis.text(160, 7.0, "White = HIA ✓", fontsize=8, color="#666")
+        axis.text(160, 6.3, "Yolk = BBB ✓", fontsize=8, color="#d97706")
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
+        buf.seek(0)
+        plot_b64 = base64.b64encode(buf.read()).decode()
+        plt.close(fig)
+    except Exception as e:
+        log.debug(f"BOILED-Egg plot failed: {e}")
+
+    return {
+        "hia": hia_pass,
+        "bbb": bbb_pass,
+        "plot_b64": plot_b64,
+    }
+
+
 class AdmetPredict(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
         smiles = input.get("smiles", "").strip()
@@ -81,11 +266,14 @@ class AdmetPredict(ApiHandler):
             from rdkit import Chem
             from rdkit.Chem import Descriptors, Crippen, QED
             from rdkit.Chem import rdMolDescriptors
+            from rdkit import RDLogger
+            RDLogger.DisableLog('rdApp.*')
 
             mol = Chem.MolFromSmiles(smiles)
             if mol is None:
                 return {"error": "Invalid SMILES"}
 
+            # ── Core molecular descriptors ──
             mw = Descriptors.MolWt(mol)
             logp = Crippen.MolLogP(mol)
             hbd = Descriptors.NumHDonors(mol)
@@ -94,122 +282,112 @@ class AdmetPredict(ApiHandler):
             rot = Descriptors.NumRotatableBonds(mol)
             formula = rdMolDescriptors.CalcMolFormula(mol)
             aromatic_rings = Descriptors.NumAromaticRings(mol)
+            n_rings = rdMolDescriptors.CalcNumRings(mol)
+            mr = Crippen.MolMR(mol)
+            n_atoms = mol.GetNumAtoms()
+            n_carbon = sum(1 for a in mol.GetAtoms() if a.GetAtomicNum() == 6)
+            n_hetero = rdMolDescriptors.CalcNumHeteroatoms(mol)
 
-            # ── Lipinski / Veber (correct, well-established rules) ──
-            lipinski = mw <= 500 and logp <= 5 and hbd <= 5 and hba <= 10
-            veber = tpsa <= 140 and rot <= 10
+            # ═══════════════════════════════════════════════════════════
+            # DRUGLIKENESS FILTERS (7 filters, all peer-reviewed)
+            # ═══════════════════════════════════════════════════════════
+
+            # Lipinski Ro5 (Lipinski 2001)
+            lipinski_violations = []
+            if hbd > 5: lipinski_violations.append(f"HBD {hbd} > 5")
+            if hba > 10: lipinski_violations.append(f"HBA {hba} > 10")
+            if mw > 500: lipinski_violations.append(f"MW {mw:.1f} > 500")
+            if logp > 5: lipinski_violations.append(f"LogP {logp:.2f} > 5")
+            lipinski = {"pass": len(lipinski_violations) == 0, "violations": lipinski_violations}
+
+            # Veber (Veber 2002)
+            veber_violations = []
+            if tpsa > 140: veber_violations.append(f"TPSA {tpsa:.1f} > 140")
+            if rot > 10: veber_violations.append(f"Rot bonds {rot} > 10")
+            veber = {"pass": len(veber_violations) == 0, "violations": veber_violations}
+
+            # Egan (Egan 2000)
+            egan = _druglikeness_egan(mol, logp, tpsa)
+
+            # Ghose (Ghose 1999)
+            ghose = _druglikeness_ghose(mol, logp, mw, mr, n_atoms)
+
+            # Muegge (Muegge 2001)
+            muegge = _druglikeness_muegge(mol, mw, logp, tpsa, n_rings,
+                                           n_carbon, n_hetero, rot, hba, hbd)
+
+            # Golden Triangle (Johnson & Luty 2009)
             golden = 200 <= mw <= 500 and 2 <= logp <= 5
 
-            # ── GI Absorption (Caco-2 permeability proxy: Artursson & Karlsson 1991) ──
-            if tpsa <= 60 and logp >= 1.0:
-                gi_absorption = "High"
-            elif tpsa <= 120:
-                gi_absorption = "High"
-            elif tpsa <= 140:
-                gi_absorption = "Medium"
-            else:
-                gi_absorption = "Low"
-
-            # ── BBB penetration (BOILED-Egg model: Wager et al. 2010) ──
-            # High BBB if TPSA <= 90 AND LogP <= 6 (primary filter)
-            bbb_tpsa_pass = tpsa <= 90
-            bbb_logp_pass = logp <= 6
-            bbb_pass = bbb_tpsa_pass and bbb_logp_pass
-            bbb_score = round(tpsa - 90 + (logp * 10), 2)  # Lower = better BBB
-
-            # ── hERG risk (pkCSM-inspired: MW + LogP + HBD + TPSA weighted) ──
-            # Higher risk with: high MW, high LogP, low TPSA, aromatic rings
-            herg_score = (mw / 500) * 0.3 + (logp / 5) * 0.3 + (1 - tpsa / 140) * 0.2 + (aromatic_rings / 4) * 0.2
-            if herg_score > 0.7:
-                herg_risk = "High"
-            elif herg_score > 0.4:
-                herg_risk = "Medium"
-            else:
-                herg_risk = "Low"
-
-            # ── CYP450 inhibition (SMARTS-based metabolic soft spots) ──
-            cyp_inhibition = _check_cyp_inhibition(mol)
-
-            # ── Plasma Protein Binding (Valko et al. 2001: LogP correlation) ──
-            # Highly bound if LogP > 1.5, very highly bound if LogP > 3
-            if logp > 3:
-                ppb = "Very High (>90%)"
-            elif logp > 1.5:
-                ppb = "High (70-90%)"
-            elif logp > 0:
-                ppb = "Moderate (50-70%)"
-            else:
-                ppb = "Low (<50%)"
-
-            # ── Bioavailability (SwissADME-style: composite of multiple factors) ──
-            bio_score = 0.0
-            if lipinski: bio_score += 0.25
-            if veber: bio_score += 0.25
-            if gi_absorption == "High": bio_score += 0.25
-            if tpsa <= 140 and logp >= 0: bio_score += 0.25
-            bioavailability_score = round(bio_score, 2)
-
-            # ── QED (quantitative estimate of drug-likeness, Bickerton 2012) ──
+            # QED (Bickerton 2012)
             qed = round(QED.qed(mol), 3) if hasattr(QED, 'qed') else "N/A"
 
-            # ── PAINS alerts (Pan Assay Interference Compounds) ──
-            pains_alerts = []
-            try:
-                from rdkit.Chem import RDFilters
-                # Simplified PAINS check via SMARTS
-                pains_smarts = [
-                    ("[n+]", "azide/nitro group"),
-                    ("[$([NR]),$(N#N)]", "azo/hydrazone"),
-                    ("[cR1]1[cR1][cR1][cR1][cR1][cR1]1[cR1]1[cR1][cR1][cR1][cR1][cR1]1", "biaryl"),
-                ]
-                for smarts, desc in pains_smarts:
-                    pat = Chem.MolFromSmarts(smarts)
-                    if pat and mol.HasSubstructMatch(pat):
-                        pains_alerts.append(desc)
-            except Exception:
-                pass
-            pains_risk = "High" if len(pains_alerts) >= 2 else ("Medium" if pains_alerts else "Low")
+            # ═══════════════════════════════════════════════════════════
+            # PHARMACOKINETICS (ADME)
+            # ═══════════════════════════════════════════════════════════
 
-            # ── Synthetic Accessibility (SA) score (Ertl & Schuffenhauer 2009) ──
-            sa_score = None
-            try:
-                from rdkit.Chem import rdMolDescriptors as _rdmd
-                fps = _rdmd.GetMorganFingerprintAsBitVect(mol, 2, 1024)
-                # Simplified SA estimate: based on molecule complexity
-                ring_info = mol.GetRingInfo()
-                n_rings = ring_info.NumRings()
-                n_stereo = len(Chem.FindMolChiralCenters(mol, includeUnassigned=True))
-                sa_score = round(1.0 + (n_rings * 0.3) + (n_stereo * 0.5) + (mw / 500), 2)
-                sa_score = min(max(sa_score, 1.0), 10.0)
-            except Exception:
-                pass
+            # BOILED-Egg (Daina & Zoete 2016) — proper ellipse model
+            boiled_egg = _boiled_egg(logp, tpsa)
+            gi_absorption = "High" if boiled_egg["hia"] else "Low"
+            bbb_pass = boiled_egg["bbb"]
 
-            # ── P-glycoprotein substrate prediction (via rules from admetSAR) ──
-            # P-gp substrates tend to be: MW > 400, LogP > 2, TPSA 60-140, HBA >= 4
-            p_gp_substrate = "Yes" if (mw > 400 and logp > 2 and 40 < tpsa < 150 and hba >= 4) else "Unlikely"
+            # GI Absorption (Caco-2 proxy: Artursson & Karlsson 1991)
+            if tpsa <= 60 and logp >= 1.0:
+                gi_absorption_detail = "High (TPSA≤60, LogP≥1)"
+            elif tpsa <= 120:
+                gi_absorption_detail = "High (TPSA≤120)"
+            elif tpsa <= 140:
+                gi_absorption_detail = "Medium (TPSA≤140)"
+            else:
+                gi_absorption_detail = "Low (TPSA>140)"
 
-            # ── Ames mutagenicity (via Benigni-Bossa rule-based structural alerts) ──
+            # hERG risk (pkCSM-inspired)
+            herg_score = (mw / 500) * 0.3 + (logp / 5) * 0.3 + (1 - tpsa / 140) * 0.2 + (aromatic_rings / 4) * 0.2
+            herg_risk = "High" if herg_score > 0.7 else ("Medium" if herg_score > 0.4 else "Low")
+
+            # CYP450 inhibition (SMARTS-based)
+            cyp_inhibition = _check_cyp_inhibition(mol)
+
+            # Plasma Protein Binding (Valko et al. 2001)
+            ppb = "Very High (>90%)" if logp > 3 else ("High (70-90%)" if logp > 1.5 else ("Moderate (50-70%)" if logp > 0 else "Low (<50%)"))
+
+            # Bioavailability (SwissADME-style composite)
+            bio_score = 0.0
+            if lipinski["pass"]: bio_score += 0.25
+            if veber["pass"]: bio_score += 0.25
+            if boiled_egg["hia"]: bio_score += 0.25
+            if tpsa <= 140 and logp >= 0: bio_score += 0.25
+
+            # ═══════════════════════════════════════════════════════════
+            # STRUCTURAL ALERTS (PAINS + Brenk via FilterCatalog)
+            # ═══════════════════════════════════════════════════════════
+            structural_alerts = _pains_brenk_check(mol)
+
+            # Ames mutagenicity (Benigni-Bossa)
             ames_alerts = []
             ames_smarts = [
                 ("[N+]", "nitro/nitroso aromatic"),
                 ("[cR1]1[cR1][cR1][cR1][cR1][cR1]1[N+]", "aromatic nitro"),
                 ("[$([cR1]1[cR1][cR1][cR1][cR1][cR1]1-[#7]),$(N=N)]", "aromatic amine / azo"),
-                ("[$([CX3]=[CX3])]", "alkene (epoxidation risk)"),
             ]
             for smarts, desc in ames_smarts:
                 pat = Chem.MolFromSmarts(smarts)
                 if pat and mol.HasSubstructMatch(pat):
                     ames_alerts.append(desc)
-            ames_risk = "High" if ames_alerts else "Low"
 
-            # ── Bioaccumulation risk (BCF — Bioconcentration Factor) ──
-            # High bioaccumulation if LogP > 4.5 (Dimitrov et al. 2005)
-            if logp > 5:
-                bcf_risk = "High"
-            elif logp > 4:
-                bcf_risk = "Medium"
-            else:
-                bcf_risk = "Low"
+            # P-gp substrate
+            p_gp = "Yes" if (mw > 400 and logp > 2 and 40 < tpsa < 150 and hba >= 4) else "Unlikely"
+
+            # Bioaccumulation (Dimitrov et al. 2005)
+            bcf_risk = "High" if logp > 5 else ("Medium" if logp > 4 else "Low")
+
+            # Synthetic Accessibility
+            sa_score = None
+            try:
+                n_stereo = len(Chem.FindMolChiralCenters(mol, includeUnassigned=True))
+                sa_score = round(min(max(1.0 + (n_rings * 0.3) + (n_stereo * 0.5) + (mw / 500), 1.0), 10.0), 2)
+            except Exception:
+                pass
 
             result = {
                 "smiles": smiles,
@@ -221,27 +399,37 @@ class AdmetPredict(ApiHandler):
                 "tpsa": round(tpsa, 2),
                 "rotatable_bonds": rot,
                 "aromatic_rings": aromatic_rings,
-                "lipinski_rule_of_5": lipinski,
-                "veber_rule": veber,
+                "molar_refractivity": round(mr, 2),
+                "n_atoms": n_atoms,
+                "n_carbons": n_carbon,
+                "n_heteroatoms": n_hetero,
+                # Druglikeness filters (7 total)
+                "lipinski": lipinski,
+                "veber": veber,
+                "egan": egan,
+                "ghose": ghose,
+                "muegge": muegge,
                 "golden_triangle": golden,
+                "qed": qed,
+                # Pharmacokinetics
                 "gi_absorption": gi_absorption,
-                "bbb_score": bbb_score,
+                "gi_absorption_detail": gi_absorption_detail,
                 "bbb_pass": bbb_pass,
+                "boiled_egg": boiled_egg,
                 "herg_risk": herg_risk,
                 "herg_score": round(herg_score, 3),
                 "cyp_inhibition": cyp_inhibition,
                 "plasma_protein_binding": ppb,
-                "bioavailability_score": bioavailability_score,
-                "qed": qed,
-                # ── NEW BOOSTED PROPERTIES ──
-                "pains_alerts": pains_alerts,
-                "pains_risk": pains_risk,
-                "synthetic_accessibility_score": sa_score,
-                "p_gp_substrate": p_gp_substrate,
-                "ames_mutagenicity_risk": ames_risk,
-                "ames_alerts": ames_alerts,
+                "bioavailability_score": round(bio_score, 2),
+                # Structural alerts
+                "pains": structural_alerts["pains"],
+                "brenk": structural_alerts["brenk"],
+                "ames_mutagenicity": {"risk": "High" if ames_alerts else "Low", "alerts": ames_alerts},
+                "p_gp_substrate": p_gp,
                 "bioaccumulation_risk": bcf_risk,
+                "synthetic_accessibility": sa_score,
             }
+
             # ── AUTO-STORE ──
             try:
                 from modules.knowledge.auto_store import auto_store
