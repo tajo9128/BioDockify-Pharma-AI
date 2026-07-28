@@ -79,6 +79,31 @@ MODULE_TO_CATEGORY = {
     "knowledge": "notes",
     # Uploads
     "upload": "notes",
+    # Verification / Claim checking
+    "claim_verify": "verification",
+    "verification": "verification",
+    # Regulatory
+    "regulatory_enhanced": "regulatory",
+    "regulatory": "regulatory",
+    # Debate
+    "debate": "notes",
+    # BioNER
+    "bio_ner": "literature",
+    # Patent search
+    "patent_search": "literature",
+    # Clinical trial search
+    "trial_search": "clinical_trials",
+    # Journal finder
+    "journal_finder": "literature",
+    # Molecular similarity
+    "molecular_similarity": "drug_analysis",
+    # Chemical space
+    "chemical_space": "drug_analysis",
+    "chemical_space_map": "drug_analysis",
+    # Structure
+    "structure_3d": "docking",
+    "structure_export": "docking",
+    "structure_image": "docking",
 }
 
 
