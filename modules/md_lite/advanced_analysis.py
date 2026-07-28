@@ -1,7 +1,7 @@
 """
 BioDockify MD Lite — Publication-Grade Trajectory Analysis
 
-Powered by MDAnalysis. Provides 10 advanced analyses beyond the basic
+Powered by MDAnalysis. Provides 12 advanced analyses beyond the basic
 RMSD/RMSF/Rg/SASA already in analysis.py:
 
   1. Hydrogen Bond Analysis (residue-resolved, occupancy, distances, angles)
@@ -14,6 +14,8 @@ RMSD/RMSF/Rg/SASA already in analysis.py:
   8. Distance Tracking (ligand-residue distances over time)
   9. Secondary Structure (DSSP via MDA)
  10. Dielectric Constant (electrostatic analysis)
+ 11. Free Energy Landscape (PCA-based FEL, equivalent to gmx covar+anaeig+sham)
+ 12. Entropy (Quasi-harmonic + Schlitter, equivalent to gmx anaeig -entropy)
 
 Each function returns a dict with:
   - summary metrics (numbers)
@@ -137,6 +139,8 @@ def analyze_advanced(traj_path, top_path, workdir, analyses=None):
         "ligand_distances": _analyze_ligand_distances,
         "secondary_structure": _analyze_secondary_structure,
         "dielectric": _analyze_dielectric,
+        "free_energy_landscape": _analyze_fel,
+        "entropy": _analyze_entropy,
     }
 
     selected = analyses if analyses else list(all_analyses.keys())
@@ -673,4 +677,245 @@ def _analyze_dielectric(u, workdir, mda_bundle):
     return {
         "dielectric_constant": round(float(eps), 2) if eps else None,
         "note": "Static dielectric from Kirkwood-Fröhlich equation.",
+    }
+
+
+# ---------------------------------------------------------------------------
+# 11. Free Energy Landscape (FEL) — PCA-based
+# ---------------------------------------------------------------------------
+
+def _analyze_fel(u, workdir, mda_bundle):
+    """Free Energy Landscape from PCA of protein backbone.
+
+    Projects trajectory onto first 2 PCs, computes 2D histogram,
+    converts to free energy: G = -kT ln(P).
+    Equivalent to GROMACS `gmx covar` + `gmx anaeig` + `gmx sham`.
+
+    Returns: FEL plot (contour), PC1/PC2 time series, minima locations.
+    """
+    plt = _get_mpl()
+    mda = mda_bundle["mda"]
+
+    protein = u.select_atoms("protein and backbone")
+    if len(protein) == 0:
+        protein = u.select_atoms("protein")
+    if len(protein) == 0:
+        return {"error": "No protein atoms for FEL analysis"}
+
+    n_frames = len(u.trajectory)
+    if n_frames < 10:
+        return {"error": f"Too few frames ({n_frames}) for FEL analysis"}
+
+    # Step 1: PCA on backbone atoms
+    from MDAnalysis.analysis.pca import PCA
+    pca = PCA(u, select="protein and backbone").run()
+
+    # Step 2: Project trajectory onto PC1 and PC2
+    transformed = pca.transform(protein, n_components=2)
+    pc1 = transformed[:, 0]
+    pc2 = transformed[:, 1]
+
+    # Step 3: Compute 2D free energy landscape
+    # G(i,j) = -kT * ln(P(i,j)) where P is probability histogram
+    kbT = 2.479  # kJ/mol at 298K
+    n_bins = 50
+
+    hist, xedges, yedges = np.histogram2d(pc1, pc2, bins=n_bins, density=True)
+    # Avoid log(0)
+    hist = np.maximum(hist, 1e-10)
+    # Normalize to probability
+    hist = hist / hist.sum()
+    # Free energy
+    fel = -kbT * np.log(hist)
+    # Shift so minimum = 0
+    fel = fel - fel.min()
+
+    # Step 4: Find minima (most stable conformations)
+    min_idx = np.unravel_index(np.argmin(fel), fel.shape)
+    pc1_min = (xedges[min_idx[0]] + xedges[min_idx[0] + 1]) / 2
+    pc2_min = (yedges[min_idx[1]] + yedges[min_idx[1] + 1]) / 2
+    min_energy = float(fel[min_idx])
+
+    # Step 5: Find secondary minima
+    from scipy.ndimage import minimum_filter
+    local_min = minimum_filter(fel, size=5)
+    minima_mask = (fel == local_min) & (fel > 0.5)  # exclude global minimum
+    minima_coords = np.argwhere(minima_mask)
+    secondary_minima = []
+    for coord in minima_coords[:5]:
+        e = float(fel[coord[0], coord[1]])
+        secondary_minima.append({
+            "pc1": round(float((xedges[coord[0]] + xedges[coord[0]+1]) / 2), 3),
+            "pc2": round(float((yedges[coord[1]] + yedges[coord[1]+1]) / 2), 3),
+            "energy_kjmol": round(e, 2),
+        })
+
+    # Step 6: FEL contour plot
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+    # Contour plot
+    pc1_centers = (xedges[:-1] + xedges[1:]) / 2
+    pc2_centers = (yedges[:-1] + yedges[1:]) / 2
+    X, Y = np.meshgrid(pc1_centers, pc2_centers, indexing="ij")
+
+    cf = axes[0].contourf(X, Y, fel, levels=20, cmap="RdYlGn_r")
+    axes[0].plot(pc1_min, pc2_min, "w*", markersize=15, label=f"Global min ({min_energy:.1f} kJ/mol)")
+    for sm in secondary_minima:
+        axes[0].plot(sm["pc1"], sm["pc2"], "w.", markersize=8)
+    axes[0].set_xlabel("PC1")
+    axes[0].set_ylabel("PC2")
+    axes[0].set_title("Free Energy Landscape", fontweight="bold")
+    fig.colorbar(cf, ax=axes[0], label="ΔG (kJ/mol)")
+    axes[0].legend(fontsize=8)
+
+    # PC1/PC2 time series
+    time_ps = np.arange(n_frames) * 0.002  # assume 2 fs timestep, report every 1000 steps
+    axes[1].plot(time_ps, pc1, color="#2196F3", linewidth=0.8, label="PC1")
+    axes[1].plot(time_ps, pc2, color="#F44336", linewidth=0.8, label="PC2")
+    axes[1].set_xlabel("Time (ps)")
+    axes[1].set_ylabel("Projection")
+    axes[1].set_title("PC1/PC2 Time Series", fontweight="bold")
+    axes[1].legend(fontsize=8)
+
+    plt.tight_layout()
+    plot_b64 = _fig_to_b64(fig)
+    plt.close(fig)
+
+    # Variance explained
+    var_explained = pca.results.variance[:2]
+    total_var = pca.results.variance.sum()
+    var_pct = [round(100 * v / total_var, 1) for v in var_explained]
+
+    return {
+        "global_minimum_kjmol": round(min_energy, 2),
+        "global_min_pc1": round(float(pc1_min), 3),
+        "global_min_pc2": round(float(pc2_min), 3),
+        "secondary_minima": secondary_minima,
+        "pc1_variance_pct": var_pct[0],
+        "pc2_variance_pct": var_pct[1],
+        "total_variance_pct": round(sum(var_pct), 1),
+        "n_frames": n_frames,
+        "plot_b64": plot_b64,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 12. Entropy Calculation (Quasi-harmonic / Schlitter)
+# ---------------------------------------------------------------------------
+
+def _analyze_entropy(u, workdir, mda_bundle):
+    """Calculate conformational entropy from MD trajectory.
+
+    Implements two methods:
+    1. Quasi-harmonic analysis (QHA): entropy from covariance matrix eigenvalues
+    2. Schlitter method: quantum-mechanical upper bound
+
+    Equivalent to GROMACS `gmx anaeig -entropy`.
+
+    Returns: entropy values, temperature, plot of eigenvalue spectrum.
+    """
+    plt = _get_mpl()
+    mda = mda_bundle["mda"]
+
+    protein = u.select_atoms("protein and name CA")
+    if len(protein) == 0:
+        protein = u.select_atoms("protein")
+    if len(protein) == 0:
+        return {"error": "No protein atoms for entropy analysis"}
+
+    n_frames = len(u.trajectory)
+    n_atoms = len(protein)
+    if n_frames < 10:
+        return {"error": f"Too few frames ({n_frames}) for entropy analysis"}
+
+    # Step 1: Collect coordinates
+    coords = np.zeros((n_frames, n_atoms, 3))
+    for i, ts in enumerate(u.trajectory):
+        coords[i] = protein.positions
+
+    # Step 2: Compute mass-weighted covariance matrix
+    masses = np.repeat(protein.masses, 3)  # x, y, z for each atom
+    masses_sqrt = np.sqrt(masses)
+
+    # Flatten and center
+    flat = coords.reshape(n_frames, -1)
+    mean_pos = flat.mean(axis=0)
+    centered = flat - mean_pos
+
+    # Mass-weighted covariance
+    weighted = centered * masses_sqrt[np.newaxis, :]
+    cov = np.cov(weighted.T)
+
+    # Step 3: Eigenvalue decomposition
+    eigenvalues = np.linalg.eigvalsh(cov)
+    eigenvalues = eigenvalues[eigenvalues > 1e-10]  # remove near-zero
+    eigenvalues = np.sort(eigenvalues)[::-1]  # descending
+
+    # Step 4: Quasi-harmonic entropy
+    # S_QHA = k_B * sum_i [1 + ln(2π * λ_i)]
+    # where λ_i are eigenvalues of mass-weighted covariance matrix
+    kB = 1.380649e-23  # J/K
+    T = 300  # K
+    Na = 6.022e23
+
+    # Convert eigenvalues from Å²·amu to m²·kg
+    # 1 Å²·amu = 1e-20 m² * 1.66054e-27 kg = 1.66054e-47 m²·kg
+    conv = 1.66054e-47
+    eigenvalues_si = eigenvalues * conv
+
+    # QHA entropy (per mode)
+    s_qha_modes = kB * (1 + np.log(2 * np.pi * eigenvalues_si))
+    # Filter out negative contributions (numerical noise)
+    s_qha_modes = s_qha_modes[s_qha_modes > 0]
+    s_qha_total = s_qha_modes.sum() * Na / 1000  # kJ/(mol·K)
+
+    # Step 5: Schlitter entropy (quantum upper bound)
+    # S_Schlitter = k_B/2 * sum_i ln(1 + k_B*T*e/ħ² * λ_i)
+    hbar = 1.054571817e-34  # J·s
+    e = 2.718281828
+    schlitter_arg = 1 + (kB * T * e / (hbar ** 2)) * eigenvalues_si
+    schlitter_arg = schlitter_arg[schlitter_arg > 0]
+    s_schlitter = (kB / 2) * np.sum(np.log(schlitter_arg)) * Na / 1000  # kJ/(mol·K)
+
+    # Step 6: Eigenvalue spectrum plot
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+    # Eigenvalue spectrum
+    n_show = min(50, len(eigenvalues))
+    axes[0].bar(range(n_show), eigenvalues[:n_show], color="#2196F3", edgecolor="none")
+    axes[0].set_xlabel("Mode index")
+    axes[0].set_ylabel("Eigenvalue (Å²·amu)")
+    axes[0].set_title("Covariance Eigenvalue Spectrum", fontweight="bold")
+    axes[0].set_yscale("log")
+
+    # Cumulative variance
+    cumvar = np.cumsum(eigenvalues) / eigenvalues.sum() * 100
+    axes[1].plot(range(len(cumvar)), cumvar, color="#4CAF50", linewidth=1.5)
+    axes[1].axhline(80, color="red", linestyle="--", alpha=0.5, label="80% variance")
+    axes[1].axhline(90, color="orange", linestyle="--", alpha=0.5, label="90% variance")
+    axes[1].set_xlabel("Number of modes")
+    axes[1].set_ylabel("Cumulative variance (%)")
+    axes[1].set_title("Cumulative Variance Explained", fontweight="bold")
+    axes[1].legend(fontsize=8)
+    axes[1].set_xlim(0, min(100, len(cumvar)))
+
+    plt.tight_layout()
+    plot_b64 = _fig_to_b64(fig)
+    plt.close(fig)
+
+    # Number of modes for 80% and 90% variance
+    n_80 = int(np.searchsorted(cumvar, 80)) + 1
+    n_90 = int(np.searchsorted(cumvar, 90)) + 1
+
+    return {
+        "quasi_harmonic_entropy_kj_mol_k": round(s_qha_total, 2),
+        "schlitter_entropy_kj_mol_k": round(s_schlitter, 2),
+        "temperature_k": T,
+        "n_atoms": n_atoms,
+        "n_frames": n_frames,
+        "n_modes_total": len(eigenvalues),
+        "modes_for_80pct_variance": n_80,
+        "modes_for_90pct_variance": n_90,
+        "plot_b64": plot_b64,
+        "note": "Quasi-harmonic: classical limit. Schlitter: quantum upper bound (more accurate).",
     }
