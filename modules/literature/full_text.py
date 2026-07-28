@@ -320,10 +320,11 @@ class FullTextRetriever:
             return False
 
         # Lexical diversity check — real articles use varied vocabulary
+        # Only reject if EXTREMELY repetitive (boilerplate/spam)
         words = text.lower().split()
-        if len(words) > 0:
+        if len(words) > 100:
             unique_ratio = len(set(words)) / len(words)
-            if unique_ratio < 0.20:
+            if unique_ratio < 0.10:
                 return False
 
         return True

@@ -22,6 +22,8 @@ fi
 rm -rf /a0/data /a0/.a0proj 2>/dev/null
 ln -sf /a0/usr/data /a0/data
 ln -sf /a0/usr/.a0proj /a0/.a0proj
+# Ensure symlink targets exist (auto_store and knowledge.py write here)
+mkdir -p /a0/usr/data/knowledge_base /a0/usr/.a0proj/memory /a0/usr/.a0proj/instructions
 echo "[init] Data consolidated: /a0/data → /a0/usr/data, /a0/.a0proj → /a0/usr/.a0proj"
 
 # branch from parameter

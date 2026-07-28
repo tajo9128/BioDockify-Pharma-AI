@@ -170,10 +170,12 @@ def _is_literature_stub(content: str) -> str:
             return "metadata-only (no article body)"
 
     # --- Boilerplate detection ---
-    # Content that is mostly the same text repeated
+    # Content that is mostly the same text repeated (low lexical diversity)
+    # Real scientific articles have ~0.15-0.30 unique word ratio
+    # Only reject if EXTREMELY repetitive (same words over and over)
     unique_words = len(set(text.lower().split()))
     total_words = len(text.split())
-    if total_words > 0 and unique_words / total_words < 0.25:
+    if total_words > 100 and unique_words / total_words < 0.10:
         return "boilerplate (low lexical diversity)"
 
     return None  # Valid full article
