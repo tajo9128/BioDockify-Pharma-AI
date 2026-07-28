@@ -195,8 +195,9 @@ def _boiled_egg(logp, tpsa) -> dict:
     import io, base64
 
     # Ellipse parameters from the BOILED-Egg paper (Daina 2016)
-    hia_ellipse = Ellipse((71.051, 2.292), 142.081, 8.740, -1.031325)
-    bbb_ellipse = Ellipse((38.117, 3.177), 82.061, 5.557, -0.171887)
+    # Ellipse(xy, width, height, angle) — xy is center, width/height are full axes
+    hia_ellipse = Ellipse((71.051, 2.292), 142.081, 8.740, angle=-1.031325)
+    bbb_ellipse = Ellipse((38.117, 3.177), 82.061, 5.557, angle=-0.171887)
 
     point = (tpsa, logp)
     hia_pass = hia_ellipse.contains_point(point)
