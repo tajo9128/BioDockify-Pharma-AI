@@ -1,0 +1,502 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+
+    export const store = createStore("admet", {
+      smiles: "",
+      preset: "",
+      loading: false,
+      result: null,
+      error: "",
+      message: "",
+      activeTab: "overview",
+      _restored: false,
+
+      persist() {
+        try { localStorage.setItem("biodockify.admet", JSON.stringify({ smiles: this.smiles, preset: this.preset })); } catch {}
+      },
+      restore() {
+        if (this._restored) return; this._restored = true;
+        try {
+          const s = JSON.parse(localStorage.getItem("biodockify.admet") || "{}");
+          if (s.smiles) this.smiles = s.smiles;
+          if (s.preset) this.preset = s.preset;
+        } catch {}
+      },
+
+      presets: {
+        aspirin: "Aspirin", ibuprofen: "Ibuprofen", metformin: "Metformin",
+        caffeine: "Caffeine", warfarin: "Warfarin", sildenafil: "Sildenafil",
+        paracetamol: "Paracetamol", atorvastatin: "Atorvastatin",
+        omeprazole: "Omeprazole", paromomycin: "Paromomycin"
+      },
+
+      async calculate() {
+        if (!this.smiles.trim() && !this.preset) { this.error = "Enter a SMILES string or select a preset drug"; return; }
+        this.loading = true; this.error = ""; this.message = ""; this.result = null;
+        try {
+          const payload = { smiles: this.smiles.trim() };
+          if (this.preset) payload.preset = this.preset;
+          const resp = await callJsonApi("admet_predict", payload);
+          if (resp.error) { this.error = resp.error; this.loading = false; return; }
+          this.result = resp;
+          this.activeTab = "overview";
+        } catch (e) { this.error = "API error: " + e.message; }
+        this.loading = false; this.persist();
+      },
+
+      clear() {
+        this.smiles = ""; this.preset = ""; this.result = null; this.error = ""; this.persist();
+      },
+
+      selectPreset(key) {
+        this.preset = key; this.smiles = ""; this.calculate();
+      },
+
+      // Helpers
+      get hasResult() { return !!this.result; },
+      filterCount(type) {
+        if (!this.result) return 0;
+        const r = this.result;
+        const filters = [r.lipinski, r.veber, r.egan, r.ghose, r.muegge];
+        return filters.filter(f => f && f.pass).length;
+      },
+      totalFilters() { return 5; },
+      alertCount() {
+        if (!this.result) return 0;
+        let n = 0;
+        if (this.result.pains?.hits) n++;
+        if (this.result.brenk?.hits) n++;
+        if (this.result.ames_mutagenicity?.risk === "High") n++;
+        return n;
+      },
+      riskLevel() {
+        if (!this.result) return "unknown";
+        const r = this.result;
+        if (r.herg_risk === "High" || r.ames_mutagenicity?.risk === "High" || r.pains?.hits) return "high";
+        if (r.herg_risk === "Medium" || r.brenk?.hits) return "medium";
+        return "low";
+      },
+      riskColor() {
+        return { high: "#ef4444", medium: "#f59e0b", low: "#22c55e" }[this.riskLevel()] || "#888";
+      },
+      riskLabel() {
+        return { high: "HIGH RISK", medium: "MODERATE RISK", low: "LOW RISK" }[this.riskLevel()] || "—";
+      },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="admet-panel" x-init="$store.admet.restore()">
+
+    <!-- Header -->
+    <div class="panel-header">
+      <div class="header-left">
+        <span class="material-symbols-outlined panel-icon">biotech</span>
+        <div>
+          <h2>ADMET Prediction</h2>
+          <p class="header-sub">SwissADME-grade · 7 filters · BOILED-Egg · PAINS/Brenk · CYP450</p>
+        </div>
+      </div>
+      <div class="header-risk" x-show="$store.admet.hasResult" :style="'color:'+$store.admet.riskColor()">
+        <span class="material-symbols-outlined" style="font-size:20px"
+              x-text="$store.admet.riskLevel()==='low'?'check_circle':$store.admet.riskLevel()==='medium'?'warning':'error'"></span>
+        <span class="risk-text" x-text="$store.admet.riskLabel()"></span>
+      </div>
+    </div>
+
+    <!-- Input row -->
+    <div class="input-row">
+      <input type="text" x-model="$store.admet.smiles" placeholder="Enter SMILES (e.g. CC(=O)Oc1ccccc1C(=O)O)"
+             class="smiles-input" @keyup.enter="$store.admet.calculate()" />
+      <button class="btn-primary" @click="$store.admet.calculate()" :disabled="$store.admet.loading">
+        <span class="material-symbols-outlined" x-text="$store.admet.loading?'hourglass_top':'calculate'"></span>
+        <span x-text="$store.admet.loading?'Analyzing...':'Analyze'"></span>
+      </button>
+      <button class="btn-ghost" @click="$store.admet.clear()" x-show="$store.admet.smiles||$store.admet.result">
+        <span class="material-symbols-outlined">clear</span>
+      </button>
+    </div>
+
+    <!-- Error -->
+    <div x-show="$store.admet.error" class="error-box" x-text="$store.admet.error" @click="$store.admet.error=''"></div>
+
+    <!-- Preset chips -->
+    <div class="preset-row" x-show="!$store.admet.result">
+      <span class="preset-label">Quick:</span>
+      <template x-for="(label, key) in $store.admet.presets" :key="key">
+        <button class="preset-chip" @click="$store.admet.selectPreset(key)" x-text="label"
+                :disabled="$store.admet.loading"></button>
+      </template>
+    </div>
+
+    <!-- Loading -->
+    <div x-show="$store.admet.loading" class="loading-row">
+      <div class="spinner"></div><span>Computing ADMET profile...</span>
+    </div>
+
+    <!-- ═══════════════════════ RESULTS ═══════════════════════ -->
+    <template x-if="$store.admet.hasResult">
+      <div class="results-wrap">
+
+        <!-- Molecule header card -->
+        <div class="mol-card">
+          <div class="mol-smiles" x-text="$store.admet.result.smiles"></div>
+          <div class="mol-meta">
+            <span class="mol-formula" x-text="$store.admet.result.formula"></span>
+            <span class="mol-mw" x-text="$store.admet.result.mw + ' Da'"></span>
+            <span class="mol-logp" x-text="'LogP ' + $store.admet.result.logp"></span>
+            <span class="mol-qed" x-show="$store.admet.result.qed" x-text="'QED ' + $store.admet.result.qed"></span>
+          </div>
+          <!-- Filter score bar -->
+          <div class="score-bar">
+            <div class="score-fill" :style="'width:'+$store.admet.filterCount()/5*100+'%'"></div>
+            <span class="score-label" x-text="$store.admet.filterCount() + '/5 filters passed'"></span>
+          </div>
+        </div>
+
+        <!-- Tab bar -->
+        <div class="tab-bar">
+          <button class="tab" :class="{active: $store.admet.activeTab==='overview'}" @click="$store.admet.activeTab='overview'">Overview</button>
+          <button class="tab" :class="{active: $store.admet.activeTab==='filters'}" @click="$store.admet.activeTab='filters'">Drug Filters</button>
+          <button class="tab" :class="{active: $store.admet.activeTab==='pk'}" @click="$store.admet.activeTab='pk'">Pharmacokinetics</button>
+          <button class="tab" :class="{active: $store.admet.activeTab==='tox'}" @click="$store.admet.activeTab='tox'">Toxicity</button>
+          <button class="tab" :class="{active: $store.admet.activeTab==='boiled'}" @click="$store.admet.activeTab='boiled'">BOILED-Egg</button>
+          <button class="tab" :class="{active: $store.admet.activeTab==='raw'}" @click="$store.admet.activeTab='raw'">Raw Data</button>
+        </div>
+
+        <!-- ── TAB: Overview ── -->
+        <div x-show="$store.admet.activeTab==='overview'" class="tab-content">
+          <div class="overview-grid">
+            <!-- 2D descriptors -->
+            <div class="card">
+              <h3 class="card-title"><span class="material-symbols-outlined">straighten</span> Molecular Descriptors</h3>
+              <div class="kv-table">
+                <div class="kv"><span>Molecular Weight</span><span x-text="$store.admet.result.mw+' Da'"></span></div>
+                <div class="kv"><span>LogP (lipophilicity)</span><span x-text="$store.admet.result.logp"></span></div>
+                <div class="kv"><span>TPSA</span><span x-text="$store.admet.result.tpsa+' Å²'"></span></div>
+                <div class="kv"><span>H-Bond Donors</span><span x-text="$store.admet.result.hbd"></span></div>
+                <div class="kv"><span>H-Bond Acceptors</span><span x-text="$store.admet.result.hba"></span></div>
+                <div class="kv"><span>Rotatable Bonds</span><span x-text="$store.admet.result.rotatable_bonds"></span></div>
+                <div class="kv"><span>Aromatic Rings</span><span x-text="$store.admet.result.aromatic_rings"></span></div>
+                <div class="kv"><span>Molar Refractivity</span><span x-text="$store.admet.result.molar_refractivity"></span></div>
+                <div class="kv"><span>Total Atoms</span><span x-text="$store.admet.result.n_atoms"></span></div>
+                <div class="kv"><span>Carbons</span><span x-text="$store.admet.result.n_carbons"></span></div>
+                <div class="kv"><span>Heteroatoms</span><span x-text="$store.admet.result.n_heteroatoms"></span></div>
+                <div class="kv"><span>QED (drug-likeness)</span><span x-text="$store.admet.result.qed"></span></div>
+              </div>
+            </div>
+
+            <!-- Summary cards -->
+            <div class="summary-stack">
+              <div class="summary-card" :class="$store.admet.result.gi_absorption==='High'?'pass':'fail'">
+                <span class="material-symbols-outlined">gastroenterology</span>
+                <div><div class="sc-title">GI Absorption</div><div class="sc-value" x-text="$store.admet.result.gi_absorption"></div></div>
+              </div>
+              <div class="summary-card" :class="$store.admet.result.bbb_pass?'pass':'fail'">
+                <span class="material-symbols-outlined">neurology</span>
+                <div><div class="sc-title">BBB Penetration</div><div class="sc-value" x-text="$store.admet.result.bbb_pass?'Yes':'No'"></div></div>
+              </div>
+              <div class="summary-card" :class="$store.admet.result.herg_risk==='Low'?'pass':'fail'">
+                <span class="material-symbols-outlined">monitor_heart</span>
+                <div><div class="sc-title">hERG Risk</div><div class="sc-value" x-text="$store.admet.result.herg_risk"></div></div>
+              </div>
+              <div class="summary-card" :class="$store.admet.result.bioavailability_score>=0.75?'pass':'warn'">
+                <span class="material-symbols-outlined">vaccines</span>
+                <div><div class="sc-title">Bioavailability</div><div class="sc-value" x-text="($store.admet.result.bioavailability_score*100).toFixed(0)+'%'"></div></div>
+              </div>
+              <div class="summary-card" :class="$store.admet.result.p_gp_substrate==='Unlikely'?'pass':'warn'">
+                <span class="material-symbols-outlined">local_pharmacy</span>
+                <div><div class="sc-title">P-gp Substrate</div><div class="sc-value" x-text="$store.admet.result.p_gp_substrate"></div></div>
+              </div>
+              <div class="summary-card" :class="$store.admet.result.bioaccumulation_risk==='Low'?'pass':'fail'">
+                <span class="material-symbols-outlined">water_drop</span>
+                <div><div class="sc-title">Bioaccumulation</div><div class="sc-value" x-text="$store.admet.result.bioaccumulation_risk"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── TAB: Drug Filters ── -->
+        <div x-show="$store.admet.activeTab==='filters'" class="tab-content">
+          <template x-for="filter in [
+            {key:'lipinski', name:'Lipinski Ro5', ref:'Lipinski 2001'},
+            {key:'veber', name:'Veber', ref:'Veber 2002'},
+            {key:'egan', name:'Egan', ref:'Egan 2000'},
+            {key:'ghose', name:'Ghose', ref:'Ghose 1999'},
+            {key:'muegge', name:'Muegge', ref:'Muegge 2001'}
+          ]" :key="filter.key">
+            <div class="filter-card" :class="$store.admet.result[filter.key]?.pass?'pass':'fail'">
+              <div class="filter-header">
+                <span class="material-symbols-outlined" x-text="$store.admet.result[filter.key]?.pass?'check_circle':'cancel'"></span>
+                <div>
+                  <span class="filter-name" x-text="filter.name"></span>
+                  <span class="filter-ref" x-text="filter.ref"></span>
+                </div>
+                <span class="filter-badge" :class="$store.admet.result[filter.key]?.pass?'pass':'fail'"
+                      x-text="$store.admet.result[filter.key]?.pass?'PASS':'FAIL'"></span>
+              </div>
+              <div class="filter-violations" x-show="$store.admet.result[filter.key]?.violations?.length">
+                <template x-for="v in $store.admet.result[filter.key]?.violations||[]" :key="v">
+                  <div class="violation-item">
+                    <span class="material-symbols-outlined" style="font-size:14px;color:#ef4444">error</span>
+                    <span x-text="v"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+          <!-- Golden Triangle -->
+          <div class="filter-card" :class="$store.admet.result.golden_triangle?'pass':'fail'">
+            <div class="filter-header">
+              <span class="material-symbols-outlined" x-text="$store.admet.result.golden_triangle?'check_circle':'cancel'"></span>
+              <div><span class="filter-name">Golden Triangle</span><span class="filter-ref">Johnson & Luty 2009</span></div>
+              <span class="filter-badge" :class="$store.admet.result.golden_triangle?'pass':'fail'"
+                    x-text="$store.admet.result.golden_triangle?'PASS':'FAIL'"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── TAB: Pharmacokinetics ── -->
+        <div x-show="$store.admet.activeTab==='pk'" class="tab-content">
+          <!-- GI Absorption -->
+          <div class="pk-card">
+            <h3 class="card-title"><span class="material-symbols-outlined">gastroenterology</span> GI Absorption</h3>
+            <div class="pk-value" :class="$store.admet.result.gi_absorption==='High'?'pass':'fail'" x-text="$store.admet.result.gi_absorption"></div>
+            <div class="pk-detail" x-text="$store.admet.result.gi_absorption_detail"></div>
+          </div>
+          <!-- BBB -->
+          <div class="pk-card">
+            <h3 class="card-title"><span class="material-symbols-outlined">neurology</span> BBB Penetration</h3>
+            <div class="pk-value" :class="$store.admet.result.bbb_pass?'pass':'fail'" x-text="$store.admet.result.bbb_pass?'Penetrant':'Non-penetrant'"></div>
+            <div class="pk-detail">BOILED-Egg model (Daina & Zoete 2016)</div>
+          </div>
+          <!-- PPB -->
+          <div class="pk-card">
+            <h3 class="card-title"><span class="material-symbols-outlined">bloodtype</span> Plasma Protein Binding</h3>
+            <div class="pk-value" x-text="$store.admet.result.plasma_protein_binding"></div>
+            <div class="pk-detail">Valko et al. 2001 — LogP correlation</div>
+          </div>
+          <!-- CYP450 -->
+          <div class="pk-card">
+            <h3 class="card-title"><span class="material-symbols-outlined">biotech</span> CYP450 Inhibition</h3>
+            <div class="cyp-grid">
+              <template x-for="(data, iso) in $store.admet.result.cyp_inhibition||{}" :key="iso">
+                <div class="cyp-item" :class="data.risk.toLowerCase()">
+                  <span class="cyp-iso" x-text="'CYP'+iso"></span>
+                  <span class="cyp-risk" x-text="data.risk"></span>
+                  <span class="cyp-alerts" x-text="data.alerts?.join(', ')||'—'"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+          <!-- P-gp -->
+          <div class="pk-card">
+            <h3 class="card-title"><span class="material-symbols-outlined">local_pharmacy</span> P-glycoprotein Substrate</h3>
+            <div class="pk-value" :class="$store.admet.result.p_gp_substrate==='Unlikely'?'pass':'warn'" x-text="$store.admet.result.p_gp_substrate"></div>
+          </div>
+        </div>
+
+        <!-- ── TAB: Toxicity ── -->
+        <div x-show="$store.admet.activeTab==='tox'" class="tab-content">
+          <!-- hERG -->
+          <div class="tox-card" :class="$store.admet.result.herg_risk.toLowerCase()">
+            <h3 class="card-title"><span class="material-symbols-outlined">monitor_heart</span> hERG Cardiotoxicity</h3>
+            <div class="tox-value" x-text="$store.admet.result.herg_risk + ' Risk'"></div>
+            <div class="tox-detail">Score: <span x-text="$store.admet.result.herg_score"></span> (pkCSM-inspired model)</div>
+          </div>
+          <!-- PAINS -->
+          <div class="tox-card" :class="$store.admet.result.pains?.hits?'high':'low'">
+            <h3 class="card-title"><span class="material-symbols-outlined">warning</span> PAINS Alerts</h3>
+            <div class="tox-value" x-text="$store.admet.result.pains?.hits?'HIT ('+$store.admet.result.pains.alerts.length+' alerts)':'No hits'"></div>
+            <div class="tox-detail" x-show="$store.admet.result.pains?.hits">
+              <template x-for="a in $store.admet.result.pains.alerts||[]" :key="a">
+                <div class="alert-item" x-text="a"></div>
+              </template>
+            </div>
+            <div class="tox-detail" x-show="!$store.admet.result.pains?.hits">480+ curated PAINS filters checked (Baell & Holloway 2010)</div>
+          </div>
+          <!-- Brenk -->
+          <div class="tox-card" :class="$store.admet.result.brenk?.hits?'high':'low'">
+            <h3 class="card-title"><span class="material-symbols-outlined">science</span> Brenk Structural Alerts</h3>
+            <div class="tox-value" x-text="$store.admet.result.brenk?.hits?'HIT ('+$store.admet.result.brenk.alerts.length+' alerts)':'No hits'"></div>
+            <div class="tox-detail" x-show="$store.admet.result.brenk?.hits">
+              <template x-for="a in $store.admet.result.brenk.alerts||[]" :key="a">
+                <div class="alert-item" x-text="a"></div>
+              </template>
+            </div>
+            <div class="tox-detail" x-show="!$store.admet.result.brenk?.hits">Structural alerts for toxic/reactive fragments (Brenk 2008)</div>
+          </div>
+          <!-- Ames -->
+          <div class="tox-card" :class="$store.admet.result.ames_mutagenicity?.risk.toLowerCase()">
+            <h3 class="card-title"><span class="material-symbols-outlined">bug_report</span> Ames Mutagenicity</h3>
+            <div class="tox-value" x-text="$store.admet.result.ames_mutagenicity?.risk + ' Risk'"></div>
+            <div class="tox-detail" x-show="$store.admet.result.ames_mutagenicity?.alerts?.length">
+              <template x-for="a in $store.admet.result.ames_mutagenicity.alerts||[]" :key="a">
+                <div class="alert-item" x-text="a"></div>
+              </template>
+            </div>
+          </div>
+          <!-- Bioaccumulation -->
+          <div class="tox-card" :class="$store.admet.result.bioaccumulation_risk.toLowerCase()">
+            <h3 class="card-title"><span class="material-symbols-outlined">water_drop</span> Bioaccumulation</h3>
+            <div class="tox-value" x-text="$store.admet.result.bioaccumulation_risk + ' Risk'"></div>
+            <div class="tox-detail">BCF estimation (Dimitrov et al. 2005)</div>
+          </div>
+        </div>
+
+        <!-- ── TAB: BOILED-Egg ── -->
+        <div x-show="$store.admet.activeTab==='boiled'" class="tab-content">
+          <div class="egg-card">
+            <h3 class="card-title"><span class="material-symbols-outlined">egg</span> BOILED-Egg Model (Daina & Zoete 2016)</h3>
+            <div class="egg-legend">
+              <div class="legend-item"><span class="legend-dot" style="background:white;border:1px solid #999"></span> White = HIA (GI Absorption)</div>
+              <div class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span> Yolk = BBB (Brain Penetration)</div>
+            </div>
+            <div class="egg-plot" x-show="$store.admet.result.boiled_egg?.plot_b64">
+              <img :src="'data:image/png;base64,'+$store.admet.result.boiled_egg.plot_b64" alt="BOILED-Egg plot" />
+            </div>
+            <div class="egg-results">
+              <div class="egg-result" :class="$store.admet.result.boiled_egg?.hia?'pass':'fail'">
+                <span class="material-symbols-outlined" x-text="$store.admet.result.boiled_egg?.hia?'check_circle':'cancel'"></span>
+                <span>HIA (Intestinal Absorption): <strong x-text="$store.admet.result.boiled_egg?.hia?'Inside egg (good)':'Outside egg (poor)'"></strong></span>
+              </div>
+              <div class="egg-result" :class="$store.admet.result.boiled_egg?.bbb?'pass':'fail'">
+                <span class="material-symbols-outlined" x-text="$store.admet.result.boiled_egg?.bbb?'check_circle':'cancel'"></span>
+                <span>BBB (Blood-Brain Barrier): <strong x-text="$store.admet.result.boiled_egg?.bbb?'Inside yolk (permeant)':'Outside yolk (non-permeant)'"></strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── TAB: Raw Data ── -->
+        <div x-show="$store.admet.activeTab==='raw'" class="tab-content">
+          <pre class="raw-json" x-text="JSON.stringify($store.admet.result, null, 2)"></pre>
+        </div>
+
+      </div>
+    </template>
+
+    <!-- Empty state -->
+    <div x-show="!$store.admet.result && !$store.admet.loading && !$store.admet.error" class="empty">
+      <span class="material-symbols-outlined" style="font-size:48px;opacity:0.2">biotech</span>
+      <p>Enter a SMILES string to predict ADMET properties</p>
+      <p class="empty-hint">Based on 7 peer-reviewed druglikeness filters, BOILED-Egg model, PAINS/Brenk alerts, CYP450, hERG, Ames mutagenicity</p>
+    </div>
+
+    <style>
+      .admet-panel{display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:16px 20px;background:var(--color-background)}
+      .panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-shrink:0}
+      .header-left{display:flex;align-items:center;gap:10px}
+      .panel-icon{font-size:28px;color:var(--color-primary)}
+      .panel-header h2{color:var(--color-primary);font-size:1.05rem;margin:0;font-weight:700}
+      .header-sub{color:var(--color-text-muted);font-size:0.65rem;margin:2px 0 0}
+      .header-risk{display:flex;align-items:center;gap:4px;font-weight:700;font-size:0.72rem}
+      .input-row{display:flex;gap:8px;margin-bottom:10px}
+      .smiles-input{flex:1;padding:9px 12px;border:1px solid var(--color-border);border-radius:8px;background:var(--color-panel);color:var(--color-text);font-size:0.76rem;font-family:var(--font-mono,monospace)}
+      .smiles-input:focus{outline:none;border-color:var(--color-primary)}
+      .btn-primary{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:0.74rem;font-weight:600;background:var(--color-primary);color:white;border:none;white-space:nowrap}
+      .btn-primary:disabled{opacity:0.5;cursor:not-allowed}
+      .btn-ghost{padding:8px;border:none;background:none;cursor:pointer;color:var(--color-text-muted);border-radius:8px}
+      .error-box{padding:8px 12px;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);border-radius:6px;color:#ff6b6b;font-size:0.7rem;margin-bottom:10px;cursor:pointer}
+      .preset-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+      .preset-label{font-size:0.65rem;color:var(--color-text-muted)}
+      .preset-chip{padding:5px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;font-size:0.64rem;color:var(--color-text);cursor:pointer;transition:all 0.15s}
+      .preset-chip:hover{border-color:var(--color-primary);background:color-mix(in srgb,var(--color-primary) 6%,var(--color-panel))}
+      .loading-row{display:flex;align-items:center;gap:8px;padding:10px 0;font-size:0.7rem;color:var(--color-text-muted)}
+      .spinner{width:16px;height:16px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin 0.8s linear infinite}
+      @keyframes spin{to{transform:rotate(360deg)}}
+      .empty{display:flex;flex-direction:column;align-items:center;padding:48px 20px;text-align:center}
+      .empty p{color:var(--color-text-muted);font-size:0.78rem;margin:0 0 8px}
+      .empty-hint{font-size:0.62rem;color:var(--color-text-muted);max-width:340px;line-height:1.4}
+      /* Molecule card */
+      .mol-card{padding:14px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:10px;margin-bottom:12px}
+      .mol-smiles{font-size:0.68rem;font-family:var(--font-mono,monospace);color:var(--color-text);word-break:break-all;margin-bottom:6px}
+      .mol-meta{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+      .mol-formula{font-weight:700;color:var(--color-primary);font-size:0.74rem}
+      .mol-mw,.mol-logp,.mol-qed{font-size:0.68rem;color:var(--color-text-muted)}
+      .score-bar{position:relative;height:20px;background:var(--color-background);border:1px solid var(--color-border);border-radius:10px;overflow:hidden}
+      .score-fill{height:100%;background:linear-gradient(90deg,#22c55e,#4ade80);border-radius:10px;transition:width 0.5s}
+      .score-label{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:0.62rem;font-weight:600;color:var(--color-text)}
+      /* Tabs */
+      .tab-bar{display:flex;gap:2px;margin-bottom:12px;border-bottom:1px solid var(--color-border);padding-bottom:2px;overflow-x:auto}
+      .tab{padding:7px 12px;border:none;background:none;cursor:pointer;font-size:0.68rem;font-weight:500;color:var(--color-text-muted);border-bottom:2px solid transparent;white-space:nowrap;transition:all 0.15s}
+      .tab:hover{color:var(--color-text)}
+      .tab.active{color:var(--color-primary);border-bottom-color:var(--color-primary);font-weight:600}
+      .tab-content{display:flex;flex-direction:column;gap:10px}
+      /* Overview */
+      .overview-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+      @media(max-width:600px){.overview-grid{grid-template-columns:1fr}}
+      .card{padding:14px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:10px}
+      .card-title{display:flex;align-items:center;gap:6px;font-size:0.72rem;font-weight:600;color:var(--color-text);margin:0 0 10px}
+      .card-title .material-symbols-outlined{font-size:18px;color:var(--color-primary)}
+      .kv-table{display:flex;flex-direction:column;gap:1px}
+      .kv{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--color-border);font-size:0.68rem}
+      .kv:last-child{border-bottom:none}
+      .kv span:first-child{color:var(--color-text-muted)}
+      .kv span:last-child{font-weight:600;color:var(--color-text);font-family:var(--font-mono,monospace)}
+      .summary-stack{display:flex;flex-direction:column;gap:8px}
+      .summary-card{display:flex;align-items:center;gap:10px;padding:12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:10px}
+      .summary-card.pass{border-left:3px solid #22c55e}
+      .summary-card.fail{border-left:3px solid #ef4444}
+      .summary-card.warn{border-left:3px solid #f59e0b}
+      .summary-card .material-symbols-outlined{font-size:22px;color:var(--color-text-muted)}
+      .sc-title{font-size:0.62rem;color:var(--color-text-muted)}
+      .sc-value{font-size:0.78rem;font-weight:700;color:var(--color-text)}
+      /* Filters */
+      .filter-card{padding:12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:10px;margin-bottom:8px}
+      .filter-card.pass{border-left:3px solid #22c55e}
+      .filter-card.fail{border-left:3px solid #ef4444}
+      .filter-header{display:flex;align-items:center;gap:8px}
+      .filter-header .material-symbols-outlined{font-size:20px}
+      .filter-card.pass .material-symbols-outlined{color:#22c55e}
+      .filter-card.fail .material-symbols-outlined{color:#ef4444}
+      .filter-name{font-size:0.74rem;font-weight:600;color:var(--color-text)}
+      .filter-ref{font-size:0.58rem;color:var(--color-text-muted);margin-left:8px}
+      .filter-badge{margin-left:auto;padding:2px 10px;border-radius:8px;font-size:0.6rem;font-weight:700}
+      .filter-badge.pass{background:rgba(34,197,94,0.12);color:#22c55e}
+      .filter-badge.fail{background:rgba(255,107,107,0.12);color:#ef4444}
+      .filter-violations{margin-top:8px;padding-left:28px}
+      .violation-item{display:flex;align-items:center;gap:6px;font-size:0.66rem;color:var(--color-text-muted);padding:3px 0}
+      /* PK */
+      .pk-card{padding:14px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:10px;margin-bottom:8px}
+      .pk-value{font-size:0.88rem;font-weight:700;margin:6px 0 2px}
+      .pk-value.pass{color:#22c55e}
+      .pk-value.fail{color:#ef4444}
+      .pk-value.warn{color:#f59e0b}
+      .pk-detail{font-size:0.62rem;color:var(--color-text-muted)}
+      .cyp-grid{display:flex;flex-direction:column;gap:4px}
+      .cyp-item{display:flex;align-items:center;gap:8px;padding:8px;background:var(--color-background);border-radius:6px;font-size:0.68rem}
+      .cyp-item.low{border-left:3px solid #22c55e}
+      .cyp-item.medium{border-left:3px solid #f59e0b}
+      .cyp-item.high{border-left:3px solid #ef4444}
+      .cyp-iso{font-weight:700;min-width:55px}
+      .cyp-risk{font-weight:600;min-width:55px}
+      .cyp-alerts{color:var(--color-text-muted);font-size:0.62rem}
+      /* Toxicity */
+      .tox-card{padding:14px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:10px;margin-bottom:8px}
+      .tox-card.low{border-left:3px solid #22c55e}
+      .tox-card.medium{border-left:3px solid #f59e0b}
+      .tox-card.high{border-left:3px solid #ef4444}
+      .tox-value{font-size:0.82rem;font-weight:700;margin:6px 0 2px}
+      .tox-detail{font-size:0.62rem;color:var(--color-text-muted)}
+      .alert-item{padding:3px 0;font-size:0.64rem}
+      /* BOILED-Egg */
+      .egg-card{padding:14px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:10px}
+      .egg-legend{display:flex;gap:16px;margin-bottom:10px}
+      .legend-item{display:flex;align-items:center;gap:6px;font-size:0.64rem;color:var(--color-text-muted)}
+      .legend-dot{width:12px;height:12px;border-radius:50%}
+      .egg-plot{text-align:center;margin-bottom:12px}
+      .egg-plot img{max-width:100%;border-radius:8px}
+      .egg-results{display:flex;flex-direction:column;gap:8px}
+      .egg-result{display:flex;align-items:center;gap:8px;padding:8px;background:var(--color-background);border-radius:6px;font-size:0.7rem}
+      .egg-result.pass .material-symbols-outlined{color:#22c55e}
+      .egg-result.fail .material-symbols-outlined{color:#ef4444}
+      /* Raw */
+      .raw-json{background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;padding:12px;font-size:0.62rem;font-family:var(--font-mono,monospace);overflow:auto;max-height:500px;color:var(--color-text)}
+    </style>
+  </div>
+</body>
+</html>
