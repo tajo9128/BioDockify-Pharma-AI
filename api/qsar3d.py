@@ -19,9 +19,13 @@ class QSAR3DHandler(ApiHandler):
         if action == "models": return self._models(input)
         if action == "delete": return self._delete(input)
         if action == "info": return self._info()
+        if action == "ml_compare": return self._ml_compare(input)
+        if action == "fingerprint": return self._fingerprint(input)
+        if action == "descriptors": return self._descriptors(input)
         return {
-            "actions": ["build", "predict", "models", "delete", "info"],
-            "hint": "POST with action=build to create a 3D-QSAR model, action=predict to predict activity"
+            "actions": ["build", "predict", "models", "delete", "info",
+                        "ml_compare", "fingerprint", "descriptors"],
+            "hint": "POST with action=ml_compare to train & compare 10+ ML models, action=fingerprint for Morgan FPs"
         }
     
     def _info(self):
@@ -220,12 +224,181 @@ class QSAR3DHandler(ApiHandler):
                 os.remove(model_path)
             if os.path.exists(metadata_path):
                 os.remove(metadata_path)
-            
+
             return {
                 "status": "ok",
                 "message": f"Model {model_id} deleted",
             }
-        
+
         except Exception as e:
             log.error(f"[QSAR3D] Delete failed: {e}", exc_info=True)
+
+    def _ml_compare(self, input: dict):
+        """Train & compare 10+ ML models on molecular fingerprints or descriptors.
+
+        Inspired by Omixium's QSAR_ML_all_models pipeline.
+        Input: smiles (list), activity (list), feature_type (fingerprint|descriptors),
+               target_names (optional list), test_fraction (float)
+        Returns: model comparison table, best model per target, feature importance.
+        """
+        smiles = input.get("smiles", [])
+        activity = input.get("activity", [])
+        feature_type = input.get("feature_type", "fingerprint")
+        target_names = input.get("target_names", None)
+        test_fraction = input.get("test_fraction", 0.2)
+
+        if not smiles or not activity:
+            return {"error": "smiles and activity lists required"}
+        if len(smiles) != len(activity):
+            return {"error": "smiles and activity must have equal length"}
+        if len(smiles) < 20:
+            return {"error": "Need at least 20 molecules for multi-model comparison"}
+
+        try:
+            from modules.qsar3d.ml_models import (
+                generate_morgan_fingerprints, calculate_descriptors,
+                train_and_compare, get_feature_importance
+            )
+            import numpy as np
+
+            # Generate features
+            if feature_type == "descriptors":
+                X, feature_names, valid_idx = calculate_descriptors(smiles)
+            else:
+                X, valid_idx = generate_morgan_fingerprints(smiles)
+                feature_names = [f"Bit_{i}" for i in range(X.shape[1])]
+
+            # Align activity to valid molecules
+            y = np.array([float(activity[i]) for i in valid_idx])
+
+            if len(X) < 20:
+                return {"error": f"Only {len(X)} valid molecules. Need at least 20."}
+
+            # Train & compare
+            result = train_and_compare(X, y, target_names=target_names,
+                                       test_fraction=test_fraction)
+
+            # Feature importance for best model
+            best_model_name = None
+            best_r2 = -999
+            for t_name in result.get("target_names", []):
+                info = result["best_per_target"].get(t_name, {})
+                if info.get("r2", -999) > best_r2:
+                    best_r2 = info["r2"]
+                    best_model_name = info.get("model")
+
+            importance = []
+            if best_model_name and best_model_name in result.get("trained_models", {}):
+                importance = get_feature_importance(
+                    result["trained_models"][best_model_name],
+                    best_model_name, feature_names, top_n=15
+                )
+
+            # Build comparison table
+            comparison = []
+            for r in result.get("results", []):
+                if r.get("r2") is not None:
+                    comparison.append(r)
+            comparison.sort(key=lambda r: r["r2"], reverse=True)
+
+            response = {
+                "status": "ok",
+                "feature_type": feature_type,
+                "n_molecules": len(X),
+                "n_features": X.shape[1],
+                "n_models_tested": result.get("n_models_tested", 0),
+                "comparison": comparison,
+                "best_per_target": result.get("best_per_target", {}),
+                "feature_importance": importance,
+                "message": f"Compared {result.get('n_models_tested', 0)} models on {len(X)} molecules "
+                           f"({X.shape[1]} features). Best: {best_model_name} (R²={best_r2})",
+            }
+
+            # Auto-store
+            try:
+                from modules.knowledge.auto_store import auto_store
+                auto_store("qsar3d", f"QSAR ML Comparison: {feature_type}", response,
+                           source="QSAR Multi-Model", tags=["qsar", "ml", feature_type])
+            except Exception:
+                pass
+
+            return response
+
+        except Exception as e:
+            log.error(f"[QSAR] ML compare failed: {e}", exc_info=True)
+            return {"error": f"ML comparison failed: {str(e)[:200]}"}
+
+    def _fingerprint(self, input: dict):
+        """Generate Morgan fingerprints for molecules.
+
+        Input: smiles (list), fp_size (int, default 2048), radius (int, default 2)
+        Returns: fingerprint matrix, bit statistics, active bit positions.
+        """
+        smiles = input.get("smiles", [])
+        fp_size = input.get("fp_size", 2048)
+        radius = input.get("radius", 2)
+
+        if not smiles:
+            return {"error": "smiles list required"}
+
+        try:
+            from modules.qsar3d.ml_models import generate_morgan_fingerprints
+            X, valid_idx = generate_morgan_fingerprints(smiles, fp_size=fp_size, radius=radius)
+
+            # Statistics
+            bits_per_mol = X.sum(axis=1)
+            bit_frequency = X.sum(axis=0)
+
+            return {
+                "status": "ok",
+                "n_molecules": len(valid_idx),
+                "fp_size": fp_size,
+                "radius": radius,
+                "avg_bits_per_molecule": round(float(bits_per_mol.mean()), 1),
+                "total_active_bits": int((bit_frequency > 0).sum()),
+                "bit_density": round(float((bit_frequency > 0).mean()), 4),
+                "valid_indices": valid_idx,
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
+    def _descriptors(self, input: dict):
+        """Calculate 50+ RDKit molecular descriptors.
+
+        Input: smiles (list)
+        Returns: descriptor matrix, descriptor names, statistics.
+        """
+        smiles = input.get("smiles", [])
+
+        if not smiles:
+            return {"error": "smiles list required"}
+
+        try:
+            from modules.qsar3d.ml_models import calculate_descriptors
+            import numpy as np
+
+            X, names, valid_idx = calculate_descriptors(smiles)
+
+            # Statistics per descriptor
+            stats = []
+            for i, name in enumerate(names):
+                col = X[:, i]
+                stats.append({
+                    "descriptor": name,
+                    "mean": round(float(col.mean()), 4),
+                    "std": round(float(col.std()), 4),
+                    "min": round(float(col.min()), 4),
+                    "max": round(float(col.max()), 4),
+                })
+
+            return {
+                "status": "ok",
+                "n_molecules": len(valid_idx),
+                "n_descriptors": len(names),
+                "descriptor_names": names,
+                "statistics": stats,
+                "valid_indices": valid_idx,
+            }
+        except Exception as e:
+            return {"error": str(e)}
             return {"error": f"Failed to delete model: {str(e)[:200]}"}
