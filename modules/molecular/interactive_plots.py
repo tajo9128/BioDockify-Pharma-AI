@@ -50,20 +50,45 @@ def generate_interactive_plots(smiles_list, names=None):
         if mol is None:
             continue
         try:
+            mw = Descriptors.MolWt(mol)
+            logp = Crippen.MolLogP(mol)
+            tpsa = Descriptors.TPSA(mol)
+            hbd = Descriptors.NumHDonors(mol)
+            hba = Descriptors.NumHAcceptors(mol)
+            rot = Descriptors.NumRotatableBonds(mol)
+
+            # Drug-likeness categories (Omixium style)
+            fragment_like = mw <= 300 and logp <= 3 and hbd <= 3 and hba <= 3
+            lead_like = mw <= 350 and logp <= 3 and hbd <= 3 and hba <= 6
+            lipinski_pass = mw <= 500 and logp <= 5 and hbd <= 5 and hba <= 10
+
+            if fragment_like:
+                drug_cat = "Fragment-like"
+            elif lead_like:
+                drug_cat = "Lead-like"
+            elif lipinski_pass:
+                drug_cat = "Drug-like"
+            else:
+                drug_cat = "Non-drug-like"
+
             p = {
                 "name": names[i] if i < len(names) else f"Mol_{i+1}",
                 "smiles": smi,
-                "MW": round(Descriptors.MolWt(mol), 2),
-                "LogP": round(Crippen.MolLogP(mol), 2),
-                "TPSA": round(Descriptors.TPSA(mol), 2),
-                "HBD": Descriptors.NumHDonors(mol),
-                "HBA": Descriptors.NumHAcceptors(mol),
-                "RotBonds": Descriptors.NumRotatableBonds(mol),
+                "MW": round(mw, 2),
+                "LogP": round(logp, 2),
+                "TPSA": round(tpsa, 2),
+                "HBD": hbd,
+                "HBA": hba,
+                "RotBonds": rot,
                 "AromaticRings": Descriptors.NumAromaticRings(mol),
                 "HeavyAtoms": mol.GetNumHeavyAtoms(),
                 "QED": round(Descriptors.qed(mol), 3),
                 "MR": round(Crippen.MolMR(mol), 2),
                 "FractionCSP3": round(Descriptors.FractionCSP3(mol), 3),
+                "DrugCategory": drug_cat,
+                "LipinskiPass": lipinski_pass,
+                "LeadLike": lead_like,
+                "FragmentLike": fragment_like,
             }
             props.append(p)
             valid_names.append(p["name"])
@@ -170,7 +195,75 @@ def generate_interactive_plots(smiles_list, names=None):
     except Exception as e:
         log.warning("Drug-likeness plot failed: %s", e)
 
-    # 5. Summary table
+    # 5. 3D Chemical Space (LogP vs MW vs TPSA, colored by DrugCategory)
+    try:
+        if "DrugCategory" in df.columns:
+            cat_colors = {
+                "Fragment-like": "#1f77b4", "Lead-like": "#ff7f0e",
+                "Drug-like": "#2ca02c", "Non-drug-like": "#d62728"
+            }
+            fig = go.Figure()
+            for cat in df["DrugCategory"].unique():
+                mask = df["DrugCategory"] == cat
+                fig.add_trace(go.Scatter3d(
+                    x=df.loc[mask, "LogP"], y=df.loc[mask, "MW"], z=df.loc[mask, "TPSA"],
+                    mode="markers", name=cat,
+                    marker=dict(size=6, color=cat_colors.get(cat, "#888"), opacity=0.7),
+                    text=[valid_names[i] for i in df.index[mask]],
+                    hovertemplate="<b>%{text}</b><br>LogP: %{x:.2f}<br>MW: %{y:.1f}<br>TPSA: %{z:.1f}<extra></extra>"
+                ))
+            fig.update_layout(
+                title="3D Chemical Space (Omixium style)",
+                scene=dict(xaxis_title="LogP", yaxis_title="MW (Da)", zaxis_title="TPSA (A²)"),
+                width=900, height=700
+            )
+            plots["chemical_space_3d_html"] = fig.to_html(include_plotlyjs="cdn", full_html=False)
+    except Exception as e:
+        log.warning("3D chemical space failed: %s", e)
+
+    # 6. Parallel Coordinates Plot (multi-property comparison)
+    try:
+        sample = df.sample(n=min(200, len(df)), random_state=42) if len(df) > 200 else df
+        color_map = {"Fragment-like": 0, "Lead-like": 1, "Drug-like": 2, "Non-drug-like": 3}
+        if "DrugCategory" in sample.columns:
+            color_vals = [color_map.get(c, 3) for c in sample["DrugCategory"]]
+        else:
+            color_vals = [0] * len(sample)
+
+        fig = go.Figure(data=go.Parcoords(
+            line=dict(color=color_vals, colorscale=[[0, "#1f77b4"], [0.33, "#ff7f0e"],
+                                                     [0.67, "#2ca02c"], [1, "#d62728"]],
+                      showscale=False),
+            dimensions=[
+                dict(label="MW", values=sample["MW"]),
+                dict(label="LogP", values=sample["LogP"]),
+                dict(label="TPSA", values=sample["TPSA"]),
+                dict(label="HBD", values=sample["HBD"]),
+                dict(label="HBA", values=sample["HBA"]),
+                dict(label="QED", values=sample["QED"]),
+                dict(label="RotBonds", values=sample["RotBonds"]),
+            ]
+        ))
+        fig.update_layout(title="Parallel Coordinates (multi-property)", width=900, height=500)
+        plots["parallel_coordinates_html"] = fig.to_html(include_plotlyjs="cdn", full_html=False)
+    except Exception as e:
+        log.warning("Parallel coordinates failed: %s", e)
+
+    # 7. Scatter Matrix (pairwise property relationships)
+    try:
+        sample = df.sample(n=min(200, len(df)), random_state=42) if len(df) > 200 else df
+        dims = ["MW", "LogP", "TPSA", "HBD", "HBA", "QED"]
+        fig = go.Figure(data=go.Splom(
+            dimensions=[dict(label=c, values=sample[c]) for c in dims],
+            marker=dict(size=4, color="#2196F3", opacity=0.5),
+            text=sample["name"] if "name" in sample.columns else None,
+        ))
+        fig.update_layout(title="Scatter Matrix (pairwise properties)", width=900, height=700)
+        plots["scatter_matrix_html"] = fig.to_html(include_plotlyjs="cdn", full_html=False)
+    except Exception as e:
+        log.warning("Scatter matrix failed: %s", e)
+
+    # 8. Summary table
     plots["summary_table"] = df.to_dict(orient="records")
     plots["success"] = True
     return plots
