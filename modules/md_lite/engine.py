@@ -535,6 +535,16 @@ class MDEngine:
         self.simulation = app.Simulation(self.modeller.topology, self.system,
             self.integrator, platform)
         self.simulation.context.setPositions(self.modeller.positions)
+        # Save the FULL system topology (protein + water + ions) as PDB.
+        # This MUST match the trajectory atom count for analysis (mdtraj/MDAnalysis).
+        try:
+            os.makedirs(self.workdir, exist_ok=True)
+            top_path = os.path.join(self.workdir, "topology.pdb")
+            with open(top_path, "w") as f:
+                app.PDBFile.writeFile(self.modeller.topology, self.modeller.positions, f)
+            log.info(f"System topology saved: {top_path} ({self.modeller.topology.getNumAtoms()} atoms)")
+        except Exception as e:
+            log.warning(f"Failed to save topology PDB: {e}")
         return self
 
     def minimize(self, max_iterations=0):

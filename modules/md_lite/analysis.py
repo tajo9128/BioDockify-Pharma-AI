@@ -42,12 +42,62 @@ def analyze(traj_path, top_path, workdir):
     if not HAS_MDTRAJ or not HAS_MPL:
         return {"status": "ok", "error": "mdtraj or matplotlib not installed", "rmsd": {}, "rmsf": {}, "energy": {}}
 
-    traj = md.load(traj_path, top=top_path) if os.path.exists(top_path) else md.load(traj_path)
+    # Find the CORRECT topology file — must match trajectory atom count.
+    # Priority: topology.pdb (full system saved by engine) > prepared.pdb > protein.pdb
+    top_candidates = []
+    # 1. Explicit topology.pdb (full system: protein+water+ions) — BEST match
+    topo_pdb = os.path.join(workdir, "topology.pdb")
+    if os.path.exists(topo_pdb):
+        top_candidates.append(topo_pdb)
+    # 2. The provided top_path
+    if top_path and os.path.exists(top_path):
+        top_candidates.append(top_path)
+    # 3. Other common topology names
+    for name in ["prepared.pdb", "complex.pdb", "protein.pdb", "system.pdb", "input.pdb"]:
+        alt = os.path.join(workdir, name)
+        if os.path.exists(alt) and alt not in top_candidates:
+            top_candidates.append(alt)
+
+    traj = None
+    load_error = None
+    for topo in top_candidates:
+        try:
+            candidate = md.load(traj_path, top=topo)
+            # Verify atom count matches
+            if candidate.n_atoms > 0:
+                traj = candidate
+                log.info(f"Loaded trajectory: {traj.n_atoms} atoms, {traj.n_frames} frames (topology: {os.path.basename(topo)})")
+                break
+        except Exception as e:
+            load_error = e
+            log.debug(f"Topology {topo} failed: {e}")
+            continue
+
+    # Last resort: try without topology (some formats embed it)
+    if traj is None:
+        try:
+            traj = md.load(traj_path)
+        except Exception as e:
+            return {"error": f"Failed to load trajectory: {load_error or e}. "
+                    "The topology file doesn't match the trajectory. "
+                    "This is a known issue when the topology PDB has fewer atoms than the trajectory "
+                    "(e.g., protein-only PDB vs full system with water). "
+                    "The engine now saves topology.pdb with the full system."}
+
+    # For analysis, strip to protein-only (exclude water/ions) to get meaningful RMSD/RMSF
+    protein_traj = traj
+    try:
+        protein_traj = traj.atom_slice(traj.topology.select("protein"))
+        if protein_traj.n_atoms == 0:
+            protein_traj = traj  # fallback if no protein selection
+    except Exception:
+        pass  # use full trajectory
+
     results = {}
 
     # RMSD
     try:
-        rmsd = md.rmsd(traj, traj, 0)
+        rmsd = md.rmsd(protein_traj, protein_traj, 0)
         results["rmsd"] = {"mean_nm": round(float(np.mean(rmsd)), 4), "final_nm": round(float(rmsd[-1]), 4)}
         _style_dark()
         fig, ax = plt.subplots(figsize=(6, 3))
@@ -61,7 +111,7 @@ def analyze(traj_path, top_path, workdir):
 
     # RMSF
     try:
-        rmsf = md.rmsf(traj, traj, 0)
+        rmsf = md.rmsf(protein_traj, protein_traj, 0)
         results["rmsf"] = {"mean_nm": round(float(np.mean(rmsf)), 4), "max_nm": round(float(np.max(rmsf)), 4)}
         _style_dark()
         fig, ax = plt.subplots(figsize=(6, 3))
@@ -101,7 +151,7 @@ def analyze(traj_path, top_path, workdir):
 
     # Gyration Radius
     try:
-        rg = md.compute_rg(traj)
+        rg = md.compute_rg(protein_traj)
         results["gyration"] = {"mean_nm": round(float(np.mean(rg)), 4), "final_nm": round(float(rg[-1]), 4)}
         _style_dark()
         fig, ax = plt.subplots(figsize=(6, 3))
@@ -115,7 +165,7 @@ def analyze(traj_path, top_path, workdir):
 
     # SASA
     try:
-        sasa = md.shrake_rupley(traj)
+        sasa = md.shrake_rupley(protein_traj)
         results["sasa"] = {"mean_nm2": round(float(np.mean(sasa)), 2), "final_nm2": round(float(sasa[-1]), 2)}
         _style_dark()
         fig, ax = plt.subplots(figsize=(6, 3))
@@ -129,7 +179,7 @@ def analyze(traj_path, top_path, workdir):
 
     # H-Bonds
     try:
-        hb = md.baker_hubbard(traj, periodic=False)
+        hb = md.baker_hubbard(protein_traj, periodic=False)
         hb_count = len(hb)
         hb_labels = [f"D{hb[i][0]}-A{hb[i][2]}" for i in range(min(hb_count, 10))]
         results["hbonds"] = {"count": hb_count, "top_donor_acceptor": hb_labels}
@@ -137,8 +187,8 @@ def analyze(traj_path, top_path, workdir):
         fig, ax = plt.subplots(figsize=(6, 3))
         # Compute per-frame H-bond count
         hb_per_frame = []
-        for i in range(traj.n_frames):
-            f = traj[i]
+        for i in range(protein_traj.n_frames):
+            f = protein_traj[i]
             hbf = md.baker_hubbard(f, periodic=False)
             hb_per_frame.append(len(hbf))
         ax.plot(hb_per_frame, color="#f59e0b", linewidth=1)

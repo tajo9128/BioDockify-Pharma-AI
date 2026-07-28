@@ -231,7 +231,12 @@ class MDLite(ApiHandler):
         job_id = input["job_id"]
         job_dir = os.path.join(WORKDIR, job_id)
         traj = os.path.join(job_dir, "trajectory.dcd")
-        top = os.path.join(job_dir, "complex.pdb") or os.path.join(job_dir, "protein.pdb")
+        # Use topology.pdb (full system) if available, else fall back
+        top = os.path.join(job_dir, "topology.pdb")
+        if not os.path.exists(top):
+            top = os.path.join(job_dir, "complex.pdb")
+        if not os.path.exists(top):
+            top = os.path.join(job_dir, "protein.pdb")
         from modules.md_lite.analysis import analyze
         r = analyze(traj, top, job_dir)
         result = {"status": "ok", "job_id": job_id, "analysis": r}
@@ -267,7 +272,11 @@ class MDLite(ApiHandler):
         job_id = input["job_id"]
         job_dir = os.path.join(WORKDIR, job_id)
         traj = os.path.join(job_dir, "trajectory.dcd")
-        top = os.path.join(job_dir, "complex.pdb") or os.path.join(job_dir, "protein.pdb")
+        top = os.path.join(job_dir, "topology.pdb")
+        if not os.path.exists(top):
+            top = os.path.join(job_dir, "complex.pdb")
+        if not os.path.exists(top):
+            top = os.path.join(job_dir, "protein.pdb")
         from modules.md_lite.mmpbsa import calculate_mmpbsa
         return {"status": "ok", "job_id": job_id, "mmpbsa": calculate_mmpbsa(traj, top, job_dir)}
 
