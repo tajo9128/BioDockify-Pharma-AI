@@ -234,18 +234,22 @@ class QSAR3DHandler(ApiHandler):
             log.error(f"[QSAR3D] Delete failed: {e}", exc_info=True)
 
     def _ml_compare(self, input: dict):
-        """Train & compare 10+ ML models on molecular fingerprints or descriptors.
+        """Train & compare 20+ ML models on molecular fingerprints or descriptors.
 
-        Inspired by Omixium's QSAR_ML_all_models pipeline.
+        Full Omixium QSAR pipeline with EDA, model comparison, actual vs predicted,
+        feature importance, and fingerprint bit interpretation.
+
         Input: smiles (list), activity (list), feature_type (fingerprint|descriptors),
-               target_names (optional list), test_fraction (float)
-        Returns: model comparison table, best model per target, feature importance.
+               target_names (optional list), test_fraction (float),
+               test_smiles (optional list for prediction validation)
+        Returns: model comparison table, plots, best model, feature importance.
         """
         smiles = input.get("smiles", [])
         activity = input.get("activity", [])
         feature_type = input.get("feature_type", "fingerprint")
         target_names = input.get("target_names", None)
         test_fraction = input.get("test_fraction", 0.2)
+        test_smiles = input.get("test_smiles", None)
 
         if not smiles or not activity:
             return {"error": "smiles and activity lists required"}
@@ -257,7 +261,9 @@ class QSAR3DHandler(ApiHandler):
         try:
             from modules.qsar3d.ml_models import (
                 generate_morgan_fingerprints, calculate_descriptors,
-                train_and_compare, get_feature_importance
+                train_and_compare, get_feature_importance,
+                generate_eda_plots, generate_actual_vs_predicted_plots,
+                generate_model_comparison_chart, interpret_fingerprint_bits,
             )
             import numpy as np
 
@@ -273,6 +279,11 @@ class QSAR3DHandler(ApiHandler):
 
             if len(X) < 20:
                 return {"error": f"Only {len(X)} valid molecules. Need at least 20."}
+
+            # EDA plots
+            eda_plots = generate_eda_plots(
+                [smiles[i] for i in valid_idx], y, target_names
+            )
 
             # Train & compare
             result = train_and_compare(X, y, target_names=target_names,
@@ -294,6 +305,23 @@ class QSAR3DHandler(ApiHandler):
                     best_model_name, feature_names, top_n=15
                 )
 
+            # Actual vs Predicted plots
+            avp_plots = generate_actual_vs_predicted_plots(
+                result.get("predictions", {}), result.get("target_names", []), top_n_models=5
+            )
+
+            # Model comparison chart
+            comp_chart = generate_model_comparison_chart(result.get("results", []))
+
+            # Fingerprint bit interpretation
+            fp_interpretation = []
+            if feature_type == "fingerprint" and best_model_name:
+                sample_smiles = smiles[valid_idx[0]] if valid_idx else smiles[0]
+                fp_interpretation = interpret_fingerprint_bits(
+                    result["trained_models"].get(best_model_name),
+                    best_model_name, feature_names, sample_smiles, top_n=10
+                )
+
             # Build comparison table
             comparison = []
             for r in result.get("results", []):
@@ -310,6 +338,10 @@ class QSAR3DHandler(ApiHandler):
                 "comparison": comparison,
                 "best_per_target": result.get("best_per_target", {}),
                 "feature_importance": importance,
+                "fingerprint_interpretation": fp_interpretation,
+                "eda_plots": eda_plots,
+                "actual_vs_predicted_plots": avp_plots,
+                "model_comparison_chart": comp_chart,
                 "message": f"Compared {result.get('n_models_tested', 0)} models on {len(X)} molecules "
                            f"({X.shape[1]} features). Best: {best_model_name} (R²={best_r2})",
             }

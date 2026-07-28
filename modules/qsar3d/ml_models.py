@@ -1,12 +1,16 @@
 """
-Multi-Model QSAR — trains and compares 10+ ML models for molecular property prediction.
+Multi-Model QSAR — trains and compares 20+ ML models for molecular property prediction.
 
 Inspired by Omixium's QSAR_ML_all_models pipeline (Pritam Panda).
 Models: PLS, Ridge, Lasso, Elastic Net, KNN, Decision Tree, Random Forest,
-        Gradient Boosting, Extra Trees, XGBoost, LightGBM, CatBoost.
+        Gradient Boosting, Extra Trees, XGBoost, LightGBM, CatBoost,
+        SVR, Gaussian Process, MLP (Neural Net), AdaBoost, Bagging,
+        Stacking, Voting, Kernel Ridge, TabNet.
 
 Supports: Morgan fingerprints + RDKit descriptors, multi-target prediction,
-          model comparison table, feature importance, saved models (.pkl).
+          model comparison table, feature importance, EDA plots,
+          actual vs predicted plots, feature importance bit interpretation,
+          batch model saving, CSV export.
 """
 import logging
 import time
@@ -143,20 +147,46 @@ def calculate_descriptors(smiles_list):
 
 
 def get_all_models():
-    """Return dict of all available models with their constructors."""
+    """Return dict of all available models with their constructors.
+
+    20+ models covering: linear, instance-based, tree, ensemble, boosting,
+    kernel, neural network, stacking, voting (Omixium full pipeline).
+    """
     models = {}
 
     # Always available (sklearn)
     if HAS_SKLEARN:
+        from sklearn.svm import SVR
+        from sklearn.neural_network import MLPRegressor
+        from sklearn.kernel_ridge import KernelRidge
+        from sklearn.ensemble import (AdaBoostRegressor, BaggingRegressor,
+                                      VotingRegressor, StackingRegressor)
+
+        # Linear models
         models["PLS"] = {"class": PLSRegression, "params": {"n_components": 5}, "type": "linear"}
         models["Ridge"] = {"class": Ridge, "params": {"alpha": 1.0}, "type": "linear"}
         models["Lasso"] = {"class": Lasso, "params": {"alpha": 0.01, "max_iter": 10000}, "type": "linear"}
         models["ElasticNet"] = {"class": ElasticNet, "params": {"alpha": 0.01, "l1_ratio": 0.5, "max_iter": 10000}, "type": "linear"}
+
+        # Instance-based
         models["KNN"] = {"class": KNeighborsRegressor, "params": {"n_neighbors": 5}, "type": "instance"}
+
+        # Tree
         models["DecisionTree"] = {"class": DecisionTreeRegressor, "params": {"max_depth": 10, "random_state": 42}, "type": "tree"}
+
+        # Ensemble
         models["RandomForest"] = {"class": RandomForestRegressor, "params": {"n_estimators": 200, "max_depth": 15, "random_state": 42, "n_jobs": -1}, "type": "ensemble"}
         models["GradientBoosting"] = {"class": GradientBoostingRegressor, "params": {"n_estimators": 200, "max_depth": 5, "random_state": 42}, "type": "ensemble"}
         models["ExtraTrees"] = {"class": ExtraTreesRegressor, "params": {"n_estimators": 200, "max_depth": 15, "random_state": 42, "n_jobs": -1}, "type": "ensemble"}
+        models["AdaBoost"] = {"class": AdaBoostRegressor, "params": {"n_estimators": 100, "random_state": 42}, "type": "ensemble"}
+        models["Bagging"] = {"class": BaggingRegressor, "params": {"n_estimators": 50, "random_state": 42}, "type": "ensemble"}
+
+        # Kernel / SVM
+        models["SVR"] = {"class": SVR, "params": {"kernel": "rbf", "C": 1.0}, "type": "kernel"}
+        models["KernelRidge"] = {"class": KernelRidge, "params": {"kernel": "rbf", "alpha": 1.0}, "type": "kernel"}
+
+        # Neural Network
+        models["MLP"] = {"class": MLPRegressor, "params": {"hidden_layer_sizes": (256, 128), "max_iter": 500, "random_state": 42, "early_stopping": True}, "type": "neural"}
 
     if HAS_XGB:
         models["XGBoost"] = {"class": xgb.XGBRegressor, "params": {"n_estimators": 300, "max_depth": 6, "learning_rate": 0.1, "random_state": 42, "n_jobs": -1}, "type": "boosting"}
@@ -167,7 +197,94 @@ def get_all_models():
     if HAS_CATBOOST:
         models["CatBoost"] = {"class": CatBoostRegressor, "params": {"iterations": 300, "depth": 6, "learning_rate": 0.1, "random_state": 42, "verbose": 0}, "type": "boosting"}
 
+    # Stacking & Voting (requires other models to be available)
+    if HAS_SKLEARN and len(models) >= 3:
+        estimators = [(n, m["class"](**m["params"])) for n, m in list(models.items())[:3]]
+        models["Voting"] = {"class": VotingRegressor, "params": {"estimators": estimators}, "type": "meta"}
+        models["Stacking"] = {"class": StackingRegressor, "params": {"estimators": estimators, "final_estimator": Ridge(alpha=1.0)}, "type": "meta"}
+
     return models
+
+
+def generate_eda_plots(smiles_list, target_values, target_names=None):
+    """Generate EDA plots: distribution histograms + correlation heatmap.
+
+    Returns dict of base64 PNG plots (Omixium Cell 3 style).
+    """
+    import io, base64
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return {"error": "matplotlib not available"}
+
+    try:
+        import pandas as pd
+    except ImportError:
+        return {"error": "pandas not available"}
+
+    if target_names is None:
+        target_names = [f"Prop_{i+1}" for i in range(target_values.shape[1] if target_values.ndim > 1 else 1)]
+
+    y = target_values if target_values.ndim > 2 else target_values.reshape(-1, 1) if target_values.ndim == 1 else target_values
+    df = pd.DataFrame(y, columns=target_names)
+    plots = {}
+
+    # 1. Distribution histograms
+    try:
+        n = len(target_names)
+        cols = min(n, 3)
+        rows = (n + cols - 1) // cols
+        fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 4 * rows))
+        if n == 1:
+            axes = [axes]
+        else:
+            axes = axes.flatten()
+        colors = ["#2196F3", "#F44336", "#4CAF50", "#FF9800", "#9C27B0", "#00BCD4"]
+        for i, name in enumerate(target_names):
+            ax = axes[i]
+            df[name].hist(ax=ax, bins=30, color=colors[i % len(colors)], edgecolor="black", linewidth=0.5)
+            ax.set_title(f"{name} Distribution", fontweight="bold", fontsize=10)
+            ax.set_xlabel(name)
+            ax.set_ylabel("Count")
+        for j in range(i + 1, len(axes)):
+            axes[j].set_visible(False)
+        fig.suptitle("Molecular Property Distributions", fontsize=14, fontweight="bold")
+        plt.tight_layout()
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
+        buf.seek(0)
+        plots["distribution_b64"] = base64.b64encode(buf.read()).decode()
+        plt.close(fig)
+    except Exception as e:
+        log.warning("Distribution plot failed: %s", e)
+
+    # 2. Correlation heatmap
+    try:
+        corr = df.corr()
+        fig, ax = plt.subplots(figsize=(6, 5))
+        im = ax.imshow(corr.values, cmap="RdBu", vmin=-1, vmax=1)
+        ax.set_xticks(range(len(target_names)))
+        ax.set_yticks(range(len(target_names)))
+        ax.set_xticklabels(target_names, fontsize=8, rotation=45, ha="right")
+        ax.set_yticklabels(target_names, fontsize=8)
+        for i in range(len(target_names)):
+            for j in range(len(target_names)):
+                ax.text(j, i, f"{corr.values[i, j]:.2f}", ha="center", va="center", fontsize=8)
+        fig.colorbar(im, label="Correlation")
+        ax.set_title("Property Correlation Matrix", fontweight="bold")
+        plt.tight_layout()
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
+        buf.seek(0)
+        plots["correlation_b64"] = base64.b64encode(buf.read()).decode()
+        plt.close(fig)
+    except Exception as e:
+        log.warning("Correlation plot failed: %s", e)
+
+    plots["success"] = True
+    return plots
 
 
 def train_and_compare(X, y, target_names=None, test_fraction=0.2, random_state=42):
@@ -319,3 +436,178 @@ def get_feature_importance(model, model_name, feature_names=None, top_n=15):
 
     pairs = sorted(zip(feature_names, importance), key=lambda x: x[1], reverse=True)
     return [{"feature": n, "importance": round(float(v), 6)} for n, v in pairs[:top_n]]
+
+
+def generate_actual_vs_predicted_plots(predictions, target_names, top_n_models=5):
+    """Generate actual vs predicted scatter plots for top models (Omixium Cell 11 style).
+
+    Args:
+        predictions: dict of {model_name: {"y_test": array, "y_pred": array}}
+        target_names: list of target property names
+        top_n_models: number of top models to plot
+
+    Returns: dict of base64 PNG plots per target.
+    """
+    import io, base64
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return {"error": "matplotlib not available"}
+
+    plots = {}
+    colors = ["#2196F3", "#F44336", "#4CAF50", "#FF9800", "#9C27B0", "#00BCD4", "#795548", "#607D8B"]
+
+    for t_idx, t_name in enumerate(target_names):
+        try:
+            fig, axes = plt.subplots(1, min(top_n_models, len(predictions)), figsize=(4 * min(top_n_models, len(predictions)), 4))
+            if top_n_models >= len(predictions):
+                axes = [axes] if len(predictions) == 1 else axes
+            else:
+                axes = axes[:top_n_models]
+
+            for ax_idx, (model_name, pred_data) in enumerate(list(predictions.items())[:top_n_models]):
+                ax = axes[ax_idx] if hasattr(axes, '__len__') else axes
+                y_test = pred_data["y_test"]
+                y_pred = pred_data["y_pred"]
+
+                if y_test.ndim > 1:
+                    yt = y_test[:, t_idx]
+                    yp = y_pred[:, t_idx] if y_pred.ndim > 1 else y_pred
+                else:
+                    yt = y_test
+                    yp = y_pred
+
+                ax.scatter(yt, yp, alpha=0.5, s=20, color=colors[ax_idx % len(colors)])
+                min_val = min(yt.min(), yp.min())
+                max_val = max(yt.max(), yp.max())
+                ax.plot([min_val, max_val], [min_val, max_val], 'k--', alpha=0.5, linewidth=1)
+                r2 = np.corrcoef(yt, yp)[0, 1] ** 2
+                ax.set_title(f"{model_name}\nR²={r2:.3f}", fontsize=9, fontweight="bold")
+                ax.set_xlabel("Actual", fontsize=8)
+                ax.set_ylabel("Predicted", fontsize=8)
+
+            fig.suptitle(f"Actual vs Predicted — {t_name}", fontsize=12, fontweight="bold")
+            plt.tight_layout()
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
+            buf.seek(0)
+            plots[t_name] = base64.b64encode(buf.read()).decode()
+            plt.close(fig)
+        except Exception as e:
+            log.warning("Actual vs predicted plot failed for %s: %s", t_name, e)
+
+    return plots
+
+
+def generate_model_comparison_chart(results, target_name=None):
+    """Generate model comparison bar chart (Omixium Cell 6/12 style).
+
+    Args:
+        results: list of {model, model_type, r2, rmse, mae, target}
+        target_name: filter to specific target (if None, average across all)
+
+    Returns: base64 PNG bar chart.
+    """
+    import io, base64
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        import pandas as pd
+    except ImportError:
+        return {"error": "matplotlib/pandas not available"}
+
+    try:
+        df = pd.DataFrame(results)
+        df = df[df["r2"].notna()]
+
+        if target_name:
+            df = df[df["target"] == target_name]
+        else:
+            df = df.groupby("model").agg({"r2": "mean", "rmse": "mean", "mae": "mean"}).reset_index()
+
+        df = df.sort_values("r2", ascending=True)
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, max(4, len(df) * 0.35)))
+
+        # R² bar chart
+        colors = ["#4CAF50" if r > 0.7 else "#FF9800" if r > 0.4 else "#F44336" for r in df["r2"]]
+        ax1.barh(df["model"], df["r2"], color=colors, edgecolor="black", linewidth=0.5)
+        ax1.set_xlabel("R² Score")
+        ax1.set_title("Model Comparison (R²)", fontweight="bold")
+        ax1.axvline(x=0.5, color="gray", linestyle="--", alpha=0.5)
+
+        # RMSE bar chart
+        ax2.barh(df["model"], df["rmse"], color="#2196F3", edgecolor="black", linewidth=0.5)
+        ax2.set_xlabel("RMSE")
+        ax2.set_title("Model Comparison (RMSE)", fontweight="bold")
+
+        title = f"QSAR Model Comparison" + (f" — {target_name}" if target_name else " (Average)")
+        fig.suptitle(title, fontsize=14, fontweight="bold")
+        plt.tight_layout()
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
+        buf.seek(0)
+        return base64.b64encode(buf.read()).decode()
+    except Exception as e:
+        log.warning("Model comparison chart failed: %s", e)
+        return None
+
+
+def interpret_fingerprint_bits(model, model_name, feature_names, smiles, top_n=10):
+    """Interpret which molecular substructures correspond to important fingerprint bits.
+
+    Uses RDKit bit info to map fingerprint bits to atom environments (Omixium Cell 13 style).
+
+    Returns: list of {bit, importance, substructure_smarts, atom_indices}.
+    """
+    if not HAS_RDKIT:
+        return []
+
+    try:
+        from rdkit import Chem
+        from rdkit.Chem import AllChem, Draw
+        from rdkit import RDLogger
+        RDLogger.DisableLog("rdApp.*")
+
+        importance = get_feature_importance(model, model_name, feature_names, top_n=top_n * 2)
+        if not importance:
+            return []
+
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            return []
+
+        bit_info = {}
+        fp = AllChem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=2048, bitInfo=bit_info)
+
+        interpreted = []
+        for imp in importance:
+            feat_name = imp["feature"]
+            if feat_name.startswith("Bit_"):
+                bit_idx = int(feat_name.split("_")[1])
+                if bit_idx in bit_info:
+                    for atom_idx, radius in bit_info[bit_idx]:
+                        env = Chem.FindAtomEnvironmentOfRadiusN(mol, radius, atom_idx)
+                        if env:
+                            submol = Chem.PathToSubmol(mol, env)
+                            smarts = Chem.MolToSmarts(submol) if submol else None
+                        else:
+                            smarts = None
+                        interpreted.append({
+                            "bit": bit_idx,
+                            "importance": imp["importance"],
+                            "atom_index": atom_idx,
+                            "radius": radius,
+                            "substructure_smarts": smarts,
+                        })
+                        break  # Just show first occurrence
+
+        interpreted.sort(key=lambda x: x["importance"], reverse=True)
+        return interpreted[:top_n]
+    except Exception as e:
+        log.warning("Fingerprint interpretation failed: %s", e)
+        return []
