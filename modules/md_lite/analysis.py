@@ -166,10 +166,13 @@ def analyze(traj_path, top_path, workdir):
     # SASA
     try:
         sasa = md.shrake_rupley(protein_traj)
-        results["sasa"] = {"mean_nm2": round(float(np.mean(sasa)), 2), "final_nm2": round(float(sasa[-1]), 2)}
+        # sasa shape is (n_frames, n_atoms) — sum over atoms per frame
+        sasa_per_frame = sasa.sum(axis=1) if sasa.ndim > 1 else sasa
+        results["sasa"] = {"mean_nm2": round(float(np.mean(sasa_per_frame)), 2),
+                           "final_nm2": round(float(sasa_per_frame[-1]), 2)}
         _style_dark()
         fig, ax = plt.subplots(figsize=(6, 3))
-        ax.plot(sasa, color="#22c55e", linewidth=1)
+        ax.plot(sasa_per_frame, color="#22c55e", linewidth=1)
         ax.set_title("Solvent Accessible Surface Area", fontsize=12, fontweight="bold", color="#22c55e")
         ax.set_xlabel("Frame"); ax.set_ylabel("SASA (nm²)")
         ax.grid(axis="y", alpha=0.3)
