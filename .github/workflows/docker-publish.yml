@@ -34,13 +34,10 @@ jobs:
           if [ -n "${{ github.event.inputs.force_version }}" ]; then
             VERSION="${{ github.event.inputs.force_version }}"
           else
-            # Use the version from version_info.txt (single source of truth).
-            # This keeps GitHub tags, Docker Hub tags, and the in-app version identical.
             RAW_VERSION=$(cat version_info.txt | tr -d '[:space:]')
             if [ -z "$RAW_VERSION" ]; then
               echo "ERROR: version_info.txt is empty"; exit 1
             fi
-            # Ensure it starts with 'v'
             if [[ "$RAW_VERSION" != v* ]]; then
               VERSION="v$RAW_VERSION"
             else
@@ -62,15 +59,11 @@ jobs:
       - name: Free up disk space on runner
         run: |
           echo "Freeing disk space..."
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup
           sudo rm -rf /usr/local/share/boost /usr/share/swift /opt/hostedtoolcache
           sudo apt-get clean -y
           sudo apt-get autoremove -y
-          sudo docker image prune --all --force 2>/dev/null || true
           df -h /
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -78,27 +71,22 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile.release
-          push: true
-          platforms: linux/amd64
-          provenance: false
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev
-          labels: |
-            org.opencontainers.image.title=BioDockify AI
-            org.opencontainers.image.description=Pharma research distribution of BioDockify AI
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+      - name: Build Docker image
+        run: |
+          docker build -f ./Dockerfile.release -t ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} .
+          docker tag ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} ${{ env.IMAGE_NAME }}:latest
+          docker tag ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} ${{ env.IMAGE_NAME }}:dev
 
       - name: Verify packages in built image
         run: |
           echo "Running package verification..."
-          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} /exe/verify_packages.sh || echo "WARNING: Some packages missing — check logs above"
+          docker run --rm ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} /exe/verify_packages.sh || echo "WARNING: Some packages missing — check logs above"
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
