@@ -75,6 +75,8 @@ jobs:
           file: ./Dockerfile.release
           push: true
           no-cache: true
+          platforms: linux/amd64
+          provenance: false
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
