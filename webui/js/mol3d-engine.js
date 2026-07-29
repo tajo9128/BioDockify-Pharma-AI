@@ -159,6 +159,9 @@ export class Mol3DViewer {
         antialias: true,
         cartoonQuality: 5,
       });
+      // Enable auto-rotate by default
+      this.viewer.spin("y");
+      this._spinning = true;
       this.ready = true;
       return true;
     } catch (e) {
@@ -200,6 +203,39 @@ export class Mol3DViewer {
       this.viewer.setBackgroundColor(color);
       this.viewer.render();
     }
+  }
+
+  /**
+   * Toggle spin/rotation on/off.
+   */
+  toggleSpin() {
+    if (!this.viewer) return false;
+    if (this._spinning) {
+      this.viewer.spin(false);
+      this._spinning = false;
+    } else {
+      this.viewer.spin("y");
+      this._spinning = true;
+    }
+    return this._spinning;
+  }
+
+  /**
+   * Start spinning.
+   */
+  startSpin(axis = "y") {
+    if (!this.viewer) return;
+    this.viewer.spin(axis);
+    this._spinning = true;
+  }
+
+  /**
+   * Stop spinning.
+   */
+  stopSpin() {
+    if (!this.viewer) return;
+    this.viewer.spin(false);
+    this._spinning = false;
   }
 
   /**
