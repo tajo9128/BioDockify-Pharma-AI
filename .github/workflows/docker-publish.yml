@@ -86,6 +86,11 @@ jobs:
             org.opencontainers.image.description=Pharma research distribution of BioDockify AI
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
 
+      - name: Verify packages in built image
+        run: |
+          echo "Running package verification..."
+          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} /exe/verify_packages.sh
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
