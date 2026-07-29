@@ -2,97 +2,77 @@ FROM tajo9128/biodockify-pharma-ai:v7.0.7
 
 COPY . /a0/
 
-# ─── Consolidate all persistent data under /a0/usr (single volume) ───
-RUN mkdir -p /a0/usr/data /a0/usr/.a0proj && \
-    # Move any existing data into the volume mount point
+# ─── ALL setup in ONE layer to avoid "max depth exceeded" ───
+RUN set -e && \
+    # 1. Symlinks: consolidate /a0/data and /a0/.a0proj into /a0/usr
+    mkdir -p /a0/usr/data /a0/usr/.a0proj && \
     [ -d /a0/data ] && [ ! -L /a0/data ] && cp -a /a0/data/. /a0/usr/data/ 2>/dev/null; \
     [ -d /a0/.a0proj ] && [ ! -L /a0/.a0proj ] && cp -a /a0/.a0proj/. /a0/usr/.a0proj/ 2>/dev/null; \
-    # Replace with symlinks so all writes go to /a0/usr
     rm -rf /a0/data /a0/.a0proj && \
     ln -s /a0/usr/data /a0/data && \
     ln -s /a0/usr/.a0proj /a0/.a0proj && \
-    echo "Symlinks created: /a0/data -> /a0/usr/data, /a0/.a0proj -> /a0/usr/.a0proj"
-
-# ─── Cleanup + Rebrand ───
-RUN find /a0/webui/ -maxdepth 1 \( -name "favicon*" -o -name "*.ico" \) -type f -delete 2>/dev/null || true; \
-    cp -f /a0/webui/public/favicon.svg /a0/webui/favicon.svg 2>/dev/null || true; \
-    cp -f /a0/webui/public/favicon.svg /a0/webui/favicon.ico 2>/dev/null || true; \
-    cp -f /a0/webui/public/favicon_round.svg /a0/webui/favicon_round.svg 2>/dev/null || true; \
-    cp -f /a0/webui/public/icon.svg /a0/webui/icon.svg 2>/dev/null || true; \
-    rm -f /a0/extensions/webui/right-canvas-panels/*.html 2>/dev/null || true; \
+    # 2. Rebrand
+    find /a0/webui/ -maxdepth 1 \( -name "favicon*" -o -name "*.ico" \) -type f -delete 2>/dev/null; \
+    cp -f /a0/webui/public/favicon.svg /a0/webui/favicon.svg 2>/dev/null; \
+    cp -f /a0/webui/public/favicon.svg /a0/webui/favicon.ico 2>/dev/null; \
+    cp -f /a0/webui/public/favicon_round.svg /a0/webui/favicon_round.svg 2>/dev/null; \
+    cp -f /a0/webui/public/icon.svg /a0/webui/icon.svg 2>/dev/null; \
+    rm -f /a0/extensions/webui/right-canvas-panels/*.html 2>/dev/null; \
     rm -rf /a0/webui/components/docking /a0/webui/components/3d-viewer /a0/webui/components/admet \
            /a0/webui/components/drug-browser /a0/webui/components/mol-similarity \
-           /a0/webui/components/chemical-space /a0/webui/components/agent-tasks 2>/dev/null || true; \
-    rm -rf /a0/webui/components/qsar /a0/webui/components/qsar3d_old 2>/dev/null || true; \
-    rm -rf /a0/modules/qsar 2>/dev/null || true; \
-    rm -f /a0/api/qsar.py /a0/api/pharmacophore_old.py 2>/dev/null || true; \
-    sed -i 's|Agent Zero|BioDockify AI|g' /a0/prompts/*.md 2>/dev/null || true; \
-    sed -i 's|agent_zero|biodockify_ai|g' /a0/prompts/*.md 2>/dev/null || true; \
-    sed -i 's|Agent Zero|BioDockify AI|g' /a0/agent_zero/prompts_v19/*.md 2>/dev/null || true; \
-    sed -i 's|Agent Zero|BioDockify AI|g' /a0/agent_zero/extensions_v19/python/agent_init/*.py 2>/dev/null || true; \
-    sed -i 's|Agent Zero|BioDockify AI|g' /a0/webui/index.html 2>/dev/null || true; \
-    sed -i 's|Agent Zero|BioDockify AI|g' /a0/webui/js/*.js 2>/dev/null || true; \
-    sed -i 's|Agent Zero|BioDockify AI|g' /a0/helpers/*.py 2>/dev/null || true; \
-    sed -i 's|Agent Zero|BioDockify AI|g' /a0/agent.py 2>/dev/null || true; \
-    sed -i 's|Agent Zero|BioDockify AI|g' /a0/models.py 2>/dev/null || true
-
-# ─── System packages (RDKit + OpenBabel + Vina) ───
-RUN apt-get update -qq && apt-get install -y -qq \
-    python3-rdkit openbabel autodock-vina wget 2>/dev/null || true; \
+           /a0/webui/components/chemical-space /a0/webui/components/agent-tasks 2>/dev/null; \
+    rm -rf /a0/webui/components/qsar /a0/webui/components/qsar3d_old 2>/dev/null; \
+    rm -rf /a0/modules/qsar 2>/dev/null; \
+    rm -f /a0/api/qsar.py /a0/api/pharmacophore_old.py 2>/dev/null; \
+    sed -i 's|Agent Zero|BioDockify AI|g' /a0/prompts/*.md 2>/dev/null; \
+    sed -i 's|agent_zero|biodockify_ai|g' /a0/prompts/*.md 2>/dev/null; \
+    sed -i 's|Agent Zero|BioDockify AI|g' /a0/agent_zero/prompts_v19/*.md 2>/dev/null; \
+    sed -i 's|Agent Zero|BioDockify AI|g' /a0/agent_zero/extensions_v19/python/agent_init/*.py 2>/dev/null; \
+    sed -i 's|Agent Zero|BioDockify AI|g' /a0/webui/index.html 2>/dev/null; \
+    sed -i 's|Agent Zero|BioDockify AI|g' /a0/webui/js/*.js 2>/dev/null; \
+    sed -i 's|Agent Zero|BioDockify AI|g' /a0/helpers/*.py 2>/dev/null; \
+    sed -i 's|Agent Zero|BioDockify AI|g' /a0/agent.py 2>/dev/null; \
+    sed -i 's|Agent Zero|BioDockify AI|g' /a0/models.py 2>/dev/null; \
+    # 3. System packages (RDKit + OpenBabel + Vina)
+    apt-get update -qq && apt-get install -y -qq \
+      python3-rdkit openbabel autodock-vina wget 2>/dev/null; \
     SYS_PKGS=$(python3 -c "import site; print(site.getsitepackages()[0])"); \
     /opt/venv-a0/bin/python -m pip install rdkit 2>/dev/null || \
-      (cp -r $SYS_PKGS/rdkit* /opt/venv-a0/lib/python3.12/site-packages/ 2>/dev/null || true); \
-    /opt/venv-a0/bin/python -c "from rdkit import Chem; print('RDKit OK')" 2>/dev/null || echo "RDKit unavailable in venv"
-
-# ─── Framework venv (/opt/venv-a0): all pharma + science + ML packages ───
-ENV PIP_DEFAULT_TIMEOUT=120
-RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
-    meeko>=0.5.0 \
-    scipy>=1.11.0 scikit-learn>=1.3.0 pandas>=2.0.0 matplotlib>=3.7.0 \
-    statsmodels>=0.14.0 seaborn>=0.12.0 plotly>=5.18.0 arxiv>=2.1.0 biopython>=1.83 \
-    lifelines>=0.27.0 semanticscholar>=0.6.0 tabulate>=0.9.0 \
-    pingouin>=0.5.4 reportlab>=4.0.0 fastapi>=0.110.0 \
-    "numpy>=1.24,<2.5" \
-    chromadb>=0.4.0 faiss-cpu>=1.7.4 sentence-transformers>=2.2.0 \
-    openmm>=8.1.0 mdtraj>=1.9.9 pdbfixer>=2.0.0 mdanalysis>=2.7.0 \
-    xgboost>=2.0.0 lightgbm>=4.0.0 catboost>=1.2.0 \
-    && echo "Framework venv packages installed" || echo "Framework venv packages install failed"
-
-# ─── Execution venv (/opt/venv): same packages as framework so code_execution_tool works ───
-RUN /opt/venv/bin/python -m pip install --no-cache-dir \
-    flask>=3.0.0 \
-    scipy>=1.11.0 scikit-learn>=1.3.0 pandas>=2.0.0 matplotlib>=3.7.0 \
-    statsmodels>=0.14.0 seaborn>=0.12.0 plotly>=5.18.0 \
-    "numpy>=1.24,<2.5" \
-    openmm>=8.1.0 mdtraj>=1.9.9 pdbfixer>=2.0.0 mdanalysis>=2.7.0 \
-    xgboost>=2.0.0 lightgbm>=4.0.0 catboost>=1.2.0 \
-    && echo "Execution venv packages installed" || echo "Execution venv packages install failed"
-
-# ─── Install supervisor for system Python (used by supervisor_event_listener.py) ───
-RUN /usr/bin/python3 -m pip install --no-cache-dir supervisor 2>/dev/null || \
-    pip3 install --no-cache-dir supervisor 2>/dev/null || \
-    echo "supervisor install skipped — listener will run in graceful fallback mode"
-
-# ─── Pre-cache sentence-transformers model (prevents HuggingFace download at runtime) ───
-ENV SENTENCE_TRANSFORMERS_HOME=/a0/.cache/sentence-transformers
-RUN mkdir -p /a0/.cache/sentence-transformers && \
-    /opt/venv-a0/bin/python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2', cache_folder='/a0/.cache/sentence-transformers')" 2>/dev/null && \
-    echo "sentence-transformers model cached" || \
-    echo "sentence-transformers model cache failed — will try HuggingFace at runtime"
-
-# ─── Make framework venv Python the default python3 ───
-# The agent's code_execution_tool uses /bin/bash → python3.
-# That must resolve to the framework venv (/opt/venv-a0) which has Flask,
-# litellm, and all API modules. The execution venv (/opt/venv) is for
-# user-installed packages only.
-RUN ln -sf /opt/venv-a0/bin/python /usr/local/bin/python3 && \
+      (cp -r $SYS_PKGS/rdkit* /opt/venv-a0/lib/python3.12/site-packages/ 2>/dev/null); \
+    # 4. Framework venv packages
+    PIP_DEFAULT_TIMEOUT=120 /opt/venv-a0/bin/python -m pip install --no-cache-dir \
+      meeko>=0.5.0 \
+      scipy>=1.11.0 scikit-learn>=1.3.0 pandas>=2.0.0 matplotlib>=3.7.0 \
+      statsmodels>=0.14.0 seaborn>=0.12.0 plotly>=5.18.0 arxiv>=2.1.0 biopython>=1.83 \
+      lifelines>=0.27.0 semanticscholar>=0.6.0 tabulate>=0.9.0 \
+      pingouin>=0.5.4 reportlab>=4.0.0 fastapi>=0.110.0 \
+      "numpy>=1.24,<2.5" \
+      chromadb>=0.4.0 faiss-cpu>=1.7.4 sentence-transformers>=2.2.0 \
+      openmm>=8.1.0 mdtraj>=1.9.9 pdbfixer>=2.0.0 mdanalysis>=2.7.0 \
+      xgboost>=2.0.0 lightgbm>=4.0.0 catboost>=1.2.0 && \
+    # 5. Execution venv packages
+    /opt/venv/bin/python -m pip install --no-cache-dir \
+      flask>=3.0.0 \
+      scipy>=1.11.0 scikit-learn>=1.3.0 pandas>=2.0.0 matplotlib>=3.7.0 \
+      statsmodels>=0.14.0 seaborn>=0.12.0 plotly>=5.18.0 \
+      "numpy>=1.24,<2.5" \
+      openmm>=8.1.0 mdtraj>=1.9.9 pdbfixer>=2.0.0 mdanalysis>=2.7.0 \
+      xgboost>=2.0.0 lightgbm>=4.0.0 catboost>=1.2.0 && \
+    # 6. Supervisor for system Python
+    /usr/bin/python3 -m pip install --no-cache-dir supervisor 2>/dev/null || \
+      pip3 install --no-cache-dir supervisor 2>/dev/null; \
+    # 7. Pre-cache sentence-transformers model
+    export SENTENCE_TRANSFORMERS_HOME=/a0/.cache/sentence-transformers && \
+    mkdir -p /a0/.cache/sentence-transformers && \
+    /opt/venv-a0/bin/python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2', cache_folder='/a0/.cache/sentence-transformers')" 2>/dev/null; \
+    # 8. Make framework venv Python the default
+    ln -sf /opt/venv-a0/bin/python /usr/local/bin/python3 && \
     ln -sf /opt/venv-a0/bin/python /usr/local/bin/python && \
     ln -sf /opt/venv-a0/bin/pip /usr/local/bin/pip3 && \
     ln -sf /opt/venv-a0/bin/pip /usr/local/bin/pip && \
-    echo "Framework venv python3 set as default"
+    echo "=== BioDockify v7.9.7 build complete ==="
 
 EXPOSE 50001
-# Single volume for ALL persistent data (workspace, chats, knowledge, memory)
 VOLUME ["/a0/usr"]
 HEALTHCHECK --interval=30s --timeout=15s --retries=3 CMD \
   curl -sf http://localhost:80/api/health || exit 1
