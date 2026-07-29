@@ -71,13 +71,28 @@ class FacultyTools(ApiHandler):
             return self._co_po_mapping(input)
         elif action == "question_blueprint":
             return self._question_blueprint(input)
+        # ── Bloom's Taxonomy & Lab Manual & Accreditation ──
+        elif action == "bloom_questions":
+            return self._bloom_questions(input)
+        elif action == "bloom_analysis":
+            return self._bloom_analysis(input)
+        elif action == "lab_manual":
+            return self._lab_manual(input)
+        elif action == "nba_report":
+            return self._nba_report(input)
+        elif action == "naac_report":
+            return self._naac_report(input)
+        elif action == "qcp_report":
+            return self._qcp_report(input)
         else:
             return {
                 "actions": ["syllabus", "plan_semester", "plan_class", "lesson_plan", "prep_notes",
                             "make_slides", "assignment", "questions", "plagiarism", "lecture",
                             "analyze_syllabus_enhanced", "divide_into_classes",
                             "find_reference_books", "generate_class_slides", "create_class_ppt",
-                            "exam_paper", "rubric", "grade_calculator", "co_po_mapping", "question_blueprint"],
+                            "exam_paper", "rubric", "grade_calculator", "co_po_mapping", "question_blueprint",
+                            "bloom_questions", "bloom_analysis", "lab_manual",
+                            "nba_report", "naac_report", "qcp_report"],
                 "hint": "Send action with topic/text"
             }
 
@@ -1103,4 +1118,1006 @@ class FacultyTools(ApiHandler):
         }
 
         _store_to_kb("faculty", f"Question Blueprint: {exam_type}", str(result), f"{exam_type},blueprint")
+        return result
+
+    # ═══════════════════════════════════════════════════════════════
+    # Bloom's Taxonomy Integration
+    # ═══════════════════════════════════════════════════════════════
+
+    BLOOM_LEVELS = {
+        "remember": {
+            "level": 1,
+            "name": "Remember",
+            "description": "Recall facts and basic concepts",
+            "verbs": ["define", "list", "memorize", "repeat", "state", "describe", "identify", "label", "name", "recognize"],
+            "question_types": ["MCQ", "True/False", "Fill in the blank", "Matching"],
+            "cognitive_process": "Retrieving relevant knowledge from long-term memory",
+        },
+        "understand": {
+            "level": 2,
+            "name": "Understand",
+            "description": "Explain ideas or concepts",
+            "verbs": ["classify", "describe", "explain", "identify", "locate", "recognize", "report", "select", "translate", "paraphrase"],
+            "question_types": ["MCQ", "Short Answer", "Explain with examples"],
+            "cognitive_process": "Constructing meaning from oral, written, and graphic messages",
+        },
+        "apply": {
+            "level": 3,
+            "name": "Apply",
+            "description": "Use information in new situations",
+            "verbs": ["calculate", "demonstrate", "apply", "implement", "execute", "use", "solve", "show", "illustrate", "compute"],
+            "question_types": ["Problem-solving", "Case study", "Calculation", "Demonstration"],
+            "cognitive_process": "Carrying out or using a procedure through executing or implementing",
+        },
+        "analyze": {
+            "level": 4,
+            "name": "Analyze",
+            "description": "Draw connections among ideas",
+            "verbs": ["analyze", "compare", "contrast", "differentiate", "examine", "experiment", "question", "test", "categorize", "distinguish"],
+            "question_types": ["Compare/Contrast", "Case analysis", "Critical analysis", "Data interpretation"],
+            "cognitive_process": "Breaking material into constituent parts and determining how parts relate to one another",
+        },
+        "evaluate": {
+            "level": 5,
+            "name": "Evaluate",
+            "description": "Justify a stand or decision",
+            "verbs": ["evaluate", "argue", "judge", "defend", "support", "critique", "weigh", "assess", "recommend", "prioritize"],
+            "question_types": ["Critical evaluation", "Debate", "Review", "Assessment report"],
+            "cognitive_process": "Making judgments based on criteria and standards",
+        },
+        "create": {
+            "level": 6,
+            "name": "Create",
+            "description": "Produce new or original work",
+            "verbs": ["design", "assemble", "construct", "conjecture", "develop", "formulate", "author", "investigate", "create", "compose"],
+            "question_types": ["Research proposal", "Design project", "Original composition", "Synthesis"],
+            "cognitive_process": "Putting elements together to form a coherent or functional whole",
+        },
+    }
+
+    def _bloom_questions(self, input: dict) -> dict:
+        """Generate questions at specific Bloom's Taxonomy levels.
+
+        Input: topic, bloom_level (remember/understand/apply/analyze/evaluate/create),
+               count, qtype (mcq/short/long/true_false/mixed)
+        Output: Questions with Bloom's alignment, verbs, and cognitive processes.
+        """
+        topic = input.get("topic", "")
+        bloom_level = input.get("bloom_level", "understand").lower()
+        count = min(int(input.get("count", 10)), 50)
+        qtype = input.get("qtype", "mixed")
+
+        if not topic:
+            return {"error": "Topic required"}
+
+        bloom = self.BLOOM_LEVELS.get(bloom_level, self.BLOOM_LEVELS["understand"])
+        verbs = bloom["verbs"]
+        question_types = bloom["question_types"]
+
+        # Generate questions based on Bloom's level
+        questions = []
+        for i in range(count):
+            verb = verbs[i % len(verbs)]
+            q_type = question_types[i % len(question_types)] if qtype == "mixed" else qtype
+
+            question = {
+                "q": i + 1,
+                "bloom_level": bloom["name"],
+                "bloom_number": bloom["level"],
+                "cognitive_process": bloom["cognitive_process"],
+                "verb": verb,
+                "type": q_type,
+                "topic": topic,
+                "prompt": f"{verb.capitalize()} {topic} — {bloom['description']}",
+                "marks": self._get_marks_for_bloom(bloom["level"], q_type),
+            }
+            questions.append(question)
+
+        # Bloom's distribution analysis
+        distribution = {
+            "target_level": bloom["name"],
+            "target_number": bloom["level"],
+            "total_questions": count,
+            "question_types_breakdown": {},
+        }
+        for q in questions:
+            qtype_key = q["type"]
+            distribution["question_types_breakdown"][qtype_key] = distribution["question_types_breakdown"].get(qtype_key, 0) + 1
+
+        result = {
+            "success": True,
+            "topic": topic,
+            "bloom_level": bloom["name"],
+            "bloom_number": bloom["level"],
+            "cognitive_process": bloom["cognitive_process"],
+            "verbs_used": verbs,
+            "questions": questions,
+            "distribution": distribution,
+            "total_marks": sum(q["marks"] for q in questions),
+        }
+
+        # Store in KB
+        kb_content = f"## Bloom's Questions: {topic}\n\n"
+        kb_content += f"**Level:** {bloom['name']} (Level {bloom['level']})\n"
+        kb_content += f"**Cognitive Process:** {bloom['cognitive_process']}\n"
+        kb_content += f"**Total Questions:** {count} | **Total Marks:** {result['total_marks']}\n\n"
+        for q in questions:
+            kb_content += f"Q{q['q']}. [{q['type']}] ({q['marks']} marks) — {q['prompt']}\n"
+        _store_to_kb("faculty", f"Bloom's Questions: {topic} ({bloom['name']})", kb_content,
+                     f"{topic},bloom,{bloom_level}")
+
+        return result
+
+    def _bloom_analysis(self, input: dict) -> dict:
+        """Analyze Bloom's Taxonomy distribution across an exam or course.
+
+        Input: questions (list of {topic, bloom_level}) or exam_paper
+        Output: Bloom's distribution analysis with recommendations.
+        """
+        questions = input.get("questions", [])
+        exam_paper = input.get("exam_paper", None)
+
+        # Extract questions from exam paper if provided
+        if exam_paper and not questions:
+            for section in exam_paper.get("sections", []):
+                for q in section.get("questions", []):
+                    questions.append({
+                        "topic": q.get("topic", ""),
+                        "bloom_level": q.get("bloom", "understand"),
+                    })
+
+        if not questions:
+            return {"error": "Questions list or exam_paper required"}
+
+        # Count distribution
+        distribution = {level: 0 for level in self.BLOOM_LEVELS.keys()}
+        for q in questions:
+            level = q.get("bloom_level", "understand").lower()
+            if level in distribution:
+                distribution[level] += 1
+
+        total = sum(distribution.values())
+        percentages = {k: round(v / total * 100, 1) if total > 0 else 0 for k, v in distribution.items()}
+
+        # Ideal distribution (Anderson & Krathwohl)
+        ideal = {
+            "remember": 15,
+            "understand": 20,
+            "apply": 25,
+            "analyze": 20,
+            "evaluate": 12,
+            "create": 8,
+        }
+
+        # Recommendations
+        recommendations = []
+        for level, pct in percentages.items():
+            ideal_pct = ideal[level]
+            diff = pct - ideal_pct
+            if diff > 10:
+                recommendations.append(f"⚠️ Too many {level} questions ({pct}% vs ideal {ideal_pct}%) — consider reducing")
+            elif diff < -10:
+                recommendations.append(f"📈 Need more {level} questions ({pct}% vs ideal {ideal_pct}%) — consider adding")
+
+        # Cognitive complexity score (weighted average)
+        weights = {"remember": 1, "understand": 2, "apply": 3, "analyze": 4, "evaluate": 5, "create": 6}
+        complexity = sum(distribution[level] * weights[level] for level in distribution) / total if total > 0 else 0
+
+        result = {
+            "success": True,
+            "total_questions": total,
+            "distribution": distribution,
+            "percentages": percentages,
+            "ideal_distribution": ideal,
+            "cognitive_complexity_score": round(complexity, 2),
+            "complexity_level": "Low" if complexity < 2.5 else ("Medium" if complexity < 4 else "High"),
+            "recommendations": recommendations,
+            "bloom_taxonomy_reference": {
+                level: {"name": info["name"], "description": info["description"]}
+                for level, info in self.BLOOM_LEVELS.items()
+            },
+        }
+
+        _store_to_kb("faculty", "Bloom's Taxonomy Analysis", str(result), "bloom,analysis")
+        return result
+
+    def _get_marks_for_bloom(self, bloom_level: int, qtype: str) -> int:
+        """Get appropriate marks based on Bloom's level and question type."""
+        marks_map = {
+            "MCQ": {1: 1, 2: 2, 3: 2, 4: 2, 5: 3, 6: 3},
+            "True/False": {1: 1, 2: 1, 3: 1, 4: 2, 5: 2, 6: 2},
+            "Fill in the blank": {1: 1, 2: 2, 3: 2, 4: 2, 5: 2, 6: 2},
+            "Short Answer": {1: 3, 2: 5, 3: 5, 4: 7, 5: 7, 6: 8},
+            "Long Answer": {1: 5, 2: 8, 3: 10, 4: 12, 5: 15, 6: 15},
+            "Problem-solving": {1: 3, 2: 5, 3: 8, 4: 10, 5: 10, 6: 12},
+            "Case study": {1: 5, 2: 8, 3: 10, 4: 12, 5: 15, 6: 15},
+            "Compare/Contrast": {1: 3, 2: 5, 3: 7, 4: 10, 5: 10, 6: 12},
+            "Critical evaluation": {1: 5, 2: 8, 3: 10, 4: 12, 5: 15, 6: 15},
+            "Research proposal": {1: 5, 2: 8, 3: 10, 4: 12, 5: 15, 6: 20},
+        }
+        return marks_map.get(qtype, {}).get(bloom_level, 5)
+
+    # ═══════════════════════════════════════════════════════════════
+    # Lab Manual Generator
+    # ═══════════════════════════════════════════════════════════════
+
+    def _lab_manual(self, input: dict) -> dict:
+        """Generate a practical/lab manual with procedures.
+
+        Input: course_name, experiments (list of {title, objective, procedure}),
+               level (undergraduate/postgraduate), duration_hours
+        Output: Complete lab manual with safety notes, materials, procedures, expected results.
+        """
+        course_name = input.get("course_name", "Pharmacy Practical")
+        experiments = input.get("experiments", [])
+        level = input.get("level", "undergraduate")
+        duration_hours = int(input.get("duration_hours", 2))
+        department = input.get("department", "Pharmacy")
+
+        if not experiments:
+            # Generate default experiments based on course type
+            experiments = self._get_default_experiments(course_name, department)
+
+        manual_sections = []
+        total_marks = 0
+
+        for i, exp in enumerate(experiments, 1):
+            title = exp.get("title", f"Experiment {i}")
+            objective = exp.get("objective", f"To study and demonstrate {title}")
+            procedure = exp.get("procedure", [])
+            materials = exp.get("materials", [])
+            safety = exp.get("safety", [])
+
+            # Generate procedure if not provided
+            if not procedure:
+                procedure = self._generate_procedure(title, level)
+
+            # Generate materials if not provided
+            if not materials:
+                materials = self._generate_materials(title, department)
+
+            # Generate safety notes if not provided
+            if not safety:
+                safety = self._generate_safety_notes(title, department)
+
+            # Calculate marks
+            exp_marks = exp.get("marks", 20)
+            total_marks += exp_marks
+
+            section = {
+                "experiment_num": i,
+                "title": title,
+                "objective": objective,
+                "duration": f"{duration_hours} hours",
+                "materials": materials,
+                "chemicals": exp.get("chemicals", self._generate_chemicals(title)),
+                "apparatus": exp.get("apparatus", self._generate_apparatus(title)),
+                "safety_notes": safety,
+                "procedure": procedure,
+                "observations": exp.get("observations", self._generate_observation_template(title)),
+                "expected_results": exp.get("expected_results", self._generate_expected_results(title)),
+                "viva_questions": exp.get("viva_questions", self._generate_viva_questions(title)),
+                "marks": exp_marks,
+                "bloom_level": exp.get("bloom_level", "Apply"),
+            }
+            manual_sections.append(section)
+
+        result = {
+            "success": True,
+            "course_name": course_name,
+            "department": department,
+            "level": level,
+            "total_experiments": len(manual_sections),
+            "total_marks": total_marks,
+            "duration_per_experiment": f"{duration_hours} hours",
+            "experiments": manual_sections,
+            "grading_scheme": {
+                "procedure_following": "40%",
+                "observations_recorded": "20%",
+                "results_accuracy": "20%",
+                "viva_voce": "10%",
+                "lab_record": "10%",
+            },
+            "general_instructions": [
+                "Wear lab coat, gloves, and safety goggles at all times",
+                "Read the complete procedure before starting the experiment",
+                "Record all observations immediately in the lab notebook",
+                "Dispose of chemicals as per institutional waste management policy",
+                "Report any accidents or spills to the lab supervisor immediately",
+                "Clean your workspace after completing the experiment",
+            ],
+        }
+
+        # Store in KB
+        kb_content = f"## Lab Manual: {course_name}\n\n"
+        kb_content += f"**Department:** {department} | **Level:** {level}\n"
+        kb_content += f"**Total Experiments:** {len(manual_sections)} | **Total Marks:** {total_marks}\n\n"
+        for exp in manual_sections:
+            kb_content += f"### Experiment {exp['experiment_num']}: {exp['title']}\n"
+            kb_content += f"**Objective:** {exp['objective']}\n"
+            kb_content += f"**Duration:** {exp['duration']} | **Marks:** {exp['marks']}\n\n"
+            kb_content += "**Procedure:**\n"
+            for j, step in enumerate(exp["procedure"], 1):
+                kb_content += f"{j}. {step}\n"
+            kb_content += "\n"
+        _store_to_kb("faculty", f"Lab Manual: {course_name}", kb_content,
+                     f"{course_name},lab_manual,{department}")
+
+        return result
+
+    def _get_default_experiments(self, course_name: str, department: str) -> list:
+        """Get default experiments based on course/department."""
+        defaults = {
+            "Pharmacy": [
+                {"title": "Preparation of Aspirin (Acetylsalicylic Acid)", "objective": "To synthesize aspirin from salicylic acid and acetic anhydride", "marks": 20},
+                {"title": "Determination of Melting Point", "objective": "To determine the melting point of given pharmaceutical compounds", "marks": 15},
+                {"title": "Analysis of Tablets by UV Spectrophotometry", "objective": "To estimate the drug content in pharmaceutical formulations", "marks": 20},
+                {"title": "Preparation of Ointment Base", "objective": "To prepare different types of ointment bases", "marks": 15},
+                {"title": "Dissolution Testing of Tablets", "objective": "To perform dissolution test and calculate dissolution rate", "marks": 20},
+                {"title": "Identification of Functional Groups", "objective": "To identify functional groups in organic compounds using chemical tests", "marks": 15},
+            ],
+            "Chemistry": [
+                {"title": "Acid-Base Titration", "objective": "To determine the concentration of unknown acid/base", "marks": 15},
+                {"title": "Preparation of Buffer Solutions", "objective": "To prepare buffer solutions of specific pH", "marks": 15},
+                {"title": "Gravimetric Analysis", "objective": "To determine the amount of a substance by precipitation", "marks": 20},
+            ],
+            "Pharmacology": [
+                {"title": "Dose-Response Relationship", "objective": "To study the dose-response curve of a drug", "marks": 20},
+                {"title": "LD50 Determination", "objective": "To determine the median lethal dose", "marks": 20},
+                {"title": "Drug Interaction Studies", "objective": "To study synergistic and antagonistic drug interactions", "marks": 20},
+            ],
+        }
+        return defaults.get(department, defaults["Pharmacy"])
+
+    def _generate_procedure(self, title: str, level: str) -> list:
+        """Generate procedure steps based on experiment title."""
+        base_steps = [
+            "Read the experiment thoroughly and understand the objective",
+            "Gather all required materials, chemicals, and apparatus",
+            "Set up the apparatus as per the diagram/protocol",
+            "Record initial observations (color, state, temperature)",
+            "Carry out the procedure step by step as described",
+            "Record all observations at each stage",
+            "Note any changes in color, odor, temperature, or state",
+            "Complete the experiment and clean the workspace",
+            "Calculate results and prepare the lab report",
+        ]
+        if level == "postgraduate":
+            base_steps.extend([
+                "Perform the experiment in triplicate for accuracy",
+                "Apply statistical analysis to the results",
+                "Compare results with published literature",
+            ])
+        return base_steps
+
+    def _generate_materials(self, title: str, department: str) -> list:
+        """Generate materials list based on experiment type."""
+        return [
+            "Lab coat and safety goggles",
+            "Analytical balance",
+            "Beakers and flasks",
+            "Pipettes and burette",
+            "Bunsen burner or hot plate",
+            "Thermometer",
+            "pH meter or pH paper",
+            "Filter paper and funnel",
+            "Lab notebook",
+        ]
+
+    def _generate_chemicals(self, title: str) -> list:
+        """Generate chemicals list based on experiment."""
+        return ["Reagents as specified in procedure", "Distilled water", "Standard solutions"]
+
+    def _generate_apparatus(self, title: str) -> list:
+        """Generate apparatus list."""
+        return ["Beakers", "Flasks", "Pipettes", "Burette", "Analytical balance", "Hot plate"]
+
+    def _generate_safety_notes(self, title: str, department: str) -> list:
+        """Generate safety notes."""
+        return [
+            "Wear protective equipment (lab coat, gloves, goggles) at all times",
+            "Handle chemicals with care — use fume hood for volatile substances",
+            "Know the location of fire extinguisher and first aid kit",
+            "Do not pipette by mouth — use mechanical pipette fillers",
+            "Dispose of waste in designated containers",
+            "Wash hands thoroughly after handling chemicals",
+        ]
+
+    def _generate_observation_template(self, title: str) -> dict:
+        """Generate observation recording template."""
+        return {
+            "initial_observations": "Record initial state, color, temperature",
+            "during_experiment": "Record changes at regular intervals",
+            "final_observations": "Record final state, yield, characteristics",
+            "data_table": "Create a table for recording quantitative data",
+        }
+
+    def _generate_expected_results(self, title: str) -> str:
+        """Generate expected results description."""
+        return f"Expected outcome of {title} as per standard pharmaceutical protocols. Results should be reproducible and within acceptable limits."
+
+    def _generate_viva_questions(self, title: str) -> list:
+        """Generate viva voce questions."""
+        return [
+            f"What is the objective of {title}?",
+            f"What are the key principles involved in {title}?",
+            f"What safety precautions should be taken?",
+            f"What are the possible sources of error?",
+            f"How would you improve the accuracy of results?",
+        ]
+
+    # ═══════════════════════════════════════════════════════════════
+    # NBA Accreditation Module
+    # ═══════════════════════════════════════════════════════════════
+
+    def _nba_report(self, input: dict) -> dict:
+        """Generate NBA (National Board of Accreditation) report.
+
+        NBA accredits engineering and technology programs. Key criteria:
+        1. Vision, Mission and Program Educational Objectives
+        2. Program Outcomes and Program Specific Outcomes
+        3. Course Outcomes
+        4. Students' Performance
+        5. Faculty Contributions
+        6. Facilities and Technical Support
+        7. Continuous Improvement
+        8. First Year Academics
+        9. Student Support Systems
+        10. Governance, Institutional Support and Financial Resources
+        """
+        program_name = input.get("program_name", "B.Pharm")
+        institution = input.get("institution", "Institution")
+        department = input.get("department", "Pharmacy")
+        academic_year = input.get("academic_year", "2025-2026")
+
+        # Program Outcomes (POs) for NBA
+        program_outcomes = input.get("program_outcomes", [
+            "PO1: Apply knowledge of mathematics, science, and engineering",
+            "PO2: Design and conduct experiments, analyze and interpret data",
+            "PO3: Design systems, components, or processes to meet needs",
+            "PO4: Function on multidisciplinary teams",
+            "PO5: Identify, formulate, and solve engineering problems",
+            "PO6: Understand professional and ethical responsibility",
+            "PO7: Communicate effectively",
+            "PO8: Understand the impact of engineering solutions in global/societal context",
+            "PO9: Recognize the need for lifelong learning",
+            "PO10: Knowledge of contemporary issues",
+            "PO11: Use techniques, skills, and modern engineering tools",
+            "PO12: Apply engineering and management principles",
+        ])
+
+        # Calculate NBA scores for each criterion
+        criteria = [
+            {
+                "criterion": "C1: Vision, Mission and PEOs",
+                "max_score": 50,
+                "description": "Vision, Mission, Program Educational Objectives (PEOs)",
+                "key_indicators": ["Vision statement", "Mission statement", "PEOs defined", "PEOs published", "PEO review process"],
+            },
+            {
+                "criterion": "C2: Program Outcomes and PSOs",
+                "max_score": 100,
+                "description": "Program Outcomes (POs) and Program Specific Outcomes (PSOs)",
+                "key_indicators": ["POs defined", "PSOs defined", "CO-PO mapping", "PO attainment calculation", "PSO attainment"],
+            },
+            {
+                "criterion": "C3: Course Outcomes",
+                "max_score": 100,
+                "description": "Course Outcomes (COs) for all courses",
+                "key_indicators": ["COs defined for all courses", "CO-PO mapping", "CO attainment", "Direct assessment", "Indirect assessment"],
+            },
+            {
+                "criterion": "C4: Students' Performance",
+                "max_score": 100,
+                "description": "Student enrollment, graduation, and placement",
+                "key_indicators": ["Enrollment ratio", "Graduation rate", "Placement percentage", "Higher studies", "GATE/GPAT qualification"],
+            },
+            {
+                "criterion": "C5: Faculty Contributions",
+                "max_score": 100,
+                "description": "Faculty qualifications, experience, and research",
+                "key_indicators": ["Faculty qualification", "Faculty ratio", "Research publications", "FDP participation", "Industry experience"],
+            },
+            {
+                "criterion": "C6: Facilities and Technical Support",
+                "max_score": 50,
+                "description": "Infrastructure, labs, library, and computing facilities",
+                "key_indicators": ["Lab facilities", "Library resources", "Computing infrastructure", "Internet bandwidth", "Maintenance"],
+            },
+            {
+                "criterion": "C7: Continuous Improvement",
+                "max_score": 50,
+                "description": "Feedback system and continuous improvement processes",
+                "key_indicators": ["Feedback mechanism", "Action taken", "Curriculum revision", "Best practices", "Innovations"],
+            },
+            {
+                "criterion": "C8: First Year Academics",
+                "max_score": 50,
+                "description": "First year student performance and support",
+                "key_indicators": ["First year pass percentage", "Mentoring system", "Bridge courses", "Tutorial classes", "Slow learner support"],
+            },
+            {
+                "criterion": "C9: Student Support Systems",
+                "max_score": 50,
+                "description": "Student support and extracurricular activities",
+                "key_indicators": ["Scholarships", "Counseling", "Extracurricular activities", "Professional societies", "Alumni network"],
+            },
+            {
+                "criterion": "C10: Governance and Resources",
+                "max_score": 50,
+                "description": "Institutional governance and financial resources",
+                "key_indicators": ["Institutional leadership", "Financial resources", "HR policies", "Quality assurance", "Autonomy"],
+            },
+        ]
+
+        total_max = sum(c["max_score"] for c in criteria)
+
+        result = {
+            "success": True,
+            "program_name": program_name,
+            "institution": institution,
+            "department": department,
+            "academic_year": academic_year,
+            "accreditation_body": "NBA (National Board of Accreditation)",
+            "program_outcomes": program_outcomes,
+            "criteria": criteria,
+            "total_max_score": total_max,
+            "accreditation_threshold": "600/1000 (60%)",
+            "validity": "3 years (Tier I) or 2 years (Tier II)",
+            "key_documents_required": [
+                "Self-Assessment Report (SAR)",
+                "Program Educational Objectives (PEOs) document",
+                "Course Outcomes (COs) for all courses",
+                "CO-PO-PSO mapping matrix",
+                "PO attainment calculation sheets",
+                "Student performance data (5 years)",
+                "Faculty profile and achievements",
+                "Infrastructure details",
+                "Feedback analysis reports",
+                "Action Taken Reports (ATRs)",
+            ],
+            "report_format": {
+                "section_a": "Quantitative Data (enrollment, results, placement)",
+                "section_b": "CO-PO Mapping and Attainment",
+                "section_c": "Faculty Profile and Development",
+                "section_d": "Infrastructure and Facilities",
+                "section_e": "Continuous Improvement Initiatives",
+            },
+        }
+
+        # Store in KB
+        kb_content = f"## NBA Accreditation Report: {program_name}\n\n"
+        kb_content += f"**Institution:** {institution}\n"
+        kb_content += f"**Department:** {department}\n"
+        kb_content += f"**Academic Year:** {academic_year}\n\n"
+        kb_content += f"### Program Outcomes ({len(program_outcomes)})\n\n"
+        for po in program_outcomes:
+            kb_content += f"- {po}\n"
+        kb_content += f"\n### Assessment Criteria\n\n"
+        for c in criteria:
+            kb_content += f"**{c['criterion']}** (Max: {c['max_score']})\n"
+            kb_content += f"  {c['description']}\n\n"
+        _store_to_kb("faculty", f"NBA Report: {program_name}", kb_content,
+                     f"{program_name},nba,accreditation")
+
+        return result
+
+    # ═══════════════════════════════════════════════════════════════
+    # NAAC Accreditation Module
+    # ═══════════════════════════════════════════════════════════════
+
+    def _naac_report(self, input: dict) -> dict:
+        """Generate NAAC (National Assessment and Accreditation Council) report.
+
+        NAAC accredits higher education institutions. Key criteria:
+        1. Curricular Aspects
+        2. Teaching-Learning and Evaluation
+        3. Research, Innovations and Extension
+        4. Infrastructure and Learning Resources
+        5. Student Support and Progression
+        6. Governance, Leadership and Management
+        7. Institutional Values and Best Practices
+        """
+        institution = input.get("institution", "Institution")
+        institution_type = input.get("type", "Affiliated College")  # Autonomous, University, Affiliated College
+        academic_year = input.get("academic_year", "2025-2026")
+
+        # NAAC Criteria
+        criteria = [
+            {
+                "criterion": "Criterion 1: Curricular Aspects",
+                "max_score": 150,
+                "weightage": "15%",
+                "key_areas": [
+                    "Curriculum design and development",
+                    "Curriculum planning and implementation",
+                    "Academic flexibility",
+                    "Curriculum enrichment",
+                    "Feedback system",
+                ],
+                "metrics": [
+                    "1.1.1 - Curricula developed/adopted with focus on employability",
+                    "1.2.1 - Programmes following CBCS/semester system",
+                    "1.3.1 - Number of value-added courses",
+                    "1.4.1 - Feedback system on curriculum",
+                ],
+            },
+            {
+                "criterion": "Criterion 2: Teaching-Learning and Evaluation",
+                "max_score": 350,
+                "weightage": "35%",
+                "key_areas": [
+                    "Student enrollment and profile",
+                    "Catering to student diversity",
+                    "Teaching-Learning Process",
+                    "Teacher profile and quality",
+                    "Evaluation process and reforms",
+                    "Student performance and learning outcomes",
+                ],
+                "metrics": [
+                    "2.1.1 - Enrollment percentage",
+                    "2.2.1 - Student-centric methods",
+                    "2.3.1 - Ratio of students to mentor",
+                    "2.4.1 - Full time teachers against sanctioned posts",
+                    "2.5.1 - Internal assessment and evaluation reforms",
+                    "2.6.1 - Programme outcome attainment",
+                    "2.7.1 - Student satisfaction survey",
+                ],
+            },
+            {
+                "criterion": "Criterion 3: Research, Innovations and Extension",
+                "max_score": 200,
+                "weightage": "20%",
+                "key_areas": [
+                    "Promotion of research",
+                    "Resource mobilization for research",
+                    "Innovation ecosystem",
+                    "Research publications and awards",
+                    "Consultancy and extension activities",
+                    "Collaboration",
+                ],
+                "metrics": [
+                    "3.1.1 - Research facilities and resources",
+                    "3.2.1 - Grants received from government agencies",
+                    "3.3.1 - Innovation and startup initiatives",
+                    "3.4.1 - Research publications per teacher",
+                    "3.5.1 - Consultancy revenue",
+                    "3.6.1 - MoUs/collaborations",
+                    "3.7.1 - Extension activities",
+                ],
+            },
+            {
+                "criterion": "Criterion 4: Infrastructure and Learning Resources",
+                "max_score": 100,
+                "weightage": "10%",
+                "key_areas": [
+                    "Physical facilities",
+                    "Library as a learning resource",
+                    "IT infrastructure",
+                    "Maintenance of campus infrastructure",
+                ],
+                "metrics": [
+                    "4.1.1 - Physical facilities for teaching-learning",
+                    "4.2.1 - Library automation and resources",
+                    "4.3.1 - IT infrastructure and internet",
+                    "4.4.1 - Budget for maintenance",
+                ],
+            },
+            {
+                "criterion": "Criterion 5: Student Support and Progression",
+                "max_score": 100,
+                "weightage": "10%",
+                "key_areas": [
+                    "Student support",
+                    "Student progression",
+                    "Student participation and activities",
+                    "Alumni engagement",
+                ],
+                "metrics": [
+                    "5.1.1 - Scholarships and financial support",
+                    "5.1.2 - Capacity building and skills enhancement",
+                    "5.2.1 - Placement and higher studies",
+                    "5.3.1 - Student awards and achievements",
+                    "5.4.1 - Alumni contribution",
+                ],
+            },
+            {
+                "criterion": "Criterion 6: Governance, Leadership and Management",
+                "max_score": 50,
+                "weightage": "5%",
+                "key_areas": [
+                    "Institutional vision and leadership",
+                    "Strategy development and deployment",
+                    "Faculty empowerment strategies",
+                    "Financial management and resource mobilization",
+                    "Internal quality assurance system",
+                ],
+                "metrics": [
+                    "6.1.1 - Governance and leadership",
+                    "6.2.1 - Strategy development",
+                    "6.3.1 - Faculty development programs",
+                    "6.4.1 - Financial strategies",
+                    "6.5.1 - IQAC contributions",
+                ],
+            },
+            {
+                "criterion": "Criterion 7: Institutional Values and Best Practices",
+                "max_score": 50,
+                "weightage": "5%",
+                "key_areas": [
+                    "Institutional values and social responsibilities",
+                    "Best practices",
+                    "Institutional distinctiveness",
+                ],
+                "metrics": [
+                    "7.1.1 - Gender equity initiatives",
+                    "7.1.2 - Environment and energy initiatives",
+                    "7.1.3 - Activities for differently-abled",
+                    "7.2.1 - Best practices",
+                    "7.3.1 - Institutional distinctiveness",
+                ],
+            },
+        ]
+
+        total_max = sum(c["max_score"] for c in criteria)
+
+        # NAAC Grading
+        grading = {
+            "A++": {"range": "3.51-4.00", "score_range": "95-100%", "description": "Outstanding"},
+            "A+": {"range": "3.26-3.50", "score_range": "85-94%", "description": "Excellent"},
+            "A": {"range": "3.01-3.25", "score_range": "75-84%", "description": "Very Good"},
+            "B++": {"range": "2.76-3.00", "score_range": "65-74%", "description": "Good"},
+            "B+": {"range": "2.51-2.75", "score_range": "55-64%", "description": "Above Average"},
+            "B": {"range": "2.01-2.50", "score_range": "45-54%", "description": "Average"},
+            "C": {"range": "1.51-2.00", "score_range": "35-44%", "description": "Below Average"},
+            "D": {"range": "≤1.50", "score_range": "<35%", "description": "Unsatisfactory"},
+        }
+
+        result = {
+            "success": True,
+            "institution": institution,
+            "institution_type": institution_type,
+            "academic_year": academic_year,
+            "accreditation_body": "NAAC (National Assessment and Accreditation Council)",
+            "criteria": criteria,
+            "total_max_score": total_max,
+            "grading_system": grading,
+            "accreditation_validity": "7 years (A++/A+) or 5 years (A/B++) or 3 years (B+/B) or 2 years (C)",
+            "key_documents_required": [
+                "Self-Study Report (SSR)",
+                "Extended Profile (student enrollment, faculty, infrastructure)",
+                "Curricular aspects documentation",
+                "Teaching-learning evidence",
+                "Research and extension reports",
+                "Infrastructure details",
+                "Student support documentation",
+                "Governance documents",
+                "Best practices report",
+                "Institutional distinctiveness document",
+            ],
+            "data_submissions": [
+                "Quantitative Data (QP) - Key metrics",
+                "Qualitative Data (QQ) - Quality indicators",
+                "Student satisfaction survey results",
+                "Feedback analysis from stakeholders",
+            ],
+        }
+
+        # Store in KB
+        kb_content = f"## NAAC Accreditation Report: {institution}\n\n"
+        kb_content += f"**Type:** {institution_type}\n"
+        kb_content += f"**Academic Year:** {academic_year}\n\n"
+        kb_content += "### Assessment Criteria\n\n"
+        for c in criteria:
+            kb_content += f"**{c['criterion']}** (Max: {c['max_score']}, Weightage: {c['weightage']})\n"
+            for area in c["key_areas"]:
+                kb_content += f"  - {area}\n"
+            kb_content += "\n"
+        kb_content += "### Grading Scale\n\n"
+        for grade, info in grading.items():
+            kb_content += f"- **{grade}**: {info['range']} ({info['description']})\n"
+        _store_to_kb("faculty", f"NAAC Report: {institution}", kb_content,
+                     f"{institution},naac,accreditation")
+
+        return result
+
+    # ═══════════════════════════════════════════════════════════════
+    # QCP Accreditation Module
+    # ═══════════════════════════════════════════════════════════════
+
+    def _qcp_report(self, input: dict) -> dict:
+        """Generate QCP (Quality Council of Pakistan) accreditation report.
+
+        QCP accredits vocational and technical education programs.
+        Based on ISO 17021 and ISO 21001 standards.
+        Key areas:
+        1. Governance and Management
+        2. Curriculum and Instruction
+        3. Student Assessment
+        4. Faculty and Staff
+        5. Physical Resources
+        6. Student Support Services
+        7. Quality Assurance
+        8. Industry Linkages
+        """
+        program_name = input.get("program_name", "Pharmacy Technician")
+        institution = input.get("institution", "Institution")
+        level = input.get("level", "Diploma")  # Diploma, Certificate, Associate Degree
+        academic_year = input.get("academic_year", "2025-2026")
+
+        # QCP Criteria
+        criteria = [
+            {
+                "criterion": "C1: Governance and Management",
+                "max_score": 100,
+                "key_requirements": [
+                    "Institutional mission and vision",
+                    "Organizational structure",
+                    "Strategic planning",
+                    "Financial management",
+                    "Human resource management",
+                    "Internal quality assurance mechanisms",
+                ],
+                "compliance_standards": ["ISO 21001:2018", "ISO 9001:2015"],
+            },
+            {
+                "criterion": "C2: Curriculum and Instruction",
+                "max_score": 150,
+                "key_requirements": [
+                    "Curriculum design and development",
+                    "Curriculum review and update process",
+                    "Instructional methods and strategies",
+                    "Use of technology in teaching",
+                    "Industry-relevant curriculum",
+                    "Competency-based education",
+                ],
+                "compliance_standards": ["National Vocational Qualifications (NVQs)", "National Skills Strategy"],
+            },
+            {
+                "criterion": "C3: Student Assessment",
+                "max_score": 100,
+                "key_requirements": [
+                    "Assessment policy and procedures",
+                    "Formative and summative assessment",
+                    "External examination system",
+                    "Moderation and verification",
+                    "Assessment records and transcripts",
+                    "Re-assessment opportunities",
+                ],
+                "compliance_standards": ["National Examination Board standards"],
+            },
+            {
+                "criterion": "C4: Faculty and Staff",
+                "max_score": 100,
+                "key_requirements": [
+                    "Faculty qualifications and experience",
+                    "Faculty-to-student ratio",
+                    "Professional development programs",
+                    "Industry experience requirements",
+                    "Teaching effectiveness evaluation",
+                    "Recruitment and retention policies",
+                ],
+                "compliance_standards": ["HEC faculty requirements", "Professional body requirements"],
+            },
+            {
+                "criterion": "C5: Physical Resources",
+                "max_score": 100,
+                "key_requirements": [
+                    "Classrooms and learning spaces",
+                    "Laboratories and workshops",
+                    "Library and learning resources",
+                    "IT infrastructure",
+                    "Safety and security measures",
+                    "Maintenance and upkeep",
+                ],
+                "compliance_standards": ["Building codes", "Safety regulations"],
+            },
+            {
+                "criterion": "C6: Student Support Services",
+                "max_score": 100,
+                "key_requirements": [
+                    "Admission and enrollment process",
+                    "Academic advising and counseling",
+                    "Career guidance and placement",
+                    "Financial aid and scholarships",
+                    "Extracurricular activities",
+                    "Alumni tracking and engagement",
+                ],
+                "compliance_standards": ["Student welfare policies"],
+            },
+            {
+                "criterion": "C7: Quality Assurance",
+                "max_score": 150,
+                "key_requirements": [
+                    "Quality assurance policy",
+                    "Internal quality audit",
+                    "Program review and evaluation",
+                    "Stakeholder feedback mechanism",
+                    "Continuous improvement process",
+                    "Benchmarking with industry standards",
+                ],
+                "compliance_standards": ["ISO 21001:2018", "PDCA cycle"],
+            },
+            {
+                "criterion": "C8: Industry Linkages",
+                "max_score": 100,
+                "key_requirements": [
+                    "Industry advisory board",
+                    "Industry partnerships and MoUs",
+                    "On-the-job training (OJT)",
+                    "Apprenticeship programs",
+                    "Industry input in curriculum",
+                    "Graduate employment tracking",
+                ],
+                "compliance_standards": ["National Skills Strategy", "Industry demand analysis"],
+            },
+        ]
+
+        total_max = sum(c["max_score"] for c in criteria)
+
+        # QCP Grading
+        grading = {
+            "Excellent": {"range": "90-100%", "description": "Fully compliant, exemplary practices"},
+            "Good": {"range": "75-89%", "description": "Substantially compliant, minor improvements needed"},
+            "Satisfactory": {"range": "60-74%", "description": "Partially compliant, significant improvements needed"},
+            "Unsatisfactory": {"range": "<60%", "description": "Non-compliant, major deficiencies"},
+        }
+
+        result = {
+            "success": True,
+            "program_name": program_name,
+            "institution": institution,
+            "level": level,
+            "academic_year": academic_year,
+            "accreditation_body": "QCP (Quality Council of Pakistan)",
+            "criteria": criteria,
+            "total_max_score": total_max,
+            "grading_system": grading,
+            "accreditation_validity": "3 years (Excellent/Good) or 2 years (Satisfactory)",
+            "key_documents_required": [
+                "Self-Assessment Report (SAR)",
+                "Institutional profile",
+                "Program documentation",
+                "Curriculum documents",
+                "Faculty profiles",
+                "Student records",
+                "Assessment records",
+                "Infrastructure details",
+                "Quality assurance documentation",
+                "Industry partnership evidence",
+                "Financial statements",
+            ],
+            "compliance_standards": [
+                "ISO 21001:2018 - Educational Organizations Management Systems",
+                "ISO 9001:2015 - Quality Management Systems",
+                "National Vocational Qualifications (NVQs)",
+                "National Skills Strategy",
+                "National Examination Board standards",
+            ],
+            "audit_process": {
+                "stage_1": "Document Review and Desk Assessment",
+                "stage_2": "On-site Assessment",
+                "stage_3": "Expert Panel Review",
+                "stage_4": "Accreditation Decision",
+                "surveillance": "Annual surveillance visits",
+            },
+        }
+
+        # Store in KB
+        kb_content = f"## QCP Accreditation Report: {program_name}\n\n"
+        kb_content += f"**Institution:** {institution}\n"
+        kb_content += f"**Level:** {level}\n"
+        kb_content += f"**Academic Year:** {academic_year}\n\n"
+        kb_content += "### Assessment Criteria\n\n"
+        for c in criteria:
+            kb_content += f"**{c['criterion']}** (Max: {c['max_score']})\n"
+            for req in c["key_requirements"]:
+                kb_content += f"  - {req}\n"
+            kb_content += "\n"
+        kb_content += "### Grading Scale\n\n"
+        for grade, info in grading.items():
+            kb_content += f"- **{grade}**: {info['range']} - {info['description']}\n"
+        _store_to_kb("faculty", f"QCP Report: {program_name}", kb_content,
+                     f"{program_name},qcp,accreditation")
+
         return result
