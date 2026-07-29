@@ -1,28 +1,17 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import sys
 import os
 import logging
 import subprocess
 import time
 
-# Gracefully handle missing supervisor package
-try:
-    from supervisor.childutils import listener  # type: ignore
-    HAS_SUPERVISOR = True
-except ImportError:
-    HAS_SUPERVISOR = False
+from supervisor.childutils import listener  # type: ignore
 
 
 def main(args):
     logging.basicConfig(stream=sys.stderr, level=logging.DEBUG, format='%(asctime)s %(levelname)s %(filename)s: %(message)s')
     logger = logging.getLogger("supervisord-watchdog")
     debug_mode = True if 'DEBUG' in os.environ else False
-
-    if not HAS_SUPERVISOR:
-        logger.warning("supervisor package not installed — listener disabled (non-critical)")
-        # Keep process alive so supervisord doesn't retry endlessly
-        while True:
-            time.sleep(3600)
 
     while True:
         logger.info("Listening for events...")
