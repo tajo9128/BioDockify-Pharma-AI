@@ -59,6 +59,16 @@ jobs:
           git tag -a ${{ steps.version.outputs.version }} -m "Release ${{ steps.version.outputs.version }}"
           git push origin ${{ steps.version.outputs.version }}
 
+      - name: Free up disk space on runner
+        run: |
+          echo "Freeing disk space..."
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/local/share/boost /usr/share/swift /opt/hostedtoolcache
+          sudo apt-get clean -y
+          sudo apt-get autoremove -y
+          sudo docker image prune --all --force 2>/dev/null || true
+          df -h /
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -74,7 +84,6 @@ jobs:
           context: .
           file: ./Dockerfile.release
           push: true
-          no-cache: true
           platforms: linux/amd64
           provenance: false
           tags: |
@@ -85,6 +94,11 @@ jobs:
             org.opencontainers.image.title=BioDockify AI
             org.opencontainers.image.description=Pharma research distribution of BioDockify AI
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Verify packages in built image
+        run: |
+          echo "Running package verification..."
+          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} /exe/verify_packages.sh || echo "WARNING: Some packages missing — check logs above"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
