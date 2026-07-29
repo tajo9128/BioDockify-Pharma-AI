@@ -403,6 +403,43 @@ class AdmetPredict(ApiHandler):
             except Exception:
                 pass
 
+            # Aqueous Solubility (DS-style, from Omixium ADMET_RDKit)
+            log_sw = 0.16 - 0.63 * logp - 0.0062 * mw + 0.066 * aromatic_rings - 0.74 + 0.1 * hbd - 0.05 * rot + 0.02 * hba
+            if log_sw < -8.0:
+                solubility = "Extremely low"
+            elif log_sw < -6.0:
+                solubility = "Very low"
+            elif log_sw < -4.1:
+                solubility = "Low"
+            elif log_sw < -2.0:
+                solubility = "Good"
+            elif log_sw < 0.0:
+                solubility = "Optimal"
+            else:
+                solubility = "Too soluble"
+
+            # Hepatotoxicity (Bayesian-like score, from Omixium ADMET_RDKit)
+            hepato_score = -5.0  # Base non-toxic
+            smiles_str = Chem.MolToSmiles(mol)
+            if 'N(=O)=O' in smiles_str or '[N+](=O)[O-]' in smiles_str:
+                hepato_score += 2.0
+            if 'C(=O)Cl' in smiles_str:
+                hepato_score += 1.5
+            if logp > 5:
+                hepato_score += 0.5
+            if mw > 600:
+                hepato_score += 0.3
+            hepatotoxic = "Yes" if hepato_score > -4.154 else "No"
+
+            # Formal charge
+            formal_charge = Chem.rdmolops.GetFormalCharge(mol)
+
+            # Mahalanobis distance (applicability domain)
+            norm_logp = (logp - 2.5) / 2.0
+            norm_mw = (mw - 400) / 200
+            norm_tpsa = (tpsa - 70) / 50
+            mahalanobis = round(float(np.sqrt(norm_logp**2 + norm_mw**2 + norm_tpsa**2)), 3)
+
             result = {
                 "smiles": smiles,
                 "formula": formula,
@@ -522,6 +559,17 @@ class AdmetPredict(ApiHandler):
                     if gi == "High": bio += 0.25
                     if tpsa <= 140 and logp >= 0: bio += 0.25
 
+                    # Aqueous solubility (DS-style)
+                    log_sw = 0.16 - 0.63 * logp - 0.0062 * mw + 0.066 * aromatic_rings - 0.74 + 0.1 * hbd - 0.05 * rot + 0.02 * hba
+                    sol_desc = "Extremely low" if log_sw < -8 else "Very low" if log_sw < -6 else "Low" if log_sw < -4.1 else "Good" if log_sw < -2 else "Optimal" if log_sw < 0 else "Too soluble"
+
+                    # Hepatotoxicity (Bayesian-like)
+                    hepato_score = -5.0
+                    if 'N(=O)=O' in smi or '[N+](=O)[O-]' in smi: hepato_score += 2.0
+                    if logp > 5: hepato_score += 0.5
+                    if mw > 600: hepato_score += 0.3
+                    hepatotoxic = "Yes" if hepato_score > -4.154 else "No"
+
                     results.append({
                         "name": name, "smiles": smi, "formula": formula,
                         "mw": round(mw, 2), "logp": round(logp, 2),
@@ -531,6 +579,8 @@ class AdmetPredict(ApiHandler):
                         "lipinski_violations": len(lipinski_violations),
                         "gi_absorption": gi, "bbb_pass": bbb,
                         "bioavailability_score": round(bio, 2),
+                        "solubility": sol_desc, "log_sw": round(log_sw, 3),
+                        "hepatotoxic": hepatotoxic,
                     })
                 except Exception as e:
                     failed.append({"name": name, "smiles": smi, "error": str(e)[:100]})
@@ -567,32 +617,76 @@ class AdmetPredict(ApiHandler):
                     import matplotlib.pyplot as plt
                     import io, base64
 
-                    fig, axes = plt.subplots(2, 2, figsize=(10, 8))
-                    fig.suptitle(f"Batch ADMET Analysis — {len(results)} compounds", fontsize=12, fontweight="bold")
+                    # DS-style 9-panel plot (from Omixium ADMET_RDKit)
+                    fig, axes = plt.subplots(3, 3, figsize=(16, 12))
+                    fig.suptitle(f"Discovery Studio Style ADMET — {len(results)} compounds", fontsize=14, fontweight="bold")
 
-                    # MW distribution
-                    axes[0, 0].hist(mws, bins=20, color="#2196F3", edgecolor="black", linewidth=0.5)
-                    axes[0, 0].axvline(500, color="red", linestyle="--", label="Lipinski MW limit")
-                    axes[0, 0].set_title("Molecular Weight"); axes[0, 0].legend(fontsize=7)
+                    # 1. Absorption vs Solubility
+                    sol_map = {"Extremely low": 0, "Very low": 1, "Low": 2, "Good": 3, "Optimal": 4, "Too soluble": 5}
+                    sol_vals = [sol_map.get(r.get("solubility", ""), 2) for r in results]
+                    gi_vals = [0 if r["gi_absorption"] == "High" else 1 for r in results]
+                    axes[0, 0].scatter(gi_vals, sol_vals, alpha=0.6, s=40, c="#2196F3")
+                    axes[0, 0].set_xlabel("GI Absorption (0=High, 1=Low)")
+                    axes[0, 0].set_ylabel("Solubility Level")
+                    axes[0, 0].set_title("Absorption vs Solubility")
 
-                    # LogP distribution
-                    axes[0, 1].hist(logps, bins=20, color="#4CAF50", edgecolor="black", linewidth=0.5)
-                    axes[0, 1].axvline(5, color="red", linestyle="--", label="Lipinski LogP limit")
-                    axes[0, 1].set_title("Lipophilicity (LogP)"); axes[0, 1].legend(fontsize=7)
+                    # 2. BBB distribution
+                    bbb_pass = sum(1 for r in results if r.get("bbb_pass"))
+                    bbb_fail = len(results) - bbb_pass
+                    axes[0, 1].bar(["Pass", "Fail"], [bbb_pass, bbb_fail], color=["#4CAF50", "#F44336"])
+                    axes[0, 1].set_title("BBB Penetration")
+                    axes[0, 1].set_ylabel("Count")
 
-                    # Lipinski pass/fail pie
+                    # 3. Hepatotoxicity
+                    hep_yes = sum(1 for r in results if r.get("hepatotoxic") == "Yes")
+                    hep_no = len(results) - hep_yes
+                    axes[0, 2].bar(["Toxic", "Safe"], [hep_yes, hep_no], color=["#F44336", "#4CAF50"])
+                    axes[0, 2].set_title("Hepatotoxicity")
+                    axes[0, 2].set_ylabel("Count")
+
+                    # 4. MW distribution
+                    axes[1, 0].hist(mws, bins=20, color="#2196F3", edgecolor="black", linewidth=0.5)
+                    axes[1, 0].axvline(500, color="red", linestyle="--", label="Lipinski limit")
+                    axes[1, 0].set_title("Molecular Weight")
+                    axes[1, 0].legend(fontsize=7)
+
+                    # 5. LogP distribution
+                    axes[1, 1].hist(logps, bins=20, color="#4CAF50", edgecolor="black", linewidth=0.5)
+                    axes[1, 1].axvline(5, color="red", linestyle="--", label="Lipinski limit")
+                    axes[1, 1].set_title("Lipophilicity (LogP)")
+                    axes[1, 1].legend(fontsize=7)
+
+                    # 6. Solubility distribution
+                    sol_counts = {}
+                    for r in results:
+                        sol_counts[r.get("solubility", "Unknown")] = sol_counts.get(r.get("solubility", "Unknown"), 0) + 1
+                    axes[1, 2].bar(range(len(sol_counts)), list(sol_counts.values()), color="#FF9800")
+                    axes[1, 2].set_xticks(range(len(sol_counts)))
+                    axes[1, 2].set_xticklabels(list(sol_counts.keys()), rotation=45, ha="right", fontsize=7)
+                    axes[1, 2].set_title("Aqueous Solubility")
+                    axes[1, 2].set_ylabel("Count")
+
+                    # 7. Lipinski compliance
                     lip_counts = [lipinski_pass, len(results) - lipinski_pass]
-                    axes[1, 0].pie(lip_counts, labels=["Pass", "Fail"], colors=["#4CAF50", "#F44336"],
+                    axes[2, 0].pie(lip_counts, labels=["Pass", "Fail"], colors=["#4CAF50", "#F44336"],
                                    autopct="%1.1f%%", startangle=90)
-                    axes[1, 0].set_title("Lipinski Ro5 Compliance")
+                    axes[2, 0].set_title("Lipinski Ro5")
 
-                    # GI Absorption bar
+                    # 8. GI Absorption
                     gi_counts = {}
                     for r in results:
                         gi_counts[r["gi_absorption"]] = gi_counts.get(r["gi_absorption"], 0) + 1
-                    axes[1, 1].bar(gi_counts.keys(), gi_counts.values(),
+                    axes[2, 1].bar(gi_counts.keys(), gi_counts.values(),
                                    color=["#4CAF50", "#FF9800", "#F44336"][:len(gi_counts)])
-                    axes[1, 1].set_title("GI Absorption"); axes[1, 1].set_ylabel("Count")
+                    axes[2, 1].set_title("GI Absorption")
+                    axes[2, 1].set_ylabel("Count")
+
+                    # 9. QED distribution
+                    qeds = [r.get("qed", 0) for r in results]
+                    axes[2, 2].hist(qeds, bins=15, color="#9C27B0", edgecolor="black", linewidth=0.5)
+                    axes[2, 2].set_title("QED (Drug-likeness)")
+                    axes[2, 2].set_xlabel("QED Score")
+                    axes[2, 2].set_ylabel("Count")
 
                     plt.tight_layout()
                     buf = io.BytesIO()
@@ -605,9 +699,9 @@ class AdmetPredict(ApiHandler):
 
             # Build CSV
             if results:
-                csv_lines = ["Name,SMILES,Formula,MW,LogP,TPSA,HBD,HBA,RotBonds,QED,Lipinski,GI_Absorption,BBB,Bioavailability"]
+                csv_lines = ["Name,SMILES,Formula,MW,LogP,TPSA,HBD,HBA,RotBonds,QED,Lipinski,GI_Absorption,BBB,Bioavailability,Solubility,LogSw,Hepatotoxic"]
                 for r in results:
-                    csv_lines.append(f'"{r["name"]}","{r["smiles"]}","{r["formula"]}",{r["mw"]},{r["logp"]},{r["tpsa"]},{r["hbd"]},{r["hba"]},{r["rotatable_bonds"]},{r["qed"]},{"PASS" if r["lipinski_pass"] else "FAIL"},{r["gi_absorption"]},{"Yes" if r["bbb_pass"] else "No"},{r["bioavailability_score"]}')
+                    csv_lines.append(f'"{r["name"]}","{r["smiles"]}","{r["formula"]}",{r["mw"]},{r["logp"]},{r["tpsa"]},{r["hbd"]},{r["hba"]},{r["rotatable_bonds"]},{r["qed"]},{"PASS" if r["lipinski_pass"] else "FAIL"},{r["gi_absorption"]},{"Yes" if r["bbb_pass"] else "No"},{r["bioavailability_score"]},{r.get("solubility","")},{r.get("log_sw","")},{r.get("hepatotoxic","")}')`
                 csv_data = "\n".join(csv_lines)
             else:
                 csv_data = ""
