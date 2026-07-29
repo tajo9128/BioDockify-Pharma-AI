@@ -5,7 +5,7 @@
     import { callJsonApi } from "/js/api.js";
 
     export const store = createStore("molecularToolkit", {
-      activeTab: "admet",
+      activeTab: "docking",
       loading: false,
       error: "",
 
@@ -385,8 +385,8 @@
 
     <!-- Tabs -->
     <div class="dock-tabs">
-      <button class="dock-tab" :class="{active: $store.molecularToolkit.activeTab === 'admet'}" @click="$store.molecularToolkit.activeTab = 'admet'">
-        <span class="material-symbols-outlined">monitoring</span> ADMET
+      <button class="dock-tab" @click="$store.rightCanvas?.open?.('admet-predict') || window.dispatchEvent(new CustomEvent('open-surface', {detail:'admet-predict'}))">
+        <span class="material-symbols-outlined">vaccines</span> ADMET →
       </button>
       <button class="dock-tab" :class="{active: $store.molecularToolkit.activeTab === 'docking'}" @click="$store.molecularToolkit.activeTab = 'docking'">
         <span class="material-symbols-outlined">precision_manufacturing</span> Docking
