@@ -16,10 +16,19 @@ from flask import (
     url_for,
 )
 from werkzeug.wrappers.response import Response as BaseResponse
-from agent import AgentContext
 from helpers.print_style import PrintStyle
 from helpers.errors import format_error
 from helpers import files, cache
+
+# Lazy import: AgentContext pulls in agent.py → models.py → litellm
+# which breaks standalone API usage (code execution tool, tests, etc.)
+_AgentContext = None
+def _get_agent_context():
+    global _AgentContext
+    if _AgentContext is None:
+        from agent import AgentContext
+        _AgentContext = AgentContext
+    return _AgentContext
 
 ThreadLockType = Union[threading.Lock, threading.RLock]
 
