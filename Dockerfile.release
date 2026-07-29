@@ -65,6 +65,11 @@ RUN /opt/venv/bin/python -m pip install --no-cache-dir \
     openmm>=8.1.0 mdtraj>=1.9.9 pdbfixer>=2.0.0 mdanalysis>=2.7.0 \
     && echo "Execution venv packages installed" || echo "Execution venv packages install failed"
 
+# ─── Install supervisor for system Python (used by supervisor_event_listener.py) ───
+RUN /usr/bin/python3 -m pip install --no-cache-dir supervisor 2>/dev/null || \
+    pip3 install --no-cache-dir supervisor 2>/dev/null || \
+    echo "supervisor install skipped — listener will run in graceful fallback mode"
+
 # ─── Pre-cache sentence-transformers model (prevents HuggingFace download at runtime) ───
 ENV SENTENCE_TRANSFORMERS_HOME=/a0/.cache/sentence-transformers
 RUN mkdir -p /a0/.cache/sentence-transformers && \
