@@ -401,15 +401,21 @@
       <div x-show="$store.molecularToolkit.error" class="dock-error" x-text="$store.molecularToolkit.error"></div>
       <div x-show="$store.molecularToolkit.loading" class="dock-loading"><div class="loading-spinner"></div><span>Computing...</span></div>
 
-      <!-- ADMET Tab -->
+      <!-- ADMET Tab — Redirect to standalone ADMET panel -->
       <div x-show="$store.molecularToolkit.activeTab === 'admet'" class="tab-content">
-        <div class="mt-input-row">
-          <input type="text" x-model="$store.molecularToolkit.smiles" placeholder="SMILES string (e.g. CC(=O)Oc1ccccc1C(=O)O)" class="mt-input" @keyup.enter="$store.molecularToolkit.runADMET()" />
-          <button class="btn-run" @click="$store.molecularToolkit.runADMET()" :disabled="$store.molecularToolkit.loading || !$store.molecularToolkit.smiles" style="flex:none;width:auto;margin-top:0">
-            <span class="material-symbols-outlined">play_arrow</span>
-            Run ADMET
+        <div style="text-align:center;padding:40px 20px;">
+          <span class="material-symbols-outlined" style="font-size:48px;color:var(--color-primary);margin-bottom:12px;display:block">vaccines</span>
+          <h3 style="margin:0 0 8px;color:var(--color-text)">ADMET Prediction</h3>
+          <p style="color:var(--color-text-muted);font-size:0.75rem;margin:0 0 16px;">ADMET is now a separate module with full SwissADME-grade analysis.</p>
+          <button class="btn-run" style="margin:0 auto" @click="$store.rightCanvas?.open?.('admet-predict') || window.dispatchEvent(new CustomEvent('open-surface', {detail:'admet-predict'}))">
+            <span class="material-symbols-outlined">open_in_new</span>
+            Open ADMET Module
           </button>
         </div>
+      </div>
+
+      <!-- Docking Tab -->
+      <div x-show="$store.molecularToolkit.activeTab === 'docking'" class="tab-content">
 
         <!-- ADMET Results -->
         <template x-if="$store.molecularToolkit.admetResult">
