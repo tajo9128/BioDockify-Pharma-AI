@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://hub.docker.com/r/tajo9128/biodockify-pharma-ai"><img src="https://img.shields.io/badge/docker-tajo9128%2Fbiodockify--pharma--ai-blue.svg" alt="Docker"/></a>
-  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v7.9.2-green.svg" alt="Version"/></a>
+  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v7.9.6-green.svg" alt="Version"/></a>
   <a href="https://github.com/tajo9128/BioDockify-Pharma-AI"><img src="https://img.shields.io/badge/GitHub-BioDockify--Pharma--AI-181717?style=flat&logo=github" alt="GitHub"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"/></a>
   <a href="docs/user-guide/README.md"><img src="https://img.shields.io/badge/docs-user%20guide-lightgrey.svg" alt="Documentation"/></a>
@@ -273,6 +273,85 @@ Agent0 (Main Orchestrator)
 │         ↓
 └─→ Writer (output) + Journal Recommender (36,145 journals) + Mol Optimizer
 ```
+
+---
+
+## What's New in v7.9.6
+
+### ADMET — Separate Module with SwissADME-Grade Analysis
+
+| Feature | Details |
+|---------|---------|
+| **7 Drug-likeness Filters** | Lipinski Ro5, Veber, Egan, Ghose, Muegge, Golden Triangle, QED |
+| **BOILED-Egg Model** | Proper ellipse math (Daina 2016) + graphical plot with compound plotted |
+| **PAINS/Brenk Alerts** | RDKit FilterCatalog (480+ curated filters), not hand-written SMARTS |
+| **CYP450 Inhibition** | 5 isoforms (1A2, 2C9, 2C19, 2D6, 3A4) with SMARTS patterns |
+| **Toxicity Panel** | hERG, Ames mutagenicity, P-gp substrate, bioaccumulation |
+| **Batch Mode** | Process thousands of compounds at once, distribution plots, CSV export |
+| **6-Tab UI** | Overview, Drug Filters, Pharmacokinetics, Toxicity, BOILED-Egg, Raw Data |
+
+### HOMO-LUMO Calculator (NEW)
+
+| Feature | Details |
+|---------|---------|
+| **Frontier Orbitals** | HOMO, LUMO, gap energies (eV) |
+| **Chemical Reactivity** | Hardness, softness, electronegativity, electrophilicity index |
+| **Drug-like Gap** | Identifies typical drug range (5-9 eV) |
+| **Energy Diagram** | Publication-quality matplotlib plot |
+| **Batch Mode** | Multiple molecules with gap distribution |
+
+### 200+ RDKit Descriptors (NEW)
+
+| Category | Count | Examples |
+|----------|-------|---------|
+| Basic | 24 | MolWt, LogP, TPSA, HBD, HBA, RotBonds |
+| Topological | 17 | Chi0-4, Kappa1-3, BalabanJ, BertzCT |
+| Electronic | 8 | EState indices, partial charges |
+| Surface (VSA) | 36 | SlogP_VSA1-12, SMR_VSA1-10, PEOE_VSA1-14 |
+| BCUT | 8 | BCUT2D_MW/CHG/LOGP/MR |
+| Autocorrelation | 8 | Autocorr2D vectors |
+| Fragment | 80+ | fr_ether, fr_halogen, fr_benzene, fr_sulfone |
+| Drug-likeness | 7 | Fragment/Lead/Drug/Non-drug categories |
+
+### Interactive Molecular Plots (NEW)
+
+8 interactive Plotly dashboards: Property Distributions, Correlation Heatmap, Chemical Space PCA, Drug-likeness Analysis, 3D Chemical Space, Parallel Coordinates, Scatter Matrix, Summary Table.
+
+### MD Lite — 12 Advanced Analyses
+
+| # | Analysis | GROMACS Equivalent |
+|---|----------|-------------------|
+| 1 | Hydrogen Bonds (residue-resolved) | `gmx hbond` |
+| 2 | Water Bridges | — |
+| 3 | Native Contacts (Q fraction) | — |
+| 4 | Radial Distribution Function | `gmx rdf` |
+| 5 | Ramachandran | `gmx rama` |
+| 6 | PCA (essential dynamics) | `gmx covar` + `gmx anaeig` |
+| 7 | H-Bond Lifetimes | — |
+| 8 | Ligand-Residue Distances | `gmx distance` |
+| 9 | Secondary Structure (DSSP) | `gmx do_dssp` |
+| 10 | Dielectric Constant | — |
+| 11 | **Free Energy Landscape** | `gmx covar` + `gmx anaeig` + `gmx sham` |
+| 12 | **Entropy (QHA + Schlitter)** | `gmx anaeig -entropy` |
+
+### QSAR — 20+ ML Models
+
+Models: PLS, Ridge, Lasso, ElasticNet, KNN, DecisionTree, RandomForest, GradientBoosting, ExtraTrees, AdaBoost, Bagging, SVR, KernelRidge, MLP, XGBoost, LightGBM, CatBoost, Voting, Stacking.
+
+### Pharmacophore — 8 Outputs
+
+2D plot, 3D HTML, distance CSV, distance heatmap, distribution plot, feature CSV, fingerprint summary, properties CSV.
+
+### Literature Search — 10 Databases
+
+`database: "all"` searches all 10 in parallel: europe_pmc, pubmed, semantic_scholar, biorxiv, arxiv, google_scholar, scopus, wos, elsevier, springer.
+
+### Infrastructure
+
+- Docker Hub: `linux/amd64` only, provenance disabled (fixes pull failures)
+- Volume: single named volume `biodockify_pharma_usr` + backup bind mount
+- Backup: 2 buttons (Save to PC / Restore from PC)
+- Version: v7.9.6
 
 ---
 
