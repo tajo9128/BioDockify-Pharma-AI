@@ -24,9 +24,17 @@
 - `enhanced_fingerprint` — Generate pharmacophore fingerprint (Pharmer-style 256-bit)
 - `enhanced_shape` — Calculate shape similarity between two molecules
 - `enhanced_protein_features` — Extract per-residue protein features (OpenPharmaco-style)
+- `complete` — Full pharmacophore analysis (8 outputs: 2D, 3D, distances, heatmap, distribution, features, FP, properties)
+- `batch` — Batch analysis of multiple molecules with similarity matrix
+- `compare` — Compare two pharmacophores (feature overlap, distance RMSD, similarity score)
 
 **Parameters:**
-- `smiles` (required for generate/enhanced_detect/enhanced_fingerprint): SMILES string
+- `smiles` (required for generate/enhanced_detect/enhanced_fingerprint/complete): SMILES string
+- `name` (optional for complete/batch): Molecule name for labeling
+- `smiles_list` (required for batch): List of SMILES for batch analysis
+- `names` (optional for batch): List of names for batch molecules
+- `smiles_1` / `smiles_2` (required for compare): Two SMILES to compare
+- `features_1` / `features_2` (optional for compare): Pre-computed feature lists
 - `protein_pdb` (required for protein_model/enhanced_interactions/enhanced_protein_features): PDB content
 - `query_smiles` (required for screen/enhanced_screen/enhanced_shape): Query SMILES
 - `library_smiles` (required for screen/enhanced_screen): List of SMILES for screening
@@ -44,6 +52,30 @@
 Tool: pharmacophore
 Action: generate
 smiles: "CC(=O)OC1=CC=CC=C1C(=O)O"
+```
+
+**Example: Complete analysis (8 outputs)**
+```
+Tool: pharmacophore
+Action: complete
+smiles: "CC(=O)OC1=CC=CC=C1C(=O)O"
+name: "Aspirin"
+```
+
+**Example: Batch analysis with similarity matrix**
+```
+Tool: pharmacophore
+Action: batch
+smiles_list: ["CC(=O)OC1=CC=CC=C1C(=O)O", "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O"]
+names: ["Aspirin", "Ibuprofen"]
+```
+
+**Example: Compare two pharmacophores**
+```
+Tool: pharmacophore
+Action: compare
+smiles_1: "CC(=O)OC1=CC=CC=C1C(=O)O"
+smiles_2: "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O"
 ```
 
 **Engine capabilities:**

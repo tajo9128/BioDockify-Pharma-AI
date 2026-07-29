@@ -49,12 +49,13 @@ class PharmacophoreHandler(ApiHandler):
         if action == "enhanced_protein_features": return self._enhanced_protein_features(input)
         if action == "complete": return self._complete(input)
         if action == "batch": return self._batch(input)
+        if action == "compare": return self._compare(input)
         return {
             "actions": [
                 "generate", "protein_model", "screen", "hypothesis", "nci_types",
                 "enhanced_detect", "enhanced_interactions", "enhanced_screen",
                 "enhanced_model", "enhanced_fingerprint", "enhanced_shape",
-                "enhanced_protein_features", "complete", "batch"
+                "enhanced_protein_features", "complete", "batch", "compare"
             ],
             "hint": "POST with action=complete for single molecule, action=batch for multiple molecules"
         }
@@ -745,4 +746,118 @@ class PharmacophoreHandler(ApiHandler):
             }
         except Exception as e:
             log.error(f"Batch pharmacophore failed: {e}")
+            return {"success": False, "error": str(e)}
+
+    def _compare(self, input: dict) -> dict:
+        """Compare two pharmacophores — feature overlap, distance RMSD, similarity score.
+
+        Input: smiles_1, smiles_2 (or features_1, features_2)
+        Output: comparison metrics, matched/unmatched features, RMSD, similarity score.
+        """
+        smiles_1 = input.get("smiles_1", "")
+        smiles_2 = input.get("smiles_2", "")
+        features_1 = input.get("features_1", None)
+        features_2 = input.get("features_2", None)
+
+        try:
+            from rdkit import Chem
+            from rdkit.Chem import AllChem, ChemicalFeatures
+            from rdkit import RDConfig
+            import numpy as np
+
+            def get_features(smiles):
+                mol = Chem.MolFromSmiles(smiles)
+                if mol is None:
+                    return []
+                mol = Chem.AddHs(mol)
+                AllChem.EmbedMolecule(mol, AllChem.ETKDG())
+                AllChem.MMFFOptimizeMolecule(mol)
+                fdef = os.path.join(RDConfig.RDDataDir, "BaseFeatures.fdef")
+                factory = ChemicalFeatures.BuildFeatureFactory(fdef) if os.path.exists(fdef) else None
+                if not factory:
+                    return []
+                feats = []
+                for feat in factory.GetFeaturesForMol(mol):
+                    pos = feat.GetPos()
+                    feats.append({
+                        "type": feat.GetType(),
+                        "family": feat.GetFamily(),
+                        "position": np.array([pos.x, pos.y, pos.z]),
+                    })
+                return feats
+
+            # Get features
+            if features_1 and features_2:
+                f1 = [{"type": f.get("type", ""), "family": f.get("family", ""),
+                        "position": np.array([f.get("x", 0), f.get("y", 0), f.get("z", 0)])}
+                       for f in features_1]
+                f2 = [{"type": f.get("type", ""), "family": f.get("family", ""),
+                        "position": np.array([f.get("x", 0), f.get("y", 0), f.get("z", 0)])}
+                       for f in features_2]
+            elif smiles_1 and smiles_2:
+                f1 = get_features(smiles_1)
+                f2 = get_features(smiles_2)
+            else:
+                return {"error": "Provide smiles_1/smiles_2 or features_1/features_2"}
+
+            if not f1 or not f2:
+                return {"error": "Could not extract features from one or both molecules"}
+
+            # Match features by type
+            matched = []
+            unmatched_1 = []
+            unmatched_2 = list(range(len(f2)))
+
+            for i, feat1 in enumerate(f1):
+                best_j = None
+                best_dist = float('inf')
+                for j in unmatched_2:
+                    if f2[j]["family"] == feat1["family"]:
+                        dist = np.linalg.norm(feat1["position"] - f2[j]["position"])
+                        if dist < best_dist:
+                            best_dist = dist
+                            best_j = j
+                if best_j is not None and best_dist < 5.0:  # 5Å tolerance
+                    matched.append({
+                        "type": feat1["family"],
+                        "distance": round(float(best_dist), 3),
+                        "mol1_idx": i,
+                        "mol2_idx": best_j,
+                    })
+                    unmatched_2.remove(best_j)
+                else:
+                    unmatched_1.append({"type": feat1["family"], "mol1_idx": i})
+
+            unmatched_2_features = [{"type": f2[j]["family"], "mol2_idx": j} for j in unmatched_2]
+
+            # RMSD of matched features
+            if matched:
+                rmsd = round(float(np.sqrt(np.mean([m["distance"]**2 for m in matched]))), 3)
+            else:
+                rmsd = None
+
+            # Similarity score
+            total_features = len(f1) + len(f2)
+            matched_count = len(matched)
+            similarity = round(2 * matched_count / total_features, 3) if total_features > 0 else 0.0
+
+            result = {
+                "success": True,
+                "mol1_features": len(f1),
+                "mol2_features": len(f2),
+                "matched": matched,
+                "unmatched_mol1": unmatched_1,
+                "unmatched_mol2": unmatched_2_features,
+                "match_count": matched_count,
+                "rmsd": rmsd,
+                "similarity": similarity,
+                "pharmacophore_overlap_pct": round(matched_count / max(len(f1), len(f2)) * 100, 1) if max(len(f1), len(f2)) > 0 else 0,
+            }
+
+            _store_to_kb("pharmacophore", f"Pharmacophore Comparison",
+                        f"Similarity: {similarity}, RMSD: {rmsd}, Matched: {matched_count}",
+                        f"comparison,pharmacophore")
+            return result
+        except Exception as e:
+            log.error(f"Pharmacophore comparison failed: {e}")
             return {"success": False, "error": str(e)}

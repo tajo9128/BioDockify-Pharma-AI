@@ -61,12 +61,23 @@ class FacultyTools(ApiHandler):
             return self._generate_class_slides(input)
         elif action == "create_class_ppt":
             return self._create_class_ppt(input)
+        elif action == "exam_paper":
+            return self._exam_paper(input)
+        elif action == "rubric":
+            return self._rubric(input)
+        elif action == "grade_calculator":
+            return self._grade_calculator(input)
+        elif action == "co_po_mapping":
+            return self._co_po_mapping(input)
+        elif action == "question_blueprint":
+            return self._question_blueprint(input)
         else:
             return {
                 "actions": ["syllabus", "plan_semester", "plan_class", "lesson_plan", "prep_notes",
                             "make_slides", "assignment", "questions", "plagiarism", "lecture",
                             "analyze_syllabus_enhanced", "divide_into_classes",
-                            "find_reference_books", "generate_class_slides", "create_class_ppt"],
+                            "find_reference_books", "generate_class_slides", "create_class_ppt",
+                            "exam_paper", "rubric", "grade_calculator", "co_po_mapping", "question_blueprint"],
                 "hint": "Send action with topic/text"
             }
 
@@ -752,3 +763,344 @@ class FacultyTools(ApiHandler):
             return result
         except Exception as e:
             return {"error": f"PPT generation failed: {str(e)}"}
+
+    def _exam_paper(self, input: dict) -> dict:
+        """Generate a complete exam paper with question bank.
+
+        Creates a structured exam with MCQ, short-answer, and long-answer questions,
+        organized by topic with marks distribution and Bloom's taxonomy levels.
+        """
+        course_name = input.get("course_name", "Course")
+        topics = input.get("topics", [])
+        duration = int(input.get("duration", 180))
+        total_marks = int(input.get("total_marks", 100))
+        level = input.get("level", "undergraduate")
+
+        if not topics:
+            return {"error": "Topics list required"}
+
+        # Marks distribution
+        mcq_marks = int(total_marks * 0.20)
+        short_marks = int(total_marks * 0.30)
+        long_marks = int(total_marks * 0.50)
+
+        mcq_count = mcq_marks // 2
+        short_count = short_marks // 10
+        long_count = long_marks // 15
+
+        # Bloom's taxonomy levels
+        blooms = ["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"]
+
+        sections = []
+
+        # Section A: MCQs
+        mcq_questions = []
+        for i in range(mcq_count):
+            topic = topics[i % len(topics)]
+            bloom = blooms[i % 3]  # MCQs are usually lower Bloom's levels
+            mcq_questions.append({
+                "q": i + 1,
+                "topic": topic,
+                "bloom": bloom,
+                "marks": 2,
+                "type": "MCQ",
+                "prompt": f"Multiple choice question on '{topic}' ({bloom} level)"
+            })
+        sections.append({"name": "Section A", "type": "MCQ", "questions": mcq_questions, "marks": mcq_marks})
+
+        # Section B: Short Answer
+        short_questions = []
+        for i in range(short_count):
+            topic = topics[i % len(topics)]
+            bloom = blooms[2 + (i % 3)]  # Apply/Analyze/Evaluate
+            short_questions.append({
+                "q": i + 1,
+                "topic": topic,
+                "bloom": bloom,
+                "marks": 10,
+                "type": "Short Answer",
+                "prompt": f"Short answer on '{topic}' ({bloom} level). Answer in 150-200 words."
+            })
+        sections.append({"name": "Section B", "type": "Short Answer", "questions": short_questions, "marks": short_marks})
+
+        # Section C: Long Answer
+        long_questions = []
+        for i in range(long_count):
+            topic = topics[i % len(topics)]
+            bloom = blooms[3 + (i % 3)]  # Analyze/Evaluate/Create
+            long_questions.append({
+                "q": i + 1,
+                "topic": topic,
+                "bloom": bloom,
+                "marks": 15,
+                "type": "Long Answer",
+                "prompt": f"Long answer on '{topic}' ({bloom} level). Answer in 500-800 words with diagrams."
+            })
+        sections.append({"name": "Section C", "type": "Long Answer", "questions": long_questions, "marks": long_marks})
+
+        result = {
+            "course_name": course_name,
+            "duration": duration,
+            "total_marks": total_marks,
+            "level": level,
+            "sections": sections,
+            "marks_distribution": {"MCQ": mcq_marks, "Short Answer": short_marks, "Long Answer": long_marks},
+            "bloom_levels_used": blooms[:5],
+            "instructions": [
+                "Answer ALL questions",
+                "MCQs have only one correct answer",
+                "Short answers: 150-200 words",
+                "Long answers: 500-800 words with diagrams where applicable",
+            ],
+        }
+
+        # Store in KB
+        kb_content = f"## Exam Paper: {course_name}\n\n**Duration:** {duration} min | **Marks:** {total_marks}\n\n"
+        for section in sections:
+            kb_content += f"### {section['name']} ({section['marks']} marks)\n\n"
+            for q in section["questions"]:
+                kb_content += f"Q{q['q']}. [{q['topic']}] ({q['bloom']}, {q['marks']} marks) — {q['prompt']}\n\n"
+        _store_to_kb("faculty", f"Exam Paper: {course_name}", kb_content, f"{course_name},exam")
+
+        return result
+
+    def _rubric(self, input: dict) -> dict:
+        """Generate a detailed rubric for assignments or exams.
+
+        Creates a rubric with criteria, levels, and descriptors for grading.
+        """
+        assignment_type = input.get("type", "essay")
+        criteria_count = int(input.get("criteria_count", 5))
+        levels_count = int(input.get("levels_count", 4))
+
+        rubric_templates = {
+            "essay": [
+                {"criterion": "Content & Understanding", "weight": 30},
+                {"criterion": "Critical Analysis", "weight": 25},
+                {"criterion": "Research & Citations", "weight": 20},
+                {"criterion": "Structure & Organization", "weight": 15},
+                {"criterion": "Writing Quality", "weight": 10},
+            ],
+            "presentation": [
+                {"criterion": "Content Knowledge", "weight": 25},
+                {"criterion": "Organization & Flow", "weight": 20},
+                {"criterion": "Visual Aids", "weight": 20},
+                {"criterion": "Delivery & Communication", "weight": 20},
+                {"criterion": "Q&A Handling", "weight": 15},
+            ],
+            "lab_report": [
+                {"criterion": "Objective & Methods", "weight": 20},
+                {"criterion": "Results & Data", "weight": 25},
+                {"criterion": "Discussion & Analysis", "weight": 25},
+                {"criterion": "Conclusions", "weight": 15},
+                {"criterion": "Format & References", "weight": 15},
+            ],
+            "research_paper": [
+                {"criterion": "Originality & Contribution", "weight": 25},
+                {"criterion": "Literature Review", "weight": 20},
+                {"criterion": "Methodology", "weight": 20},
+                {"criterion": "Results & Discussion", "weight": 25},
+                {"criterion": "Writing & Formatting", "weight": 10},
+            ],
+        }
+
+        criteria = rubric_templates.get(assignment_type, rubric_templates["essay"])[:criteria_count]
+
+        levels = [
+            {"level": "Excellent", "range": "90-100%", "descriptor": "Outstanding work, exceeds expectations"},
+            {"level": "Good", "range": "70-89%", "descriptor": "Solid work, meets expectations"},
+            {"level": "Adequate", "range": "50-69%", "descriptor": "Acceptable work, some gaps"},
+            {"level": "Poor", "range": "<50%", "descriptor": "Significant deficiencies"},
+        ][:levels_count]
+
+        rubric = []
+        for c in criteria:
+            rubric.append({
+                "criterion": c["criterion"],
+                "weight": c["weight"],
+                "levels": [{"level": l["level"], "range": l["range"], "score": int(c["weight"] * float(l["range"].split("-")[0].replace("<", "").replace("%", "")) / 100)} for l in levels],
+            })
+
+        result = {
+            "type": assignment_type,
+            "criteria": rubric,
+            "levels": levels,
+            "total_marks": 100,
+        }
+
+        # Store in KB
+        kb_content = f"## Rubric: {assignment_type.title()}\n\n"
+        for c in rubric:
+            kb_content += f"### {c['criterion']} ({c['weight']}%)\n"
+            for l in c["levels"]:
+                kb_content += f"  - {l['level']} ({l['range']}): {l['score']} marks\n"
+        _store_to_kb("faculty", f"Rubric: {assignment_type}", kb_content, f"{assignment_type},rubric")
+
+        return result
+
+    def _grade_calculator(self, input: dict) -> dict:
+        """Calculate weighted grades from multiple components.
+
+        Input: components (list of {name, weight, score})
+        Output: final grade, letter grade, GPA.
+        """
+        components = input.get("components", [])
+        if not components:
+            return {"error": "Components list required. Example: [{name: 'Midterm', weight: 30, score: 85}]"}
+
+        total_weighted = 0
+        total_weight = 0
+        breakdown = []
+
+        for comp in components:
+            name = comp.get("name", "Component")
+            weight = float(comp.get("weight", 0))
+            score = float(comp.get("score", 0))
+            weighted = (score * weight) / 100
+            total_weighted += weighted
+            total_weight += weight
+            breakdown.append({
+                "name": name,
+                "weight": weight,
+                "score": score,
+                "weighted_score": round(weighted, 2),
+            })
+
+        final_score = round(total_weighted, 2) if total_weight > 0 else 0
+
+        # Letter grade
+        if final_score >= 90: letter = "A+"
+        elif final_score >= 85: letter = "A"
+        elif final_score >= 80: letter = "A-"
+        elif final_score >= 75: letter = "B+"
+        elif final_score >= 70: letter = "B"
+        elif final_score >= 65: letter = "B-"
+        elif final_score >= 60: letter = "C+"
+        elif final_score >= 55: letter = "C"
+        elif final_score >= 50: letter = "C-"
+        elif final_score >= 45: letter = "D"
+        else: letter = "F"
+
+        # GPA
+        gpa_map = {"A+": 4.0, "A": 4.0, "A-": 3.7, "B+": 3.3, "B": 3.0, "B-": 2.7,
+                   "C+": 2.3, "C": 2.0, "C-": 1.7, "D": 1.0, "F": 0.0}
+        gpa = gpa_map.get(letter, 0.0)
+
+        result = {
+            "breakdown": breakdown,
+            "total_weighted": final_score,
+            "total_weight": total_weight,
+            "letter_grade": letter,
+            "gpa": gpa,
+            "pass": final_score >= 50,
+        }
+
+        _store_to_kb("faculty", f"Grade: {final_score}% ({letter})", str(result), "grade,calculator")
+        return result
+
+    def _co_po_mapping(self, input: dict) -> dict:
+        """Map Course Outcomes (CO) to Program Outcomes (PO) for accreditation.
+
+        Input: course_name, course_outcomes (list), program_outcomes (list), mapping (dict)
+        Output: CO-PO mapping matrix with coverage levels.
+        """
+        course_name = input.get("course_name", "Course")
+        course_outcomes = input.get("course_outcomes", [])
+        program_outcomes = input.get("program_outcomes", [
+            "PO1: Engineering knowledge",
+            "PO2: Problem analysis",
+            "PO3: Design/development of solutions",
+            "PO4: Investigation",
+            "PO5: Modern tool usage",
+            "PO6: The engineer and society",
+            "PO7: Environment and sustainability",
+            "PO8: Ethics",
+            "PO9: Individual and team work",
+            "PO10: Communication",
+            "PO11: Project management and finance",
+            "PO12: Life-long learning",
+        ])
+
+        if not course_outcomes:
+            return {"error": "Course outcomes list required. Example: ['CO1: Understand pharmacology', 'CO2: Analyze drug interactions']"}
+
+        # Auto-generate mapping based on keywords
+        mapping = {}
+        co_keywords = {
+            "understand": ["PO1", "PO12"],
+            "analyze": ["PO2", "PO4"],
+            "apply": ["PO1", "PO3"],
+            "design": ["PO3", "PO5"],
+            "evaluate": ["PO2", "PO4"],
+            "communicate": ["PO10"],
+            "team": ["PO9"],
+            "ethics": ["PO8"],
+            "research": ["PO4", "PO12"],
+        }
+
+        for co in course_outcomes:
+            co_lower = co.lower()
+            mapped_pos = []
+            for keyword, pos in co_keywords.items():
+                if keyword in co_lower:
+                    mapped_pos.extend(pos)
+            mapping[co] = list(set(mapped_pos)) if mapped_pos else ["PO1", "PO12"]
+
+        # Calculate coverage
+        covered_pos = set()
+        for pos_list in mapping.values():
+            covered_pos.update(pos_list)
+
+        result = {
+            "course_name": course_name,
+            "course_outcomes": course_outcomes,
+            "program_outcomes": program_outcomes,
+            "co_po_mapping": mapping,
+            "po_coverage": list(covered_pos),
+            "coverage_count": len(covered_pos),
+            "total_po": len(program_outcomes),
+            "coverage_pct": round(len(covered_pos) / len(program_outcomes) * 100, 1) if program_outcomes else 0,
+        }
+
+        _store_to_kb("faculty", f"CO-PO Mapping: {course_name}", str(result), f"{course_name},co_po,accreditation")
+        return result
+
+    def _question_blueprint(self, input: dict) -> dict:
+        """Generate a question paper blueprint with topic-wise distribution.
+
+        Input: topics (list), total_marks, exam_type (IA/Final)
+        Output: Blueprint with topic-wise marks, question types, Bloom's levels.
+        """
+        topics = input.get("topics", [])
+        total_marks = int(input.get("total_marks", 100))
+        exam_type = input.get("exam_type", "Final")
+
+        if not topics:
+            return {"error": "Topics list required"}
+
+        # Distribute marks proportionally
+        marks_per_topic = total_marks // len(topics)
+        remaining = total_marks % len(topics)
+
+        blueprint = []
+        for i, topic in enumerate(topics):
+            marks = marks_per_topic + (1 if i < remaining else 0)
+            blueprint.append({
+                "topic": topic,
+                "marks": marks,
+                "mcq": marks // 10,
+                "short_answer": marks // 20,
+                "long_answer": marks // 30,
+                "bloom_levels": ["Remember", "Understand", "Apply"],
+            })
+
+        result = {
+            "exam_type": exam_type,
+            "total_marks": total_marks,
+            "topics": len(topics),
+            "blueprint": blueprint,
+            "marks_per_topic": marks_per_topic,
+        }
+
+        _store_to_kb("faculty", f"Question Blueprint: {exam_type}", str(result), f"{exam_type},blueprint")
+        return result
