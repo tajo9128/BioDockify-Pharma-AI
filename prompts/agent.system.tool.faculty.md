@@ -1,6 +1,6 @@
 ## Faculty Center Tool
 
-**Purpose:** Faculty tools for syllabus management, class planning, lecture preparation, reference book search, slide generation, PPT creation, exam management, lab manual generation, Bloom's Taxonomy integration, and accreditation support (NBA, NAAC, QCP). All results auto-stored to Knowledge Base.
+**Purpose:** Faculty tools for syllabus management, class planning, lecture preparation, reference book search, slide generation, PPT creation, exam management, lab manual generation, and Bloom's Taxonomy integration. All results auto-stored to Knowledge Base.
 
 **When to use:**
 - Faculty uploads a syllabus → use `analyze_syllabus_enhanced` to extract topics + reference books
@@ -16,9 +16,6 @@
 - Faculty needs accreditation mapping → use `co_po_mapping` for CO-PO matrix
 - Faculty needs exam blueprint → use `question_blueprint` for topic-wise question distribution
 - Faculty needs lab manual → use `lab_manual` for practical/lab manual with procedures
-- Faculty needs NBA accreditation → use `nba_report` for NBA self-assessment report
-- Faculty needs NAAC accreditation → use `naac_report` for NAAC self-study report
-- Faculty needs QCP accreditation → use `qcp_report` for QCP quality assessment report
 
 **Actions:**
 - `analyze_syllabus_enhanced` — Parse syllabus text, extract topics + reference books (enhanced)
@@ -31,12 +28,9 @@
 - `bloom_analysis` — Analyze Bloom's distribution across exam/course with recommendations
 - `rubric` — Generate grading rubric (essay, presentation, lab report, research paper)
 - `grade_calculator` — Calculate weighted grades from components (midterm, final, assignments)
-- `co_po_mapping` — Map Course Outcomes to Program Outcomes for accreditation (NAAC/NBA)
+- `co_po_mapping` — Map Course Outcomes to Program Outcomes for accreditation
 - `question_blueprint` — Generate topic-wise question paper blueprint with marks distribution
 - `lab_manual` — Generate practical/lab manual with procedures, safety notes, viva questions
-- `nba_report` — Generate NBA (National Board of Accreditation) self-assessment report (10 criteria)
-- `naac_report` — Generate NAAC (National Assessment and Accreditation Council) self-study report (7 criteria)
-- `qcp_report` — Generate QCP (Quality Council of Pakistan) quality assessment report (8 criteria)
 - `syllabus` — Basic syllabus parsing
 - `plan_semester` — Divide into weeks/classes
 - `plan_class` — Plan a single class
@@ -78,10 +72,5 @@
 1. `lab_manual(course_name, experiments, level, department)` → complete lab manual
 2. Includes: procedures, materials, safety notes, observation templates, viva questions
 3. Auto-generates default experiments for Pharmacy/Chemistry/Pharmacology
-
-**Workflow: Accreditation**
-- **NBA:** `nba_report(program_name, institution)` → 10 criteria, POs, CO-PO mapping
-- **NAAC:** `naac_report(institution, type)` → 7 criteria, grading A++ to D
-- **QCP:** `qcp_report(program_name, institution, level)` → 8 criteria, ISO compliance
 
 **All results auto-stored to Knowledge Base (faculty category).**
