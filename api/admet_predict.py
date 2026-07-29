@@ -322,6 +322,14 @@ class AdmetPredict(ApiHandler):
             muegge = _druglikeness_muegge(mol, mw, logp, tpsa, n_rings,
                                            n_carbon, n_hetero, rot, hba, hbd)
 
+            # Ghose preferred range (Ghose 1999) — tighter than qualifying
+            ghose_pref_violations = []
+            if logp > 4.1 or logp < 1.3: ghose_pref_violations.append(f"LogP {logp:.2f} (1.3-4.1)")
+            if mw < 230 or mw > 390: ghose_pref_violations.append(f"MW {mw:.1f} (230-390)")
+            if mr < 70 or mr > 110: ghose_pref_violations.append(f"MR {mr:.1f} (70-110)")
+            if n_atoms < 30 or n_atoms > 55: ghose_pref_violations.append(f"N atoms {n_atoms} (30-55)")
+            ghose_pref = {"pass": len(ghose_pref_violations) == 0, "violations": ghose_pref_violations}
+
             # Golden Triangle (Johnson & Luty 2009)
             golden = 200 <= mw <= 500 and 2 <= logp <= 5
 
@@ -409,11 +417,12 @@ class AdmetPredict(ApiHandler):
                 "n_atoms": n_atoms,
                 "n_carbons": n_carbon,
                 "n_heteroatoms": n_hetero,
-                # Druglikeness filters (7 total)
+                # Druglikeness filters (8 total)
                 "lipinski": lipinski,
                 "veber": veber,
                 "egan": egan,
                 "ghose": ghose,
+                "ghose_preferred": ghose_pref,
                 "muegge": muegge,
                 "golden_triangle": golden,
                 "qed": qed,

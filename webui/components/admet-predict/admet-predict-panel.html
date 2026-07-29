@@ -60,10 +60,10 @@
       filterCount(type) {
         if (!this.result) return 0;
         const r = this.result;
-        const filters = [r.lipinski, r.veber, r.egan, r.ghose, r.muegge];
+        const filters = [r.lipinski, r.veber, r.egan, r.ghose, r.ghose_preferred, r.muegge, r.golden_triangle ? {pass:r.golden_triangle} : null];
         return filters.filter(f => f && f.pass).length;
       },
-      totalFilters() { return 5; },
+      totalFilters() { return 7; },
       alertCount() {
         if (!this.result) return 0;
         let n = 0;
@@ -225,7 +225,8 @@
             {key:'lipinski', name:'Lipinski Ro5', ref:'Lipinski 2001'},
             {key:'veber', name:'Veber', ref:'Veber 2002'},
             {key:'egan', name:'Egan', ref:'Egan 2000'},
-            {key:'ghose', name:'Ghose', ref:'Ghose 1999'},
+            {key:'ghose', name:'Ghose (Qualifying)', ref:'Ghose 1999'},
+            {key:'ghose_preferred', name:'Ghose (Preferred)', ref:'Ghose 1999 — 50% drugs'},
             {key:'muegge', name:'Muegge', ref:'Muegge 2001'}
           ]" :key="filter.key">
             <div class="filter-card" :class="$store.admet.result[filter.key]?.pass?'pass':'fail'">
