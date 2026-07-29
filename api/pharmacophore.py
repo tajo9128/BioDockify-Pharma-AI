@@ -48,14 +48,15 @@ class PharmacophoreHandler(ApiHandler):
         if action == "enhanced_shape": return self._enhanced_shape(input)
         if action == "enhanced_protein_features": return self._enhanced_protein_features(input)
         if action == "complete": return self._complete(input)
+        if action == "batch": return self._batch(input)
         return {
             "actions": [
                 "generate", "protein_model", "screen", "hypothesis", "nci_types",
                 "enhanced_detect", "enhanced_interactions", "enhanced_screen",
                 "enhanced_model", "enhanced_fingerprint", "enhanced_shape",
-                "enhanced_protein_features", "complete"
+                "enhanced_protein_features", "complete", "batch"
             ],
-            "hint": "POST with action=complete for full pharmacophore analysis (2D, 3D, CSV, heatmap, distribution)"
+            "hint": "POST with action=complete for single molecule, action=batch for multiple molecules"
         }
     
     def _generate(self, input: dict):
@@ -670,4 +671,78 @@ class PharmacophoreHandler(ApiHandler):
             return result
         except Exception as e:
             log.error(f"Complete pharmacophore failed: {e}")
+            return {"success": False, "error": str(e)}
+
+    def _batch(self, input: dict):
+        """Batch pharmacophore analysis — analyze multiple molecules at once.
+
+        Returns per-molecule analysis + similarity matrix + batch summary.
+        Inspired by Omixium's batch_pharmacophore_analyzer.py.
+        """
+        smiles_list = input.get("smiles_list", [])
+        names = input.get("names", [])
+        if not smiles_list:
+            return {"error": "smiles_list is required"}
+
+        try:
+            import numpy as np
+            from modules.pharmacophore.complete_analysis import complete_pharmacophore_analysis
+            from rdkit import Chem
+            from rdkit.Chem import AllChem
+            from rdkit import DataStructs
+
+            results = []
+            fingerprints = []
+
+            for i, smi in enumerate(smiles_list):
+                name = names[i] if i < len(names) else f"Molecule_{i+1}"
+                try:
+                    r = complete_pharmacophore_analysis(smi, name)
+                    if r.get("success"):
+                        results.append(r)
+                        # Generate fingerprint for similarity
+                        mol = Chem.MolFromSmiles(smi.strip())
+                        if mol:
+                            fp = AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=2048)
+                            fingerprints.append(fp)
+                        else:
+                            fingerprints.append(None)
+                except Exception as e:
+                    log.warning(f"Batch analysis failed for {name}: {e}")
+
+            if not results:
+                return {"error": "No valid molecules analyzed"}
+
+            # Similarity matrix (Tanimoto)
+            n = len(results)
+            sim_matrix = np.zeros((n, n))
+            for i in range(n):
+                for j in range(i, n):
+                    if i == j:
+                        sim_matrix[i, j] = 1.0
+                    elif fingerprints[i] and fingerprints[j]:
+                        sim = DataStructs.TanimotoSimilarity(fingerprints[i], fingerprints[j])
+                        sim_matrix[i, j] = sim
+                        sim_matrix[j, i] = sim
+
+            # Summary
+            summary = {
+                "total_molecules": len(smiles_list),
+                "analyzed": len(results),
+                "avg_features": round(sum(r.get("num_features", 0) for r in results) / len(results), 1),
+                "feature_types": list(set(
+                    t for r in results for t in r.get("feature_summary", {}).keys()
+                )),
+            }
+
+            return {
+                "success": True,
+                "summary": summary,
+                "molecule_count": len(results),
+                "similarity_matrix": sim_matrix.tolist(),
+                "molecule_names": [r.get("name", f"Mol_{i}") for i, r in enumerate(results)],
+                "results": results,
+            }
+        except Exception as e:
+            log.error(f"Batch pharmacophore failed: {e}")
             return {"success": False, "error": str(e)}
