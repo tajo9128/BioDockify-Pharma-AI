@@ -1,8 +1,16 @@
 """Writing Tools API — Flask handler for LaTeX export, gap analysis, lit matrix, PRISMA, faculty review, citation verification, journal suggestions."""
 from helpers.api import ApiHandler, Request
-import logging
+import asyncio, logging, urllib.request
 
 log = logging.getLogger("writing_tools")
+
+
+async def _async_urlopen(req, timeout=10):
+    """Non-blocking urlopen with proper resource cleanup."""
+    def _fetch():
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.read()
+    return await asyncio.to_thread(_fetch)
 
 
 class WritingTools(ApiHandler):
@@ -393,8 +401,8 @@ class WritingTools(ApiHandler):
                     # CrossRef DOI lookup
                     url = f"https://api.crossref.org/works/{urllib.parse.quote(doi, safe='')}"
                     req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.5.2"})
-                    with urllib.request.urlopen(req, timeout=10) as resp:
-                        data = _json.loads(resp.read())
+                    raw = await _async_urlopen(req, timeout=10)
+                    data = _json.loads(raw)
                     work = data.get("message", {})
                     result["status"] = "verified"
                     result["source"] = "CrossRef"
@@ -409,8 +417,8 @@ class WritingTools(ApiHandler):
                     # PubMed PMID lookup
                     url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id={pmid}&retmode=json"
                     req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.5.2"})
-                    with urllib.request.urlopen(req, timeout=10) as resp:
-                        data = _json.loads(resp.read())
+                    raw = await _async_urlopen(req, timeout=10)
+                    data = _json.loads(raw)
                     result_data = data.get("result", {}).get(pmid, {})
                     if result_data.get("title"):
                         result["status"] = "verified"
@@ -427,8 +435,8 @@ class WritingTools(ApiHandler):
                     # Title search via CrossRef
                     url = f"https://api.crossref.org/works?query={urllib.parse.quote(title[:200])}&rows=3"
                     req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.5.2"})
-                    with urllib.request.urlopen(req, timeout=10) as resp:
-                        data = _json.loads(resp.read())
+                    raw = await _async_urlopen(req, timeout=10)
+                    data = _json.loads(raw)
                     items = data.get("message", {}).get("items", [])
                     if items:
                         best = items[0]

@@ -1,8 +1,16 @@
 from helpers.api import ApiHandler, Request
-import urllib.request
+import asyncio, urllib.request
 import urllib.parse
 import json
 import re
+
+
+async def _async_urlopen(req, timeout=15):
+    """Non-blocking urlopen with proper resource cleanup."""
+    def _fetch():
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.read()
+    return await asyncio.to_thread(_fetch)
 
 
 class PatentSearch(ApiHandler):
@@ -20,8 +28,8 @@ class PatentSearch(ApiHandler):
                 f"published-data/search?q={urllib.parse.quote(query)}&format=json&maxResults=10"
             )
             req = urllib.request.Request(espacenet_url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read())
+            raw = await _async_urlopen(req, timeout=15)
+            data = json.loads(raw)
                 for doc in data.get("ops:world-patent-data", {}).get("ops:document-list", {}).get("ops:document", []):
                     meta = doc.get("ops:document-metadata", {})
                     bib = meta.get("ops:document-bibliographic-data", {})
@@ -44,8 +52,8 @@ class PatentSearch(ApiHandler):
             try:
                 google_url = f"https://patents.google.com/?q={urllib.parse.quote(query)}&num=10"
                 req = urllib.request.Request(google_url, headers={"User-Agent": "BioDockify/1.0"})
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    html = resp.read().decode("utf-8", errors="replace")
+                raw = await _async_urlopen(req, timeout=10)
+                html = raw.decode("utf-8", errors="replace")
                     # Extract patent numbers from results
                     for m in re.finditer(r'(US|EP|WO|CN|JP)\d{6,12}[A-Z]?\d?', html):
                         num = m.group(0)

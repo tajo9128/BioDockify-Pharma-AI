@@ -1,11 +1,19 @@
 from helpers.api import ApiHandler, Request
-import urllib.request
+import asyncio, urllib.request
 import urllib.parse
 import json
 import xml.etree.ElementTree as ET
 import logging
 
 logger = logging.getLogger("literature_search")
+
+
+async def _async_urlopen(req, timeout=30):
+    """Non-blocking urlopen with proper resource cleanup."""
+    def _fetch():
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.read()
+    return await asyncio.to_thread(_fetch)
 
 
 class LiteratureSearch(ApiHandler):
@@ -256,8 +264,8 @@ class LiteratureSearch(ApiHandler):
                 f"term={urllib.parse.quote(query)}"
             )
             req = urllib.request.Request(esearch_url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                data = json.loads(resp.read())
+            raw = await _async_urlopen(req, timeout=30)
+            data = json.loads(raw)
             id_list = data.get("esearchresult", {}).get("idlist", [])
             count = int(data.get("esearchresult", {}).get("count", 0))
 
@@ -271,8 +279,8 @@ class LiteratureSearch(ApiHandler):
                 f"db=pubmed&id={ids}&retmode=xml&rettype=abstract"
             )
             req = urllib.request.Request(efetch_url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                xml_data = resp.read()
+            raw = await _async_urlopen(req, timeout=30)
+            xml_data = raw
 
             root = ET.fromstring(xml_data)
             papers = []
@@ -348,8 +356,8 @@ class LiteratureSearch(ApiHandler):
                 "&fields=title,abstract,authors,journal,year,externalIds,url,openAccessPdf"
             )
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                data = json.loads(resp.read())
+            raw = await _async_urlopen(req, timeout=30)
+            data = json.loads(raw)
 
             papers = []
             for p in data.get("data", []):
@@ -385,8 +393,8 @@ class LiteratureSearch(ApiHandler):
                 f"start=0&max_results={max_results}&sortBy=relevance"
             )
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                xml_data = resp.read()
+            raw = await _async_urlopen(req, timeout=30)
+            xml_data = raw
 
             root = ET.fromstring(xml_data)
             ns = {"atom": "http://www.w3.org/2005/Atom",
@@ -432,8 +440,8 @@ class LiteratureSearch(ApiHandler):
                 f"&sort=citationCount:desc"
             )
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read())
+            raw = await _async_urlopen(req, timeout=15)
+            data = json.loads(raw)
             papers = []
             for d in data.get("data", []):
                 authors = [a.get("name", "") for a in d.get("authors", [])[:5]]
@@ -474,8 +482,8 @@ class LiteratureSearch(ApiHandler):
                 f"&select=DOI,title,abstract,author,container-title,issued,URL,ISSN"
             )
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0 (mailto:biodockify@example.com)"})
-            with urllib.request.urlopen(req, timeout=20) as resp:
-                data = json.loads(resp.read())
+            raw = await _async_urlopen(req, timeout=20)
+            data = json.loads(raw)
 
             papers = []
             for item in data.get("message", {}).get("items", [])[:max_results]:
@@ -535,8 +543,8 @@ class LiteratureSearch(ApiHandler):
                 f"&filter=type:journal-article"
             )
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0 (mailto:biodockify@example.com)"})
-            with urllib.request.urlopen(req, timeout=20) as resp:
-                data = json.loads(resp.read())
+            raw = await _async_urlopen(req, timeout=20)
+            data = json.loads(raw)
 
             publisher_issns = set()
             if has_db:
@@ -611,8 +619,8 @@ class LiteratureSearch(ApiHandler):
                 f"&format=json&sort=RELEVANCE"
             )
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read())
+            raw = await _async_urlopen(req, timeout=15)
+            data = json.loads(raw)
 
             papers = []
             for r in data.get("resultList", {}).get("result", []):
@@ -673,8 +681,8 @@ class LiteratureSearch(ApiHandler):
                 f"&format=json&sort=RELEVANCE"
             )
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read())
+            raw = await _async_urlopen(req, timeout=15)
+            data = json.loads(raw)
 
             papers = []
             for r in data.get("resultList", {}).get("result", []):
@@ -746,17 +754,17 @@ class LiteratureSearch(ApiHandler):
             try:
                 url = f"https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=PMID:{pmid}&resultType=core&format=json"
                 req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    data = _json.loads(resp.read().decode("utf-8"))
-                    results = data.get("resultList", {}).get("result", [])
-                    if results:
-                        pmcid = results[0].get("pmcid", "")
-                        if pmcid:
-                            if not pmcid.upper().startswith("PMC"):
-                                pmcid = "PMC" + pmcid
-                            paper["pmcid"] = pmcid
-                            resolved += 1
-                _time.sleep(0.3)  # be nice to Europe PMC API
+                raw = await _async_urlopen(req, timeout=10)
+                data = _json.loads(raw.decode("utf-8"))
+                results = data.get("resultList", {}).get("result", [])
+                if results:
+                    pmcid = results[0].get("pmcid", "")
+                    if pmcid:
+                        if not pmcid.upper().startswith("PMC"):
+                            pmcid = "PMC" + pmcid
+                        paper["pmcid"] = pmcid
+                        resolved += 1
+                await asyncio.sleep(0.3)  # be nice to Europe PMC API
             except Exception:
                 pass  # silent — this is a best-effort enhancement
 

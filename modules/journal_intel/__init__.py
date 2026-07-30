@@ -32,7 +32,7 @@ def _load_hijacked() -> List[Dict]:
     try:
         with open(HIJACKED_PATH, "r") as f:
             return json.load(f)
-    except:
+    except Exception:
         return []
 
 
@@ -119,7 +119,7 @@ def _db_lookup(issn: str = "", title: str = "") -> Optional[Dict]:
         row = cur.fetchone()
         db.close()
         return dict(row) if row else None
-    except:
+    except Exception:
         return None
 
 
@@ -472,7 +472,7 @@ def _check_doaj_waiver(title: str) -> bool:
     """Check if journal has APC waiver policy in DOAJ."""
     try:
         return "waiver" in title.lower() or "discount" in title.lower()
-    except:
+    except Exception:
         return False
 
 
@@ -599,7 +599,7 @@ def _check_scopus(title: str, issn: str) -> Optional[Dict]:
     except urllib.error.HTTPError as e:
         if e.code == 401:
             logger.info("Scopus API key required")
-    except: pass
+    except Exception: pass
     return None
 
 
@@ -612,7 +612,7 @@ def _check_clarivate(title: str, issn: str) -> Optional[Dict]:
             html = resp.read().decode("utf-8")
             if "no-results" not in html.lower() and len(html) > 500:
                 return {"indexed": True, "source": "Clarivate MJL"}
-    except: pass
+    except Exception: pass
     return None
 
 
@@ -629,7 +629,7 @@ def _check_scimago(title: str, issn: str) -> Optional[Dict]:
                 elif "Q3" in html: q = "Q3"
                 elif "Q4" in html: q = "Q4"
                 return {"indexed": True, "quartile": q, "source": "SCImago JR"}
-    except: pass
+    except Exception: pass
     return None
 
 
@@ -651,7 +651,7 @@ def _check_doaj(title: str, issn: str) -> Optional[Dict]:
                     "publisher": j.get("publisher", {}).get("name", ""),
                     "source": "DOAJ",
                 }
-    except: pass
+    except Exception: pass
     return None
 
 
@@ -674,7 +674,7 @@ def _check_hijacked(title: str) -> List[str]:
         for entry in entries:
             if entry.get("journal_name", "").lower() in low:
                 flags.append(f"Hijacked journal detected: {entry.get('journal_name')}. Real site: {entry.get('authentic_url', 'N/A')}")
-    except: pass
+    except Exception: pass
     return flags
 
 
@@ -898,7 +898,7 @@ def _suggest_elsevier(title: str, abstract: str) -> List[Dict]:
                 "review_time": str(j.get("review_time", "")) or "6-10 weeks",
                 "access_type": "Hybrid OA",
             } for j in journals[:10]]
-    except: return []
+    except Exception: return []
 
 
 def _suggest_jane(title: str, abstract: str) -> List[Dict]:
@@ -913,7 +913,7 @@ def _suggest_jane(title: str, abstract: str) -> List[Dict]:
                 "match_score": j.get("score", 0.5), "source": "JANE (biosemantics)",
                 "quartile": "Q2", "review_time": "4-8 weeks",
             } for j in result[:10]]
-    except: return []
+    except Exception: return []
 
 
 def _suggest_crossref(title: str) -> List[Dict]:
@@ -934,7 +934,7 @@ def _suggest_crossref(title: str) -> List[Dict]:
                 "source": "Crossref",
                 "match_score": 0.6,
             } for j in journals[:15]]
-    except: return []
+    except Exception: return []
 
 
 def _suggest_from_keywords(terms: List[str]) -> List[Dict]:
@@ -999,5 +999,5 @@ def _access_score(journal: Dict) -> float:
 def _parse_apc(apc_str: str) -> int:
     try:
         return int(re.sub(r'[^\d]', '', str(apc_str)))
-    except:
+    except Exception:
         return 0

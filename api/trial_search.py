@@ -1,8 +1,16 @@
 from helpers.api import ApiHandler, Request
-import urllib.request
+import asyncio, urllib.request
 import urllib.parse
 import json
 import re
+
+
+async def _async_urlopen(req, timeout=20):
+    """Non-blocking urlopen with proper resource cleanup."""
+    def _fetch():
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.read()
+    return await asyncio.to_thread(_fetch)
 
 
 class TrialSearch(ApiHandler):
@@ -42,8 +50,8 @@ class TrialSearch(ApiHandler):
 
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=20) as resp:
-                data = json.loads(resp.read())
+            raw = await _async_urlopen(req)
+            data = json.loads(raw)
 
             studies = data.get("studies", [])
 

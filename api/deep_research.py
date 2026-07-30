@@ -1,10 +1,18 @@
 """Deep Research API — collect thousands of sources from multiple databases, scan, filter, store."""
 from helpers.api import ApiHandler, Request, Response
-import logging, json, re, os, urllib.request, urllib.parse
+import asyncio, logging, json, re, os, urllib.request, urllib.parse
 from typing import Dict, List, Any
 from datetime import datetime
 
 log = logging.getLogger("deep_research")
+
+
+async def _async_urlopen(req, timeout=30):
+    """Non-blocking urlopen with proper resource cleanup (fixes event-loop blocking + FD leaks)."""
+    def _fetch():
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.read()
+    return await asyncio.to_thread(_fetch)
 
 STORAGE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "deep_research")
 os.makedirs(STORAGE_DIR, exist_ok=True)
@@ -319,8 +327,8 @@ class DeepResearchHandler(ApiHandler):
             if year_from:
                 url += f"&mindate={year_from}&maxdate={year_to or '2026'}"
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0"})
-            resp = urllib.request.urlopen(req, timeout=30)
-            data = json.loads(resp.read())
+            raw = await _async_urlopen(req)
+            data = json.loads(raw)
             ids = data.get("esearchresult", {}).get("idlist", [])
 
             if ids:
@@ -329,8 +337,8 @@ class DeepResearchHandler(ApiHandler):
                 import xml.etree.ElementTree as ET
                 url2 = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id={id_str}&retmode=xml&rettype=abstract"
                 req2 = urllib.request.Request(url2, headers={"User-Agent": "BioDockify/7.0"})
-                resp2 = urllib.request.urlopen(req2, timeout=30)
-                root = ET.fromstring(resp2.read())
+                raw2 = await _async_urlopen(req2)
+                root = ET.fromstring(raw2)
 
                 for article in root.findall(".//PubmedArticle"):
                     pmid = ""
@@ -420,8 +428,8 @@ class DeepResearchHandler(ApiHandler):
             query = urllib.parse.quote(topic)
             url = f"https://api.semanticscholar.org/graph/v1/paper/search?query={query}&limit={min(limit, 100)}&fields=title,authors,year,abstract,citationCount,journal,externalIds,openAccessPdf"
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0"})
-            resp = urllib.request.urlopen(req, timeout=30)
-            data = json.loads(resp.read())
+            raw = await _async_urlopen(req)
+            data = json.loads(raw)
             for paper in data.get("data", []):
                 # Extract openAccessPdf URL (unblocks Tier-3b full text retrieval)
                 open_access_pdf = ""
@@ -454,8 +462,8 @@ class DeepResearchHandler(ApiHandler):
             query = urllib.parse.quote(topic)
             url = f"https://api.crossref.org/works?query={query}&rows={min(limit, 100)}&select=DOI,title,author,published-print,container-title,abstract,is-referenced-by-count"
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0"})
-            resp = urllib.request.urlopen(req, timeout=30)
-            data = json.loads(resp.read())
+            raw = await _async_urlopen(req)
+            data = json.loads(raw)
             for item in data.get("message", {}).get("items", []):
                 title_list = item.get("title", [])
                 title = title_list[0] if title_list else ""
@@ -485,8 +493,8 @@ class DeepResearchHandler(ApiHandler):
             query = urllib.parse.quote(topic)
             url = f"https://api.openalex.org/works?search={query}&per_page={min(limit, 100)}&select=id,title,authorships,publication_year,doi,cited_by_count,primary_location"
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0"})
-            resp = urllib.request.urlopen(req, timeout=30)
-            data = json.loads(resp.read())
+            raw = await _async_urlopen(req)
+            data = json.loads(raw)
             for work in data.get("results", []):
                 authors = [a.get("author", {}).get("display_name", "") for a in work.get("authorships", [])]
                 loc = work.get("primary_location", {}) or {}
@@ -512,8 +520,8 @@ class DeepResearchHandler(ApiHandler):
             query = urllib.parse.quote(topic)
             url = f"https://export.arxiv.org/api/query?search_query=all:{query}&start=0&max_results={min(limit, 100)}&sortBy=relevance"
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/7.0"})
-            resp = urllib.request.urlopen(req, timeout=30)
-            xml = resp.read().decode("utf-8")
+            raw = await _async_urlopen(req)
+            xml = raw.decode("utf-8")
             # Simple XML parsing
             entries = xml.split("<entry>")[1:]
             for entry in entries:
@@ -544,8 +552,8 @@ class DeepResearchHandler(ApiHandler):
             q = urllib.parse.quote(topic)
             url = f"https://www.ebi.ac.uk/europepmc/webservices/rest/search?query={q}&resultType=core&pageSize={min(limit,100)}&format=json&sort=RELEVANCE"
             req = urllib.request.Request(url, headers={"User-Agent":"BioDockify/7.0"})
-            resp = urllib.request.urlopen(req, timeout=30)
-            data = json.loads(resp.read())
+            raw = await _async_urlopen(req)
+            data = json.loads(raw)
             for r in data.get("resultList",{}).get("result",[]):
                 authors = (r.get("authorString","") or "").split(", ")[:5]
                 results.append({"title":r.get("title",""),"authors":authors,"year":str(r.get("pubYear","")),"journal":r.get("journalTitle",""),"pmid":r.get("pmid",""),"pmcid":r.get("pmcid",""),"doi":r.get("doi",""),"abstract":(r.get("abstractText","") or "")[:500],"citations":r.get("citedByCount",0),"database":"Europe PMC","url":f"https://europepmc.org/article/{r.get('source','')}/{r.get('id','')}"})
@@ -559,8 +567,8 @@ class DeepResearchHandler(ApiHandler):
             q = urllib.parse.quote(topic)
             url = f"https://www.ebi.ac.uk/europepmc/webservices/rest/search?query={q}%20AND%20(SRC:PPR%20OR%20SRC:MED)&resultType=lite&pageSize={min(limit,100)}&format=json&sort=RELEVANCE"
             req = urllib.request.Request(url, headers={"User-Agent":"BioDockify/7.0"})
-            resp = urllib.request.urlopen(req, timeout=30)
-            data = json.loads(resp.read())
+            raw = await _async_urlopen(req)
+            data = json.loads(raw)
             for r in data.get("resultList",{}).get("result",[]):
                 authors = (r.get("authorString","") or "").split(", ")[:5]
                 results.append({"title":r.get("title",""),"authors":authors,"year":str(r.get("pubYear","")),"journal":"bioRxiv/medRxiv","abstract":(r.get("abstractText","") or "")[:500],"doi":r.get("doi",""),"citations":0,"database":"bioRxiv","url":f"https://europepmc.org/article/PPR/{r.get('id','')}"})
@@ -578,8 +586,8 @@ class DeepResearchHandler(ApiHandler):
             q = urllib.parse.quote(topic)
             url = f"https://serpapi.com/search.json?engine=google_scholar&q={q}&num={min(limit,20)}&api_key={api_key}"
             req = urllib.request.Request(url, headers={"User-Agent":"BioDockify/7.0"})
-            resp = urllib.request.urlopen(req, timeout=30)
-            data = json.loads(resp.read())
+            raw = await _async_urlopen(req)
+            data = json.loads(raw)
             for r in data.get("organic_results",[]):
                 pub = r.get("publication_info",{})
                 results.append({"title":r.get("title",""),"authors":pub.get("authors",[]),"year":pub.get("year",0),"journal":pub.get("summary",""),"abstract":r.get("snippet",""),"doi":"","citations":r.get("inline_links",{}).get("cited_by",{}).get("total",0),"database":"Google Scholar","url":r.get("link","")})
@@ -597,8 +605,8 @@ class DeepResearchHandler(ApiHandler):
             q = urllib.parse.quote(topic)
             url = f"https://api.elsevier.com/content/search/scopus?query={q}&count={min(limit,25)}&sort=relevance"
             req = urllib.request.Request(url, headers={"User-Agent":"BioDockify/7.0","X-ELS-APIKey":api_key,"Accept":"application/json"})
-            resp = urllib.request.urlopen(req, timeout=30)
-            data = json.loads(resp.read())
+            raw = await _async_urlopen(req)
+            data = json.loads(raw)
             for r in data.get("search-results",{}).get("entry",[]):
                 results.append({"title":r.get("dc:title",""),"authors":[r.get("dc:creator","")],"year":r.get("prism:coverDate","")[:4],"journal":r.get("prism:publicationName",""),"doi":r.get("prism:doi",""),"abstract":"","citations":int(r.get("citedby-count",0)),"database":"Scopus"})
         except Exception as e:
@@ -615,8 +623,8 @@ class DeepResearchHandler(ApiHandler):
             q = urllib.parse.quote(topic)
             url = f"https://api.springernature.com/meta/v2/json?q={q}&s=1&p={min(limit,25)}&api_key={api_key}"
             req = urllib.request.Request(url, headers={"User-Agent":"BioDockify/7.0"})
-            resp = urllib.request.urlopen(req, timeout=30)
-            data = json.loads(resp.read())
+            raw = await _async_urlopen(req)
+            data = json.loads(raw)
             for r in data.get("records",[]):
                 results.append({"title":r.get("title",""),"authors":[a.get("creator","") for a in r.get("creators",[])],"year":r.get("publicationDate","")[:4],"journal":r.get("publicationName",""),"doi":r.get("doi",""),"abstract":r.get("abstract","")[:500],"citations":0,"database":"Springer"})
         except Exception as e:

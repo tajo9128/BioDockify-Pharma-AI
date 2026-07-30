@@ -1,8 +1,16 @@
 """PubChem Lookup API — resolves compound name or CID to SMILES."""
 from helpers.api import ApiHandler, Request
-import logging, json, urllib.request, urllib.parse
+import asyncio, logging, json, urllib.request, urllib.parse
 
 log = logging.getLogger("pubchem_lookup")
+
+
+async def _async_urlopen(req, timeout=10):
+    """Non-blocking urlopen with proper resource cleanup."""
+    def _fetch():
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.read()
+    return await asyncio.to_thread(_fetch)
 
 PUBCHEM_PUG = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
 
@@ -17,8 +25,8 @@ class PubchemLookup(ApiHandler):
             encoded = urllib.parse.quote(query)
             url = f"{PUBCHEM_PUG}/compound/name/{encoded}/property/CanonicalSMILES,MolecularFormula,MolecularWeight,IUPACName/JSON"
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/6.4"})
-            resp = urllib.request.urlopen(req, timeout=10)
-            data = json.loads(resp.read())
+            raw = await _async_urlopen(req)
+            data = json.loads(raw)
 
             props = data.get("PropertyTable", {}).get("Properties", [])
             if not props:

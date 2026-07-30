@@ -1343,7 +1343,7 @@ class StatisticsAnalyze(ApiHandler):
             for row in data:
                 g = str(row[group_idx]) if group_idx < len(row) else ""
                 try: v = float(row[val_idx])
-                except: continue
+                except Exception: continue
                 if g: groups.setdefault(g, []).append(v)
             names = sorted(groups.keys())
             if len(names) != 2:
@@ -1368,7 +1368,7 @@ class StatisticsAnalyze(ApiHandler):
             for row in data:
                 g = str(row[group_idx]) if group_idx < len(row) else ""
                 try: v = float(row[val_idx])
-                except: continue
+                except Exception: continue
                 if g: groups.setdefault(g, []).append(v)
             names = sorted(groups.keys())
             if len(names) != 2:
@@ -1396,7 +1396,7 @@ class StatisticsAnalyze(ApiHandler):
             for row in data:
                 g = str(row[group_idx]) if group_idx < len(row) else ""
                 try: v = float(row[val_idx])
-                except: continue
+                except Exception: continue
                 if g: groups.setdefault(g, []).append(v)
             names = sorted(groups.keys())
             arrays = [groups[g] for g in names]
@@ -1486,7 +1486,7 @@ class StatisticsAnalyze(ApiHandler):
             for row in data:
                 g = str(row[group_idx]) if group_idx < len(row) else ""
                 try: v = float(row[val_idx])
-                except: continue
+                except Exception: continue
                 if g: groups.setdefault(g, []).append(v)
             arrays = [groups[g] for g in sorted(groups.keys())]
             stat, p = scipy_stats.levene(*arrays)

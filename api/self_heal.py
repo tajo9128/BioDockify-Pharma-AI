@@ -56,7 +56,7 @@ class SelfHealHandler(ApiHandler):
                     checks.append({"name": "Dependencies", "status": "warn", "detail": f"Missing: {', '.join(missing)}"})
                 else:
                     checks.append({"name": "Dependencies", "status": "ok", "detail": f"{len(pkg_names)} packages"})
-            except: pass
+            except Exception: pass
 
         # 3. Disk space
         try:
@@ -135,7 +135,7 @@ class SelfHealHandler(ApiHandler):
             before = 0
             try:
                 before = sum(os.path.getsize(os.path.join(tmp_dir, f)) for f in os.listdir(tmp_dir) if os.path.isfile(os.path.join(tmp_dir, f)))
-            except: pass
+            except Exception: pass
             _run(f"rm -rf {tmp_dir}/docking_jobs/* 2>/dev/null", timeout=10)
             results.append({"action": "clear_cache", "status": "ok", "detail": f"Freed ~{before // 1024}KB"})
 

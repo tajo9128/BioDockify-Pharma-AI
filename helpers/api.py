@@ -101,7 +101,8 @@ class ApiHandler:
         except Exception as e:
             error = format_error(e)
             PrintStyle.error(f"API error: {error}")
-            return Response(response=error, status=500, mimetype="text/plain")
+            # Return generic error to client (don't leak internal paths/tracebacks)
+            return Response(response='{"error": "Internal server error"}', status=500, mimetype="application/json")
 
     # get context to run BioDockify AI in
     def use_context(self, ctxid: str, create_if_not_exists: bool = True):
@@ -150,6 +151,11 @@ def requires_auth(f):
 
         user_pass_hash = login.get_credentials_hash()
         if not user_pass_hash:
+            import logging
+            logging.getLogger("api").warning(
+                "AUTH BYPASS: No password configured — auth-protected endpoint '%s' is open. "
+                "Set ROOT_PASSWORD in usr/.env or run prepare.py to secure.", f.__name__
+            )
             return await f(*args, **kwargs)
         if session.get("authentication") != user_pass_hash:
             return redirect(url_for("login_handler"))

@@ -1,9 +1,17 @@
 """5-Layer Pharma Verification — citation integrity, claim validation, compound verification."""
 from helpers.api import ApiHandler, Request, Response
-import logging, re, os
+import asyncio, logging, re, os, urllib.request
 import json
 
 log = logging.getLogger("verification")
+
+
+async def _async_urlopen(req, timeout=10):
+    """Non-blocking urlopen with proper resource cleanup."""
+    def _fetch():
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.read()
+    return await asyncio.to_thread(_fetch)
 
 
 def _extract_citations(text: str) -> list:
@@ -51,10 +59,10 @@ def _verify_layer(citation, layer):
         try:
             url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id={citation['id']}&retmode=json"
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                data = json.loads(resp.read())
-                if "result" in data and citation["id"] in data["result"]:
-                    return True, "PubMed ID verified", "PubMed"
+            raw = await _async_urlopen(req)
+            data = json.loads(raw)
+            if "result" in data and citation["id"] in data["result"]:
+                return True, "PubMed ID verified", "PubMed"
         except Exception as e:
             return False, f"PubMed check failed: {e}", "PubMed"
         return False, "PMID not found in PubMed", "PubMed"
@@ -63,10 +71,10 @@ def _verify_layer(citation, layer):
         try:
             url = f"https://api.crossref.org/works/{citation['id']}"
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                data = json.loads(resp.read())
-                if data.get("status") == "ok":
-                    return True, "CrossRef DOI verified", "CrossRef"
+            raw = await _async_urlopen(req)
+            data = json.loads(raw)
+            if data.get("status") == "ok":
+                return True, "CrossRef DOI verified", "CrossRef"
         except Exception as e:
             return False, f"CrossRef check failed: {e}", "CrossRef"
         return False, "DOI not found in CrossRef", "CrossRef"
@@ -75,8 +83,8 @@ def _verify_layer(citation, layer):
         try:
             url = f"https://clinicaltrials.gov/api/v2/studies/{citation['id']}"
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                return True, "Clinical trial registered", "ClinicalTrials.gov"
+            raw = await _async_urlopen(req)
+            return True, "Clinical trial registered", "ClinicalTrials.gov"
         except urllib.error.HTTPError as e:
             return False, f"Clinical trial not found: {e.code}", "ClinicalTrials.gov"
         except Exception as e:
@@ -86,10 +94,10 @@ def _verify_layer(citation, layer):
         try:
             url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{citation['id']}/property/MolecularFormula/JSON"
             req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                data = json.loads(resp.read())
-                if "PropertyTable" in data:
-                    return True, "PubChem CID verified", "PubChem"
+            raw = await _async_urlopen(req)
+            data = json.loads(raw)
+            if "PropertyTable" in data:
+                return True, "PubChem CID verified", "PubChem"
         except Exception:
             return False, "PubChem CID not found", "PubChem"
         return False, "PubChem CID not found", "PubChem"
@@ -169,11 +177,11 @@ class VerificationHandler(ApiHandler):
                 import urllib.request, urllib.error, json
                 url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/{smiles}/cids/JSON"
                 req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    data = json.loads(resp.read())
-                    cids = data.get("IdentifierList", {}).get("CID", [])
-                    if cids:
-                        return {"success": True, "verified": True, "pubchem_cid": cids[0], "detail": f"PubChem CID: {cids[0]}"}
+                raw = await _async_urlopen(req)
+                data = json.loads(raw)
+                cids = data.get("IdentifierList", {}).get("CID", [])
+                if cids:
+                    return {"success": True, "verified": True, "pubchem_cid": cids[0], "detail": f"PubChem CID: {cids[0]}"}
             except Exception:
                 pass
             return {"success": True, "verified": False, "detail": "Compound not found in PubChem"}

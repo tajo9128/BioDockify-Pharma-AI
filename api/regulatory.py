@@ -1,11 +1,19 @@
 """Regulatory API - FDA/EMA guideline search and submission checklist."""
 from helpers.api import ApiHandler, Request
-import urllib.request
+import asyncio, urllib.request
 import urllib.parse
 import json
 import logging
 
 logger = logging.getLogger("regulatory")
+
+
+async def _async_urlopen(req, timeout=15):
+    """Non-blocking urlopen with proper resource cleanup."""
+    def _fetch():
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.read()
+    return await asyncio.to_thread(_fetch)
 
 
 class RegulatorySearch(ApiHandler):
@@ -32,8 +40,8 @@ class RegulatorySearch(ApiHandler):
             try:
                 url = f"https://api.fda.gov/drug/label.json?search={urllib.parse.quote(query)}&limit=5"
                 req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    data = json.loads(resp.read())
+                raw = await _async_urlopen(req, timeout=10)
+                data = json.loads(raw)
                     for r in data.get("results", []):
                         results.append({
                             "title": r.get("openfda", {}).get("brand_name", [query])[0],
@@ -57,8 +65,8 @@ class RegulatorySearch(ApiHandler):
                 req = urllib.request.Request(ema_url, headers={
                     "User-Agent": "Mozilla/5.0 (BioDockify/7.8)"
                 })
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    page = resp.read().decode("utf-8", errors="replace")
+                raw = await _async_urlopen(req, timeout=15)
+                page = raw.decode("utf-8", errors="replace")
                 # Extract basic info from EMA search results
                 results.append({
                     "title": f"EMA guidelines for '{query}'",
