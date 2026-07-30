@@ -81,7 +81,10 @@ class MDLite(ApiHandler):
             temp = float(input.get("temperature", 300))
             plat = str(input.get("platform", "CUDA"))
             eng = MDEngine(job_dir, ff, temp, platform=plat)
-            eng.load_system(pdb_path).build_simulation()
+            # If we ran PDBFixer above (pdb_path == prepared_path), pass
+            # skip_fixer=True so load_system does NOT run PDBFixer again.
+            already_prepared = (pdb_path == prepared_path)
+            eng.load_system(pdb_path, skip_fixer=already_prepared).build_simulation()
             energy = eng.minimize()
             eng._save_checkpoint()
             eng._update_status("prepared", {"min_energy_kjmol": round(energy, 1)})

@@ -330,14 +330,16 @@ class MDEngine:
             + ". Rebuild Docker image to install OpenMM forcefields."
         )
 
-    def load_system(self, pdb_path):
+    def load_system(self, pdb_path, skip_fixer=False):
         if not os.path.exists(pdb_path):
             raise FileNotFoundError(f"PDB not found: {pdb_path}")
 
+        t0 = time.time()
         # STEP 0: Sanitize PDB — detect and KEEP the ligand (if any)
         ligand_resname = _sanitize_pdb(pdb_path, keep_only_protein=True)
         self.pdb = app.PDBFile(pdb_path)
         ff = self._load_forcefield()
+        log.info(f"[PREP] PDB sanitize + forcefield: {time.time()-t0:.1f}s ({self.pdb.topology.getNumAtoms()} atoms)")
 
         # STEP 0b: If a ligand was detected, extract it and generate forcefield parameters
         ligand_ff_xml = None
@@ -390,48 +392,66 @@ class MDEngine:
         hydrogens_ok = False
         last_h_error = None
 
-        # Try PDBFixer first (handles NPRO, missing atoms, etc.)
-        try:
-            import tempfile
-            from pdbfixer import PDBFixer
-            import io
+        # If caller already prepared the PDB (skip_fixer=True), try addHydrogens
+        # directly first — avoids re-running the expensive PDBFixer pass.
+        if skip_fixer:
+            for hydro_args, label in [
+                ({"pH": 7.0}, "pH=7.0"),
+                ({}, "standard"),
+            ]:
+                try:
+                    protein_modeller.addHydrogens(ff, **hydro_args)
+                    hydrogens_ok = True
+                    log.info(f"addHydrogens({label}) succeeded (pre-prepared PDB).")
+                    break
+                except Exception as e:
+                    last_h_error = e
+                    log.warning(f"addHydrogens({label}) failed: {e}")
 
-            # Write protein to temp file for PDBFixer
-            tmp_pdb = tempfile.NamedTemporaryFile(suffix=".pdb", delete=False)
-            with open(tmp_pdb.name, 'w') as f:
-                f.write(f"REMARK PDBFixer input\n")
-                # Write topology as PDB
-                positions = protein_modeller.positions
-                for i, atom in enumerate(protein_modeller.topology.atoms()):
-                    res = atom.residue
-                    x, y, z = positions[i].value_in_unit(unit.angstroms)
-                    f.write(f"ATOM  {i+1:5d} {atom.name:<4s} {res.name:<3s} {res.chain.id}{res.id:>4s}    {x:8.3f}{y:8.3f}{z:8.3f}  1.00  0.00           {atom.element.symbol}\n")
-                f.write("END\n")
-            tmp_pdb.close()
-
-            fixer = PDBFixer(filename=tmp_pdb.name)
-            fixer.findMissingResidues()
-            fixer.findMissingAtoms()
-            fixer.addMissingHydrogens(7.0)
-
-            # Get fixed topology and positions
-            protein_modeller = app.Modeller(fixer.topology, fixer.positions)
+        # Try PDBFixer first (handles NPRO, missing atoms, etc.) — only if
+        # we haven't already added hydrogens via the fast path above.
+        if not hydrogens_ok:
             try:
-                protein_modeller.deleteWater()
-            except Exception:
-                pass
-            hydrogens_ok = True
-            log.info("PDBFixer: added hydrogens successfully (handles NPRO/terminal residues)")
+                import tempfile
+                from pdbfixer import PDBFixer
+                import io
 
-            # Clean up temp file
-            try:
-                os.unlink(tmp_pdb.name)
-            except Exception:
-                pass
+                # Write protein to temp file for PDBFixer
+                tmp_pdb = tempfile.NamedTemporaryFile(suffix=".pdb", delete=False)
+                with open(tmp_pdb.name, 'w') as f:
+                    f.write(f"REMARK PDBFixer input\n")
+                    # Write topology as PDB
+                    positions = protein_modeller.positions
+                    for i, atom in enumerate(protein_modeller.topology.atoms()):
+                        res = atom.residue
+                        x, y, z = positions[i].value_in_unit(unit.angstroms)
+                        f.write(f"ATOM  {i+1:5d} {atom.name:<4s} {res.name:<3s} {res.chain.id}{res.id:>4s}    {x:8.3f}{y:8.3f}{z:8.3f}  1.00  0.00           {atom.element.symbol}\n")
+                    f.write("END\n")
+                tmp_pdb.close()
 
-        except Exception as e:
-            last_h_error = e
-            log.warning(f"PDBFixer failed: {e}, trying standard addHydrogens")
+                fixer = PDBFixer(filename=tmp_pdb.name)
+                fixer.findMissingResidues()
+                fixer.findMissingAtoms()
+                fixer.addMissingHydrogens(7.0)
+
+                # Get fixed topology and positions
+                protein_modeller = app.Modeller(fixer.topology, fixer.positions)
+                try:
+                    protein_modeller.deleteWater()
+                except Exception:
+                    pass
+                hydrogens_ok = True
+                log.info("PDBFixer: added hydrogens successfully (handles NPRO/terminal residues)")
+
+                # Clean up temp file
+                try:
+                    os.unlink(tmp_pdb.name)
+                except Exception:
+                    pass
+
+            except Exception as e:
+                last_h_error = e
+                log.warning(f"PDBFixer failed: {e}, trying standard addHydrogens")
 
         # Fallback: standard OpenMM addHydrogens
         if not hydrogens_ok:
@@ -456,28 +476,24 @@ class MDEngine:
                 f"Last error: {last_h_error}"
             )
 
-        # STEP 3: Build the OpenMM system on the hydrogen-complete protein.
-        # The protein-only topology has NO periodic box yet (no solvent), so we
-        # cannot use app.PME here — use NoCutoff just to validate that the
-        # forcefield can parameterize every residue + that hydrogens are complete.
+        # STEP 3: Find a forcefield that can parameterize this protein.
+        # Use FAST template matching (getMatchingTemplates) instead of building
+        # a full System (which constructs the entire bonded/nonbonded force set —
+        # the expensive part). getMatchingTemplates only checks residue templates.
         built = False
         last_error = None
         for ff_protein, ff_water in FORCEFIELD_CHAINS:
             try:
                 ff_try = app.ForceField(ff_protein, ff_water)
-                # Validate parameterization without requiring a periodic box.
-                self.system = ff_try.createSystem(
-                    protein_modeller.topology,
-                    nonbondedMethod=app.NoCutoff,
-                    constraints=app.HBonds,
-                )
-                ff = ff_try  # lock in the working forcefield for solvent step
+                # Fast validation: raises if any residue has no matching template
+                ff_try.getMatchingTemplates(protein_modeller.topology)
+                ff = ff_try  # lock in the working forcefield
                 built = True
                 log.info(f"Protein parameterized with forcefield: {ff_protein} + {ff_water}")
                 break
             except Exception as e:
                 last_error = e
-                log.warning(f"createSystem failed for {ff_protein}+{ff_water}: {e}")
+                log.warning(f"Forcefield {ff_protein}+{ff_water}: {e}")
 
         if not built:
             raise RuntimeError(
@@ -486,6 +502,9 @@ class MDEngine:
                 f"Download a clean PDB from RCSB PDB and try again. "
                 f"Details: {last_error}"
             )
+
+        t_h = time.time()
+        log.info(f"[PREP] Hydrogens + forcefield match: {time.time()-t0:.1f}s")
 
         # STEP 4: NOW add solvent to the parameterized protein.
         # NOTE: neutralize=False — the AMBER protein forcefield (amber14-all.xml)
@@ -503,9 +522,9 @@ class MDEngine:
         except Exception as e:
             log.warning(f"addSolvent failed (continuing without solvent box): {e}")
             solvated = False
+        log.info(f"[PREP] Solvation: {time.time()-t_h:.1f}s ({self.modeller.topology.getNumAtoms()} atoms)")
 
-        # STEP 5: Build the FINAL system on the SAME topology we will simulate.
-        # This guarantees topology/positions/system all have matching atom counts.
+        # STEP 5: Build the FINAL system — the ONLY createSystem call now.
         # Use PME (periodic) when solvated, NoCutoff when running bare-protein.
         if solvated:
             try:
@@ -524,6 +543,7 @@ class MDEngine:
                 nonbondedMethod=app.NoCutoff,
                 constraints=app.HBonds,
             )
+        log.info(f"[PREP] createSystem (final): {time.time()-t_h:.1f}s ({self.system.getNumParticles()} particles)")
 
         self.integrator = mm.LangevinMiddleIntegrator(
             self.temperature, 1.0/unit.picosecond, 0.002*unit.picoseconds)
@@ -531,10 +551,12 @@ class MDEngine:
         return self
 
     def build_simulation(self):
+        t0 = time.time()
         platform = self.detect_platform()
         self.simulation = app.Simulation(self.modeller.topology, self.system,
             self.integrator, platform)
         self.simulation.context.setPositions(self.modeller.positions)
+        log.info(f"[PREP] build_simulation (platform={platform.getName()}): {time.time()-t0:.1f}s")
         # Save the FULL system topology (protein + water + ions) as PDB.
         # This MUST match the trajectory atom count for analysis (mdtraj/MDAnalysis).
         try:
@@ -547,9 +569,14 @@ class MDEngine:
             log.warning(f"Failed to save topology PDB: {e}")
         return self
 
-    def minimize(self, max_iterations=0):
+    def minimize(self, max_iterations=200):
+        # Cap at 200 iterations by default. max_iterations=0 means OpenMM
+        # minimizes until full convergence, which can take minutes for large
+        # proteins. 200 steps reaches a reasonable minimum in seconds.
+        t0 = time.time()
         self.simulation.minimizeEnergy(maxIterations=max_iterations)
         state = self.simulation.context.getState(getEnergy=True)
+        log.info(f"[PREP] minimize ({max_iterations} iters): {time.time()-t0:.1f}s -> {state.getPotentialEnergy().value_in_unit(unit.kilojoules_per_mole):.0f} kJ/mol")
         return state.getPotentialEnergy().value_in_unit(unit.kilojoules_per_mole)
 
     def add_reporters(self, traj_path, log_path, report_interval=1000):
