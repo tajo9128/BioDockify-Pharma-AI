@@ -56,11 +56,11 @@ pip install -r requirements.txt
 
 ### Step 3: Start the Backend
 ```bash
-python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
-```
-Or use the provided batch file:
-```bash
-start_backend.bat
+# Docker (recommended)
+run.bat
+
+# Or locally
+python run_ui.py --host 0.0.0.0 --port 80
 ```
 
 ### Step 4: Launch BioDockify
@@ -289,7 +289,7 @@ For CI/CD issues, check:
 - [ ] Start Neo4j (Docker or manual)
 - [ ] Install Ollama and pull a model
 - [ ] Create `runtime/config.yaml`
-- [ ] Start backend (`python -m uvicorn api.main:app`)
+- [ ] Start backend (`run.bat` for Docker, or `python run_ui.py` locally)
 - [ ] Launch BioDockify AI desktop app
 - [ ] Enter a research topic and start!
 

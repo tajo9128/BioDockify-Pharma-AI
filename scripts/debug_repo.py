@@ -92,8 +92,9 @@ def check_imports(repo_path='.'):
     
     repo_path = Path(repo_path).resolve()
     key_files = [
-        'api/main.py',
-        'server.py',
+        'agent.py',
+        'models.py',
+        'run_ui.py',
         'main_research.py',
         'orchestration/planner/orchestrator.py',
         'orchestration/executor.py',

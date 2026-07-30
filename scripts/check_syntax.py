@@ -1,5 +1,5 @@
 try:
-    import api.main
+    import agent
     print('Import OK')
 except ImportError:
     print('Import Error (Expected due to missing deps)')

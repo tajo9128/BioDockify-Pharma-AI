@@ -88,14 +88,5 @@ class TestFinalValidation(unittest.TestCase):
         self.assertEqual(plan.steps[0].title, "Literature Landscape")
         self.assertIn("SEARCH", orchestrator.llm_client.generate.call_args[0][0]) # Check prompt contained mode
 
-    def test_04_system_health_check(self):
-        """Verify new check_health action API (from Phase 27)."""
-        print("\n[Test 4] System Health API")
-        from api.main import app
-        # Since we can't easily run FastAPI test client without installing httpx/pytest fully in this env,
-        # we'll verify the logic import.
-        self.assertTrue(hasattr(app, 'router'))
-        print("   ✅ FastAPI App initialized")
-
 if __name__ == '__main__':
     unittest.main()

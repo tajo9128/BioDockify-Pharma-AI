@@ -86,10 +86,10 @@ class SystemController:
         configs = {
             'api_server': {
                 'name': 'BioDockify API Server',
-                'command': ['python3', 'server.py'],
-                'port': 3000,
+                'command': ['python3', 'run_ui.py'],
+                'port': 80,
                 'auto_restart': True,
-                'health_check': 'http://localhost:3000/health',
+                'health_check': 'http://localhost:80/api/health',
             },
         }
         return configs

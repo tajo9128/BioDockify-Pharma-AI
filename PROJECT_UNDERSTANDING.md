@@ -44,13 +44,13 @@ The fork runs **two things in parallel**:
 - `helpers/` (~90 files) — canonical Agent Zero helper package
 - `prompts/` — stock Agent Zero prompt control-plane (modified for pharma identity)
 - `webui/`, `ui/`, `public/`, `assets/` — stock Agent Zero frontend (Next.js/bun)
-- Docker core: `Dockerfile`, `Dockerfile.release`, `docker-compose.yml`, `supervisord.conf`, `Caddyfile`
+- Docker core: `Dockerfile.release`, `docker-compose.yml`, `Caddyfile`
 - **This layer is an OLDER agent-zero than v2.0** — smaller files, missing newer helpers. This is what v2.0 will update.
 
 ### Layer B — BioDockify pharma add-on (MUST SURVIVE the merge, untouched by upstream)
 - `agent_zero/` package — the rebranded "BioDockify AI" experimental layer (v19/hybrid/core). **Upstream v2.0 has NOTHING equivalent. 100% fork-owned.**
 - `modules/` — 40+ pharma research module subdirs
-- `api/` — ~180 endpoint files + the 108KB `api/main.py` FastAPI app
+- `api/` — ~160 endpoint files (one `ApiHandler` subclass per file)
 - `orchestration/`, `services/`, `lab_interface/`, `nlp/`, `runtime/`, `skills/`, `tools/`
 - `src/` — parallel BioDockify backend layer
 - `.a0proj/`, `conf/`, `data/`, `knowledge/`, `library_data/`
@@ -68,12 +68,9 @@ Learned from `MD Lite` (the newest module) — the canonical pattern:
 2. **`modules/<name>/`** — the backend engine.
 3. **Frontend panel** in `webui/components/`.
 4. **Work dirs** under `usr/`.
-5. **Dockerfile + health-check updates**.
-6. All wired into the Agent Zero orchestrator via `api/main.py` (centralized FastAPI router aggregation).
+5. **Dockerfile.release + health-check updates**.
 
-**Two server entry points exist:**
-- `server.py` → `api/main.py` (FastAPI — BioDockify's pharma API surface)
-- Agent Zero Flask app via `helpers/api.py` `ApiHandler` (socket.io, the agent chat UI)
+**Server entry point:** `run_ui.py` → Flask + Socket.IO + uvicorn on port 80. Each `api/<name>.py` is loaded on-demand by `helpers/ws.py`'s dynamic handler resolution.
 
 ---
 
@@ -113,7 +110,7 @@ A **mass find-replace turned `agent_zero` → `biodockify.ai`** everywhere — i
 ## 6. The v2.0 Merge Conflict Surface (the delicate part)
 
 ### Structural fact (read first)
-**Upstream v2.0 is a FLAT layout — there is NO `agent_zero/` package.** Its core lives in root `agent.py` + `models.py` + `helpers/`. So "update core to v2.0" = update the fork's **flat-layout** files, while leaving `agent_zero/`, `api/main.py`, pharma `tools/`, and the pharma Dockerfile completely alone.
+**Upstream v2.0 is a FLAT layout — there is NO `agent_zero/` package.** Its core lives in root `agent.py` + `models.py` + `helpers/`. So "update core to v2.0" = update the fork's **flat-layout** files, while leaving `agent_zero/`, pharma `api/` handlers, pharma `tools/`, and `Dockerfile.release` completely alone.
 
 ### Files byte-identical to v2.0 (safe, no change needed)
 `initialize.py`, `jsconfig.json`, `requirements.dev.txt`, `run_tunnel.py`, `update_reqs.py`, `helpers/ws_manager.py`

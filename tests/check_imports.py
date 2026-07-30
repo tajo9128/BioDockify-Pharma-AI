@@ -11,10 +11,4 @@ try:
 except Exception as e:
     print(f"FAIL: modules.system.auth_manager - {e}")
 
-try:
-    import api.main
-    print("OK: api.main")
-except Exception as e:
-    print(f"FAIL: api.main - {e}")
-
 print("Import check complete.")
