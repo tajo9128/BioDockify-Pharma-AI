@@ -64,12 +64,18 @@ export async function loadJsExtensions(extensionPoint) {
       extension_point: extensionPoint,
       filters: ["*.js", "*.mjs"],
     });
-    /** @type {JsExtensionImport[]} */
+    // Cache-buster: append version as query param so the browser fetches the
+    // latest module instead of serving a stale ES-module cache entry.
+    const version = globalThis.gitinfo?.version || "noversion";
+    /** @type {JsExtensionImport[]}} */
     const imports = await Promise.all(
-      response.extensions.map(async (path) => ({
-        path,
-        module: await import(normalizePath(path))
-      }))
+      response.extensions.map(async (path) => {
+        const url = `${normalizePath(path)}?v=${version}`;
+        return {
+          path,
+          module: await import(url)
+        };
+      })
     );
     cache.add(JS_CACHE_AREA, extensionPoint, imports);
     return imports;
