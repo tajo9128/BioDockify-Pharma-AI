@@ -27,11 +27,6 @@
         } catch (e) { /* silently ignore health check failures */ }
       },
 
-      // ADMET
-      smiles: "",
-      preset: "",
-      admetResult: null,
-
       // Docking
       dockingJobId: null,
       dockingPdb: "",
@@ -302,43 +297,6 @@
       passClass(val) { return val ? "pass" : "fail"; },
       passIcon(val) { return val ? "✅" : "❌"; },
 
-      async runADMET() {
-        if (!this.smiles.trim()) return;
-        this.loading = true; this.error = "";
-        try {
-          const r = await callJsonApi("admet_predict", { smiles: this.smiles.trim(), preset: this.preset });
-          if (r.error) { this.error = r.error; } else { this.admetResult = r; }
-        } catch (e) { this.error = e.message; }
-        this.loading = false;
-      },
-
-      async _storeADMETToKB(result) {
-        try {
-          const smiles = this.smiles;
-          const formula = result.physicochemical?.formula || "";
-          const mw = result.physicochemical?.mw || "";
-          let content = `## ADMET Analysis: ${smiles}\n\n`;
-          content += `**Formula:** ${formula} | **MW:** ${mw} g/mol\n\n`;
-          content += `### Lipophilicity\n`;
-          content += `Consensus LogP: ${result.lipophilicity?.consensus_logp}\n\n`;
-          content += `### Pharmacokinetics\n`;
-          content += `GI Absorption: ${result.pharmacokinetics?.gi_absorption}\n`;
-          content += `BBB Permeant: ${result.pharmacokinetics?.bbb_permeant}\n`;
-          content += `P-gp Substrate: ${result.pharmacokinetics?.gp_substrate}\n\n`;
-          content += `### Druglikeness\n`;
-          content += `Consensus: ${result.druglikeness?.consensus}/5 passed\n`;
-          content += `Bioavailability: ${result.druglikeness?.bioavailability_score}\n`;
-          await callJsonApi("knowledge", {
-            action: "store",
-            category: "drug_analysis",
-            title: `ADMET: ${formula || smiles.slice(0,30)}`,
-            content: content,
-            tags: `${smiles},admet,swissadme`,
-            source: "SwissADME Analysis",
-          });
-        } catch (e) { /* silently fail */ }
-      },
-
     });
   </script>
 </head>
@@ -350,7 +308,7 @@
         <span class="material-symbols-outlined header-icon">biotech</span>
         <div>
           <h2>Molecular Toolkit</h2>
-          <p class="header-subtitle">ADMET · Docking · Analysis</p>
+          <p class="header-subtitle">Docking · Analysis</p>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
@@ -385,9 +343,6 @@
 
     <!-- Tabs -->
     <div class="dock-tabs">
-      <button class="dock-tab" @click="$store.rightCanvas?.open?.('admet-predict') || window.dispatchEvent(new CustomEvent('open-surface', {detail:'admet-predict'}))">
-        <span class="material-symbols-outlined">vaccines</span> ADMET →
-      </button>
       <button class="dock-tab" :class="{active: $store.molecularToolkit.activeTab === 'docking'}" @click="$store.molecularToolkit.activeTab = 'docking'">
         <span class="material-symbols-outlined">precision_manufacturing</span> Docking
       </button>
@@ -400,19 +355,6 @@
     <div class="panel-body">
       <div x-show="$store.molecularToolkit.error" class="dock-error" x-text="$store.molecularToolkit.error"></div>
       <div x-show="$store.molecularToolkit.loading" class="dock-loading"><div class="loading-spinner"></div><span>Computing...</span></div>
-
-      <!-- ADMET Tab — Redirect to standalone ADMET panel -->
-      <div x-show="$store.molecularToolkit.activeTab === 'admet'" class="tab-content">
-        <div style="text-align:center;padding:40px 20px;">
-          <span class="material-symbols-outlined" style="font-size:48px;color:var(--color-primary);margin-bottom:12px;display:block">vaccines</span>
-          <h3 style="margin:0 0 8px;color:var(--color-text)">ADMET Prediction</h3>
-          <p style="color:var(--color-text-muted);font-size:0.75rem;margin:0 0 16px;">ADMET is now a separate module with full SwissADME-grade analysis.</p>
-          <button class="btn-run" style="margin:0 auto" @click="$store.rightCanvas?.open?.('admet-predict') || window.dispatchEvent(new CustomEvent('open-surface', {detail:'admet-predict'}))">
-            <span class="material-symbols-outlined">open_in_new</span>
-            Open ADMET Module
-          </button>
-        </div>
-      </div>
 
       <!-- Docking Tab -->
       <div x-show="$store.molecularToolkit.activeTab === 'docking'" class="tab-content">
