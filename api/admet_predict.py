@@ -534,6 +534,7 @@ class AdmetPredict(ApiHandler):
                     rot = Descriptors.NumRotatableBonds(mol)
                     qed = round(QED.qed(mol), 3)
                     formula = rdMolDescriptors.CalcMolFormula(mol)
+                    aromatic_rings = Descriptors.NumAromaticRings(mol)
 
                     # Lipinski
                     lipinski_violations = []
@@ -705,7 +706,7 @@ class AdmetPredict(ApiHandler):
             if results:
                 csv_lines = ["Name,SMILES,Formula,MW,LogP,TPSA,HBD,HBA,RotBonds,QED,Lipinski,GI_Absorption,BBB,Bioavailability,Solubility,LogSw,Hepatotoxic"]
                 for r in results:
-                    csv_lines.append(f'"{r["name"]}","{r["smiles"]}","{r["formula"]}",{r["mw"]},{r["logp"]},{r["tpsa"]},{r["hbd"]},{r["hba"]},{r["rotatable_bonds"]},{r["qed"]},{"PASS" if r["lipinski_pass"] else "FAIL"},{r["gi_absorption"]},{"Yes" if r["bbb_pass"] else "No"},{r["bioavailability_score"]},{r.get("solubility","")},{r.get("log_sw","")},{r.get("hepatotoxic","")}'')
+                    csv_lines.append(f'"{r["name"]}","{r["smiles"]}","{r["formula"]}",{r["mw"]},{r["logp"]},{r["tpsa"]},{r["hbd"]},{r["hba"]},{r["rotatable_bonds"]},{r["qed"]},{"PASS" if r["lipinski_pass"] else "FAIL"},{r["gi_absorption"]},{"Yes" if r["bbb_pass"] else "No"},{r["bioavailability_score"]},{r.get("solubility","")},{r.get("log_sw","")},{r.get("hepatotoxic","")}')
                 csv_data = "\n".join(csv_lines)
             else:
                 csv_data = ""
