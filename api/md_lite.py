@@ -32,6 +32,16 @@ def _friendly_error(msg):
                 "Upload a clean .pdb file from RCSB PDB or your docking software. "
                 "Tip: If using a docked complex, ensure the protein has all hydrogens and "
                 "no non-standard residues. Use PDBFixer or Modeller to clean the PDB first.")
+    if "Could not locate file" in msg or "forcefield" in msg.lower() or "No OpenMM forcefield" in msg:
+        return (
+            f"OpenMM forcefield files missing or incomplete: {msg}. "
+            "Rebuild/restart the container so OpenMM data (amber14-all.xml, tip3p.xml) is installed. "
+            "Do not require amber14/tip3p_standard.xml — it is often absent."
+        )
+    if "No template found" in msg or ("missing" in msg.lower() and "H atom" in msg) or "cannot parameterize" in msg.lower():
+        return ("Could not parameterize all residues for MD. "
+                "Use a clean RCSB PDB or Auto-Prepare (PDBFixer). "
+                f"Details: {msg}")
     if "Could not locate" in msg or "forcefield" in msg.lower():
         return f"OpenMM forcefield files missing: {msg}. Rebuild Docker image to install forcefields."
     if "No template found" in msg or ("missing" in msg.lower() and "H atom" in msg):

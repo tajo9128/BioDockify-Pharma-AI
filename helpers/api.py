@@ -155,9 +155,9 @@ def requires_auth(f):
             if not _auth_warned:
                 _auth_warned = True
                 import logging
-                logging.getLogger("api").info(
-                    "No ROOT_PASSWORD set — auth-protected endpoints are open. "
-                    "Set ROOT_PASSWORD in usr/.env to secure."
+                logging.getLogger("api").warning(
+                    "AUTH BYPASS: No AUTH_LOGIN configured — auth-protected endpoints are open. "
+                    "Set AUTH_LOGIN and AUTH_PASSWORD in usr/.env to require login."
                 )
             return await f(*args, **kwargs)
         if session.get("authentication") != user_pass_hash:

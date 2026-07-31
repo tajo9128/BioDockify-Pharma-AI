@@ -84,15 +84,34 @@ def _benchmark_platform():
 
 
 FORCEFIELD_CHAINS = [
-    # AMBER14 with tip3p.xml — always shipped with OpenMM (pip and conda)
+    # Prefer files that ship with every OpenMM pip/conda install.
+    # Do NOT prefer amber14/tip3p_standard.xml — often missing and its
+    # FileNotFoundError was overwriting the real parameterization error.
     ("amber14-all.xml", "tip3p.xml"),
     ("amber14/protein.ff14SB.xml", "tip3p.xml"),
-    # AMBER99 — reliable fallbacks shipped with every OpenMM install
     ("amber99sbildn.xml", "tip3p.xml"),
     ("amber99sb.xml", "tip3p.xml"),
-    # tip3p_standard.xml is often NOT shipped — try last
-    ("amber14-all.xml", "amber14/tip3p_standard.xml"),
 ]
+
+
+def _forcefield_available(ff_protein: str, ff_water: str) -> bool:
+    """Return True if both XML files can be resolved by OpenMM."""
+    try:
+        app.ForceField(ff_protein, ff_water)
+        return True
+    except Exception:
+        return False
+
+
+def _format_ff_errors(errors: list) -> str:
+    if not errors:
+        return "unknown"
+    # Prefer residue/template errors over missing-file noise
+    for msg in errors:
+        low = msg.lower()
+        if "no template" in low or "parameter" in low or "residue" in low:
+            return msg
+    return errors[-1]
 
 
 def _sanitize_pdb(pdb_path, keep_only_protein=True, keep_ligand_resname=None):
@@ -394,17 +413,20 @@ class MDEngine:
 
     def _load_forcefield(self):
         """Try multiple forcefield combinations, return first that works."""
+        errors = []
         for ff_protein, ff_water in FORCEFIELD_CHAINS:
             try:
                 ff = app.ForceField(ff_protein, ff_water)
                 log.info(f"Loaded forcefield: {ff_protein} + {ff_water}")
                 return ff
-            except Exception:
+            except Exception as e:
+                errors.append(f"{ff_protein}+{ff_water}: {e}")
+                log.warning(f"Forcefield load skipped {ff_protein}+{ff_water}: {e}")
                 continue
         raise RuntimeError(
             "No OpenMM forcefield files found. Tried: "
-            + ", ".join(f"{p}+{w}" for p, w in FORCEFIELD_CHAINS)
-            + ". Rebuild Docker image to install OpenMM forcefields."
+            + "; ".join(errors)
+            + ". Install openmm with forcefield data (pip install openmm) or rebuild the Docker image."
         )
 
     def load_system(self, pdb_path, skip_fixer=False):
@@ -439,14 +461,18 @@ class MDEngine:
                         os.path.join(os.path.dirname(pdb_path), "ligand_ff.xml")
                     )
                     if ligand_ff_xml:
-                        # Load the custom ligand forcefield alongside protein + water FF
-                        try:
-                            p0, w0 = FORCEFIELD_CHAINS[0]
-                            ff_with_ligand = app.ForceField(p0, w0, ligand_ff_xml)
-                            ff = ff_with_ligand
-                            log.info(f"Loaded protein + ligand forcefield (custom LIG residues)")
-                        except Exception as e:
-                            log.warning(f"Could not load ligand forcefield into protein FF: {e}")
+                        # Load custom ligand FF with the first *available* protein+water pair
+                        ligand_ff_loaded = False
+                        for p0, w0 in FORCEFIELD_CHAINS:
+                            try:
+                                ff_with_ligand = app.ForceField(p0, w0, ligand_ff_xml)
+                                ff = ff_with_ligand
+                                ligand_ff_loaded = True
+                                log.info(f"Loaded protein + ligand forcefield ({p0}+{w0})")
+                                break
+                            except Exception as e:
+                                log.warning(f"Ligand FF with {p0}+{w0} failed: {e}")
+                        if not ligand_ff_loaded:
                             log.info("Ligand will be treated as generic atoms — reduced accuracy")
             except Exception as e:
                 log.warning(f"Ligand parameterization failed: {e}. Continuing with protein-only.")
@@ -558,7 +584,7 @@ class MDEngine:
         # the expensive part). getMatchingTemplates only checks residue templates.
         built = False
         self.phase = "parameterizing"
-        last_error = None
+        ff_errors = []
         for ff_protein, ff_water in FORCEFIELD_CHAINS:
             try:
                 ff_try = app.ForceField(ff_protein, ff_water)
@@ -569,15 +595,17 @@ class MDEngine:
                 log.info(f"Protein parameterized with forcefield: {ff_protein} + {ff_water}")
                 break
             except Exception as e:
-                last_error = e
-                log.warning(f"Forcefield {ff_protein}+{ff_water}: {e}")
+                msg = f"{ff_protein}+{ff_water}: {e}"
+                ff_errors.append(msg)
+                log.warning(f"Forcefield {msg}")
 
         if not built:
+            detail = _format_ff_errors(ff_errors)
             raise RuntimeError(
-                f"Forcefield cannot parameterize this protein. "
-                f"The PDB contains residues with no matching forcefield template. "
-                f"Download a clean PDB from RCSB PDB and try again. "
-                f"Details: {last_error}"
+                "Forcefield cannot parameterize this protein. "
+                "Common causes: non-standard residues, missing atoms, or ligands "
+                "without parameters. Use a clean RCSB PDB or Auto-Prepare (PDBFixer). "
+                f"Details: {detail}"
             )
 
         t_h = time.time()
