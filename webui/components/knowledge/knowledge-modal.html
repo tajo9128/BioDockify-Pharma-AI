@@ -16,10 +16,24 @@
           </button>
           <span class="kb-reader-title" x-text="$store.knowledgeModal.readingPaper.question || $store.knowledgeModal.readingPaper.title || 'Untitled'"></span>
           <div class="kb-reader-actions">
+            <!-- View Original (PDF/DOCX) — opens in new tab -->
+            <button class="kb-btn-sm" x-show="$store.knowledgeModal.readingPaper.has_original" @click="$store.knowledgeModal.viewOriginal()" :title="'View original ' + ($store.knowledgeModal.readingPaper.file_type || '').toUpperCase()">
+              <span class="material-symbols-outlined" style="font-size:16px">visibility</span>
+              <span x-text="'View ' + ($store.knowledgeModal.readingPaper.file_type || 'original').toUpperCase()"></span>
+            </button>
+            <!-- Download Original -->
+            <button class="kb-btn-sm" x-show="$store.knowledgeModal.readingPaper.has_original" @click="$store.knowledgeModal.downloadOriginal()" title="Download original file">
+              <span class="material-symbols-outlined" style="font-size:16px">download</span> Original
+            </button>
             <button class="kb-btn-sm" @click="$store.knowledgeModal.downloadDocx()" title="Download DOCX">
               <span class="material-symbols-outlined" style="font-size:16px">article</span> DOCX
             </button>
           </div>
+        </div>
+        <!-- File type badge -->
+        <div x-show="$store.knowledgeModal.readingPaper.has_original" style="padding:4px 16px;background:rgba(var(--color-primary-rgb,59,130,246),0.08);font-size:0.6rem;color:var(--color-primary);display:flex;align-items:center;gap:4px">
+          <span class="material-symbols-outlined" style="font-size:14px">picture_as_pdf</span>
+          <span x-text="'Original ' + ($store.knowledgeModal.readingPaper.file_type || 'file').toUpperCase() + ' available — click View above to open in new tab, or showing extracted text below.'"></span>
         </div>
         <!-- Markdown-rendered content with proper formatting -->
         <div class="kb-reader-content" x-html="$store.knowledgeModal.renderMarkdown($store.knowledgeModal.readingPaper.full_text || $store.knowledgeModal.readingPaper.answer || '')"></div>

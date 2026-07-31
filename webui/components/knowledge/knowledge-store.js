@@ -354,27 +354,82 @@ export const store = createStore("knowledgeModal", {
         file: entry.file || "",
         entry_id: typeof entry.id === "string" ? entry.id : "",
       });
-      if (r.status === "ok" && r.content) {
-        // Update the entry with full content
+      if (r.status === "ok") {
+        // Update the entry with full content + original file metadata
         const idx = this.entries.findIndex(e => e.id === entry.id);
         if (idx >= 0) {
           this.entries[idx].answer = r.content;
           this.entries[idx]._fullyLoaded = true;
+          this.entries[idx].has_original = r.has_original;
+          this.entries[idx].file_type = r.file_type;
         }
-        // Open in reader view
+        // Open in reader view — include original file metadata for PDF/image viewer
         this.readingPaper = {
           ...entry,
-          full_text: r.content,
-          answer: r.content,
+          full_text: r.content || "",
+          answer: r.content || "",
+          has_original: r.has_original || false,
+          file_type: r.file_type || "md",
+          entry_id: entry.id,
         };
       } else {
-        // Fallback: show whatever content we have
         this.readingPaper = entry;
       }
     } catch (e) {
       this.error = "Failed to read entry: " + e.message;
     }
     this.loading = false;
+  },
+
+  async viewOriginal() {
+    /** Open the original PDF/DOCX in a new tab. Fetches blob then opens object URL. */
+    if (!this.readingPaper?.entry_id) return;
+    try {
+      const csrfResp = await fetch("/api/csrf_token");
+      const csrfData = await csrfResp.json();
+      const resp = await fetch("/api/knowledge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfData.csrf_token || "" },
+        body: JSON.stringify({ action: "view_file", entry_id: this.readingPaper.entry_id }),
+      });
+      if (resp.ok) {
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      } else {
+        this.error = "Failed to view original file";
+      }
+    } catch (e) {
+      this.error = "View failed: " + e.message;
+    }
+  },
+
+  async downloadOriginal() {
+    /** Download the original binary file (PDF/DOCX). */
+    if (!this.readingPaper?.entry_id) return;
+    try {
+      const csrfResp = await fetch("/api/csrf_token");
+      const csrfData = await csrfResp.json();
+      const resp = await fetch("/api/knowledge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfData.csrf_token || "" },
+        body: JSON.stringify({ action: "download_original", entry_id: this.readingPaper.entry_id }),
+      });
+      if (resp.ok) {
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = (this.readingPaper.title || "file").substring(0, 50);
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        this.error = "Failed to download original file";
+      }
+    } catch (e) {
+      this.error = "Download failed: " + e.message;
+    }
   },
 
   get recentEntries() {
@@ -796,16 +851,26 @@ export const store = createStore("knowledgeModal", {
       try {
         const fileData = [];
         for (const file of files) {
-          const text = await file.text();
-          fileData.push({ filename: file.name, content: text });
+          const ext = file.name.split('.').pop().toLowerCase();
+          if (["pdf", "docx", "xlsx", "xls", "png", "jpg", "jpeg", "mp3", "wav", "mp4", "avi"].includes(ext)) {
+            const reader = new FileReader();
+            const base64 = await new Promise((resolve) => {
+              reader.onload = () => {
+                const result = reader.result;
+                resolve(result.includes(",") ? result.split(",")[1] : result);
+              };
+              reader.readAsDataURL(file);
+            });
+            fileData.push({ filename: file.name, content: base64 });
+          } else {
+            const text = await file.text();
+            fileData.push({ filename: file.name, content: text });
+          }
         }
-        // Use 'upload' action — auto-detects category from file type
-        const result = await callJsonApi("knowledge", {
-          action: "upload",
-          files: fileData,
-        });
+        const result = await callJsonApi("knowledge", { action: "upload", files: fileData });
         if (result.status === "ok") {
           this.message = result.message || `${files.length} file(s) uploaded`;
+          await this.loadAllEntries();
           await this.loadLibraryFromKB();
         } else {
           this.error = result.error || "Upload failed";

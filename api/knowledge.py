@@ -58,10 +58,11 @@ def _save_index(index):
         json.dump(index, f, ensure_ascii=False, indent=2)
 
 
-def _store_entry(category: str, title: str, content: str, tags: str = "", source: str = "", metadata: dict = None):
+def _store_entry(category: str, title: str, content: str, tags: str = "", source: str = "", metadata: dict = None, original_file: str = ""):
     """Store an entry in the knowledge base with category.
-    
+
     Every entry is saved as BOTH a .md (fast reading) and a .docx (downloadable/podcast/review).
+    If original_file is provided, the path is stored so the PDF/DOCX can be viewed/downloaded.
     """
     cat_dir = os.path.join(KB_DIR, category)
     os.makedirs(cat_dir, exist_ok=True)
@@ -100,6 +101,8 @@ def _store_entry(category: str, title: str, content: str, tags: str = "", source
         "source": source,
         "file": filepath,
         "docx_file": docx_path,  # downloadable .docx
+        "original_file": original_file,  # original binary (PDF/DOCX) for viewing/downloading
+        "file_type": os.path.splitext(original_file)[1].lstrip(".") if original_file else "md",
         "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "size": len(content),
     }
@@ -383,6 +386,10 @@ class KnowledgeHandler(ApiHandler):
             return self._graph(input)
         elif action == "download_docx":
             return self._download_docx(input)
+        elif action == "download_original":
+            return self._download_original(input)
+        elif action == "view_file":
+            return self._view_file(input)
         elif action == "delete_entry":
             return self._delete(input)
         elif action == "list_all":
@@ -636,31 +643,37 @@ class KnowledgeHandler(ApiHandler):
                 # ── Extract readable text from binary uploads ──
                 ext = os.path.splitext(filename)[1].lower().lstrip(".")
                 content = ""
+                original_path = ""
 
-                if raw_content and len(raw_content) > 50:
-                    # Frontend already sent text content (TXT, MD, CSV, JSON, HTML)
-                    content = raw_content
-                elif ext == "pdf":
-                    content = self._extract_pdf_text(raw_content, filename)
-                elif ext in ("docx", "doc"):
-                    content = self._extract_docx_text(raw_content, filename)
-                elif ext in ("xlsx", "xls"):
-                    content = self._extract_xlsx_text(raw_content, filename)
+                # Binary formats that arrive as base64 — extract text AND save original
+                BINARY_EXTS = {"pdf", "docx", "doc", "xlsx", "xls", "png", "jpg", "jpeg", "mp3", "wav", "mp4", "avi"}
+
+                if ext in BINARY_EXTS and raw_content:
+                    # Save the ORIGINAL binary file so it can be viewed/downloaded later
+                    original_path = self._save_original(raw_content, filename, category)
+                    # Extract text from the binary
+                    if ext == "pdf":
+                        content = self._extract_pdf_text(raw_content, filename)
+                    elif ext in ("docx", "doc"):
+                        content = self._extract_docx_text(raw_content, filename)
+                    elif ext in ("xlsx", "xls"):
+                        content = self._extract_xlsx_text(raw_content, filename)
+                    else:
+                        content = f"[Binary file: {filename}]"
                 elif ext in ("pdb", "sdf", "mol", "mol2", "pdbqt"):
                     content = raw_content if raw_content else self._read_file_as_text(filename)
-                elif ext in ("csv",):
+                elif ext in ("csv", "txt", "md", "json", "html", "htm"):
                     content = raw_content if raw_content else ""
                 elif raw_content:
                     content = raw_content
                 else:
-                    # Last resort: try to read as text
                     content = self._read_file_as_text(filename)
 
                 if not content or len(content.strip()) < 10:
                     content = f"[File uploaded: {filename}] — Content could not be extracted. File type: {ext}. Size: {len(raw_content) if raw_content else 0} bytes."
 
-                # Store the extracted content
-                entry = _store_entry(category, filename, content, tags, source="File Upload")
+                # Store the extracted content (+ original file path if binary)
+                entry = _store_entry(category, filename, content, tags, source="File Upload", original_file=original_path)
                 stored += 1
 
                 # Chunk for vector indexing
@@ -757,6 +770,26 @@ class KnowledgeHandler(ApiHandler):
         except Exception:
             return ""
 
+    def _save_original(self, base64_content: str, filename: str, category: str) -> str:
+        """Save the original binary file (PDF/DOCX) so it can be viewed/downloaded later.
+
+        Returns the absolute path to the saved file, or "" on failure.
+        """
+        try:
+            import base64
+            raw_bytes = base64.b64decode(base64_content)
+            cat_dir = os.path.join(KB_DIR, category, "originals")
+            os.makedirs(cat_dir, exist_ok=True)
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            safe_name = "".join(c for c in filename[:60] if c.isalnum() or c in "._-") or f"upload_{timestamp}"
+            filepath = os.path.join(cat_dir, f"{safe_name}_{timestamp}")
+            with open(filepath, "wb") as f:
+                f.write(raw_bytes)
+            return filepath
+        except Exception as e:
+            log.warning(f"Failed to save original file {filename}: {e}")
+            return ""
+
     def _read_file_as_text(self, filename: str) -> str:
         """Try to read a file from common upload locations as text."""
         import glob
@@ -818,31 +851,49 @@ class KnowledgeHandler(ApiHandler):
             return {"status": "error", "error": str(e)}
 
     def _read_entry(self, input: dict) -> dict:
-        """Read full content of a single KB entry."""
+        """Read full content of a single KB entry.
+
+        Returns the extracted markdown text for the reader, plus metadata
+        about whether an original binary (PDF/DOCX) is available for viewing.
+        """
         filepath = input.get("file", "")
         entry_id = input.get("entry_id", "")
 
-        # If we have a file path, read it directly
+        # Resolve entry from index (preferred — gives us original_file path)
+        entry = None
+        if entry_id:
+            entry = self._find_entry(entry_id)
+        if not entry and filepath:
+            index = _load_index()
+            for e in index.get("entries", []):
+                if e.get("file") == filepath:
+                    entry = e
+                    break
+
+        if entry:
+            filepath = entry.get("file", filepath)
+            original = entry.get("original_file", "")
+            file_type = entry.get("file_type", "md")
+        else:
+            original = ""
+            file_type = "md"
+
+        # Read the extracted .md text (always UTF-8, safe to read as text)
         if filepath and os.path.exists(filepath):
             try:
                 with open(filepath, "r", encoding="utf-8") as f:
                     content = f.read()
-                return {"status": "ok", "content": content, "file": filepath}
+                return {
+                    "status": "ok",
+                    "content": content,
+                    "file": filepath,
+                    "entry": entry or {},
+                    "has_original": bool(original and os.path.exists(original)),
+                    "original_file": original,
+                    "file_type": file_type,
+                }
             except Exception as e:
                 return {"status": "error", "error": f"Failed to read file: {e}"}
-
-        # Otherwise find by entry_id in the index
-        index = _load_index()
-        for entry in index.get("entries", []):
-            if entry.get("id") == entry_id or entry.get("file") == entry_id:
-                filepath = entry.get("file", "")
-                if filepath and os.path.exists(filepath):
-                    try:
-                        with open(filepath, "r", encoding="utf-8") as f:
-                            content = f.read()
-                        return {"status": "ok", "content": content, "file": filepath, "entry": entry}
-                    except Exception as e:
-                        return {"status": "error", "error": f"Failed to read file: {e}"}
 
         return {"status": "error", "error": "Entry not found or file missing"}
 
@@ -893,6 +944,77 @@ class KnowledgeHandler(ApiHandler):
             status=200,
             mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    def _find_entry(self, entry_id: str) -> dict:
+        """Look up an entry in the index by id, file path, or entry_id."""
+        index = _load_index()
+        for entry in index.get("entries", []):
+            if entry.get("id") == entry_id or entry.get("file") == entry_id:
+                return entry
+        return {}
+
+    def _download_original(self, input: dict) -> dict | Response:
+        """Download the original binary file (PDF/DOCX/XLSX) stored on upload."""
+        entry_id = input.get("entry_id", "")
+        entry = self._find_entry(entry_id)
+        original_path = entry.get("original_file", "")
+
+        if not original_path or not os.path.exists(original_path):
+            return Response(response="Original file not found", status=404, mimetype="text/plain")
+
+        ext = os.path.splitext(original_path)[1].lower()
+        mime_map = {
+            ".pdf": "application/pdf",
+            ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+            ".mp3": "audio/mpeg", ".mp4": "video/mp4",
+        }
+        mimetype = mime_map.get(ext, "application/octet-stream")
+        filename = os.path.basename(original_path)
+
+        with open(original_path, "rb") as f:
+            content = f.read()
+
+        return Response(
+            response=content,
+            status=200,
+            mimetype=mimetype,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    def _view_file(self, input: dict) -> dict | Response:
+        """Serve a file for inline viewing (PDF in iframe, image in img tag, etc.).
+
+        Unlike download_original, this sets Content-Disposition: inline so the
+        browser displays it rather than downloading.
+        """
+        entry_id = input.get("entry_id", "")
+        entry = self._find_entry(entry_id)
+        original_path = entry.get("original_file", "")
+
+        if not original_path or not os.path.exists(original_path):
+            return Response(response="File not found", status=404, mimetype="text/plain")
+
+        ext = os.path.splitext(original_path)[1].lower()
+        mime_map = {
+            ".pdf": "application/pdf",
+            ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+            ".mp3": "audio/mpeg", ".mp4": "video/mp4",
+        }
+        mimetype = mime_map.get(ext, "application/octet-stream")
+
+        with open(original_path, "rb") as f:
+            content = f.read()
+
+        return Response(
+            response=content,
+            status=200,
+            mimetype=mimetype,
+            headers={"Content-Disposition": "inline"},
         )
 
     # ═══════════════════════════════════════════════════════════════
