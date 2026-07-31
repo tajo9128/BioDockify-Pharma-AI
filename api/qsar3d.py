@@ -78,74 +78,74 @@ class QSAR3DHandler(ApiHandler):
 
         def _do_build():
             try:
-            from modules.qsar3d.builder import QSAR3DBuilder
-            
-            builder = QSAR3DBuilder(
-                grid_spacing=grid_spacing,
-                grid_margin=grid_margin,
-                field_types=field_types,
-                mode=mode,
-            )
-            
-            if mode == '2d':
-                stats = builder.build_2d_from_smiles(
-                    smiles, activity,
-                    test_fraction=test_fraction,
+                from modules.qsar3d.builder import QSAR3DBuilder
+
+                builder = QSAR3DBuilder(
+                    grid_spacing=grid_spacing,
+                    grid_margin=grid_margin,
+                    field_types=field_types,
+                    mode=mode,
                 )
-            else:
-                stats = builder.build_from_smiles(
-                    smiles, activity,
-                    test_fraction=test_fraction,
-                    reference_smiles=reference_smiles,
-                )
-            
-            # Save model to file
-            model_id = stats.get('model_id', str(uuid.uuid4())[:8])
-            model_path = os.path.join(MODELS_DIR, f"{model_id}.pkl")
-            builder.save_model(model_path)
-            
-            # Save metadata
-            metadata = {
-                "model_id": model_id,
-                "name": name,
-                "mode": mode,
-                "field_types": field_types,
-                "r2": stats.get('r2'),
-                "q2": stats.get('q2'),
-                "r2_pred": stats.get('r2_pred'),
-                "n_components": stats.get('n_components'),
-                "n_molecules": stats.get('n_molecules'),
-                "model_path": model_path,
-                "created_at": datetime.now().isoformat(),
-                "grid_info": stats.get('grid_info', {}),
-                "l5o": stats.get('l5o', {}),
-                "y_scrambling": stats.get('y_scrambling', {}),
-            }
-            
-            metadata_path = os.path.join(MODELS_DIR, f"{model_id}_metadata.json")
-            with open(metadata_path, 'w') as f:
-                json.dump(metadata, f, indent=2)
-            
-            return_result = {
-                "status": "ok",
-                "model_id": model_id,
-                "name": name,
-                "mode": mode,
-                "r2": stats.get('r2'),
-                "q2": stats.get('q2'),
-                "r2_pred": stats.get('r2_pred'),
-                "n_components": stats.get('n_components'),
-                "n_molecules": stats.get('n_molecules'),
-                "message": f"3D-QSAR model built successfully. r²={stats.get('r2')}, q²={stats.get('q2')}"
-            }
-            # ── AUTO-STORE ──
-            try:
-                from modules.knowledge.auto_store import auto_store
-                auto_store("qsar3d", f"QSAR Model: {name} ({mode})", return_result,
-                           source="3D-QSAR Engine", tags=["qsar", mode, name[:20]])
-            except Exception:
-                pass
-            return return_result
+
+                if mode == '2d':
+                    stats = builder.build_2d_from_smiles(
+                        smiles, activity,
+                        test_fraction=test_fraction,
+                    )
+                else:
+                    stats = builder.build_from_smiles(
+                        smiles, activity,
+                        test_fraction=test_fraction,
+                        reference_smiles=reference_smiles,
+                    )
+
+                # Save model to file
+                model_id = stats.get('model_id', str(uuid.uuid4())[:8])
+                model_path = os.path.join(MODELS_DIR, f"{model_id}.pkl")
+                builder.save_model(model_path)
+
+                # Save metadata
+                metadata = {
+                    "model_id": model_id,
+                    "name": name,
+                    "mode": mode,
+                    "field_types": field_types,
+                    "r2": stats.get('r2'),
+                    "q2": stats.get('q2'),
+                    "r2_pred": stats.get('r2_pred'),
+                    "n_components": stats.get('n_components'),
+                    "n_molecules": stats.get('n_molecules'),
+                    "model_path": model_path,
+                    "created_at": datetime.now().isoformat(),
+                    "grid_info": stats.get('grid_info', {}),
+                    "l5o": stats.get('l5o', {}),
+                    "y_scrambling": stats.get('y_scrambling', {}),
+                }
+
+                metadata_path = os.path.join(MODELS_DIR, f"{model_id}_metadata.json")
+                with open(metadata_path, 'w') as f:
+                    json.dump(metadata, f, indent=2)
+
+                return_result = {
+                    "status": "ok",
+                    "model_id": model_id,
+                    "name": name,
+                    "mode": mode,
+                    "r2": stats.get('r2'),
+                    "q2": stats.get('q2'),
+                    "r2_pred": stats.get('r2_pred'),
+                    "n_components": stats.get('n_components'),
+                    "n_molecules": stats.get('n_molecules'),
+                    "message": f"3D-QSAR model built successfully. r²={stats.get('r2')}, q²={stats.get('q2')}"
+                }
+                # ── AUTO-STORE ──
+                try:
+                    from modules.knowledge.auto_store import auto_store
+                    auto_store("qsar3d", f"QSAR Model: {name} ({mode})", return_result,
+                               source="3D-QSAR Engine", tags=["qsar", mode, name[:20]])
+                except Exception:
+                    pass
+                return return_result
 
             except Exception as e:
                 log.error(f"[QSAR3D] Build failed: {e}", exc_info=True)

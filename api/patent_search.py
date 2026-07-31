@@ -30,20 +30,20 @@ class PatentSearch(ApiHandler):
             req = urllib.request.Request(espacenet_url, headers={"User-Agent": "BioDockify/1.0"})
             raw = await _async_urlopen(req, timeout=15)
             data = json.loads(raw)
-                for doc in data.get("ops:world-patent-data", {}).get("ops:document-list", {}).get("ops:document", []):
-                    meta = doc.get("ops:document-metadata", {})
-                    bib = meta.get("ops:document-bibliographic-data", {})
-                    title_data = bib.get("ops:invention-title", {})
-                    title = title_data.get("value", "") if isinstance(title_data, dict) else str(title_data)
-                    pub_ref = bib.get("ops:publication-reference", {})
-                    doc_num = pub_ref.get("ops:document-id", {}).get("ops:doc-number", "")
-                    date = pub_ref.get("ops:document-id", {}).get("ops:date", "")
-                    results.append({
-                        "title": title or "Patent",
-                        "number": doc_num,
-                        "date": date,
-                        "source": "Espacenet"
-                    })
+            for doc in data.get("ops:world-patent-data", {}).get("ops:document-list", {}).get("ops:document", []):
+                meta = doc.get("ops:document-metadata", {})
+                bib = meta.get("ops:document-bibliographic-data", {})
+                title_data = bib.get("ops:invention-title", {})
+                title = title_data.get("value", "") if isinstance(title_data, dict) else str(title_data)
+                pub_ref = bib.get("ops:publication-reference", {})
+                doc_num = pub_ref.get("ops:document-id", {}).get("ops:doc-number", "")
+                date = pub_ref.get("ops:document-id", {}).get("ops:date", "")
+                results.append({
+                    "title": title or "Patent",
+                    "number": doc_num,
+                    "date": date,
+                    "source": "Espacenet"
+                })
         except Exception:
             pass
 

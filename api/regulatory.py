@@ -42,14 +42,14 @@ class RegulatorySearch(ApiHandler):
                 req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
                 raw = await _async_urlopen(req, timeout=10)
                 data = json.loads(raw)
-                    for r in data.get("results", []):
-                        results.append({
-                            "title": r.get("openfda", {}).get("brand_name", [query])[0],
-                            "source": "FDA",
-                            "guideline": r.get("indications_and_usage", [""])[0][:300],
-                            "id": r.get("id", ""),
-                            "url": f"https://api.fda.gov/drug/label.json?search=id:{r.get('id','')}",
-                        })
+                for r in data.get("results", []):
+                    results.append({
+                        "title": r.get("openfda", {}).get("brand_name", [query])[0],
+                        "source": "FDA",
+                        "guideline": r.get("indications_and_usage", [""])[0][:300],
+                        "id": r.get("id", ""),
+                        "url": f"https://api.fda.gov/drug/label.json?search=id:{r.get('id','')}",
+                    })
             except:
                 results.append({
                     "title": query,

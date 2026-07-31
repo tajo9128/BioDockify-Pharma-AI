@@ -20,7 +20,7 @@ async def test_concurrency():
     mock_memory = AsyncMock(spec=MemoryStore)
     
     # Mock Security (License)
-    with patch('agent_zero.core.orchestrator.nonexistent_license_guard')  # License disabled as mock_license:
+    with patch('agent_zero.core.orchestrator.nonexistent_license_guard') as mock_license:  # License disabled
         mock_license.get_cached_info.return_value = {'email': 'test@example.com'}
         mock_license.verify = AsyncMock(return_value=(True, "Verified (Mock)"))
 
