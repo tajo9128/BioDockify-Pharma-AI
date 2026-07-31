@@ -301,7 +301,7 @@
   </script>
 </head>
 <body>
-  <div x-data class="dock-panel">
+  <div x-data x-init="$store.molecularToolkit.checkHealth()" class="dock-panel">
     <!-- Header -->
     <div class="panel-header">
       <div class="header-left">

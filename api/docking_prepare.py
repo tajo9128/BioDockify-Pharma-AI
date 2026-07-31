@@ -242,9 +242,29 @@ class DockingPrepare(ApiHandler):
             f.write(ligand_content)
 
         # === Protein preparation: convert to PDB if needed ===
-        if protein_format in ("pdb", "ent", "pdbqt"):
+        if protein_format in ("pdb", "ent"):
             with open(pdb_path, "w") as f:
                 f.write(protein_content)
+        elif protein_format == "pdbqt":
+            # PDBQT is NOT PDB — save as .pdbqt, then convert via OpenBabel
+            pdbqt_path = os.path.join(job_dir, "protein.pdbqt")
+            with open(pdbqt_path, "w") as f:
+                f.write(protein_content)
+            if _obabel_available():
+                ok, stdout, stderr = _run_obabel(
+                    ["obabel", pdbqt_path, "-O", pdb_path],
+                    timeout=30, label="protein PDBQT→PDB"
+                )
+                if not ok:
+                    return {
+                        "error": f"Failed to convert protein from PDBQT to PDB: {stderr}",
+                        "hint": "Try pasting the protein in PDB format directly"
+                    }
+            else:
+                return {
+                    "error": "Protein PDBQT format requires OpenBabel for conversion to PDB. Install: apt install openbabel",
+                    "hint": "Paste the protein content in PDB format instead"
+                }
         elif _obabel_available():
             tmp_input = os.path.join(job_dir, f"protein_input.{protein_format}")
             with open(tmp_input, "w") as f:
