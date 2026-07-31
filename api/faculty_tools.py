@@ -3,6 +3,8 @@ All results are stored in the Knowledge Base for academic writing, slides, and n
 from helpers.api import ApiHandler, Request
 import json
 import logging
+import base64
+import io
 
 logger = logging.getLogger("faculty_tools")
 
@@ -24,6 +26,42 @@ def _store_to_kb(category: str, title: str, content: str, tags: str = ""):
     except Exception as e:
         logger.warning(f"KB store failed: {e}")
         return None
+
+
+def _extract_text_from_file(file_content_b64: str, filename: str) -> str:
+    """Extract plain text from a base64-encoded PDF or DOCX file."""
+    raw = base64.b64decode(file_content_b64)
+    lower = filename.lower()
+
+    if lower.endswith(".pdf"):
+        try:
+            from pypdf import PdfReader
+            reader = PdfReader(io.BytesIO(raw))
+            return "\n".join(page.extract_text() or "" for page in reader.pages)
+        except Exception as e:
+            logger.warning(f"PDF extraction failed: {e}")
+            return ""
+
+    if lower.endswith(".docx"):
+        try:
+            import zipfile, xml.etree.ElementTree as ET
+            with zipfile.ZipFile(io.BytesIO(raw)) as z:
+                xml_bytes = z.read("word/document.xml")
+            tree = ET.fromstring(xml_bytes)
+            ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+            texts = [t.text for t in tree.iter(f"{{{ns['w']}}}t") if t.text]
+            return "\n".join(texts)
+        except Exception as e:
+            logger.warning(f"DOCX extraction failed: {e}")
+            return ""
+
+    if lower.endswith(".txt"):
+        try:
+            return raw.decode("utf-8", errors="replace")
+        except Exception:
+            return ""
+
+    return ""
 
 
 class FacultyTools(ApiHandler):
@@ -91,8 +129,11 @@ class FacultyTools(ApiHandler):
 
     def _parse_syllabus(self, input: dict) -> dict:
         text = (input.get("text", "") or "").strip()
+        # Accept uploaded file (base64) if no pasted text
+        if not text and input.get("file_content"):
+            text = _extract_text_from_file(input["file_content"], input.get("file_name", "syllabus.pdf"))
         if not text:
-            return {"error": "Please paste syllabus text"}
+            return {"error": "Please paste syllabus text or upload a PDF/DOCX file"}
 
         # Extract course info using heuristics
         lines = text.split("\n")
@@ -534,8 +575,10 @@ class FacultyTools(ApiHandler):
     def _analyze_syllabus_enhanced(self, input: dict) -> dict:
         """Enhanced syllabus parser that extracts topics AND reference books."""
         text = (input.get("text", "") or "").strip()
+        if not text and input.get("file_content"):
+            text = _extract_text_from_file(input["file_content"], input.get("file_name", "syllabus.pdf"))
         if not text:
-            return {"error": "Please paste syllabus text or provide syllabus content"}
+            return {"error": "Please paste syllabus text or upload a PDF/DOCX file"}
         import re
         lines = text.split("\n")
         course_name, course_code, duration = "", "", ""

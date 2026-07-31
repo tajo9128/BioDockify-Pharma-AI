@@ -94,15 +94,6 @@ FORCEFIELD_CHAINS = [
 ]
 
 
-def _forcefield_available(ff_protein: str, ff_water: str) -> bool:
-    """Return True if both XML files can be resolved by OpenMM."""
-    try:
-        app.ForceField(ff_protein, ff_water)
-        return True
-    except Exception:
-        return False
-
-
 def _format_ff_errors(errors: list) -> str:
     if not errors:
         return "unknown"

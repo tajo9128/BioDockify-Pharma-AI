@@ -14,6 +14,8 @@
       // Step 1: Syllabus
       syllabusText: "",
       syllabusResult: null,
+      uploadedFileContent: "",
+      uploadedFileName: "",
 
       // Step 2: Classes
       numClasses: 10,
@@ -38,15 +40,45 @@
       // Course name (auto-filled from syllabus)
       courseName: "",
 
+      // ── File Upload ──
+      handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        this.uploadedFileName = file.name;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          // Strip data:...base64, prefix
+          const b64 = e.target.result.split(",")[1] || "";
+          this.uploadedFileContent = b64;
+          // If textarea is empty, show a placeholder
+          if (!this.syllabusText.trim()) {
+            this.syllabusText = `[Uploaded: ${file.name}]`;
+          }
+        };
+        reader.readAsDataURL(file);
+      },
+      clearUpload() {
+        this.uploadedFileContent = "";
+        this.uploadedFileName = "";
+        if (this.syllabusText.startsWith("[Uploaded:")) this.syllabusText = "";
+      },
+
       // ── Step 1: Analyze Syllabus ──
       async analyzeSyllabus() {
-        if (!this.syllabusText.trim()) return;
+        if (!this.syllabusText.trim() && !this.uploadedFileContent) return;
         this.loading = true; this.error = "";
         try {
-          const r = await callJsonApi("faculty_tools", {
-            action: "analyze_syllabus_enhanced",
-            text: this.syllabusText,
-          });
+          const payload = { action: "analyze_syllabus_enhanced" };
+          if (this.uploadedFileContent) {
+            payload.file_content = this.uploadedFileContent;
+            payload.file_name = this.uploadedFileName;
+            if (this.syllabusText.trim() && !this.syllabusText.startsWith("[Uploaded:")) {
+              payload.text = this.syllabusText;
+            }
+          } else {
+            payload.text = this.syllabusText;
+          }
+          const r = await callJsonApi("faculty_tools", payload);
           if (r.error) { this.error = r.error; this.loading = false; return; }
           this.syllabusResult = r;
           this.courseName = r.course_name || "Course";
@@ -227,11 +259,19 @@
     <!-- Step 1: Syllabus Input -->
     <div x-show="$store.classPrep.step===1" class="cp-body">
       <div class="cp-card">
-        <h3>Paste Your Syllabus</h3>
-        <p class="cp-hint">Paste the full syllabus text below. The system will extract topics, units, and reference books automatically.</p>
+        <h3>Paste or Upload Your Syllabus</h3>
+        <p class="cp-hint">Paste the full syllabus text, or upload a PDF/DOCX file. The system will extract topics, units, and reference books automatically.</p>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+          <label class="cp-btn-upload" style="display:inline-flex;align-items:center;gap:4px;padding:8px 14px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;cursor:pointer;font-size:0.75rem;color:var(--color-text)">
+            <span class="material-symbols-outlined" style="font-size:16px">upload_file</span> Upload PDF / DOCX
+            <input type="file" accept=".pdf,.docx,.txt" style="display:none" @change="$store.classPrep.handleFileUpload($event)" />
+          </label>
+          <span x-show="$store.classPrep.uploadedFileName" style="font-size:0.7rem;color:var(--color-text-muted)" x-text="$store.classPrep.uploadedFileName"></span>
+          <button x-show="$store.classPrep.uploadedFileName" @click="$store.classPrep.clearUpload()" style="background:none;border:none;cursor:pointer;color:var(--color-text-muted);font-size:0.7rem">✕ Clear</button>
+        </div>
         <textarea x-model="$store.classPrep.syllabusText" class="cp-textarea" rows="15"
           placeholder="Course: Pharmacology 101&#10;Code: PHR-101&#10;Duration: 16 weeks&#10;&#10;Unit 1: Introduction to Pharmacology&#10;  - Drug absorption and distribution&#10;  - Drug metabolism and excretion&#10;&#10;Unit 2: Autonomic Nervous System&#10;  - Cholinergic drugs&#10;  - Adrenergic drugs&#10;&#10;Textbook: Goodman & Gilman's The Pharmacological Basis of Therapeutics by Brunton et al. (2023)&#10;Reference: Rang & Dale's Pharmacology by Rang et al. (2019)"></textarea>
-        <button class="cp-btn-primary" @click="$store.classPrep.analyzeSyllabus()" :disabled="$store.classPrep.loading || !$store.classPrep.syllabusText.trim()">
+        <button class="cp-btn-primary" @click="$store.classPrep.analyzeSyllabus()" :disabled="$store.classPrep.loading || (!$store.classPrep.syllabusText.trim() && !$store.classPrep.uploadedFileContent)">
           <span class="material-symbols-outlined">auto_awesome</span> Analyze Syllabus
         </button>
       </div>
