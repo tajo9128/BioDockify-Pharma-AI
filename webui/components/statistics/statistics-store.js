@@ -117,6 +117,11 @@ Alpine.data("statisticsModal", () => ({
         this.rowCount = r.data_summary?.total_rows || 0;
         // Phase 1: Store raw data for editable table
         this.dataRows = this._parseRawRows(content, r.data_summary?.column_names || []);
+        // For xlsx/json, _parseRawRows returns [] — use data_rows from backend
+        if ((!this.dataRows || this.dataRows.length === 0) && r.data_rows && r.data_rows.length > 0) {
+          this.dataRows = r.data_rows;
+          this.rowCount = r.data_rows.length;
+        }
         this.isDirty = false; this.showTable = false; this.currentPage = 1;
         this.step = 2; this.testType = r.recommended_test || "";
       } else { this.errorMessage = r.error || "Upload failed"; }

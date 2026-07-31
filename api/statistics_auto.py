@@ -257,6 +257,8 @@ class StatisticsAuto(ApiHandler):
             "recommended_test": recommended,
             "recommendation_text": rec_text,
             "normality": {c: (c in normal_cols) for c in numeric},
+            # Return parsed rows so frontend can populate editable table for xlsx/json
+            "data_rows": [list(r.values()) if isinstance(r, dict) else r for r in rows[:500]],
         })
 
     def _health(self):

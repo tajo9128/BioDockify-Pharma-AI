@@ -826,6 +826,12 @@ class StatisticsAnalyze(ApiHandler):
 
         try:
             # Validate test can work with available columns
+            # Honor user-assigned slots even if summary didn't detect groups
+            if gc and gc not in group_cols:
+                group_cols = [gc] + group_cols
+            if nc and nc not in numeric_cols:
+                numeric_cols = [nc] + numeric_cols
+
             if test_type in ("ttest", "anova", "mannwhitney"):
                 if not group_cols:
                     return _err(
@@ -845,7 +851,7 @@ class StatisticsAnalyze(ApiHandler):
             if test_type == "correlation" and len(numeric_cols) < 2:
                 return _err("Need at least 2 numeric columns for correlation.", f"Found {len(numeric_cols)} numeric column(s): {', '.join(numeric_cols) if numeric_cols else 'none'}.")
 
-            if test_type == "chisquare" and len(group_cols) < 2 and len(categorical_cols) < 2:
+            if test_type == "chisquare" and not fc and len(group_cols) < 2 and len(categorical_cols) < 2:
                 return _err("Need at least 2 categorical columns for Chi-Square test.", f"Found group columns: {group_cols}, categorical: {categorical_cols}")
 
             # Execute test — use slot-assigned columns when available
@@ -891,7 +897,7 @@ class StatisticsAnalyze(ApiHandler):
                 r = self._mannwhitney(input); result.update(r)
 
             elif test_type == "wilcoxon":
-                input["group_col"] = bc; input["value_col"] = af
+                input["col_before"] = bc; input["col_after"] = af
                 input["test_type"] = "paired"
                 exp.append({"step":1,"title":"Wilcoxon Signed-Rank","detail":"Non-parametric paired comparison (before vs after)."})
                 r = self._wilcoxon(input); result.update(r)
@@ -905,6 +911,13 @@ class StatisticsAnalyze(ApiHandler):
                 input["selected_cols"] = fc.split(",") if fc else numeric_cols[:10]
                 exp.append({"step":1,"title":"Friedman Test","detail":"Non-parametric repeated measures."})
                 r = self._friedman(input); result.update(r)
+
+            elif test_type == "chisquare":
+                chi_cols = fc.split(",") if fc else (group_cols[:2] if len(group_cols) >= 2 else categorical_cols[:2])
+                input["col_before"] = chi_cols[0] if len(chi_cols) > 0 else ""
+                input["col_after"] = chi_cols[1] if len(chi_cols) > 1 else ""
+                exp.append({"step":1,"title":"Chi-Square Test","detail":"Test association between two categorical variables."})
+                r = self._chisquare(input); result.update(r)
 
             elif test_type == "fisher":
                 input["group_col"] = rc; input["value_col"] = cc
@@ -1354,14 +1367,39 @@ class StatisticsAnalyze(ApiHandler):
             return {"status": "error", "error": str(e)}
 
     def _wilcoxon(self, input: dict) -> dict:
-        group_col = input.get("group_col", "")
-        value_col = input.get("value_col", "")
         data = input.get("data", [])
         columns = input.get("columns", [])
-        if not group_col or not value_col:
-            return {"status": "error", "error": "Select Group and Value columns"}
         try:
             from scipy import stats as scipy_stats
+
+            # Mode 1: Two separate columns (col_before / col_after) — paired test
+            col_before = input.get("col_before", "")
+            col_after = input.get("col_after", "")
+            if col_before and col_after and col_before in columns and col_after in columns:
+                bi = columns.index(col_before)
+                ai = columns.index(col_after)
+                before_vals, after_vals = [], []
+                for row in data:
+                    if bi < len(row) and ai < len(row):
+                        try:
+                            b = float(row[bi])
+                            a = float(row[ai])
+                            before_vals.append(b)
+                            after_vals.append(a)
+                        except (ValueError, TypeError):
+                            continue
+                if len(before_vals) < 5:
+                    return {"status": "error", "error": "Not enough valid numeric pairs for Wilcoxon (need ≥5)"}
+                stat, p = scipy_stats.wilcoxon(before_vals, after_vals)
+                return {"status": "ok", "action": "wilcoxon", "test": "Wilcoxon Signed Rank",
+                        "statistic": round(float(stat), 4), "p_value": round(float(p), 6),
+                        "n": len(before_vals), "significant": bool(p < 0.05)}
+
+            # Mode 2: Group column + value column (e.g. "phase" with "before"/"after")
+            group_col = input.get("group_col", "")
+            value_col = input.get("value_col", "")
+            if not group_col or not value_col:
+                return {"status": "error", "error": "Select before/after columns or group+value columns"}
             group_idx = columns.index(group_col)
             val_idx = columns.index(value_col)
             groups = {}
