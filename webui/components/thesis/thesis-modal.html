@@ -27,6 +27,7 @@
           { id: "lit_matrix", label: "Lit Matrix", icon: "table_chart", desc: "Comparison table · Author/Year/Findings", group: "review" },
           { id: "prisma", label: "PRISMA Chart", icon: "account_tree", desc: "Flow diagram · Screening stages", group: "review" },
           { id: "gaps", label: "Gap Analysis", icon: "explore", desc: "Under-explored areas · Novelty scoring", group: "review" },
+          { id: "grant_proposal", label: "Grant Proposal", icon: "request_quote", desc: "NIH/DST/ICMR · Budget · Timeline · Aims", group: "funding" },
           { id: "lecture", label: "Lecture", icon: "cast", desc: "30-120 min · Objectives · Homework", group: "teaching" },
           { id: "slides", label: "Slides", icon: "slideshow", desc: "3-30 slides · Academic/Clinical style", group: "teaching" },
         ];
@@ -35,6 +36,12 @@
       // ── FOR WHOM ──
       branch: "general",
       degree: "phd",
+
+      // ── Grant-specific fields ──
+      grantAgency: "",
+      grantBudget: "",
+      grantDuration: "",
+      grantGoals: "",
 
       get branches() {
         return [
@@ -190,9 +197,20 @@
           else if (this.docType === "lit_matrix") await this._genLitMatrix();
           else if (this.docType === "prisma") await this._genPrisma();
           else if (this.docType === "gaps") await this._genGapAnalysis();
+          else if (this.docType === "grant_proposal") await this._genGrant();
           else this._genViaAgent();
         } catch (e) { this.error = e.message; }
         this.loading = false;
+      },
+
+      async _genGrant() {
+        const agency = this.grantAgency || "a research funding agency";
+        const budget = this.grantBudget || "standard";
+        const duration = this.grantDuration || "3 years";
+        const goals = this.grantGoals ? ` Key goals: ${this.grantGoals}.` : "";
+        const prompt = `Write a grant proposal on "${this.topic}" for ${agency}. Budget: ${budget}. Duration: ${duration}.${goals} Include: 1) Abstract, 2) Specific Aims, 3) Background & Significance, 4) Research Design & Methods, 5) Timeline with milestones, 6) Budget Justification, 7) Expected Outcomes & Impact, 8) References. Format professionally.`;
+        this.sendToAgent(prompt);
+        this.result = { type: "grant", title: this.topic, content: `Grant proposal task sent to agent for: ${this.topic}` };
       },
 
       async _genThesis() {
@@ -508,6 +526,15 @@
         <span class="material-symbols-outlined">auto_awesome</span>
         <span x-text="$store.academicWriter.loading ? 'Working...' : 'Generate'"></span>
       </button>
+    </div>
+    <!-- Grant-specific fields -->
+    <div x-show="$store.academicWriter.docType==='grant_proposal'" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">
+      <input type="text" x-model="$store.academicWriter.grantAgency" placeholder="Funding agency (NIH, DST, ICMR...)" class="aw-topic-input" style="flex:1;min-width:120px" />
+      <input type="text" x-model="$store.academicWriter.grantBudget" placeholder="Budget (₹50L, $500K...)" class="aw-topic-input" style="flex:0.6;min-width:100px" />
+      <input type="text" x-model="$store.academicWriter.grantDuration" placeholder="Duration (3 years)" class="aw-topic-input" style="flex:0.5;min-width:80px" />
+    </div>
+    <div x-show="$store.academicWriter.docType==='grant_proposal'" style="margin-bottom:6px">
+      <textarea x-model="$store.academicWriter.grantGoals" placeholder="Key goals / objectives (optional)..." style="width:100%;padding:8px;border:1px solid var(--color-border);border-radius:8px;background:var(--color-panel);color:var(--color-text);font-size:0.7rem;resize:vertical" rows="2"></textarea>
     </div>
 
     <!-- ═══ Status ═══ -->
