@@ -35,6 +35,7 @@ class WritingTools(ApiHandler):
         if action == "export-docx":        return self._export_docx(input)
         if action == "gap-analysis":       return self._gap_analysis(input)
         if action == "literature-matrix":  return self._lit_matrix(input)
+        if action == "pharma-matrix":      return self._pharma_matrix(input)
         if action == "prisma-flowchart":   return self._prisma_flowchart(input)
         if action == "faculty-review":     return self._faculty_review(input)
         if action == "verify-citations":   return await self._verify_citations(input)
@@ -59,7 +60,8 @@ class WritingTools(ApiHandler):
         if action == "scientific_rigor":         return self._scientific_rigor(input)
         if action == "quality_control":          return self._quality_control(input)
         if action == "executive_summary":        return self._executive_summary(input)
-        return {"actions": ["export-latex","export-docx","gap-analysis","literature-matrix","prisma-flowchart","faculty-review","verify-citations","suggest-journals","kb_sources","kb_categories","pharma_citation_verify","pharma_reporting_check","pharma_scorecard","equator_checklist","ai_disclosure","prisma_pipeline","peer_review","integrity_audit","citation_network","de_aigc","section_analysis","citation_gaps","terminology_check","scientific_rigor","quality_control","executive_summary"]}
+        if action == "synthesis_review":         return self._synthesis_review(input)
+        return {"actions": ["export-latex","export-docx","gap-analysis","literature-matrix","prisma-flowchart","faculty-review","verify-citations","suggest-journals","kb_sources","kb_categories","pharma_citation_verify","pharma_reporting_check","pharma_scorecard","equator_checklist","ai_disclosure","prisma_pipeline","peer_review","integrity_audit","citation_network","de_aigc","section_analysis","citation_gaps","terminology_check","scientific_rigor","quality_control","executive_summary","synthesis_review"]}
 
     def _kb_categories(self, input: dict) -> dict:
         """List all KB categories with entry counts — for the writer's category dropdown."""
@@ -302,6 +304,20 @@ class WritingTools(ApiHandler):
             return {"status": "ok", "matrix": generate_lit_matrix(papers)}
         except ImportError:
             return {"status": "error", "error": "Literature matrix module not available"}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    def _pharma_matrix(self, input: dict):
+        """Pharma-specific lit matrix with Target / Assay / IC50 / Model / Dose columns."""
+        papers = input.get("papers", [])
+        # Pull from KB if no papers provided
+        if not papers:
+            papers = self._load_kb_papers(input.get("topic", ""), 30)
+        try:
+            from modules.writing.lit_matrix import generate_pharma_matrix
+            return {"status": "ok", "matrix": generate_pharma_matrix(papers)}
+        except ImportError:
+            return {"status": "error", "error": "Pharma matrix module not available"}
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
@@ -1167,3 +1183,158 @@ class WritingTools(ApiHandler):
             section_analysis, terminology_check, rigor_review, citation_gaps, aigc_check
         )
         return {"status": "ok", **result}
+
+    def _synthesis_review(self, input: dict) -> dict:
+        """Citation-locked literature synthesis from KB papers.
+
+        The golden path closer: topic → collect → screen → KB → SYNTHESIS (here).
+        Builds a structured review where every paragraph is tied to specific
+        DOI/PMID citations from the Knowledge Base. Refuses to make claims
+        without supporting evidence — surfaces "[no source]" gaps explicitly.
+        """
+        topic = input.get("topic", "").strip()
+        section = input.get("section", "background")  # background|methods|findings|gaps
+        max_papers = int(input.get("max_papers", 20))
+        if not topic:
+            return {"status": "error", "error": "topic is required"}
+
+        # ── Pull papers from KB ──
+        papers = self._load_kb_papers(topic, max_papers)
+        if not papers:
+            return {
+                "status": "ok",
+                "topic": topic,
+                "section": section,
+                "synthesis": f"[No papers found in Knowledge Base for '{topic}'. Run Deep Research → Screen → Store to KB first.]",
+                "citations": [],
+                "paper_count": 0,
+                "note": "Empty KB — run the golden path: topic → collect → screen → store → synthesis",
+            }
+
+        # ── Build citation-locked synthesis by section ──
+        sections = {
+            "background": self._synth_background,
+            "methods": self._synth_methods,
+            "findings": self._synth_findings,
+            "gaps": self._synth_gaps,
+        }
+        builder = sections.get(section, self._synth_background)
+        synthesis, citations = builder(topic, papers)
+
+        return {
+            "status": "ok",
+            "topic": topic,
+            "section": section,
+            "synthesis": synthesis,
+            "citations": citations,
+            "paper_count": len(papers),
+            "sections_available": ["background", "methods", "findings", "gaps"],
+        }
+
+    def _load_kb_papers(self, topic: str, max_papers: int) -> list:
+        """Load relevant papers from the Knowledge Base for synthesis."""
+        papers = []
+        try:
+            from modules.knowledge.auto_store import _load_index
+            index = _load_index()
+            for entry in index:
+                title = entry.get("title", "")
+                content = entry.get("content", "") or ""
+                # Topic relevance filter (case-insensitive)
+                if topic.lower() in title.lower() or topic.lower() in content.lower()[:500]:
+                    papers.append({
+                        "title": title,
+                        "abstract": content[:2000],
+                        "doi": entry.get("doi", entry.get("metadata", {}).get("doi", "")),
+                        "pmid": entry.get("pmid", entry.get("metadata", {}).get("pmid", "")),
+                        "authors": entry.get("authors", ""),
+                        "year": entry.get("year", ""),
+                        "source": entry.get("source", ""),
+                    })
+                    if len(papers) >= max_papers:
+                        break
+        except Exception as e:
+            log.warning(f"KB paper load failed: {e}")
+        return papers
+
+    @staticmethod
+    def _cite(paper: dict) -> str:
+        """Build an inline citation string from a paper."""
+        authors = paper.get("authors", "")
+        if isinstance(authors, list):
+            authors = authors[0] + " et al." if len(authors) > 1 else (authors[0] if authors else "Unknown")
+        elif isinstance(authors, str) and authors:
+            parts = authors.split(",")
+            authors = parts[0].strip()
+        year = paper.get("year", "n.d.")
+        doi = paper.get("doi", "")
+        pmid = paper.get("pmid", "")
+        if doi:
+            return f"({authors}, {year}) [DOI: {doi}]"
+        if pmid:
+            return f"({authors}, {year}) [PMID: {pmid}]"
+        return f"({authors}, {year})"
+
+    def _synth_background(self, topic: str, papers: list):
+        """Synthesize background section — citation-locked."""
+        lines = [f"## Background: {topic}\n"]
+        cited = []
+        for p in papers[:8]:
+            cite = self._cite(p)
+            cited.append({"citation": cite, "title": p.get("title", ""), "doi": p.get("doi", ""), "pmid": p.get("pmid", "")})
+            snippet = p.get("abstract", "")[:200].replace("\n", " ")
+            lines.append(f"- {p.get('title', 'Untitled')} {cite}: {snippet}...")
+        if not papers:
+            lines.append("[No sources available in KB for background synthesis.]")
+        lines.append(f"\n_{len(cited)} sources cited from Knowledge Base._")
+        return "\n".join(lines), cited
+
+    def _synth_methods(self, topic: str, papers: list):
+        """Extract methods mentioned across papers."""
+        import re
+        lines = [f"## Methods Overview: {topic}\n"]
+        cited = []
+        method_keywords = r"(?i)\b(cell line|in vitro|in vivo|animal model|rat|mouse|MTT assay|ELISA|western blot|qPCR|HPLC|LC-MS|clinical trial|randomized|double-blind|cohort|systematic review|meta-analysis|docking|molecular dynamics|molecular dynamics|simulation)\b"
+        for p in papers[:10]:
+            abstract = p.get("abstract", "")
+            methods_found = list(set(m.group(0) for m in re.finditer(method_keywords, abstract)))
+            if methods_found:
+                cite = self._cite(p)
+                cited.append({"citation": cite, "title": p.get("title", ""), "methods": methods_found})
+                lines.append(f"- {cite}: {', '.join(methods_found)}")
+        if not cited:
+            lines.append("[No methodological details extractable from available abstracts.]")
+        return "\n".join(lines), cited
+
+    def _synth_findings(self, topic: str, papers: list):
+        """Synthesize key findings — each tied to a citation."""
+        lines = [f"## Key Findings: {topic}\n"]
+        cited = []
+        for p in papers[:8]:
+            cite = self._cite(p)
+            cited.append({"citation": cite, "title": p.get("title", ""), "doi": p.get("doi", "")})
+            # Extract first sentence with a result indicator
+            abstract = p.get("abstract", "")
+            snippet = abstract[:250].replace("\n", " ")
+            lines.append(f"- {cite}: {snippet}...")
+        if not papers:
+            lines.append("[No findings available — KB empty for this topic.]")
+        lines.append(f"\n_{len(cited)} sources cited._")
+        return "\n".join(lines), cited
+
+    def _synth_gaps(self, topic: str, papers: list):
+        """Identify research gaps from the corpus."""
+        lines = [f"## Research Gaps: {topic}\n"]
+        cited = []
+        gap_markers = ["however", "limited", "remains unclear", "further research", "little is known",
+                       "not well understood", "warrant", "needs investigation", "scarcely studied"]
+        for p in papers:
+            abstract_lower = p.get("abstract", "").lower()
+            gaps_found = [g for g in gap_markers if g in abstract_lower]
+            if gaps_found:
+                cite = self._cite(p)
+                cited.append({"citation": cite, "gaps": gaps_found})
+                lines.append(f"- {cite}: identified gaps ({', '.join(gaps_found)})")
+        if not cited:
+            lines.append(f"[No explicit gaps detected in {len(papers)} abstracts. Consider manual review.]")
+        return "\n".join(lines), cited

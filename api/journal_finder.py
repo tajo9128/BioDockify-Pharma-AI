@@ -82,7 +82,7 @@ class JournalFinder(ApiHandler):
             "scopus_indexed": result.get("scopus_count", 0),
             "wos_indexed": result.get("wos_count", 0),
             "open_access": result.get("oa_count", 0),
-            "database": "Scopus (Mar 2025) + WoS (Mar 2024)",
+            "database": "Local DB: Scopus (Mar 2025) + WoS (Mar 2024)",
         }
 
     def _check_fake(self, input: dict) -> dict:

@@ -26,12 +26,18 @@ class DeepResearchHandler(ApiHandler):
             return await self._collect_sources(input)
         elif action == "scan":
             return self._scan_results(input)
+        elif action == "screen":
+            return self._screen_sources(input)
+        elif action == "screen_decision":
+            return self._record_screen_decision(input)
         elif action == "store":
             return self._store_to_kb(input)
         elif action == "status":
             return self._get_status(input)
         elif action == "list":
             return self._list_sessions()
+        elif action == "prisma_counts":
+            return self._prisma_counts(input)
 
         return {"status": "error", "error": f"Unknown action: {action}"}
 
@@ -228,6 +234,108 @@ class DeepResearchHandler(ApiHandler):
             "scanned": len(scanned),
             "top_sources": scanned[:20],
         }
+
+    def _screen_sources(self, input: dict) -> dict:
+        """Title/Abstract screening workspace — mark each paper include/exclude/maybe.
+
+        This is the screening step of the systematic review golden path:
+        topic → collect → scan → SCREEN (here) → store to KB → synthesis
+        """
+        session_id = input.get("session_id", "")
+        session_path = os.path.join(STORAGE_DIR, f"session_{session_id}.json")
+        if not os.path.exists(session_path):
+            return {"status": "error", "error": "Session not found"}
+
+        with open(session_path, "r", encoding="utf-8") as f:
+            session = json.load(f)
+
+        sources = session.get("scanned_sources") or session.get("sources", [])
+        # Initialize screening state
+        for src in sources:
+            if "screen_decision" not in src:
+                src["screen_decision"] = "pending"  # include | exclude | maybe | pending
+            if "screen_reason" not in src:
+                src["screen_reason"] = ""
+
+        session["screening_started"] = True
+        with open(session_path, "w", encoding="utf-8") as f:
+            json.dump(session, f, ensure_ascii=False, indent=2)
+
+        counts = self._count_screen_decisions(sources)
+        return {
+            "status": "ok",
+            "session_id": session_id,
+            "total": len(sources),
+            "counts": counts,
+            "sources": sources,
+        }
+
+    def _record_screen_decision(self, input: dict) -> dict:
+        """Record a single screening decision (include/exclude/maybe + reason)."""
+        session_id = input.get("session_id", "")
+        source_idx = int(input.get("source_idx", -1))
+        decision = input.get("decision", "pending").lower()  # include|exclude|maybe
+        reason = input.get("reason", "")
+
+        session_path = os.path.join(STORAGE_DIR, f"session_{session_id}.json")
+        if not os.path.exists(session_path):
+            return {"status": "error", "error": "Session not found"}
+
+        with open(session_path, "r", encoding="utf-8") as f:
+            session = json.load(f)
+
+        sources = session.get("scanned_sources") or session.get("sources", [])
+        if 0 <= source_idx < len(sources):
+            sources[source_idx]["screen_decision"] = decision
+            sources[source_idx]["screen_reason"] = reason
+            with open(session_path, "w", encoding="utf-8") as f:
+                json.dump(session, f, ensure_ascii=False, indent=2)
+
+        counts = self._count_screen_decisions(sources)
+        return {
+            "status": "ok",
+            "session_id": session_id,
+            "source_idx": source_idx,
+            "decision": decision,
+            "counts": counts,
+        }
+
+    def _prisma_counts(self, input: dict) -> dict:
+        """Return PRISMA 2020 counts for this session — auto-computed from screening decisions."""
+        session_id = input.get("session_id", "")
+        session_path = os.path.join(STORAGE_DIR, f"session_{session_id}.json")
+        if not os.path.exists(session_path):
+            return {"status": "error", "error": "Session not found"}
+
+        with open(session_path, "r", encoding="utf-8") as f:
+            session = json.load(f)
+
+        sources = session.get("scanned_sources") or session.get("sources", [])
+        counts = self._count_screen_decisions(sources)
+        # Duplicates removed during collect
+        duplicates = session.get("duplicates_removed", 0)
+        identification = len(sources) + duplicates
+
+        return {
+            "status": "ok",
+            "session_id": session_id,
+            "prisma": {
+                "identification": identification,
+                "duplicates_removed": duplicates,
+                "screened": len(sources),
+                "title_abstract_excluded": counts.get("exclude", 0),
+                "sought_for_retrieval": counts.get("include", 0) + counts.get("maybe", 0),
+                "included": counts.get("include", 0),
+            },
+        }
+
+    @staticmethod
+    def _count_screen_decisions(sources):
+        counts = {"include": 0, "exclude": 0, "maybe": 0, "pending": 0}
+        for src in sources:
+            d = src.get("screen_decision", "pending")
+            counts[d] = counts.get(d, 0) + 1
+        return counts
 
     def _store_to_kb(self, input: dict) -> dict:
         """Store selected sources to knowledge base with proper categorization."""

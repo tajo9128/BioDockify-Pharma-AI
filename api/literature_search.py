@@ -52,10 +52,8 @@ class LiteratureSearch(ApiHandler):
             papers, total = await self._search_arxiv(query, max_results)
         elif database == "google_scholar":
             papers, total = await self._search_google_scholar(query, max_results)
-        elif database == "scopus":
-            papers, total = await self._search_scopus(query, max_results)
-        elif database == "wos":
-            papers, total = await self._search_wos(query, max_results)
+        elif database == "crossref":
+            papers, total = await self._search_crossref_unfiltered(query, max_results, "CrossRef")
         elif database == "elsevier":
             papers, total = await self._search_elsevier(query, max_results)
         elif database == "springer":
@@ -144,8 +142,8 @@ class LiteratureSearch(ApiHandler):
         import asyncio
 
         ALL_DATABASES = [
-            "europe_pmc", "pubmed", "semantic_scholar", "biorxiv", "arxiv",
-            "google_scholar", "scopus", "wos", "elsevier", "springer",
+            "europe_pmc", "pubmed", "semantic_scholar", "crossref", "biorxiv", "arxiv",
+            "google_scholar", "elsevier", "springer",
         ]
 
         async def _safe_search(db_name):
@@ -159,10 +157,8 @@ class LiteratureSearch(ApiHandler):
                     papers, _ = await self._search_arxiv(query, max_per_db)
                 elif db_name == "google_scholar":
                     papers, _ = await self._search_google_scholar(query, max_per_db)
-                elif db_name == "scopus":
-                    papers, _ = await self._search_scopus(query, max_per_db)
-                elif db_name == "wos":
-                    papers, _ = await self._search_wos(query, max_per_db)
+                elif db_name == "crossref":
+                    papers, _ = await self._search_crossref_unfiltered(query, max_per_db, "CrossRef")
                 elif db_name == "elsevier":
                     papers, _ = await self._search_elsevier(query, max_per_db)
                 elif db_name == "springer":

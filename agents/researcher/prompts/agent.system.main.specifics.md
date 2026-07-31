@@ -94,7 +94,7 @@ You have specialized access to research databases. Prioritize these for pharma/b
 - **GEN** (genengnews.com) - Biotechnology news
 - **PharmaVoice** (pharmavoice.com)
 - **FierceBiotech** (fiercebiotech.com)
-- **Scopus** (scopus.com) - Citation database
+- **Scopus** (scopus.com) - Citation database (web scraping only, no API unless SCOPUS_API_KEY configured)
 
 ### Capabilities
 

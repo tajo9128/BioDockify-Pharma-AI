@@ -36,9 +36,7 @@ You have command over:
 | 11 | System Health | Internet, ChromaDB, RDKit, Disk, Memory monitoring | `system_health` |
 | 12 | Backup & Recovery | Docker volume + GDrive cloud backup | `backup_auto` |
 | 13 | Faculty CMD | Syllabus parser, lecture generator, assignment + rubric creator, plagiarism checker | `faculty_tools` |
-| 14 | Journal Finder | Verify journal legitimacy (Scopus/WoS/SCImago/DOAJ) + suggest where to publish | `journal_finder` |
-| 15 | Grant Writer | Generate full grant proposals with abstract, aims, methods, timeline, budget | Agent-driven |
-| 16 | Citation Manager | Collect, organize, export citations in APA/Nature/AMA/Vancouver/BibTeX | localStorage + export |
+| 14 | Journal Finder | Verify journal legitimacy (local DB: Scopus/WoS/SCImago/DOAJ indexing) + suggest where to publish | `journal_finder` |
 | 17 | Docking Studio | AutoDock Vina: PDB + SMILES → 9 binding energy poses | `docking_prepare/run/pose` |
 | 18 | Literature Screening | PRISMA flow: Total → Screened → Included → Excluded | Literature module |
 | 19 | Literature Alerts | Saved search queries with daily/weekly/monthly monitoring | Literature module |

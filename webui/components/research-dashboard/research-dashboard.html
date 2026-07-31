@@ -149,7 +149,7 @@
     <div x-show="$store.researchDashboard.activeTab === 'collect'" class="rd-tab-content">
       <div class="rd-card hero">
         <h4>Deep Research — Bulk Source Collection</h4>
-        <p class="rd-hero-desc">Collect thousands of sources from 10 databases · Scan for relevance · Store to Knowledge Base</p>
+        <p class="rd-hero-desc">Collect sources from PubMed, Europe PMC, Semantic Scholar, CrossRef, OpenAlex, arXiv, bioRxiv · Scan · Store to KB</p>
         <textarea x-model="$store.researchDashboard.drTopic" placeholder="Research topic..." class="rd-textarea" rows="2"></textarea>
         <div class="rd-new-row" style="margin-bottom:6px">
           <input type="number" x-model="$store.researchDashboard.drMaxSources" placeholder="Max sources" class="rd-input" style="flex:none;width:100px" min="50" max="5000" />
@@ -157,7 +157,7 @@
           <input type="text" x-model="$store.researchDashboard.drYearTo" placeholder="To year" class="rd-input" style="flex:none;width:80px" />
         </div>
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
-          <template x-for="db in ['pubmed','semantic_scholar','crossref','openalex','arxiv','europe_pmc','biorxiv','google_scholar','scopus','springer']" :key="db">
+          <template x-for="db in ['pubmed','europe_pmc','semantic_scholar','crossref','openalex','arxiv','biorxiv','google_scholar','springer']" :key="db">
             <button class="rd-chip" :class="{active: $store.researchDashboard.drDatabases.includes(db)}" @click="$store.researchDashboard.drToggleDb(db)" x-text="db.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())"></button>
           </template>
         </div>
@@ -231,7 +231,7 @@
 
     <!-- Literature Tab -->
     <div x-show="$store.researchDashboard.activeTab === 'literature'" class="rd-tab-content">
-      <div class="rd-card"><h4>Literature Search</h4><p class="rd-hero-desc">PubMed, Semantic Scholar, Scopus, Google Scholar — 10 databases. Full screening, alerts, NER, hypothesis generation.</p></div>
+              <div class="rd-card"><h4>Literature Search</h4><p class="rd-hero-desc">PubMed, Europe PMC, Semantic Scholar, CrossRef, OpenAlex — 9 open databases. Full screening, NER, hypothesis generation.</p></div>
       <x-component path="literature/literature-modal.html"></x-component>
     </div>
 

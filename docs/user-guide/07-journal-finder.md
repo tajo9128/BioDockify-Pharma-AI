@@ -1,7 +1,7 @@
 # Chapter 7: Journal Finder
 
 ## 7.1 Overview
-The Journal Finder contains 36,145 Scopus/WoS journals with deep research capabilities, hijacked journal detection, and fake website analysis.
+The Journal Finder contains 36,145 journals with indexing data (Scopus/WoS/SCImago/DOAJ), hijacked journal detection, and fake website analysis.
 
 ### Access Path
 **All Tools → Journal Finder** (or click ✅ icon)
@@ -17,14 +17,14 @@ Enter journal name + optional ISSN → **Verify**:
 - **PREDATORY** (red) — predatory flags detected
 - **UNVERIFIED** (yellow) — no verification possible
 
-Checks: Scopus API, Clarivate MJL, SCImago, DOAJ, Predatory pattern database, Hijacked journal database
+Checks: Local DB (Scopus/WoS indexing as of Mar 2025), DOAJ, Predatory pattern database, Hijacked journal database
 
 ---
 
 ## 7.3 Search DB Tab
 Search 36,145 journals with filters:
-- **Scopus** — Scopus-indexed only
-- **WoS** — Web of Science indexed only
+- **Scopus** — Scopus-indexed only (local DB, last updated Mar 2025)
+- **WoS** — Web of Science indexed only (local DB, last updated Mar 2024)
 - **Open Access** — DOAJ-listed only
 - **Subject** — filter by ASJC codes or subject keywords
 
