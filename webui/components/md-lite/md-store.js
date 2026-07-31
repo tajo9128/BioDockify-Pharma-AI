@@ -95,7 +95,12 @@ Alpine.data("mdLite", () => ({
         if (this._ligandContent) p.ligand_sdf = this._ligandContent;
       } else if (this.inputMethod === "docking" && this.dockingJob) {
         const r = await callJsonApi("md_lite", { action: "import_docking", docking_job_id: this.dockingJob });
-        this.loading = false; return;
+        if (r.error) { this.errorMessage = r.error; this.loading = false; return; }
+        // Import copies docking files — now prepare the system
+        this.jobId = r.job_id;
+        this.liveLog.push(`Docking files imported (job ${r.job_id}). Preparing...`);
+        p = { action: "prepare", job_id: r.job_id, forcefield: this.settings.forcefield,
+              temperature: this.settings.temperature, platform: this.settings.platform };
       }
       const r = await callJsonApi("md_lite", p);
       if (r.status === "ok") { this.jobId = r.job_id; this.step = 2; this.liveLog.push(`Minimization complete · ${r.min_energy_kjmol} kJ/mol`); }

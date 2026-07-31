@@ -235,10 +235,14 @@ class MDLite(ApiHandler):
         try:
             from modules.md_lite.workflow import MDWorkflow
             wf = MDWorkflow(job_dir)
-            pdb = os.path.join(job_dir, "complex.pdb") if os.path.exists(os.path.join(job_dir, "complex.pdb")) else os.path.join(job_dir, "protein.pdb")
-            if not os.path.exists(pdb):
-                pdb = os.path.join(job_dir, "prepared.pdb")
-            if not os.path.exists(pdb):
+            # Prefer prepared files over raw (prepared has hydrogens, fixed residues)
+            pdb = None
+            for candidate in ["prepared_complex.pdb", "prepared.pdb", "complex.pdb", "protein.pdb"]:
+                path = os.path.join(job_dir, candidate)
+                if os.path.exists(path):
+                    pdb = path
+                    break
+            if not pdb:
                 return {"status": "error", "error": "No PDB found. Run prepare first."}
 
             _write_status(job_dir, "starting", {"phase": "starting"})
@@ -373,8 +377,10 @@ class MDLite(ApiHandler):
             shutil.copy(protein_src, os.path.join(new_dir, "protein.pdb"))
         if os.path.exists(ligand_src):
             shutil.copy(ligand_src, os.path.join(new_dir, "docked_ligand.pdbqt"))
+
+        _write_status(new_job, "imported", {"phase": "imported", "docking_job_id": job_id})
         return {"status": "ok", "job_id": new_job, "imported_from": job_id,
-                "hint": "Files imported. Run prepare to minimize the system."}
+                "next_step": f"Call action='prepare' with job_id='{new_job}' to prepare the system for MD"}
 
     async def _analyze_advanced(self, input):
         """Run publication-grade trajectory analysis via MDAnalysis.

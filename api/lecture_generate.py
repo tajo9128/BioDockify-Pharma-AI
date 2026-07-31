@@ -18,12 +18,29 @@ class LectureGenerate(ApiHandler):
             week_info = {"week": 1, "topic": topic, "duration": duration, "level": level}
             resources = {"level": level}
 
-            lecture = gen.generate_lecture_notes(topic, week_info, resources)
+            raw = gen.generate_lecture_notes(topic, week_info, resources)
 
-            # Ensure lecture is a dict (some generators return strings)
-            if isinstance(lecture, str):
-                lecture = {"title": topic, "sections": [{"title": "Content", "content": lecture}]}
-            elif not isinstance(lecture, dict):
+            # Reshape generator output to UI-expected format
+            # Generator returns: {topic, week, content: {introduction, learning_objectives, ...}}
+            # UI expects: {title, sections: [{title, content}], learning_objectives}
+            if isinstance(raw, str):
+                lecture = {"title": topic, "sections": [{"title": "Content", "content": raw}]}
+            elif isinstance(raw, dict) and "content" in raw and isinstance(raw["content"], dict):
+                content = raw["content"]
+                sections = []
+                for key, val in content.items():
+                    if isinstance(val, str) and val.strip():
+                        sections.append({"title": key.replace("_", " ").title(), "content": val})
+                    elif isinstance(val, list):
+                        sections.append({"title": key.replace("_", " ").title(), "content": "\n".join(str(v) for v in val)})
+                lecture = {
+                    "title": raw.get("topic", topic),
+                    "sections": sections,
+                    "learning_objectives": content.get("learning_objectives", []),
+                }
+            elif isinstance(raw, dict):
+                lecture = raw
+            else:
                 lecture = {"title": topic, "sections": []}
 
             # Homework and practical: generate from lecture content (no dedicated methods exist)
