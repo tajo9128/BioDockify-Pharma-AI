@@ -66,12 +66,13 @@ def _store_entry(category: str, title: str, content: str, tags: str = "", source
     cat_dir = os.path.join(KB_DIR, category)
     os.makedirs(cat_dir, exist_ok=True)
 
-    # Create filename from title
+    # Create filename from title + timestamp (prevents same-title overwrite & ghost index rows)
     safe_title = "".join(c for c in title[:50] if c.isalnum() or c in " _-").strip().replace(" ", "_")
     if not safe_title:
-        safe_title = f"entry_{int(time.time())}"
-    filepath = os.path.join(cat_dir, f"{safe_title}.md")
-    docx_path = os.path.join(cat_dir, f"{safe_title}.docx")
+        safe_title = "entry"
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    filepath = os.path.join(cat_dir, f"{safe_title}_{timestamp}.md")
+    docx_path = os.path.join(cat_dir, f"{safe_title}_{timestamp}.docx")
 
     # Write .md (fast read format)
     with open(filepath, "w", encoding="utf-8") as f:
@@ -117,7 +118,14 @@ def _store_entry(category: str, title: str, content: str, tags: str = "", source
             metadatas = [{"source": title, "category": category, "tags": tags}] * len(chunks)
             add_fn = getattr(store, "add_documents", None) or getattr(store, "add_texts", None)
             if add_fn and chunks:
-                add_fn(chunks, metadatas)
+                coro = add_fn(chunks, metadatas)
+                # add_documents is async — await if in async context, else schedule
+                import asyncio
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(coro)
+                except RuntimeError:
+                    asyncio.run(coro)
     except Exception as e:
         log.debug(f"Vector indexing skipped: {e}")
 
@@ -334,10 +342,24 @@ class KnowledgeHandler(ApiHandler):
 
     @classmethod
     def requires_auth(cls) -> bool:
-        return False  # KB listing/reading is public; writing actions handle their own auth
+        return False  # KB listing/reading is public; writing actions are gated below
+
+    # Actions that modify data — require auth
+    _WRITE_ACTIONS = {"store", "import", "import_files", "reindex",
+                      "upload", "delete_entry", "create_notebook",
+                      "delete_notebook", "add_source_to_notebook",
+                      "remove_source_from_notebook", "add_note",
+                      "delete_note", "create_transformation", "run_transformation"}
 
     async def process(self, input: dict, request: Request) -> dict | Response:
         action = input.get("action", "query")
+
+        # Gate write actions behind auth
+        if action in self._WRITE_ACTIONS:
+            from helpers import login
+            from flask import session
+            if login.get_credentials_hash() and session.get("authentication") != login.get_credentials_hash():
+                return {"error": "Authentication required for write operations", "status": 403}
 
         if action == "query":
             return await self._query(input)
@@ -655,7 +677,13 @@ class KnowledgeHandler(ApiHandler):
                                     metadatas = [{"doc_id": filename, "section": c.get("section_title", ""), "category": category} for c in chunks]
                                     add_fn = getattr(store, "add_documents", None) or getattr(store, "add_texts", None)
                                     if add_fn:
-                                        add_fn(texts, metadatas)
+                                        coro = add_fn(texts, metadatas)
+                                        import asyncio
+                                        try:
+                                            loop = asyncio.get_running_loop()
+                                            loop.create_task(coro)
+                                        except RuntimeError:
+                                            asyncio.run(coro)
                                         chunked += len(chunks)
                             except Exception:
                                 pass
@@ -854,20 +882,17 @@ class KnowledgeHandler(ApiHandler):
         """Serve a DOCX file for download."""
         filepath = input.get("file", "")
         if not filepath or not os.path.exists(filepath):
-            return Response(status=404, body="File not found")
+            return Response(response="File not found", status=404, mimetype="text/plain")
 
         filename = os.path.basename(filepath)
         with open(filepath, "rb") as f:
             content = f.read()
 
         return Response(
+            response=content,
             status=200,
-            body=content,
-            headers={
-                "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                "Content-Disposition": f'attachment; filename="{filename}"',
-                "Content-Length": str(len(content)),
-            },
+            mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
     # ═══════════════════════════════════════════════════════════════
