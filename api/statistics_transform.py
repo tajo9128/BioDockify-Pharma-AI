@@ -23,17 +23,33 @@ def _safe_numeric(values):
 
 
 def _compute_variable(data, formula, columns):
-    """Compute a new variable from an expression like 'col_a + col_b * 2'."""
+    """Compute a new variable from an expression like 'col_a + col_b * 2'.
+
+    Uses a safe evaluator — only arithmetic on column arrays is allowed.
+    No imports, no attribute access, no function calls beyond np.*.
+    """
     try:
         env = {}
         for i, col in enumerate(columns):
             if i < data.shape[1]:
                 env[col] = data[:, i]
-        # Also support generic names
         for i in range(data.shape[1]):
             env[f"col_{i}"] = data[:, i]
-        env["np"] = np
-        result = eval(formula, {"__builtins__": {}}, {**env, "np": np})
+        # Allow only safe numpy operations
+        safe_np = {
+            "abs": np.abs, "log": np.log, "log10": np.log10, "sqrt": np.sqrt,
+            "sin": np.sin, "cos": np.cos, "tan": np.tan, "exp": np.exp,
+            "where": np.where, "clip": np.clip, "nan": np.nan,
+            "mean": np.mean, "std": np.std, "min": np.min, "max": np.max,
+        }
+        env.update(safe_np)
+        # Use compile+eval with restricted builtins — no imports, no getattr
+        code = compile(formula, "<formula>", "eval")
+        # Disallow attribute access (prevents np.__class__.__bases__ etc.)
+        for node in __import__('ast').walk(code):
+            if isinstance(node, __import__('ast').Attribute):
+                return {"error": "Attribute access not allowed in formulas. Use column names and numpy functions (abs, log, sqrt, etc.)."}
+        result = eval(code, {"__builtins__": {}}, env)
         return np.asarray(result, dtype=float).tolist()
     except Exception as e:
         return {"error": f"Formula evaluation failed: {e}"}

@@ -56,14 +56,10 @@ def _query_db(query: str = "", scopus: bool = None, wos: bool = None, oa: bool =
         conditions = []
         params = []
         if query:
-            if fts:
-                conditions.append("(title LIKE ? OR issn LIKE ? OR eissn LIKE ?)")
-                like = f"%{query}%"
-                params.extend([like, like, like])
-            else:
-                like = f"%{query}%"
-                conditions.append("title LIKE ?")
-                params.append(like)
+            like = f"%{query}%"
+            # Always search title + ISSN (ISSN typed in search box must match)
+            conditions.append("(title LIKE ? OR issn LIKE ? OR eissn LIKE ?)")
+            params.extend([like, like, like])
         if scopus is True:
             conditions.append("scopus_indexed = 1")
         elif scopus is False:

@@ -578,8 +578,10 @@ class EnhancedPharmacophore:
                     d_ik = np.linalg.norm(pi - pk)
                     d_jk = np.linalg.norm(pj - pk)
 
-                    # Hash feature types + distances into bit
-                    type_hash = hash((fi["family"], fj["family"], fk["family"]))
+                    # Hash feature types + distances into bit (stable across processes)
+                    import hashlib
+                    type_key = f"{fi['family']}:{fj['family']}:{fk['family']}"
+                    type_hash = int(hashlib.md5(type_key.encode()).hexdigest()[:8], 16)
                     dist_hash = int(d_ij * 10 + d_ik * 10 + d_jk * 10)
                     combined = type_hash + dist_hash
 
