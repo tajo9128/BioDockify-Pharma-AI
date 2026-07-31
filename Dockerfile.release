@@ -2,9 +2,9 @@ FROM tajo9128/biodockify-pharma-ai:v7.0.7
 
 COPY . /a0/
 
-# ─── Override stale /exe/ scripts from base image (e.g. dependency-free event listener) ───
-COPY docker/run/fs/exe/ /exe/
-RUN chmod +x /exe/*.sh /exe/*.py
+# ─── Override stale event listener from base image (dependency-free, no supervisor.childutils) ───
+COPY docker/run/fs/exe/supervisor_event_listener.py /exe/supervisor_event_listener.py
+RUN chmod +x /exe/supervisor_event_listener.py
 
 # ─── Consolidate all persistent data under /a0/usr (single volume) ───
 RUN mkdir -p /a0/usr/data /a0/usr/.a0proj && \
