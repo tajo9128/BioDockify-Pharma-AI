@@ -379,9 +379,35 @@ def get_git_info():
     # Get the current working directory (assuming the repo is in the same folder as the script)
     repo_path = files.get_base_dir()
 
+    # PRIMARY: read version_info.txt (works in Docker where .git/ is excluded by .dockerignore)
+    version_file = os.path.join(repo_path, "version_info.txt")
+    version_from_file = ""
+    if os.path.isfile(version_file):
+        try:
+            with open(version_file, "r", encoding="utf-8") as f:
+                version_from_file = f.read().strip()
+        except Exception:
+            pass
+
+    # SECONDARY: try git (works in local dev where .git/ exists)
     state = get_repo_release_info(repo_path)
     if not state.is_git_repo:
+        # No git repo (Docker) — use version_info.txt
+        if version_from_file:
+            return {
+                "branch": "main",
+                "commit_hash": "",
+                "commit_time": "",
+                "tag": f"v{version_from_file}" if not version_from_file.startswith("v") else version_from_file,
+                "short_tag": f"v{version_from_file}" if not version_from_file.startswith("v") else version_from_file,
+                "version": version_from_file,
+            }
         raise ValueError(state.error or f"Repository at {repo_path} is not usable.")
+
+    # Git available — prefer version_info.txt if it's more recent than the latest tag
+    git_version = state.release.version if state.release else ""
+    # Use version_info.txt if it exists (it's the single source of truth for CI)
+    version = version_from_file if version_from_file else git_version
 
     return {
         "branch": state.branch,
@@ -389,7 +415,7 @@ def get_git_info():
         "commit_time": state.head.committed_at if state.head else "",
         "tag": state.release.tag if state.release else "",
         "short_tag": state.release.short_tag if state.release else "",
-        "version": state.release.version if state.release else "",
+        "version": version,
     }
 
 def get_version():
