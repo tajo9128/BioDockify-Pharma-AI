@@ -5,45 +5,29 @@
     import { callJsonApi } from "/js/api.js";
     export const store = createStore("clinicalModal", {
       activeTab: "interactions", loading: false, error: "", result: null,
-      // Drug interaction
       diDrug1: "", diDrug2: "",
-      // TDM
       tdmDrug: "", tdmDose: "", tdmInterval: "12", tdmHalfLife: "", tdmTarget: "", tdmMeasured: "",
-      // Renal
       renalDrug: "", renalScr: "", renalAge: "50", renalSex: "male", renalDose: "",
-      // Naranjo
       naranjoAnswers: Array(10).fill("unknown"),
-      async checkInteraction() {
-        if (!this.diDrug1 || !this.diDrug2) return;
-        this.loading = true; this.error = "";
-        try {
-          this.result = await callJsonApi("clinical", { action: "drug_interaction", drug1: this.diDrug1, drug2: this.diDrug2 });
-        } catch(e) { this.error = e.message; }
-        this.loading = false;
-      },
-      async runTDM() {
-        if (!this.tdmDrug || !this.tdmDose) return;
-        this.loading = true; this.error = "";
-        try {
-          this.result = await callJsonApi("clinical", { action: "tdm", drug: this.tdmDrug, dose_mg: parseFloat(this.tdmDose), interval_hr: parseFloat(this.tdmInterval), half_life_hr: parseFloat(this.tdmHalfLife) || 0, target_trough: parseFloat(this.tdmTarget) || 0, measured_trough: parseFloat(this.tdmMeasured) || 0 });
-        } catch(e) { this.error = e.message; }
-        this.loading = false;
-      },
-      async runRenal() {
-        if (!this.renalScr) return;
-        this.loading = true; this.error = "";
-        try {
-          this.result = await callJsonApi("clinical", { action: "renal_adjust", drug: this.renalDrug, serum_creatinine_mg_dl: parseFloat(this.renalScr), age: parseInt(this.renalAge), sex: this.renalSex, current_dose_mg: parseFloat(this.renalDose) || 0 });
-        } catch(e) { this.error = e.message; }
-        this.loading = false;
-      },
-      async runNaranjo() {
-        this.loading = true; this.error = "";
-        try {
-          this.result = await callJsonApi("clinical", { action: "naranjo", answers: this.naranjoAnswers });
-        } catch(e) { this.error = e.message; }
-        this.loading = false;
-      }
+      // Hepatic
+      hepDrug: "", hepBilirubin: "", hepAlbumin: "", hepInr: "", hepAscites: "none", hepEncephalopathy: "none",
+      // CKD-EPI
+      ckdScr: "", ckdAge: "50", ckdSex: "male", ckdRace: "other",
+      // Vanco AUC
+      vancoDose: "", vancoInterval: "12", vancoWeight: "70", vancoScr: "1.0", vancoAge: "50", vancoSex: "male", vancoMeasuredTrough: "",
+      // Beers
+      beersAge: "65", beersDrugs: "",
+      // STOPP/START
+      stoppAge: "", stoppConditions: "", stoppDrugs: "",
+      async checkInteraction() { if (!this.diDrug1 || !this.diDrug2) return; this.loading = true; this.error = ""; try { this.result = await callJsonApi("clinical", { action: "drug_interaction", drug1: this.diDrug1, drug2: this.diDrug2 }); } catch(e) { this.error = e.message; } this.loading = false; },
+      async runTDM() { if (!this.tdmDrug || !this.tdmDose) return; this.loading = true; this.error = ""; try { this.result = await callJsonApi("clinical", { action: "tdm", drug: this.tdmDrug, dose_mg: parseFloat(this.tdmDose), interval_hr: parseFloat(this.tdmInterval), half_life_hr: parseFloat(this.tdmHalfLife) || 0, target_trough: parseFloat(this.tdmTarget) || 0, measured_trough: parseFloat(this.tdmMeasured) || 0 }); } catch(e) { this.error = e.message; } this.loading = false; },
+      async runRenal() { if (!this.renalScr) return; this.loading = true; this.error = ""; try { this.result = await callJsonApi("clinical", { action: "renal_adjust", drug: this.renalDrug, serum_creatinine_mg_dl: parseFloat(this.renalScr), age: parseInt(this.renalAge), sex: this.renalSex, current_dose_mg: parseFloat(this.renalDose) || 0 }); } catch(e) { this.error = e.message; } this.loading = false; },
+      async runNaranjo() { this.loading = true; this.error = ""; try { this.result = await callJsonApi("clinical", { action: "naranjo", answers: this.naranjoAnswers }); } catch(e) { this.error = e.message; } this.loading = false; },
+      async runHepatic() { if (!this.hepDrug) return; this.loading = true; this.error = ""; try { this.result = await callJsonApi("clinical", { action: "hepatic_adjust", drug: this.hepDrug, bilirubin: parseFloat(this.hepBilirubin) || 0, albumin: parseFloat(this.hepAlbumin) || 0, inr: parseFloat(this.hepInr) || 0, ascites: this.hepAscites, encephalopathy: this.hepEncephalopathy }); } catch(e) { this.error = e.message; } this.loading = false; },
+      async runCkdEpi() { if (!this.ckdScr) return; this.loading = true; this.error = ""; try { this.result = await callJsonApi("clinical", { action: "ckd_epi", serum_creatinine_mg_dl: parseFloat(this.ckdScr), age: parseInt(this.ckdAge), sex: this.ckdSex, race: this.ckdRace }); } catch(e) { this.error = e.message; } this.loading = false; },
+      async runVancoAuc() { if (!this.vancoDose) return; this.loading = true; this.error = ""; try { this.result = await callJsonApi("clinical", { action: "vancomycin_auc", dose_mg: parseFloat(this.vancoDose), interval_hr: parseFloat(this.vancoInterval), weight_kg: parseFloat(this.vancoWeight), serum_creatinine_mg_dl: parseFloat(this.vancoScr), age: parseInt(this.vancoAge), sex: this.vancoSex, measured_trough: parseFloat(this.vancoMeasuredTrough) || 0 }); } catch(e) { this.error = e.message; } this.loading = false; },
+      async runBeers() { if (!this.beersDrugs) return; this.loading = true; this.error = ""; try { this.result = await callJsonApi("clinical", { action: "beers_criteria", age: parseInt(this.beersAge), drugs: this.beersDrugs.split(",").map(d => d.trim()).filter(d => d) }); } catch(e) { this.error = e.message; } this.loading = false; },
+      async runStoppStart() { if (!this.stoppDrugs) return; this.loading = true; this.error = ""; try { this.result = await callJsonApi("clinical", { action: "stopp_start", age: parseInt(this.stoppAge) || 65, conditions: this.stoppConditions.split(",").map(c => c.trim()).filter(c => c), drugs: this.stoppDrugs.split(",").map(d => d.trim()).filter(d => d) }); } catch(e) { this.error = e.message; } this.loading = false; },
     });
   </script>
 </head>
@@ -56,8 +40,13 @@
     <div class="dp-tabs">
       <button class="dp-tab" :class="{active:$store.clinicalModal.activeTab==='interactions'}" @click="$store.clinicalModal.activeTab='interactions'">Interactions</button>
       <button class="dp-tab" :class="{active:$store.clinicalModal.activeTab==='tdm'}" @click="$store.clinicalModal.activeTab='tdm'">TDM</button>
-      <button class="dp-tab" :class="{active:$store.clinicalModal.activeTab==='renal'}" @click="$store.clinicalModal.activeTab='renal'">Renal Dose</button>
-      <button class="dp-tab" :class="{active:$store.clinicalModal.activeTab==='naranjo'}" @click="$store.clinicalModal.activeTab='naranjo'">Naranjo ADR</button>
+      <button class="dp-tab" :class="{active:$store.clinicalModal.activeTab==='renal'}" @click="$store.clinicalModal.activeTab='renal'">Renal</button>
+      <button class="dp-tab" :class="{active:$store.clinicalModal.activeTab==='hepatic'}" @click="$store.clinicalModal.activeTab='hepatic'">Hepatic</button>
+      <button class="dp-tab" :class="{active:$store.clinicalModal.activeTab==='ckd_epi'}" @click="$store.clinicalModal.activeTab='ckd_epi'">CKD-EPI</button>
+      <button class="dp-tab" :class="{active:$store.clinicalModal.activeTab==='vanco'}" @click="$store.clinicalModal.activeTab='vanco'">Vanco AUC</button>
+      <button class="dp-tab" :class="{active:$store.clinicalModal.activeTab==='beers'}" @click="$store.clinicalModal.activeTab='beers'">Beers</button>
+      <button class="dp-tab" :class="{active:$store.clinicalModal.activeTab==='stopp'}" @click="$store.clinicalModal.activeTab='stopp'">STOPP/START</button>
+      <button class="dp-tab" :class="{active:$store.clinicalModal.activeTab==='naranjo'}" @click="$store.clinicalModal.activeTab='naranjo'">Naranjo</button>
     </div>
     <div class="dp-body">
       <div x-show="$store.clinicalModal.error" class="dp-error" x-text="$store.clinicalModal.error"></div>
@@ -143,6 +132,108 @@
             <div class="dp-result">
               <div class="dp-stat"><span class="dp-stat-label">Score</span><span class="dp-stat-val" x-text="$store.clinicalModal.result.total_score"></span></div>
               <div class="dp-stat"><span class="dp-stat-label">Category</span><span class="dp-stat-val" x-text="$store.clinicalModal.result.category"></span></div>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- Hepatic -->
+      <div x-show="$store.clinicalModal.activeTab==='hepatic'">
+        <div class="dp-card">
+          <h3>Hepatic Dose Adjustment (Child-Pugh)</h3>
+          <div class="dp-grid">
+            <div><label class="dp-label">Drug:</label><input type="text" x-model="$store.clinicalModal.hepDrug" class="dp-input" placeholder="morphine" /></div>
+            <div><label class="dp-label">Bilirubin (mg/dL):</label><input type="number" x-model="$store.clinicalModal.hepBilirubin" class="dp-input" step="0.1" /></div>
+            <div><label class="dp-label">Albumin (g/dL):</label><input type="number" x-model="$store.clinicalModal.hepAlbumin" class="dp-input" step="0.1" /></div>
+            <div><label class="dp-label">INR:</label><input type="number" x-model="$store.clinicalModal.hepInr" class="dp-input" step="0.1" /></div>
+            <div><label class="dp-label">Ascites:</label><select x-model="$store.clinicalModal.hepAscites" class="dp-input"><option value="none">None</option><option value="mild">Mild</option><option value="moderate">Moderate-Severe</option></select></div>
+            <div><label class="dp-label">Encephalopathy:</label><select x-model="$store.clinicalModal.hepEncephalopathy" class="dp-input"><option value="none">None</option><option value="grade12">Grade I-II</option><option value="grade34">Grade III-IV</option></select></div>
+          </div>
+          <button class="dp-btn" @click="$store.clinicalModal.runHepatic()" :disabled="$store.clinicalModal.loading">Calculate</button>
+          <template x-if="$store.clinicalModal.result?.child_pugh_score !== undefined">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">Child-Pugh Score</span><span class="dp-stat-val" x-text="$store.clinicalModal.result.child_pugh_score"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Class</span><span class="dp-stat-val" x-text="$store.clinicalModal.result.child_pugh_class"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Recommendation</span><span class="dp-stat-val" x-text="$store.clinicalModal.result.recommendation || $store.clinicalModal.result.adjustment"></span></div>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- CKD-EPI -->
+      <div x-show="$store.clinicalModal.activeTab==='ckd_epi'">
+        <div class="dp-card">
+          <h3>CKD-EPI 2021 GFR Calculator</h3>
+          <div class="dp-grid">
+            <div><label class="dp-label">Serum Creatinine (mg/dL):</label><input type="number" x-model="$store.clinicalModal.ckdScr" class="dp-input" placeholder="1.2" step="0.1" /></div>
+            <div><label class="dp-label">Age:</label><input type="number" x-model="$store.clinicalModal.ckdAge" class="dp-input" value="50" /></div>
+            <div><label class="dp-label">Sex:</label><select x-model="$store.clinicalModal.ckdSex" class="dp-input"><option value="male">Male</option><option value="female">Female</option></select></div>
+          </div>
+          <button class="dp-btn" @click="$store.clinicalModal.runCkdEpi()" :disabled="$store.clinicalModal.loading">Calculate GFR</button>
+          <template x-if="$store.clinicalModal.result?.gfr_ml_min !== undefined">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">GFR</span><span class="dp-stat-val" x-text="$store.clinicalModal.result.gfr_ml_min + ' mL/min/1.73m²'"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">CKD Stage</span><span class="dp-stat-val" x-text="$store.clinicalModal.result.ckd_stage || $store.clinicalModal.result.stage"></span></div>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- Vanco AUC -->
+      <div x-show="$store.clinicalModal.activeTab==='vanco'">
+        <div class="dp-card">
+          <h3>Vancomycin AUC-Based Dosing</h3>
+          <div class="dp-grid">
+            <div><label class="dp-label">Dose (mg):</label><input type="number" x-model="$store.clinicalModal.vancoDose" class="dp-input" placeholder="1000" /></div>
+            <div><label class="dp-label">Interval (hr):</label><input type="number" x-model="$store.clinicalModal.vancoInterval" class="dp-input" value="12" /></div>
+            <div><label class="dp-label">Weight (kg):</label><input type="number" x-model="$store.clinicalModal.vancoWeight" class="dp-input" value="70" /></div>
+            <div><label class="dp-label">Serum Creatinine:</label><input type="number" x-model="$store.clinicalModal.vancoScr" class="dp-input" step="0.1" value="1.0" /></div>
+            <div><label class="dp-label">Age:</label><input type="number" x-model="$store.clinicalModal.vancoAge" class="dp-input" value="50" /></div>
+            <div><label class="dp-label">Measured trough (optional):</label><input type="number" x-model="$store.clinicalModal.vancoMeasuredTrough" class="dp-input" step="0.1" /></div>
+          </div>
+          <button class="dp-btn" @click="$store.clinicalModal.runVancoAuc()" :disabled="$store.clinicalModal.loading">Calculate AUC</button>
+          <template x-if="$store.clinicalModal.result?.auc_24 !== undefined || $store.clinicalModal.result?.estimated_auc !== undefined">
+            <div class="dp-result">
+              <div class="dp-stat"><span class="dp-stat-label">AUC₂₄</span><span class="dp-stat-val" x-text="($store.clinicalModal.result.auc_24 || $store.clinicalModal.result.estimated_auc) + ' mg·h/L'"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Target AUC</span><span class="dp-stat-val" x-text="($store.clinicalModal.result.target_auc || '400-600') + ' mg·h/L'"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Recommendation</span><span class="dp-stat-val" x-text="$store.clinicalModal.result.recommendation || $store.clinicalModal.result.adjustment"></span></div>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- Beers -->
+      <div x-show="$store.clinicalModal.activeTab==='beers'">
+        <div class="dp-card">
+          <h3>Beers Criteria Check (AGS 2023)</h3>
+          <div class="dp-grid">
+            <div><label class="dp-label">Patient Age:</label><input type="number" x-model="$store.clinicalModal.beersAge" class="dp-input" value="65" /></div>
+            <div><label class="dp-label">Drugs (comma-separated):</label><input type="text" x-model="$store.clinicalModal.beersDrugs" class="dp-input" placeholder="diazepam, diphenhydramine, omeprazole" /></div>
+          </div>
+          <button class="dp-btn" @click="$store.clinicalModal.runBeers()" :disabled="$store.clinicalModal.loading">Check Beers List</button>
+          <template x-if="$store.clinicalModal.result?.flagged_drugs || $store.clinicalModal.result?.alerts">
+            <div class="dp-result dp-danger">
+              <template x-for="d in ($store.clinicalModal.result.flagged_drugs || $store.clinicalModal.result.alerts || [])" :key="d.drug || d">
+                <div class="dp-stat"><span class="dp-stat-label" x-text="d.drug || d"></span><span class="dp-stat-val bad" x-text="d.reason || d.risk || 'Potentially inappropriate'"></span></div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- STOPP/START -->
+      <div x-show="$store.clinicalModal.activeTab==='stopp'">
+        <div class="dp-card">
+          <h3>STOPP/START Criteria (v2)</h3>
+          <div class="dp-grid">
+            <div><label class="dp-label">Patient Age:</label><input type="number" x-model="$store.clinicalModal.stoppAge" class="dp-input" placeholder="75" /></div>
+            <div><label class="dp-label">Conditions (comma-separated):</label><input type="text" x-model="$store.clinicalModal.stoppConditions" class="dp-input" placeholder="heart failure, CKD, falls" /></div>
+            <div style="grid-column:1/-1"><label class="dp-label">Current Drugs (comma-separated):</label><input type="text" x-model="$store.clinicalModal.stoppDrugs" class="dp-input" placeholder="aspirin, metformin, tramadol" /></div>
+          </div>
+          <button class="dp-btn" @click="$store.clinicalModal.runStoppStart()" :disabled="$store.clinicalModal.loading">Check STOPP/START</button>
+          <template x-if="$store.clinicalModal.result?.stopp_alerts || $store.clinicalModal.result?.start_suggestions">
+            <div class="dp-result">
+              <div x-show="$store.clinicalModal.result.stopp_alerts?.length" style="margin-bottom:6px"><strong style="color:#ff6b6b;font-size:0.65rem">STOPP (Consider Stopping):</strong>
+                <template x-for="a in ($store.clinicalModal.result.stopp_alerts || [])" :key="a.drug || a"><div class="dp-stat"><span class="dp-stat-label" x-text="a.drug || a"></span><span class="dp-stat-val bad" x-text="a.reason || a.criterion || 'Potentially inappropriate'"></span></div></template>
+              </div>
+              <div x-show="$store.clinicalModal.result.start_suggestions?.length"><strong style="color:#22c55e;font-size:0.65rem">START (Consider Adding):</strong>
+                <template x-for="s in ($store.clinicalModal.result.start_suggestions || [])" :key="s.drug || s"><div class="dp-stat"><span class="dp-stat-label" x-text="s.drug || s"></span><span class="dp-stat-val good" x-text="s.reason || s.indication || 'Omission detected'"></span></div></template>
+              </div>
             </div>
           </template>
         </div>

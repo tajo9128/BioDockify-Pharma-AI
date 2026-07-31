@@ -29,7 +29,7 @@ const defaultModules = [
   { id: "regulatory-enhanced", title: "Regulatory Affairs", icon: "gavel", component: "/components/regulatory-enhanced/regulatory-enhanced.html", order: 19, defaultWidth: 750, defaultHeight: 600 },
   { id: "pharmacology", title: "Pharmacology", icon: "monitor_heart", component: "/components/pharmacology/pharmacology.html", order: 20, defaultWidth: 750, defaultHeight: 600 },
   { id: "medicinal_chemistry", title: "Medicinal Chemistry", icon: "ring", component: "/components/medicinal_chemistry/medicinal_chemistry.html", order: 21, defaultWidth: 750, defaultHeight: 600 },
-  { id: "slides", title: "Slide Generator", icon: "slideshow", component: "/components/slides/slides.html", order: 22, defaultWidth: 700, defaultHeight: 550 },
+  { id: "slides", title: "Slide Generator", icon: "slideshow", component: "/components/slides/slides-modal.html", order: 22, defaultWidth: 700, defaultHeight: 550 },
 ];
 
 const model = {

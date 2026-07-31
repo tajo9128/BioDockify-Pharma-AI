@@ -15,6 +15,8 @@
       stTemps: "", stT90: "", stTarget: "25", stResult: null,
       // Excipients
       excCategory: "", excResult: null,
+      // DOE Optimize
+      doeObjective: "", doeFactors: "", doeResult: null,
       async runKinetics() {
         if (!this.kTime || !this.kRelease) return;
         this.loading = true; this.error = "";
@@ -70,6 +72,15 @@
           this.excResult = r;
         } catch(e) { this.error = e.message; }
         this.loading = false;
+      },
+      async runDoe() {
+        if (!this.doeObjective) return;
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("formulation", { action: "optimize", objective: this.doeObjective, factors: this.doeFactors });
+          this.doeResult = r;
+        } catch(e) { this.error = e.message; }
+        this.loading = false;
       }
     });
   </script>
@@ -85,6 +96,7 @@
       <button class="dp-tab" :class="{active:$store.formulationModal.activeTab==='f2'}" @click="$store.formulationModal.activeTab='f2'">Dissolution f2</button>
       <button class="dp-tab" :class="{active:$store.formulationModal.activeTab==='nano'}" @click="$store.formulationModal.activeTab='nano'">Nanoparticle</button>
       <button class="dp-tab" :class="{active:$store.formulationModal.activeTab==='stability'}" @click="$store.formulationModal.activeTab='stability'">Stability</button>
+      <button class="dp-tab" :class="{active:$store.formulationModal.activeTab==='doe'}" @click="$store.formulationModal.activeTab='doe'">DOE Optimize</button>
       <button class="dp-tab" :class="{active:$store.formulationModal.activeTab==='excipients'}" @click="$store.formulationModal.activeTab='excipients'">Excipients</button>
     </div>
     <div class="dp-body">
@@ -191,6 +203,24 @@
                   <div class="dp-exc-detail" x-text="exc.notes"></div>
                 </div>
               </template>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- DOE Optimize -->
+      <div x-show="$store.formulationModal.activeTab==='doe'">
+        <div class="dp-card">
+          <h3>Design of Experiments (DOE) Optimization</h3>
+          <div class="dp-grid">
+            <div style="grid-column:1/-1"><label class="dp-label">Objective:</label><input type="text" x-model="$store.formulationModal.doeObjective" class="dp-input" placeholder="e.g. maximize dissolution rate, minimize particle size" /></div>
+            <div style="grid-column:1/-1"><label class="dp-label">Factors (comma-separated):</label><input type="text" x-model="$store.formulationModal.doeFactors" class="dp-input" placeholder="polymer_concentration, surfactant_level, mixing_speed" /></div>
+          </div>
+          <button class="dp-btn" @click="$store.formulationModal.runDoe()" :disabled="$store.formulationModal.loading || !$store.formulationModal.doeObjective">Run DOE</button>
+          <template x-if="$store.formulationModal.doeResult">
+            <div class="dp-result">
+              <div x-show="$store.formulationModal.doeResult.design" class="dp-stat"><span class="dp-stat-label">Design</span><span class="dp-stat-val" x-text="$store.formulationModal.doeResult.design"></span></div>
+              <div x-show="$store.formulationModal.doeResult.optimal_conditions" class="dp-stat"><span class="dp-stat-label">Optimal</span><span class="dp-stat-val" x-text="JSON.stringify($store.formulationModal.doeResult.optimal_conditions)"></span></div>
+              <div x-show="$store.formulationModal.doeResult.recommendation" style="margin-top:6px;font-size:0.65rem" x-text="$store.formulationModal.doeResult.recommendation"></div>
             </div>
           </template>
         </div>
