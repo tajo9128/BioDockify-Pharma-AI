@@ -4,6 +4,7 @@ COPY . /a0/
 
 # ─── Override stale /exe/ scripts from base image (e.g. dependency-free event listener) ───
 COPY docker/run/fs/exe/ /exe/
+RUN chmod +x /exe/*.sh /exe/*.py
 
 # ─── Consolidate all persistent data under /a0/usr (single volume) ───
 RUN mkdir -p /a0/usr/data /a0/usr/.a0proj && \
