@@ -13,6 +13,17 @@ async def _async_urlopen(req, timeout=10):
     return await asyncio.to_thread(_fetch)
 
 
+def _sanitize(text: str) -> str:
+    """Escape LaTeX special characters."""
+    if not text:
+        return ""
+    for c, r in [("\\", "\\textbackslash "), ("&", "\\&"), ("%", "\\%"), ("$", "\\$"),
+                  ("#", "\\#"), ("_", "\\_"), ("{", "\\{"), ("}", "\\}"),
+                  ("~", "\\textasciitilde "), ("^", "\\textasciicircum ")]:
+        text = text.replace(c, r)
+    return text
+
+
 class WritingTools(ApiHandler):
     @classmethod
     def requires_auth(cls) -> bool:
@@ -26,7 +37,7 @@ class WritingTools(ApiHandler):
         if action == "literature-matrix":  return self._lit_matrix(input)
         if action == "prisma-flowchart":   return self._prisma_flowchart(input)
         if action == "faculty-review":     return self._faculty_review(input)
-        if action == "verify-citations":   return self._verify_citations(input)
+        if action == "verify-citations":   return await self._verify_citations(input)
         if action == "suggest-journals":   return self._suggest_journals(input)
         if action == "kb_sources":         return self._kb_sources(input)
         if action == "kb_categories":      return self._kb_categories(input)
@@ -271,10 +282,12 @@ class WritingTools(ApiHandler):
 
     def _gap_analysis(self, input: dict):
         topic = input.get("topic", "")
+        papers = input.get("papers", [])
         try:
             from nlp.gap_analyzer import PreclinicalGapAnalyzer
             analyzer = PreclinicalGapAnalyzer()
-            gaps = analyzer.detect_research_gaps([], topic=topic or "Pharmaceutical Research")
+            research_area = topic or "Pharmaceutical Research"
+            gaps = analyzer.detect_research_gaps(research_area, papers)
             report = analyzer.generate_gap_report(gaps, top_n=10)
             return {"status": "ok", "gaps": gaps[:10], "report": report}
         except ImportError:
@@ -320,15 +333,20 @@ class WritingTools(ApiHandler):
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
-    def _verify_citations(self, input: dict):
+    async def _verify_citations(self, input: dict):
         text = input.get("text", "")
         try:
-            from api.verification import extract_citations, verify_citation
-            cites = extract_citations(text)
+            from api.verification import _extract_citations, _verify_layer
+            cites = _extract_citations(text)
             results = []
             for c in cites:
-                v = verify_citation(c)
-                results.append({"citation": c, "verified": v.get("verified", False), "details": v})
+                v = {"verified": False, "details": {}}
+                for layer in range(1, 4):
+                    verified, detail, source = await _verify_layer(c, layer)
+                    if verified:
+                        v = {"verified": True, "source": source, "detail": detail}
+                        break
+                results.append({"citation": c, **v})
             verified = sum(1 for r in results if r["verified"])
             confidence = round(verified / max(len(results), 1), 2)
             return {"status": "ok", "confidence": confidence, "total": len(results), "verified": verified, "results": results}
@@ -864,21 +882,10 @@ class WritingTools(ApiHandler):
             pass
         return out
 
-
-def _sanitize(text: str) -> str:
-    if not text:
-        return ""
-    for c, r in [("\\", "\\textbackslash "), ("&", "\\&"), ("%", "\\%"), ("$", "\\$"),
-                  ("#", "\\#"), ("_", "\\_"), ("{", "\\{"), ("}", "\\}"),
-                  ("~", "\\textasciitilde "), ("^", "\\textasciicircum ")]:
-        text = text.replace(c, r)
-    return text
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Advanced Research Skills (v7.7.1+) — EQUATOR, AI Disclosure, PRISMA,
-# Peer Review Simulator, Integrity Gate
-# ═══════════════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════════════════
+    # Advanced Research Skills — EQUATOR, AI Disclosure, PRISMA,
+    # Peer Review Simulator, Integrity Gate
+    # ═══════════════════════════════════════════════════════════════════════════
 
     def _equator_checklist(self, input: dict) -> dict:
         """Skill 1: EQUATOR reporting guidelines compliance checklist.
