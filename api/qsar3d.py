@@ -1,11 +1,12 @@
 """3D-QSAR API — Molecular Interaction Fields + PLS regression.
 Based on Open3DQSAR + Py-CoMFA merged engine."""
 from helpers.api import ApiHandler, Request
-import os, json, uuid, logging, numpy as np
+from helpers import files
+import asyncio, os, json, uuid, logging, numpy as np
 from datetime import datetime
 
 log = logging.getLogger("qsar3d_api")
-MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data", "qsar3d_models")
+MODELS_DIR = files.get_abs_path("data/qsar3d_models")
 os.makedirs(MODELS_DIR, exist_ok=True)
 
 
@@ -56,7 +57,7 @@ class QSAR3DHandler(ApiHandler):
             ],
         }
     
-    def _build(self, input: dict):
+    async def _build(self, input: dict):
         """Build a 3D-QSAR model from SMILES + activity data."""
         smiles = input.get("smiles", [])
         activity = input.get("activity", [])
@@ -67,15 +68,16 @@ class QSAR3DHandler(ApiHandler):
         reference_smiles = input.get("reference_smiles", None)
         name = input.get("name", "3D-QSAR Model")
         mode = input.get("mode", "3d")
-        
+
         if not smiles or not activity:
             return {"error": "smiles and activity lists are required"}
         if len(smiles) < 10:
             return {"error": "Need at least 10 molecules for 3D-QSAR"}
         if len(smiles) != len(activity):
             return {"error": "SMILES and activity lists must have equal length"}
-        
-        try:
+
+        def _do_build():
+            try:
             from modules.qsar3d.builder import QSAR3DBuilder
             
             builder = QSAR3DBuilder(
@@ -144,11 +146,13 @@ class QSAR3DHandler(ApiHandler):
             except Exception:
                 pass
             return return_result
-        
-        except Exception as e:
-            log.error(f"[QSAR3D] Build failed: {e}", exc_info=True)
-            return {"error": f"Model build failed: {str(e)[:200]}"}
-    
+
+            except Exception as e:
+                log.error(f"[QSAR3D] Build failed: {e}", exc_info=True)
+                return {"error": f"Model build failed: {str(e)[:200]}"}
+
+        return await asyncio.to_thread(_do_build)
+
     def _predict(self, input: dict):
         """Predict activity for new molecules using a trained model."""
         model_id = input.get("model_id", "")
@@ -232,8 +236,9 @@ class QSAR3DHandler(ApiHandler):
 
         except Exception as e:
             log.error(f"[QSAR3D] Delete failed: {e}", exc_info=True)
+            return {"error": f"Failed to delete model: {str(e)[:200]}"}
 
-    def _ml_compare(self, input: dict):
+    async def _ml_compare(self, input: dict):
         """Train & compare 20+ ML models on molecular fingerprints or descriptors.
 
         Full Omixium QSAR pipeline with EDA, model comparison, actual vs predicted,
@@ -258,7 +263,8 @@ class QSAR3DHandler(ApiHandler):
         if len(smiles) < 20:
             return {"error": "Need at least 20 molecules for multi-model comparison"}
 
-        try:
+        def _do_ml_compare():
+          try:
             from modules.qsar3d.ml_models import (
                 generate_morgan_fingerprints, calculate_descriptors,
                 train_and_compare, get_feature_importance,
@@ -356,9 +362,11 @@ class QSAR3DHandler(ApiHandler):
 
             return response
 
-        except Exception as e:
+          except Exception as e:
             log.error(f"[QSAR] ML compare failed: {e}", exc_info=True)
             return {"error": f"ML comparison failed: {str(e)[:200]}"}
+
+        return await asyncio.to_thread(_do_ml_compare)
 
     def _fingerprint(self, input: dict):
         """Generate Morgan fingerprints for molecules.
@@ -433,4 +441,3 @@ class QSAR3DHandler(ApiHandler):
             }
         except Exception as e:
             return {"error": str(e)}
-            return {"error": f"Failed to delete model: {str(e)[:200]}"}
