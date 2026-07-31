@@ -1,6 +1,6 @@
 import { callJsonApi } from "/js/api.js";
 
-Alpine.data("mdLite", () => ({
+const mdLiteFactory = () => ({
   step: 1, jobId: null, loading: false, errorMessage: "", result: null,
   status: null, _pollTimer: null, _logPollTimer: null,
 
@@ -87,24 +87,64 @@ Alpine.data("mdLite", () => ({
   async prepare() {
     this.loading = true; this.errorMessage = ""; this.jobId = null; this.liveLog = [];
     try {
-      const p = { action: "prepare", forcefield: this.settings.forcefield, temperature: this.settings.temperature, platform: this.settings.platform };
+      // Docking import → prepare_complex (protein + docked ligand on disk)
+      if (this.inputMethod === "docking") {
+        if (!this.dockingJob) {
+          this.errorMessage = "Paste a docking job ID first";
+          this.loading = false;
+          return;
+        }
+        const imp = await callJsonApi("md_lite", { action: "import_docking", docking_job_id: this.dockingJob });
+        if (imp.status === "error" || imp.error) {
+          this.errorMessage = imp.error || "Import failed";
+          this.loading = false;
+          return;
+        }
+        this.jobId = imp.job_id;
+        this.liveLog.push(`Docking files imported (job ${imp.job_id}). Preparing complex...`);
+        const r = await callJsonApi("md_lite", {
+          action: "prepare_complex",
+          job_id: imp.job_id,
+          forcefield: this.settings.forcefield,
+          temperature: this.settings.temperature,
+          platform: this.settings.platform,
+        });
+        if (r.status === "ok") {
+          this.jobId = r.job_id || imp.job_id;
+          this.step = 2;
+          const atoms = r.total_atoms || ((r.protein_atoms || 0) + (r.ligand_atoms || 0));
+          this.liveLog.push(`Complex prepared · ${atoms || "?"} atoms`);
+        } else {
+          this.errorMessage = r.error || "Prepare failed after docking import";
+        }
+        this.loading = false;
+        return;
+      }
+
+      let p = {
+        action: "prepare",
+        forcefield: this.settings.forcefield,
+        temperature: this.settings.temperature,
+        platform: this.settings.platform,
+      };
       if (this.inputMethod === "complex" && this._complexContent) {
         p.complex_pdb = this._complexContent;
       } else if (this.inputMethod === "separate" && this._proteinContent) {
         p.protein_pdb = this._proteinContent;
         if (this._ligandContent) p.ligand_sdf = this._ligandContent;
-      } else if (this.inputMethod === "docking" && this.dockingJob) {
-        const r = await callJsonApi("md_lite", { action: "import_docking", docking_job_id: this.dockingJob });
-        if (r.error) { this.errorMessage = r.error; this.loading = false; return; }
-        // Import copies docking files — now prepare the system
-        this.jobId = r.job_id;
-        this.liveLog.push(`Docking files imported (job ${r.job_id}). Preparing...`);
-        p = { action: "prepare", job_id: r.job_id, forcefield: this.settings.forcefield,
-              temperature: this.settings.temperature, platform: this.settings.platform };
+      } else {
+        this.errorMessage = "Upload a PDB file first (complex or protein)";
+        this.loading = false;
+        return;
       }
       const r = await callJsonApi("md_lite", p);
-      if (r.status === "ok") { this.jobId = r.job_id; this.step = 2; this.liveLog.push(`Minimization complete · ${r.min_energy_kjmol} kJ/mol`); }
-      else { this.errorMessage = r.error || "Prepare failed"; }
+      if (r.status === "ok") {
+        this.jobId = r.job_id;
+        this.step = 2;
+        this.liveLog.push(`Minimization complete · ${r.min_energy_kjmol} kJ/mol`);
+      } else {
+        this.errorMessage = r.error || "Prepare failed";
+      }
     } catch (e) { this.errorMessage = "Error: " + (e.message || "API unavailable"); }
     this.loading = false;
   },
@@ -267,4 +307,12 @@ Alpine.data("mdLite", () => ({
     this._complexContent = null; this._proteinContent = null; this._ligandContent = null;
     this._complexName = ""; this._proteinName = ""; this._ligandName = "";
   },
-}));
+});
+
+function registerMdLite() {
+  if (globalThis.Alpine?.data) {
+    globalThis.Alpine.data("mdLite", mdLiteFactory);
+  }
+}
+if (globalThis.Alpine) registerMdLite();
+else document.addEventListener("alpine:init", registerMdLite);

@@ -145,16 +145,20 @@ def requires_loopback(f):
 
 def requires_auth(f):
     @wraps(f)
+    _auth_warned = False
     async def decorated(*args, **kwargs):
+        nonlocal _auth_warned
         from helpers import login
 
         user_pass_hash = login.get_credentials_hash()
         if not user_pass_hash:
-            import logging
-            logging.getLogger("api").warning(
-                "AUTH BYPASS: No password configured — auth-protected endpoint '%s' is open. "
-                "Set ROOT_PASSWORD in usr/.env or run prepare.py to secure.", f.__name__
-            )
+            if not _auth_warned:
+                _auth_warned = True
+                import logging
+                logging.getLogger("api").info(
+                    "No ROOT_PASSWORD set — auth-protected endpoints are open. "
+                    "Set ROOT_PASSWORD in usr/.env to secure."
+                )
             return await f(*args, **kwargs)
         if session.get("authentication") != user_pass_hash:
             return redirect(url_for("login_handler"))

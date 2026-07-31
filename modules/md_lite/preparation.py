@@ -267,7 +267,9 @@ def prepare_complex(protein_pdb: str, ligand_path: str,
             "output": output_path,
             "protein_atoms": protein_result.get("atoms"),
             "ligand_atoms": ligand_result.get("atoms"),
+            "total_atoms": (protein_result.get("atoms") or 0) + (ligand_result.get("atoms") or 0),
             "ligand_smiles": ligand_result.get("smiles"),
+            "message": "Protein-ligand complex prepared for MD",
         }
 
     except Exception as e:

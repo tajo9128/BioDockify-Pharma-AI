@@ -89,23 +89,23 @@
       <!-- Simulation Length -->
       <div class="mc"><h4>Simulation Length <span class="mbadge c">Fast Mode</span></h4>
         <div class="mrl">
-          <label class="mr":class="{on:settings.total_ns===1}" @click="settings.total_ns=1"><span>1 ns</span><small>~5 min CPU</small></label>
-          <label class="mr":class="{on:settings.total_ns===5}" @click="settings.total_ns=5"><span>5 ns</span><small>~25 min CPU</small></label>
-          <label class="mr":class="{on:settings.total_ns===10}" @click="settings.total_ns=10"><span>10 ns</span><small>~50 min CPU</small></label>
-          <label class="mr":class="{on:settings.total_ns===50}" @click="settings.total_ns=50"><span>50 ns</span><small>~4 hr CPU</small></label>
+          <label class="mr" :class="{on:settings.total_ns===1}" @click="settings.total_ns=1"><span>1 ns</span><small>~5 min CPU</small></label>
+          <label class="mr" :class="{on:settings.total_ns===5}" @click="settings.total_ns=5"><span>5 ns</span><small>~25 min CPU</small></label>
+          <label class="mr" :class="{on:settings.total_ns===10}" @click="settings.total_ns=10"><span>10 ns</span><small>~50 min CPU</small></label>
+          <label class="mr" :class="{on:settings.total_ns===50}" @click="settings.total_ns=50"><span>50 ns</span><small>~4 hr CPU</small></label>
         </div>
       </div>
 
       <!-- Engine -->
       <div class="mc"><h4>Engine <span x-show="gpuAvailable" class="mbadge g">GPU Detected</span><span x-show="!gpuAvailable" class="mbadge c">CPU Only</span></h4>
         <div class="mrl">
-          <label class="mr":class="{on:settings.platform==='auto'}" @click="settings.platform='auto'">
+          <label class="mr" :class="{on:settings.platform==='auto'}" @click="settings.platform='auto'">
             <span>Auto</span><small>Fastest available (benchmarked)</small>
           </label>
-          <label class="mr":class="{on:settings.platform==='CUDA'}" @click="settings.platform='CUDA'">
+          <label class="mr" :class="{on:settings.platform==='CUDA'}" @click="settings.platform='CUDA'">
             <span>GPU CUDA</span><small x-text="gpuName || 'NVIDIA'"></small>
           </label>
-          <label class="mr":class="{on:settings.platform==='CPU'}" @click="settings.platform='CPU'">
+          <label class="mr" :class="{on:settings.platform==='CPU'}" @click="settings.platform='CPU'">
             <span>CPU</span><small>Slower, always available</small>
           </label>
         </div>

@@ -84,14 +84,14 @@ def _benchmark_platform():
 
 
 FORCEFIELD_CHAINS = [
-    # AMBER14 protein forcefield — works with the bundled tip3p water file
-    # (amber14/tip3p_standard.xml is often not shipped; tip3p.xml is the fallback)
-    ("amber14-all.xml", "amber14/tip3p_standard.xml"),
+    # AMBER14 with tip3p.xml — always shipped with OpenMM (pip and conda)
     ("amber14-all.xml", "tip3p.xml"),
     ("amber14/protein.ff14SB.xml", "tip3p.xml"),
     # AMBER99 — reliable fallbacks shipped with every OpenMM install
     ("amber99sbildn.xml", "tip3p.xml"),
     ("amber99sb.xml", "tip3p.xml"),
+    # tip3p_standard.xml is often NOT shipped — try last
+    ("amber14-all.xml", "amber14/tip3p_standard.xml"),
 ]
 
 
@@ -439,12 +439,10 @@ class MDEngine:
                         os.path.join(os.path.dirname(pdb_path), "ligand_ff.xml")
                     )
                     if ligand_ff_xml:
-                        # Load the custom ligand forcefield alongside protein FF
+                        # Load the custom ligand forcefield alongside protein + water FF
                         try:
-                            ff_with_ligand = app.ForceField(
-                                *[p for p, _ in FORCEFIELD_CHAINS[0:1]],
-                                ligand_ff_xml
-                            )
+                            p0, w0 = FORCEFIELD_CHAINS[0]
+                            ff_with_ligand = app.ForceField(p0, w0, ligand_ff_xml)
                             ff = ff_with_ligand
                             log.info(f"Loaded protein + ligand forcefield (custom LIG residues)")
                         except Exception as e:

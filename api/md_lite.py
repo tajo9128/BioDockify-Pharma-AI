@@ -94,6 +94,15 @@ class MDLite(ApiHandler):
                 with open(os.path.join(job_dir, "ligand.sdf"), "w", encoding="utf-8") as f:
                     f.write(ligand_content)
 
+        # After import_docking (or resume): reuse PDB already on disk for this job_id
+        if not pdb_path:
+            for name in ("prepared_complex.pdb", "prepared.pdb", "complex.pdb", "protein.pdb"):
+                candidate = os.path.join(job_dir, name)
+                if os.path.isfile(candidate) and os.path.getsize(candidate) > 50:
+                    pdb_path = candidate
+                    log.info(f"Prepare using existing job file: {name}")
+                    break
+
         if not pdb_path:
             _write_status(job_dir, "error", {"phase": "error", "error": "No valid PDB file detected"})
             return {"status": "error", "error": "No valid PDB file detected. Upload a .pdb file containing ATOM/HETATM lines."}
@@ -151,16 +160,22 @@ class MDLite(ApiHandler):
         Accepts either file paths OR inline content (base64 or raw text).
         Uses PDBFixer for protein prep, RDKit for ligand prep.
         """
-        protein_path = input.get("protein_pdb", "")
-        ligand_path = input.get("ligand_pdbqt", "")
-        protein_content = input.get("protein_pdb_content", "")
-        ligand_content = input.get("ligand_pdbqt_content", "")
+        protein_path = input.get("protein_pdb", "") or ""
+        ligand_path = input.get("ligand_pdbqt", "") or ""
+        protein_content = input.get("protein_pdb_content", "") or ""
+        ligand_content = input.get("ligand_pdbqt_content", "") or ""
         job_id = input.get("job_id") or str(uuid.uuid4())[:8]
         job_dir = os.path.join(WORKDIR, job_id)
         os.makedirs(job_dir, exist_ok=True)
         _write_status(job_dir, "preparing_complex", {"phase": "preparing_complex"})
 
-        # Resolve protein: use path if exists, else save inline content
+        # Resolve protein: existing path → job_dir files → inline content
+        if not protein_path or not os.path.exists(protein_path):
+            for name in ("protein.pdb", "protein.pdbqt", "complex.pdb"):
+                candidate = os.path.join(job_dir, name)
+                if os.path.isfile(candidate) and os.path.getsize(candidate) > 50:
+                    protein_path = candidate
+                    break
         if not protein_path or not os.path.exists(protein_path):
             if protein_content and len(protein_content) > 50:
                 import base64 as _b64
@@ -171,9 +186,15 @@ class MDLite(ApiHandler):
                 with open(protein_path, "w", encoding="utf-8") as f:
                     f.write(protein_content)
             else:
-                return {"error": "protein_pdb path required and must exist, or provide protein_pdb_content"}
+                return {"status": "error", "error": "protein_pdb path required and must exist, or provide protein_pdb_content (or import_docking first)"}
 
-        # Resolve ligand: use path if exists, else save inline content
+        # Resolve ligand: existing path → job_dir docked files → inline content
+        if not ligand_path or not os.path.exists(ligand_path):
+            for name in ("docked_ligand.pdbqt", "ligand.pdbqt", "ligand.sdf", "ligand.pdb", "ligand.mol2"):
+                candidate = os.path.join(job_dir, name)
+                if os.path.isfile(candidate) and os.path.getsize(candidate) > 50:
+                    ligand_path = candidate
+                    break
         if not ligand_path or not os.path.exists(ligand_path):
             if ligand_content and len(ligand_content) > 50:
                 import base64 as _b64
@@ -185,7 +206,7 @@ class MDLite(ApiHandler):
                 with open(ligand_path, "w", encoding="utf-8") as f:
                     f.write(ligand_content)
             else:
-                return {"error": "ligand_pdbqt path required and must exist, or provide ligand_pdbqt_content"}
+                return {"status": "error", "error": "ligand_pdbqt path required and must exist, or provide ligand_pdbqt_content (or import_docking first)"}
 
         def _do_complex():
             from modules.md_lite.preparation import prepare_complex
@@ -196,7 +217,11 @@ class MDLite(ApiHandler):
             result = await asyncio.to_thread(_do_complex)
 
             if result.get("status") == "ok":
-                _write_status(job_dir, "prepared", {"phase": "prepared"})
+                # Ensure UI-facing totals
+                pa = result.get("protein_atoms") or 0
+                la = result.get("ligand_atoms") or 0
+                result["total_atoms"] = result.get("total_atoms") or (pa + la if (pa or la) else 0)
+                _write_status(job_dir, "prepared", {"phase": "prepared", "total_atoms": result["total_atoms"]})
                 try:
                     from modules.knowledge.auto_store import auto_store
                     auto_store("md_lite",
@@ -211,6 +236,9 @@ class MDLite(ApiHandler):
                 result["job_id"] = job_id
                 result["job_dir"] = job_dir
                 result["next_step"] = f"Call action='run' with job_id='{job_id}' to start MD simulation"
+
+            elif result.get("status") == "error" and "error" in result:
+                _write_status(job_dir, "error", {"phase": "error", "error": result.get("error")})
 
             return result
 
@@ -373,14 +401,25 @@ class MDLite(ApiHandler):
         new_dir = os.path.join(WORKDIR, new_job)
         os.makedirs(new_dir, exist_ok=True)
 
+        copied = []
         if os.path.exists(protein_src):
-            shutil.copy(protein_src, os.path.join(new_dir, "protein.pdb"))
+            dest = os.path.join(new_dir, "protein.pdb")
+            shutil.copy(protein_src, dest)
+            copied.append("protein.pdb")
         if os.path.exists(ligand_src):
-            shutil.copy(ligand_src, os.path.join(new_dir, "docked_ligand.pdbqt"))
+            dest = os.path.join(new_dir, "docked_ligand.pdbqt")
+            shutil.copy(ligand_src, dest)
+            copied.append("docked_ligand.pdbqt")
 
-        _write_status(new_job, "imported", {"phase": "imported", "docking_job_id": job_id})
-        return {"status": "ok", "job_id": new_job, "imported_from": job_id,
-                "next_step": f"Call action='prepare' with job_id='{new_job}' to prepare the system for MD"}
+        if not copied:
+            return {
+                "status": "error",
+                "error": f"No docking files found for job '{job_id}'. Expected protein.pdb and docked_output.pdbqt under tmp/docking_jobs/{job_id}.",
+            }
+
+        _write_status(new_dir, "imported", {"phase": "imported", "docking_job_id": job_id, "files": copied})
+        return {"status": "ok", "job_id": new_job, "imported_from": job_id, "files": copied,
+                "next_step": f"Call action='prepare_complex' with job_id='{new_job}' to prepare the system for MD"}
 
     async def _analyze_advanced(self, input):
         """Run publication-grade trajectory analysis via MDAnalysis.
