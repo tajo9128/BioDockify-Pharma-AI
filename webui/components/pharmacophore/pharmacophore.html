@@ -22,6 +22,16 @@
       shapeTarget: "",
       shapeResult: null,
 
+      // Complete analysis
+      completeSmiles: "",
+      completeName: "",
+      completeResult: null,
+
+      // Batch
+      batchSmiles: "",
+      batchNames: "",
+      batchResult: null,
+
       async generate() {
         if (!this.smiles) return;
         this.loading = true;
@@ -103,6 +113,36 @@
         } catch (e) { this.error = e.message; }
         this.loading = false;
       },
+
+      async complete() {
+        if (!this.completeSmiles) return;
+        this.loading = true; this.error = ""; this.completeResult = null;
+        try {
+          const r = await callJsonApi("pharmacophore", {
+            action: "complete",
+            smiles: this.completeSmiles.trim(),
+            name: this.completeName.trim() || "Molecule",
+          });
+          if (!r.success) { this.error = r.error; } else { this.completeResult = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async batch() {
+        if (!this.batchSmiles) return;
+        this.loading = true; this.error = ""; this.batchResult = null;
+        try {
+          const smilesList = this.batchSmiles.split("\n").map(s => s.trim()).filter(s => s);
+          const namesList = this.batchNames ? this.batchNames.split("\n").map(s => s.trim()).filter(s => s) : [];
+          const r = await callJsonApi("pharmacophore", {
+            action: "batch",
+            smiles_list: smilesList,
+            names: namesList,
+          });
+          if (!r.success) { this.error = r.error; } else { this.batchResult = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
     });
   </script>
 </head>
@@ -124,11 +164,13 @@
       <!-- Tabs -->
       <div class="tabs">
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'generate'}" @click="$store.pharmacophoreModal.activeTab = 'generate'">Generate</button>
-        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'protein'}" @click="$store.pharmacophoreModal.activeTab = 'protein'">Protein Model</button>
+        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'complete'}" @click="$store.pharmacophoreModal.activeTab = 'complete'">Complete</button>
+        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'protein'}" @click="$store.pharmacophoreModal.activeTab = 'protein'">Protein</button>
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'screen'}" @click="$store.pharmacophoreModal.activeTab = 'screen'">Screen</button>
+        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'batch'}" @click="$store.pharmacophoreModal.activeTab = 'batch'">Batch</button>
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'hypothesis'}" @click="$store.pharmacophoreModal.activeTab = 'hypothesis'">Hypothesis</button>
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'fingerprint'}" @click="$store.pharmacophoreModal.activeTab = 'fingerprint'">Fingerprint</button>
-        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'shape'}" @click="$store.pharmacophoreModal.activeTab = 'shape'">Shape Match</button>
+        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'shape'}" @click="$store.pharmacophoreModal.activeTab = 'shape'">Shape</button>
       </div>
       
       <!-- Generate Tab -->
@@ -166,7 +208,88 @@
           </div>
         </template>
       </div>
-      
+
+      <!-- Complete Analysis Tab -->
+      <div x-show="$store.pharmacophoreModal.activeTab === 'complete'">
+        <div class="input-group">
+          <label>SMILES:</label>
+          <input type="text" x-model="$store.pharmacophoreModal.completeSmiles" class="mt-input" placeholder="CC(=O)OC1=CC=CC=C1C(=O)O" @keyup.enter="$store.pharmacophoreModal.complete()" />
+        </div>
+        <div class="input-group">
+          <label>Name (optional):</label>
+          <input type="text" x-model="$store.pharmacophoreModal.completeName" class="mt-input" placeholder="Aspirin" />
+        </div>
+        <button class="btn-run" @click="$store.pharmacophoreModal.complete()" :disabled="$store.pharmacophoreModal.loading || !$store.pharmacophoreModal.completeSmiles">
+          <span x-show="$store.pharmacophoreModal.loading" class="loading-spinner"></span>
+          Run Complete Analysis
+        </button>
+        <template x-if="$store.pharmacophoreModal.completeResult?.success">
+          <div class="result-card">
+            <h3>Complete Pharmacophore — <span x-text="$store.pharmacophoreModal.completeResult.name"></span></h3>
+            <div class="features-grid">
+              <template x-for="(count, type) in $store.pharmacophoreModal.completeResult.feature_summary" :key="type">
+                <div class="feature-card"><div class="feature-type" x-text="type"></div><div class="feature-count" x-text="count"></div></div>
+              </template>
+            </div>
+            <!-- 2D Plot -->
+            <div x-show="$store.pharmacophoreModal.completeResult.plot_2d_b64" style="margin-top:10px;text-align:center">
+              <img :src="'data:image/png;base64,' + $store.pharmacophoreModal.completeResult.plot_2d_b64" style="max-width:100%;border-radius:8px" />
+            </div>
+            <!-- 3D Plot -->
+            <div x-show="$store.pharmacophoreModal.completeResult.plot_3d_html" style="margin-top:10px" x-html="$store.pharmacophoreModal.completeResult.plot_3d_html"></div>
+            <!-- Heatmap -->
+            <div x-show="$store.pharmacophoreModal.completeResult.distance_heatmap_b64" style="margin-top:10px;text-align:center">
+              <img :src="'data:image/png;base64,' + $store.pharmacophoreModal.completeResult.distance_heatmap_b64" style="max-width:100%;border-radius:8px" />
+            </div>
+            <!-- Distribution -->
+            <div x-show="$store.pharmacophoreModal.completeResult.distribution_b64" style="margin-top:10px;text-align:center">
+              <img :src="'data:image/png;base64,' + $store.pharmacophoreModal.completeResult.distribution_b64" style="max-width:100%;border-radius:8px" />
+            </div>
+            <!-- Molecular Properties -->
+            <div x-show="$store.pharmacophoreModal.completeResult.molecular_properties" style="margin-top:10px">
+              <h4>Molecular Properties</h4>
+              <template x-for="(val, key) in $store.pharmacophoreModal.completeResult.molecular_properties" :key="key">
+                <div style="display:flex;justify-content:space-between;font-size:0.56rem;padding:2px 0;border-bottom:1px solid var(--color-border)">
+                  <span x-text="key"></span><span x-text="val"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Batch Tab -->
+      <div x-show="$store.pharmacophoreModal.activeTab === 'batch'">
+        <div class="input-group">
+          <label>SMILES (one per line):</label>
+          <textarea x-model="$store.pharmacophoreModal.batchSmiles" class="mt-input" rows="6" placeholder="CC(=O)OC1=CC=CC=C1C(=O)O&#10;CC(C)Cc1ccc(cc1)C(C)C(=O)O&#10;CN(C)C(=N)N=C(N)N"></textarea>
+        </div>
+        <div class="input-group">
+          <label>Names (optional, one per line):</label>
+          <textarea x-model="$store.pharmacophoreModal.batchNames" class="mt-input" rows="3" placeholder="Aspirin&#10;Ibuprofen&#10;Metformin"></textarea>
+        </div>
+        <button class="btn-run" @click="$store.pharmacophoreModal.batch()" :disabled="$store.pharmacophoreModal.loading || !$store.pharmacophoreModal.batchSmiles">
+          <span x-show="$store.pharmacophoreModal.loading" class="loading-spinner"></span>
+          Run Batch Analysis
+        </button>
+        <template x-if="$store.pharmacophoreModal.batchResult?.success">
+          <div class="result-card">
+            <h3>Batch Results — <span x-text="$store.pharmacophoreModal.batchResult.molecule_count"></span> molecules</h3>
+            <div style="font-size:0.56rem;color:var(--color-text-muted);margin-bottom:8px">
+              Avg features: <b x-text="$store.pharmacophoreModal.batchResult.summary?.avg_features"></b> ·
+              Types: <span x-text="$store.pharmacophoreModal.batchResult.summary?.feature_types?.join(', ')"></span>
+            </div>
+            <template x-for="(mol, i) in $store.pharmacophoreModal.batchResult.results" :key="i">
+              <div style="padding:6px;margin:4px 0;background:var(--color-background);border-radius:4px;font-size:0.54rem">
+                <b x-text="mol.name || ('Molecule ' + (i+1))"></b>
+                — <span x-text="mol.num_features"></span> features
+                (<span x-text="Object.keys(mol.feature_summary||{}).join(', ')"></span>)
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+
       <!-- Protein Model Tab -->
       <div x-show="$store.pharmacophoreModal.activeTab === 'protein'">
         <div class="input-group">

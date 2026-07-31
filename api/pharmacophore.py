@@ -1,7 +1,7 @@
 """Pharmacophore API — feature detection, screening, hypothesis generation.
 Enhanced with OpenPharmaco + Pharmer capabilities."""
 from helpers.api import ApiHandler, Request, Response
-import logging, os, json, numpy as np
+import asyncio, logging, os, json, numpy as np
 
 log = logging.getLogger("pharmacophore_api")
 
@@ -187,19 +187,20 @@ class PharmacophoreHandler(ApiHandler):
         except Exception as e:
             return {"success": False, "error": str(e)}
     
-    def _screen(self, input: dict):
+    async def _screen(self, input: dict):
         """Screen compound library against pharmacophore query."""
         query_smiles = input.get("query_smiles", "")
         library_smiles = input.get("library_smiles", [])
         weights = input.get("weights", PMNET_DEFAULT_WEIGHTS)
         min_score = input.get("min_score", 0.1)
-        
+
         if not query_smiles:
             return {"error": "query_smiles is required"}
         if not library_smiles:
             return {"error": "library_smiles is required"}
-        
-        try:
+
+        def _do_screen():
+            try:
             from rdkit import Chem
             from rdkit.Chem import AllChem, ChemicalFeatures
             from rdkit import RDConfig
@@ -307,21 +308,23 @@ class PharmacophoreHandler(ApiHandler):
                             "method": "basic_set",
                         })
             
-            hits.sort(key=lambda h: h["score"], reverse=True)
-            
-            return {
-                "success": True,
-                "query_types": list(q_types),
-                "weights_used": weights,
-                "total_screened": len(library_smiles),
-                "total_hits": len(hits),
-                "hits": hits[:50],
-                "method": "enhanced_3d" if enhanced_available else "basic_set",
-            }
-        except ImportError:
-            return {"success": False, "error": "RDKit not available"}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
+                hits.sort(key=lambda h: h["score"], reverse=True)
+
+                return {
+                    "success": True,
+                    "query_types": list(q_types),
+                    "weights_used": weights,
+                    "total_screened": len(library_smiles),
+                    "total_hits": len(hits),
+                    "hits": hits[:50],
+                    "method": "enhanced_3d" if enhanced_available else "basic_set",
+                }
+            except ImportError:
+                return {"success": False, "error": "RDKit not available"}
+            except Exception as e:
+                return {"success": False, "error": str(e)}
+
+        return await asyncio.to_thread(_do_screen)
     
     def _hypothesis(self, input: dict):
         """Generate pharmacophore hypothesis from multiple active molecules."""
@@ -474,19 +477,20 @@ class PharmacophoreHandler(ApiHandler):
             log.error(f"Interaction pharmacophore failed: {e}")
             return {"success": False, "error": str(e)}
     
-    def _enhanced_screen(self, input: dict):
+    async def _enhanced_screen(self, input: dict):
         """Screen compound library with multi-conformer matching (Pharmer-style)."""
         query_smiles = input.get("query_smiles", "")
         library_smiles = input.get("library_smiles", [])
         num_conformers = input.get("num_conformers", 3)
         min_score = input.get("min_score", 0.1)
-        
+
         if not query_smiles:
             return {"error": "query_smiles is required"}
         if not library_smiles:
             return {"error": "library_smiles is required"}
-        
-        try:
+
+        def _do_enhanced_screen():
+            try:
             from modules.pharmacophore.engine import EnhancedPharmacophore
             engine = EnhancedPharmacophore()
             
@@ -511,13 +515,15 @@ class PharmacophoreHandler(ApiHandler):
             return {
                 "success": True,
                 "query_features": len(query_features),
-                "total_screened": len(library_smiles),
-                "total_hits": len(hits),
-                "hits": hits[:50],
-            }
-        except Exception as e:
-            log.error(f"Enhanced screen failed: {e}")
-            return {"success": False, "error": str(e)}
+                    "total_screened": len(library_smiles),
+                    "total_hits": len(hits),
+                    "hits": hits[:50],
+                }
+            except Exception as e:
+                log.error(f"Enhanced screen failed: {e}")
+                return {"success": False, "error": str(e)}
+
+        return await asyncio.to_thread(_do_enhanced_screen)
     
     def _enhanced_model(self, input: dict):
         """Build consensus pharmacophore model (OpenPharmaco + Pharmer)."""
@@ -628,18 +634,22 @@ class PharmacophoreHandler(ApiHandler):
         try:
             from modules.pharmacophore.engine import EnhancedPharmacophore
             engine = EnhancedPharmacophore()
-            
-            result = engine.extract_protein_features(
+
+            features = engine.extract_protein_features(
                 protein_pdb, cutoff=cutoff, ligand_resname=ligand_resname
             )
-            
-            result["success"] = True
-            return result
+
+            return {
+                "success": True,
+                "features": features,
+                "num_features": len(features),
+                "feature_summary": {f["type"]: sum(1 for x in features if x["type"] == f["type"]) for f in features},
+            }
         except Exception as e:
             log.error(f"Protein features failed: {e}")
             return {"success": False, "error": str(e)}
 
-    def _complete(self, input: dict):
+    async def _complete(self, input: dict):
         """Complete pharmacophore analysis — 8 publication-grade outputs.
 
         Inspired by Omixium's pharmacophore modeling pipeline.
@@ -651,30 +661,33 @@ class PharmacophoreHandler(ApiHandler):
         if not smiles:
             return {"error": "smiles is required"}
 
-        try:
-            from modules.pharmacophore.complete_analysis import complete_pharmacophore_analysis
-            result = complete_pharmacophore_analysis(smiles, name)
+        def _do_complete():
+            try:
+                from modules.pharmacophore.complete_analysis import complete_pharmacophore_analysis
+                result = complete_pharmacophore_analysis(smiles, name)
 
-            # Auto-store to KB
-            if result.get("success"):
-                try:
-                    from modules.knowledge.auto_store import auto_store
-                    auto_store("pharmacophore",
-                        "Complete Pharmacophore: " + name,
-                        {"smiles": smiles, "feature_summary": result.get("feature_summary"),
-                         "num_features": result.get("num_features"),
-                         "molecular_properties": result.get("molecular_properties")},
-                        source="Pharmacophore Complete Analysis",
-                        tags=["pharmacophore", "complete", smiles[:20]])
-                except Exception:
-                    pass
+                # Auto-store to KB
+                if result.get("success"):
+                    try:
+                        from modules.knowledge.auto_store import auto_store
+                        auto_store("pharmacophore",
+                            "Complete Pharmacophore: " + name,
+                            {"smiles": smiles, "feature_summary": result.get("feature_summary"),
+                             "num_features": result.get("num_features"),
+                             "molecular_properties": result.get("molecular_properties")},
+                            source="Pharmacophore Complete Analysis",
+                            tags=["pharmacophore", "complete", smiles[:20]])
+                    except Exception:
+                        pass
 
-            return result
-        except Exception as e:
-            log.error(f"Complete pharmacophore failed: {e}")
-            return {"success": False, "error": str(e)}
+                return result
+            except Exception as e:
+                log.error(f"Complete pharmacophore failed: {e}")
+                return {"success": False, "error": str(e)}
 
-    def _batch(self, input: dict):
+        return await asyncio.to_thread(_do_complete)
+
+    async def _batch(self, input: dict):
         """Batch pharmacophore analysis — analyze multiple molecules at once.
 
         Returns per-molecule analysis + similarity matrix + batch summary.
@@ -685,7 +698,8 @@ class PharmacophoreHandler(ApiHandler):
         if not smiles_list:
             return {"error": "smiles_list is required"}
 
-        try:
+        def _do_batch():
+            try:
             import numpy as np
             from modules.pharmacophore.complete_analysis import complete_pharmacophore_analysis
             from rdkit import Chem
@@ -736,19 +750,21 @@ class PharmacophoreHandler(ApiHandler):
                 )),
             }
 
-            return {
-                "success": True,
-                "summary": summary,
-                "molecule_count": len(results),
-                "similarity_matrix": sim_matrix.tolist(),
-                "molecule_names": [r.get("name", f"Mol_{i}") for i, r in enumerate(results)],
-                "results": results,
-            }
-        except Exception as e:
-            log.error(f"Batch pharmacophore failed: {e}")
-            return {"success": False, "error": str(e)}
+                return {
+                    "success": True,
+                    "summary": summary,
+                    "molecule_count": len(results),
+                    "similarity_matrix": sim_matrix.tolist(),
+                    "molecule_names": [r.get("name", f"Mol_{i}") for i, r in enumerate(results)],
+                    "results": results,
+                }
+            except Exception as e:
+                log.error(f"Batch pharmacophore failed: {e}")
+                return {"success": False, "error": str(e)}
 
-    def _compare(self, input: dict) -> dict:
+        return await asyncio.to_thread(_do_batch)
+
+    async def _compare(self, input: dict) -> dict:
         """Compare two pharmacophores — feature overlap, distance RMSD, similarity score.
 
         Input: smiles_1, smiles_2 (or features_1, features_2)
@@ -759,7 +775,8 @@ class PharmacophoreHandler(ApiHandler):
         features_1 = input.get("features_1", None)
         features_2 = input.get("features_2", None)
 
-        try:
+        def _do_compare():
+          try:
             from rdkit import Chem
             from rdkit.Chem import AllChem, ChemicalFeatures
             from rdkit import RDConfig
@@ -854,10 +871,16 @@ class PharmacophoreHandler(ApiHandler):
                 "pharmacophore_overlap_pct": round(matched_count / max(len(f1), len(f2)) * 100, 1) if max(len(f1), len(f2)) > 0 else 0,
             }
 
-            _store_to_kb("pharmacophore", f"Pharmacophore Comparison",
-                        f"Similarity: {similarity}, RMSD: {rmsd}, Matched: {matched_count}",
-                        f"comparison,pharmacophore")
+            try:
+                from modules.knowledge.auto_store import auto_store
+                auto_store("pharmacophore", f"Pharmacophore Comparison",
+                           {"similarity": similarity, "rmsd": rmsd, "matched_count": matched_count},
+                           source="Pharmacophore Comparison", tags=["pharmacophore", "comparison"])
+            except Exception:
+                pass
             return result
-        except Exception as e:
+          except Exception as e:
             log.error(f"Pharmacophore comparison failed: {e}")
             return {"success": False, "error": str(e)}
+
+        return await asyncio.to_thread(_do_compare)
