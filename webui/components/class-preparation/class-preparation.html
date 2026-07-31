@@ -47,7 +47,7 @@
             action: "analyze_syllabus_enhanced",
             text: this.syllabusText,
           });
-          if (r.error) { this.error = r.error; return; }
+          if (r.error) { this.error = r.error; this.loading = false; return; }
           this.syllabusResult = r;
           this.courseName = r.course_name || "Course";
           this.step = 2;
@@ -68,7 +68,7 @@
             course_name: this.courseName,
             units: this.syllabusResult.units || [],
           });
-          if (r.error) { this.error = r.error; return; }
+          if (r.error) { this.error = r.error; this.loading = false; return; }
           this.classSchedule = r;
           this.step = 3;
           this.message = `Divided into ${r.num_classes} classes`;
@@ -90,7 +90,7 @@
             topic: this.courseName,
             course_name: this.courseName,
           });
-          if (r.error) { this.error = r.error; return; }
+          if (r.error) { this.error = r.error; this.loading = false; return; }
           this.bookSearchResults = r.books || [];
           this.bookSearchDone = true;
           this.message = `Found ${r.total_found} reference sources`;
@@ -160,17 +160,22 @@
             class_num: cls.class_num,
             theme: "academic",
           });
-          if (r.error) { this.error = r.error; return; }
-          // Trigger download
-          if (r instanceof Blob || r instanceof ArrayBuffer) {
-            const blob = r instanceof Blob ? r : new Blob([r]);
+          if (r.error) { this.error = r.error; this.loading = false; return; }
+          // Download PPTX from base64 response
+          if (r.pptx_base64) {
+            const binary = atob(r.pptx_base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = `Class_${cls.class_num}_${cls.topic.replace(/\s+/g, '_')}.pptx`;
+            a.download = r.filename || `Class_${cls.class_num}_${cls.topic.replace(/\s+/g, '_')}.pptx`;
             a.click(); URL.revokeObjectURL(url);
+            this.message = `✓ PPT downloaded: ${r.filename || 'presentation.pptx'}`;
+          } else {
+            this.message = `PPT created for Class ${cls.class_num}`;
           }
-          this.message = `PPT created for Class ${cls.class_num}`;
         } catch (e) { this.error = e.message; }
         this.loading = false;
       },

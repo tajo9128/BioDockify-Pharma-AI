@@ -459,10 +459,12 @@ class FacultyTools(ApiHandler):
             from modules.compliance.plagiarism import PlagiarismChecker
             checker = PlagiarismChecker()
             result = await checker.check_content(text[:5000])
+            # PlagiarismChecker returns 'overall_similarity' (0-100 scale), not 'similarity_score'
+            sim = result.get("overall_similarity", 0)
             return {
-                "overall_score": result.get("similarity_score", 0),
-                "status": "safe" if result.get("similarity_score", 1) < 0.15 else (
-                    "warning" if result.get("similarity_score", 1) < 0.25 else "flagged"
+                "overall_score": sim,
+                "status": "safe" if sim < 15 else (
+                    "warning" if sim < 25 else "flagged"
                 ),
                 "matches": result.get("matches", []),
                 "sources": result.get("sources", []),
@@ -699,10 +701,16 @@ class FacultyTools(ApiHandler):
                 import asyncio
                 papers = await asyncio.wait_for(discovery_engine.search(query, limit=10), timeout=30.0)
                 for paper in papers:
-                    if isinstance(paper, dict):
-                        all_results.append({"title": paper.get("title", ""), "authors": paper.get("authors", []),
-                                           "year": paper.get("year", ""), "url": paper.get("url", paper.get("pdf_url", "")),
-                                           "source": paper.get("source", ""), "has_pdf": bool(paper.get("pdf_url"))})
+                    # discovery_engine returns Paper dataclass objects, not dicts
+                    title = getattr(paper, "title", "") if not isinstance(paper, dict) else paper.get("title", "")
+                    authors = getattr(paper, "authors", []) if not isinstance(paper, dict) else paper.get("authors", [])
+                    year = getattr(paper, "year", "") if not isinstance(paper, dict) else paper.get("year", "")
+                    url = getattr(paper, "url", "") or getattr(paper, "pdf_url", "") if not isinstance(paper, dict) else paper.get("url", paper.get("pdf_url", ""))
+                    source = getattr(paper, "source", "") if not isinstance(paper, dict) else paper.get("source", "")
+                    pdf_url = getattr(paper, "pdf_url", "") if not isinstance(paper, dict) else paper.get("pdf_url", "")
+                    all_results.append({"title": title, "authors": authors,
+                                       "year": year, "url": url,
+                                       "source": source, "has_pdf": bool(pdf_url)})
             except Exception as e:
                 logger.warning(f"Book search failed: {e}")
         seen = set(); unique = []
@@ -764,10 +772,21 @@ class FacultyTools(ApiHandler):
         if not slides: return {"error": "Slides data required"}
         try:
             from api.ppt_master import PptMasterHandler
-            handler = PptMasterHandler()
+            from helpers.api import ApiHandler
+            handler = PptMasterHandler.__new__(PptMasterHandler)
+            ApiHandler.__init__(handler, None, None)
             result = handler._generate_from_slides(slides, f"Class {class_num}: {topic}", theme)
-            _store_to_kb("faculty", f"Class {class_num} PPT: {topic}",
-                        f"PPT: {len(slides)} slides", f"{topic},ppt,class_{class_num}")
+            # _generate_from_slides returns a Flask Response with binary PPTX
+            # Extract the bytes and return as base64 dict for JSON transport
+            if hasattr(result, 'response'):
+                import base64
+                pptx_bytes = b"".join(result.response)
+                return {
+                    "success": True,
+                    "pptx_base64": base64.b64encode(pptx_bytes).decode(),
+                    "filename": f"Class_{class_num}_{topic[:30].replace(' ','_')}.pptx",
+                    "slides_count": len(slides),
+                }
             return result
         except Exception as e:
             return {"error": f"PPT generation failed: {str(e)}"}
