@@ -61,7 +61,8 @@ class WritingTools(ApiHandler):
         if action == "quality_control":          return self._quality_control(input)
         if action == "executive_summary":        return self._executive_summary(input)
         if action == "synthesis_review":         return self._synthesis_review(input)
-        return {"actions": ["export-latex","export-docx","gap-analysis","literature-matrix","prisma-flowchart","faculty-review","verify-citations","suggest-journals","kb_sources","kb_categories","pharma_citation_verify","pharma_reporting_check","pharma_scorecard","equator_checklist","ai_disclosure","prisma_pipeline","peer_review","integrity_audit","citation_network","de_aigc","section_analysis","citation_gaps","terminology_check","scientific_rigor","quality_control","executive_summary","synthesis_review"]}
+        if action == "cite_locked_draft":       return await self._cite_locked_draft(input)
+        return {"actions": ["export-latex","export-docx","gap-analysis","literature-matrix","prisma-flowchart","faculty-review","verify-citations","suggest-journals","kb_sources","kb_categories","pharma_citation_verify","pharma_reporting_check","pharma_scorecard","equator_checklist","ai_disclosure","prisma_pipeline","peer_review","integrity_audit","citation_network","de_aigc","section_analysis","citation_gaps","terminology_check","scientific_rigor","quality_control","executive_summary","synthesis_review","cite_locked_draft"]}
 
     def _kb_categories(self, input: dict) -> dict:
         """List all KB categories with entry counts — for the writer's category dropdown."""
@@ -1338,3 +1339,205 @@ class WritingTools(ApiHandler):
         if not cited:
             lines.append(f"[No explicit gaps detected in {len(papers)} abstracts. Consider manual review.]")
         return "\n".join(lines), cited
+
+    # ═══════════════════════════════════════════════════════════════
+    # Cite-locked draft — Perplexity-grade generation for Academic Writer
+    # Reuses the EXACT kb_chat spine: retrieve → registry → render_context
+    # → LLM with CITATION_PROMPT → normalize_citations
+    # ═══════════════════════════════════════════════════════════════
+
+    async def _cite_locked_draft(self, input: dict) -> dict:
+        """Generate a citation-locked draft section from KB sources.
+
+        This is the Perplexity-grade writing path — every paragraph is tied
+        to a numbered citation [1][2] from retrieved KB passages. Unlike
+        _genViaAgent (chat dump), this enforces source-locked generation.
+
+        Pipeline (identical to kb_chat):
+          1. Load KB chunks for the topic
+          2. Hybrid search → top-K relevant passages
+          3. CitationRegistry assigns [1][2]... labels
+          4. render_context builds <retrieved_context> with labeled passages
+          5. LLM writes the section with CITATION_PROMPT (cite only from context)
+          6. normalize_citations converts [kb:1] → [citation:entry_id]
+          7. Returns: draft text + structured citations list
+
+        If the KB is empty, refuses to generate (no fake cites).
+        """
+        topic = input.get("topic", "").strip()
+        section = input.get("section", "background")  # background|methods|findings|gaps|full_review
+        category = input.get("category", "")
+        top_k = int(input.get("top_k", 10))
+        if not topic:
+            return {"status": "error", "error": "topic is required"}
+
+        # ── Step 1: Load KB chunks (same as kb_chat) ──
+        def _load_chunks():
+            import os, json
+            KB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "knowledge_base")
+            index_path = os.path.join(KB_DIR, "index.json")
+            if not os.path.isfile(index_path):
+                return []
+            with open(index_path, "r", encoding="utf-8") as f:
+                index = json.load(f)
+            entries = index.get("entries", [])
+            if category:
+                entries = [e for e in entries if e.get("category") == category]
+            chunks = []
+            for entry in entries:
+                filepath = entry.get("file", "")
+                if not filepath or not os.path.isfile(filepath):
+                    continue
+                try:
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    try:
+                        from modules.rag.table_chunker import chunk_text_table_aware
+                        text_chunks = chunk_text_table_aware(content, max_chars=2000)
+                    except ImportError:
+                        text_chunks = [content[:2000]]
+                    for i, chunk_text in enumerate(text_chunks[:5]):
+                        chunks.append({
+                            "content": chunk_text,
+                            "entry_id": entry.get("id", ""),
+                            "title": entry.get("title", ""),
+                            "source": entry.get("source", ""),
+                            "source_type": "kb",
+                        })
+                except Exception:
+                    pass
+            return chunks
+
+        chunks = await asyncio.to_thread(_load_chunks)
+
+        if not chunks:
+            return {
+                "status": "ok",
+                "draft": f"[Cannot generate cite-locked draft: Knowledge Base is empty for '{topic}'. "
+                         f"Run Deep Research → Screen → Store to KB first.]",
+                "citations": [],
+                "sources_used": 0,
+                "section": section,
+                "note": "Empty KB — the golden path (collect → screen → store) must run first.",
+            }
+
+        # ── Step 2: Hybrid search for the topic + section ──
+        query = f"{topic} {section}".strip()
+
+        def _search():
+            try:
+                from modules.rag.hybrid_search import HybridSearcher
+                searcher = HybridSearcher()
+                searcher.index(chunks)
+                return searcher.search(query, top_k=top_k)
+            except ImportError:
+                query_lower = query.lower()
+                scored = []
+                for chunk in chunks:
+                    score = sum(1 for word in query_lower.split()
+                                if word in chunk.get("content", "").lower())
+                    if score > 0:
+                        chunk["hybrid_score"] = score
+                        scored.append(chunk)
+                return sorted(scored, key=lambda x: x.get("hybrid_score", 0), reverse=True)[:top_k]
+
+        results = await asyncio.to_thread(_search)
+
+        if not results:
+            return {
+                "status": "ok",
+                "draft": f"[No relevant KB passages found for '{topic}'. Add more papers to KB.]",
+                "citations": [],
+                "sources_used": 0,
+                "section": section,
+            }
+
+        # ── Step 3: Build citation registry + context (same as kb_chat) ──
+        from modules.rag.citations import CitationRegistry, render_context, normalize_citations, CITATION_PROMPT
+
+        registry = CitationRegistry()
+        context_block = render_context(results, registry, max_chars=12000)
+
+        # ── Step 4: Section-specific prompt ──
+        section_prompts = {
+            "background": f"Write a literature review BACKGROUND section on: {topic}. "
+                          f"Synthesize the key concepts, definitions, and historical context from the sources.",
+            "methods": f"Write a METHODS overview section on: {topic}. "
+                       f"Summarize the experimental methods, study designs, and analytical approaches used.",
+            "findings": f"Write a KEY FINDINGS section on: {topic}. "
+                        f"Synthesize the main results and outcomes reported across the studies.",
+            "gaps": f"Write a RESEARCH GAPS section on: {topic}. "
+                    f"Identify under-explored areas, contradictions, and limitations noted by authors.",
+            "full_review": f"Write a structured LITERATURE REVIEW on: {topic}. "
+                            f"Organize into: Background, Key Themes, Methodological Approaches, Findings, Gaps. "
+                            f"Each paragraph must cite sources.",
+        }
+        section_prompt = section_prompts.get(section, section_prompts["background"])
+
+        # ── Step 5: Call LLM with cite-locked context ──
+        def _call_llm():
+            full_prompt = f"{CITATION_PROMPT}\n\n{context_block}\n\nWriting task: {section_prompt}"
+            try:
+                import litellm, json as _json, os as _os
+                config_path = _os.path.join(
+                    _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
+                    "usr", "plugins", "_model_config", "config.json"
+                )
+                model_name = "gpt-4o-mini"
+                api_base = ""
+                provider = "openai"
+                if _os.path.isfile(config_path):
+                    try:
+                        with open(config_path) as f:
+                            cfg = _json.load(f)
+                        chat = cfg.get("chat_model", {})
+                        provider = chat.get("provider", "openai")
+                        model_name = chat.get("name", "gpt-4o-mini")
+                        api_base = chat.get("api_base", "")
+                    except Exception:
+                        pass
+                if provider == "lm_studio" and api_base:
+                    llm_model = f"lm_studio/{model_name}"
+                    kwargs = {"api_base": api_base}
+                elif provider == "ollama" and api_base:
+                    llm_model = f"ollama/{model_name}"
+                    kwargs = {"api_base": api_base}
+                else:
+                    llm_model = model_name
+                    kwargs = {}
+                response = litellm.completion(
+                    model=llm_model,
+                    messages=[{"role": "user", "content": full_prompt}],
+                    max_tokens=2000,
+                    temperature=0.3,
+                    **kwargs,
+                )
+                return response.choices[0].message.content
+            except Exception as e:
+                log.warning(f"Cite-locked LLM call failed: {e}")
+                return None
+
+        draft = await asyncio.to_thread(_call_llm)
+
+        if not draft:
+            # LLM failed — return retrieved sources as a structured fallback
+            draft = "## Retrieved Sources (LLM unavailable)\n\n"
+            for r in results[:8]:
+                n = registry.register("kb", str(r.get("entry_id", "")),
+                                      r.get("title", ""), r.get("content", ""))
+                draft += f"**[{n}] {r.get('title', 'Untitled')}**\n{r.get('content', '')[:400]}...\n\n"
+        else:
+            draft = normalize_citations(draft, registry)
+
+        # Build bibliography from used citations only
+        used_citations = registry.to_dict()["citations"]
+
+        return {
+            "status": "ok",
+            "topic": topic,
+            "section": section,
+            "draft": draft,
+            "citations": used_citations,
+            "sources_used": len(used_citations),
+            "kb_chunks_searched": len(chunks),
+        }

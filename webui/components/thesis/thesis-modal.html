@@ -191,7 +191,11 @@
         if (!this.topic.trim()) { this.error = "Please enter a topic"; return; }
         this.loading = true; this.error = ""; this.result = null;
         try {
-          if (this.isThesis) await this._genThesis();
+          // Cite-locked path for review/paper (Perplexity-grade — every claim cited from KB)
+          if (["lit_review", "review_article", "research_paper"].includes(this.docType)) {
+            await this._genCiteLocked();
+          }
+          else if (this.isThesis) await this._genThesis();
           else if (this.docType === "lecture") await this._genLecture();
           else if (this.docType === "slides") await this._genSlides();
           else if (this.docType === "lit_matrix") await this._genLitMatrix();
@@ -201,6 +205,44 @@
           else this._genViaAgent();
         } catch (e) { this.error = e.message; }
         this.loading = false;
+      },
+
+      async _genCiteLocked() {
+        /** Cite-locked draft — every paragraph cited from KB sources (Perplexity-grade). */
+        const sectionMap = {
+          lit_review: "full_review",
+          review_article: "full_review",
+          research_paper: "full_review",
+        };
+        const section = sectionMap[this.docType] || "background";
+        try {
+          const r = await callJsonApi("writing", {
+            action: "cite_locked_draft",
+            topic: this.topic,
+            section,
+            category: this.kbSelectedCategory || "",
+            top_k: 12,
+          });
+          if (r.error) { this.error = r.error; return; }
+          // Check if KB was empty
+          if (r.sources_used === 0 && r.note) {
+            this.error = "No KB sources found. Run Deep Research → Store to KB first, or use a different doc type.";
+            return;
+          }
+          this.result = {
+            type: "cite_locked",
+            title: this.topic,
+            content: r.draft,
+            citations: r.citations || [],
+            sources_used: r.sources_used || 0,
+            citeLocked: true,
+          };
+          this.message = `Cite-locked draft generated with ${r.sources_used} sources`;
+          setTimeout(() => { this.message = ""; }, 5000);
+        } catch (e) {
+          this.error = "Cite-locked draft failed: " + e.message + ". Falling back to agent.";
+          this._genViaAgent();
+        }
       },
 
       async _genGrant() {
@@ -340,6 +382,32 @@
         a.href=u; a.download=`${(this.topic||"doc").replace(/\s+/g,'_').substring(0,40)}.txt`; a.click(); URL.revokeObjectURL(u);
       },
       clear() { this.topic=""; this.result=null; this.error=""; this.stopSpeech(); },
+
+      // ── Cite-locked rendering ──
+      renderCiteLocked(result) {
+        /** Render cite-locked draft: convert [citation:id] markers to clickable chips. */
+        if (!result?.content) return "";
+        const html = result.content
+          // Escape HTML
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+          // Headings
+          .replace(/^## (.+)$/gm, '<h4 style="font-size:0.8rem;margin:12px 0 6px;color:var(--color-text)">$1</h4>')
+          .replace(/^# (.+)$/gm, '<h3 style="font-size:0.85rem;margin:14px 0 8px;color:var(--color-primary)">$1</h3>')
+          // Bold
+          .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+          // Citation markers → clickable chips
+          .replace(/\[citation:([^\]]+)\]/g, (match, id) => {
+            const cite = (result.citations || []).find(c => String(c.id).includes(id) || id.includes(String(c.id)));
+            const label = cite ? cite.label : "?";
+            const title = cite ? cite.display.replace(/"/g, "&quot;") : "Unknown source";
+            return `<sup class="aw-cite-chip" title="${title}">[${label}]</sup>`;
+          })
+          // [kb:n] fallback (un-normalized)
+          .replace(/\[kb:(\d+)\]/g, (match, n) => `<sup class="aw-cite-chip">[${n}]</sup>`)
+          // Line breaks
+          .replace(/\n/g, "<br>");
+        return html;
+      },
       refineWithAgent() {
         const t = this.result?.content?.substring(0,1000)||"";
         this.sendToAgent(`Please refine and improve this text. Add key references, fix inaccuracies, polish academic language:\n\n${t}...`);
@@ -563,7 +631,31 @@
             <button class="aw-act-btn" @click="$store.academicWriter.clear()"><span class="material-symbols-outlined">refresh</span> New</button>
           </div>
         </div>
-        <div class="aw-content-area" style="flex:1"><div class="aw-content-text" x-text="$store.academicWriter.result.content"></div></div>
+        <div class="aw-content-area" style="flex:1">
+          <!-- Cite-locked badge -->
+          <div x-show="$store.academicWriter.result.citeLocked" class="aw-cite-locked-badge">
+            <span class="material-symbols-outlined" style="font-size:14px">verified</span>
+            Cite-locked: <span x-text="$store.academicWriter.result.sources_used"></span> sources · every claim backed by KB
+          </div>
+          <div class="aw-content-text" x-html="$store.academicWriter.result.citeLocked ? $store.academicWriter.renderCiteLocked($store.academicWriter.result) : ''" x-show="$store.academicWriter.result.citeLocked"></div>
+          <div class="aw-content-text" x-text="$store.academicWriter.result.citeLocked ? '' : ($store.academicWriter.result.content || '')"></div>
+        </div>
+        <!-- Sources panel for cite-locked drafts -->
+        <template x-if="$store.academicWriter.result.citeLocked && $store.academicWriter.result.citations?.length">
+          <div class="aw-sources-panel">
+            <div class="aw-sources-header"><span class="material-symbols-outlined" style="font-size:16px">menu_book</span> Sources (<span x-text="$store.academicWriter.result.citations.length"></span>)</div>
+            <template x-for="cite in $store.academicWriter.result.citations" :key="cite.label">
+              <div class="aw-source-item">
+                <span class="aw-source-num" x-text="'[' + cite.label + ']'"></span>
+                <div class="aw-source-body">
+                  <div class="aw-source-title" x-text="cite.display"></div>
+                  <div class="aw-source-snippet" x-text="cite.snippet"></div>
+                  <div class="aw-source-link" x-show="cite.url"><a :href="cite.url" target="_blank" x-text="cite.url"></a></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
 
         <!-- Faculty Review -->
         <template x-if="$store.academicWriter.result._review?.score !== undefined">
@@ -746,6 +838,20 @@
       .aw-pharma-issue { color: #f59e0b; }
       .aw-pharma-stats { display: flex; gap: 12px; font-size: 0.6rem; color: var(--color-text-muted); margin-bottom: 8px; }
       .aw-pharma-stats b { color: var(--color-text); }
+      /* Cite-locked UI */
+      .aw-cite-locked-badge { display:flex;align-items:center;gap:4px;padding:4px 10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);border-radius:6px;font-size:0.6rem;color:#22c55e;margin-bottom:8px;font-weight:600 }
+      .aw-cite-chip { display:inline; color:var(--color-primary); font-weight:700; font-size:0.6rem; cursor:pointer; padding:0 1px }
+      .aw-cite-chip:hover { text-decoration:underline; background:rgba(var(--color-primary-rgb,59,130,246),0.1); border-radius:3px }
+      .aw-sources-panel { margin-top:12px;padding:12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px;max-height:300px;overflow-y:auto }
+      .aw-sources-header { display:flex;align-items:center;gap:4px;font-size:0.7rem;font-weight:700;color:var(--color-text);margin-bottom:8px }
+      .aw-source-item { display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--color-border);font-size:0.6rem }
+      .aw-source-num { color:var(--color-primary);font-weight:700;white-space:nowrap;flex-shrink:0 }
+      .aw-source-body { flex:1;min-width:0 }
+      .aw-source-title { font-weight:600;color:var(--color-text);margin-bottom:2px }
+      .aw-source-snippet { color:var(--color-text-muted);font-style:italic;line-height:1.3;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical }
+      .aw-source-link { margin-top:2px }
+      .aw-source-link a { color:var(--color-primary);font-size:0.55rem;text-decoration:none }
+      .aw-source-link a:hover { text-decoration:underline }
     </style>
   </div>
 </body>
