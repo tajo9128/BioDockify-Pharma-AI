@@ -3,7 +3,7 @@ export default async function registerAdmetPredictSurface(canvas) {
     id: "admet-predict",
     title: "ADMET Prediction",
     icon: "vaccines",
-    order: 16,
+    order: 15.5,
     modalPath: "/components/admet-predict/admet-predict-panel.html",
   });
 }
