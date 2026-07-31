@@ -101,8 +101,7 @@ class ApiHandler:
         except Exception as e:
             error = format_error(e)
             PrintStyle.error(f"API error: {error}")
-            # Return generic error to client (don't leak internal paths/tracebacks)
-            return Response(response='{"error": "Internal server error"}', status=500, mimetype="application/json")
+            return Response(response=error, status=500, mimetype="text/plain")
 
     # get context to run BioDockify AI in
     def use_context(self, ctxid: str, create_if_not_exists: bool = True):
