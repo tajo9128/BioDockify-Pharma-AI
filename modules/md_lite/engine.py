@@ -6,6 +6,83 @@ import openmm.unit as unit
 
 log = logging.getLogger("md_lite")
 
+# Cache the benchmarked platform so we only pay the ~2s cost once per process.
+_BENCHMARKED_PLATFORM = None
+_BENCHMARK_WARNING = ""
+
+
+def _benchmark_platform():
+    """Run a tiny MD step on CUDA vs CPU and pick the faster one.
+
+    Solves the 'CUDA reported available but no GPU in Docker' trap: OpenMM
+    lists CUDA as a platform even when there is no device, and then runs
+    10-50x slower than CPU. A 1000-step benchmark detects this in ~2s.
+    """
+    global _BENCHMARKED_PLATFORM, _BENCHMARK_WARNING
+    if _BENCHMARKED_PLATFORM is not None:
+        return _BENCHMARKED_PLATFORM, _BENCHMARK_WARNING
+
+    _BENCHMARKED_PLATFORM = "CPU"
+    _BENCHMARK_WARNING = ""
+    try:
+        all_platforms = []
+        for i in range(mm.Platform.getNumPlatforms()):
+            p = mm.Platform.getPlatform(i)
+            all_platforms.append((p.getName(), p.getSpeed()))
+        has_cuda = any("CUDA" in n for n, _ in all_platforms)
+        has_opencl = any("OpenCL" in n for n, _ in all_platforms)
+        if not (has_cuda or has_opencl):
+            return _BENCHMARKED_PLATFORM, _BENCHMARK_WARNING
+
+        # Build a 2-atom system and time 1000 steps on each candidate platform.
+        import numpy as np
+        system = mm.System()
+        for _ in range(2):
+            system.addParticle(1.0)
+        force = mm.HarmonicBondForce()
+        force.addBond(0, 1, 0.1, 1000.0)
+        system.addForce(force)
+        integ = mm.VerletIntegrator(0.001)
+        positions = np.array([[0, 0, 0], [0.1, 0, 0]]) * unit.nanometers
+
+        candidates = []
+        if has_cuda:
+            candidates.append("CUDA")
+        if has_opencl:
+            candidates.append("OpenCL")
+        candidates.append("CPU")
+
+        timings = {}
+        for name in candidates:
+            try:
+                plat = mm.Platform.getPlatformByName(name)
+                sim = app.Simulation(mm.Topology(), system, integ, plat)
+                sim.context.setPositions(positions)
+                t0 = time.time()
+                sim.step(1000)
+                timings[name] = time.time() - t0
+            except Exception as e:
+                timings[name] = float("inf")
+                log.debug(f"Platform benchmark {name} failed: {e}")
+
+        if timings:
+            best = min(timings, key=timings.get)
+            if timings[best] != float("inf"):
+                _BENCHMARKED_PLATFORM = best
+                # Warn if CUDA/OpenCL was requested but CPU was actually faster.
+                for gpu_name in ("CUDA", "OpenCL"):
+                    if gpu_name in timings and "CPU" in timings and \
+                            timings[gpu_name] > timings["CPU"] * 1.5 and best == "CPU":
+                        _BENCHMARK_WARNING = (
+                            f"GPU requested but CPU is {timings[gpu_name]/timings['CPU']:.0f}x faster "
+                            f"(no GPU device accessible). Switched to CPU."
+                        )
+                log.info(f"Platform benchmark: {timings} -> using {_BENCHMARKED_PLATFORM}")
+    except Exception as e:
+        log.warning(f"Platform benchmark failed, defaulting to CPU: {e}")
+    return _BENCHMARKED_PLATFORM, _BENCHMARK_WARNING
+
+
 FORCEFIELD_CHAINS = [
     # AMBER14 protein forcefield — works with the bundled tip3p water file
     # (amber14/tip3p_standard.xml is often not shipped; tip3p.xml is the fallback)
@@ -284,36 +361,36 @@ class MDEngine:
         self.platform_name = platform
         self.device_index = device_index
         self.simulation = None
+        self.platform_warning = ""
         self._steps_done = 0
         self._total_steps = 0
         self._chunks_total = 0
         self._chunks_done = 0
         self._start_time = 0
+        self.phase = "idle"  # idle|sanitizing|parameterizing|solvating|minimizing|equilibrating|running|completed|error
         self.status_file = os.path.join(workdir, "status.json")
 
     def detect_platform(self):
-        """Auto-detect best platform: GPU first (CUDA > OpenCL), fallback CPU."""
+        """Auto-detect best platform using a real benchmark (not just availability)."""
         all_platforms = []
         for i in range(mm.Platform.getNumPlatforms()):
             p = mm.Platform.getPlatform(i)
             all_platforms.append((p.getName(), p.getSpeed()))
 
-        if self.platform_name in ("CUDA", "OpenCL"):
-            matched = [p for p, s in all_platforms if self.platform_name in p]
-            if matched:
-                best = max(matched, key=lambda n: next(s for pn, s in all_platforms if pn == n))
-                log.info(f"Using {self.platform_name}: {best}")
-                return mm.Platform.getPlatformByName(best)
+        # If user explicitly requested CPU, honor it.
+        if self.platform_name == "CPU":
+            log.info("Platform: CPU (user-selected)")
+            return mm.Platform.getPlatformByName("CPU")
 
-        for pref in ["CUDA", "OpenCL"]:
-            matched = [(p, s) for p, s in all_platforms if pref in p]
-            if matched:
-                best = max(matched, key=lambda x: x[1])[0]
-                log.info(f"Auto-detected GPU: {best}")
-                return mm.Platform.getPlatformByName(best)
-
-        log.warning("No GPU detected — falling back to CPU")
-        return mm.Platform.getPlatformByName("CPU")
+        # Otherwise run the benchmark to pick the genuinely fastest platform.
+        best_name, warning = _benchmark_platform()
+        self.platform_warning = warning
+        try:
+            log.info(f"Platform: {best_name} (benchmarked){' — ' + warning if warning else ''}")
+            return mm.Platform.getPlatformByName(best_name)
+        except Exception:
+            log.warning(f"Benchmarked platform {best_name} unavailable, using CPU")
+            return mm.Platform.getPlatformByName("CPU")
 
     def _load_forcefield(self):
         """Try multiple forcefield combinations, return first that works."""
@@ -336,6 +413,7 @@ class MDEngine:
 
         t0 = time.time()
         # STEP 0: Sanitize PDB — detect and KEEP the ligand (if any)
+        self.phase = "sanitizing"
         ligand_resname = _sanitize_pdb(pdb_path, keep_only_protein=True)
         self.pdb = app.PDBFile(pdb_path)
         ff = self._load_forcefield()
@@ -481,6 +559,7 @@ class MDEngine:
         # a full System (which constructs the entire bonded/nonbonded force set —
         # the expensive part). getMatchingTemplates only checks residue templates.
         built = False
+        self.phase = "parameterizing"
         last_error = None
         for ff_protein, ff_water in FORCEFIELD_CHAINS:
             try:
@@ -512,6 +591,7 @@ class MDEngine:
         # (neutralize=True) crashes createSystem with 'No template found for CL'.
         # We add pure water only; the system runs slightly charged, which is
         # acceptable for MD Lite (preparation / short relaxation runs).
+        self.phase = "solvating"
         self.modeller = protein_modeller
         solvated = True
         try:
@@ -573,6 +653,7 @@ class MDEngine:
         # Cap at 200 iterations by default. max_iterations=0 means OpenMM
         # minimizes until full convergence, which can take minutes for large
         # proteins. 200 steps reaches a reasonable minimum in seconds.
+        self.phase = "minimizing"
         t0 = time.time()
         self.simulation.minimizeEnergy(maxIterations=max_iterations)
         state = self.simulation.context.getState(getEnergy=True)
@@ -589,6 +670,9 @@ class MDEngine:
 
     def _update_status(self, status, extra=None):
         data = {"status": status, "timestamp": time.time(),
+                "phase": self.phase,
+                "platform": self.platform_name,
+                "platform_warning": self.platform_warning or "",
                 "progress_ns": self.progress_ns, "progress_pct": self.progress_pct,
                 "total_steps_done": self._steps_done, "total_steps_planned": self._total_steps,
                 "chunk": f"{self._chunks_done}/{self._chunks_total}" if self._chunks_total else "",
@@ -608,6 +692,7 @@ class MDEngine:
         return round((remaining_chunks * avg_per_chunk) / 60.0)
 
     def run_for_ns(self, total_ns, checkpoint_interval_ns=0.5):
+        self.phase = "running"
         steps_per_ns = 500000
         total_steps = int(total_ns * steps_per_ns)
         chunk_steps = int(checkpoint_interval_ns * steps_per_ns)
@@ -624,6 +709,7 @@ class MDEngine:
             self._chunks_done += 1
             self._save_checkpoint()
             self._update_status("running")
+        self.phase = "completed"
         self._update_status("completed")
 
     def _save_checkpoint(self):

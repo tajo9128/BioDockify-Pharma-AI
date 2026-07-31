@@ -1,7 +1,7 @@
 """MD Lite API — OpenMM molecular dynamics simulation handler."""
 from helpers.api import ApiHandler, Request
 from helpers import files
-import os, json, uuid, threading, logging, shutil
+import os, json, time, uuid, asyncio, threading, logging, shutil
 
 log = logging.getLogger("md_lite")
 WORKDIR = files.get_abs_path("usr/md-lite")
@@ -10,12 +10,42 @@ os.makedirs(WORKDIR, exist_ok=True)
 _jobs = {}  # in-memory job tracking: job_id -> threading.Thread
 
 
+def _write_status(job_dir, status, extra=None):
+    """Write status.json directly (used before an MDEngine exists)."""
+    try:
+        data = {"status": status, "timestamp": time.time(),
+                "phase": status, "progress_pct": 0}
+        if extra:
+            data.update(extra)
+        os.makedirs(job_dir, exist_ok=True)
+        with open(os.path.join(job_dir, "status.json"), "w") as f:
+            json.dump(data, f)
+    except Exception:
+        pass
+
+
+def _friendly_error(msg):
+    if "No valid ATOM" in msg or "no valid ATOM" in msg:
+        return "PDB file is empty or contains no valid atomic coordinates. Upload a valid protein structure."
+    if "invalid literal for int()" in msg or "PdbStructure" in msg:
+        return ("PDB file format error. The file contains malformed ATOM/HETATM records. "
+                "Upload a clean .pdb file from RCSB PDB or your docking software. "
+                "Tip: If using a docked complex, ensure the protein has all hydrogens and "
+                "no non-standard residues. Use PDBFixer or Modeller to clean the PDB first.")
+    if "Could not locate" in msg or "forcefield" in msg.lower():
+        return f"OpenMM forcefield files missing: {msg}. Rebuild Docker image to install forcefields."
+    if "No template found" in msg or ("missing" in msg.lower() and "H atom" in msg):
+        return ("Could not add hydrogens to all residues. The PDB may have non-standard "
+                f"residue termini. Details: {msg}")
+    return msg
+
+
 class MDLite(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict:
         action = input.get("action", "")
         if action == "health":           return self._health()
-        if action == "prepare":          return self._prepare(input)
-        if action == "prepare_complex":  return self._prepare_complex(input)
+        if action == "prepare":          return await self._prepare(input)
+        if action == "prepare_complex":  return await self._prepare_complex(input)
         if action == "run":              return self._run(input)
         if action == "status":           return self._status(input)
         if action == "stop":             return self._stop(input)
@@ -23,8 +53,9 @@ class MDLite(ApiHandler):
         if action == "download":         return self._download(input)
         if action == "import_docking":   return self._import_docking(input)
         if action == "mmpbsa":           return self._mmpbsa(input)
+        if action == "log":              return self._log(input)
         if action == "analyze_advanced": return await self._analyze_advanced(input)
-        return {"actions": ["health","prepare","prepare_complex","run","status","stop","results","download","import_docking","mmpbsa","analyze_advanced"],
+        return {"actions": ["health","prepare","prepare_complex","run","status","stop","results","download","import_docking","mmpbsa","log","analyze_advanced"],
                 "hint": "1. prepare_complex (auto-prepare protein+ligand) → 2. run (start MD) → 3. status (poll) → 4. results (basic analysis) → 5. analyze_advanced (publication-grade analysis)"}
 
     def _health(self):
@@ -34,10 +65,16 @@ class MDLite(ApiHandler):
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
-    def _prepare(self, input):
+    async def _prepare(self, input):
+        """Prepare PDB for MD — runs in a worker thread so the event loop
+        (and the frontend status poller) stay responsive. Writes phase updates
+        to status.json so the user sees progress instead of a black box."""
         job_id = input.get("job_id") or str(uuid.uuid4())[:8]
         job_dir = os.path.join(WORKDIR, job_id)
         os.makedirs(job_dir, exist_ok=True)
+
+        # Write initial status so the frontend shows 'preparing' immediately
+        _write_status(job_dir, "preparing", {"phase": "preparing", "progress_pct": 0})
 
         # Safely extract string content — strip BOM and whitespace
         complex_content = str(input.get("complex_pdb", "") or "").strip()
@@ -58,19 +95,22 @@ class MDLite(ApiHandler):
                     f.write(ligand_content)
 
         if not pdb_path:
+            _write_status(job_dir, "error", {"phase": "error", "error": "No valid PDB file detected"})
             return {"status": "error", "error": "No valid PDB file detected. Upload a .pdb file containing ATOM/HETATM lines."}
 
-        try:
+        final_pdb_path = pdb_path
+
+        def _do_prepare():
+            nonlocal final_pdb_path
             # STEP 0: Prepare PDB with PDBFixer BEFORE passing to OpenMM
-            # This fixes: missing hydrogens, missing atoms, malformed records,
-            # NPRO/CTER terminal issues — the #1 cause of MD failures
+            _write_status(job_dir, "preparing", {"phase": "preparing", "progress_pct": 0})
             try:
                 from modules.md_lite.preparation import prepare_protein
                 prepared_path = os.path.join(job_dir, "prepared.pdb")
                 prep_result = prepare_protein(pdb_path, prepared_path)
                 if prep_result.get("status") == "ok":
                     log.info(f"PDB prepared: {prep_result.get('atoms')} atoms, {prep_result.get('residues')} residues")
-                    pdb_path = prepared_path  # Use the prepared PDB
+                    final_pdb_path = prepared_path
                 else:
                     log.warning(f"PDBFixer failed: {prep_result.get('error')}, continuing with original")
             except Exception as e:
@@ -79,39 +119,32 @@ class MDLite(ApiHandler):
             from modules.md_lite.engine import MDEngine
             ff = input.get("forcefield", "amber14")
             temp = float(input.get("temperature", 300))
-            plat = str(input.get("platform", "CUDA"))
+            plat = str(input.get("platform", "auto"))
             eng = MDEngine(job_dir, ff, temp, platform=plat)
-            # If we ran PDBFixer above (pdb_path == prepared_path), pass
-            # skip_fixer=True so load_system does NOT run PDBFixer again.
-            already_prepared = (pdb_path == prepared_path)
-            eng.load_system(pdb_path, skip_fixer=already_prepared).build_simulation()
+            # PDBFixer already ran above — skip the second expensive pass.
+            eng.load_system(final_pdb_path, skip_fixer=True).build_simulation()
             energy = eng.minimize()
             eng._save_checkpoint()
             eng._update_status("prepared", {"min_energy_kjmol": round(energy, 1)})
+            return round(energy, 1)
+
+        try:
+            energy = await asyncio.to_thread(_do_prepare)
             return {"status": "ok", "job_id": job_id, "prepared": True,
-                    "min_energy_kjmol": round(energy, 1)}
+                    "min_energy_kjmol": energy}
         except FileNotFoundError as e:
+            _write_status(job_dir, "error", {"phase": "error", "error": str(e)})
             return {"status": "error", "error": f"PDB file not found: {e}"}
         except ImportError as e:
+            _write_status(job_dir, "error", {"phase": "error", "error": str(e)})
             return {"status": "error", "error": f"Missing dependency: {e}. Install OpenMM: pip install openmm mdtraj"}
         except Exception as e:
             log.exception("Prepare failed")
-            msg = str(e)
-            if "No valid ATOM" in msg or "no valid ATOM" in msg:
-                msg = "PDB file is empty or contains no valid atomic coordinates. Upload a valid protein structure."
-            elif "invalid literal for int()" in msg or "PdbStructure" in msg:
-                msg = ("PDB file format error. The file contains malformed ATOM/HETATM records. "
-                       "Upload a clean .pdb file from RCSB PDB or your docking software. "
-                       "Tip: If using a docked complex, ensure the protein has all hydrogens and "
-                       "no non-standard residues. Use PDBFixer or Modeller to clean the PDB first.")
-            elif "Could not locate" in msg or "forcefield" in msg.lower():
-                msg = f"OpenMM forcefield files missing: {msg}. Rebuild Docker image to install forcefields."
-            elif "No template found" in msg or "missing" in msg.lower() and "H atom" in msg:
-                msg = ("Could not add hydrogens to all residues. The PDB may have non-standard "
-                       f"residue termini. Details: {msg}")
+            _write_status(job_dir, "error", {"phase": "error", "error": str(e)})
+            msg = _friendly_error(str(e))
             return {"status": "error", "error": msg}
 
-    def _prepare_complex(self, input):
+    async def _prepare_complex(self, input):
         """Prepare a protein-ligand complex for MD — bridges docking → MD gap.
 
         Takes protein PDB + docked ligand PDBQT → prepared complex PDB ready for MD.
@@ -125,6 +158,7 @@ class MDLite(ApiHandler):
         job_id = input.get("job_id") or str(uuid.uuid4())[:8]
         job_dir = os.path.join(WORKDIR, job_id)
         os.makedirs(job_dir, exist_ok=True)
+        _write_status(job_dir, "preparing_complex", {"phase": "preparing_complex"})
 
         # Resolve protein: use path if exists, else save inline content
         if not protein_path or not os.path.exists(protein_path):
@@ -153,13 +187,16 @@ class MDLite(ApiHandler):
             else:
                 return {"error": "ligand_pdbqt path required and must exist, or provide ligand_pdbqt_content"}
 
-        try:
+        def _do_complex():
             from modules.md_lite.preparation import prepare_complex
             output_path = os.path.join(job_dir, "prepared_complex.pdb")
-            result = prepare_complex(protein_path, ligand_path, output_path)
+            return prepare_complex(protein_path, ligand_path, output_path)
+
+        try:
+            result = await asyncio.to_thread(_do_complex)
 
             if result.get("status") == "ok":
-                # Store to Knowledge Base
+                _write_status(job_dir, "prepared", {"phase": "prepared"})
                 try:
                     from modules.knowledge.auto_store import auto_store
                     auto_store("md_lite",
@@ -179,15 +216,17 @@ class MDLite(ApiHandler):
 
         except Exception as e:
             log.error(f"Complex preparation failed: {e}")
+            _write_status(job_dir, "error", {"phase": "error", "error": str(e)})
             return {"status": "error", "error": str(e)}
 
     def _run(self, input):
         job_id = input["job_id"]
-        total_ns = float(input.get("total_ns", 5))
+        total_ns = float(input.get("total_ns", 1))
         forcefield = input.get("forcefield", "amber14")
         temperature = float(input.get("temperature", 300))
         pressure = float(input.get("pressure", 1.0))
-        platform = input.get("platform", "CUDA")
+        platform = input.get("platform", "auto")
+        fast_mode = input.get("fast_mode", True)
         job_dir = os.path.join(WORKDIR, job_id)
 
         if not os.path.exists(job_dir):
@@ -198,27 +237,60 @@ class MDLite(ApiHandler):
             wf = MDWorkflow(job_dir)
             pdb = os.path.join(job_dir, "complex.pdb") if os.path.exists(os.path.join(job_dir, "complex.pdb")) else os.path.join(job_dir, "protein.pdb")
             if not os.path.exists(pdb):
+                pdb = os.path.join(job_dir, "prepared.pdb")
+            if not os.path.exists(pdb):
                 return {"status": "error", "error": "No PDB found. Run prepare first."}
+
+            _write_status(job_dir, "starting", {"phase": "starting"})
 
             def _run_md():
                 try:
-                    wf.run(pdb, total_ns, forcefield, temperature, pressure, platform)
+                    wf.run(pdb, total_ns, forcefield, temperature, pressure, platform, fast_mode=fast_mode)
                 except Exception as e:
                     log.error(f"MD run failed: {e}")
-                    wf.engine._update_status("error", {"error": str(e)})
+                    # wf._safe_update_status handles the case where wf.engine is None
+                    wf._safe_update_status("error", {"error": str(e), "phase": "error"})
 
             t = threading.Thread(target=_run_md, daemon=True)
             t.start()
             _jobs[job_id] = t
             return {"status": "ok", "job_id": job_id, "running": True,
-                    "total_ns": total_ns, "platform": platform}
+                    "total_ns": total_ns, "platform": platform, "fast_mode": fast_mode}
         except Exception as e:
+            _write_status(job_dir, "error", {"error": str(e)})
             return {"status": "error", "error": str(e)}
 
     def _status(self, input):
         job_id = input["job_id"]
         from modules.md_lite.workflow import MDWorkflow
-        return MDWorkflow.get_status(os.path.join(WORKDIR, job_id))
+        s = MDWorkflow.get_status(os.path.join(WORKDIR, job_id))
+        # Include the platform warning if available
+        job_dir = os.path.join(WORKDIR, job_id)
+        if not s.get("platform_warning"):
+            try:
+                with open(os.path.join(job_dir, "status.json")) as f:
+                    d = json.load(f)
+                    s["platform_warning"] = d.get("platform_warning", "")
+            except Exception:
+                pass
+        return s
+
+    def _log(self, input):
+        """Return last N lines of the md.log file (OpenMM StateDataReporter)."""
+        job_id = input.get("job_id", "")
+        lines = int(input.get("lines", 30))
+        job_dir = os.path.join(WORKDIR, job_id)
+        log_path = os.path.join(job_dir, "md.log")
+        if not os.path.exists(log_path):
+            return {"status": "ok", "lines": [], "hint": "MD log will appear once simulation starts running."}
+        try:
+            with open(log_path) as f:
+                all_lines = f.readlines()
+            tail = all_lines[-lines:] if len(all_lines) > lines else all_lines
+            return {"status": "ok", "lines": [l.rstrip() for l in tail],
+                    "total_lines": len(all_lines)}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
 
     def _stop(self, input):
         job_id = input["job_id"]

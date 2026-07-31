@@ -67,7 +67,12 @@
         Auto-Prepare fixes NPRO, adds hydrogens, parameterizes ligand — bridges docking → MD
       </p>
       <div x-show="loading" style="text-align:center;padding:8px;color:var(--color-text-muted);font-size:0.58rem">
-        <span class="spin"></span> Preparing with OpenMM...
+        <span class="spin"></span> <span x-text="phaseLabel || 'Preparing with OpenMM...'"></span>
+      </div>
+      <!-- Platform warning (GPU not accessible) -->
+      <div x-show="platformWarning && !loading" class="mc" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);padding:8px 12px;margin-top:8px">
+        <span class="material-symbols-outlined" style="font-size:14px;color:#f59e0b;vertical-align:middle">warning</span>
+        <span style="font-size:0.58rem;color:#f59e0b" x-text="platformWarning"></span>
       </div>
     </div>
 
@@ -82,18 +87,21 @@
       </div>
 
       <!-- Simulation Length -->
-      <div class="mc"><h4>Simulation Length</h4>
+      <div class="mc"><h4>Simulation Length <span class="mbadge c">Fast Mode</span></h4>
         <div class="mrl">
-          <label class="mr":class="{on:settings.total_ns===1}" @click="settings.total_ns=1"><span>1 ns</span><small>~30 min</small></label>
-          <label class="mr":class="{on:settings.total_ns===5}" @click="settings.total_ns=5"><span>5 ns</span><small>~2 hr</small></label>
-          <label class="mr":class="{on:settings.total_ns===10}" @click="settings.total_ns=10"><span>10 ns</span><small>~4 hr</small></label>
-          <label class="mr":class="{on:settings.total_ns===50}" @click="settings.total_ns=50"><span>50 ns</span><small>~20 hr</small></label>
+          <label class="mr":class="{on:settings.total_ns===1}" @click="settings.total_ns=1"><span>1 ns</span><small>~5 min CPU</small></label>
+          <label class="mr":class="{on:settings.total_ns===5}" @click="settings.total_ns=5"><span>5 ns</span><small>~25 min CPU</small></label>
+          <label class="mr":class="{on:settings.total_ns===10}" @click="settings.total_ns=10"><span>10 ns</span><small>~50 min CPU</small></label>
+          <label class="mr":class="{on:settings.total_ns===50}" @click="settings.total_ns=50"><span>50 ns</span><small>~4 hr CPU</small></label>
         </div>
       </div>
 
       <!-- Engine -->
       <div class="mc"><h4>Engine <span x-show="gpuAvailable" class="mbadge g">GPU Detected</span><span x-show="!gpuAvailable" class="mbadge c">CPU Only</span></h4>
         <div class="mrl">
+          <label class="mr":class="{on:settings.platform==='auto'}" @click="settings.platform='auto'">
+            <span>Auto</span><small>Fastest available (benchmarked)</small>
+          </label>
           <label class="mr":class="{on:settings.platform==='CUDA'}" @click="settings.platform='CUDA'">
             <span>GPU CUDA</span><small x-text="gpuName || 'NVIDIA'"></small>
           </label>
@@ -115,6 +123,11 @@
           <label>FF <select x-model="settings.forcefield" class="mi" style="width:100px">
             <option value="amber14">AMBER14</option><option value="amber99sb">AMBER99SB</option><option value="charmm36">CHARMM36</option>
           </select></label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" x-model="settings.fast_mode" style="width:auto">
+            <span style="font-size:0.56rem">Fast equilibration (10 ps)</span>
+          </label>
+          <small style="font-size:0.48rem;color:var(--color-text-muted)">Uncheck for full 200 ps equilibration (scientific-grade, slower)</small>
         </div>
       </div>
 
@@ -126,22 +139,41 @@
 
     <!-- === STEP 3: Monitor + Results === -->
     <div x-show="step === 3" class="mbdy" style="animation:fadeIn .2s ease">
-      <!-- Progress card -->
-      <template x-if="status?.status==='running' || status?.status==='completed'">
+      <!-- Platform warning (GPU not accessible) -->
+      <div x-show="platformWarning" class="mc" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);padding:8px 12px;margin-bottom:8px">
+        <span class="material-symbols-outlined" style="font-size:14px;color:#f59e0b;vertical-align:middle">warning</span>
+        <span style="font-size:0.58rem;color:#f59e0b" x-text="platformWarning"></span>
+      </div>
+
+      <!-- Progress card — shows for ALL phases (not just running/completed) -->
+      <template x-if="status">
         <div class="mc">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-            <span class="material-symbols-outlined" style="font-size:16px" :style="{color:status.status==='completed'?'#22c55e':'#f59e0b'}" x-text="status.status==='completed'?'check_circle':'hourglass_top'"></span>
-            <b style="font-size:0.64rem" x-text="status.status==='completed'?'Complete':'Running'"></b>
-            <span x-show="status.chunk" style="font-size:0.52rem;color:var(--color-text-muted);margin-left:auto" x-text="'Segment '+status.chunk"></span>
+            <span class="material-symbols-outlined" style="font-size:16px" :style="{color:phaseColor}" x-text="status?.status==='completed'?'check_circle':status?.status==='error'?'error':'hourglass_top'"></span>
+            <b style="font-size:0.64rem" :style="{color:phaseColor}" x-text="phaseLabel"></b>
+            <span x-show="status.platform" style="font-size:0.52rem;color:var(--color-text-muted);margin-left:auto" x-text="status.platform"></span>
+            <span x-show="status.chunk && status?.status==='running'" style="font-size:0.52rem;color:var(--color-text-muted)" x-text="'Segment '+status.chunk"></span>
           </div>
-          <div class="mpb"><div class="mpbf" :style="'width:'+(status.progress_pct||0)+'%'"></div></div>
-          <div class="mps">
-            <span x-text="(status.progress_ns||0)+' / '+settings.total_ns+' ns'"></span>
-            <span x-text="(status.progress_pct||0)+'%'"></span>
-            <span x-show="status.eta_minutes>0" x-text="'ETA: '+Math.round(status.eta_minutes)+' min'"></span>
+          <!-- Error details -->
+          <div x-show="status?.status==='error'" style="padding:6px;background:rgba(239,68,68,0.1);border-radius:4px;font-size:0.56rem;color:#ef4444;margin-bottom:6px" x-text="status.error||'Unknown error'"></div>
+          <!-- Progress bar (only when running) -->
+          <div x-show="status?.status==='running'">
+            <div class="mpb"><div class="mpbf" :style="'width:'+(status.progress_pct||0)+'%'"></div></div>
+            <div class="mps">
+              <span x-text="(status.progress_ns||0)+' / '+settings.total_ns+' ns'"></span>
+              <span x-text="(status.progress_pct||0)+'%'"></span>
+              <span x-show="status.eta_minutes>0" x-text="'ETA: '+Math.round(status.eta_minutes)+' min'"></span>
+            </div>
+          </div>
+          <!-- Completed summary -->
+          <div x-show="status?.status==='completed'" style="font-size:0.56rem;color:#22c55e;text-align:center;padding:4px">
+            ✓ <span x-text="settings.total_ns"></span> ns complete
           </div>
           <div x-show="status?.status==='running'" style="margin-top:6px;display:flex;gap:6px;justify-content:center">
             <button class="ml" @click="stopMD()">Stop</button>
+            <button class="ml" @click="resetAll()">Back</button>
+          </div>
+          <div x-show="status?.status==='error'" style="margin-top:6px;display:flex;gap:6px;justify-content:center">
             <button class="ml" @click="resetAll()">Back</button>
           </div>
         </div>
@@ -149,10 +181,19 @@
 
       <!-- Live Log -->
       <div x-show="liveLog.length" class="mc">
-        <h4>Live Log</h4>
-        <div style="max-height:120px;overflow-y:auto;font-size:0.52rem;font-family:monospace;color:var(--color-text-muted);line-height:1.6">
+        <h4>Activity</h4>
+        <div style="max-height:150px;overflow-y:auto;font-size:0.52rem;font-family:monospace;color:var(--color-text-muted);line-height:1.6">
           <template x-for="l in liveLog"><div x-text="l"></div></template>
         </div>
+      </div>
+
+      <!-- MD Technical Log (OpenMM StateDataReporter) -->
+      <div x-show="mdLog.length" class="mc">
+        <h4 style="cursor:pointer" @click="expandedLog=!expandedLog">
+          <span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle" x-text="expandedLog?'expand_less':'expand_more'"></span>
+          OpenMM Log (<span x-text="mdLog.length"></span> lines)
+        </h4>
+        <div x-show="expandedLog" style="max-height:200px;overflow-y:auto;font-size:0.48rem;font-family:monospace;color:var(--color-text-muted);line-height:1.5;white-space:pre" x-text="mdLog.join('\n')"></div>
       </div>
 
       <!-- Results (when complete) -->

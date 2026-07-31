@@ -2,7 +2,7 @@ import { callJsonApi } from "/js/api.js";
 
 Alpine.data("mdLite", () => ({
   step: 1, jobId: null, loading: false, errorMessage: "", result: null,
-  status: null, _pollTimer: null,
+  status: null, _pollTimer: null, _logPollTimer: null,
 
   // Input
   inputMethod: "complex",
@@ -11,17 +11,45 @@ Alpine.data("mdLite", () => ({
   dockingJob: "", jobList: [],
   dragging: false,
 
-  // Settings
-  settings: { total_ns: 5, platform: "CUDA", forcefield: "amber14", temperature: 300, pressure: 1.0 },
+  // Settings — fast defaults: 1ns, auto platform
+  settings: { total_ns: 1, platform: "auto", forcefield: "amber14", temperature: 300, pressure: 1.0, fast_mode: true },
   expandedAdvanced: false,
   gpuAvailable: false,
   gpuName: "",
+  platformWarning: "",
 
   // Live monitor
   liveLog: [],
+  mdLog: [],
+  expandedLog: false,
+  _lastPhase: null,
   mmpbsaLoading: false, mmpbsaResult: null,
   advancedLoading: false, advancedResult: null,
   showAdvanced: false,
+
+  // Phase display
+  phaseLabels: {
+    idle: "Idle", preparing: "Preparing PDB", preparing_complex: "Preparing complex",
+    sanitizing: "Sanitizing PDB", parameterizing: "Parameterizing",
+    solvating: "Adding solvent", minimizing: "Minimizing energy",
+    equilibrating: "Equilibrating", starting: "Starting MD",
+    running: "Running MD", completed: "Complete ✓", stopped: "Stopped",
+    error: "Error", unknown: "Unknown"
+  },
+
+  get phaseLabel() {
+    const p = this.status?.phase || "idle";
+    return this.phaseLabels[p] || p;
+  },
+
+  get phaseColor() {
+    const p = this.status?.phase || "idle";
+    if (p === "error") return "#ef4444";
+    if (p === "completed") return "#22c55e";
+    if (p === "stopped") return "#f59e0b";
+    if (p === "running") return "#6366f1";
+    return "#94a3b8";
+  },
 
   init() {
     this.checkHealth();
@@ -30,15 +58,14 @@ Alpine.data("mdLite", () => ({
   async checkHealth() {
     try {
       const r = await callJsonApi("md_lite", { action: "health" });
-      const platforms = r.platforms || [];
-      if (platforms.some(p => p.name.includes("CUDA"))) {
-        this.settings.platform = "CUDA"; this.gpuAvailable = true;
-        const c = platforms.find(p => p.name.includes("CUDA"));
-        this.gpuName = c ? c.name : "CUDA";
-      } else if (platforms.some(p => p.name.includes("OpenCL"))) {
-        this.settings.platform = "OpenCL"; this.gpuAvailable = true;
+      this.platformWarning = "";
+      if (r.gpu) {
+        this.gpuAvailable = true;
+        this.gpuName = r.platforms?.find(p => p.name.includes("CUDA"))?.name || "GPU";
+        this.settings.platform = "auto";
       } else {
-        this.settings.platform = "CPU"; this.gpuAvailable = false;
+        this.gpuAvailable = false;
+        this.settings.platform = "CPU";
       }
     } catch {}
   },
@@ -105,25 +132,27 @@ Alpine.data("mdLite", () => ({
 
   // Run MD
   async runMD() {
-    this.loading = true; this.errorMessage = ""; this.liveLog = [];
+    this.loading = true; this.errorMessage = ""; this.liveLog = []; this.mdLog = [];
     try {
       const r = await callJsonApi("md_lite", {
         action: "run", job_id: this.jobId, total_ns: this.settings.total_ns,
         forcefield: this.settings.forcefield, temperature: this.settings.temperature,
         pressure: this.settings.pressure, platform: this.settings.platform,
+        fast_mode: this.settings.fast_mode,
       });
-      if (r.status === "ok") { this.step = 3; this.startPolling(); }
+      if (r.status === "ok") { this.platformWarning = r.platform_warning || ""; this.step = 3; this.startPolling(); }
       else { this.errorMessage = r.error || "Run failed"; }
     } catch (e) { this.errorMessage = "Error: " + (e.message || "API unavailable"); }
     this.loading = false;
   },
 
   startPolling() {
-    this.liveLog.push("Production MD started");
+    this.liveLog.push("MD simulation started — " + (this.settings.fast_mode ? "fast mode" : "full mode"));
     this._lastProgress = 0;
     this._lastTime = Date.now();
     this.pollStatus();
     this._pollTimer = setInterval(() => this.pollStatus(), 3000);
+    this._logPollTimer = setInterval(() => this.loadLog(), 8000);
   },
 
   async pollStatus() {
@@ -131,17 +160,42 @@ Alpine.data("mdLite", () => ({
     try {
       const r = await callJsonApi("md_lite", { action: "status", job_id: this.jobId });
       this.status = r;
+      this.platformWarning = r.platform_warning || this.platformWarning || "";
+      // Add phase changes to live log
+      const phase = r.phase || r.status;
+      if (phase && phase !== this._lastPhase) {
+        this._lastPhase = phase;
+        const label = this.phaseLabels[phase] || phase;
+        if (r.status === "error") {
+          this.liveLog.push(`❌ ${label}: ${r.error || "unknown error"}`);
+        } else {
+          this.liveLog.push(`▸ ${label}`);
+        }
+        if (this.liveLog.length > 30) this.liveLog.shift();
+      }
       // Add chunks to live log when progress changes
       if (r.chunk && r.progress_pct !== this._lastProgress) {
         this._lastProgress = r.progress_pct;
-        this.liveLog.push(`Segment ${r.chunk} · ${r.progress_ns} ns · ${r.progress_pct}%`);
-        if (this.liveLog.length > 20) this.liveLog.shift();
+        const eta = r.eta_minutes ? ` · ETA ${r.eta_minutes} min` : "";
+        this.liveLog.push(`Segment ${r.chunk} · ${r.progress_ns} ns · ${r.progress_pct}%${eta}`);
+        if (this.liveLog.length > 30) this.liveLog.shift();
       }
       if (r.status === "completed" || r.status === "error" || r.status === "stopped") {
         clearInterval(this._pollTimer);
-        this.liveLog.push(r.status === "completed" ? "Simulation complete ✓" : "Simulation " + r.status);
-        if (r.status === "completed") this.loadResults();
+        clearInterval(this._logPollTimer);
+        if (r.status === "completed") {
+          this.liveLog.push("Simulation complete ✓");
+          this.loadResults();
+        }
       }
+    } catch {}
+  },
+
+  async loadLog() {
+    if (!this.jobId) return;
+    try {
+      const r = await callJsonApi("md_lite", { action: "log", job_id: this.jobId, lines: 20 });
+      if (r.lines) this.mdLog = r.lines;
     } catch {}
   },
 
@@ -161,8 +215,11 @@ Alpine.data("mdLite", () => ({
   },
 
   async stopMD() {
-    try { await callJsonApi("md_lite", { action: "stop", job_id: this.jobId }); clearInterval(this._pollTimer); }
-    catch {}
+    try {
+      await callJsonApi("md_lite", { action: "stop", job_id: this.jobId });
+      clearInterval(this._pollTimer);
+      clearInterval(this._logPollTimer);
+    } catch {}
   },
 
   download() { if (this.jobId) window.open("/api/md_lite?action=download&job_id="+this.jobId, "_blank"); },
@@ -195,8 +252,12 @@ Alpine.data("mdLite", () => ({
   },
 
   resetAll() {
-    clearInterval(this._pollTimer); this.step = 1; this.jobId = null;
-    this.result = null; this.status = null; this.errorMessage = ""; this.liveLog = [];
+    clearInterval(this._pollTimer);
+    clearInterval(this._logPollTimer);
+    this.step = 1; this.jobId = null;
+    this.result = null; this.status = null; this.errorMessage = "";
+    this.liveLog = []; this.mdLog = [];
+    this.platformWarning = ""; this._lastPhase = null;
     this.mmpbsaResult = null; this.mmpbsaLoading = false;
     this._complexContent = null; this._proteinContent = null; this._ligandContent = null;
     this._complexName = ""; this._proteinName = ""; this._ligandName = "";
