@@ -99,7 +99,7 @@
           <button class="dp-btn" @click="$store.clinicalModal.runTDM()" :disabled="$store.clinicalModal.loading">Calculate</button>
           <template x-if="$store.clinicalModal.result?.success">
             <div class="dp-result">
-              <div class="dp-stat"><span class="dp-stat-label">Suggested dose</span><span class="dp-stat-val" x-text="$store.clinicalModal.result.suggested_dose_mg + ' mg'"></span></div>
+              <div class="dp-stat"><span class="dp-stat-label">Suggested dose</span><span class="dp-stat-val" x-text="($store.clinicalModal.result.adjusted_dose_mg || $store.clinicalModal.result.suggested_dose_mg) + ' mg'"></span></div>
               <div class="dp-stat"><span class="dp-stat-label">Adjustment</span><span class="dp-stat-val" x-text="$store.clinicalModal.result.adjustment"></span></div>
               <div class="dp-stat"><span class="dp-stat-label">Time to steady state</span><span class="dp-stat-val" x-text="$store.clinicalModal.result.time_to_steady_state_days + ' days'"></span></div>
             </div>
@@ -122,7 +122,7 @@
             <div class="dp-result">
               <div class="dp-stat"><span class="dp-stat-label">GFR</span><span class="dp-stat-val" x-text="$store.clinicalModal.result.gfr_ml_min + ' mL/min'"></span></div>
               <div class="dp-stat"><span class="dp-stat-label">CKD Stage</span><span class="dp-stat-val" x-text="$store.clinicalModal.result.ckd_stage"></span></div>
-              <div class="dp-stat" x-show="$store.clinicalModal.result.suggested_dose_mg"><span class="dp-stat-label">Suggested dose</span><span class="dp-stat-val" x-text="$store.clinicalModal.result.suggested_dose_mg + ' mg'"></span></div>
+              <div class="dp-stat" x-show="($store.clinicalModal.result.adjusted_dose_mg || $store.clinicalModal.result.suggested_dose_mg)"><span class="dp-stat-label">Suggested dose</span><span class="dp-stat-val" x-text="($store.clinicalModal.result.adjusted_dose_mg || $store.clinicalModal.result.suggested_dose_mg) + ' mg'"></span></div>
             </div>
           </template>
         </div>

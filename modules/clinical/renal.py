@@ -105,6 +105,8 @@ def calculate_renal_adjust(
         adjusted_dose = round(dose_mg * factor)
         result["current_dose_mg"] = dose_mg
         result["adjusted_dose_mg"] = adjusted_dose
+        # Alias for Clinical UI (reads suggested_dose_mg)
+        result["suggested_dose_mg"] = adjusted_dose
 
     # Drug-specific guidance
     if drug:

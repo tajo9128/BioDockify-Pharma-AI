@@ -61,22 +61,54 @@ class ClinicalHandler(ApiHandler):
 
     def _tdm(self, input):
         from modules.clinical.tdm import calculate_tdm
-        # Accept both UI keys (interval_hr, half_life_hr, target_trough, measured_trough)
-        # and API keys (interval_h, steady_state_peak, steady_state_trough)
+        # UI keys: interval_hr, measured_trough, target_trough
+        # API keys: interval_h, steady_state_peak, steady_state_trough
+        # Do NOT map half_life_hr → peak (different quantities).
         interval = input.get("interval_h") or input.get("interval_hr") or 12
-        peak = input.get("steady_state_peak") or input.get("half_life_hr")
+        peak = input.get("steady_state_peak")
         trough = input.get("steady_state_trough") or input.get("measured_trough")
-        return calculate_tdm(
+        target = input.get("target_trough")
+        result = calculate_tdm(
             drug=input.get("drug", ""),
             dose_mg=input.get("dose_mg", 0),
             interval_h=float(interval),
             route=input.get("route", "iv"),
             infusion_time_h=input.get("infusion_time_h", 0),
-            steady_state_peak=float(peak) if peak else None,
-            steady_state_trough=float(trough) if trough else None,
+            steady_state_peak=float(peak) if peak not in (None, "") else None,
+            steady_state_trough=float(trough) if trough not in (None, "") else None,
             patient_weight_kg=input.get("patient_weight_kg", 70),
             renal_function=input.get("renal_function"),
         )
+        if result.get("status") == "error":
+            return result
+
+        # Aliases expected by clinical.html
+        dose = float(input.get("dose_mg") or 0)
+        measured = float(trough) if trough not in (None, "") else None
+        target_val = float(target) if target not in (None, "") else None
+        suggested = dose
+        adjustment = result.get("trough_status") or "Maintain current dose"
+        if measured and target_val and measured > 0 and target_val > 0:
+            suggested = round(dose * (target_val / measured))
+            if suggested > dose:
+                adjustment = f"Increase toward target trough {target_val}"
+            elif suggested < dose:
+                adjustment = f"Reduce toward target trough {target_val}"
+            else:
+                adjustment = "On target — maintain dose"
+        elif result.get("in_range") is False and measured:
+            # Heuristic ±20% when only measured trough vs therapeutic range
+            tr = result.get("therapeutic_range") or (0, 0)
+            mid = (tr[0] + tr[1]) / 2 if tr[1] else measured
+            if mid > 0:
+                suggested = round(dose * (mid / measured))
+                adjustment = result.get("trough_status") or adjustment
+
+        result["success"] = True
+        result["suggested_dose_mg"] = suggested
+        result["adjustment"] = adjustment
+        result["time_to_steady_state_days"] = result.get("time_to_steady_state_d")
+        return result
 
     def _renal_adjust(self, input):
         from modules.clinical.renal import calculate_renal_adjust

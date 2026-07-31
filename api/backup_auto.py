@@ -172,7 +172,7 @@ class AutoBackupHandler(ApiHandler):
         if action == "status":
             return self._status()
         elif action == "create":
-            return self._create()
+            return self._create(label=input.get("label", "Quick Backup"))
         elif action == "list":
             return self._list()
         elif action == "restore":
@@ -199,7 +199,7 @@ class AutoBackupHandler(ApiHandler):
             "latest": backups[0] if backups else None,
         }
 
-    def _create(self):
+    def _create(self, label="Quick Backup"):
         """One-click backup: zip all user data into a timestamped backup."""
         os.makedirs(BACKUPS_DIR, exist_ok=True)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -243,7 +243,7 @@ class AutoBackupHandler(ApiHandler):
             metadata = {
                 "backup_id": backup_id,
                 "created_at": datetime.datetime.now().isoformat(),
-                "label": "Quick Backup",
+                "label": label or "Quick Backup",
                 "zip_size_mb": zip_size,
                 "file_count": _count_files(backup_dir),
             }
@@ -262,7 +262,8 @@ class AutoBackupHandler(ApiHandler):
                 "backup_id": backup_id,
                 "size_mb": _get_backup_size(backup_dir),
                 "zip_size_mb": zip_size,
-                "message": f"Backup created: {backup_id} ({zip_size} MB). Stored in volume — survives container deletion."
+                "files": metadata["file_count"],
+                "message": f"Backup created: {backup_id} ({zip_size} MB). Download via Save to PC to keep a copy on your computer.",
             }
 
         except Exception as e:

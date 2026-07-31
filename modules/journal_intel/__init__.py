@@ -93,7 +93,7 @@ def _query_db(query: str = "", scopus: bool = None, wos: bool = None, oa: bool =
         scopus_count = cur.fetchone()[0]
         cur.execute("SELECT COUNT(*) FROM journals WHERE wos_indexed=1")
         wos_count = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM journals WHERE oa_status='OA'")
+        cur.execute("SELECT COUNT(*) FROM journals WHERE oa_status IN ('OA','Open Access')")
         oa_count = cur.fetchone()[0]
 
         db.close()

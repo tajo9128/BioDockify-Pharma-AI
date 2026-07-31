@@ -52,10 +52,9 @@ export const store = createStore("researchDashboard", {
   async listProjects() {
     this.loading = true; this.error = "";
     try {
-      const data = await callJsonApi("research/management/list");
-      this.projects = Array.isArray(data) ? data : [];
-      if (!this.projects.length) this.loading = false;
-    } catch (e) { this.projects = []; }
+      const data = await callJsonApi("research_management", { action: "list" });
+      this.projects = Array.isArray(data?.projects) ? data.projects : (Array.isArray(data) ? data : []);
+    } catch (e) { this.projects = []; this.error = e.message || "Failed to load projects"; }
     this.loading = false;
   },
 
@@ -68,77 +67,77 @@ export const store = createStore("researchDashboard", {
     if (!this.activeProjectId) return;
     this.loading = true; this.error = "";
     try {
-      const resp = await callJsonApi(`research/management/dashboard/${this.activeProjectId}`, {});
-      this.dashboard = resp || null;
+      const resp = await callJsonApi("research_management", {
+        action: "dashboard",
+        research_id: this.activeProjectId,
+      });
+      if (resp.error) { this.error = resp.error; this.dashboard = null; }
+      else this.dashboard = resp || null;
     } catch (e) { this.error = e.message; }
     this.loading = false;
   },
 
   async startResearch() {
     if (!this.newTopic.trim()) return;
-    this.loading = true; this.message = "";
+    this.loading = true; this.message = ""; this.error = "";
 
-    // 1. Open project creation modal
-    if (typeof $store !== "undefined" && $store.projects) {
-      try { $store.projects.openProjectsModal(); } catch {}
+    const topic = this.newTopic.trim();
+    const researchType = this.newType;
+    const department = this.newDepartment;
+    const notes = this.newNotes.trim();
+    const comments = this.newComments.trim();
+
+    // 1. Persist project via Flask research_management (was unmounted FastAPI)
+    let researchId = null;
+    try {
+      const created = await callJsonApi("research_management", {
+        action: "create",
+        topic,
+        research_type: researchType,
+        department,
+        notes: [notes, comments].filter(Boolean).join(" | "),
+      });
+      if (created.error) {
+        this.error = created.error;
+        this.loading = false;
+        return;
+      }
+      researchId = created.research_id;
+      this.activeProjectId = researchId;
+      await this.listProjects();
+    } catch (e) {
+      this.error = "Failed to save project: " + (e.message || e);
+      this.loading = false;
+      return;
     }
 
-    // 2. All 10 databases for comprehensive search
-    const allDbs = "PubMed, Semantic Scholar, CrossRef, OpenAlex, Europe PMC, bioRxiv, arXiv, DrugBank, ChEMBL, KEGG";
-
-    // 3. Send research prompt to agent with full-text-only instructions
-    let prompt = `Research task: ${this.newTopic}\n`;
-    prompt += `Type: ${this.newType}\n`;
-    prompt += `Department: ${this.departments.find(d => d.id === this.newDepartment)?.name || this.newDepartment}\n`;
-    if (this.newNotes.trim()) prompt += `Topics: ${this.newNotes}\n`;
-    if (this.newComments.trim()) prompt += `Instructions: ${this.newComments}\n`;
-    prompt += `\nPlease execute the following TWO-ROUND literature collection:\n\n`;
-    prompt += `=== ROUND 1: Direct Full-Text Download ===\n`;
-    prompt += `1. Search ALL 10 databases: ${allDbs}\n`;
-    prompt += `2. For EVERY paper found, attempt to download the FULL-TEXT PDF immediately using:\n`;
-    prompt += `   - Europe PMC full-text XML (open access)\n`;
-    prompt += `   - Unpaywall API (legal open-access links)\n`;
-    prompt += `   - Publisher direct PDF links\n`;
-    prompt += `   - bioRxiv/arXiv direct PDF downloads\n`;
-    prompt += `   - Any other合法 open-access source\n`;
-    prompt += `3. Save ONLY papers where full text was successfully downloaded. Skip everything else.\n\n`;
-    prompt += `=== ROUND 2: Open-Access Full-Text Retrieval ===\n`;
-    prompt += `4. After Round 1, take ALL papers that FAILED to get full text in Round 1\n`;
-    prompt += `5. For each failed paper, try these legal open-access methods:\n`;
-    prompt += `   - CORE.ac.uk (open-access repository aggregator)\n`;
-    prompt += `   - Unpaywall (legal OA links by DOI)\n`;
-    prompt += `   - Europe PMC full-text XML\n`;
-    prompt += `   - Google Scholar PDF links (open-access only)\n`;
-    prompt += `   - ResearchGate full-text requests (author-uploaded)\n`;
-    prompt += `   - Author personal pages / institutional repositories\n`;
-    prompt += `   - Wayback Machine / cached open-access PDFs\n`;
-    prompt += `   - bioRxiv/arXiv direct PDF downloads\n`;
-    prompt += `6. Save each newly retrieved full article to Knowledge Base\n\n`;
-    prompt += `=== STORAGE RULES (STRICT) ===\n`;
-    prompt += `7. Save each full article as BOTH formatted DOCX + original PDF in Knowledge Base with #${this.newType} tag\n`;
-    prompt += `8. Synthesize ALL full-text articles into a comprehensive literature review\n`;
-    prompt += `9. Track progress and provide updates after each round\n\n`;
-    prompt += `\nCRITICAL RULES — READ CAREFULLY:\n`;
-    prompt += `- NEVER save abstracts — they are useless for research\n`;
-    prompt += `- NEVER save metadata-only (title, authors, DOI without full text)\n`;
-    prompt += `- NEVER save summaries, snippets, or partial content\n`;
-    prompt += `- ONLY save papers where you have the COMPLETE article body text\n`;
-    prompt += `- If full text cannot be obtained after both rounds, DISCARD the paper — do not save it\n`;
-    prompt += `- Every saved paper MUST have: Introduction, Methods, Results, Discussion, References — the full article\n`;
+    // 2. Optional: nudge agent chat with a literature-collection brief
+    const allDbs = "PubMed, Semantic Scholar, CrossRef, OpenAlex, Europe PMC, bioRxiv, arXiv";
+    let prompt = `Research task: ${topic}\n`;
+    prompt += `Project ID: ${researchId}\n`;
+    prompt += `Type: ${researchType}\n`;
+    prompt += `Department: ${this.departments.find(d => d.id === department)?.name || department}\n`;
+    if (notes) prompt += `Topics: ${notes}\n`;
+    if (comments) prompt += `Instructions: ${comments}\n`;
+    prompt += `\nCollect FULL-TEXT open-access papers only from: ${allDbs}.\n`;
+    prompt += `Use Europe PMC / Unpaywall / publisher OA / preprint PDFs. Do not store abstracts-only.\n`;
+    prompt += `Store complete articles in Knowledge Base tagged #${researchType}.\n`;
 
     const input = document.querySelector("#chat-input, #chat-bar-input textarea, .chat-bar-input textarea");
     if (input) {
       input.value = prompt;
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.focus();
-      this.message = "Research task sent to agent!";
+      this.message = `Project saved (${researchId}). Research brief sent to agent.`;
     } else {
-      this.message = "Type your research title in chat to start.";
+      this.message = `Project saved (${researchId}). Open chat to continue with the agent.`;
     }
 
     this.newTopic = ""; this.newNotes = ""; this.newComments = "";
+    this.activeTab = "pipeline";
+    await this.loadDashboard();
     this.loading = false;
-    setTimeout(() => { this.message = ""; this.listProjects(); }, 5000);
+    setTimeout(() => { this.message = ""; }, 6000);
   },
 
   exportReport() {
