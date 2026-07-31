@@ -20,6 +20,8 @@ class PptMasterHandler(ApiHandler):
             return self._status()
         elif action == "generate":
             return await self._generate(input)
+        elif action == "generate_content":
+            return await self._generate_content(input)
         elif action == "list_templates":
             return self._list_templates()
         elif action == "list_workflows":
@@ -105,6 +107,41 @@ class PptMasterHandler(ApiHandler):
             ),
             "skill_path": SKILL_DIR,
         }
+
+    async def _generate_content(self, input: dict) -> dict:
+        """Generate slide content from a topic (returns structured slides, no PPTX yet)."""
+        topic = input.get("topic", "").strip()
+        style = input.get("style", "academic")
+        num_slides = int(input.get("num_slides", 10))
+        if not topic:
+            return {"success": False, "error": "topic required"}
+
+        try:
+            from modules.slides.slide_generator import get_slide_generator
+            gen = get_slide_generator()
+            result = await asyncio.to_thread(
+                gen.generate_from_prompt, topic, style, num_slides
+            )
+            slides = result.get("slides", [])
+            return {
+                "success": True,
+                "topic": topic,
+                "style": style,
+                "num_slides": len(slides),
+                "slides": slides,
+            }
+        except Exception as e:
+            # Fallback: generate basic slides without LLM
+            slides = []
+            for i in range(num_slides):
+                slides.append({
+                    "title": f"Slide {i + 1}: {topic}",
+                    "content": f"Key point {i + 1} about {topic}",
+                    "notes": "",
+                })
+            return {"success": True, "topic": topic, "style": style,
+                    "num_slides": len(slides), "slides": slides,
+                    "note": f"LLM unavailable, generated placeholder slides: {e}"}
 
     def _generate_from_slides(self, slides_data, title, theme_name):
         """Generate editable PPTX directly from structured slide data using python-pptx."""

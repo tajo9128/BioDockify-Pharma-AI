@@ -12,6 +12,7 @@
       loading: false,
       result: null,
       error: "",
+      message: "",
 
       async generate() {
         if (!this.topic.trim()) return;
@@ -19,10 +20,18 @@
         this.error = "";
         this.result = null;
         try {
-          // Send to agent chat for slide generation
-          this.sendToAgent();
+          const resp = await callJsonApi("ppt_master", {
+            action: "generate_content",
+            topic: this.topic,
+            style: this.style,
+            num_slides: this.numSlides,
+          });
+          if (resp.error) { this.error = resp.error; }
+          else if (resp.slides && resp.slides.length) {
+            this.result = { topic: resp.topic || this.topic, slides: resp.slides };
+          } else { this.error = "No slides generated"; }
         } catch (e) {
-          this.error = e.message;
+          this.error = e.message || "Slide generation failed";
         }
         this.loading = false;
       },
@@ -42,7 +51,7 @@
       clear() { this.topic = ""; this.result = null; this.error = ""; },
 
       async downloadPptx() {
-        if (!this.result?.slides) { this.error = "Generate slides first"; return; }
+        if (!this.result?.slides?.length) { this.error = "Generate slides first"; return; }
         this.loading = true;
         this.error = "";
         try {
@@ -55,7 +64,7 @@
           const resp = await fetch("/api/ppt_master", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "generate", slides, theme: this.style, title: this.topic.substring(0, 50), include_notes: true }),
+            body: JSON.stringify({ action: "generate", slides, theme: this.style, topic: this.topic.substring(0, 50) }),
           });
           if (resp.ok) {
             const blob = await resp.blob();
@@ -65,8 +74,6 @@
             a.download = `${this.topic.substring(0, 30).replace(/\s+/g, "_")}.pptx`;
             a.click();
             URL.revokeObjectURL(url);
-            this.message = "PPTX downloaded";
-            setTimeout(() => { this.message = ""; }, 3000);
           } else {
             const err = await resp.json().catch(() => ({}));
             this.error = err.error || "PPTX generation failed";

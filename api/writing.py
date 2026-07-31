@@ -381,7 +381,7 @@ class WritingTools(ApiHandler):
         """Verify pharmaceutical citations against real databases.
         Pharma-focused: prioritizes PubMed, Europe PMC, CrossRef.
         Returns per-citation status: verified/suspicious/hallucinated."""
-        import re, urllib.request, json as _json, time as _time
+        import re, urllib.request, urllib.parse, json as _json, time as _time
 
         text = input.get("text", "")
         citations = input.get("citations", [])  # [{doi, pmid, title, authors, year}]

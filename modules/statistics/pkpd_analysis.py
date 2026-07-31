@@ -149,10 +149,16 @@ class PKPDAnalysis:
         """
         if method == 'log':
             # Logarithmic trapezoidal rule (better for terminal phase)
+            # Fall back to linear for intervals where concentrations are equal
+            # (log difference = 0 → division by zero)
             log_conc = np.log(concentration)
-            partial_aucs = (time[1:] - time[:-1]) * (
-                (concentration[1:] - concentration[:-1]) /
-                (log_conc[1:] - log_conc[:-1])
+            d_log = log_conc[1:] - log_conc[:-1]
+            dt = time[1:] - time[:-1]
+            d_conc = concentration[1:] - concentration[:-1]
+            partial_aucs = np.where(
+                np.abs(d_log) < 1e-15,
+                dt * (concentration[1:] + concentration[:-1]) / 2,  # linear fallback
+                dt * d_conc / d_log
             )
         else:
             # Linear trapezoidal rule
@@ -287,27 +293,34 @@ class PKPDAnalysis:
             half_life = np.log(2) / lambda_z
         else:
             half_life = np.nan
-        
+
+        # Calculate AUMC (area under the first moment curve: ∫ t·C dt)
+        aumc_0_t, _ = self._calculate_trapezoidal_auc(time, time * conc, method='linear')
+        if lambda_z > 0 and last_conc > 0:
+            aumc_extrap = (last_time * last_conc / lambda_z) + (last_conc / lambda_z ** 2)
+            aumc_0_inf = aumc_0_t + aumc_extrap
+        else:
+            aumc_0_inf = aumc_0_t
+
+        # Calculate MRT = AUMC / AUC (correct for both IV and EV)
+        if auc_0_inf > 0 and np.isfinite(aumc_0_inf):
+            mrt = aumc_0_inf / auc_0_inf
+        else:
+            mrt = np.nan
+
         # Calculate clearance
         if self.route == 'IV':
             cl = self.dose / auc_0_inf
         else:
             cl = np.nan  # Cannot calculate CL without bioavailability
-        
-        # Calculate volume of distribution
-        if self.route == 'IV' and lambda_z > 0:
-            vd = cl / lambda_z
+
+        # Calculate volume of distribution at steady state
+        if self.route == 'IV' and np.isfinite(mrt):
+            vd = cl * mrt  # Vd_ss = CL × MRT (correct formula)
+        elif self.route == 'IV' and lambda_z > 0:
+            vd = cl / lambda_z  # Vd_z fallback
         else:
             vd = np.nan
-        
-        # Calculate MRT
-        if lambda_z > 0:
-            if self.route == 'IV':
-                mrt = 1 / lambda_z
-            else:
-                mrt = (1 / lambda_z) - (tmax / 2)
-        else:
-            mrt = np.nan
         
         # Compile parameters
         parameters = {
@@ -1387,11 +1400,14 @@ class PKPDAnalysis:
         if 'subject_id' in df.columns:
             return self._clearance_multiple_subjects(df, bioavailability, alpha)
         
-        # Calculate AUC
-        auc_0_inf, _ = self._calculate_trapezoidal_auc(time, conc)
-        
-        # Estimate lambda_z
+        # Calculate AUC(0-t) then extrapolate to AUC(0-inf)
+        auc_0_t, _ = self._calculate_trapezoidal_auc(time, conc)
         lambda_z, _ = self._estimate_lambda_z(time, conc)
+        last_conc = conc[-1]
+        if lambda_z > 0 and last_conc > 0:
+            auc_0_inf = auc_0_t + (last_conc / lambda_z)
+        else:
+            auc_0_inf = auc_0_t
         
         # Calculate clearance
         if self.route == 'IV':
@@ -1933,16 +1949,20 @@ class PKPDAnalysis:
         else:
             vd = np.nan
         
-        # 7. MRT and Vss
-        if lambda_z > 0:
-            if self.route == 'IV':
-                mrt = 1 / lambda_z
-                vss = cl * mrt
-            else:
-                mrt = (1 / lambda_z) - (tmax / 2)
-                vss = cl * mrt if not np.isnan(cl) else np.nan
+        # 7. MRT and Vss (AUMC/AUC — correct for both IV and EV)
+        aumc_0_t, _ = self._calculate_trapezoidal_auc(time, time * conc, method='linear')
+        if lambda_z > 0 and conc[-1] > 0:
+            aumc_extrap = (time[-1] * conc[-1] / lambda_z) + (conc[-1] / lambda_z ** 2)
+            aumc_0_inf = aumc_0_t + aumc_extrap
+        else:
+            aumc_0_inf = aumc_0_t
+        if auc_0_inf > 0 and np.isfinite(aumc_0_inf):
+            mrt = aumc_0_inf / auc_0_inf
         else:
             mrt = np.nan
+        if not np.isnan(cl) and np.isfinite(mrt):
+            vss = cl * mrt
+        else:
             vss = np.nan
         
         # 8. Accumulation (if multiple dose)

@@ -106,7 +106,8 @@ async def _verify_layer(citation, layer):
     if layer == 5:
         return None, "LLM relevance check pending — agent must validate", "LLM"
 
-    return True, "No verification available", "none"
+    # Citation type does not match this layer — skip (not verified, not failed)
+    return None, "Not applicable at this layer", "none"
 
 
 class VerificationHandler(ApiHandler):
