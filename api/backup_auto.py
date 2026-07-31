@@ -164,6 +164,9 @@ class AutoBackupHandler(ApiHandler):
         return True  # Backup operations require authentication
 
     async def process(self, input: dict, request: Request) -> dict:
+        # Support both JSON body and FormData (upload sends FormData)
+        if not input and hasattr(request, 'form'):
+            input = dict(request.form)
         action = input.get("action", "status")
 
         if action == "status":

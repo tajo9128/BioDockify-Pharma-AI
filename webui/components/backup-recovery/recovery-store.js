@@ -45,7 +45,7 @@ export const store = createStore("backupRecovery", {
     if (!confirm(`Restore backup ${backupId}? This may overwrite current data.`)) return;
     this.restoring = true; this.error = ""; this.message = "Restoring backup...";
     try {
-      const resp = await callJsonApi("backup_auto", { action: "restore_specific", backup_name: backupId });
+      const resp = await callJsonApi("backup_auto", { action: "restore", backup_id: backupId });
       if (resp.error) { this.error = resp.error; return; }
       this.message = `Backup restored: ${(resp.restored || []).length} items recovered`;
       setTimeout(() => this.message = "", 5000);
