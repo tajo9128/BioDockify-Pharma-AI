@@ -38,6 +38,8 @@ class DeepResearchHandler(ApiHandler):
             return self._list_sessions()
         elif action == "prisma_counts":
             return self._prisma_counts(input)
+        elif action == "literature_map":
+            return await self._literature_map(input)
 
         return {"status": "error", "error": f"Unknown action: {action}"}
 
@@ -743,3 +745,198 @@ class DeepResearchHandler(ApiHandler):
         except Exception as e:
             log.warning(f"Springer failed: {e}")
         return results
+
+    async def _literature_map(self, input: dict) -> dict:
+        """Literature map — seed paper → related papers (similar / cited_by / references).
+
+        Uses OpenAlex API (free, no key required) to build a ResearchRabbit-style
+        discovery graph. Three directions:
+          - similar: papers that cite the same sources (co-citation)
+          - cited_by: newer papers citing this one (later work)
+          - references: older papers this one cites (earlier work / foundation)
+
+        Input:
+            seed_query: search for a seed paper by title/topic
+            seed_doi:   OR provide a DOI directly
+            direction:  similar | cited_by | references | all (default: all)
+            limit:      max papers per direction (default 10)
+
+        Returns:
+            seed paper + related papers grouped by direction, ready for
+            "Add to KB" / "Start review from these" actions.
+        """
+        import urllib.parse
+
+        seed_doi = (input.get("seed_doi", "") or "").strip().lower()
+        seed_query = (input.get("seed_query", "") or "").strip()
+        direction = (input.get("direction", "all") or "all").strip().lower()
+        limit = min(int(input.get("limit", 10)), 25)
+
+        if not seed_doi and not seed_query:
+            return {"status": "error", "error": "Provide seed_doi or seed_query"}
+
+        # ── Step 1: Resolve seed paper via OpenAlex ──
+        async def _resolve_seed():
+            if seed_doi:
+                # OpenAlex DOI lookup: https://api.openalex.org/works/doi:10.xxxx/yyy
+                clean_doi = seed_doi.replace("https://doi.org/", "").replace("http://doi.org/", "")
+                url = f"https://api.openalex.org/works/doi:{clean_doi}"
+            else:
+                # Search by title
+                params = {"search": seed_query, "per_page": 1}
+                url = f"https://api.openalex.org/works?{urllib.parse.urlencode(params)}"
+            req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
+            raw = await _async_urlopen(req, timeout=20)
+            data = json.loads(raw)
+            if seed_doi:
+                return data
+            else:
+                results = data.get("results", [])
+                return results[0] if results else None
+
+        try:
+            seed = await _resolve_seed()
+        except Exception as e:
+            return {"status": "error", "error": f"Seed paper lookup failed: {e}"}
+
+        if not seed:
+            return {"status": "error", "error": "Seed paper not found. Try a different query or DOI."}
+
+        seed_id = seed.get("id", "").replace("https://openalex.org/", "")
+        seed_title = seed.get("title", "Untitled")
+        seed_authors = [a.get("author", {}).get("display_name", "") for a in seed.get("authorships", [])[:3]]
+        seed_year = (seed.get("publication_date") or "")[:4]
+        seed_doi_found = seed.get("doi", "")
+        seed_cited_by = seed.get("cited_by_count", 0)
+        seed_concepts = [c.get("display_name", "") for c in seed.get("concepts", [])[:5] if c.get("score", 0) > 0.3]
+
+        seed_paper = {
+            "openalex_id": seed_id,
+            "title": seed_title,
+            "authors": seed_authors,
+            "year": seed_year,
+            "doi": (seed_doi_found or "").replace("https://doi.org/", ""),
+            "cited_by_count": seed_cited_by,
+            "concepts": seed_concepts,
+            "abstract": self._openalex_abstract(seed.get("abstract_inverted_index")),
+        }
+
+        # ── Step 2: Fetch related papers ──
+        related = {"similar": [], "cited_by": [], "references": []}
+
+        async def _fetch_direction(dir_name, endpoint_key):
+            """Fetch papers for one direction from OpenAlex."""
+            ids_list = seed.get(endpoint_key, [])
+            # OpenAlex returns only counts, need to fetch actual works
+            if endpoint_key == "referenced_works":
+                # This paper's references (earlier work)
+                ref_count = seed.get("referenced_works_count", len(ids_list))
+                if not ids_list or ref_count == 0:
+                    return
+                # Fetch up to `limit` references
+                sample_ids = ids_list[:limit]
+                for batch_start in range(0, len(sample_ids), 25):
+                    batch = sample_ids[batch_start:batch_start + 25]
+                    filter_val = "|".join(batch)
+                    url = f"https://api.openalex.org/works?filter=openalex_id:{filter_val}&per_page={min(len(batch), limit)}"
+                    try:
+                        req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
+                        raw = await _async_urlopen(req, timeout=20)
+                        data = json.loads(raw)
+                        for w in data.get("results", []):
+                            related[dir_name].append(self._format_openalex_paper(w))
+                    except Exception:
+                        pass
+                    if len(related[dir_name]) >= limit:
+                        break
+            else:
+                # cited_by: papers citing this one (later work)
+                if endpoint_key == "cited_by_count" and seed_cited_by > 0:
+                    url = f"https://api.openalex.org/works?filter=cites:{seed_id}&per_page={limit}&sort=cited_by_count:desc"
+                    try:
+                        req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
+                        raw = await _async_urlopen(req, timeout=20)
+                        data = json.loads(raw)
+                        for w in data.get("results", []):
+                            related[dir_name].append(self._format_openalex_paper(w))
+                    except Exception:
+                        pass
+                # similar: co-cited papers (cited_by the same sources)
+                elif endpoint_key == "concepts" and seed_concepts:
+                    # Use top concepts to find similar work
+                    concept_filter = ",".join(f"concepts.id:{c}" for c in seed.get("concepts", [])[:3] if c.get("id"))
+                    if concept_filter:
+                        url = (f"https://api.openalex.org/works?filter={concept_filter}"
+                               f"&per_page={limit}&sort=cited_by_count:desc")
+                        try:
+                            req = urllib.request.Request(url, headers={"User-Agent": "BioDockify/1.0"})
+                            raw = await _async_urlopen(req, timeout=20)
+                            data = json.loads(raw)
+                            for w in data.get("results", []):
+                                if w.get("id", "").replace("https://openalex.org/", "") != seed_id:
+                                    related[dir_name].append(self._format_openalex_paper(w))
+                        except Exception:
+                            pass
+
+        # Fetch the requested directions
+        import asyncio as _aio
+        tasks = []
+        if direction in ("all", "cited_by"):
+            tasks.append(_fetch_direction("cited_by", "cited_by_count"))
+        if direction in ("all", "similar"):
+            tasks.append(_fetch_direction("similar", "concepts"))
+        if direction in ("all", "references"):
+            tasks.append(_fetch_direction("references", "referenced_works"))
+        if tasks:
+            await _aio.gather(*tasks, return_exceptions=True)
+
+        # Dedupe across directions
+        seen = {seed_id}
+        for dir_name in related:
+            deduped = []
+            for p in related[dir_name]:
+                pid = p.get("openalex_id", "")
+                if pid and pid not in seen:
+                    seen.add(pid)
+                    deduped.append(p)
+            related[dir_name] = deduped[:limit]
+
+        return {
+            "status": "ok",
+            "seed": seed_paper,
+            "similar": related["similar"],
+            "cited_by": related["cited_by"],
+            "references": related["references"],
+            "counts": {
+                "similar": len(related["similar"]),
+                "cited_by": len(related["cited_by"]),
+                "references": len(related["references"]),
+            },
+        }
+
+    @staticmethod
+    def _openalex_abstract(inverted_index):
+        """Reconstruct abstract from OpenAlex inverted index format."""
+        if not inverted_index:
+            return ""
+        word_positions = []
+        for word, positions in inverted_index.items():
+            for pos in positions:
+                word_positions.append((pos, word))
+        word_positions.sort()
+        return " ".join(w for _, w in word_positions)[:1000]
+
+    @staticmethod
+    def _format_openalex_paper(w):
+        """Format an OpenAlex work into our standard paper dict."""
+        return {
+            "openalex_id": w.get("id", "").replace("https://openalex.org/", ""),
+            "title": w.get("title", "Untitled"),
+            "authors": [a.get("author", {}).get("display_name", "") for a in w.get("authorships", [])[:3]],
+            "year": (w.get("publication_date") or "")[:4],
+            "doi": (w.get("doi") or "").replace("https://doi.org/", ""),
+            "cited_by_count": w.get("cited_by_count", 0),
+            "journal": (w.get("primary_location") or {}).get("source", {}).get("display_name", "") if w.get("primary_location") else "",
+            "abstract": DeepResearch._openalex_abstract(w.get("abstract_inverted_index")),
+            "database": "OpenAlex",
+        }

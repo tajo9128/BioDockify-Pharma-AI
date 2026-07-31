@@ -62,6 +62,7 @@ class WritingTools(ApiHandler):
         if action == "executive_summary":        return self._executive_summary(input)
         if action == "synthesis_review":         return self._synthesis_review(input)
         if action == "cite_locked_draft":       return await self._cite_locked_draft(input)
+        if action == "polish":                  return await self._polish(input)
         return {"actions": ["export-latex","export-docx","gap-analysis","literature-matrix","prisma-flowchart","faculty-review","verify-citations","suggest-journals","kb_sources","kb_categories","pharma_citation_verify","pharma_reporting_check","pharma_scorecard","equator_checklist","ai_disclosure","prisma_pipeline","peer_review","integrity_audit","citation_network","de_aigc","section_analysis","citation_gaps","terminology_check","scientific_rigor","quality_control","executive_summary","synthesis_review","cite_locked_draft"]}
 
     def _kb_categories(self, input: dict) -> dict:
@@ -1541,3 +1542,83 @@ class WritingTools(ApiHandler):
             "sources_used": len(used_citations),
             "kb_chunks_searched": len(chunks),
         }
+
+    async def _polish(self, input: dict) -> dict:
+        """Polish draft text into academic prose via Achademio skill.
+
+        Preserves [citation:id] markers — only rewrites the prose around them.
+        Falls back to LiteLLM if Achademio skill is unavailable.
+        """
+        text = input.get("text", "").strip()
+        mode = input.get("mode", "rewrite")  # rewrite | proofread | bullets_to_paragraph
+        if not text:
+            return {"status": "error", "error": "text is required"}
+
+        def _do_polish():
+            # Try Achademio skill first
+            try:
+                import sys
+                skills_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "skills")
+                if skills_dir not in sys.path:
+                    sys.path.insert(0, skills_dir)
+                from achademio import get_achademio
+                achademio = get_achademio()
+                if mode == "proofread":
+                    result = achademio.proofread(text)
+                    return result.get("rewritten_text") or result.get("corrections", text)
+                elif mode == "bullets_to_paragraph":
+                    return achademio.bullets_to_paragraph(text)
+                else:
+                    return achademio.rewrite_academic(text)
+            except Exception as e:
+                log.warning(f"Achademio skill unavailable ({e}), using LiteLLM fallback")
+
+            # Fallback: LiteLLM academic rewrite (preserves [citation:id] markers)
+            try:
+                import litellm, json as _json
+                config_path = os.path.join(
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                    "usr", "plugins", "_model_config", "config.json"
+                )
+                model_name = "gpt-4o-mini"
+                api_base = ""
+                provider = "openai"
+                if os.path.isfile(config_path):
+                    try:
+                        with open(config_path) as f:
+                            cfg = _json.load(f)
+                        chat = cfg.get("chat_model", {})
+                        provider = chat.get("provider", "openai")
+                        model_name = chat.get("name", "gpt-4o-mini")
+                        api_base = chat.get("api_base", "")
+                    except Exception:
+                        pass
+                if provider == "lm_studio" and api_base:
+                    llm_model = f"lm_studio/{model_name}"
+                    kwargs = {"api_base": api_base}
+                elif provider == "ollama" and api_base:
+                    llm_model = f"ollama/{model_name}"
+                    kwargs = {"api_base": api_base}
+                else:
+                    llm_model = model_name
+                    kwargs = {}
+
+                system = ("You are AChatdemio, a bot that helps researchers write better papers. "
+                          "Rewrite text in clear, concise academic style. "
+                          "CRITICAL: preserve all [citation:...] markers exactly as they appear — "
+                          "do not remove, renumber, or alter them.")
+                response = litellm.completion(
+                    model=llm_model,
+                    messages=[{"role": "system", "content": system},
+                              {"role": "user", "content": f"Rewrite in academic style:\n\n{text}"}],
+                    max_tokens=2000,
+                    temperature=0.3,
+                    **kwargs,
+                )
+                return response.choices[0].message.content
+            except Exception as e:
+                log.error(f"Polish LLM fallback failed: {e}")
+                return text
+
+        polished = await asyncio.to_thread(_do_polish)
+        return {"status": "ok", "text": polished, "mode": mode}

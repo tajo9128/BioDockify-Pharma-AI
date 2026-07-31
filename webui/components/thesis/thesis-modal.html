@@ -239,6 +239,8 @@
           };
           this.message = `Cite-locked draft generated with ${r.sources_used} sources`;
           setTimeout(() => { this.message = ""; }, 5000);
+          // Auto-verify citations in the background (reviewer_agent spine)
+          this.autoVerify();
         } catch (e) {
           this.error = "Cite-locked draft failed: " + e.message + ". Falling back to agent.";
           this._genViaAgent();
@@ -411,6 +413,39 @@
       refineWithAgent() {
         const t = this.result?.content?.substring(0,1000)||"";
         this.sendToAgent(`Please refine and improve this text. Add key references, fix inaccuracies, polish academic language:\n\n${t}...`);
+      },
+
+      async polishDraft() {
+        /** Polish current draft via Achademio skill (preserves citations). */
+        if (!this.result?.content) { this.error = "Generate a draft first"; return; }
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("writing", { action: "polish", text: this.result.content, mode: "rewrite" });
+          if (r.error) { this.error = r.error; }
+          else if (r.text) {
+            this.result.content = r.text;
+            this.message = "Draft polished (citations preserved)";
+            setTimeout(() => { this.message = ""; }, 4000);
+          }
+        } catch (e) { this.error = "Polish failed: " + e.message; }
+        this.loading = false;
+      },
+
+      async autoVerify() {
+        /** Auto-verify citations after cite-locked draft generation. */
+        if (!this.result?.content) return;
+        try {
+          const r = await callJsonApi("writing", { action: "verify-citations", text: this.result.content.substring(0, 8000) });
+          if (r.status === "ok") {
+            this.result._citeCheck = { verified: r.verified, total: r.total, confidence: r.confidence };
+            if (r.total === 0) {
+              this.message = "No DOI/PMID citations found to verify";
+            } else {
+              this.message = `Verified ${r.verified}/${r.total} citations (${Math.round(r.confidence * 100)}% confidence)`;
+            }
+            setTimeout(() => { this.message = ""; }, 5000);
+          }
+        } catch (e) { /* silent — verify is optional */ }
       },
 
       async downloadLatex() {
@@ -627,6 +662,7 @@
             <button class="aw-act-btn" @click="$store.academicWriter.facultyReview()"><span class="material-symbols-outlined">rate_review</span> Review</button>
             <button class="aw-act-btn" style="background:color-mix(in srgb,#22c55e 15%,var(--color-panel));color:#22c55e" @click="$store.academicWriter.pharmaScorecard()"><span class="material-symbols-outlined">score</span> Pharma Score</button>
             <button class="aw-act-btn" style="background:color-mix(in srgb,#4fc3f7 15%,var(--color-panel));color:#4fc3f7" @click="$store.academicWriter.pharmaClaimVerify()"><span class="material-symbols-outlined">fact_check</span> Verify Claims</button>
+            <button class="aw-act-btn" style="background:color-mix(in srgb,#a855f7 15%,var(--color-panel));color:#a855f7" @click="$store.academicWriter.polishDraft()"><span class="material-symbols-outlined">auto_fix_high</span> Polish</button>
             <button class="aw-act-btn" @click="$store.academicWriter.refineWithAgent()"><span class="material-symbols-outlined">psychology</span> Refine</button>
             <button class="aw-act-btn" @click="$store.academicWriter.clear()"><span class="material-symbols-outlined">refresh</span> New</button>
           </div>
