@@ -693,21 +693,21 @@ class PharmacophoreHandler(ApiHandler):
 
         def _do_batch():
             try:
-            import numpy as np
-            from modules.pharmacophore.complete_analysis import complete_pharmacophore_analysis
-            from rdkit import Chem
-            from rdkit.Chem import AllChem
-            from rdkit import DataStructs
+                import numpy as np
+                from modules.pharmacophore.complete_analysis import complete_pharmacophore_analysis
+                from rdkit import Chem
+                from rdkit.Chem import AllChem
+                from rdkit import DataStructs
 
-            results = []
-            fingerprints = []
+                results = []
+                fingerprints = []
 
-            for i, smi in enumerate(smiles_list):
-                name = names[i] if i < len(names) else f"Molecule_{i+1}"
-                try:
-                    r = complete_pharmacophore_analysis(smi, name)
-                    if r.get("success"):
-                        results.append(r)
+                for i, smi in enumerate(smiles_list):
+                    name = names[i] if i < len(names) else f"Molecule_{i+1}"
+                    try:
+                        r = complete_pharmacophore_analysis(smi, name)
+                        if r.get("success"):
+                            results.append(r)
                         # Generate fingerprint for similarity
                         mol = Chem.MolFromSmiles(smi.strip())
                         if mol:
@@ -715,33 +715,33 @@ class PharmacophoreHandler(ApiHandler):
                             fingerprints.append(fp)
                         else:
                             fingerprints.append(None)
-                except Exception as e:
-                    log.warning(f"Batch analysis failed for {name}: {e}")
+                    except Exception as e:
+                        log.warning(f"Batch analysis failed for {name}: {e}")
 
-            if not results:
-                return {"error": "No valid molecules analyzed"}
+                if not results:
+                    return {"error": "No valid molecules analyzed"}
 
-            # Similarity matrix (Tanimoto)
-            n = len(results)
-            sim_matrix = np.zeros((n, n))
-            for i in range(n):
-                for j in range(i, n):
-                    if i == j:
-                        sim_matrix[i, j] = 1.0
-                    elif fingerprints[i] and fingerprints[j]:
-                        sim = DataStructs.TanimotoSimilarity(fingerprints[i], fingerprints[j])
-                        sim_matrix[i, j] = sim
-                        sim_matrix[j, i] = sim
+                # Similarity matrix (Tanimoto)
+                n = len(results)
+                sim_matrix = np.zeros((n, n))
+                for i in range(n):
+                    for j in range(i, n):
+                        if i == j:
+                            sim_matrix[i, j] = 1.0
+                        elif fingerprints[i] and fingerprints[j]:
+                            sim = DataStructs.TanimotoSimilarity(fingerprints[i], fingerprints[j])
+                            sim_matrix[i, j] = sim
+                            sim_matrix[j, i] = sim
 
-            # Summary
-            summary = {
-                "total_molecules": len(smiles_list),
-                "analyzed": len(results),
-                "avg_features": round(sum(r.get("num_features", 0) for r in results) / len(results), 1),
-                "feature_types": list(set(
-                    t for r in results for t in r.get("feature_summary", {}).keys()
-                )),
-            }
+                # Summary
+                summary = {
+                    "total_molecules": len(smiles_list),
+                    "analyzed": len(results),
+                    "avg_features": round(sum(r.get("num_features", 0) for r in results) / len(results), 1),
+                    "feature_types": list(set(
+                        t for r in results for t in r.get("feature_summary", {}).keys()
+                    )),
+                }
 
                 return {
                     "success": True,
@@ -798,12 +798,16 @@ class PharmacophoreHandler(ApiHandler):
 
             # Get features
             if features_1 and features_2:
+                def _extract_pos(f):
+                    """Extract position as np.array — handles both flat {x,y,z} and nested {position:{x,y,z}}."""
+                    pos = f.get("position", f)
+                    if isinstance(pos, dict):
+                        return np.array([pos.get("x", 0), pos.get("y", 0), pos.get("z", 0)])
+                    return np.array([f.get("x", 0), f.get("y", 0), f.get("z", 0)])
                 f1 = [{"type": f.get("type", ""), "family": f.get("family", ""),
-                        "position": np.array([f.get("x", 0), f.get("y", 0), f.get("z", 0)])}
-                       for f in features_1]
+                        "position": _extract_pos(f)} for f in features_1]
                 f2 = [{"type": f.get("type", ""), "family": f.get("family", ""),
-                        "position": np.array([f.get("x", 0), f.get("y", 0), f.get("z", 0)])}
-                       for f in features_2]
+                        "position": _extract_pos(f)} for f in features_2]
             elif smiles_1 and smiles_2:
                 f1 = get_features(smiles_1)
                 f2 = get_features(smiles_2)

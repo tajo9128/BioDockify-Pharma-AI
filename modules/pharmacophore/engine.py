@@ -596,7 +596,10 @@ class EnhancedPharmacophore:
         """
         try:
             from rdkit.Chem import rdShapeHelpers
-            return float(rdShapeHelpers.ShapeTanimotoDist(query_mol, target_mol))
+            # ShapeTanimotoDist returns DISTANCE (0=identical, 1=different).
+            # Convert to SIMILARITY (1=identical, 0=different) for UI display.
+            dist = float(rdShapeHelpers.ShapeTanimotoDist(query_mol, target_mol))
+            return 1.0 - dist
         except Exception:
             # Fallback: compare volumes
             try:
