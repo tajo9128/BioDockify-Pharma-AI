@@ -119,9 +119,15 @@ class FormulationHandler(ApiHandler):
                 coeffs = np.polyfit(log_t, log_mt, 1)
                 n, log_k = coeffs
                 k_KP = math.exp(log_k)
+                # R² for Korsmeyer-Peppas
+                log_mt_pred = n * log_t + log_k
+                ss_res_kp = np.sum((log_mt - log_mt_pred) ** 2)
+                ss_tot_kp = np.sum((log_mt - np.mean(log_mt)) ** 2)
+                r2_kp = 1 - ss_res_kp / ss_tot_kp if ss_tot_kp > 0 else 0
                 results["korsmeyer_peppas"] = {
                     "n": round(float(n), 4),
                     "k": round(float(k_KP), 6),
+                    "r2": round(float(r2_kp), 4),
                     "release_mechanism": self._interpret_n(float(n)),
                     "equation": f"Mt/Minf = {k_KP:.6f} * t^{n:.4f}"
                 }

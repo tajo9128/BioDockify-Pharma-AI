@@ -201,6 +201,11 @@ class NaturalProductsHandler(ApiHandler):
                 ic50_fitted = popt[2]
                 hill = popt[3]
                 r2 = 1 - np.sum((resps_s - logistic_4p(concs_s, *popt))**2) / np.sum((resps_s - np.mean(resps_s))**2)
+                # Sanity check: IC50 should be within the tested concentration range
+                conc_min, conc_max = min(concs_s), max(concs_s)
+                if ic50_fitted < conc_min * 0.1 or ic50_fitted > conc_max * 10:
+                    ic50_fitted = ic50  # fallback to interpolation
+                    r2 = None
             except:
                 ic50_fitted = ic50
                 hill = None
