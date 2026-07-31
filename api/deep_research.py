@@ -43,6 +43,8 @@ class DeepResearchHandler(ApiHandler):
 
         max_sources = int(input.get("max_sources", 100))
         databases = input.get("databases", ["pubmed", "semantic_scholar", "crossref", "openalex", "arxiv", "europe_pmc", "biorxiv"])
+        if not databases:
+            return {"error": "At least one database must be selected"}
         year_from = input.get("year_from", "")
         year_to = input.get("year_to", "")
 
@@ -200,7 +202,10 @@ class DeepResearchHandler(ApiHandler):
                 score += min(citations // 10, 5)
 
             # Year recency bonus
-            year = src.get("year", 0) or 0
+            try:
+                year = int(src.get("year", 0) or 0)
+            except (ValueError, TypeError):
+                year = 0
             if year >= 2020:
                 score += 2
             elif year >= 2015:
