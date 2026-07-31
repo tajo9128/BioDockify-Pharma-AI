@@ -31,11 +31,9 @@ def _apply_bioisostere(smiles: str, pattern: str, replacement: str):
     if repl is None:
         return None
 
-    rwmol = Chem.RWMol(mol)
     try:
-        for match in sorted(matches, reverse=True):
-            rwmol.ReplaceSubstructs(Chem.Mol(pat), Chem.Mol(repl))
-        return Chem.MolToSmiles(rwmol.GetMol())
+        result = Chem.ReplaceSubstructs(mol, Chem.Mol(pat), Chem.Mol(repl))
+        return Chem.MolToSmiles(result[0]) if result else None
     except Exception:
         return None
 

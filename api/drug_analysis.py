@@ -53,6 +53,19 @@ def _check_pains_basic(smiles: str) -> list:
             flagged.append(name)
     return flagged
 
+# PAINS (Pan Assay Interference Compounds) — 8 key SMARTS from Baell & Holloway 2010
+# (full 480+ patterns via RDKit FilterCatalog in _check_pains_rdkit)
+PAINS_SMARTS = {
+    "ene_rhodanine": "[#6]-1-[#6](=[#8])-[#7]-[#16]-[#6]-1=[#16]",
+    "anil_di_alk": "c1ccccc1-[#7](-[#6])-[#6]",
+    "pyrrole_imine": "[#7]1-[#6]=[#6]-[#6](=[#6]1-[#6])-[#6]",
+    "quinone_A": "[#6]1([#6](=[#8])[#6](=[#6]1[#6])[#6])=[#8]",
+    "catechol_A": "c1(c(c(ccc1)-[#8])-[#8])-[#8]",
+    "mannich_A": "[#7](-[#6])-[#6]-[#6]-[#7]",
+    "hzone_phenol_A": "[#8]-c1ccc(cc1)-[#6]=[#7]-[#7]",
+    "furan_carboxyl_A": "[#8]1-[#6]=[#6]-[#6](=[#8])-[#6]1=[#6]",
+}
+
 # Brenk unwanted fragments (toxicity/reactive groups) — SMARTS
 BRENK_SMARTS = {
     "nitro": "[#7](=[#8])-[#8]",
@@ -103,6 +116,11 @@ class DrugAnalysisHandler(ApiHandler):
                 return {"success": False, "error": "SMILES required"}
 
             try:
+                from rdkit import Chem
+                mol = Chem.MolFromSmiles(smiles)
+                if mol is None:
+                    return {"success": False, "error": "Invalid SMILES — cannot parse"}
+
                 pains = _check_smarts(smiles, PAINS_SMARTS)
                 brenk = _check_smarts(smiles, BRENK_SMARTS)
                 nih = _check_smarts(smiles, NIH_SMARTS)

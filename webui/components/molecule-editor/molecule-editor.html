@@ -385,9 +385,12 @@
 
       sendToADMET() {
         if (!this.smiles) { this.error = "Enter or load a SMILES string first"; return; }
-        const mt = Alpine.store("molecularToolkit");
-        if (mt) { mt.smiles = this.smiles; }
-        this.message = "SMILES sent to ADMET tab"; setTimeout(() => this.message = "", 2000);
+        const admet = Alpine.store("admet");
+        if (admet) {
+          admet.smiles = this.smiles;
+          admet.activeTab = "generate";
+        }
+        this.message = "SMILES sent to ADMET Prediction"; setTimeout(() => this.message = "", 2000);
       },
 
       // ── Recent ──
