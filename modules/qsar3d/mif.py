@@ -92,8 +92,8 @@ class MIFCalculator:
         self.grid_origin = None
         self.grid_dims = None
 
-        # Pre-compute probe parameters
-        self.probe_params = MMFF94_PARAMS.get(PROBE_TYPE, MMFF94_PARAMS['C_3'])
+        # Pre-compute probe parameters (7-tuple: 6 MMFF params + charge)
+        self.probe_params = MMFF94_PARAMS.get(PROBE_TYPE, MMFF94_PARAMS['C_3']) + (PROBE_CHARGE,)
 
     def _get_atom_mmff_type(self, atom) -> str:
         """Get MMFF94 atom type from RDKit atom."""
@@ -176,6 +176,14 @@ class MIFCalculator:
         coords = np.array([[conf.GetAtomPosition(i).x,
                             conf.GetAtomPosition(i).y,
                             conf.GetAtomPosition(i).z] for i in range(n_atoms)])
+
+        # Compute Gasteiger charges if not already present (needed for electrostatic field)
+        try:
+            from rdkit.Chem import AllChem
+            if not mol.GetAtomWithIdx(0).HasProp('_GasteigerCharge'):
+                AllChem.ComputeGasteigerCharges(mol)
+        except Exception:
+            pass  # proceed with charge=0.0 if Gasteiger fails
 
         # Get atom parameters
         atoms = []

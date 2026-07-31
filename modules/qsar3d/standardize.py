@@ -26,7 +26,7 @@ class StructureStandardizer:
     def __init__(self):
         self.salt_remover = SaltRemover.SaltRemover()
         self.normalizer = rdMolStandardize.Normalizer()
-        self.uncharger = rdMolStandardize.ChargeParentChooser()
+        self.uncharger = rdMolStandardize.Uncharger()
         self.teautomer = rdMolStandardize.TautomerEnumerator()
 
     def standardize(self, mol: Chem.Mol) -> Optional[Chem.Mol]:

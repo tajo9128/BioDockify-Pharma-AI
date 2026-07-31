@@ -124,8 +124,8 @@ class QSAR3DBuilder:
         stats['train_predictions'] = {'actual': Y_train.tolist(), 'predicted': Y_train_pred.tolist()}
         stats['test_predictions'] = {'actual': Y_test.tolist(), 'predicted': Y_test_pred.tolist()}
 
-        # Descriptor importance (PLS coefficients)
-        coef = np.abs(self.pls_model.coefficients)
+        # Descriptor importance (PLS B-coefficients)
+        coef = np.abs(self.pls_model.get_coefficients())
         top_indices = np.argsort(coef)[-10:][::-1]  # Top 10 descriptors
         stats['top_descriptors'] = [
             {'name': desc_names[i], 'importance': round(float(coef[i]), 4)}
@@ -280,7 +280,12 @@ class QSAR3DBuilder:
         }
 
     def save_model(self, path: str) -> str:
-        """Save trained model to pickle file."""
+        """Save trained model to pickle file.
+
+        Args:
+            path: Full file path (e.g. '/data/qsar3d_models/abc123.pkl').
+                  The API passes a complete file path, not a directory.
+        """
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
         model_data = {
@@ -288,13 +293,14 @@ class QSAR3DBuilder:
             'grid_info': self.grid_info,
             'field_types': self.field_types,
             'model_id': self.model_id,
+            'mode': self.mode,
             'mif_grid_spacing': self.mif_calc.grid_spacing,
             'mif_margin': self.mif_calc.margin,
             'mif_grid_origin': self.mif_calc.grid_origin,
             'mif_grid_dims': self.mif_calc.grid_dims,
         }
 
-        filepath = os.path.join(path, f"qsar3d_{self.model_id}.pkl")
+        filepath = path  # API already passes the full .pkl path
         with open(filepath, 'wb') as f:
             pickle.dump(model_data, f)
 

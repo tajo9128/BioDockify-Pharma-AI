@@ -44,6 +44,32 @@ class PLSModel:
         self.x_weights_star = None # W*
         self.b_coefficients = None # B
 
+    def prepare_matrix(self, all_fields: list) -> np.ndarray:
+        """Flatten per-molecule MIF field dicts into a 2D design matrix.
+
+        Args:
+            all_fields: List of dicts, one per molecule. Each dict has keys
+                        like 'steric' and/or 'electrostatic' with 1D numpy arrays.
+
+        Returns:
+            2D numpy array of shape (n_molecules, n_features).
+            Features are steric and electrostatic grids concatenated.
+        """
+        rows = []
+        for fields in all_fields:
+            parts = []
+            for key in ('steric', 'electrostatic'):
+                arr = fields.get(key)
+                if arr is not None:
+                    parts.append(np.asarray(arr).ravel())
+            if parts:
+                rows.append(np.concatenate(parts))
+            else:
+                rows.append(np.array([]))
+        if not rows:
+            return np.array([]).reshape(0, 0)
+        return np.vstack(rows)
+
     def fit(self, X_train: np.ndarray, Y_train: np.ndarray,
             X_val: np.ndarray = None, Y_val: np.ndarray = None) -> Dict:
         """
