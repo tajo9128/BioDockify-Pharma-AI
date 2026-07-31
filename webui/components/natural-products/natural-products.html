@@ -47,6 +47,14 @@
         this.loading = true; this.error = "";
         try { this.result = await callJsonApi("natural_products", { action: "dereplication", formula: this.npFormula }); } catch(e) { this.error = e.message; }
         this.loading = false;
+      },
+      // Plant DB
+      npPlantQuery: "", npPlantResult: null,
+      async runPlantDb() {
+        if (!this.npPlantQuery.trim()) return;
+        this.loading = true; this.error = "";
+        try { this.npPlantResult = await callJsonApi("natural_products", { action: "plant_database", query: this.npPlantQuery }); } catch(e) { this.error = e.message; }
+        this.loading = false;
       }
     });
   </script>
@@ -63,6 +71,7 @@
       <button class="dp-tab" :class="{active:$store.naturalProductsModal.activeTab==='extraction'}" @click="$store.naturalProductsModal.activeTab='extraction'">Extraction</button>
       <button class="dp-tab" :class="{active:$store.naturalProductsModal.activeTab==='selectivity'}" @click="$store.naturalProductsModal.activeTab='selectivity'">Selectivity</button>
       <button class="dp-tab" :class="{active:$store.naturalProductsModal.activeTab==='dereplication'}" @click="$store.naturalProductsModal.activeTab='dereplication'">Dereplication</button>
+      <button class="dp-tab" :class="{active:$store.naturalProductsModal.activeTab==='plantdb'}" @click="$store.naturalProductsModal.activeTab='plantdb'">Plant DB</button>
     </div>
     <div class="dp-body">
       <div x-show="$store.naturalProductsModal.error" class="dp-error" x-text="$store.naturalProductsModal.error"></div>
@@ -171,6 +180,29 @@
               <div class="dp-stat"><span class="dp-stat-label">Exact Mass</span><span class="dp-stat-val" x-text="$store.naturalProductsModal.result.exact_mass"></span></div>
               <div class="dp-stat"><span class="dp-stat-label">Degree of Unsaturation</span><span class="dp-stat-val" x-text="$store.naturalProductsModal.result.degree_of_unsaturation"></span></div>
               <div class="dp-stat"><span class="dp-stat-label">Compound class</span><span class="dp-stat-val" x-text="$store.naturalProductsModal.result.compound_class_hint"></span></div>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- Plant DB -->
+      <div x-show="$store.naturalProductsModal.activeTab==='plantdb'">
+        <div class="dp-card">
+          <h3>Plant Database Search</h3>
+          <div><label class="dp-label">Search (plant name, compound, or activity):</label>
+            <input type="text" x-model="$store.naturalProductsModal.npPlantQuery" class="dp-input" placeholder="e.g. Curcuma longa, anti-inflammatory, alkaloid" @keyup.enter="$store.naturalProductsModal.runPlantDb()" /></div>
+          <button class="dp-btn" @click="$store.naturalProductsModal.runPlantDb()" :disabled="$store.naturalProductsModal.loading || !$store.naturalProductsModal.npPlantQuery">Search Plant DB</button>
+          <template x-if="$store.naturalProductsModal.npPlantResult">
+            <div class="dp-result" style="max-height:300px;overflow-y:auto">
+              <div x-show="$store.naturalProductsModal.npPlantResult.results?.length">
+                <template x-for="p in ($store.naturalProductsModal.npPlantResult.results || [])" :key="p.name || p.plant">
+                  <div style="padding:6px 0;border-bottom:1px solid var(--color-border);font-size:0.65rem">
+                    <strong x-text="p.name || p.plant"></strong>
+                    <div style="color:var(--color-text-muted)" x-text="p.family || p.compounds || ''"></div>
+                    <div x-text="p.uses || p.activities || p.description || ''"></div>
+                  </div>
+                </template>
+              </div>
+              <div x-show="!$store.naturalProductsModal.npPlantResult.results?.length" style="font-size:0.65rem;color:var(--color-text-muted)" x-text="$store.naturalProductsModal.npPlantResult.message || 'No results'"></div>
             </div>
           </template>
         </div>

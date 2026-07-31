@@ -7,7 +7,7 @@
 <body>
   <div x-data class="research-tools">
     <h2 class="tools-heading">All Tools</h2>
-    <p class="tools-desc">16 integrated research modules</p>
+    <p class="tools-desc">23 integrated research modules</p>
 
     <div class="tool-grid">
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('research-dashboard')">
@@ -21,12 +21,10 @@
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('admet-predict')">
         <span class="material-symbols-outlined">vaccines</span>
         <span class="tool-label">ADMET</span>
-        <span style="font-size:0.4rem;color:var(--color-text-muted)">lipinski·herg·tox·egg</span>
       </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('molecule-editor')">
         <span class="material-symbols-outlined">draw</span>
         <span class="tool-label">Mol Editor</span>
-        <span style="font-size:0.4rem;color:var(--color-text-muted)">draw·props·filters·optimize</span>
       </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('qsar')">
         <span class="material-symbols-outlined">model_training</span>
@@ -39,11 +37,14 @@
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('molecular-toolkit')">
         <span class="material-symbols-outlined">precision_manufacturing</span>
         <span class="tool-label">Docking</span>
-        <span style="font-size:0.4rem;color:var(--color-text-muted)">Vina+CNN+Analysis</span>
       </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('statistics')">
         <span class="material-symbols-outlined">analytics</span>
         <span class="tool-label">Statistics</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('md-lite')">
+        <span class="material-symbols-outlined">animation</span>
+        <span class="tool-label">MD Lite</span>
       </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('knowledge')">
         <span class="material-symbols-outlined">psychology</span>
@@ -52,30 +53,54 @@
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('thesis')">
         <span class="material-symbols-outlined">description</span>
         <span class="tool-label">Academic Writer</span>
-        <span style="font-size:0.4rem;color:var(--color-text-muted)">lit·paper·grant·citations·regulatory</span>
       </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('faculty-dashboard')">
         <span class="material-symbols-outlined">school</span>
         <span class="tool-label">Faculty CMD</span>
-        <span style="font-size:0.4rem;color:var(--color-text-muted)">syllabus·lectures·slides</span>
       </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('journal-finder')">
         <span class="material-symbols-outlined">verified</span>
-        <span class="tool-label">J. Finder</span>
+        <span class="tool-label">Journal Finder</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('formulation')">
+        <span class="material-symbols-outlined">science</span>
+        <span class="tool-label">Formulation</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('clinical')">
+        <span class="material-symbols-outlined">local_hospital</span>
+        <span class="tool-label">Clinical</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('pharma-analysis')">
+        <span class="material-symbols-outlined">biotech</span>
+        <span class="tool-label">Pharma Analysis</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('natural-products')">
+        <span class="material-symbols-outlined">potted_plant</span>
+        <span class="tool-label">Natural Products</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('regulatory-enhanced')">
+        <span class="material-symbols-outlined">gavel</span>
+        <span class="tool-label">Regulatory</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('pharmacology')">
+        <span class="material-symbols-outlined">monitor_heart</span>
+        <span class="tool-label">Pharmacology</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('medicinal_chemistry')">
+        <span class="material-symbols-outlined">ring</span>
+        <span class="tool-label">Med Chemistry</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('slides')">
+        <span class="material-symbols-outlined">slideshow</span>
+        <span class="tool-label">Slides</span>
       </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('research-dashboard')">
         <span class="material-symbols-outlined">menu_book</span>
         <span class="tool-label">Literature</span>
-        <span style="font-size:0.4rem;color:var(--color-text-muted)">via Research CMD</span>
-      </button>
-      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('research-dashboard')">
-        <span class="material-symbols-outlined">science</span>
-        <span class="tool-label">Wet Lab</span>
-        <span style="font-size:0.4rem;color:var(--color-text-muted)">via Research CMD</span>
       </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('system-health')">
         <span class="material-symbols-outlined">monitoring</span>
-        <span class="tool-label">Health & Diagnose</span>
+        <span class="tool-label">Health</span>
       </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('backup')">
         <span class="material-symbols-outlined">backup</span>
@@ -87,7 +112,7 @@
       .research-tools { padding: var(--spacing-md); height: 100%; overflow-y: auto; display: flex; flex-direction: column; }
       .tools-heading { color: var(--color-primary); font-size: 1.1rem; margin: 0 0 2px 0; flex-shrink: 0; }
       .tools-desc { color: var(--color-text-muted); font-size: 0.7rem; margin: 0 0 var(--spacing-md) 0; flex-shrink: 0; }
-      .tool-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--spacing-sm); }
+      .tool-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--spacing-sm); }
       .tool-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; aspect-ratio: 1; padding: 0.4rem; border-radius: 10px; cursor: pointer; transition: all 0.2s; background: var(--color-panel); border: 1px solid var(--color-border); }
       .tool-card:hover { border-color: var(--color-primary); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
       .tool-card .material-symbols-outlined { font-size: 22px; color: var(--color-primary); }
