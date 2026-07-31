@@ -339,7 +339,7 @@ class LiteratureSearch(ApiHandler):
             # Resolve PMCIDs for papers that don't have them via Europe PMC
             if papers:
                 try:
-                    self._resolve_pmcids_via_europe_pmc(papers)
+                    await self._resolve_pmcids_via_europe_pmc(papers)
                 except Exception as e:
                     logger.debug(f"PMCID batch resolve skipped: {e}")
 
@@ -734,7 +734,7 @@ class LiteratureSearch(ApiHandler):
             return "".join(element.itertext()).strip()
         return ""
 
-    def _resolve_pmcids_via_europe_pmc(self, papers: list):
+    async def _resolve_pmcids_via_europe_pmc(self, papers: list):
         """Resolve PMCIDs for papers that have a PMID but no PMCID.
 
         Queries Europe PMC's search API with each PMID to find the

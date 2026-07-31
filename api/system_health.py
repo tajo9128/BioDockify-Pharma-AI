@@ -22,9 +22,9 @@ class SystemHealth(ApiHandler):
         action = (input.get("action", "status") or "status").strip()
         if action == "diagnose":
             return await self._full_diagnose()
-        return self._quick_status()
+        return await self._quick_status()
 
-    def _quick_status(self) -> dict:
+    async def _quick_status(self) -> dict:
         result = {
             "status": "healthy",
             "checks": [],
@@ -197,7 +197,7 @@ class SystemHealth(ApiHandler):
         return result
 
     async def _full_diagnose(self) -> dict:
-        result = self._quick_status()
+        result = await self._quick_status()
         result["diagnosis"] = []
         try:
             from modules.system.doctor import SystemDoctor

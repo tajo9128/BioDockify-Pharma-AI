@@ -50,7 +50,7 @@ def _extract_claims(text: str) -> list:
     return claims
 
 
-def _verify_layer(citation, layer):
+async def _verify_layer(citation, layer):
     """Verify a citation at a specific layer. Returns {verified, detail, source}."""
     import urllib.request
     import urllib.error
@@ -130,7 +130,7 @@ class VerificationHandler(ApiHandler):
             for cit in citations:
                 cit_result = {"citation": cit, "layers": {}}
                 for layer in range(1, 6):
-                    verified, detail, source = _verify_layer(cit, layer)
+                    verified, detail, source = await _verify_layer(cit, layer)
                     if verified is None:
                         cit_result["layers"][str(layer)] = {"status": "pending", "detail": detail, "source": source}
                         pending_count += 1

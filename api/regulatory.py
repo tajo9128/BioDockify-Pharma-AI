@@ -21,13 +21,13 @@ class RegulatorySearch(ApiHandler):
         action = (input.get("action", "search") or "search").strip()
 
         if action == "search":
-            return self._search(input)
+            return await self._search(input)
         elif action == "checklist":
             return self._checklist(input)
         else:
             return {"actions": ["search", "checklist"]}
 
-    def _search(self, input: dict) -> dict:
+    async def _search(self, input: dict) -> dict:
         query = (input.get("query", "") or "").strip()
         agency = (input.get("agency", "fda") or "fda").strip()
 

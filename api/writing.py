@@ -30,7 +30,7 @@ class WritingTools(ApiHandler):
         if action == "suggest-journals":   return self._suggest_journals(input)
         if action == "kb_sources":         return self._kb_sources(input)
         if action == "kb_categories":      return self._kb_categories(input)
-        if action == "pharma_citation_verify":  return self._pharma_citation_verify(input)
+        if action == "pharma_citation_verify":  return await self._pharma_citation_verify(input)
         if action == "pharma_reporting_check":  return self._pharma_reporting_check(input)
         if action == "pharma_scorecard":        return self._pharma_scorecard(input)
         # ── Advanced Research Skills (v7.7.1+) ──
@@ -359,7 +359,7 @@ class WritingTools(ApiHandler):
     # Pharma Research Tools (extracted from OpenDraft + RE-paper-writing)
     # ═══════════════════════════════════════════════════════════════
 
-    def _pharma_citation_verify(self, input: dict) -> dict:
+    async def _pharma_citation_verify(self, input: dict) -> dict:
         """Verify pharmaceutical citations against real databases.
         Pharma-focused: prioritizes PubMed, Europe PMC, CrossRef.
         Returns per-citation status: verified/suspicious/hallucinated."""

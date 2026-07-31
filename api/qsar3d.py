@@ -15,12 +15,12 @@ class QSAR3DHandler(ApiHandler):
     
     async def process(self, input: dict, request: Request) -> dict:
         action = input.get("action", "")
-        if action == "build": return self._build(input)
+        if action == "build": return await self._build(input)
         if action == "predict": return self._predict(input)
         if action == "models": return self._models(input)
         if action == "delete": return self._delete(input)
         if action == "info": return self._info()
-        if action == "ml_compare": return self._ml_compare(input)
+        if action == "ml_compare": return await self._ml_compare(input)
         if action == "fingerprint": return self._fingerprint(input)
         if action == "descriptors": return self._descriptors(input)
         return {

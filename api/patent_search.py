@@ -54,15 +54,15 @@ class PatentSearch(ApiHandler):
                 req = urllib.request.Request(google_url, headers={"User-Agent": "BioDockify/1.0"})
                 raw = await _async_urlopen(req, timeout=10)
                 html = raw.decode("utf-8", errors="replace")
-                    # Extract patent numbers from results
-                    for m in re.finditer(r'(US|EP|WO|CN|JP)\d{6,12}[A-Z]?\d?', html):
-                        num = m.group(0)
-                        if num not in [p["number"] for p in results]:
-                            results.append({
-                                "title": f"Patent related to {query}",
-                                "number": num,
-                                "date": "",
-                                "source": "Google Patents"
+                # Extract patent numbers from results
+                for m in re.finditer(r'(US|EP|WO|CN|JP)\d{6,12}[A-Z]?\d?', html):
+                    num = m.group(0)
+                    if num not in [p["number"] for p in results]:
+                        results.append({
+                            "title": f"Patent related to {query}",
+                            "number": num,
+                            "date": "",
+                            "source": "Google Patents"
                             })
             except Exception:
                 pass
