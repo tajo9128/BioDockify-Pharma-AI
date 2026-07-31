@@ -61,26 +61,33 @@ class ClinicalHandler(ApiHandler):
 
     def _tdm(self, input):
         from modules.clinical.tdm import calculate_tdm
+        # Accept both UI keys (interval_hr, half_life_hr, target_trough, measured_trough)
+        # and API keys (interval_h, steady_state_peak, steady_state_trough)
+        interval = input.get("interval_h") or input.get("interval_hr") or 12
+        peak = input.get("steady_state_peak") or input.get("half_life_hr")
+        trough = input.get("steady_state_trough") or input.get("measured_trough")
         return calculate_tdm(
             drug=input.get("drug", ""),
             dose_mg=input.get("dose_mg", 0),
-            interval_h=input.get("interval_h", 12),
+            interval_h=float(interval),
             route=input.get("route", "iv"),
             infusion_time_h=input.get("infusion_time_h", 0),
-            steady_state_peak=input.get("steady_state_peak"),
-            steady_state_trough=input.get("steady_state_trough"),
+            steady_state_peak=float(peak) if peak else None,
+            steady_state_trough=float(trough) if trough else None,
             patient_weight_kg=input.get("patient_weight_kg", 70),
             renal_function=input.get("renal_function"),
         )
 
     def _renal_adjust(self, input):
         from modules.clinical.renal import calculate_renal_adjust
+        # Accept both UI key (current_dose_mg) and API key (dose_mg)
+        dose = input.get("dose_mg") or input.get("current_dose_mg")
         return calculate_renal_adjust(
             serum_creatinine_mg_dl=input.get("serum_creatinine_mg_dl", 1.0),
             age=input.get("age", 65),
             sex=input.get("sex", "male"),
             drug=input.get("drug"),
-            dose_mg=input.get("dose_mg"),
+            dose_mg=float(dose) if dose else None,
         )
 
     def _hepatic_adjust(self, input):

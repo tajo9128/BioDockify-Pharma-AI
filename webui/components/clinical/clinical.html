@@ -132,10 +132,12 @@
         <div class="dp-card">
           <h3>Naranjo ADR Causality Assessment</h3>
           <p class="dp-hint">Answer each question: Yes, No, or Unknown</p>
-          <div x-for="(q, i) in ['Previous reports on this reaction?','ADR appeared after drug?','ADR improved when discontinued?','ADR reappeared on re-administration?','Alternative causes?','Reaction with placebo?','Drug in toxic concentrations?','More severe at higher dose?','Similar reaction to same drug class?','Objective evidence confirms ADR?']" :key="i" style="margin-bottom:6px">
-            <label class="dp-label" x-text="(i+1) + '. ' + q"></label>
-            <select x-model="$store.clinicalModal.naranjoAnswers[i]" class="dp-input"><option value="yes">Yes</option><option value="no">No</option><option value="unknown">Unknown</option></select>
-          </div>
+          <template x-for="(q, i) in ['Previous reports on this reaction?','ADR appeared after drug?','ADR improved when discontinued?','ADR reappeared on re-administration?','Alternative causes?','Reaction with placebo?','Drug in toxic concentrations?','More severe at higher dose?','Similar reaction to same drug class?','Objective evidence confirms ADR?']" :key="i">
+            <div style="margin-bottom:6px">
+              <label class="dp-label" x-text="(i+1) + '. ' + q"></label>
+              <select x-model="$store.clinicalModal.naranjoAnswers[i]" class="dp-input"><option value="yes">Yes</option><option value="no">No</option><option value="unknown">Unknown</option></select>
+            </div>
+          </template>
           <button class="dp-btn" @click="$store.clinicalModal.runNaranjo()" :disabled="$store.clinicalModal.loading">Calculate Naranjo Score</button>
           <template x-if="$store.clinicalModal.result?.total_score !== undefined">
             <div class="dp-result">

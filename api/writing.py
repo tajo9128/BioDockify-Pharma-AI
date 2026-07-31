@@ -359,9 +359,9 @@ class WritingTools(ApiHandler):
         title = input.get("title", "")
         abstract = input.get("abstract", "")
         try:
-            from api.journal_finder import JournalFinder
-            finder = JournalFinder()
-            result = finder.suggest(title=title, abstract=abstract)
+            from modules.journal_intel import DecisionEngine
+            engine = DecisionEngine()
+            result = engine.suggest(title=title, abstract=abstract)
             return {"status": "ok", "journals": result}
         except Exception:
             return {"status": "ok", "journals": [

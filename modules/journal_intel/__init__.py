@@ -13,9 +13,11 @@ from typing import Dict, List, Any, Optional
 
 logger = logging.getLogger("journal_intel")
 
+# Predatory indicators — must match multiple signals to flag as PREDATORY.
+# These are combined with hijacked DB + indexing checks; a single keyword
+# alone does NOT override dual-index (Scopus+WoS) GENUINE status.
 PREDATORY_FLAGS = [
-    "international journal of", "world journal of", "global journal of",
-    "american journal of"
+    "predatory", "fake journal", "hijacked journal", "beall list",
 ]
 
 LEGITIMATE_PUBLISHERS = [
@@ -26,6 +28,13 @@ LEGITIMATE_PUBLISHERS = [
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "skills", "journal-recommender", "assets", "journals.db")
 HIJACKED_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "integrity", "hijacked_journals.json")
+
+
+def _is_oa(oa_status: str) -> bool:
+    """Check if a journal is Open Access — handles both 'OA' and 'Open Access' DB values."""
+    if not oa_status:
+        return False
+    return oa_status in ("OA", "Open Access", "Gold", "Green", "Hybrid")
 
 
 def _load_hijacked() -> List[Dict]:
@@ -64,7 +73,7 @@ def _query_db(query: str = "", scopus: bool = None, wos: bool = None, oa: bool =
         elif wos is False:
             conditions.append("wos_indexed = 0")
         if oa is True:
-            conditions.append("oa_status = 'OA'")
+            conditions.append("(oa_status = 'OA' OR oa_status = 'Open Access')")
         if subject:
             sub_like = f"%{subject}%"
             conditions.append("(scopus_subjects LIKE ? OR wos_categories LIKE ? OR asjc_codes LIKE ?)")
@@ -148,7 +157,7 @@ class DecisionEngine:
                 result["indexing"]["scopus"] = {"indexed": True, "source": "Local DB (Scopus Mar 2025)"}
             if db_entry.get("wos_indexed"):
                 result["indexing"]["wos"] = {"indexed": True, "source": "Local DB (WoS Mar 2024)"}
-            if db_entry.get("oa_status") == "OA":
+            if _is_oa(db_entry.get("oa_status", "")):
                 result["access"]["oa"] = True
 
         # 1-4: Live API checks (complement DB)
@@ -183,13 +192,19 @@ class DecisionEngine:
 
         # Compute verdict
         indexed_count = sum(1 for v in result["indexing"].values() if v.get("indexed"))
-        if indexed_count >= 2 and not result["predatory_flags"]:
+        if indexed_count >= 2:
+            # Dual-indexed (Scopus+WoS) = GENUINE regardless of keyword flags
             result["verdict"] = "GENUINE"
             result["confidence"] = min(0.85 + (indexed_count - 2) * 0.05, 0.99)
         elif indexed_count >= 1 and not result["predatory_flags"]:
             result["verdict"] = "LIKELY_GENUINE"
             result["confidence"] = 0.6
-        elif result["predatory_flags"]:
+        elif indexed_count >= 1 and result["predatory_flags"]:
+            # Indexed but flagged — cautious, not PREDATORY
+            result["verdict"] = "REVIEW_NEEDED"
+            result["confidence"] = 0.4
+        elif result["predatory_flags"] and indexed_count == 0:
+            # Not indexed + flagged = predatory
             result["verdict"] = "PREDATORY"
             result["confidence"] = min(0.75 + len(result["predatory_flags"]) * 0.05, 0.99)
         else:
@@ -672,7 +687,7 @@ def _check_hijacked(title: str) -> List[str]:
         entries = _load_hijacked()
         low = title.lower()
         for entry in entries:
-            if entry.get("journal_name", "").lower() in low:
+            if entry.get("title", entry.get("journal_name", "")).lower() in low:
                 flags.append(f"Hijacked journal detected: {entry.get('journal_name')}. Real site: {entry.get('authentic_url', 'N/A')}")
     except Exception: pass
     return flags

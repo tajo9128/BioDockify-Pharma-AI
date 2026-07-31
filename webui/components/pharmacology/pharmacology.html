@@ -129,9 +129,11 @@
       },
 
       // ── PK/PD Methods (merged from PK/PD module) ──
+      pkFileData: null,  // stores parsed rows as array of objects
+
       openPkFilePicker() {
         const input = document.createElement('input');
-        input.type = 'file'; input.accept = '.csv,.txt,.xlsx';
+        input.type = 'file'; input.accept = '.csv,.txt';
         input.onchange = async (e) => {
           const file = e.target.files[0];
           if (!file) return;
@@ -143,16 +145,22 @@
           this.pkRowCount = lines.length - 1;
           this.pkTimeCol = this.pkColumns[0];
           this.pkConcCol = this.pkColumns[1] || this.pkColumns[0];
+          // Parse rows as array of arrays for the API
+          this.pkFileData = [];
+          for (let i = 1; i < lines.length; i++) {
+            const row = lines[i].split(',').map(v => v.trim());
+            if (row.length >= 2) this.pkFileData.push(row);
+          }
         };
         input.click();
       },
 
       async runNca() {
-        if (!this.pkFileName) { this.error = 'Upload PK data first'; return; }
+        if (!this.pkFileData || this.pkFileData.length === 0) { this.error = 'Upload PK data first'; return; }
         this.loading = true; this.error = "";
         try {
           const r = await callJsonApi("pkpd", {
-            action: "nca", file: this.pkFileName,
+            action: "nca", data: this.pkFileData,
             time_col: this.pkTimeCol, conc_col: this.pkConcCol,
           });
           this.pkResult = r.error ? null : r;
@@ -162,11 +170,11 @@
       },
 
       async runPkAction(action) {
-        if (!this.pkFileName) { this.error = 'Upload PK data first'; return; }
+        if (!this.pkFileData || this.pkFileData.length === 0) { this.error = 'Upload PK data first'; return; }
         this.loading = true; this.error = "";
         try {
           const r = await callJsonApi("pkpd", {
-            action, file: this.pkFileName,
+            action, data: this.pkFileData,
             time_col: this.pkTimeCol, conc_col: this.pkConcCol,
           });
           this.pkResult = r.error ? null : r;
