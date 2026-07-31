@@ -28,7 +28,7 @@ const defaultModules = [
   { id: "natural-products", title: "Natural Products", icon: "eco", component: "/components/natural-products/natural-products.html", order: 18, defaultWidth: 750, defaultHeight: 600 },
   { id: "regulatory-enhanced", title: "Regulatory Affairs", icon: "gavel", component: "/components/regulatory-enhanced/regulatory-enhanced.html", order: 19, defaultWidth: 750, defaultHeight: 600 },
   { id: "pharmacology", title: "Pharmacology", icon: "monitor_heart", component: "/components/pharmacology/pharmacology.html", order: 20, defaultWidth: 750, defaultHeight: 600 },
-  { id: "medicinal_chemistry", title: "Medicinal Chemistry", icon: "molecule", component: "/components/medicinal_chemistry/medicinal_chemistry.html", order: 21, defaultWidth: 750, defaultHeight: 600 },
+  { id: "medicinal_chemistry", title: "Medicinal Chemistry", icon: "ring", component: "/components/medicinal_chemistry/medicinal_chemistry.html", order: 21, defaultWidth: 750, defaultHeight: 600 },
   { id: "grant-writer", title: "Grant Writer", icon: "request_quote", component: "/components/grant-writer/grant-writer.html", order: 22, defaultWidth: 700, defaultHeight: 600 },
   { id: "patent-analyzer", title: "Patent Analyzer", icon: "policy", component: "/components/patent-analyzer/patent-analyzer.html", order: 23, defaultWidth: 700, defaultHeight: 550 },
   { id: "trial-scanner", title: "Trial Scanner", icon: "biotech", component: "/components/trial-scanner/trial-scanner.html", order: 24, defaultWidth: 700, defaultHeight: 550 },
