@@ -17,6 +17,7 @@ Based on peer-reviewed models with proper citations:
 """
 from helpers.api import ApiHandler, Request
 import logging
+import numpy as np
 
 log = logging.getLogger("admet_predict")
 
@@ -480,6 +481,10 @@ class AdmetPredict(ApiHandler):
                 "p_gp_substrate": p_gp,
                 "bioaccumulation_risk": bcf_risk,
                 "synthetic_accessibility": sa_score,
+                "solubility": solubility,
+                "hepatotoxic": hepatotoxic,
+                "formal_charge": formal_charge,
+                "mahalanobis": mahalanobis,
             }
 
             # ── AUTO-STORE ──
@@ -587,7 +592,6 @@ class AdmetPredict(ApiHandler):
 
             # Summary statistics
             if results:
-                import numpy as np
                 mws = [r["mw"] for r in results]
                 logps = [r["logp"] for r in results]
                 lipinski_pass = sum(1 for r in results if r["lipinski_pass"])
