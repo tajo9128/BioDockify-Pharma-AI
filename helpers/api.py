@@ -143,17 +143,19 @@ def requires_loopback(f):
     return decorated
 
 
+_AUTH_WARNED = False
+
+
 def requires_auth(f):
     @wraps(f)
-    _auth_warned = False
     async def decorated(*args, **kwargs):
-        nonlocal _auth_warned
+        global _AUTH_WARNED
         from helpers import login
 
         user_pass_hash = login.get_credentials_hash()
         if not user_pass_hash:
-            if not _auth_warned:
-                _auth_warned = True
+            if not _AUTH_WARNED:
+                _AUTH_WARNED = True
                 import logging
                 logging.getLogger("api").warning(
                     "AUTH BYPASS: No AUTH_LOGIN configured — auth-protected endpoints are open. "
