@@ -59,8 +59,18 @@ RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
     "numpy>=1.24,<2.5" \
     chromadb>=0.4.0 faiss-cpu>=1.7.4 sentence-transformers>=2.2.0 \
     openmm>=8.1.0 mdtraj>=1.9.9 pdbfixer>=2.0.0 mdanalysis>=2.7.0 \
-    xgboost>=2.0.0 lightgbm>=4.0.0 catboost>=1.2.0 \
-    && echo "Framework venv packages installed" || echo "Framework venv packages install failed"
+    xgboost>=2.0.0 lightgbm>=4.0.0 catboost>=1.2.0
+
+# ─── Verify critical imports (OpenMM forcefields + RDKit) ───
+RUN /opt/venv-a0/bin/python -c "\
+import openmm; print('OpenMM', openmm.__version__); \
+from openmm.app import ForceField; \
+ff = ForceField('amber14-all.xml', 'tip3p.xml'); \
+print('Forcefield OK: amber14-all.xml + tip3p.xml'); \
+from rdkit import Chem; print('RDKit OK'); \
+from openmm.app import PDBFixer; print('PDBFixer OK')" \
+    && echo "All critical packages verified" \
+    || (echo "ERROR: Critical package import failed — MD Lite will not work" && exit 1)
 
 # ─── Execution venv (/opt/venv): same packages as framework so code_execution_tool works ───
 RUN /opt/venv/bin/python -m pip install --no-cache-dir \
@@ -71,7 +81,7 @@ RUN /opt/venv/bin/python -m pip install --no-cache-dir \
     openmm>=8.1.0 mdtraj>=1.9.9 pdbfixer>=2.0.0 mdanalysis>=2.7.0 \
     xgboost>=2.0.0 lightgbm>=4.0.0 catboost>=1.2.0 \
     && /usr/bin/python3 -m pip install --no-cache-dir supervisor 2>/dev/null || true \
-    && echo "Execution venv packages installed" || echo "Execution venv packages install failed"
+    && echo "Execution venv packages installed"
 
 # ─── Pre-cache sentence-transformers model (prevents HuggingFace download at runtime) ───
 ENV SENTENCE_TRANSFORMERS_HOME=/a0/.cache/sentence-transformers
