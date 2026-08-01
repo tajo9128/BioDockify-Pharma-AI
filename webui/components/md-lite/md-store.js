@@ -59,6 +59,10 @@ const mdLiteFactory = () => ({
     try {
       const r = await callJsonApi("md_lite", { action: "health" });
       this.platformWarning = "";
+      if (r.status === "error" || r.error) {
+        this.platformWarning = "OpenMM not available: " + (r.error || "install failed") + ". MD Lite will not work until OpenMM is installed.";
+        return;
+      }
       if (r.gpu) {
         this.gpuAvailable = true;
         this.gpuName = r.platforms?.find(p => p.name.includes("CUDA"))?.name || "GPU";
@@ -67,7 +71,9 @@ const mdLiteFactory = () => ({
         this.gpuAvailable = false;
         this.settings.platform = "CPU";
       }
-    } catch {}
+    } catch (e) {
+      this.platformWarning = "MD Lite backend unavailable: " + (e.message || "API error");
+    }
   },
 
   // File upload

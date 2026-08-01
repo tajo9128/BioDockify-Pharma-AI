@@ -69,6 +69,10 @@ class MDLite(ApiHandler):
 
     def _health(self):
         try:
+            import openmm as mm
+        except ImportError:
+            return {"status": "error", "error": "OpenMM is not installed. Rebuild the Docker image or run: pip install openmm pdbfixer mdtraj"}
+        try:
             from modules.md_lite.engine import MDEngine
             return {"status": "ok", **MDEngine.health()}
         except Exception as e:

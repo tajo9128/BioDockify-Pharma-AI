@@ -80,8 +80,18 @@ def complete_pharmacophore_analysis(smiles, name="Molecule"):
     if mol is None:
         return {"error": "Invalid SMILES: " + smiles}
     mol = Chem.AddHs(mol)
-    AllChem.EmbedMolecule(mol, randomSeed=42)
-    AllChem.MMFFOptimizeMolecule(mol)
+    embed_result = AllChem.EmbedMolecule(mol, randomSeed=42, useRandomCoords=True, maxAttempts=10)
+    if embed_result != 0:
+        # Embedding failed — retry with ETKDGv3 and more attempts
+        params = AllChem.ETKDGv3()
+        params.randomSeed = 42
+        embed_result = AllChem.EmbedMolecule(mol, params)
+    if embed_result != 0:
+        return {"error": "Could not generate 3D coordinates for this molecule. Try a different SMILES."}
+    try:
+        AllChem.MMFFOptimizeMolecule(mol)
+    except Exception:
+        pass  # Optimization is optional — coordinates still exist
     mol.SetProp("_Name", name)
 
     # Extract features

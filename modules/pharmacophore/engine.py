@@ -151,7 +151,14 @@ class EnhancedPharmacophore:
         # Ensure 3D coords
         if mol.GetNumConformers() == 0:
             mol = Chem.AddHs(mol)
-            AllChem.EmbedMolecule(mol, AllChem.ETKDGv3())
+            params = AllChem.ETKDGv3()
+            params.randomSeed = 42
+            embed_result = AllChem.EmbedMolecule(mol, params)
+            if embed_result != 0:
+                # Retry with random coords
+                embed_result = AllChem.EmbedMolecule(mol, randomSeed=42, useRandomCoords=True, maxAttempts=10)
+            if embed_result != 0:
+                return []  # Cannot generate 3D coords — no features
             try:
                 AllChem.MMFFOptimizeMolecule(mol)
             except Exception:
