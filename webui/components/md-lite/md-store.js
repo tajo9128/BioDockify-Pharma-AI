@@ -254,14 +254,14 @@ const mdLiteFactory = () => ({
     try {
       const r = await callJsonApi("md_lite", { action: "results", job_id: this.jobId });
       this.result = r.analysis || r;
-      // Build metrics table
+      // Build metrics table (guard against undefined fields when analysis fails)
       this.result._metrics = [];
-      if (this.result.rmsd) this.result._metrics.push({label:"RMSD", value:this.result.rmsd.final_nm+" nm", color:"#00d4aa"});
-      if (this.result.rmsf) this.result._metrics.push({label:"RMSF", value:this.result.rmsf.max_nm+" nm", color:"#6366f1"});
-      if (this.result.energy) this.result._metrics.push({label:"Energy", value:this.result.energy.mean+" kJ", color:"#f59e0b"});
-      if (this.result.gyration) this.result._metrics.push({label:"Rg", value:this.result.gyration.final_nm+" nm", color:"#8b5cf6"});
-      if (this.result.sasa) this.result._metrics.push({label:"SASA", value:this.result.sasa.final_nm2+" nm²", color:"#22c55e"});
-      if (this.result.hbonds) this.result._metrics.push({label:"H-Bonds", value:this.result.hbonds.avg_per_frame||0, color:"#f59e0b"});
+      if (this.result.rmsd && this.result.rmsd.final_nm != null) this.result._metrics.push({label:"RMSD", value:this.result.rmsd.final_nm+" nm", color:"#00d4aa"});
+      if (this.result.rmsf && this.result.rmsf.max_nm != null) this.result._metrics.push({label:"RMSF", value:this.result.rmsf.max_nm+" nm", color:"#6366f1"});
+      if (this.result.energy && this.result.energy.mean != null) this.result._metrics.push({label:"Energy", value:this.result.energy.mean+" kJ", color:"#f59e0b"});
+      if (this.result.gyration && this.result.gyration.final_nm != null) this.result._metrics.push({label:"Rg", value:this.result.gyration.final_nm+" nm", color:"#8b5cf6"});
+      if (this.result.sasa && this.result.sasa.final_nm2 != null) this.result._metrics.push({label:"SASA", value:this.result.sasa.final_nm2+" nm²", color:"#22c55e"});
+      if (this.result.hbonds && this.result.hbonds.avg_per_frame != null) this.result._metrics.push({label:"H-Bonds", value:this.result.hbonds.avg_per_frame, color:"#f59e0b"});
     } catch {}
   },
 

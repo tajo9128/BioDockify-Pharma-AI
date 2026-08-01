@@ -1,5 +1,5 @@
 """MD Lite API — OpenMM molecular dynamics simulation handler."""
-from helpers.api import ApiHandler, Request
+from helpers.api import ApiHandler, Request, Response
 from helpers import files
 import os, json, time, uuid, asyncio, threading, logging, shutil
 
@@ -50,8 +50,19 @@ def _friendly_error(msg):
 
 
 class MDLite(ApiHandler):
+    @classmethod
+    def get_methods(cls):
+        return ["GET", "POST"]
+
     async def process(self, input: dict, request: Request) -> dict:
         action = input.get("action", "")
+        # For GET requests (download), action may come from query params
+        if not action and request.method == "GET":
+            action = request.args.get("action", "")
+            input = {
+                "action": action,
+                "job_id": request.args.get("job_id", ""),
+            }
         if action == "health":           return self._health()
         if action == "prepare":          return await self._prepare(input)
         if action == "prepare_complex":  return await self._prepare_complex(input)
@@ -106,6 +117,16 @@ class MDLite(ApiHandler):
             if ligand_content and len(ligand_content) > 10:
                 with open(os.path.join(job_dir, "ligand.sdf"), "w", encoding="utf-8") as f:
                     f.write(ligand_content)
+                # Protein + ligand → route through prepare_complex (handles both)
+                input["protein_pdb_content"] = protein_content
+                input["ligand_pdbqt_content"] = ""
+                # Read the ligand as SDF content for prepare_complex
+                input["ligand_sdf_content"] = ligand_content
+                _write_status(job_dir, "preparing_complex", {"phase": "preparing_complex"})
+                result = await self._prepare_complex(input)
+                if result.get("status") == "ok":
+                    return result
+                # If complex prep fails, continue with protein-only below
 
         # After import_docking (or resume): reuse PDB already on disk for this job_id
         if not pdb_path:
@@ -295,6 +316,9 @@ class MDLite(ApiHandler):
                     log.error(f"MD run failed: {e}")
                     # wf._safe_update_status handles the case where wf.engine is None
                     wf._safe_update_status("error", {"error": str(e), "phase": "error"})
+                finally:
+                    # Clean up thread reference when done (prevents memory leak)
+                    _jobs.pop(job_id, None)
 
             t = threading.Thread(target=_run_md, daemon=True)
             t.start()
@@ -306,7 +330,9 @@ class MDLite(ApiHandler):
             return {"status": "error", "error": str(e)}
 
     def _status(self, input):
-        job_id = input["job_id"]
+        job_id = input.get("job_id", "")
+        if not job_id:
+            return {"status": "error", "error": "job_id required"}
         from modules.md_lite.workflow import MDWorkflow
         s = MDWorkflow.get_status(os.path.join(WORKDIR, job_id))
         # Include the platform warning if available
@@ -323,6 +349,8 @@ class MDLite(ApiHandler):
     def _log(self, input):
         """Return last N lines of the md.log file (OpenMM StateDataReporter)."""
         job_id = input.get("job_id", "")
+        if not job_id:
+            return {"status": "error", "error": "job_id required"}
         lines = int(input.get("lines", 30))
         job_dir = os.path.join(WORKDIR, job_id)
         log_path = os.path.join(job_dir, "md.log")
@@ -338,17 +366,25 @@ class MDLite(ApiHandler):
             return {"status": "error", "error": str(e)}
 
     def _stop(self, input):
-        job_id = input["job_id"]
+        job_id = input.get("job_id", "")
+        if not job_id:
+            return {"status": "error", "error": "job_id required"}
         if job_id in _jobs:
             from modules.md_lite.workflow import MDWorkflow
             wf = MDWorkflow(os.path.join(WORKDIR, job_id))
             wf.stop()
+            # Clean up dead threads too
+            if not _jobs[job_id].is_alive():
+                del _jobs[job_id]
+                return {"status": "ok", "job_id": job_id, "stopped": True, "note": "Thread was already finished"}
             del _jobs[job_id]
             return {"status": "ok", "job_id": job_id, "stopped": True}
         return {"status": "error", "error": "Job not running"}
 
     def _results(self, input):
-        job_id = input["job_id"]
+        job_id = input.get("job_id", "")
+        if not job_id:
+            return {"status": "error", "error": "job_id required"}
         job_dir = os.path.join(WORKDIR, job_id)
         traj = os.path.join(job_dir, "trajectory.dcd")
         # Use topology.pdb (full system) if available, else fall back
@@ -370,13 +406,17 @@ class MDLite(ApiHandler):
         return result
 
     def _download(self, input):
-        job_id = input["job_id"]
+        job_id = input.get("job_id", "")
+        if not job_id:
+            return Response(response="job_id required", status=400, mimetype="text/plain")
         job_dir = os.path.join(WORKDIR, job_id)
+        if not os.path.isdir(job_dir):
+            return Response(response="Job directory not found", status=404, mimetype="text/plain")
         import zipfile, io
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-            for root, dirs, files in os.walk(job_dir):
-                for fn in files:
+            for root, dirs, filenames in os.walk(job_dir):
+                for fn in filenames:
                     fp = os.path.join(root, fn)
                     zf.write(fp, os.path.relpath(fp, job_dir))
         buf.seek(0)
@@ -389,7 +429,9 @@ class MDLite(ApiHandler):
 
     def _mmpbsa(self, input):
         """Run MM-PBSA binding free energy calculation on completed MD trajectory."""
-        job_id = input["job_id"]
+        job_id = input.get("job_id", "")
+        if not job_id:
+            return {"status": "error", "error": "job_id required"}
         job_dir = os.path.join(WORKDIR, job_id)
         traj = os.path.join(job_dir, "trajectory.dcd")
         top = os.path.join(job_dir, "topology.pdb")
