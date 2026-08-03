@@ -80,10 +80,10 @@ After all subagents complete, **aggregate the results** and report:
 ```python
 import sys; sys.path.insert(0, "/a0")
 import asyncio
-from api.deep_research import DeepResearch
+from api.deep_research import DeepResearchHandler
 
 async def research():
-    h = DeepResearch()
+    h = DeepResearchHandler()
     # Stage 1: collect sources from all databases
     result = await h.process({
         "action": "collect",

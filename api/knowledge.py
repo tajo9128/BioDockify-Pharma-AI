@@ -115,20 +115,25 @@ def _store_entry(category: str, title: str, content: str, tags: str = "", source
     # Also index into vector store if available
     try:
         from modules.rag.vector_store import get_vector_store
+        import asyncio, inspect
         store = get_vector_store()
         if store:
             chunks = [content[i:i+500].strip() for i in range(0, len(content), 500) if content[i:i+500].strip()]
             metadatas = [{"source": title, "category": category, "tags": tags}] * len(chunks)
             add_fn = getattr(store, "add_documents", None) or getattr(store, "add_texts", None)
             if add_fn and chunks:
-                coro = add_fn(chunks, metadatas)
-                # add_documents is async — await if in async context, else schedule
-                import asyncio
-                try:
-                    loop = asyncio.get_running_loop()
-                    loop.create_task(coro)
-                except RuntimeError:
-                    asyncio.run(coro)
+                if inspect.iscoroutinefunction(add_fn):
+                    coro = add_fn(chunks, metadatas)
+                    try:
+                        loop = asyncio.get_running_loop()
+                        task = loop.create_task(coro)
+                        task.add_done_callback(
+                            lambda t: log.warning(f"Vector indexing failed: {t.exception()}") if t.exception() else None
+                        )
+                    except RuntimeError:
+                        asyncio.run(coro)
+                else:
+                    add_fn(chunks, metadatas)
     except Exception as e:
         log.debug(f"Vector indexing skipped: {e}")
 

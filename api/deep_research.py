@@ -105,16 +105,18 @@ class DeepResearchHandler(ApiHandler):
 
         stats["total"] = len(unique_sources)
 
-        # ── Fetch full text for every collected source ──
+        # ── Fetch full text for sources (limited to max_store to avoid wasted requests) ──
+        max_store = int(input.get("max_store", 50))
+        retrieval_pool = unique_sources[:max_store]
         full_text_count = 0
         try:
             from modules.literature.full_text import FullTextRetriever
             retriever = FullTextRetriever()
-            for src in unique_sources:
+            for src in retrieval_pool:
                 if not src.get("title"):
                     continue
                 try:
-                    ft = retriever.retrieve(src)
+                    ft = await retriever.retrieve_async(src)
                     if ft and len(ft) > 200:
                         src["full_text"] = ft
                         src["full_text_available"] = True
@@ -123,7 +125,7 @@ class DeepResearchHandler(ApiHandler):
                         src["full_text_available"] = False
                 except Exception:
                     src["full_text_available"] = False
-            log.info(f"Full text retrieved for {full_text_count}/{len(unique_sources)} sources")
+            log.info(f"Full text retrieved for {full_text_count}/{len(retrieval_pool)} sources")
         except ImportError:
             log.warning("FullTextRetriever not available — storing metadata only")
         except Exception as e:
@@ -142,7 +144,7 @@ class DeepResearchHandler(ApiHandler):
         kb_skipped = 0
         try:
             from modules.knowledge.auto_store import auto_store
-            for src in unique_sources[:30]:
+            for src in retrieval_pool:
                 title = src.get("title", "Untitled")
                 authors = ", ".join(src.get("authors", [])[:5])
                 full_text = src.get("full_text", "")
@@ -358,6 +360,7 @@ class DeepResearchHandler(ApiHandler):
         sources = session.get("scanned_sources", session.get("sources", []))[:max_store]
         stored = 0
         skipped = 0
+        from modules.knowledge.auto_store import auto_store
         for src in sources:
             try:
                 title = src.get("title", "Untitled")
@@ -375,8 +378,6 @@ class DeepResearchHandler(ApiHandler):
 
                 content = f"**Authors:** {authors}\n**Year:** {year}\n**Journal:** {journal}\n**Database:** {database}\n**DOI:** {doi}\n**URL:** {src.get('url','')}\n\n## Full Text\n\n{full_text}"
 
-                # Store in knowledge base
-                from modules.knowledge.auto_store import auto_store
                 auto_store(
                     module_name="deep_research",
                     title=title,
@@ -937,6 +938,6 @@ class DeepResearchHandler(ApiHandler):
             "doi": (w.get("doi") or "").replace("https://doi.org/", ""),
             "cited_by_count": w.get("cited_by_count", 0),
             "journal": (w.get("primary_location") or {}).get("source", {}).get("display_name", "") if w.get("primary_location") else "",
-            "abstract": DeepResearch._openalex_abstract(w.get("abstract_inverted_index")),
+            "abstract": DeepResearchHandler._openalex_abstract(w.get("abstract_inverted_index")),
             "database": "OpenAlex",
         }
