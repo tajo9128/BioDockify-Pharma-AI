@@ -68,7 +68,7 @@ from openmm.app import ForceField; \
 ff = ForceField('amber14-all.xml', 'tip3p.xml'); \
 print('Forcefield OK: amber14-all.xml + tip3p.xml'); \
 from rdkit import Chem; print('RDKit OK'); \
-from openmm.app import PDBFixer; print('PDBFixer OK')" \
+from pdbfixer import PDBFixer; print('PDBFixer OK')" \
     && echo "All critical packages verified" \
     || (echo "ERROR: Critical package import failed — MD Lite will not work" && exit 1)
 
