@@ -83,10 +83,10 @@ class BohriumConnector:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    self.endpoint, 
-                    json=payload, 
-                    headers=headers, 
-                    timeout=self.timeout
+                    self.endpoint,
+                    json=payload,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=self.timeout)
                 ) as response:
                     
                     if response.status != 200:
@@ -110,11 +110,10 @@ class BohriumConnector:
                     content = result.get("content", [])
                     import json
                     try:
-                        # Try to parse the first text content as JSON if it's a string
                         text_content = content[0].get("text", "")
                         if text_content.strip().startswith("["):
                             return json.loads(text_content)
-                    except:
+                    except (json.JSONDecodeError, IndexError, KeyError):
                         pass
                             
                     return []

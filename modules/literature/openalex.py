@@ -96,7 +96,7 @@ class OpenAlexScraper:
             
             # Join words
             return " ".join([w[1] for w in word_index])
-        except:
+        except (TypeError, KeyError, ValueError):
             return ""
 
 # Helper

@@ -282,17 +282,11 @@ class LiteratureAggregator:
                 content = "\n".join(md_lines).encode('utf-8')
                 filename = f"lit_review_{int(time.time())}.md"
                 
-                # Async Handling (similar to web_scraper)
                 try:
-                    loop = asyncio.get_event_loop()
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(surfsense.upload_file(content, filename))
                 except RuntimeError:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-
-                if loop.is_running():
-                     asyncio.create_task(surfsense.upload_file(content, filename))
-                else:
-                     loop.run_until_complete(surfsense.upload_file(content, filename))
+                    asyncio.run(surfsense.upload_file(content, filename))
 
                 logger.info(f"Uploaded literature review to SurfSense: {filename}")
             except Exception as e:

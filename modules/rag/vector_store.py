@@ -114,7 +114,7 @@ class VectorStore:
             return
 
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             embeddings = await loop.run_in_executor(None, self.model.encode, texts)
             embeddings = np.array(embeddings).astype('float32')
             
@@ -138,7 +138,7 @@ class VectorStore:
             return []
 
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             query_vector = await loop.run_in_executor(None, self.model.encode, [query])
             query_vector = np.array(query_vector).astype('float32')
             

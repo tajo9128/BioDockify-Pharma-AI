@@ -8,7 +8,7 @@ from typing import Dict, Any, List
 
 from .discovery import discovery_engine
 from .screening import ContentScreener
-from .synthesis import synthesis_engine
+from .synthesis import get_synthesizer
 
 logger = logging.getLogger("literature.orchestrator")
 
@@ -111,6 +111,7 @@ class DeepResearchOrchestrator:
         if failed_titles:
             status.append(f"Retrying {len(failed_titles)} failed articles with extended timeouts...")
             retry_count = 0
+            serial += 1
             for i, paper in enumerate(selected_papers):
                 if paper.title not in failed_titles:
                     continue
@@ -140,6 +141,7 @@ class DeepResearchOrchestrator:
                             serial_num=serial,
                         )
                         docx_stored += 1
+                        serial += 1
 
                         pdf_bytes = retriever.get_last_pdf_bytes()
                         if pdf_bytes:
@@ -154,6 +156,7 @@ class DeepResearchOrchestrator:
                                     serial_num=serial,
                                 )
                                 pdf_stored += 1
+                                serial += 1
                             except Exception:
                                 pass
 
@@ -190,7 +193,7 @@ class DeepResearchOrchestrator:
         
         # Phase 4: Synthesis
         status.append("Phase 4: Synthesis - Writing report...")
-        report = await synthesis_engine.generate_review(topic, selected_papers)
+        report = await get_synthesizer().generate_review(topic, selected_papers)
         
         # Phase 5: Plagiarism & Compliance Gate
         status.append("Phase 5: Compliance - Running Plagiarism Check...")

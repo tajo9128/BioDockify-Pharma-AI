@@ -7,6 +7,7 @@ Aggregates scientific literature from multiple sources:
 """
 import asyncio
 import logging
+import os
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict
 from datetime import datetime
@@ -36,8 +37,7 @@ class Paper:
 
 class LiteratureDiscovery:
     def __init__(self):
-        # Configure Entrez
-        Entrez.email = "agent.zero@biodockify-ai.org"
+        Entrez.email = os.getenv("BIODOCKIFY_CONTACT_EMAIL", "researcher@example.com")
         
         # Semantic Scholar Client
         self.sch = SemanticScholar(timeout=10)
@@ -119,7 +119,7 @@ class LiteratureDiscovery:
         """Search Semantic Scholar."""
         try:
             # Run sync client in executor
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             results = await loop.run_in_executor(
                 None, 
                 lambda: self.sch.search_paper(query, limit=limit)
@@ -145,7 +145,7 @@ class LiteratureDiscovery:
     async def search_pubmed(self, query: str, limit: int = 10) -> List[Paper]:
         """Search PubMed."""
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             
             def _pubmed_sync():
                 handle = Entrez.esearch(db="pubmed", term=query, retmax=limit)

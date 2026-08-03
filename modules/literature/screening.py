@@ -146,7 +146,7 @@ Return a JSON array of indices to include, e.g. [0, 2, 5]"""
         if match:
             try:
                 return json.loads(match.group())
-            except:
+            except (json.JSONDecodeError, ValueError):
                 pass
         
         # Fallback: extract all numbers

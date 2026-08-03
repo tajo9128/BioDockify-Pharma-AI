@@ -41,24 +41,11 @@ def scrape_url(url: str) -> str:
              safe_name = re.sub(r'[^a-zA-Z0-9]', '_', url)[:50]
              filename = f"scraped_{safe_name}.txt"
              
-             # Upload asynchronously (fire and forget for now, or await if we want strict consistency)
-             # Since this function is sync, we might need a sync wrapper or run_until_complete
-             # For robustness, we check if there's an event loop, else new one.
              try:
-                 loop = asyncio.get_event_loop()
+                 loop = asyncio.get_running_loop()
+                 loop.create_task(surfsense.upload_file(text.encode('utf-8'), filename))
              except RuntimeError:
-                 loop = asyncio.new_event_loop()
-                 asyncio.set_event_loop(loop)
-                 
-             if loop.is_running():
-                 # We are likely in an async context (FastAPI), so we should ideally be async.
-                 # But this function signature is sync `def scrape_url(...)`.
-                 # To avoid breaking callers, we'll use a background task or just log warning.
-                 # Ideally, we refactor this entire module to be async.
-                 # For now, let's create a task if possible.
-                 asyncio.create_task(surfsense.upload_file(text.encode('utf-8'), filename))
-             else:
-                 loop.run_until_complete(surfsense.upload_file(text.encode('utf-8'), filename))
+                 asyncio.run(surfsense.upload_file(text.encode('utf-8'), filename))
                  
         except Exception as e:
              # Don't fail the scrape if SurfSense fails, just log

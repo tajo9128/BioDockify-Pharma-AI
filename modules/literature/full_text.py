@@ -1,5 +1,6 @@
 """Full-text retriever — 3-tier: Europe PMC XML → PDF download → Hacker Agent (6 sub-strategies)."""
 import logging
+import os
 import re
 import time
 from typing import Dict, Optional, Tuple
@@ -30,15 +31,26 @@ class FullTextRetriever:
 
     def __init__(self):
         self.session = requests.Session()
+        contact_email = os.getenv("BIODOCKIFY_CONTACT_EMAIL", "researcher@example.com")
         self.session.headers.update({
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                 "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 "
-                "BioDockifyAI/2.0 (mailto:researcher@example.com)"
+                f"BioDockifyAI/2.0 (mailto:{contact_email})"
             )
         })
         self._last_request_time = 0.0
         self._last_pdf_bytes: Optional[bytes] = None  # cached from Tier 2
+
+    def close(self):
+        """Close the underlying HTTP session."""
+        self.session.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
 
     def _rate_limit(self, min_interval: float = 1.0):
         elapsed = time.time() - self._last_request_time
@@ -146,8 +158,8 @@ class FullTextRetriever:
 
         try:
             self._rate_limit(0.5)
-            # Unpaywall requires an email in the query
-            url = f"https://api.unpaywall.org/v2/{doi}?email=biodockify@example.com"
+            contact_email = os.getenv("BIODOCKIFY_CONTACT_EMAIL", "researcher@example.com")
+            url = f"https://api.unpaywall.org/v2/{doi}?email={contact_email}"
             resp = self.session.get(url, timeout=15)
 
             if resp.status_code != 200:
@@ -241,19 +253,40 @@ class FullTextRetriever:
 
     def _download_and_extract_pdf(self, url: str) -> Tuple[Optional[str], Optional[bytes]]:
         """Download PDF from URL and extract text. Returns (text, pdf_bytes)."""
+        MAX_PDF_SIZE = 100 * 1024 * 1024  # 100 MB guard
         try:
             self._rate_limit(2.0)
             resp = self.session.get(url, timeout=45, stream=True)
 
-            if resp.status_code != 200 or len(resp.content) < 1000:
+            if resp.status_code != 200:
+                return None, None
+
+            # Size guard: abort if Content-Length exceeds limit
+            content_length = int(resp.headers.get("Content-Length", 0))
+            if content_length > MAX_PDF_SIZE:
+                logger.debug(f"PDF too large ({content_length} bytes): {url[:60]}")
+                resp.close()
+                return None, None
+
+            # Stream with size limit
+            chunks = []
+            downloaded = 0
+            for chunk in resp.iter_content(chunk_size=65536):
+                downloaded += len(chunk)
+                if downloaded > MAX_PDF_SIZE:
+                    logger.debug(f"PDF exceeded size limit during download: {url[:60]}")
+                    resp.close()
+                    return None, None
+                chunks.append(chunk)
+            pdf_bytes = b"".join(chunks)
+
+            if len(pdf_bytes) < 1000:
                 return None, None
 
             # Verify it's actually a PDF
-            if not resp.content[:5].startswith(b"%PDF"):
+            if not pdf_bytes[:5].startswith(b"%PDF"):
                 logger.debug(f"URL did not return PDF: {url[:60]}")
                 return None, None
-
-            pdf_bytes = resp.content
             from pypdf import PdfReader
             reader = PdfReader(BytesIO(pdf_bytes))
             pages = []
@@ -414,21 +447,18 @@ class FullTextRetriever:
             import asyncio
 
             engine = WebResearchEngine()
+            # This method runs in a thread (via retrieve_async/asyncio.to_thread),
+            # so there is no running event loop on this thread. Safe to use asyncio.run().
             try:
-                loop = asyncio.get_running_loop()
+                result = asyncio.run(engine.deep_read(target))
             except RuntimeError:
+                # Fallback: if somehow called from an async context, use new loop
                 loop = asyncio.new_event_loop()
                 try:
                     result = loop.run_until_complete(engine.deep_read(target))
                 finally:
                     loop.close()
-                if result and "Error reading" not in result:
-                    return result
-                return None
 
-            import concurrent.futures
-            future = asyncio.run_coroutine_threadsafe(engine.deep_read(target), loop)
-            result = future.result(timeout=60)
             if result and "Error reading" not in result:
                 return result
             return None
