@@ -67,13 +67,18 @@ class MDWorkflow:
                 eng.simulation.context.reinitialize(preserveState=True)
                 eng.simulation.step(eq_steps)  # NPT
 
-            prod_ns = max(0.1, total_ns - eng.progress_ns)
+            prod_ns = total_ns - eng.progress_ns
             if prod_ns <= 0:
                 eng.phase = "completed"
                 eng._update_status("completed")
                 return eng
 
-            eng.run_for_ns(prod_ns)
+            if self._stopped:
+                eng.phase = "stopped"
+                eng._update_status("stopped")
+                return eng
+
+            eng.run_for_ns(prod_ns, stop_check=lambda: self._stopped)
             eng.phase = "completed"
             eng._update_status("completed")
             return eng

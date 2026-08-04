@@ -737,7 +737,10 @@ def _analyze_fel(u, workdir, mda_bundle):
     min_energy = float(fel[min_idx])
 
     # Step 5: Find secondary minima
-    from scipy.ndimage import minimum_filter
+    try:
+        from scipy.ndimage import minimum_filter
+    except ImportError:
+        return {"error": "scipy is required for FEL analysis but not installed"}
     local_min = minimum_filter(fel, size=5)
     minima_mask = (fel == local_min) & (fel > 0.5)  # exclude global minimum
     minima_coords = np.argwhere(minima_mask)
@@ -751,6 +754,10 @@ def _analyze_fel(u, workdir, mda_bundle):
         })
 
     # Step 6: FEL contour plot
+    if not plt:
+        return {"pc1_min": pc1_min, "pc2_min": pc2_min, "min_energy_kjmol": min_energy,
+                "secondary_minima": secondary_minima, "n_frames": n_frames,
+                "note": "matplotlib not available — plot skipped"}
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 
     # Contour plot
@@ -878,6 +885,11 @@ def _analyze_entropy(u, workdir, mda_bundle):
     s_schlitter = (kB / 2) * np.sum(np.log(schlitter_arg)) * Na / 1000  # kJ/(mol·K)
 
     # Step 6: Eigenvalue spectrum plot
+    if not plt:
+        return {"s_qha_kjmolK": round(float(s_qha_total), 4),
+                "s_schlitter_kjmolK": round(float(s_schlitter), 4),
+                "n_modes": len(eigenvalues), "n_frames": n_frames, "n_atoms": n_atoms, "T_K": T,
+                "note": "matplotlib not available — plot skipped"}
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 
     # Eigenvalue spectrum

@@ -60,13 +60,17 @@ def analyze(traj_path, top_path, workdir):
 
     traj = None
     load_error = None
+    # Use stride for large trajectories to limit memory (max ~2000 frames for analysis)
+    traj_size_mb = os.path.getsize(traj_path) / (1024 * 1024) if os.path.exists(traj_path) else 0
+    load_stride = max(1, int(traj_size_mb / 500)) if traj_size_mb > 500 else None
     for topo in top_candidates:
         try:
-            candidate = md.load(traj_path, top=topo)
+            candidate = md.load(traj_path, top=topo, stride=load_stride)
             # Verify atom count matches
             if candidate.n_atoms > 0:
                 traj = candidate
-                log.info(f"Loaded trajectory: {traj.n_atoms} atoms, {traj.n_frames} frames (topology: {os.path.basename(topo)})")
+                stride_msg = f", stride={load_stride}" if load_stride else ""
+                log.info(f"Loaded trajectory: {traj.n_atoms} atoms, {traj.n_frames} frames{stride_msg} (topology: {os.path.basename(topo)})")
                 break
         except Exception as e:
             load_error = e
@@ -188,15 +192,17 @@ def analyze(traj_path, top_path, workdir):
         results["hbonds"] = {"count": hb_count, "top_donor_acceptor": hb_labels}
         _style_dark()
         fig, ax = plt.subplots(figsize=(6, 3))
-        # Compute per-frame H-bond count
+        # Compute per-frame H-bond count (sample every Nth frame to avoid O(n_frames) slowness)
+        n_total = protein_traj.n_frames
+        stride = max(1, n_total // 50)
         hb_per_frame = []
-        for i in range(protein_traj.n_frames):
+        for i in range(0, n_total, stride):
             f = protein_traj[i]
             hbf = md.baker_hubbard(f, periodic=False)
             hb_per_frame.append(len(hbf))
         ax.plot(hb_per_frame, color="#f59e0b", linewidth=1)
         ax.set_title("Hydrogen Bonds per Frame", fontsize=12, fontweight="bold", color="#f59e0b")
-        ax.set_xlabel("Frame"); ax.set_ylabel("Count")
+        ax.set_xlabel(f"Frame (stride={stride})"); ax.set_ylabel("Count")
         ax.grid(axis="y", alpha=0.3)
         results["hbonds_plot"] = _fig_to_b64(fig); plt.close(fig)
         results["hbonds"]["avg_per_frame"] = round(float(np.mean(hb_per_frame)), 1)

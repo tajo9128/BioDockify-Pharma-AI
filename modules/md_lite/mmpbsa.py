@@ -28,6 +28,8 @@ def calculate_mmpbsa(traj_path, top_path, workdir):
     """Calculate MM-PBSA binding free energy from MD trajectory."""
     if not HAS_MDTRAJ:
         return {"error": "mdtraj not installed"}
+    if not os.path.exists(traj_path):
+        return {"error": f"Trajectory file not found: {traj_path}"}
 
     traj = md.load(traj_path, top=top_path) if os.path.exists(top_path) else md.load(traj_path)
     n_frames = traj.n_frames
@@ -56,7 +58,8 @@ def calculate_mmpbsa(traj_path, top_path, workdir):
         # Simplified: use SASA as proxy for polarity
         gamma = 0.00542  # kcal/mol/Å² (surface tension)
         beta = 0.92      # kcal/mol (offset)
-        sa_term = gamma * np.sum(avg_sasa) + beta  # kcal/mol
+        # mdtraj returns SASA in nm²; convert to Å² (1 nm² = 100 Å²)
+        sa_term = gamma * np.sum(avg_sasa) * 100.0 + beta  # kcal/mol
 
         # Coulombic approximation from potential energy
         # Read energy from md.log if available
@@ -82,7 +85,9 @@ def calculate_mmpbsa(traj_path, top_path, workdir):
 
         # ΔG_bind = E_MM + ΔG_SA (approximate)
         # For a proper calculation, one needs separate trajectories for complex, receptor, and ligand
-        binding_dg = avg_potential + sa_term
+        # Convert avg_potential from kJ/mol to kcal/mol for consistent units
+        avg_potential_kcal = avg_potential / 4.184
+        binding_dg = avg_potential_kcal + sa_term
 
         results["binding_energy_kcal"] = round(float(binding_dg), 2)
         results["sasa_term_kcal"] = round(float(sa_term), 2)

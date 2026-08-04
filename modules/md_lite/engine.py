@@ -1,5 +1,5 @@
 """OpenMM MD Engine — setup, force field, integrator, simulation runners."""
-import os, json, time, logging
+import os, json, time, logging, threading
 import openmm as mm
 import openmm.app as app
 import openmm.unit as unit
@@ -9,6 +9,7 @@ log = logging.getLogger("md_lite")
 # Cache the benchmarked platform so we only pay the ~2s cost once per process.
 _BENCHMARKED_PLATFORM = None
 _BENCHMARK_WARNING = ""
+_BENCHMARK_LOCK = threading.Lock()
 
 
 def _benchmark_platform():
@@ -19,8 +20,9 @@ def _benchmark_platform():
     10-50x slower than CPU. A 1000-step benchmark detects this in ~2s.
     """
     global _BENCHMARKED_PLATFORM, _BENCHMARK_WARNING
-    if _BENCHMARKED_PLATFORM is not None:
-        return _BENCHMARKED_PLATFORM, _BENCHMARK_WARNING
+    with _BENCHMARK_LOCK:
+        if _BENCHMARKED_PLATFORM is not None:
+            return _BENCHMARKED_PLATFORM, _BENCHMARK_WARNING
 
     _BENCHMARKED_PLATFORM = "CPU"
     _BENCHMARK_WARNING = ""
@@ -42,7 +44,6 @@ def _benchmark_platform():
         force = mm.HarmonicBondForce()
         force.addBond(0, 1, 0.1, 1000.0)
         system.addForce(force)
-        integ = mm.VerletIntegrator(0.001)
         positions = np.array([[0, 0, 0], [0.1, 0, 0]]) * unit.nanometers
 
         candidates = []
@@ -56,6 +57,7 @@ def _benchmark_platform():
         for name in candidates:
             try:
                 plat = mm.Platform.getPlatformByName(name)
+                integ = mm.VerletIntegrator(0.001)
                 sim = app.Simulation(mm.Topology(), system, integ, plat)
                 sim.context.setPositions(positions)
                 t0 = time.time()
@@ -208,7 +210,7 @@ def _sanitize_pdb(pdb_path, keep_only_protein=True, keep_ligand_resname=None):
     # Ensure a CRYST1 record exists so PME/periodic boundaries can be set up.
     has_cryst = any(l.startswith("CRYST1") for l in clean_lines)
     if not has_cryst:
-        xs = ys = zs = []
+        xs, ys, zs = [], [], []
         for l in clean_lines:
             if l[:6].strip() in ("ATOM", "HETATM") and len(l) >= 54:
                 try:
@@ -229,10 +231,13 @@ def _sanitize_pdb(pdb_path, keep_only_protein=True, keep_ligand_resname=None):
     if not any(l.startswith("END") for l in clean_lines):
         clean_lines.append("END\n")
 
-    with open(pdb_path, "w", encoding="utf-8") as f:
+    sanitized_path = pdb_path.replace(".pdb", "_clean.pdb")
+    if sanitized_path == pdb_path:
+        sanitized_path = pdb_path + ".clean"
+    with open(sanitized_path, "w", encoding="utf-8") as f:
         f.writelines(clean_lines)
 
-    return ligand_resname  # Return detected ligand residue name (or None)
+    return ligand_resname, sanitized_path
 
 
 def _generate_ligand_forcefield_xml(ligand_pdb_path, output_xml_path):
@@ -334,11 +339,13 @@ def _generate_ligand_forcefield_xml(ligand_pdb_path, output_xml_path):
     xml_lines.append('    </Residue>')
     xml_lines.append('  </Residues>')
 
-    # Add bonds
+    # Add bonds using actual atom element classes
     xml_lines.append('  <Bonds>')
     for bond in mol.GetBonds():
         i = bond.GetBeginAtomIdx()
         j = bond.GetEndAtomIdx()
+        elem_i = atom_types[i]["element"]
+        elem_j = atom_types[j]["element"]
         bond_order = bond.GetBondType()
         if bond_order == Chem.rdchem.BondType.DOUBLE:
             k = "500.0"
@@ -349,7 +356,7 @@ def _generate_ligand_forcefield_xml(ligand_pdb_path, output_xml_path):
         else:
             k = "400.0"
             length = "0.150"
-        xml_lines.append(f'    <Bond class1="lig_bond" class2="lig_bond" length="{length}" k="{k}"/>')
+        xml_lines.append(f'    <Bond class1="{elem_i}" class2="{elem_j}" length="{length}" k="{k}"/>')
     xml_lines.append('  </Bonds>')
 
     xml_lines.append('</ForceField>')
@@ -427,7 +434,11 @@ class MDEngine:
         t0 = time.time()
         # STEP 0: Sanitize PDB — detect and KEEP the ligand (if any)
         self.phase = "sanitizing"
-        ligand_resname = _sanitize_pdb(pdb_path, keep_only_protein=True)
+        result = _sanitize_pdb(pdb_path, keep_only_protein=True)
+        if isinstance(result, tuple):
+            ligand_resname, pdb_path = result
+        else:
+            ligand_resname = result
         self.pdb = app.PDBFile(pdb_path)
         ff = self._load_forcefield()
         log.info(f"[PREP] PDB sanitize + forcefield: {time.time()-t0:.1f}s ({self.pdb.topology.getNumAtoms()} atoms)")
@@ -708,7 +719,7 @@ class MDEngine:
         avg_per_chunk = elapsed / self._chunks_done
         return round((remaining_chunks * avg_per_chunk) / 60.0)
 
-    def run_for_ns(self, total_ns, checkpoint_interval_ns=0.5):
+    def run_for_ns(self, total_ns, checkpoint_interval_ns=0.5, stop_check=None):
         self.phase = "running"
         steps_per_ns = 500000
         total_steps = int(total_ns * steps_per_ns)
@@ -719,6 +730,11 @@ class MDEngine:
         self._start_time = time.time()
         self._update_status("running")
         while self._steps_done < total_steps:
+            if stop_check and stop_check():
+                self.phase = "stopped"
+                self._save_checkpoint()
+                self._update_status("stopped")
+                return
             remaining = total_steps - self._steps_done
             n = min(chunk_steps, remaining)
             self.simulation.step(n)
