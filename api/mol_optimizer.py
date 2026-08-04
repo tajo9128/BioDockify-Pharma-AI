@@ -90,19 +90,26 @@ class MolOptimizerHandler(ApiHandler):
                     if new_smi:
                         mutants.append(new_smi)
                 elif strategy == "add_hydroxyl":
-                    new_smi = smiles.replace("cc", "c(O)c") or smiles.replace("ccc", "cc(O)c")
+                    new_smi = smiles.replace("cc", "c(O)c")
+                    if new_smi == smiles:
+                        new_smi = smiles.replace("ccc", "cc(O)c")
                     if new_smi != smiles:
                         mutants.append(new_smi)
                 elif strategy == "add_fluorine":
                     new_smi = smiles.replace("cc", "c(F)c")
+                    if new_smi == smiles:
+                        new_smi = smiles.replace("ccc", "cc(F)c")
                     if new_smi != smiles:
                         mutants.append(new_smi)
                 elif strategy == "add_methyl":
                     new_smi = smiles.replace("cc", "c(C)c")
+                    if new_smi == smiles:
+                        new_smi = smiles.replace("ccc", "cc(C)c")
                     if new_smi != smiles:
                         mutants.append(new_smi)
                 elif strategy == "reduce_flexibility_cyclize":
-                    mutants.append(smiles)
+                    log.info("reduce_flexibility_cyclize: not yet implemented")
+                    return {"success": True, "mutants": [], "note": "Cyclization strategy not yet implemented"}
 
                 result_mutants = []
                 for smi in mutants:

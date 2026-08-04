@@ -32,13 +32,19 @@ class MolOptimizerTool(Tool):
                     new_smi = smiles.replace("C(=O)O", "c1[nH]nnn1")
                 elif strategy == "hydroxyl":
                     new_smi = smiles.replace("cc", "c(O)c")
+                    if new_smi == smiles:
+                        new_smi = smiles.replace("ccc", "cc(O)c")
                 elif strategy == "fluorine":
                     new_smi = smiles.replace("cc", "c(F)c")
+                    if new_smi == smiles:
+                        new_smi = smiles.replace("ccc", "cc(F)c")
                 elif strategy == "methyl":
                     new_smi = smiles.replace("cc", "c(C)c")
+                    if new_smi == smiles:
+                        new_smi = smiles.replace("ccc", "cc(C)c")
 
                 new_mol = Chem.MolFromSmiles(new_smi)
-                if new_mol:
+                if new_mol and new_smi != smiles:
                     return Response(message=f"Mutant ({strategy}):\n  Source: {smiles}\n  Result: {new_smi}", break_loop=False)
                 return Response(message=f"Mutation '{strategy}' produced no valid molecule from {smiles}", break_loop=False)
             except ImportError:

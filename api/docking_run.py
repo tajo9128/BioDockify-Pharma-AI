@@ -10,6 +10,12 @@ log = logging.getLogger("docking_run")
 
 JOBS_DIR = files.get_abs_path("tmp/docking_jobs")
 
+_SAFE_JOB_ID = re.compile(r'^[a-zA-Z0-9_-]+$')
+
+
+def _validate_job_id(job_id: str) -> bool:
+    return bool(job_id) and bool(_SAFE_JOB_ID.match(job_id)) and len(job_id) <= 128
+
 
 def _compute_consensus_score(poses):
     """Simple Vina-only scoring (MM-GBSA handles multi-score consensus)."""
@@ -136,8 +142,8 @@ class DockingRun(ApiHandler):
                         f"Journals recommend >= 32 for publication-quality docking.")
         num_modes = input.get("num_modes", 9)
 
-        if not job_id:
-            return {"error": "Missing job_id"}
+        if not _validate_job_id(job_id):
+            return {"error": "Invalid or missing job_id"}
 
         results_dir = os.path.join(JOBS_DIR, job_id)
 
@@ -296,8 +302,9 @@ class DockingRun(ApiHandler):
             # ── MM-GBSA Free Energy Scoring (CPU-only, no MD) ──
             mmgbsa_result = None
             try:
+                import asyncio
                 from api.docking_mmgbsa import mmgbsa_score
-                mmgbsa_result = mmgbsa_score(job_id=job_id)
+                mmgbsa_result = await asyncio.to_thread(mmgbsa_score, job_id=job_id)
                 if mmgbsa_result.get("success"):
                     log.info(f"MM-GBSA scoring completed for job {job_id}")
                 else:

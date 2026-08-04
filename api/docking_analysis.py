@@ -1,10 +1,17 @@
 """Docking Analysis API — deep post-docking analysis: interactions, RMSD, clusters, torsion, SVG diagrams, residue energy."""
 from helpers.api import ApiHandler, Request, Response
 from helpers import files
-import os, logging, math, json
+import os, logging, math, json, re
+import numpy as np
 
 log = logging.getLogger("docking_analysis_api")
 JOBS_DIR = files.get_abs_path("tmp/docking_jobs")
+
+_SAFE_JOB_ID = re.compile(r'^[a-zA-Z0-9_-]+$')
+
+
+def _validate_job_id(job_id: str) -> bool:
+    return bool(job_id) and bool(_SAFE_JOB_ID.match(job_id)) and len(job_id) <= 128
 
 HYDROPHOBIC_RESIDUES = {"ALA", "VAL", "LEU", "ILE", "MET", "PHE", "TRP", "TYR", "PRO"}
 AROMATIC_RESIDUES = {"PHE", "TYR", "TRP", "HIS"}
@@ -146,7 +153,6 @@ def _rmsd_cluster(ligand_models, cutoff=2.0):
 
 def _torsion_analysis(ligand_atoms):
     """Calculate dihedral angles from consecutive atom quartets."""
-    import numpy as np
     dihedrals = []
     if len(ligand_atoms) < 4:
         return dihedrals
@@ -158,9 +164,14 @@ def _torsion_analysis(ligand_atoms):
         dc = d - c
         n1 = np.cross(ba, cb)
         n2 = np.cross(cb, dc)
-        n1 /= np.linalg.norm(n1)
-        n2 /= np.linalg.norm(n2)
-        m1 = np.cross(n1, cb / np.linalg.norm(cb))
+        norm_n1 = np.linalg.norm(n1)
+        norm_n2 = np.linalg.norm(n2)
+        norm_cb = np.linalg.norm(cb)
+        if norm_n1 < 1e-10 or norm_n2 < 1e-10 or norm_cb < 1e-10:
+            continue
+        n1 /= norm_n1
+        n2 /= norm_n2
+        m1 = np.cross(n1, cb / norm_cb)
         x = np.dot(n1, n2)
         y = np.dot(m1, n2)
         angle = math.degrees(math.atan2(y, x))
@@ -346,6 +357,8 @@ class DockingAnalysisHandler(ApiHandler):
 
         # ── Shared data loader ──
         job_id = input.get("job_id", "")
+        if job_id and not _validate_job_id(job_id):
+            return {"success": False, "error": "Invalid job_id"}
         job_dir = os.path.join(JOBS_DIR, job_id) if job_id else ""
         protein_pdb_path = os.path.join(job_dir, "protein.pdb") if job_id else ""
         docked_path = os.path.join(job_dir, "docked_output.pdbqt") if job_id else ""

@@ -30,10 +30,6 @@ def _run_obabel(args, timeout=60, label="conversion"):
         return False, "", str(e)
 
 
-    Chem.MolToMolFile(mol, output_sdf)
-    return output_sdf, None
-
-
 def _meeko_to_pdbqt(output_path, mol, is_ligand=True):
     """Pure Python PDB→PDBQT via Meeko — no obabel binary needed. Cross-platform."""
     try:
@@ -318,11 +314,16 @@ class DockingPrepare(ApiHandler):
                     params = AllChem.ETKDGv3()
                     params.randomSeed = 42
                     params.numThreads = 0
-                    AllChem.EmbedMolecule(mol, params)
-                    AllChem.MMFFOptimizeMolecule(mol, maxIters=500)
+                    embed_status = AllChem.EmbedMolecule(mol, params)
+                    if embed_status != 0:
+                        ligand_errors.append("3D conformer embedding failed — try a simpler structure")
+                    else:
+                        AllChem.MMFFOptimizeMolecule(mol, maxIters=500)
                     writer = Chem.SDWriter(sdf_path)
-                    writer.write(mol)
-                    writer.close()
+                    try:
+                        writer.write(mol)
+                    finally:
+                        writer.close()
                     if _obabel_available():
                         ok, stdout, stderr = _run_obabel(
                             ["obabel", sdf_path, "-O", ligand_pdbqt],

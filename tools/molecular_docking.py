@@ -2,7 +2,11 @@
 import subprocess
 import tempfile
 import os
+import re
 from helpers.tool import Tool, Response
+
+_MAX_SMILES_LEN = 5000
+_SAFE_PATH_RE = re.compile(r'^[a-zA-Z0-9_./ \\:-]+$')
 
 
 def _read_pdb_coords(pdb_path: str):
@@ -43,6 +47,26 @@ class MolecularDocking(Tool):
                 message="Please provide a protein PDB file path and a ligand SMILES string.",
                 break_loop=False
             )
+
+        # Validate SMILES length and basic sanity
+        if len(ligand_smiles) > _MAX_SMILES_LEN:
+            return Response(message="SMILES string too long (max 5000 chars).", break_loop=False)
+
+        # Validate SMILES with RDKit if available
+        try:
+            from rdkit import Chem
+            mol = Chem.MolFromSmiles(ligand_smiles)
+            if mol is None:
+                return Response(message=f"Invalid SMILES: '{ligand_smiles}' could not be parsed.", break_loop=False)
+        except ImportError:
+            pass
+
+        # Restrict receptor path to work directory
+        from helpers import files
+        work_dir = files.get_abs_path("")
+        receptor_real = os.path.realpath(receptor_pdb)
+        if not receptor_real.startswith(os.path.realpath(work_dir)):
+            return Response(message="Receptor path must be within the project working directory.", break_loop=False)
 
         if not os.path.exists(receptor_pdb):
             return Response(

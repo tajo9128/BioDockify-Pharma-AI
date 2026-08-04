@@ -696,7 +696,7 @@
                 <h3 class="section-title">Hydrophobic Contacts (<span x-text="($store.molecularToolkit.daData.interactions.hydrophobic_contacts || []).length"></span>)</h3>
                 <div style="display:flex;gap:3px;flex-wrap:wrap">
                   <template x-for="hp in $store.molecularToolkit.daData.interactions.hydrophobic_contacts">
-                        <span style="padding:2px 6px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:3px;font-size:0.52rem;color:var(--color-text-muted)" x-text="hp.ligand_atom + '↔' + hp.receptor_residue"></span>
+                        <span style="padding:2px 6px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:3px;font-size:0.52rem;color:var(--color-text-muted)" x-text="hp.ligand_atom + '↔' + hp.residue + hp.resseq"></span>
                       </template>
                     </div>
                   </div>
@@ -704,14 +704,14 @@
                   <div class="analysis-section" x-show="($store.molecularToolkit.daData.interactions.salt_bridges || []).length">
                     <h3 class="section-title">Salt Bridges (<span x-text="($store.molecularToolkit.daData.interactions.salt_bridges || []).length"></span>)</h3>
                     <template x-for="sb in $store.molecularToolkit.daData.interactions.salt_bridges">
-                      <div class="nb-entry-card" style="font-size:0.55rem" x-text="sb.type + ': ' + sb.ligand_atom + ' ↔ ' + sb.receptor_residue + ' (' + sb.distance + 'Å)'"></div>
+                      <div class="nb-entry-card" style="font-size:0.55rem" x-text="sb.type + ': ' + sb.residue + sb.resseq + ' (' + sb.distance + 'Å)'"></div>
                     </template>
                   </div>
                   <!-- Pi-stacking -->
                   <div class="analysis-section" x-show="($store.molecularToolkit.daData.interactions.pi_stacking || []).length">
                     <h3 class="section-title">Pi-Stacking (<span x-text="($store.molecularToolkit.daData.interactions.pi_stacking || []).length"></span>)</h3>
                     <template x-for="ps in $store.molecularToolkit.daData.interactions.pi_stacking">
-                      <div class="nb-entry-card" style="font-size:0.55rem" x-text="ps.receptor_residue + ' ↔ ligand (✓' + ps.distance + 'Å)'"></div>
+                      <div class="nb-entry-card" style="font-size:0.55rem" x-text="ps.residue + ps.resseq + ' ↔ ligand (' + ps.distance + 'Å)'"></div>
                     </template>
                   </div>
                 </div>

@@ -21,6 +21,9 @@ class DockingUpload(ApiHandler):
             return {"error": str(e)}
 
     def _process_upload(self, input: dict, request: Request) -> dict:
+        MAX_RECEPTOR_SIZE = 50_000_000  # 50 MB
+        MAX_LIGAND_SIZE = 10_000_000    # 10 MB
+
         # Get file contents from request
         receptor_content = input.get("receptor_content", "").strip()
         receptor_filename = input.get("receptor_filename", "receptor.pdb")
@@ -31,6 +34,10 @@ class DockingUpload(ApiHandler):
             return {"error": "Receptor structure file required (PDB or PDBQT)"}
         if not ligand_content:
             return {"error": "Docked ligand file required (PDBQT or SDF with poses)"}
+        if len(receptor_content) > MAX_RECEPTOR_SIZE:
+            return {"error": f"Receptor file too large (max {MAX_RECEPTOR_SIZE // 1_000_000} MB)"}
+        if len(ligand_content) > MAX_LIGAND_SIZE:
+            return {"error": f"Ligand file too large (max {MAX_LIGAND_SIZE // 1_000_000} MB)"}
 
         # Create job directory
         job_id = f"ext-{uuid.uuid4().hex[:6]}"
