@@ -122,6 +122,15 @@ class EnhancedPharmacophore:
     Combines OpenPharmaco functional-group detection + Pharmer triangle matching.
     """
 
+    @staticmethod
+    def _get_coords(f):
+        """Extract [x,y,z] from a feature dict regardless of format."""
+        if "position" in f and isinstance(f["position"], dict):
+            return [f["position"]["x"], f["position"]["y"], f["position"]["z"]]
+        if "center" in f and isinstance(f["center"], list):
+            return f["center"]
+        return [0.0, 0.0, 0.0]
+
     def __init__(self):
         self._feature_factory = None
         self._init_feature_factory()
@@ -573,10 +582,7 @@ class EnhancedPharmacophore:
         fp = [0] * bits
 
         # Pre-extract positions for performance
-        positions = [
-            np.array([f["position"]["x"], f["position"]["y"], f["position"]["z"]])
-            for f in features
-        ]
+        positions = [np.array(self._get_coords(f)) for f in features]
 
         for i in range(len(features)):
             for j in range(i + 1, len(features)):
@@ -624,8 +630,9 @@ class EnhancedPharmacophore:
         """
         spheres = []
         for f in features:
+            coords = self._get_coords(f)
             spheres.append({
-                "center": [f["position"]["x"], f["position"]["y"], f["position"]["z"]],
+                "center": coords,
                 "radius": f.get("radius", 1.0),
                 "color": f.get("color", "#888888"),
                 "label": f["family"],
