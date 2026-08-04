@@ -76,8 +76,13 @@ class PharmacophoreHandler(ApiHandler):
                 return {"success": False, "error": "Invalid SMILES", "features": []}
             
             mol = Chem.AddHs(mol)
-            AllChem.EmbedMolecule(mol, AllChem.ETKDG())
-            AllChem.MMFFOptimizeMolecule(mol)
+            if AllChem.EmbedMolecule(mol, AllChem.ETKDGv3()) != 0:
+                if AllChem.EmbedMolecule(mol, randomSeed=42, useRandomCoords=True, maxAttempts=10) != 0:
+                    return {"success": False, "error": "Could not generate 3D coordinates", "features": []}
+            try:
+                AllChem.MMFFOptimizeMolecule(mol)
+            except Exception:
+                pass
             
             # Get feature factory
             fdef = os.path.join(RDConfig.RDDataDir, "BaseFeatures.fdef")
@@ -141,39 +146,45 @@ class PharmacophoreHandler(ApiHandler):
             if mol is None:
                 return {"success": False, "error": "Invalid PDB"}
             
-            # Find binding site residues
+            # Group atoms by residue, then create one feature per residue
             conf = mol.GetConformer()
             features = []
-            
+            residue_atoms = {}
+
             for atom in mol.GetAtoms():
                 residue = atom.GetPDBResidueInfo()
                 if residue is None:
                     continue
-                
-                resname = residue.GetResidueName()
+                resname = residue.GetResidueName().strip()
                 if resname not in RESIDUE_PHARMA_TYPE:
                     continue
-                
-                pos = conf.GetAtomPosition(atom.GetIdx())
-                
-                # Check if in binding site
+                key = (resname, residue.GetChainId(), residue.GetResidueNumber())
+                residue_atoms.setdefault(key, []).append(atom.GetIdx())
+
+            for (resname, chain, resnum), atom_ids in residue_atoms.items():
+                coords = []
+                for idx in atom_ids:
+                    p = conf.GetAtomPosition(idx)
+                    coords.append([p.x, p.y, p.z])
+                centroid = np.mean(coords, axis=0)
+
                 if center:
                     dist = np.sqrt(
-                        (pos.x - center.get("x", 0))**2 +
-                        (pos.y - center.get("y", 0))**2 +
-                        (pos.z - center.get("z", 0))**2
+                        (centroid[0] - center.get("x", 0))**2 +
+                        (centroid[1] - center.get("y", 0))**2 +
+                        (centroid[2] - center.get("z", 0))**2
                     )
                     if dist > cutoff:
                         continue
-                
+
                 pharma_type = RESIDUE_PHARMA_TYPE[resname]
                 features.append({
                     "type": pharma_type,
                     "family": pharma_type,
-                    "position": {"x": round(pos.x, 3), "y": round(pos.y, 3), "z": round(pos.z, 3)},
+                    "position": {"x": round(float(centroid[0]), 3), "y": round(float(centroid[1]), 3), "z": round(float(centroid[2]), 3)},
                     "residue": resname,
-                    "residue_number": residue.GetResidueNumber(),
-                    "chain": residue.GetChainId(),
+                    "residue_number": resnum,
+                    "chain": chain,
                     "color": FEATURE_COLORS.get(pharma_type, "#888888"),
                     "radius": FEATURE_RADII.get(pharma_type, 1.5),
                 })
@@ -182,7 +193,7 @@ class PharmacophoreHandler(ApiHandler):
                 "success": True,
                 "features": features,
                 "num_features": len(features),
-                "feature_summary": {f["type"]: sum(1 for x in features if x["type"] == f["type"]) for f in features},
+                "feature_summary": {t: sum(1 for f in features if f["type"] == t) for t in set(f["type"] for f in features)},
             }
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -211,7 +222,8 @@ class PharmacophoreHandler(ApiHandler):
                     return {"success": False, "error": "Invalid query SMILES"}
 
                 q_mol = Chem.AddHs(q_mol)
-                AllChem.EmbedMolecule(q_mol, AllChem.ETKDG())
+                if AllChem.EmbedMolecule(q_mol, AllChem.ETKDGv3()) != 0:
+                    AllChem.EmbedMolecule(q_mol, randomSeed=42, useRandomCoords=True)
 
                 fdef = os.path.join(RDConfig.RDDataDir, "BaseFeatures.fdef")
                 factory = ChemicalFeatures.BuildFeatureFactory(fdef) if os.path.exists(fdef) else None
@@ -242,15 +254,16 @@ class PharmacophoreHandler(ApiHandler):
                         continue
 
                     mol = Chem.AddHs(mol)
-                    AllChem.EmbedMolecule(mol, AllChem.ETKDG())
+                    if AllChem.EmbedMolecule(mol, AllChem.ETKDGv3()) != 0:
+                        continue
 
                     if enhanced_available:
                         try:
                             m_features = engine.detect_features(mol)
                             if not m_features:
                                 continue
-                            q_pos = np.array([[f.get("x", 0), f.get("y", 0), f.get("z", 0)] for f in q_features_enhanced])
-                            m_pos = np.array([[f.get("x", 0), f.get("y", 0), f.get("z", 0)] for f in m_features])
+                            q_pos = np.array([[f["position"]["x"], f["position"]["y"], f["position"]["z"]] for f in q_features_enhanced])
+                            m_pos = np.array([[f["position"]["x"], f["position"]["y"], f["position"]["z"]] for f in m_features])
                             q_types_enhanced = set(f.get("family", "") for f in q_features_enhanced)
                             m_types_enhanced = set(f.get("family", "") for f in m_features)
 
@@ -357,16 +370,21 @@ class PharmacophoreHandler(ApiHandler):
             if not all_mols:
                 return {"success": False, "error": "No valid molecules"}
             
-            # Find conserved features
+            # Find conserved features (count molecules that have the feature, not total positions)
             FTYPES = ["Donor", "Acceptor", "Hydrophobic", "Aromatic", "PosIonizable", "NegIonizable"]
             common = []
             for ft in FTYPES:
                 positions = []
+                mols_with_feature = 0
                 for entry in all_mols:
+                    mol_positions = []
                     for f in entry["features"]:
                         if f["family"] == ft:
-                            positions.append([f["position"]["x"], f["position"]["y"], f["position"]["z"]])
-                if positions and len(positions) >= len(all_mols) * min_coverage:
+                            mol_positions.append([f["position"]["x"], f["position"]["y"], f["position"]["z"]])
+                    if mol_positions:
+                        mols_with_feature += 1
+                        positions.extend(mol_positions)
+                if positions and mols_with_feature >= len(all_mols) * min_coverage:
                     pa = np.array(positions)
                     center = np.mean(pa, axis=0)
                     radius = float(min(np.max(np.linalg.norm(pa - center, axis=1)) + 1.0, 3.0))
@@ -375,7 +393,7 @@ class PharmacophoreHandler(ApiHandler):
                         "center": [round(c, 3) for c in center.tolist()],
                         "radius": round(radius, 2),
                         "color": FEATURE_COLORS.get(ft, "#888888"),
-                        "coverage": round(len(positions) / len(all_mols), 2),
+                        "coverage": round(mols_with_feature / len(all_mols), 2),
                     })
             
             common.sort(key=lambda x: x["coverage"], reverse=True)
@@ -636,7 +654,7 @@ class PharmacophoreHandler(ApiHandler):
                 "success": True,
                 "features": features,
                 "num_features": len(features),
-                "feature_summary": {f["type"]: sum(1 for x in features if x["type"] == f["type"]) for f in features},
+                "feature_summary": {t: sum(1 for f in features if f["type"] == t) for t in set(f["type"] for f in features)},
             }
         except Exception as e:
             log.error(f"Protein features failed: {e}")
@@ -706,9 +724,9 @@ class PharmacophoreHandler(ApiHandler):
                     name = names[i] if i < len(names) else f"Molecule_{i+1}"
                     try:
                         r = complete_pharmacophore_analysis(smi, name)
-                        if r.get("success"):
-                            results.append(r)
-                        # Generate fingerprint for similarity
+                        if not r.get("success"):
+                            continue
+                        results.append(r)
                         mol = Chem.MolFromSmiles(smi.strip())
                         if mol:
                             fp = AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=2048)

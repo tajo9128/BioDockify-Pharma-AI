@@ -76,6 +76,7 @@ def run_pharmaconet_modeling(
             "pmnet_available": False,
         }
 
+    _temp_protein = None
     try:
         if device == "cuda" and not PMNET_CUDA_AVAILABLE:
             device = "cpu"
@@ -90,6 +91,7 @@ def run_pharmaconet_modeling(
             tf.write(protein_pdb)
             tf.close()
             protein_file = tf.name
+            _temp_protein = tf.name
 
         if not protein_file:
             return {"success": False, "error": "No protein provided (protein_pdb or protein_path required)"}
@@ -146,6 +148,12 @@ def run_pharmaconet_modeling(
             "error": f"PharmacoNet modeling failed: {str(e)}",
             "pmnet_available": True,
         }
+    finally:
+        if _temp_protein and os.path.exists(_temp_protein):
+            try:
+                os.unlink(_temp_protein)
+            except OSError:
+                pass
 
 
 def score_with_pharmaconet(
