@@ -247,7 +247,9 @@ const mdLiteFactory = () => ({
           this.liveLog.push("Simulation complete ✓");
           this.loadResults();
         } else if (r.status === "interrupted") {
-          this.liveLog.push("⚠️ Simulation interrupted (system sleep or crash). Click Resume to continue.");
+          this.liveLog.push("⚠️ Simulation interrupted (system sleep or crash).");
+          this.liveLog.push("Your partial trajectory and analysis are saved. Click Resume to continue, or Download to get what you have.");
+          setTimeout(() => this.loadResults(), 500);
         }
       }
     } catch {}

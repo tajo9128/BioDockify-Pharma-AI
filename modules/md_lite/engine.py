@@ -820,6 +820,45 @@ class MDEngine:
         except Exception as e:
             log.warning(f"Checkpoint save failed: {e}")
 
+        # Auto-analyze trajectory after each checkpoint (background, low-priority)
+        # This ensures partial results are always available on interruption
+        try:
+            traj_path = os.path.join(self.workdir, "trajectory.dcd")
+            if os.path.isfile(traj_path):
+                # Only run analysis if we have at least one frame (0.5 ns minimum)
+                import os as _os
+                if _os.path.getsize(traj_path) > 1000:
+                    self._update_analysis_cache()
+        except Exception as e:
+            log.debug(f"Auto-analysis skipped: {e}")
+
+    def _update_analysis_cache(self):
+        """Run analysis on current trajectory and cache to disk (non-blocking).
+
+        This is called after each checkpoint so the frontend can always download
+        partial results even on interruption/crash.
+        """
+        try:
+            from modules.md_lite.analysis import analyze
+            traj_path = os.path.join(self.workdir, "trajectory.dcd")
+            top_path = os.path.join(self.workdir, "topology.pdb")
+            if not os.path.isfile(top_path):
+                top_path = os.path.join(self.workdir, "complex.pdb")
+            if not os.path.isfile(top_path):
+                top_path = os.path.join(self.workdir, "protein.pdb")
+
+            if not os.path.isfile(traj_path) or not os.path.isfile(top_path):
+                return
+
+            result = analyze(traj_path, top_path, self.workdir)
+            # Save to disk as analysis.json (frontend reads this on interruption)
+            analysis_path = os.path.join(self.workdir, "analysis.json")
+            with open(analysis_path, "w") as f:
+                json.dump({"status": "ok", "analysis": result}, f)
+            log.debug(f"Analysis cached: {analysis_path}")
+        except Exception as e:
+            log.debug(f"Analysis cache update failed: {e}")
+
     def load_checkpoint(self):
         """Restore simulation state from checkpoint file."""
         path = os.path.join(self.workdir, "checkpoint.xml")

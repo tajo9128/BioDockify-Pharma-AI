@@ -578,16 +578,46 @@ class MDLite(ApiHandler):
         if not job_id:
             return {"status": "error", "error": "job_id required"}
         job_dir = os.path.join(WORKDIR, job_id)
+
+        # Check if cached analysis exists (fast on interruption/retry)
+        analysis_path = os.path.join(job_dir, "analysis.json")
+        if os.path.isfile(analysis_path):
+            try:
+                with open(analysis_path) as f:
+                    cached = json.load(f)
+                if cached.get("status") == "ok":
+                    cached["job_id"] = job_id
+                    cached["source"] = "cached"
+                    return cached
+            except Exception:
+                pass
+
+        # No cache or cache read failed — compute analysis from trajectory
         traj = os.path.join(job_dir, "trajectory.dcd")
+        if not os.path.exists(traj):
+            return {"status": "error", "error": "No trajectory file found. Run MD simulation first."}
+
         # Use topology.pdb (full system) if available, else fall back
         top = os.path.join(job_dir, "topology.pdb")
         if not os.path.exists(top):
             top = os.path.join(job_dir, "complex.pdb")
         if not os.path.exists(top):
             top = os.path.join(job_dir, "protein.pdb")
+
+        if not os.path.exists(top):
+            return {"status": "error", "error": "No topology file found."}
+
         from modules.md_lite.analysis import analyze
         r = analyze(traj, top, job_dir)
         result = {"status": "ok", "job_id": job_id, "analysis": r}
+
+        # Cache the result to disk for future retrieval
+        try:
+            with open(analysis_path, "w") as f:
+                json.dump(result, f)
+        except Exception:
+            pass
+
         # ── AUTO-STORE ──
         try:
             from modules.knowledge.auto_store import auto_store
@@ -607,10 +637,19 @@ class MDLite(ApiHandler):
         import zipfile, io
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            # Include all critical output files
+            for fn in ["trajectory.dcd", "md.log", "status.json", "analysis.json",
+                       "topology.pdb", "prepared.pdb", "complex.pdb", "protein.pdb",
+                       "checkpoint.xml", "run_config.json"]:
+                fp = os.path.join(job_dir, fn)
+                if os.path.isfile(fp):
+                    zf.write(fp, os.path.basename(fp))
+            # Also include any prepared structure files
             for root, dirs, filenames in os.walk(job_dir):
                 for fn in filenames:
-                    fp = os.path.join(root, fn)
-                    zf.write(fp, os.path.relpath(fp, job_dir))
+                    if fn.endswith(("_prepared.pdb", "_complex.pdb", "ligand.pdb")):
+                        fp = os.path.join(root, fn)
+                        zf.write(fp, os.path.relpath(fp, job_dir))
         buf.seek(0)
         return Response(
             response=buf.getvalue(),

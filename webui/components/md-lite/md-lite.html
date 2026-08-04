@@ -173,9 +173,12 @@
             <button class="ml" @click="stopMD()">Stop</button>
             <button class="ml" @click="resetAll()">Back</button>
           </div>
-          <div x-show="status?.status==='interrupted'" style="margin-top:6px;display:flex;gap:6px;justify-content:center">
+          <div x-show="status?.status==='interrupted'" style="margin-top:6px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
             <button class="mrn" style="flex:none;padding:8px 16px;font-size:0.64rem" @click="resumeMD()" :disabled="loading">
-              <span class="material-symbols-outlined" style="font-size:16px">replay</span> Resume Simulation
+              <span class="material-symbols-outlined" style="font-size:16px">replay</span> Resume
+            </button>
+            <button class="mrn" style="flex:none;padding:8px 16px;font-size:0.64rem" @click="download()">
+              <span class="material-symbols-outlined" style="font-size:16px">download</span> Download Partial Results
             </button>
             <button class="ml" @click="resetAll()">Discard</button>
           </div>
@@ -205,6 +208,12 @@
       <!-- Results (when complete) -->
       <template x-if="result?._metrics">
         <div>
+          <!-- Partial results warning -->
+          <div x-show="status?.status==='interrupted'" class="mc" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);padding:8px 12px;margin-bottom:8px">
+            <span class="material-symbols-outlined" style="font-size:14px;color:#f59e0b;vertical-align:middle">info</span>
+            <span style="font-size:0.58rem;color:#f59e0b"> PARTIAL RESULTS — Simulation was interrupted. Data below is from <span x-text="(status?.progress_ns || '?')+' ns'"></span> of <span x-text="settings.total_ns + ' ns'"></span>. Resume to complete, or download now.</span>
+          </div>
+
           <!-- Metrics dashboard -->
           <div class="mc" style="padding:6px 10px">
             <div class="mmetrics">
