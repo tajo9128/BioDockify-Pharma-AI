@@ -34,6 +34,8 @@ const mdLiteFactory = () => ({
     solvating: "Adding solvent", minimizing: "Minimizing energy",
     equilibrating: "Equilibrating", starting: "Starting MD",
     running: "Running MD", completed: "Complete ✓", stopped: "Stopped",
+    interrupted: "Interrupted (sleep/crash) — Resume available",
+    resuming: "Resuming from checkpoint...",
     error: "Error", unknown: "Unknown"
   },
 
@@ -238,12 +240,14 @@ const mdLiteFactory = () => ({
         this.liveLog.push(`Segment ${r.chunk} · ${r.progress_ns} ns · ${r.progress_pct}%${eta}`);
         if (this.liveLog.length > 30) this.liveLog.shift();
       }
-      if (r.status === "completed" || r.status === "error" || r.status === "stopped") {
+      if (r.status === "completed" || r.status === "error" || r.status === "stopped" || r.status === "interrupted") {
         clearInterval(this._pollTimer);
         clearInterval(this._logPollTimer);
         if (r.status === "completed") {
           this.liveLog.push("Simulation complete ✓");
           this.loadResults();
+        } else if (r.status === "interrupted") {
+          this.liveLog.push("⚠️ Simulation interrupted (system sleep or crash). Click Resume to continue.");
         }
       }
     } catch {}
@@ -293,6 +297,24 @@ const mdLiteFactory = () => ({
       clearInterval(this._pollTimer);
       clearInterval(this._logPollTimer);
     } catch {}
+  },
+
+  async resumeMD() {
+    if (!this.jobId) return;
+    this.loading = true; this.errorMessage = "";
+    try {
+      const r = await callJsonApi("md_lite", {
+        action: "resume", job_id: this.jobId,
+        total_ns: this.settings.total_ns, platform: this.settings.platform,
+      });
+      if (r.status === "ok") {
+        this.liveLog.push("Resumed from checkpoint ✓");
+        this.startPolling();
+      } else {
+        this.errorMessage = r.error || "Resume failed";
+      }
+    } catch (e) { this.errorMessage = "Resume: " + (e.message || "API error"); }
+    this.loading = false;
   },
 
   download() { if (this.jobId) window.open("/api/md_lite?action=download&job_id="+this.jobId, "_blank"); },

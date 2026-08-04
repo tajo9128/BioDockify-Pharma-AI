@@ -25,6 +25,116 @@ from typing import Optional, Tuple
 log = logging.getLogger("md_lite.preparation")
 
 
+def _load_pdbqt_ligand(pdbqt_path: str):
+    """Parse a PDBQT file (AutoDock Vina output) into an RDKit Mol.
+
+    PDBQT is PDB format with partial charges in columns 71-76 and an
+    AutoDock atom type in columns 77-79. Standard PDB parsers choke on these
+    extra columns. This function:
+      1. Tries Meeko (best, preserves bond orders)
+      2. Falls back to stripping PDBQT→PDB and reading with RDKit
+      3. Picks MODEL 1 (best docking pose) from multi-model files
+
+    Returns an RDKit Mol with 3D coordinates, or None on failure.
+    """
+    try:
+        from rdkit import Chem
+        from rdkit.Chem import AllChem
+    except ImportError:
+        return None
+
+    # Strategy 1: Meeko (if installed)
+    try:
+        from meeko import PDBQTMolecule, RDKitMolCreate
+        pdbqt_mol = PDBQTMolecule.from_file(pdbqt_path)
+        mols = RDKitMolCreate.from_pdbqt_mol(pdbqt_mol)
+        if mols and mols[0] is not None:
+            log.info("Ligand loaded from PDBQT via Meeko")
+            return mols[0]
+    except ImportError:
+        pass
+    except Exception as e:
+        log.debug(f"Meeko PDBQT parsing failed: {e}")
+
+    # Strategy 2: Convert PDBQT→PDB by stripping extra columns, then RDKit
+    pdb_lines = []
+    in_model_1 = True
+    model_count = 0
+    with open(pdbqt_path, 'r', encoding='utf-8', errors='replace') as f:
+        for raw_line in f:
+            line = raw_line.rstrip()
+            if line.startswith("MODEL"):
+                model_count += 1
+                if model_count > 1:
+                    in_model_1 = False
+                continue
+            if line.startswith("ENDMDL"):
+                if model_count >= 1:
+                    break
+                continue
+            if not in_model_1:
+                continue
+            if line.startswith(("ATOM", "HETATM")):
+                # PDBQT lines are 79+ chars; standard PDB is 80 with element at 76-78
+                # Strip the partial charge (col 71-76) and AD type (col 77-79)
+                # Keep only first 66 chars (through temp factor), then add element
+                if len(line) >= 77:
+                    # Extract element from AD atom type (last 1-2 chars of col 77-79)
+                    ad_type = line[77:79].strip()
+                    element = ad_type[0] if ad_type else line[12:14].strip()[0]
+                    # Build standard PDB line: first 66 chars + padding + element
+                    pdb_line = line[:66].ljust(76) + f" {element:>2}" + "\n"
+                elif len(line) >= 54:
+                    # Short PDBQT line — extract element from atom name
+                    atom_name = line[12:16].strip()
+                    element = ''.join(c for c in atom_name if c.isalpha())[:1]
+                    pdb_line = line[:66].ljust(76) + f" {element:>2}" + "\n"
+                else:
+                    continue
+                pdb_lines.append(pdb_line)
+            elif line.startswith(("TER", "END")):
+                pdb_lines.append(line + "\n")
+
+    if not pdb_lines:
+        log.warning("PDBQT file contains no ATOM/HETATM records")
+        return None
+
+    pdb_lines.append("END\n")
+    pdb_block = "".join(pdb_lines)
+
+    # Try RDKit PDB parser
+    mol = Chem.MolFromPDBBlock(pdb_block, removeHs=False, sanitize=False)
+    if mol is None:
+        # Last resort: try with proximity bonding
+        mol = Chem.MolFromPDBBlock(pdb_block, removeHs=False, sanitize=False,
+                                    proximityBonding=True)
+    if mol is None:
+        log.warning("RDKit could not parse converted PDBQT→PDB block")
+        return None
+
+    # Sanitize carefully — docking outputs may have weird valences
+    try:
+        Chem.SanitizeMol(mol)
+    except Exception:
+        # Try partial sanitization (skip valence check)
+        try:
+            Chem.SanitizeMol(mol, sanitizeOps=Chem.SanitizeFlags.SANITIZE_ALL ^
+                             Chem.SanitizeFlags.SANITIZE_PROPERTIES)
+        except Exception:
+            pass
+
+    # Assign bond orders from SMILES if possible (PDBQT loses bond order info)
+    try:
+        from rdkit.Chem import rdDetermineBonds
+        rdDetermineBonds.DetermineBonds(mol)
+        log.info("Bond orders determined from 3D coordinates")
+    except (ImportError, Exception):
+        pass
+
+    log.info(f"Ligand loaded from PDBQT (converted to PDB): {mol.GetNumAtoms()} atoms")
+    return mol
+
+
 def prepare_protein(pdb_path: str, output_path: str = None, pH: float = 7.0) -> dict:
     """Full protein preparation pipeline using PDBFixer.
 
@@ -153,15 +263,11 @@ def prepare_ligand(ligand_path: str, output_path: str = None,
 
         # ── Read ligand from various formats ──
         if ext == '.pdbqt':
-            try:
-                from meeko import PDBQTMolecule, RDKitMolCreate
-                pdbqt_mol = PDBQTMolecule.from_file(ligand_path)
-                mols = RDKitMolCreate.from_pdbqt_mol(pdbqt_mol)
-                mol = mols[0] if mols else None
-                log.info("Ligand loaded from PDBQT via Meeko")
-            except ImportError:
-                mol = Chem.MolFromPDBFile(ligand_path, removeHs=False, sanitize=False)
-                log.warning("Meeko not available — PDBQT read as PDB")
+            mol = _load_pdbqt_ligand(ligand_path)
+            if mol is None:
+                return {"status": "error",
+                        "error": f"Could not parse PDBQT ligand: {ligand_path}. "
+                                 "Ensure it contains valid ATOM/HETATM lines from docking output."}
         elif ext in ('.sdf', '.mol'):
             suppl = Chem.SDMolSupplier(ligand_path, removeHs=False)
             mol = next(suppl, None) if suppl else None
@@ -187,22 +293,39 @@ def prepare_ligand(ligand_path: str, output_path: str = None,
         try:
             Chem.SanitizeMol(mol)
         except Exception:
-            log.warning("Sanitization failed — continuing")
+            try:
+                Chem.SanitizeMol(mol, sanitizeOps=Chem.SanitizeFlags.SANITIZE_ALL ^
+                                 Chem.SanitizeFlags.SANITIZE_PROPERTIES)
+            except Exception:
+                log.warning("Sanitization failed — continuing with raw mol")
 
         # ── Add explicit hydrogens ──
-        mol = Chem.AddHs(mol)
+        mol = Chem.AddHs(mol, addCoords=True)
 
-        # ── Generate 3D if missing ──
-        conf = mol.GetConformer() if mol.GetNumConformers() > 0 else None
-        if conf is None or not conf.Is3D():
-            AllChem.EmbedMolecule(mol, AllChem.ETKDG())
+        # ── Generate 3D if missing (preserve docking pose if already 3D) ──
+        has_3d = False
+        if mol.GetNumConformers() > 0:
+            conf = mol.GetConformer()
+            has_3d = conf.Is3D()
+        if not has_3d:
+            result = AllChem.EmbedMolecule(mol, AllChem.ETKDG())
+            if result == -1:
+                AllChem.EmbedMolecule(mol, AllChem.ETKDGv3())
             AllChem.MMFFOptimizeMolecule(mol)
             log.info("Generated 3D coordinates for ligand")
+        else:
+            log.info("Preserving docking pose 3D coordinates")
 
-        # ── Set residue name ──
+        # ── Set residue name for PDB output ──
         for atom in mol.GetAtoms():
-            info = Chem.AtomPDBResidueInfo(resname, chainId=' ', residueNumber=1)
-            atom.SetPDBResidueInfo(info)
+            atom_name = f" {atom.GetSymbol()}{atom.GetIdx()+1:<2}"[:4]
+            info = Chem.AtomPDBResidueInfo()
+            info.SetName(atom_name)
+            info.SetResidueName(resname)
+            info.SetResidueNumber(1)
+            info.SetChainId("L")
+            info.SetIsHeteroAtom(True)
+            atom.SetMonomerInfo(info)
 
         # ── Write as PDB ──
         Chem.MolToPDBFile(mol, output_path)

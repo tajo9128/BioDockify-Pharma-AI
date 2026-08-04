@@ -690,6 +690,16 @@ class MDEngine:
     def build_simulation(self):
         t0 = time.time()
         platform, props = self.detect_platform()
+
+        # CPU optimization: use all available cores for maximum throughput
+        if platform.getName() == "CPU":
+            import multiprocessing
+            n_threads = os.environ.get("OPENMM_CPU_THREADS")
+            if not n_threads:
+                n_threads = str(max(1, multiprocessing.cpu_count() - 1))
+            props = {"Threads": n_threads}
+            log.info(f"CPU mode: using {n_threads} threads")
+
         try:
             if props:
                 self.simulation = app.Simulation(
@@ -705,9 +715,11 @@ class MDEngine:
                 log.warning(f"{platform.getName()} simulation build failed ({e}), falling back to CPU")
                 self.platform_warning = f"{platform.getName()} failed: {e}. Using CPU."
                 platform = mm.Platform.getPlatformByName("CPU")
+                import multiprocessing
+                cpu_threads = str(max(1, multiprocessing.cpu_count() - 1))
                 self.simulation = app.Simulation(
                     self.modeller.topology, self.system,
-                    self.integrator, platform)
+                    self.integrator, platform, {"Threads": cpu_threads})
             else:
                 raise
         self.simulation.context.setPositions(self.modeller.positions)
@@ -767,10 +779,16 @@ class MDEngine:
         avg_per_chunk = elapsed / self._chunks_done
         return round((remaining_chunks * avg_per_chunk) / 60.0)
 
-    def run_for_ns(self, total_ns, checkpoint_interval_ns=0.5, stop_check=None):
+    def run_for_ns(self, total_ns, checkpoint_interval_ns=None, stop_check=None):
         self.phase = "running"
         steps_per_ns = 500000
         total_steps = int(total_ns * steps_per_ns)
+
+        # On CPU, checkpoint more frequently (0.25 ns = 125k steps ≈ every few min)
+        # so less work is lost if the laptop sleeps. On GPU, 0.5 ns is fine.
+        if checkpoint_interval_ns is None:
+            checkpoint_interval_ns = 0.25 if self.platform_name == "CPU" else 0.5
+
         chunk_steps = int(checkpoint_interval_ns * steps_per_ns)
         self._total_steps = total_steps
         self._chunks_total = max(1, total_steps // chunk_steps)

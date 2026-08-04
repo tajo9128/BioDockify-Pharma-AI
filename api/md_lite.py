@@ -1,7 +1,7 @@
 """MD Lite API — OpenMM molecular dynamics simulation handler."""
 from helpers.api import ApiHandler, Request, Response
 from helpers import files
-import os, json, time, uuid, asyncio, threading, logging, shutil
+import os, json, time, uuid, asyncio, threading, logging, shutil, sys
 
 log = logging.getLogger("md_lite")
 WORKDIR = files.get_abs_path("usr/md-lite")
@@ -9,6 +9,85 @@ os.makedirs(WORKDIR, exist_ok=True)
 
 _jobs = {}  # in-memory job tracking: job_id -> threading.Thread
 _workflows = {}  # in-memory workflow tracking: job_id -> MDWorkflow (for stop)
+_resume_lock = threading.Lock()
+
+
+class _PreventSleep:
+    """Prevent OS sleep while MD simulation is running.
+
+    Windows: SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
+    macOS: caffeinate subprocess
+    Linux: systemd-inhibit or no-op
+
+    If the API fails (permission denied, not Windows), it's a no-op — the
+    simulation still runs; it just won't prevent sleep.
+    """
+    def __enter__(self):
+        self._proc = None
+        try:
+            if sys.platform == "win32":
+                import ctypes
+                ES_CONTINUOUS = 0x80000000
+                ES_SYSTEM_REQUIRED = 0x00000001
+                ctypes.windll.kernel32.SetThreadExecutionState(
+                    ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
+                log.debug("Sleep prevention: enabled (Windows)")
+            elif sys.platform == "darwin":
+                import subprocess
+                self._proc = subprocess.Popen(
+                    ["caffeinate", "-i", "-s"],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                log.debug("Sleep prevention: enabled (macOS caffeinate)")
+        except Exception as e:
+            log.debug(f"Sleep prevention unavailable: {e}")
+        return self
+
+    def __exit__(self, *args):
+        try:
+            if sys.platform == "win32":
+                import ctypes
+                ES_CONTINUOUS = 0x80000000
+                ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
+            elif self._proc:
+                self._proc.terminate()
+                self._proc.wait(timeout=5)
+        except Exception:
+            pass
+
+
+def _scan_interrupted_jobs():
+    """On startup, find jobs that were running when the process died (sleep/crash).
+
+    Marks them as 'interrupted' so the frontend shows a Resume button instead
+    of a perpetual 'running' spinner.
+    """
+    try:
+        for job_id in os.listdir(WORKDIR):
+            job_dir = os.path.join(WORKDIR, job_id)
+            sf = os.path.join(job_dir, "status.json")
+            if not os.path.isfile(sf):
+                continue
+            try:
+                with open(sf) as f:
+                    data = json.load(f)
+                status = data.get("status", "")
+                if status in ("running", "starting", "equilibrating", "minimizing"):
+                    has_checkpoint = os.path.isfile(os.path.join(job_dir, "checkpoint.xml"))
+                    data["status"] = "interrupted"
+                    data["phase"] = "interrupted"
+                    data["can_resume"] = has_checkpoint
+                    data["interrupted_at"] = time.time()
+                    with open(sf, "w") as f:
+                        json.dump(data, f)
+                    log.info(f"Job {job_id} marked interrupted (was '{status}', checkpoint={'yes' if has_checkpoint else 'no'})")
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
+# Run on module import (server startup)
+_scan_interrupted_jobs()
 
 
 def _write_status(job_dir, status, extra=None):
@@ -68,6 +147,7 @@ class MDLite(ApiHandler):
         if action == "prepare":          return await self._prepare(input)
         if action == "prepare_complex":  return await self._prepare_complex(input)
         if action == "run":              return self._run(input)
+        if action == "resume":           return self._resume(input)
         if action == "status":           return self._status(input)
         if action == "stop":             return self._stop(input)
         if action == "results":          return self._results(input)
@@ -76,7 +156,8 @@ class MDLite(ApiHandler):
         if action == "mmpbsa":           return self._mmpbsa(input)
         if action == "log":              return self._log(input)
         if action == "analyze_advanced": return await self._analyze_advanced(input)
-        return {"actions": ["health","prepare","prepare_complex","run","status","stop","results","download","import_docking","mmpbsa","log","analyze_advanced"],
+        if action == "list_jobs":        return self._list_jobs()
+        return {"actions": ["health","prepare","prepare_complex","run","resume","status","stop","results","download","import_docking","mmpbsa","log","analyze_advanced","list_jobs"],
                 "hint": "1. prepare_complex (auto-prepare protein+ligand) → 2. run (start MD) → 3. status (poll) → 4. results (basic analysis) → 5. analyze_advanced (publication-grade analysis)"}
 
     def _health(self):
@@ -308,20 +389,29 @@ class MDLite(ApiHandler):
             if not pdb:
                 return {"status": "error", "error": "No PDB found. Run prepare first."}
 
+            # Save run config so we can resume after sleep/crash
+            run_config = {"total_ns": total_ns, "forcefield": forcefield,
+                          "temperature": temperature, "pressure": pressure,
+                          "platform": platform, "fast_mode": fast_mode,
+                          "pdb": os.path.basename(pdb), "started_at": time.time()}
+            with open(os.path.join(job_dir, "run_config.json"), "w") as f:
+                json.dump(run_config, f)
+
             _write_status(job_dir, "starting", {"phase": "starting"})
             _workflows[job_id] = wf
 
             def _run_md():
-                try:
-                    wf.run(pdb, total_ns, forcefield, temperature, pressure, platform, fast_mode=fast_mode)
-                except Exception as e:
-                    log.error(f"MD run failed: {e}")
-                    wf._safe_update_status("error", {"error": str(e), "phase": "error"})
-                finally:
-                    _jobs.pop(job_id, None)
-                    _workflows.pop(job_id, None)
+                with _PreventSleep():
+                    try:
+                        wf.run(pdb, total_ns, forcefield, temperature, pressure, platform, fast_mode=fast_mode)
+                    except Exception as e:
+                        log.error(f"MD run failed: {e}")
+                        wf._safe_update_status("error", {"error": str(e), "phase": "error"})
+                    finally:
+                        _jobs.pop(job_id, None)
+                        _workflows.pop(job_id, None)
 
-            t = threading.Thread(target=_run_md, daemon=True)
+            t = threading.Thread(target=_run_md, name=f"md-lite-{job_id}", daemon=False)
             t.start()
             _jobs[job_id] = t
             return {"status": "ok", "job_id": job_id, "running": True,
@@ -346,6 +436,102 @@ class MDLite(ApiHandler):
             except Exception:
                 pass
         return s
+
+    def _resume(self, input):
+        """Resume an interrupted MD simulation from its checkpoint.
+
+        After system sleep/crash, the simulation thread dies but the checkpoint
+        file remains on disk. This restarts the simulation from exactly where
+        it left off — no wasted computation.
+        """
+        job_id = input.get("job_id", "")
+        if not job_id:
+            return {"status": "error", "error": "job_id required"}
+        if job_id in _jobs and _jobs[job_id].is_alive():
+            return {"status": "error", "error": "Job is already running"}
+
+        job_dir = os.path.join(WORKDIR, job_id)
+        if not os.path.isdir(job_dir):
+            return {"status": "error", "error": f"Job {job_id} not found"}
+
+        checkpoint = os.path.join(job_dir, "checkpoint.xml")
+        if not os.path.isfile(checkpoint):
+            return {"status": "error", "error": "No checkpoint found — cannot resume. Run from scratch instead."}
+
+        # Load run config (saved when run was started)
+        config_path = os.path.join(job_dir, "run_config.json")
+        if os.path.isfile(config_path):
+            with open(config_path) as f:
+                cfg = json.load(f)
+        else:
+            cfg = {"total_ns": float(input.get("total_ns", 5)),
+                   "forcefield": "amber14", "temperature": 300,
+                   "pressure": 1.0, "platform": "auto", "fast_mode": True}
+
+        total_ns = float(input.get("total_ns", cfg.get("total_ns", 5)))
+        forcefield = cfg.get("forcefield", "amber14")
+        temperature = float(cfg.get("temperature", 300))
+        pressure = float(cfg.get("pressure", 1.0))
+        platform = input.get("platform", cfg.get("platform", "auto"))
+        fast_mode = cfg.get("fast_mode", True)
+
+        pdb = None
+        for candidate in ["prepared_complex.pdb", "prepared.pdb", "complex.pdb", "protein.pdb"]:
+            path = os.path.join(job_dir, candidate)
+            if os.path.exists(path):
+                pdb = path
+                break
+        if not pdb:
+            return {"status": "error", "error": "No PDB found in job directory"}
+
+        try:
+            from modules.md_lite.workflow import MDWorkflow
+            wf = MDWorkflow(job_dir)
+            _write_status(job_dir, "resuming", {"phase": "resuming"})
+            _workflows[job_id] = wf
+
+            def _run_resume():
+                with _PreventSleep():
+                    try:
+                        wf.run(pdb, total_ns, forcefield, temperature, pressure,
+                               platform, fast_mode=fast_mode)
+                    except Exception as e:
+                        log.error(f"MD resume failed: {e}")
+                        wf._safe_update_status("error", {"error": str(e), "phase": "error"})
+                    finally:
+                        _jobs.pop(job_id, None)
+                        _workflows.pop(job_id, None)
+
+            t = threading.Thread(target=_run_resume, name=f"md-lite-{job_id}", daemon=False)
+            t.start()
+            _jobs[job_id] = t
+            return {"status": "ok", "job_id": job_id, "resumed": True,
+                    "total_ns": total_ns, "platform": platform}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    def _list_jobs(self):
+        """List all MD jobs with their current status (for resume UI)."""
+        jobs = []
+        try:
+            for job_id in sorted(os.listdir(WORKDIR), reverse=True):
+                job_dir = os.path.join(WORKDIR, job_id)
+                sf = os.path.join(job_dir, "status.json")
+                if not os.path.isfile(sf):
+                    continue
+                try:
+                    with open(sf) as f:
+                        data = json.load(f)
+                    data["job_id"] = job_id
+                    data["has_checkpoint"] = os.path.isfile(os.path.join(job_dir, "checkpoint.xml"))
+                    data["has_trajectory"] = os.path.isfile(os.path.join(job_dir, "trajectory.dcd"))
+                    data["is_running"] = job_id in _jobs and _jobs[job_id].is_alive()
+                    jobs.append(data)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        return {"status": "ok", "jobs": jobs[:20]}
 
     def _log(self, input):
         """Return last N lines of the md.log file (OpenMM StateDataReporter)."""
