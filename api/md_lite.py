@@ -8,6 +8,7 @@ WORKDIR = files.get_abs_path("usr/md-lite")
 os.makedirs(WORKDIR, exist_ok=True)
 
 _jobs = {}  # in-memory job tracking: job_id -> threading.Thread
+_workflows = {}  # in-memory workflow tracking: job_id -> MDWorkflow (for stop)
 
 
 def _write_status(job_dir, status, extra=None):
@@ -308,17 +309,17 @@ class MDLite(ApiHandler):
                 return {"status": "error", "error": "No PDB found. Run prepare first."}
 
             _write_status(job_dir, "starting", {"phase": "starting"})
+            _workflows[job_id] = wf
 
             def _run_md():
                 try:
                     wf.run(pdb, total_ns, forcefield, temperature, pressure, platform, fast_mode=fast_mode)
                 except Exception as e:
                     log.error(f"MD run failed: {e}")
-                    # wf._safe_update_status handles the case where wf.engine is None
                     wf._safe_update_status("error", {"error": str(e), "phase": "error"})
                 finally:
-                    # Clean up thread reference when done (prevents memory leak)
                     _jobs.pop(job_id, None)
+                    _workflows.pop(job_id, None)
 
             t = threading.Thread(target=_run_md, daemon=True)
             t.start()
@@ -369,16 +370,21 @@ class MDLite(ApiHandler):
         job_id = input.get("job_id", "")
         if not job_id:
             return {"status": "error", "error": "job_id required"}
-        if job_id in _jobs:
-            from modules.md_lite.workflow import MDWorkflow
-            wf = MDWorkflow(os.path.join(WORKDIR, job_id))
+        wf = _workflows.get(job_id)
+        if wf:
             wf.stop()
-            # Clean up dead threads too
-            if not _jobs[job_id].is_alive():
+            _workflows.pop(job_id, None)
+            if job_id in _jobs:
+                if not _jobs[job_id].is_alive():
+                    del _jobs[job_id]
+                    return {"status": "ok", "job_id": job_id, "stopped": True, "note": "Thread already finished"}
                 del _jobs[job_id]
-                return {"status": "ok", "job_id": job_id, "stopped": True, "note": "Thread was already finished"}
-            del _jobs[job_id]
             return {"status": "ok", "job_id": job_id, "stopped": True}
+        if job_id in _jobs:
+            # Workflow ref lost but thread exists — write stop to status file
+            _write_status(os.path.join(WORKDIR, job_id), "stopped")
+            del _jobs[job_id]
+            return {"status": "ok", "job_id": job_id, "stopped": True, "note": "Force-stopped via status file"}
         return {"status": "error", "error": "Job not running"}
 
     def _results(self, input):

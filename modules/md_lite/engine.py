@@ -24,65 +24,71 @@ def _benchmark_platform():
         if _BENCHMARKED_PLATFORM is not None:
             return _BENCHMARKED_PLATFORM, _BENCHMARK_WARNING
 
-    _BENCHMARKED_PLATFORM = "CPU"
-    _BENCHMARK_WARNING = ""
-    try:
-        all_platforms = []
-        for i in range(mm.Platform.getNumPlatforms()):
-            p = mm.Platform.getPlatform(i)
-            all_platforms.append((p.getName(), p.getSpeed()))
-        has_cuda = any("CUDA" in n for n, _ in all_platforms)
-        has_opencl = any("OpenCL" in n for n, _ in all_platforms)
-        if not (has_cuda or has_opencl):
-            return _BENCHMARKED_PLATFORM, _BENCHMARK_WARNING
+        _BENCHMARKED_PLATFORM = "CPU"
+        _BENCHMARK_WARNING = ""
+        try:
+            all_platforms = []
+            for i in range(mm.Platform.getNumPlatforms()):
+                p = mm.Platform.getPlatform(i)
+                all_platforms.append((p.getName(), p.getSpeed()))
+            has_cuda = any("CUDA" in n for n, _ in all_platforms)
+            has_opencl = any("OpenCL" in n for n, _ in all_platforms)
+            if not (has_cuda or has_opencl):
+                return _BENCHMARKED_PLATFORM, _BENCHMARK_WARNING
 
-        # Build a 2-atom system and time 1000 steps on each candidate platform.
-        import numpy as np
-        system = mm.System()
-        for _ in range(2):
-            system.addParticle(1.0)
-        force = mm.HarmonicBondForce()
-        force.addBond(0, 1, 0.1, 1000.0)
-        system.addForce(force)
-        positions = np.array([[0, 0, 0], [0.1, 0, 0]]) * unit.nanometers
+            import numpy as np
+            system = mm.System()
+            for _ in range(2):
+                system.addParticle(1.0)
+            force = mm.HarmonicBondForce()
+            force.addBond(0, 1, 0.1, 1000.0)
+            system.addForce(force)
+            positions = np.array([[0, 0, 0], [0.1, 0, 0]]) * unit.nanometers
 
-        candidates = []
-        if has_cuda:
-            candidates.append("CUDA")
-        if has_opencl:
-            candidates.append("OpenCL")
-        candidates.append("CPU")
+            candidates = []
+            if has_cuda:
+                candidates.append("CUDA")
+            if has_opencl:
+                candidates.append("OpenCL")
+            candidates.append("CPU")
 
-        timings = {}
-        for name in candidates:
-            try:
-                plat = mm.Platform.getPlatformByName(name)
-                integ = mm.VerletIntegrator(0.001)
-                sim = app.Simulation(mm.Topology(), system, integ, plat)
-                sim.context.setPositions(positions)
-                t0 = time.time()
-                sim.step(1000)
-                timings[name] = time.time() - t0
-            except Exception as e:
-                timings[name] = float("inf")
-                log.debug(f"Platform benchmark {name} failed: {e}")
+            timings = {}
+            for name in candidates:
+                try:
+                    plat = mm.Platform.getPlatformByName(name)
+                    props = {}
+                    if name == "CUDA":
+                        props = {"DeviceIndex": "0", "Precision": "mixed"}
+                    elif name == "OpenCL":
+                        props = {"DeviceIndex": "0", "Precision": "mixed"}
+                    integ = mm.VerletIntegrator(0.001)
+                    sim = app.Simulation(mm.Topology(), system, integ, plat, props)
+                    sim.context.setPositions(positions)
+                    # Warm-up step (GPU kernel compilation)
+                    sim.step(10)
+                    t0 = time.time()
+                    sim.step(1000)
+                    timings[name] = time.time() - t0
+                except Exception as e:
+                    timings[name] = float("inf")
+                    log.debug(f"Platform benchmark {name} failed: {e}")
 
-        if timings:
-            best = min(timings, key=timings.get)
-            if timings[best] != float("inf"):
-                _BENCHMARKED_PLATFORM = best
-                # Warn if CUDA/OpenCL was requested but CPU was actually faster.
-                for gpu_name in ("CUDA", "OpenCL"):
-                    if gpu_name in timings and "CPU" in timings and \
-                            timings[gpu_name] > timings["CPU"] * 1.5 and best == "CPU":
-                        _BENCHMARK_WARNING = (
-                            f"GPU requested but CPU is {timings[gpu_name]/timings['CPU']:.0f}x faster "
-                            f"(no GPU device accessible). Switched to CPU."
-                        )
-                log.info(f"Platform benchmark: {timings} -> using {_BENCHMARKED_PLATFORM}")
-    except Exception as e:
-        log.warning(f"Platform benchmark failed, defaulting to CPU: {e}")
-    return _BENCHMARKED_PLATFORM, _BENCHMARK_WARNING
+            if timings:
+                best = min(timings, key=timings.get)
+                if timings[best] != float("inf"):
+                    _BENCHMARKED_PLATFORM = best
+                    for gpu_name in ("CUDA", "OpenCL"):
+                        if gpu_name in timings and "CPU" in timings and \
+                                timings[gpu_name] > timings["CPU"] * 1.5 and best == "CPU":
+                            _BENCHMARK_WARNING = (
+                                f"GPU ({gpu_name}) available but CPU is "
+                                f"{timings[gpu_name]/timings['CPU']:.1f}x faster "
+                                f"(no usable GPU device). Using CPU."
+                            )
+                    log.info(f"Platform benchmark: {timings} -> using {_BENCHMARKED_PLATFORM}")
+        except Exception as e:
+            log.warning(f"Platform benchmark failed, defaulting to CPU: {e}")
+        return _BENCHMARKED_PLATFORM, _BENCHMARK_WARNING
 
 
 FORCEFIELD_CHAINS = [
@@ -370,7 +376,7 @@ def _generate_ligand_forcefield_xml(ligand_pdb_path, output_xml_path):
 
 class MDEngine:
     def __init__(self, workdir, forcefield="amber14", temperature=300, pressure=1.0,
-                 platform="CUDA", device_index=0):
+                 platform="auto", device_index=0):
         self.workdir = workdir
         self.forcefield = forcefield
         self.temperature = temperature * unit.kelvin
@@ -388,26 +394,49 @@ class MDEngine:
         self.status_file = os.path.join(workdir, "status.json")
 
     def detect_platform(self):
-        """Auto-detect best platform using a real benchmark (not just availability)."""
+        """Auto-detect best platform using a real benchmark (not just availability).
+
+        Priority: user-explicit CUDA/OpenCL → benchmark winner → CPU fallback.
+        On Windows, sets DeviceIndex and mixed precision for GPU platforms.
+        """
         all_platforms = []
         for i in range(mm.Platform.getNumPlatforms()):
             p = mm.Platform.getPlatform(i)
             all_platforms.append((p.getName(), p.getSpeed()))
+        platform_names = [n for n, _ in all_platforms]
 
         # If user explicitly requested CPU, honor it.
-        if self.platform_name == "CPU":
+        if self.platform_name.upper() == "CPU":
             log.info("Platform: CPU (user-selected)")
-            return mm.Platform.getPlatformByName("CPU")
+            return mm.Platform.getPlatformByName("CPU"), {}
 
-        # Otherwise run the benchmark to pick the genuinely fastest platform.
+        # If user explicitly requested CUDA or OpenCL, try it directly first.
+        if self.platform_name.upper() in ("CUDA", "OPENCL"):
+            requested = self.platform_name.upper()
+            if requested in platform_names:
+                props = {"DeviceIndex": str(self.device_index), "Precision": "mixed"}
+                try:
+                    plat = mm.Platform.getPlatformByName(requested)
+                    log.info(f"Platform: {requested} (user-selected, device={self.device_index})")
+                    return plat, props
+                except Exception as e:
+                    log.warning(f"Requested {requested} failed: {e}, falling back to benchmark")
+            else:
+                log.warning(f"Requested {requested} not available (have: {platform_names})")
+
+        # "auto" or fallback: run the benchmark to pick the genuinely fastest.
         best_name, warning = _benchmark_platform()
         self.platform_warning = warning
+        props = {}
+        if best_name in ("CUDA", "OpenCL"):
+            props = {"DeviceIndex": str(self.device_index), "Precision": "mixed"}
         try:
+            plat = mm.Platform.getPlatformByName(best_name)
             log.info(f"Platform: {best_name} (benchmarked){' — ' + warning if warning else ''}")
-            return mm.Platform.getPlatformByName(best_name)
+            return plat, props
         except Exception:
             log.warning(f"Benchmarked platform {best_name} unavailable, using CPU")
-            return mm.Platform.getPlatformByName("CPU")
+            return mm.Platform.getPlatformByName("CPU"), {}
 
     def _load_forcefield(self):
         """Try multiple forcefield combinations, return first that works."""
@@ -660,10 +689,29 @@ class MDEngine:
 
     def build_simulation(self):
         t0 = time.time()
-        platform = self.detect_platform()
-        self.simulation = app.Simulation(self.modeller.topology, self.system,
-            self.integrator, platform)
+        platform, props = self.detect_platform()
+        try:
+            if props:
+                self.simulation = app.Simulation(
+                    self.modeller.topology, self.system,
+                    self.integrator, platform, props)
+            else:
+                self.simulation = app.Simulation(
+                    self.modeller.topology, self.system,
+                    self.integrator, platform)
+        except Exception as e:
+            # GPU failed at real workload (driver mismatch, OOM, etc.) → fallback to CPU
+            if platform.getName() != "CPU":
+                log.warning(f"{platform.getName()} simulation build failed ({e}), falling back to CPU")
+                self.platform_warning = f"{platform.getName()} failed: {e}. Using CPU."
+                platform = mm.Platform.getPlatformByName("CPU")
+                self.simulation = app.Simulation(
+                    self.modeller.topology, self.system,
+                    self.integrator, platform)
+            else:
+                raise
         self.simulation.context.setPositions(self.modeller.positions)
+        self.platform_name = platform.getName()
         log.info(f"[PREP] build_simulation (platform={platform.getName()}): {time.time()-t0:.1f}s")
         # Save the FULL system topology (protein + water + ions) as PDB.
         # This MUST match the trajectory atom count for analysis (mdtraj/MDAnalysis).
@@ -789,6 +837,21 @@ class MDEngine:
         platforms = []
         for i in range(mm.Platform.getNumPlatforms()):
             p = mm.Platform.getPlatform(i)
-            platforms.append({"name": p.getName(), "speed": p.getSpeed()})
-        gpu = any("CUDA" in p["name"] or "OpenCL" in p["name"] for p in platforms)
-        return {"openmm": True, "platforms": platforms, "gpu": gpu, "default": platforms[0]["name"] if platforms else "CPU"}
+            info = {"name": p.getName(), "speed": p.getSpeed()}
+            if p.getName() == "CUDA":
+                try:
+                    info["devices"] = p.getPropertyDefaultValue("DeviceIndex")
+                    info["cuda_compiler"] = p.getPropertyDefaultValue("CudaCompiler") if hasattr(p, "getPropertyDefaultValue") else ""
+                except Exception:
+                    pass
+            platforms.append(info)
+        gpu_available = any("CUDA" in p["name"] or "OpenCL" in p["name"] for p in platforms)
+        best_name, warning = _benchmark_platform()
+        return {
+            "openmm": True,
+            "platforms": platforms,
+            "gpu_available": gpu_available,
+            "selected_platform": best_name,
+            "platform_warning": warning,
+            "using_gpu": best_name in ("CUDA", "OpenCL"),
+        }

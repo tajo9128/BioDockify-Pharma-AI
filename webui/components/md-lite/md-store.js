@@ -63,13 +63,20 @@ const mdLiteFactory = () => ({
         this.platformWarning = "OpenMM not available: " + (r.error || "install failed") + ". MD Lite will not work until OpenMM is installed.";
         return;
       }
-      if (r.gpu) {
+      // Support both old (r.gpu) and new (r.gpu_available) response shapes
+      const hasGpu = r.gpu_available ?? r.gpu ?? false;
+      const usingGpu = r.using_gpu ?? hasGpu;
+      if (hasGpu) {
         this.gpuAvailable = true;
         this.gpuName = r.platforms?.find(p => p.name.includes("CUDA"))?.name || "GPU";
-        this.settings.platform = "auto";
       } else {
         this.gpuAvailable = false;
-        this.settings.platform = "CPU";
+      }
+      // Always use "auto" — the benchmark picks the fastest platform
+      this.settings.platform = "auto";
+      if (r.platform_warning) this.platformWarning = r.platform_warning;
+      if (r.selected_platform) {
+        this.liveLog.push(`Platform: ${r.selected_platform} (${usingGpu ? "GPU" : "CPU"} mode)`);
       }
     } catch (e) {
       this.platformWarning = "MD Lite backend unavailable: " + (e.message || "API error");
@@ -253,8 +260,18 @@ const mdLiteFactory = () => ({
   async loadResults() {
     try {
       const r = await callJsonApi("md_lite", { action: "results", job_id: this.jobId });
-      this.result = r.analysis || r;
-      // Build metrics table (guard against undefined fields when analysis fails)
+      if (r.status === "error" || r.error) {
+        this.errorMessage = "Analysis failed: " + (r.error || "unknown");
+        this.liveLog.push("❌ Analysis: " + (r.error || "unknown"));
+        return;
+      }
+      const analysis = r.analysis || r;
+      if (analysis.error) {
+        this.errorMessage = "Trajectory analysis: " + analysis.error;
+        this.liveLog.push("❌ " + analysis.error);
+        return;
+      }
+      this.result = analysis;
       this.result._metrics = [];
       if (this.result.rmsd && this.result.rmsd.final_nm != null) this.result._metrics.push({label:"RMSD", value:this.result.rmsd.final_nm+" nm", color:"#00d4aa"});
       if (this.result.rmsf && this.result.rmsf.max_nm != null) this.result._metrics.push({label:"RMSF", value:this.result.rmsf.max_nm+" nm", color:"#6366f1"});
@@ -262,7 +279,12 @@ const mdLiteFactory = () => ({
       if (this.result.gyration && this.result.gyration.final_nm != null) this.result._metrics.push({label:"Rg", value:this.result.gyration.final_nm+" nm", color:"#8b5cf6"});
       if (this.result.sasa && this.result.sasa.final_nm2 != null) this.result._metrics.push({label:"SASA", value:this.result.sasa.final_nm2+" nm²", color:"#22c55e"});
       if (this.result.hbonds && this.result.hbonds.avg_per_frame != null) this.result._metrics.push({label:"H-Bonds", value:this.result.hbonds.avg_per_frame, color:"#f59e0b"});
-    } catch {}
+      if (this.result._metrics.length === 0) {
+        this.liveLog.push("⚠️ No analysis metrics available — trajectory may be too short");
+      }
+    } catch (e) {
+      this.errorMessage = "Failed to load results: " + (e.message || "API error");
+    }
   },
 
   async stopMD() {

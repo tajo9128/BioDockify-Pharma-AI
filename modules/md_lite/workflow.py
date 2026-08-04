@@ -32,7 +32,7 @@ class MDWorkflow:
                 pass
 
     def run(self, pdb_path, total_ns=5, forcefield="amber14", temperature=300,
-            pressure=1.0, platform="CUDA", fast_mode=True):
+            pressure=1.0, platform="auto", fast_mode=True):
         eng = self.engine or MDEngine(self.workdir, forcefield, temperature,
                                        pressure, platform)
         self.engine = eng  # ensure self.engine is set for the error handler
