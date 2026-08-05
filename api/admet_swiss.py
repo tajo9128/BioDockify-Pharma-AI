@@ -90,7 +90,7 @@ def compute_swiss_adme(smiles: str) -> Dict:
     ilogp = round(_calc_ilogp(mol), 2)
     xlogp3 = round(_calc_xlogp3(mol), 2)
     wlogp = round(Crippen.MolLogP(mol), 2)
-    mlogp = round(Descriptors.MolLogP(mol), 2)
+    mlogp = round(_calc_moriguchi_logp(mol, mw, hba, hbd), 2)
     silicos_it = round(_calc_silicos_it_logp(mol), 2)
     consensus_logp = round((ilogp + xlogp3 + wlogp + mlogp + silicos_it) / 5, 2)
 
@@ -181,6 +181,19 @@ def _calc_xlogp3(mol) -> float:
     return round(Crippen.MolLogP(mol) * 0.85, 2)
 
 
+def _calc_moriguchi_logp(mol, mw: float, hba: int, hbd: int) -> float:
+    """MLOGP (Moriguchi 1992): simplified regression model.
+
+    MLOGP = 1.244 * CLogP_approx - 1.017 * NO_count/N_atoms + 0.406
+    Approximated using the Moriguchi descriptors available from RDKit.
+    """
+    from rdkit.Chem import Crippen
+    n_atoms = mol.GetNumHeavyAtoms() or 1
+    clogp = Crippen.MolLogP(mol)
+    no_ratio = (hba + hbd) / n_atoms
+    return round(1.244 * clogp - 1.017 * no_ratio + 0.406, 2)
+
+
 def _calc_silicos_it_logp(mol) -> float:
     """SILICOS-IT: fragment-based + 1 carbon atom rule."""
     from rdkit import Chem
@@ -214,9 +227,24 @@ def _solubility_class(logs: float) -> str:
 
 
 def _boiled_egg(wlogp: float, tpsa: float) -> Tuple[bool, bool]:
-    """BOILED-Egg model: GI absorption (white) and BBB permeation (yolk)."""
-    gi_absorbed = tpsa < 12.5 * wlogp - 25 and tpsa < 300 - 12.5 * wlogp
-    bbb_permeant = tpsa < 5 * wlogp - 15 and tpsa < 200 - 8 * wlogp
+    """BOILED-Egg model (Daina & Zoete 2016): GI absorption (white) and BBB permeation (yolk).
+
+    Uses proper ellipse containment math from the original paper.
+    """
+    import math
+
+    def _in_ellipse(px, py, cx, cy, a, b, angle_deg):
+        angle_rad = math.radians(angle_deg)
+        cos_a = math.cos(angle_rad)
+        sin_a = math.sin(angle_rad)
+        dx = px - cx
+        dy = py - cy
+        x_rot = cos_a * dx + sin_a * dy
+        y_rot = -sin_a * dx + cos_a * dy
+        return (x_rot / a) ** 2 + (y_rot / b) ** 2 <= 1.0
+
+    gi_absorbed = _in_ellipse(tpsa, wlogp, 71.051, 2.292, 71.04, 4.37, -1.031325)
+    bbb_permeant = _in_ellipse(tpsa, wlogp, 38.117, 3.177, 41.03, 2.779, -0.171887)
     return gi_absorbed, bbb_permeant
 
 

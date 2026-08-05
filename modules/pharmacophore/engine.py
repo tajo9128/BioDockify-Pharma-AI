@@ -122,6 +122,15 @@ class EnhancedPharmacophore:
     Combines OpenPharmaco functional-group detection + Pharmer triangle matching.
     """
 
+    @staticmethod
+    def _get_coords(f):
+        """Extract [x,y,z] from a feature dict regardless of format."""
+        if "position" in f and isinstance(f["position"], dict):
+            return [f["position"]["x"], f["position"]["y"], f["position"]["z"]]
+        if "center" in f and isinstance(f["center"], list):
+            return f["center"]
+        return [0.0, 0.0, 0.0]
+
     def __init__(self):
         self._feature_factory = None
         self._init_feature_factory()
@@ -279,7 +288,8 @@ class EnhancedPharmacophore:
     # ── Protein Feature Extraction (from OpenPharmaco objects.py) ────────────
 
     def extract_protein_features(self, pdb_text: str, center: Dict = None,
-                                  cutoff: float = 8.0) -> List[Dict]:
+                                  cutoff: float = 8.0,
+                                  ligand_resname: str = None) -> List[Dict]:
         """
         Extract pharmacophore features from a protein binding site.
         Uses the per-residue rule table from OpenPharmaco's objects.py.
@@ -568,31 +578,23 @@ class EnhancedPharmacophore:
         if len(features) < 3:
             return "0" * bits
 
+        import hashlib
         fp = [0] * bits
 
-        # Generate all triplets
+        # Pre-extract positions for performance
+        positions = [np.array(self._get_coords(f)) for f in features]
+
         for i in range(len(features)):
             for j in range(i + 1, len(features)):
                 for k in range(j + 1, len(features)):
-                    fi, fj, fk = features[i], features[j], features[k]
+                    d_ij = np.linalg.norm(positions[i] - positions[j])
+                    d_ik = np.linalg.norm(positions[i] - positions[k])
+                    d_jk = np.linalg.norm(positions[j] - positions[k])
 
-                    # Calculate distances
-                    pi = np.array([fi["position"]["x"], fi["position"]["y"], fi["position"]["z"]])
-                    pj = np.array([fj["position"]["x"], fj["position"]["y"], fj["position"]["z"]])
-                    pk = np.array([fk["position"]["x"], fk["position"]["y"], fk["position"]["z"]])
-
-                    d_ij = np.linalg.norm(pi - pj)
-                    d_ik = np.linalg.norm(pi - pk)
-                    d_jk = np.linalg.norm(pj - pk)
-
-                    # Hash feature types + distances into bit (stable across processes)
-                    import hashlib
-                    type_key = f"{fi['family']}:{fj['family']}:{fk['family']}"
+                    type_key = f"{features[i]['family']}:{features[j]['family']}:{features[k]['family']}"
                     type_hash = int(hashlib.md5(type_key.encode()).hexdigest()[:8], 16)
                     dist_hash = int(d_ij * 10 + d_ik * 10 + d_jk * 10)
-                    combined = type_hash + dist_hash
-
-                    fp[abs(combined) % bits] = 1
+                    fp[abs(type_hash + dist_hash) % bits] = 1
 
         return "".join(str(b) for b in fp)
 
@@ -610,14 +612,14 @@ class EnhancedPharmacophore:
             dist = float(rdShapeHelpers.ShapeTanimotoDist(query_mol, target_mol))
             return 1.0 - dist
         except Exception:
-            # Fallback: compare volumes
+            # Fallback: compare normalized principal moments ratios
             try:
                 from rdkit.Chem import Descriptors3D
                 vol1 = Descriptors3D.NPR1(query_mol)
                 vol2 = Descriptors3D.NPR1(target_mol)
-                return 1.0 - min(vol1, vol2) / max(vol1, vol2) if max(vol1, vol2) > 0 else 1.0
+                return min(vol1, vol2) / max(vol1, vol2) if max(vol1, vol2) > 0 else 1.0
             except Exception:
-                return 1.0
+                return 0.5
 
     # ── 3D Visualization Data Export ─────────────────────────────────────────
 
@@ -628,8 +630,9 @@ class EnhancedPharmacophore:
         """
         spheres = []
         for f in features:
+            coords = self._get_coords(f)
             spheres.append({
-                "center": [f["position"]["x"], f["position"]["y"], f["position"]["z"]],
+                "center": coords,
                 "radius": f.get("radius", 1.0),
                 "color": f.get("color", "#888888"),
                 "label": f["family"],
@@ -704,12 +707,17 @@ class EnhancedPharmacophore:
 
         for ft in FTYPES:
             positions = []
+            mols_with_feature = 0
             for mol_feats in all_mol_features:
-                for f in mol_feats:
-                    if f["family"] == ft:
-                        positions.append([f["position"]["x"], f["position"]["y"], f["position"]["z"]])
+                mol_positions = [
+                    [f["position"]["x"], f["position"]["y"], f["position"]["z"]]
+                    for f in mol_feats if f["family"] == ft
+                ]
+                if mol_positions:
+                    mols_with_feature += 1
+                    positions.extend(mol_positions)
 
-            if positions and len(positions) >= len(all_mol_features) * min_coverage:
+            if positions and mols_with_feature >= len(all_mol_features) * min_coverage:
                 pa = np.array(positions)
                 center = np.mean(pa, axis=0)
                 radius = float(min(np.max(np.linalg.norm(pa - center, axis=1)) + 1.0, 3.0))
@@ -720,7 +728,7 @@ class EnhancedPharmacophore:
                     "center": [round(float(c), 3) for c in center.tolist()],
                     "radius": round(radius, 2),
                     "color": FEATURE_COLORS.get(ft, "#888888"),
-                    "coverage": round(len(positions) / len(all_mol_features), 2),
+                    "coverage": round(mols_with_feature / len(all_mol_features), 2),
                 })
 
         # Sort by coverage (priority-ordered matching from OpenPharmaco)
