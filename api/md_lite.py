@@ -371,7 +371,6 @@ class MDLite(ApiHandler):
         t.start()
         _jobs[job_id] = t
         return {"status": "ok", "job_id": job_id, "preparing": True}
-            return {"status": "error", "error": str(e)}
 
     def _run(self, input):
         job_id = input["job_id"]
