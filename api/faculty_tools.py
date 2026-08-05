@@ -28,8 +28,14 @@ def _store_to_kb(category: str, title: str, content: str, tags: str = ""):
         return None
 
 
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
+
+
 def _extract_text_from_file(file_content_b64: str, filename: str) -> str:
     """Extract plain text from a base64-encoded PDF or DOCX file."""
+    # Guard: reject payloads that would decode to more than 20 MB
+    if len(file_content_b64) > MAX_UPLOAD_BYTES * 4 // 3 + 4:
+        raise ValueError(f"File too large (>{MAX_UPLOAD_BYTES // (1024*1024)} MB). Please upload a smaller file.")
     raw = base64.b64decode(file_content_b64)
     lower = filename.lower()
 
@@ -65,6 +71,9 @@ def _extract_text_from_file(file_content_b64: str, filename: str) -> str:
 
 
 class FacultyTools(ApiHandler):
+    # Class-level cache survives across requests (handler is reinstantiated per request)
+    _textbook_cache: dict = {}
+
     async def process(self, input: dict, request: Request) -> dict:
         action = (input.get("action", "") or "").strip()
 
@@ -177,7 +186,7 @@ class FacultyTools(ApiHandler):
                 else:
                     topics = result.get("topics", []) or result.get("weekly_topics", [])
                 duration = str(result.get("duration", ""))
-            except:
+            except Exception:
                 course_name = "Course (auto-detected)"
                 topics = [l for l in lines[:20] if len(l) > 20]
 
@@ -423,7 +432,7 @@ class FacultyTools(ApiHandler):
         topic = (input.get("topic", "") or "").strip()
         atype = input.get("type", "essay").strip()
         level = input.get("level", "undergraduate").strip()
-        word_count = input.get("word_count", "2000").strip()
+        word_count = str(input.get("word_count", "2000") or "2000").strip()
 
         if not topic:
             return {"error": "Topic required"}
@@ -503,18 +512,21 @@ class FacultyTools(ApiHandler):
             return {"error": "Please provide at least 100 characters of text to check"}
 
         try:
-            from modules.compliance.plagiarism import PlagiarismChecker
-            checker = PlagiarismChecker()
+            from modules.compliance.plagiarism import get_plagiarism_checker
+            checker = get_plagiarism_checker()
             result = await checker.check_content(text[:5000])
-            # PlagiarismChecker returns 'overall_similarity' (0-100 scale), not 'similarity_score'
+            # PlagiarismChecker returns 'overall_similarity' (0-100 scale) and 'flagged_sections'
             sim = result.get("overall_similarity", 0)
+            checker_status = result.get("status", "PASSED")
+            # Normalise: PASSED → safe, FLAGGED → warning, BLOCKED → flagged
+            status_map = {"PASSED": "safe", "FLAGGED": "warning", "BLOCKED": "flagged"}
             return {
                 "overall_score": sim,
-                "status": "safe" if sim < 15 else (
-                    "warning" if sim < 25 else "flagged"
-                ),
-                "matches": result.get("matches", []),
-                "sources": result.get("sources", []),
+                "status": status_map.get(checker_status, "safe" if sim < 15 else ("warning" if sim < 25 else "flagged")),
+                "matches": result.get("flagged_sections", []),
+                "sources": list({s.get("source", "") for s in result.get("flagged_sections", []) if s.get("source")}),
+                "details": result.get("details", ""),
+                "risk_level": result.get("risk_level", "LOW"),
             }
         except ImportError:
             return {
@@ -615,7 +627,13 @@ class FacultyTools(ApiHandler):
                 units.append({"title": ls, "topics": []})
                 continue
             if current_section == "books" and len(ls) > 10:
-                if any(c.isalpha() for c in ls) and not ls.startswith(("#", "-")):
+                # If a numbered topic line appears after the books section, revert to topics
+                if re.match(r"^\d+[\.\)]\s+\w", ls) and not any(
+                    c.isdigit() and i > 0 and ls[i - 1] in ":-" for i, c in enumerate(ls)
+                ):
+                    current_section = "topics"
+                    topics.append(ls)
+                elif any(c.isalpha() for c in ls) and not ls.startswith(("#", "-")):
                     parsed = self._parse_book_ref(ls)
                     if parsed.get("title"):
                         books.append(parsed)
@@ -639,6 +657,8 @@ class FacultyTools(ApiHandler):
                     books.append(self._parse_book_ref(line.strip()))
                 elif "isbn" in low:
                     books.append(self._parse_book_ref(line.strip()))
+        if not topics and not units:
+            return {"error": "Could not extract topics from syllabus. Ensure the text contains numbered topics or unit headers."}
         result = {
             "course_name": course_name or "Untitled Course", "course_code": course_code,
             "duration": duration, "topics": topics[:30], "topic_count": len(topics),
@@ -718,6 +738,8 @@ class FacultyTools(ApiHandler):
                 subtopics = class_topics[1:] if len(class_topics) > 1 else []
                 classes.append({"class_num": i + 1, "topic": main_topic, "subtopics": subtopics,
                                "estimated_slides": 45, "duration": "50 min"})
+        if not classes:
+            return {"error": "No class topics found. Provide non-empty topics or units with topics."}
         result = {"course_name": course_name, "num_classes": len(classes), "classes": classes,
                   "total_estimated_slides": sum(c.get("estimated_slides", 45) for c in classes)}
         kb_content = f"## Class Schedule: {course_name}\n\n**Total Classes:** {len(classes)} | **Slides/Class:** 45\n\n"
@@ -818,25 +840,31 @@ class FacultyTools(ApiHandler):
         topic = input.get("topic", "Class Presentation")
         theme = input.get("theme", "academic")
         class_num = int(input.get("class_num", 1))
-        if not slides: return {"error": "Slides data required"}
+        if not slides:
+            return {"error": "Slides data required"}
         try:
             from api.ppt_master import PptMasterHandler
             from helpers.api import ApiHandler
             handler = PptMasterHandler.__new__(PptMasterHandler)
             ApiHandler.__init__(handler, None, None)
             result = handler._generate_from_slides(slides, f"Class {class_num}: {topic}", theme)
-            # _generate_from_slides returns a Flask Response with binary PPTX
-            # Extract the bytes and return as base64 dict for JSON transport
-            if hasattr(result, 'response'):
-                import base64
+            # _generate_from_slides returns a Flask Response whose .response is the raw bytes
+            # (BytesIO-backed since the temp-file race fix). Use .get_data() which is the
+            # stable public Werkzeug API across all versions.
+            import base64
+            if hasattr(result, "get_data"):
+                pptx_bytes = result.get_data()
+            elif hasattr(result, "response"):
+                # Fallback for older Werkzeug: response is iterable of byte chunks
                 pptx_bytes = b"".join(result.response)
-                return {
-                    "success": True,
-                    "pptx_base64": base64.b64encode(pptx_bytes).decode(),
-                    "filename": f"Class_{class_num}_{topic[:30].replace(' ','_')}.pptx",
-                    "slides_count": len(slides),
-                }
-            return result
+            else:
+                return {"error": "PPT generation returned unexpected type"}
+            return {
+                "success": True,
+                "pptx_base64": base64.b64encode(pptx_bytes).decode(),
+                "filename": f"Class_{class_num}_{topic[:30].replace(' ', '_')}.pptx",
+                "slides_count": len(slides),
+            }
         except Exception as e:
             return {"error": f"PPT generation failed: {str(e)}"}
 
@@ -1042,7 +1070,11 @@ class FacultyTools(ApiHandler):
                 "weighted_score": round(weighted, 2),
             })
 
-        final_score = round(total_weighted, 2) if total_weight > 0 else 0
+        # Normalise to 100 when component weights don't sum to exactly 100
+        if total_weight > 0 and abs(total_weight - 100) > 0.01:
+            final_score = round(total_weighted / total_weight * 100, 2)
+        else:
+            final_score = round(total_weighted, 2) if total_weight > 0 else 0
 
         # Letter grade
         if final_score >= 90: letter = "A+"
@@ -1120,7 +1152,7 @@ class FacultyTools(ApiHandler):
             for keyword, pos in co_keywords.items():
                 if keyword in co_lower:
                     mapped_pos.extend(pos)
-            mapping[co] = list(set(mapped_pos)) if mapped_pos else ["PO1", "PO12"]
+            mapping[co] = sorted(set(mapped_pos)) if mapped_pos else ["PO1", "PO12"]
 
         # Calculate coverage
         covered_pos = set()
@@ -1382,6 +1414,19 @@ class FacultyTools(ApiHandler):
         _store_to_kb("faculty", "Bloom's Taxonomy Analysis", str(result), "bloom,analysis")
         return result
 
+    # Maps user-supplied qtype strings (any case/format) to marks_map keys
+    _QTYPE_NORMALIZE = {
+        "mcq": "MCQ", "true_false": "True/False", "true/false": "True/False",
+        "fill": "Fill in the blank", "fill_in_the_blank": "Fill in the blank",
+        "short": "Short Answer", "short_answer": "Short Answer",
+        "long": "Long Answer", "long_answer": "Long Answer",
+        "problem": "Problem-solving", "problem_solving": "Problem-solving",
+        "case": "Case study", "case_study": "Case study",
+        "compare": "Compare/Contrast", "compare/contrast": "Compare/Contrast",
+        "critical": "Critical evaluation", "critical_evaluation": "Critical evaluation",
+        "research": "Research proposal", "research_proposal": "Research proposal",
+    }
+
     def _get_marks_for_bloom(self, bloom_level: int, qtype: str) -> int:
         """Get appropriate marks based on Bloom's level and question type."""
         marks_map = {
@@ -1396,7 +1441,9 @@ class FacultyTools(ApiHandler):
             "Critical evaluation": {1: 5, 2: 8, 3: 10, 4: 12, 5: 15, 6: 15},
             "Research proposal": {1: 5, 2: 8, 3: 10, 4: 12, 5: 15, 6: 20},
         }
-        return marks_map.get(qtype, {}).get(bloom_level, 5)
+        # Normalize qtype to the marks_map key (handles lowercase/underscore variants)
+        normalized = self._QTYPE_NORMALIZE.get(qtype.lower(), qtype)
+        return marks_map.get(normalized, {}).get(bloom_level, 5)
 
     # ═══════════════════════════════════════════════════════════════
     # Lab Manual Generator
@@ -1642,23 +1689,23 @@ class FacultyTools(ApiHandler):
         if not result.get("success"):
             return {"error": result.get("error", "Extraction failed")}
 
-        # Store extracted text for later chapter queries
+        # Store extracted text for later chapter queries (class-level — survives request boundary)
         import time
         textbook_id = f"tb_{int(time.time())}"
-        self._textbook_cache = getattr(self, "_textbook_cache", {})
-        self._textbook_cache[textbook_id] = {
+        FacultyTools._textbook_cache[textbook_id] = {
             "text": result["text"],
             "chapters": result["chapters"],
             "filename": file_name,
         }
 
-        # Auto-store to KB
+        # Auto-store to KB (sanitize filename — commas would corrupt the tag list)
         try:
+            safe_tag = file_name.replace(",", "").replace(";", "").strip()
             _store_to_kb(
                 "Textbook",
                 f"Textbook: {file_name}",
                 result["text"][:5000],
-                tags="textbook," + file_name
+                tags=f"textbook,{safe_tag}"
             )
         except Exception:
             pass
@@ -1699,9 +1746,8 @@ class FacultyTools(ApiHandler):
         action_type = input.get("action_type", "lecture")
         topic = input.get("topic", "")
 
-        # Retrieve cached textbook
-        self._textbook_cache = getattr(self, "_textbook_cache", {})
-        textbook = self._textbook_cache.get(textbook_id)
+        # Retrieve cached textbook (class-level cache)
+        textbook = FacultyTools._textbook_cache.get(textbook_id)
         if not textbook:
             return {"error": "Textbook not found. Upload again with textbook_extract."}
 
@@ -1740,17 +1786,21 @@ class FacultyTools(ApiHandler):
                 "reference_text": content_for_llm,
             })
         elif action_type == "assignment":
+            # "homework" is not in the prompts dict — default to "essay"
+            atype = input.get("type", "essay")
+            if atype == "homework":
+                atype = "essay"
             return self._gen_assignment({
                 "topic": chapter_title,
-                "type": input.get("type", "homework"),
+                "type": atype,
                 "difficulty": input.get("difficulty", "medium"),
                 "reference_text": content_for_llm,
             })
         elif action_type == "questions":
             return self._gen_questions({
                 "topic": chapter_title,
-                "num_questions": input.get("num_questions", 10),
-                "type": input.get("q_type", "mixed"),
+                "count": input.get("num_questions", input.get("count", 10)),
+                "qtype": input.get("q_type", input.get("qtype", "mcq")),
                 "reference_text": content_for_llm,
             })
         else:
