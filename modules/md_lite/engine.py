@@ -390,6 +390,7 @@ class MDEngine:
         self._chunks_total = 0
         self._chunks_done = 0
         self._start_time = 0
+        self._reporter_eta = 0
         self.phase = "idle"  # idle|sanitizing|parameterizing|solvating|minimizing|equilibrating|running|completed|error
         self.status_file = os.path.join(workdir, "status.json")
 
@@ -756,6 +757,38 @@ class MDEngine:
                 step=True, potentialEnergy=True, temperature=True,
                 volume=True, density=True, speed=True))
 
+    def _add_status_reporter(self, report_interval=1000):
+        """Add a custom OpenMM reporter that updates status.json during simulation.
+
+        OpenMM reporters are called inside simulation.step() every `report_interval` steps,
+        so status updates happen even while a long simulation.step() is blocking.
+        """
+        engine = self  # capture reference for the reporter closure
+
+        class _StatusReporter:
+            def __init__(self):
+                self._last_report_time = time.time()
+
+            def describeNextReport(self, simulation):
+                return (report_interval, False, True, False, False, None)
+
+            def report(self, simulation, state):
+                now = time.time()
+                # Update engine counters from the actual simulation state
+                step = simulation.currentStep
+                engine._steps_done = step
+                elapsed = now - engine._start_time if engine._start_time else 1
+                if elapsed > 0 and step > 0:
+                    steps_per_sec = step / elapsed
+                    remaining = engine._total_steps - step
+                    engine._reporter_eta = round((remaining / steps_per_sec) / 60, 1) if steps_per_sec > 0 else 0
+                # Write status.json
+                engine._update_status("running")
+                self._last_report_time = now
+
+        self.simulation.reporters.append(_StatusReporter())
+        log.info(f"Status reporter added (every {report_interval} steps)")
+
     def _update_status(self, status, extra=None):
         data = {"status": status, "timestamp": time.time(),
                 "phase": self.phase,
@@ -771,6 +804,9 @@ class MDEngine:
             json.dump(data, f)
 
     def _eta_minutes(self):
+        # If status reporter computed ETA, use that (more accurate)
+        if hasattr(self, '_reporter_eta') and self._reporter_eta > 0:
+            return self._reporter_eta
         if self._chunks_done <= 0 or self._chunks_total <= 0:
             return 0
         elapsed = time.time() - (self._start_time or time.time())
@@ -790,10 +826,15 @@ class MDEngine:
             checkpoint_interval_ns = 0.25 if self.platform_name == "CPU" else 0.5
 
         chunk_steps = int(checkpoint_interval_ns * steps_per_ns)
+        # Status reporter: updates status.json inside simulation.step() every N steps
+        # CPU: every 1000 steps (~4 min at 0.65 steps/sec). GPU: every 5000 steps.
+        status_interval = 1000 if self.platform_name == "CPU" else 5000
+        self._add_status_reporter(status_interval)
         self._total_steps = total_steps
         self._chunks_total = max(1, total_steps // chunk_steps)
         self._chunks_done = 0
         self._start_time = time.time()
+        self._last_status_time = self._start_time
         self._update_status("running")
         while self._steps_done < total_steps:
             if stop_check and stop_check():
@@ -809,6 +850,7 @@ class MDEngine:
             self._save_checkpoint()
             self._update_status("running")
         self.phase = "completed"
+        self._save_checkpoint()
         self._update_status("completed")
 
     def _save_checkpoint(self):
