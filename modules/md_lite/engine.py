@@ -464,6 +464,7 @@ class MDEngine:
         t0 = time.time()
         # STEP 0: Sanitize PDB — detect and KEEP the ligand (if any)
         self.phase = "sanitizing"
+        self._update_status("running")
         result = _sanitize_pdb(pdb_path, keep_only_protein=True)
         if isinstance(result, tuple):
             ligand_resname, pdb_path = result
@@ -616,6 +617,7 @@ class MDEngine:
         # the expensive part). getMatchingTemplates only checks residue templates.
         built = False
         self.phase = "parameterizing"
+        self._update_status("running")
         ff_errors = []
         for ff_protein, ff_water in FORCEFIELD_CHAINS:
             try:
@@ -650,6 +652,7 @@ class MDEngine:
         # We add pure water only; the system runs slightly charged, which is
         # acceptable for MD Lite (preparation / short relaxation runs).
         self.phase = "solvating"
+        self._update_status("running")
         self.modeller = protein_modeller
         solvated = True
         try:

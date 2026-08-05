@@ -38,8 +38,11 @@ class MDWorkflow:
         self.engine = eng  # ensure self.engine is set for the error handler
 
         try:
-            # skip_fixer=True because PDBFixer already ran during prepare/prepare_complex.
-            # Running it again doubles the preparation time for zero benefit.
+            # Rebuild the OpenMM system from PDB (required — OpenMM can't serialize
+            # a full System object). skip_fixer=True because PDBFixer already ran
+            # during prepare/prepare_complex.
+            self._safe_update_status("starting", {"phase": "loading_system",
+                "progress_pct": 0, "message": "Rebuilding simulation system..."})
             eng.load_system(pdb_path, skip_fixer=True).build_simulation()
             eng.add_reporters(
                 os.path.join(self.workdir, "trajectory.dcd"),
@@ -49,16 +52,19 @@ class MDWorkflow:
                 log.info(f"Resumed from checkpoint at {eng.progress_ns} ns")
 
             if not had_checkpoint:
+                eng.phase = "minimizing"
+                eng._update_status("running", {"message": "Energy minimization..."})
                 energy = eng.minimize()
                 log.info(f"Minimization: {energy:.1f} kJ/mol")
-                eng._update_status("minimized", {"min_energy_kjmol": round(energy, 1)})
+                eng._update_status("running", {"min_energy_kjmol": round(energy, 1),
+                    "message": "Minimization complete"})
 
                 # FAST equilibration: 10 ps (5,000 steps) NVT, then 10 ps NPT.
                 # The old 200 ps (100,000 steps) is what made "1 ns take hours"
                 # on CPU. For a Lite prototyping tool, 10 ps is enough to settle
                 # the worst steric clashes before production.
                 eng.phase = "equilibrating"
-                eng._update_status("equilibrating")
+                eng._update_status("running", {"message": "Equilibrating (NVT + NPT)..."})
                 eq_steps = 2500 if fast_mode else 50000  # 5 ps fast, 100 ps full
                 eng.simulation.step(eq_steps)  # NVT
                 barostat = openmm.MonteCarloBarostat(

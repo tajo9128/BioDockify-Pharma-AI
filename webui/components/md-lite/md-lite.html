@@ -156,12 +156,20 @@
           </div>
           <!-- Error details -->
           <div x-show="status?.status==='error'" style="padding:6px;background:rgba(239,68,68,0.1);border-radius:4px;font-size:0.56rem;color:#ef4444;margin-bottom:6px" x-text="status.error||'Unknown error'"></div>
-          <!-- Progress bar (only when running) -->
-          <div x-show="status?.status==='running'">
-            <div class="mpb"><div class="mpbf" :style="'width:'+(status.progress_pct||0)+'%'"></div></div>
+          <!-- Progress bar (running or setup phases) -->
+          <div x-show="status?.status==='running' || status?.status==='starting'">
+            <div class="mpb">
+              <div class="mpbf" :class="{'mpbf-pulse': (status.progress_pct||0)===0}"
+                   :style="'width:'+((status.progress_pct||0)===0?'100':(status.progress_pct||0))+'%'"></div>
+            </div>
             <div class="mps">
-              <span x-text="(status.progress_ns||0)+' / '+settings.total_ns+' ns'"></span>
-              <span x-text="(status.progress_pct||0)+'%'"></span>
+              <template x-if="(status.progress_pct||0)>0">
+                <span x-text="(status.progress_ns||0)+' / '+settings.total_ns+' ns'"></span>
+              </template>
+              <template x-if="(status.progress_pct||0)===0">
+                <span x-text="status.message || phaseLabel"></span>
+              </template>
+              <span x-show="(status.progress_pct||0)>0" x-text="(status.progress_pct||0)+'%'"></span>
               <span x-show="status.eta_minutes>0" x-text="'ETA: '+Math.round(status.eta_minutes)+' min'"></span>
             </div>
           </div>
@@ -422,6 +430,8 @@
       .mpr{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;font-size:0.54rem;color:var(--color-text-muted)}
       .mpb{height:8px;background:var(--color-border);border-radius:4px;overflow:hidden;margin:6px 0}
       .mpbf{height:100%;background:var(--color-primary);border-radius:4px;transition:width .5s}
+      .mpbf-pulse{opacity:0.5;animation:pulse 1.5s ease-in-out infinite}
+      @keyframes pulse{0%,100%{opacity:0.3}50%{opacity:0.7}}
       .mps{display:flex;justify-content:space-between;font-size:0.54rem;color:var(--color-text-muted)}
       .mbadge{font-size:0.46rem;padding:1px 6px;border-radius:6px;margin-left:6px;font-weight:600}.mbadge.g{background:#22c55e22;color:#22c55e;border:1px solid #22c55e44}.mbadge.c{background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b44}
       .mmetrics{display:flex;gap:4px;flex-wrap:wrap}
