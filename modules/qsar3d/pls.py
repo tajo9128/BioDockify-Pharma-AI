@@ -54,7 +54,20 @@ class PLSModel:
         Returns:
             2D numpy array of shape (n_molecules, n_features).
             Features are steric and electrostatic grids concatenated.
+            Missing fields are padded with zeros to ensure uniform row lengths.
         """
+        if not all_fields:
+            return np.array([]).reshape(0, 0)
+
+        # Determine expected size per field from the first complete molecule
+        field_sizes = {}
+        for fields in all_fields:
+            for key in ('steric', 'electrostatic'):
+                if key in fields and key not in field_sizes:
+                    field_sizes[key] = np.asarray(fields[key]).ravel().shape[0]
+            if len(field_sizes) == 2:
+                break
+
         rows = []
         for fields in all_fields:
             parts = []
@@ -62,11 +75,15 @@ class PLSModel:
                 arr = fields.get(key)
                 if arr is not None:
                     parts.append(np.asarray(arr).ravel())
+                elif key in field_sizes:
+                    # Pad with zeros for missing field
+                    parts.append(np.zeros(field_sizes[key]))
             if parts:
                 rows.append(np.concatenate(parts))
             else:
                 rows.append(np.array([]))
-        if not rows:
+
+        if not rows or rows[0].size == 0:
             return np.array([]).reshape(0, 0)
         return np.vstack(rows)
 
@@ -149,6 +166,10 @@ class PLSModel:
         for i in range(n_components):
             # Initialize v = first column of F
             v = F[:, 0].copy()
+            # Initialize u to zeros — guards against degenerate data where
+            # the inner loop exits immediately (c_norm < 1e-10 on first iter)
+            u = np.zeros(n)
+            c = np.zeros(p)
 
             # Iterate until convergence
             for iteration in range(100):

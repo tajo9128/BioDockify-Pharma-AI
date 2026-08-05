@@ -305,9 +305,10 @@ class QSAR3DHandler(ApiHandler):
                     best_model_name = info.get("model")
 
             importance = []
-            if best_model_name and best_model_name in result.get("trained_models", {}):
+            trained_models = result.get("trained_models", {})
+            if best_model_name and best_model_name in trained_models:
                 importance = get_feature_importance(
-                    result["trained_models"][best_model_name],
+                    trained_models[best_model_name],
                     best_model_name, feature_names, top_n=15
                 )
 
@@ -321,10 +322,10 @@ class QSAR3DHandler(ApiHandler):
 
             # Fingerprint bit interpretation
             fp_interpretation = []
-            if feature_type == "fingerprint" and best_model_name:
+            if feature_type == "fingerprint" and best_model_name and best_model_name in trained_models:
                 sample_smiles = smiles[valid_idx[0]] if valid_idx else smiles[0]
                 fp_interpretation = interpret_fingerprint_bits(
-                    result["trained_models"].get(best_model_name),
+                    trained_models[best_model_name],
                     best_model_name, feature_names, sample_smiles, top_n=10
                 )
 
