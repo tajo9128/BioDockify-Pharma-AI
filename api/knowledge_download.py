@@ -2,6 +2,17 @@
 import os
 from helpers.api import ApiHandler, Request, Response
 
+KB_DIR = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "knowledge_base"))
+
+
+def _is_safe_kb_path(filepath: str) -> bool:
+    """Validate that filepath is within the knowledge base directory."""
+    try:
+        real = os.path.realpath(filepath)
+        return real.startswith(KB_DIR + os.sep) or real == KB_DIR
+    except (ValueError, OSError):
+        return False
+
 
 class KnowledgeDownloadHandler(ApiHandler):
 
@@ -12,7 +23,13 @@ class KnowledgeDownloadHandler(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         filepath = request.args.get("file") or input.get("file", "")
 
-        if not filepath or not os.path.exists(filepath):
+        if not filepath:
+            return Response(status=400, body="No file specified")
+
+        if not _is_safe_kb_path(filepath):
+            return Response(status=403, body="Access denied")
+
+        if not os.path.exists(filepath):
             return Response(status=404, body="File not found")
 
         filename = os.path.basename(filepath)

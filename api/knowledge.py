@@ -5,8 +5,17 @@ import os, json, logging, time
 
 log = logging.getLogger("knowledge_api")
 
-KB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "knowledge_base")
+KB_DIR = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "knowledge_base"))
 os.makedirs(KB_DIR, exist_ok=True)
+
+
+def _is_safe_kb_path(filepath: str) -> bool:
+    """Validate that filepath is within the knowledge base directory (prevents path traversal)."""
+    try:
+        real = os.path.realpath(filepath)
+        return real.startswith(KB_DIR + os.sep) or real == KB_DIR
+    except (ValueError, OSError):
+        return False
 
 # Category directories
 CATEGORIES = {
@@ -41,6 +50,41 @@ CATEGORIES = {
 }
 
 INDEX_FILE = os.path.join(KB_DIR, "index.json")
+_INDEX_LOCK_FILE = INDEX_FILE + ".lock"
+
+
+def _lock_index():
+    """Acquire a file-based lock for index.json writes (cross-platform)."""
+    import time as _t
+    lock_path = _INDEX_LOCK_FILE
+    deadline = _t.time() + 10
+    while _t.time() < deadline:
+        try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.close(fd)
+            return True
+        except FileExistsError:
+            # Stale lock check (older than 30s = dead process)
+            try:
+                if _t.time() - os.path.getmtime(lock_path) > 30:
+                    os.remove(lock_path)
+                    continue
+            except OSError:
+                pass
+            _t.sleep(0.05)
+    # Timeout — force remove stale lock
+    try:
+        os.remove(lock_path)
+    except OSError:
+        pass
+    return False
+
+
+def _unlock_index():
+    try:
+        os.remove(_INDEX_LOCK_FILE)
+    except OSError:
+        pass
 
 
 def _load_index():
@@ -48,14 +92,18 @@ def _load_index():
         try:
             with open(INDEX_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except:
+        except Exception:
             pass
     return {"entries": [], "categories": {}}
 
 
 def _save_index(index):
-    with open(INDEX_FILE, "w", encoding="utf-8") as f:
-        json.dump(index, f, ensure_ascii=False, indent=2)
+    _lock_index()
+    try:
+        with open(INDEX_FILE, "w", encoding="utf-8") as f:
+            json.dump(index, f, ensure_ascii=False, indent=2)
+    finally:
+        _unlock_index()
 
 
 def _store_entry(category: str, title: str, content: str, tags: str = "", source: str = "", metadata: dict = None, original_file: str = ""):
@@ -115,23 +163,26 @@ def _store_entry(category: str, title: str, content: str, tags: str = "", source
     # Also index into vector store if available
     try:
         from modules.rag.vector_store import get_vector_store
-        import asyncio, inspect
+        import asyncio, inspect, threading
         store = get_vector_store()
         if store:
-            chunks = [content[i:i+500].strip() for i in range(0, len(content), 500) if content[i:i+500].strip()]
+            chunk_size = 1500
+            overlap = 200
+            chunks = []
+            for i in range(0, len(content), chunk_size - overlap):
+                chunk = content[i:i + chunk_size].strip()
+                if chunk:
+                    chunks.append(chunk)
             metadatas = [{"source": title, "category": category, "tags": tags}] * len(chunks)
             add_fn = getattr(store, "add_documents", None) or getattr(store, "add_texts", None)
             if add_fn and chunks:
                 if inspect.iscoroutinefunction(add_fn):
-                    coro = add_fn(chunks, metadatas)
-                    try:
-                        loop = asyncio.get_running_loop()
-                        task = loop.create_task(coro)
-                        task.add_done_callback(
-                            lambda t: log.warning(f"Vector indexing failed: {t.exception()}") if t.exception() else None
-                        )
-                    except RuntimeError:
-                        asyncio.run(coro)
+                    def _run_async():
+                        try:
+                            asyncio.run(add_fn(chunks, metadatas))
+                        except Exception as exc:
+                            log.warning(f"Vector indexing failed: {exc}")
+                    threading.Thread(target=_run_async, daemon=True).start()
                 else:
                     add_fn(chunks, metadatas)
     except Exception as e:
@@ -288,13 +339,29 @@ def _delete_entry(entry_id: str) -> bool:
 
     for i, e in enumerate(entries):
         if e.get("id") == entry_id or e.get("file") == entry_id:
-            # Remove file
+            # Remove .md file
             filepath = e.get("file", "")
             if filepath and os.path.exists(filepath):
                 try:
                     os.remove(filepath)
                 except Exception as ex:
                     log.warning(f"Failed to delete file {filepath}: {ex}")
+
+            # Remove .docx file
+            docx_path = e.get("docx_file", "")
+            if docx_path and os.path.exists(docx_path):
+                try:
+                    os.remove(docx_path)
+                except Exception:
+                    pass
+
+            # Remove original binary file
+            original_path = e.get("original_file", "")
+            if original_path and os.path.exists(original_path):
+                try:
+                    os.remove(original_path)
+                except Exception:
+                    pass
 
             # Remove from index
             cat = e.get("category", "")
@@ -684,6 +751,7 @@ class KnowledgeHandler(ApiHandler):
                 # Chunk for vector indexing
                 try:
                     from modules.rag.chunker import chunk_document
+                    import asyncio, inspect, threading
                     if content and len(content) > 200:
                         chunks = chunk_document(content, doc_id=filename)
                         if chunks:
@@ -695,13 +763,15 @@ class KnowledgeHandler(ApiHandler):
                                     metadatas = [{"doc_id": filename, "section": c.get("section_title", ""), "category": category} for c in chunks]
                                     add_fn = getattr(store, "add_documents", None) or getattr(store, "add_texts", None)
                                     if add_fn:
-                                        coro = add_fn(texts, metadatas)
-                                        import asyncio
-                                        try:
-                                            loop = asyncio.get_running_loop()
-                                            loop.create_task(coro)
-                                        except RuntimeError:
-                                            asyncio.run(coro)
+                                        if inspect.iscoroutinefunction(add_fn):
+                                            def _run_async(fn=add_fn, t=texts, m=metadatas):
+                                                try:
+                                                    asyncio.run(fn(t, m))
+                                                except Exception:
+                                                    pass
+                                            threading.Thread(target=_run_async, daemon=True).start()
+                                        else:
+                                            add_fn(texts, metadatas)
                                         chunked += len(chunks)
                             except Exception:
                                 pass
@@ -884,7 +954,7 @@ class KnowledgeHandler(ApiHandler):
             file_type = "md"
 
         # Read the extracted .md text (always UTF-8, safe to read as text)
-        if filepath and os.path.exists(filepath):
+        if filepath and _is_safe_kb_path(filepath) and os.path.exists(filepath):
             try:
                 with open(filepath, "r", encoding="utf-8") as f:
                     content = f.read()
@@ -893,7 +963,7 @@ class KnowledgeHandler(ApiHandler):
                     "content": content,
                     "file": filepath,
                     "entry": entry or {},
-                    "has_original": bool(original and os.path.exists(original)),
+                    "has_original": bool(original and _is_safe_kb_path(original) and os.path.exists(original)),
                     "original_file": original,
                     "file_type": file_type,
                 }
@@ -937,7 +1007,11 @@ class KnowledgeHandler(ApiHandler):
     def _download_docx(self, input: dict) -> dict | Response:
         """Serve a DOCX file for download."""
         filepath = input.get("file", "")
-        if not filepath or not os.path.exists(filepath):
+        if not filepath:
+            return Response(response="No file specified", status=400, mimetype="text/plain")
+        if not _is_safe_kb_path(filepath):
+            return Response(response="Access denied", status=403, mimetype="text/plain")
+        if not os.path.exists(filepath):
             return Response(response="File not found", status=404, mimetype="text/plain")
 
         filename = os.path.basename(filepath)
@@ -965,7 +1039,11 @@ class KnowledgeHandler(ApiHandler):
         entry = self._find_entry(entry_id)
         original_path = entry.get("original_file", "")
 
-        if not original_path or not os.path.exists(original_path):
+        if not original_path:
+            return Response(response="Original file not found", status=404, mimetype="text/plain")
+        if not _is_safe_kb_path(original_path):
+            return Response(response="Access denied", status=403, mimetype="text/plain")
+        if not os.path.exists(original_path):
             return Response(response="Original file not found", status=404, mimetype="text/plain")
 
         ext = os.path.splitext(original_path)[1].lower()
@@ -999,7 +1077,11 @@ class KnowledgeHandler(ApiHandler):
         entry = self._find_entry(entry_id)
         original_path = entry.get("original_file", "")
 
-        if not original_path or not os.path.exists(original_path):
+        if not original_path:
+            return Response(response="File not found", status=404, mimetype="text/plain")
+        if not _is_safe_kb_path(original_path):
+            return Response(response="Access denied", status=403, mimetype="text/plain")
+        if not os.path.exists(original_path):
             return Response(response="File not found", status=404, mimetype="text/plain")
 
         ext = os.path.splitext(original_path)[1].lower()
