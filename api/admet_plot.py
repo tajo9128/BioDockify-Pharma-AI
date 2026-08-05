@@ -87,35 +87,45 @@ def boiled_egg_svg(molecules: List[Dict]) -> str:
     return "\n".join(parts)
 
 
-def bioavailability_radar_svg(result: Dict) -> str:
+def bioavailability_radar_svg(result: Dict, label: str = "") -> str:
     """Generate Bioavailability Radar as inline SVG spider chart.
 
-    result: dict from compute_swiss_adme
+    result: dict from compute_swiss_adme (nested) OR pre-normalized flat dict with keys:
+            lipophilicity, size, polarity, insolubility, unsaturation, flexibility
+    label: optional molecule label for title
     """
     w, h = 360, 360
     cx, cy = w // 2, h // 2
     r = 125
 
-    phys = result.get("physicochemical", {})
-    lipo = result.get("lipophilicity", {})
-    sol = result.get("solubility", {})
-
-    clp = lipo.get("consensus_logp", 0)
-    mw_val = phys.get("mw", 300)
-    tpsa = phys.get("tpsa", 100)
-    esol = sol.get("esol_logs", -5)
-    fcsp3 = phys.get("fraction_csp3", 0.3)
-    rot = phys.get("rotatable_bonds", 5)
-
-    # Normalize to 0-1 (optimal = 1)
-    values = {
-        "LIPO": min(1.0, max(0.0, 1 - abs(clp - 3) / 5)),
-        "SIZE": min(1.0, max(0.0, 1 - abs(mw_val - 350) / 500)),
-        "POLAR": min(1.0, max(0.0, 1 - tpsa / 200)),
-        "INSOLU": min(1.0, max(0.0, (esol + 10) / 10)),
-        "INSATU": min(1.0, max(0.0, fcsp3 * 3)),
-        "FLEX": min(1.0, max(0.0, 1 - rot / 15)),
-    }
+    # Handle both nested (full SwissADME result) and flat (pre-normalized) input
+    if "physicochemical" in result:
+        phys = result.get("physicochemical", {})
+        lipo = result.get("lipophilicity", {})
+        sol = result.get("solubility", {})
+        clp = lipo.get("consensus_logp", 0)
+        mw_val = phys.get("mw", 300)
+        tpsa = phys.get("tpsa", 100)
+        esol = sol.get("esol_logs", -5)
+        fcsp3 = phys.get("fraction_csp3", 0.3)
+        rot = phys.get("rotatable_bonds", 5)
+        values = {
+            "LIPO": min(1.0, max(0.0, 1 - abs(clp - 3) / 5)),
+            "SIZE": min(1.0, max(0.0, 1 - abs(mw_val - 350) / 500)),
+            "POLAR": min(1.0, max(0.0, 1 - tpsa / 200)),
+            "INSOLU": min(1.0, max(0.0, (esol + 10) / 10)),
+            "INSATU": min(1.0, max(0.0, fcsp3 * 3)),
+            "FLEX": min(1.0, max(0.0, 1 - rot / 15)),
+        }
+    else:
+        values = {
+            "LIPO": min(1.0, max(0.0, float(result.get("lipophilicity", 0.5)))),
+            "SIZE": min(1.0, max(0.0, float(result.get("size", 0.5)))),
+            "POLAR": min(1.0, max(0.0, float(result.get("polarity", 0.5)))),
+            "INSOLU": min(1.0, max(0.0, float(result.get("insolubility", 0.5)))),
+            "INSATU": min(1.0, max(0.0, float(result.get("unsaturation", 0.5)))),
+            "FLEX": min(1.0, max(0.0, float(result.get("flexibility", 0.5)))),
+        }
 
     axes = [
         ("LIPO", -90),

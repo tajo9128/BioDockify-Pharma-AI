@@ -187,37 +187,48 @@ def _druglikeness_muegge(mol, mw, logp, tpsa, n_rings, n_carbon, n_hetero, rot, 
 def _boiled_egg(logp, tpsa) -> dict:
     """BOILED-Egg model (Daina & Zoete 2016, J. Chem. Inf. Model.).
 
-    Uses proper ellipse math from the original paper, not threshold hacks.
+    Uses proper ellipse math from the original paper.
     Returns HIA (white) and BBB (yolk) predictions.
     """
-    import matplotlib
-    matplotlib.use("Agg")
-    from matplotlib.patches import Ellipse
+    import math
     import io, base64
 
-    # Ellipse parameters from the BOILED-Egg paper (Daina 2016)
-    # Ellipse(xy, width, height, angle) — xy is center, width/height are full axes
-    hia_ellipse = Ellipse((71.051, 2.292), 142.081, 8.740, angle=-1.031325)
-    bbb_ellipse = Ellipse((38.117, 3.177), 82.061, 5.557, angle=-0.171887)
+    def _in_ellipse(px, py, cx, cy, a, b, angle_deg):
+        """Check if point (px, py) is inside rotated ellipse.
+        cx, cy = center; a, b = semi-axes (half width/height); angle_deg = rotation."""
+        angle_rad = math.radians(angle_deg)
+        cos_a = math.cos(angle_rad)
+        sin_a = math.sin(angle_rad)
+        dx = px - cx
+        dy = py - cy
+        x_rot = cos_a * dx + sin_a * dy
+        y_rot = -sin_a * dx + cos_a * dy
+        return (x_rot / a) ** 2 + (y_rot / b) ** 2 <= 1.0
 
-    point = (tpsa, logp)
-    hia_pass = hia_ellipse.contains_point(point)
-    bbb_pass = bbb_ellipse.contains_point(point)
+    # Ellipse parameters from the BOILED-Egg paper (Daina 2016)
+    # HIA (white): center=(71.051, 2.292), semi-axes=71.04, 4.37, angle=-1.031325 deg
+    hia_pass = _in_ellipse(tpsa, logp, 71.051, 2.292, 71.04, 4.37, -1.031325)
+    # BBB (yolk): center=(38.117, 3.177), semi-axes=41.03, 2.779, angle=-0.171887 deg
+    bbb_pass = _in_ellipse(tpsa, logp, 38.117, 3.177, 41.03, 2.779, -0.171887)
 
     # Generate graphical plot
     plot_b64 = None
     try:
+        import matplotlib
+        matplotlib.use("Agg")
         import matplotlib.pyplot as plt
+        from matplotlib.patches import Ellipse
+
         fig, axis = plt.subplots(figsize=(6, 4))
         axis.patch.set_facecolor("#f0f0f0")
 
         # Draw HIA ellipse (white)
-        hia = Ellipse((71.051, 2.292), 142.081, 8.740, -1.031325,
+        hia = Ellipse((71.051, 2.292), 142.081, 8.740, angle=-1.031325,
                        facecolor="white", edgecolor="#666", linewidth=1.5, alpha=0.8)
         axis.add_artist(hia)
 
         # Draw BBB ellipse (yolk)
-        bbb = Ellipse((38.117, 3.177), 82.061, 5.557, -0.171887,
+        bbb = Ellipse((38.117, 3.177), 82.061, 5.557, angle=-0.171887,
                        facecolor="#f59e0b", edgecolor="#d97706", linewidth=1.5, alpha=0.8)
         axis.add_artist(bbb)
 
@@ -378,12 +389,14 @@ class AdmetPredict(ApiHandler):
             # ═══════════════════════════════════════════════════════════
             structural_alerts = _pains_brenk_check(mol)
 
-            # Ames mutagenicity (Benigni-Bossa)
+            # Ames mutagenicity (Benigni-Bossa structural alerts)
             ames_alerts = []
             ames_smarts = [
-                ("[N+]", "nitro/nitroso aromatic"),
-                ("[cR1]1[cR1][cR1][cR1][cR1][cR1]1[N+]", "aromatic nitro"),
-                ("[$([cR1]1[cR1][cR1][cR1][cR1][cR1]1-[#7]),$(N=N)]", "aromatic amine / azo"),
+                ("[cR1]~[N+](=O)[O-]", "aromatic nitro"),
+                ("[cR1]~[N]=O", "aromatic nitroso"),
+                ("[cR1]1[cR1][cR1][cR1][cR1][cR1]1-[NH2]", "primary aromatic amine"),
+                ("N=N", "azo compound"),
+                ("[CH2]Cl", "alkyl halide (chloromethyl)"),
             ]
             for smarts, desc in ames_smarts:
                 pat = Chem.MolFromSmarts(smarts)
@@ -553,10 +566,16 @@ class AdmetPredict(ApiHandler):
                     else:
                         gi = "Low"
 
-                    # BBB (BOILED-Egg)
-                    from matplotlib.patches import Ellipse
-                    bbb_ellipse = Ellipse((38.117, 3.177), 82.061, 5.557, angle=-0.171887)
-                    bbb = bbb_ellipse.contains_point((tpsa, logp))
+                    # BBB (BOILED-Egg proper ellipse math)
+                    import math
+                    def _bbb_check(px, py):
+                        angle_rad = math.radians(-0.171887)
+                        cos_a, sin_a = math.cos(angle_rad), math.sin(angle_rad)
+                        dx, dy = px - 38.117, py - 3.177
+                        x_rot = cos_a * dx + sin_a * dy
+                        y_rot = -sin_a * dx + cos_a * dy
+                        return (x_rot / 41.03) ** 2 + (y_rot / 2.779) ** 2 <= 1.0
+                    bbb = _bbb_check(tpsa, logp)
 
                     # Bioavailability
                     bio = 0.0
