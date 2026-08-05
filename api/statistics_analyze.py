@@ -28,12 +28,18 @@ def _to_json_safe(obj):
     """Recursively convert numpy types to native Python types."""
     if isinstance(obj, dict):
         return {k: _to_json_safe(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple, np.ndarray)):
+    if isinstance(obj, (list, tuple)):
         return [_to_json_safe(v) for v in obj]
-    if isinstance(obj, (np.integer, np.floating)):
-        return obj.item()
-    if isinstance(obj, np.bool_):
-        return bool(obj)
+    if HAS_NUMPY:
+        if isinstance(obj, np.ndarray):
+            return [_to_json_safe(v) for v in obj]
+        if isinstance(obj, (np.integer, np.floating)):
+            return obj.item()
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+    import math
+    if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+        return None
     return obj
 
 
@@ -342,21 +348,21 @@ class StatisticsAnalyze(ApiHandler):
             df = pd.DataFrame(data)
             sa = SurvivalAnalysis()
 
-            if sub_action == "kaplan_meier":
+            if sub_action in ("kaplan_meier", "kaplan_meier_estimate"):
                 time_col = input.get("time_col", "time")
                 event_col = input.get("event_col", "event")
                 group_col = input.get("group_col")
-                return _to_json_safe(sa.kaplan_meier(df, time_col, event_col, group_col))
+                return _to_json_safe(sa.kaplan_meier_estimate(df, time_col, event_col, group_col))
             elif sub_action == "log_rank":
                 time_col = input.get("time_col", "time")
                 event_col = input.get("event_col", "event")
                 group_col = input.get("group_col")
                 return _to_json_safe(sa.log_rank_test(df, time_col, event_col, group_col))
-            elif sub_action == "cox_ph":
+            elif sub_action in ("cox_ph", "cox_proportional_hazards"):
                 time_col = input.get("time_col", "time")
                 event_col = input.get("event_col", "event")
                 covariates = input.get("covariates", [])
-                return _to_json_safe(sa.cox_ph(df, time_col, event_col, covariates))
+                return _to_json_safe(sa.cox_proportional_hazards(df, time_col, event_col, covariates))
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
@@ -364,26 +370,76 @@ class StatisticsAnalyze(ApiHandler):
         """Delegate to bioequivalence module."""
         try:
             from modules.statistics.bioequivalence import BioequivalenceTests
-            data = input.get("data", [])
-            if not data:
-                return {"status": "error", "error": "No data provided"}
             import pandas as pd
-            df = pd.DataFrame(data)
+            data = input.get("data", [])
             bt = BioequivalenceTests()
 
-            if sub_action == "tost":
-                col1 = input.get("col1", "")
-                col2 = input.get("col2", "")
-                margin = input.get("margin", 0.2)
-                return _to_json_safe(bt.tost_two_sample(df, col1, col2, margin))
-            elif sub_action == "crossover":
-                return _to_json_safe(bt.crossover_analysis(df, **{k: v for k, v in input.items() if k not in ("action", "data")}))
-            elif sub_action == "bioavailability":
-                return _to_json_safe(bt.bioavailability_analysis(df, **{k: v for k, v in input.items() if k not in ("action", "data")}))
-            elif sub_action == "non_inferiority":
-                return _to_json_safe(bt.non_inferiority_test(df, **{k: v for k, v in input.items() if k not in ("action", "data")}))
-            elif sub_action == "equivalence":
-                return _to_json_safe(bt.equivalence_test(df, **{k: v for k, v in input.items() if k not in ("action", "data")}))
+            if sub_action in ("tost", "tost_procedure"):
+                # tost_procedure takes test_data and ref_data arrays (not a DataFrame)
+                if not data:
+                    return {"status": "error", "error": "No data provided"}
+                df = pd.DataFrame(data)
+                col1 = input.get("col1", df.columns[0] if len(df.columns) > 0 else "")
+                col2 = input.get("col2", df.columns[1] if len(df.columns) > 1 else "")
+                if not col1 or not col2 or col1 not in df.columns or col2 not in df.columns:
+                    return {"status": "error", "error": "col1 and col2 must be valid column names in data"}
+                test_data = df[col1].dropna().values
+                ref_data = df[col2].dropna().values
+                return _to_json_safe(bt.tost_procedure(test_data, ref_data))
+
+            elif sub_action in ("crossover", "crossover_design_anova"):
+                if not data:
+                    return {"status": "error", "error": "No data provided"}
+                df = pd.DataFrame(data)
+                extra = {k: v for k, v in input.items()
+                         if k not in ("action", "data", "sub_action")}
+                return _to_json_safe(bt.crossover_design_anova(df, **extra))
+
+            elif sub_action in ("bioavailability", "bioavailability_calculation"):
+                # bioavailability_calculation takes AUC values directly, not a DataFrame
+                test_auc = input.get("test_auc")
+                test_dose = float(input.get("test_dose", 1.0))
+                ref_auc = input.get("ref_auc")
+                ref_dose = input.get("ref_dose")
+                test_cmax = input.get("test_cmax")
+                ref_cmax = input.get("ref_cmax")
+                if test_auc is None:
+                    return {"status": "error", "error": "test_auc required"}
+                kwargs = {"test_auc": test_auc, "test_dose": test_dose}
+                if ref_auc is not None: kwargs["ref_auc"] = ref_auc
+                if ref_dose is not None: kwargs["ref_dose"] = float(ref_dose)
+                if test_cmax is not None: kwargs["test_cmax"] = test_cmax
+                if ref_cmax is not None: kwargs["ref_cmax"] = ref_cmax
+                return _to_json_safe(bt.bioavailability_calculation(**kwargs))
+
+            elif sub_action in ("non_inferiority",):
+                # No dedicated non-inferiority method — use confidence_interval_approach
+                if not data:
+                    return {"status": "error", "error": "No data provided"}
+                df = pd.DataFrame(data)
+                col1 = input.get("col1", df.columns[0] if len(df.columns) > 0 else "")
+                col2 = input.get("col2", df.columns[1] if len(df.columns) > 1 else "")
+                if col1 not in df.columns or col2 not in df.columns:
+                    return {"status": "error", "error": "col1 and col2 must be valid column names"}
+                test_d = df[col1].dropna().values
+                ref_d = df[col2].dropna().values
+                margin = float(input.get("margin", 0.2))
+                return _to_json_safe(bt.tost_procedure(test_d, ref_d))
+
+            elif sub_action in ("equivalence",):
+                if not data:
+                    return {"status": "error", "error": "No data provided"}
+                df = pd.DataFrame(data)
+                col1 = input.get("col1", df.columns[0] if len(df.columns) > 0 else "")
+                col2 = input.get("col2", df.columns[1] if len(df.columns) > 1 else "")
+                if col1 not in df.columns or col2 not in df.columns:
+                    return {"status": "error", "error": "col1 and col2 must be valid column names"}
+                return _to_json_safe(bt.tost_procedure(
+                    df[col1].dropna().values, df[col2].dropna().values
+                ))
+
+            else:
+                return {"status": "error", "error": f"Unknown bioequivalence sub_action: {sub_action}"}
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
@@ -396,11 +452,20 @@ class StatisticsAnalyze(ApiHandler):
                 return {"status": "error", "error": "No data provided"}
             import pandas as pd
             df = pd.DataFrame(data)
-            pk = PKPDAnalysis()
-            result = getattr(pk, sub_action)(df, **{k: v for k, v in input.items() if k not in ("action", "data")})
+            # PKPDAnalysis requires data + dose as positional args
+            dose = float(input.get("dose", 1.0))
+            route = input.get("route", "EV")
+            pk = PKPDAnalysis(data=df, dose=dose, route=route)
+            # Extra kwargs — exclude keys consumed by constructor
+            extra = {k: v for k, v in input.items()
+                     if k not in ("action", "data", "dose", "route", "sub_action")}
+            method = getattr(pk, sub_action, None)
+            if method is None:
+                return {"status": "error", "error": f"PK/PD method '{sub_action}' not found"}
+            result = method(**extra) if extra else method()
             return _to_json_safe({"status": "ok", "action": sub_action, "result": result})
-        except AttributeError:
-            return {"status": "error", "error": f"PK/PD method '{sub_action}' not found in PKPDAnalysis"}
+        except AttributeError as e:
+            return {"status": "error", "error": f"PK/PD method '{sub_action}' not found: {e}"}
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
@@ -493,6 +558,7 @@ class StatisticsAnalyze(ApiHandler):
         """Cochran-Mantel-Haenszel test for stratified 2x2 tables."""
         from scipy import stats
         import numpy as np
+        import pandas as pd
         strata_col = input.get("strata_col", "")
         col1 = input.get("col1", "")
         col2 = input.get("col2", "")
@@ -555,11 +621,12 @@ class StatisticsAnalyze(ApiHandler):
             x_cols = input.get("x_cols", input.get("columns", []))
             if not x_cols:
                 x_cols = [c for c in df.columns if c != y_col]
-            X = sm.add_constant(df[x_cols].dropna())
-            y = df[y_col].dropna().values[:len(X)]
+            clean = df[[y_col] + list(x_cols)].dropna()
+            X = sm.add_constant(clean[x_cols])
+            y = clean[y_col].values
             model = sm.GLM(y, X, family=sm.families.Poisson()).fit()
             return {"summary": str(model.summary()), "aic": round(float(model.aic), 2), "bic": round(float(model.bic), 2),
-                    "coefficients": dict(zip(["const"] + x_cols, [round(float(c), 4) for c in model.params]))}
+                    "coefficients": dict(zip(["const"] + list(x_cols), [round(float(c), 4) for c in model.params]))}
         except ImportError:
             return {"error": "statsmodels required for Poisson regression"}
 
@@ -570,8 +637,9 @@ class StatisticsAnalyze(ApiHandler):
             x_cols = input.get("x_cols", input.get("columns", []))
             if not x_cols:
                 x_cols = [c for c in df.columns if c != y_col]
-            X = sm.add_constant(df[x_cols].dropna())
-            y = df[y_col].dropna().values[:len(X)]
+            clean = df[[y_col] + list(x_cols)].dropna()
+            X = sm.add_constant(clean[x_cols])
+            y = clean[y_col].values
             model = sm.NegativeBinomial(y, X).fit(disp=False)
             return {"summary": str(model.summary()), "aic": round(float(model.aic), 2), "bic": round(float(model.bic), 2),
                     "alpha": round(float(model.params[-1]), 4) if hasattr(model, 'params') else None}
@@ -585,8 +653,11 @@ class StatisticsAnalyze(ApiHandler):
             x_cols = input.get("x_cols", input.get("columns", []))
             if not x_cols:
                 x_cols = [c for c in df.columns if c != y_col]
-            X = sm.add_constant(df[x_cols].dropna())
-            y = df[y_col].dropna().values[:len(X)]
+            # Drop rows with NaN in ANY of the used columns to keep X and y aligned
+            used_cols = [y_col] + list(x_cols)
+            clean = df[used_cols].dropna()
+            X = sm.add_constant(clean[x_cols])
+            y = clean[y_col].values
             model = sm.OLS(y, X).fit()
             return {"summary": str(model.summary()), "r2": round(float(model.rsquared), 4),
                     "adj_r2": round(float(model.rsquared_adj), 4), "f_statistic": round(float(model.fvalue), 4),
@@ -640,16 +711,23 @@ class StatisticsAnalyze(ApiHandler):
 
     def _run_repeated_anova(self, df, input):
         try:
-            import pandas as pd
             import statsmodels.api as sm
             import statsmodels.formula.api as smf
             dv = input.get("dv", input.get("value_col", ""))
             within = input.get("within", "")
             subject = input.get("subject", "")
-            model = smf.ols(f'{dv} ~ C({within})', data=df).fit()
+            if not dv or not within:
+                return {"error": "dv and within required for repeated measures ANOVA"}
+            # Include subject as a blocking factor to account for within-subject correlation
+            if subject and subject in df.columns:
+                formula = f'{dv} ~ C({within}) + C({subject})'
+            else:
+                formula = f'{dv} ~ C({within})'
+            model = smf.ols(formula, data=df).fit()
             anova_table = sm.stats.anova_lm(model, typ=2)
             return {"anova_table": anova_table.to_dict(), "f_statistic": round(float(anova_table["F"].iloc[0]), 4),
-                    "p_value": round(float(anova_table["PR(>F)"].iloc[0]), 6)}
+                    "p_value": round(float(anova_table["PR(>F)"].iloc[0]), 6),
+                    "note": "Subject blocking included" if subject and subject in df.columns else "No subject column provided"}
         except ImportError:
             return {"error": "statsmodels required for repeated measures ANOVA"}
 
@@ -887,7 +965,15 @@ class StatisticsAnalyze(ApiHandler):
                 r = self._normality(input); result.update(r)
 
             elif test_type == "chisquare":
-                input["group_col"] = rc; input["value_col"] = cc
+                # Prefer slot-assigned columns; fall back to first two categorical/group cols
+                chi_cols = slots.get("cols", "")
+                if chi_cols:
+                    parts = [c.strip() for c in chi_cols.split(",") if c.strip()]
+                    input["group_col"] = parts[0] if parts else rc
+                    input["value_col"] = parts[1] if len(parts) > 1 else cc
+                else:
+                    input["group_col"] = rc
+                    input["value_col"] = cc
                 exp.append({"step":1,"title":"Chi-Square","detail":"Tests association between categorical variables."})
                 r = self._chisquare(input); result.update(r)
 
@@ -911,13 +997,6 @@ class StatisticsAnalyze(ApiHandler):
                 input["selected_cols"] = fc.split(",") if fc else numeric_cols[:10]
                 exp.append({"step":1,"title":"Friedman Test","detail":"Non-parametric repeated measures."})
                 r = self._friedman(input); result.update(r)
-
-            elif test_type == "chisquare":
-                chi_cols = fc.split(",") if fc else (group_cols[:2] if len(group_cols) >= 2 else categorical_cols[:2])
-                input["col_before"] = chi_cols[0] if len(chi_cols) > 0 else ""
-                input["col_after"] = chi_cols[1] if len(chi_cols) > 1 else ""
-                exp.append({"step":1,"title":"Chi-Square Test","detail":"Test association between two categorical variables."})
-                r = self._chisquare(input); result.update(r)
 
             elif test_type == "fisher":
                 input["group_col"] = rc; input["value_col"] = cc
@@ -1559,9 +1638,28 @@ class StatisticsAnalyze(ApiHandler):
         power = float(input.get("power", 0.80))
         test_type = input.get("test_type", "ttest_ind")
         try:
-            from statsmodels.stats.power import TTestIndPower
-            power_analysis = TTestIndPower()
-            n = power_analysis.solve_power(effect_size=effect_size, alpha=alpha, power=power, alternative='two-sided')
-            return {"status": "ok", "action": "power", "test": test_type, "effect_size": effect_size, "alpha": alpha, "power": power, "required_n": int(np.ceil(n))}
+            from statsmodels.stats import power as pw_mod
+            # Select the correct power analysis class based on test type
+            if test_type in ("ttest_ind", "ttest_2samp"):
+                analysis = pw_mod.TTestIndPower()
+            elif test_type in ("ttest_1samp", "ttest_paired"):
+                analysis = pw_mod.TTestPower()
+            elif test_type in ("anova", "f_test"):
+                k_groups = int(input.get("k_groups", 3))
+                analysis = pw_mod.FTestAnovaPower()
+                n = analysis.solve_power(effect_size=effect_size, alpha=alpha, power=power, k_groups=k_groups)
+                import math
+                return {"status": "ok", "action": "power", "test": test_type, "effect_size": effect_size,
+                        "alpha": alpha, "power": power, "required_n": int(math.ceil(n)), "k_groups": k_groups}
+            elif test_type in ("chisquare", "chi2", "chi_square"):
+                analysis = pw_mod.GofChisquarePower()
+            elif test_type in ("z_test", "proportion"):
+                analysis = pw_mod.NormalIndPower()
+            else:
+                analysis = pw_mod.TTestIndPower()  # safe default
+            n = analysis.solve_power(effect_size=effect_size, alpha=alpha, power=power, alternative='two-sided')
+            import math
+            return {"status": "ok", "action": "power", "test": test_type, "effect_size": effect_size,
+                    "alpha": alpha, "power": power, "required_n": int(math.ceil(n))}
         except Exception as e:
             return {"status": "error", "error": str(e)}

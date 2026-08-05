@@ -148,18 +148,20 @@ class PKPDAnalysis:
             Partial AUCs for each interval
         """
         if method == 'log':
-            # Logarithmic trapezoidal rule (better for terminal phase)
-            # Fall back to linear for intervals where concentrations are equal
-            # (log difference = 0 → division by zero)
-            log_conc = np.log(concentration)
+            # Logarithmic trapezoidal rule; fall back to linear when either
+            # concentration endpoint is 0 (log(0) = -inf → NaN partial AUC)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                log_conc = np.where(concentration > 0, np.log(concentration), np.nan)
             d_log = log_conc[1:] - log_conc[:-1]
             dt = time[1:] - time[:-1]
             d_conc = concentration[1:] - concentration[:-1]
-            partial_aucs = np.where(
-                np.abs(d_log) < 1e-15,
-                dt * (concentration[1:] + concentration[:-1]) / 2,  # linear fallback
-                dt * d_conc / d_log
-            )
+            # Use linear rule when: d_log ≈ 0 (equal concs), OR either endpoint is 0
+            zero_endpoint = (concentration[:-1] <= 0) | (concentration[1:] <= 0)
+            use_linear = zero_endpoint | (np.abs(d_log) < 1e-15) | ~np.isfinite(d_log)
+            log_auc = np.where(np.isfinite(d_log) & (np.abs(d_log) >= 1e-15),
+                               dt * d_conc / d_log, 0.0)
+            lin_auc = dt * (concentration[1:] + concentration[:-1]) / 2
+            partial_aucs = np.where(use_linear, lin_auc, log_auc)
         else:
             # Linear trapezoidal rule
             partial_aucs = (time[1:] - time[:-1]) * (
