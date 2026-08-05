@@ -7,6 +7,8 @@ log = logging.getLogger("knowledge_api")
 
 KB_DIR = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "knowledge_base"))
 os.makedirs(KB_DIR, exist_ok=True)
+CONV_DIR = os.path.join(KB_DIR, "conversations")
+os.makedirs(CONV_DIR, exist_ok=True)
 
 
 def _is_safe_kb_path(filepath: str) -> bool:
@@ -492,9 +494,23 @@ class KnowledgeHandler(ApiHandler):
         elif action == "run_transformation":
             return self._run_transformation(input)
         elif action == "generate_podcast":
-            return self._generate_podcast(input)
+            return await self._generate_podcast(input)
         elif action == "kb_chat":
             return await self._kb_chat(input)
+        elif action == "list_conversations":
+            return self._list_conversations(input)
+        elif action == "get_conversation":
+            return self._get_conversation(input)
+        elif action == "delete_conversation":
+            return self._delete_conversation(input)
+        elif action == "generate_study_guide":
+            return await self._generate_study_guide(input)
+        elif action == "generate_briefing":
+            return await self._generate_briefing(input)
+        elif action == "suggest_questions":
+            return await self._suggest_questions(input)
+        elif action == "summarize_source":
+            return await self._summarize_source(input)
 
         return {"status": "error", "error": f"Unknown action: {action}"}
 
@@ -1264,57 +1280,157 @@ class KnowledgeHandler(ApiHandler):
         return {"status": "ok", "prompt": prompt, "transformation_name": tf["name"],
                 "instruction": "Send this prompt to the agent to generate an AI note. The result will be saved as a note in the notebook."}
 
-    def _generate_podcast(self, input: dict) -> dict:
-        """Build podcast generation prompt from notebook sources."""
+    async def _generate_podcast(self, input: dict) -> dict:
+        """Generate a real two-speaker podcast: LLM script → edge-tts per line → concat MP3."""
+        import asyncio
         nb_id = input.get("notebook_id", "")
-        speakers = input.get("speakers", [{"name": "Host", "persona": "Research host"},
-                                           {"name": "Expert", "persona": "Domain expert"}])
+        speakers = input.get("speakers", [
+            {"name": "Host", "persona": "Research host", "voice": "alloy"},
+            {"name": "Expert", "persona": "Domain expert", "voice": "echo"},
+        ])
         topic = input.get("topic", "")
-        format_type = input.get("format", "interview")  # interview | discussion | lecture
+        format_type = input.get("format", "interview")
         tone = input.get("tone", "professional")
-        length = input.get("length", "medium")  # short | medium | long
+        length = input.get("length", "medium")
 
-        # Gather source content
-        data = self._load_notebooks()
+        # ── Gather source content from notebook ──
         source_text = ""
-        for nb in data.get("notebooks", []):
-            if nb["id"] == nb_id:
-                index = _load_index()
-                for src in nb.get("sources", [])[:10]:
-                    for e in index.get("entries", []):
-                        if e.get("id") == src.get("entry_id"):
-                            filepath = e.get("file", "")
-                            if filepath and os.path.exists(filepath):
-                                with open(filepath, "r", encoding="utf-8") as f:
-                                    content = f.read(3000)
-                                source_text += f"\n\n--- {e.get('title', 'Source')} ---\n{content}"
-                break
+        if nb_id:
+            data = self._load_notebooks()
+            index = _load_index()
+            entry_map = {e.get("id", ""): e for e in index.get("entries", [])}
+            for nb in data.get("notebooks", []):
+                if nb["id"] == nb_id:
+                    for src in nb.get("sources", [])[:12]:
+                        e = entry_map.get(src.get("entry_id", ""), {})
+                        fp = e.get("file", "")
+                        if fp and os.path.isfile(fp):
+                            try:
+                                with open(fp, "r", encoding="utf-8") as f:
+                                    source_text += f"\n\n--- {e.get('title', 'Source')} ---\n{f.read(2500)}"
+                            except Exception:
+                                pass
+                    break
 
         if not source_text.strip():
             return {"status": "error", "error": "No sources in notebook. Add sources first."}
 
-        # Build podcast prompt
-        speaker_desc = ", ".join([f"{s['name']} ({s['persona']})" for s in speakers])
-        length_map = {"short": "5-10 minutes", "medium": "15-20 minutes", "long": "25-35 minutes"}
+        # ── Step 1: LLM generates the dialogue script ──
+        length_map = {"short": "8-12 exchanges", "medium": "18-25 exchanges", "long": "30-40 exchanges"}
+        speaker_names = [s["name"] for s in speakers]
+        speaker_desc = ", ".join(f"{s['name']} ({s['persona']})" for s in speakers)
 
-        prompt = (
-            f"Generate a {format_type} podcast script with {speaker_desc}.\n\n"
-            f"Topic: {topic or 'Based on the research sources below'}\n"
-            f"Tone: {tone}\n"
-            f"Length: {length_map.get(length, '15-20 minutes')}\n\n"
-            f"Sources:\n{source_text[:12000]}\n\n"
-            "Format the script as a dialogue between speakers. "
-            "Each line should start with the speaker name followed by colon. "
-            "Include an introduction, main discussion, and conclusion."
+        script_prompt = (
+            f"You are writing a {format_type} podcast script. Speakers: {speaker_desc}.\n"
+            f"Topic: {topic or 'the research below'}\nTone: {tone}\n"
+            f"Length: {length_map.get(length, '18-25 exchanges')}\n\n"
+            f"Research sources:\n{source_text[:10000]}\n\n"
+            "Rules:\n"
+            "- Each line MUST start with the speaker name followed by a colon, e.g.:\n"
+            f"  {speaker_names[0]}: Hello, welcome to the show...\n"
+            f"  {speaker_names[1]}: Thanks for having me...\n"
+            "- Alternate between speakers naturally.\n"
+            "- Include key findings, drug names, mechanisms from the sources.\n"
+            "- End with a summary and key takeaways.\n"
+            "Output ONLY the script, no stage directions, no metadata."
         )
 
-        return {
-            "status": "ok",
-            "prompt": prompt,
-            "speakers": speakers,
-            "source_count": source_text.count("---"),
-            "instruction": "Send this prompt to the agent to generate the podcast script. Use the Podcast tab in Knowledge Base for TTS generation.",
-        }
+        script_text = await asyncio.to_thread(self._call_llm_sync, script_prompt, max_tokens=2000)
+        if not script_text:
+            return {"status": "error", "error": "LLM unavailable — cannot generate script. Check model settings."}
+
+        # ── Step 2: Parse script into (speaker, line) pairs ──
+        lines = []
+        for raw_line in script_text.strip().split("\n"):
+            raw_line = raw_line.strip()
+            if not raw_line:
+                continue
+            for sp in speakers:
+                prefix = sp["name"] + ":"
+                if raw_line.startswith(prefix):
+                    lines.append({"speaker": sp["name"], "voice": sp.get("voice", "alloy"),
+                                  "text": raw_line[len(prefix):].strip()})
+                    break
+
+        if not lines:
+            return {"status": "error", "error": "Script parsing failed — no speaker lines detected."}
+
+        # ── Step 3: TTS each line, then concatenate ──
+        podcast_dir = os.path.join(KB_DIR, "podcasts")
+        os.makedirs(podcast_dir, exist_ok=True)
+        ts = int(time.time())
+        output_path = os.path.join(podcast_dir, f"podcast_{nb_id or 'kb'}_{ts}.mp3")
+
+        try:
+            from modules.surfsense.audio import generate_podcast_audio
+            import tempfile, os as _os
+
+            segment_paths = []
+            tmp_dir = tempfile.mkdtemp()
+            for i, line_data in enumerate(lines):
+                seg_path = _os.path.join(tmp_dir, f"seg_{i:04d}.mp3")
+                await generate_podcast_audio(
+                    text=line_data["text"],
+                    voice=line_data["voice"],
+                    output_path=seg_path,
+                )
+                segment_paths.append(seg_path)
+
+            # Concatenate segments — use pydub if available, fallback to binary concat
+            try:
+                from pydub import AudioSegment
+                silence = AudioSegment.silent(duration=400)
+                combined = AudioSegment.empty()
+                for seg in segment_paths:
+                    combined += AudioSegment.from_mp3(seg) + silence
+                combined.export(output_path, format="mp3")
+            except ImportError:
+                # Raw binary concat — works for edge-tts mp3s (same bitrate/sample rate)
+                with open(output_path, "wb") as out:
+                    for seg in segment_paths:
+                        with open(seg, "rb") as f:
+                            out.write(f.read())
+            finally:
+                for seg in segment_paths:
+                    try:
+                        _os.remove(seg)
+                    except OSError:
+                        pass
+                try:
+                    _os.rmdir(tmp_dir)
+                except OSError:
+                    pass
+
+            # Return base64 for inline playback
+            import base64
+            with open(output_path, "rb") as f:
+                audio_b64 = base64.b64encode(f.read()).decode()
+
+            return {
+                "status": "ok",
+                "audio_base64": audio_b64,
+                "file": output_path,
+                "script": script_text,
+                "line_count": len(lines),
+                "speakers": speakers,
+            }
+
+        except ImportError:
+            # edge-tts not installed — return script only
+            return {
+                "status": "ok",
+                "script": script_text,
+                "audio_base64": None,
+                "message": "Script generated. Install edge-tts (pip install edge-tts) to enable audio.",
+            }
+        except Exception as e:
+            log.warning(f"Podcast TTS failed: {e}")
+            return {
+                "status": "ok",
+                "script": script_text,
+                "audio_base64": None,
+                "message": f"Script generated. Audio failed: {e}",
+            }
 
     # ─────────────────────────────────────────────────────────────────────
     # KB CHAT — Retrieval-Grounded Q&A with Citations
@@ -1323,57 +1439,190 @@ class KnowledgeHandler(ApiHandler):
     # RAG pipeline: hybrid search → context block → LLM → citation normalization.
     # All logic is additive — does not modify existing query/store actions.
 
+    # ─────────────────────────────────────────────────────────────────────
+    # Conversation persistence helpers
+    # ─────────────────────────────────────────────────────────────────────
+
+    def _conv_path(self, conv_id: str) -> str:
+        safe = "".join(c for c in conv_id if c.isalnum() or c in "-_")[:80]
+        return os.path.join(CONV_DIR, f"{safe}.json")
+
+    def _load_conversation(self, conv_id: str) -> dict:
+        p = self._conv_path(conv_id)
+        if os.path.isfile(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return {"id": conv_id, "messages": [], "created_at": time.strftime("%Y-%m-%d %H:%M:%S")}
+
+    def _save_conversation(self, conv: dict):
+        p = self._conv_path(conv["id"])
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(conv, f, ensure_ascii=False, indent=2)
+
+    def _list_conversations(self, input: dict) -> dict:
+        nb_id = input.get("notebook_id", "")
+        convs = []
+        for fname in sorted(os.listdir(CONV_DIR), reverse=True)[:50]:
+            if not fname.endswith(".json"):
+                continue
+            try:
+                with open(os.path.join(CONV_DIR, fname), "r", encoding="utf-8") as f:
+                    c = json.load(f)
+                if nb_id and c.get("notebook_id", "") != nb_id:
+                    continue
+                convs.append({
+                    "id": c.get("id", ""),
+                    "notebook_id": c.get("notebook_id", ""),
+                    "title": c.get("title", c.get("id", "")),
+                    "message_count": len(c.get("messages", [])),
+                    "created_at": c.get("created_at", ""),
+                    "updated_at": c.get("updated_at", ""),
+                })
+            except Exception:
+                continue
+        return {"status": "ok", "conversations": convs}
+
+    def _get_conversation(self, input: dict) -> dict:
+        conv_id = input.get("conversation_id", "")
+        if not conv_id:
+            return {"status": "error", "error": "conversation_id required"}
+        conv = self._load_conversation(conv_id)
+        return {"status": "ok", "conversation": conv}
+
+    def _delete_conversation(self, input: dict) -> dict:
+        conv_id = input.get("conversation_id", "")
+        if not conv_id:
+            return {"status": "error", "error": "conversation_id required"}
+        p = self._conv_path(conv_id)
+        if os.path.isfile(p):
+            os.remove(p)
+        return {"status": "ok"}
+
+    # ─────────────────────────────────────────────────────────────────────
+    # Shared LLM helper (sync, called from asyncio.to_thread)
+    # ─────────────────────────────────────────────────────────────────────
+
+    def _call_llm_sync(self, prompt: str, system: str = "", max_tokens: int = 1500,
+                       history: list = None) -> str | None:
+        """Call the configured LLM synchronously via litellm. Returns text or None."""
+        try:
+            import litellm
+            config_path = os.path.join(os.path.dirname(KB_DIR),
+                                       "usr", "plugins", "_model_config", "config.json")
+            model_name = "gpt-4o-mini"
+            api_base = ""
+            provider = "openai"
+            if os.path.isfile(config_path):
+                try:
+                    with open(config_path) as f:
+                        cfg = json.load(f)
+                    chat = cfg.get("chat_model", {})
+                    provider = chat.get("provider", "openai")
+                    model_name = chat.get("name", "gpt-4o-mini")
+                    api_base = chat.get("api_base", "")
+                except Exception:
+                    pass
+
+            if provider == "lm_studio" and api_base:
+                llm_model, kwargs = f"lm_studio/{model_name}", {"api_base": api_base}
+            elif provider == "ollama" and api_base:
+                llm_model, kwargs = f"ollama/{model_name}", {"api_base": api_base}
+            else:
+                llm_model, kwargs = model_name, {}
+
+            messages = []
+            if system:
+                messages.append({"role": "system", "content": system})
+            if history:
+                messages.extend(history[-10:])  # last 10 turns for context
+            messages.append({"role": "user", "content": prompt})
+
+            resp = litellm.completion(model=llm_model, messages=messages,
+                                      max_tokens=max_tokens, temperature=0.3, **kwargs)
+            return resp.choices[0].message.content
+        except Exception as e:
+            log.warning(f"LLM call failed: {e}")
+            return None
+
+    # ─────────────────────────────────────────────────────────────────────
+    # KB CHAT — Scoped, Citation-Grounded, Conversation-Persistent
+    # ─────────────────────────────────────────────────────────────────────
+
     async def _kb_chat(self, input: dict) -> dict:
-        """Retrieval-grounded KB chat with citations.
+        """Retrieval-grounded KB chat.
 
-        1. Runs hybrid search (BM25 + vector) on the query
-        2. Builds a <retrieved_context> block with [n] citation labels
-        3. Sends to the configured LLM with a citation-aware system prompt
-        4. Normalizes [n] markers into [citation:entry_id] links
-        5. Returns {answer, citations, sources_found}
-
-        This does NOT touch Agent Zero's chat pipeline — it's a standalone
-        KB-only Q&A endpoint that the KB panel calls directly.
+        Scoped: when notebook_id given, searches ONLY that notebook's sources.
+        Persistent: saves each exchange to data/knowledge_base/conversations/<id>.json.
+        Agent Zero aware: input data flows in from Agent Zero via auto_store().
         """
         import asyncio
 
         query = (input.get("query") or "").strip()
+        nb_id = input.get("notebook_id", "")
         category = input.get("category", "")
         top_k = int(input.get("top_k", 8))
+        conv_id = input.get("conversation_id", "") or f"conv_{int(time.time())}"
 
         if not query:
             return {"status": "error", "error": "Query required"}
 
-        # ── Step 1: Retrieve relevant chunks ──
+        # ── Step 1: Determine which entries to search ──
         index = _load_index()
-        entries = index.get("entries", [])
+        all_entries = index.get("entries", [])
 
-        # Filter by category if specified
-        if category:
-            entries = [e for e in entries if e.get("category") == category]
+        if nb_id:
+            # Scoped to notebook sources only (NotebookLM behaviour)
+            data = self._load_notebooks()
+            nb_entry_ids = set()
+            nb_title = ""
+            for nb in data.get("notebooks", []):
+                if nb["id"] == nb_id:
+                    nb_entry_ids = {s["entry_id"] for s in nb.get("sources", [])}
+                    nb_title = nb.get("name", "")
+                    break
+            if not nb_entry_ids:
+                return {"status": "ok",
+                        "answer": "This notebook has no sources yet. Add KB entries as sources first.",
+                        "citations": [], "sources_found": 0, "conversation_id": conv_id}
+            entries = [e for e in all_entries if e.get("id") in nb_entry_ids]
+        elif category:
+            entries = [e for e in all_entries if e.get("category") == category]
+        else:
+            entries = all_entries
 
         if not entries:
             return {"status": "ok", "answer": "No knowledge base entries found.",
-                    "citations": [], "sources_found": 0}
+                    "citations": [], "sources_found": 0, "conversation_id": conv_id}
 
-        # Read full content for each entry
+        # ── Step 2: Load conversation history for context ──
+        conv = self._load_conversation(conv_id)
+        conv.setdefault("notebook_id", nb_id)
+        if not conv.get("title"):
+            conv["title"] = query[:60]
+        history_msgs = [
+            {"role": m["role"], "content": m["content"]}
+            for m in conv.get("messages", [])[-10:]
+        ]
+
+        # ── Step 3: Read + chunk entries ──
         def _load_chunks():
             chunks = []
             for entry in entries:
-                filepath = entry.get("file", "")
-                if not filepath or not os.path.isfile(filepath):
+                fp = entry.get("file", "")
+                if not fp or not os.path.isfile(fp):
                     continue
                 try:
-                    with open(filepath, "r", encoding="utf-8") as f:
+                    with open(fp, "r", encoding="utf-8") as f:
                         content = f.read()
-                    # Chunk the content for better retrieval
                     try:
                         from modules.rag.table_chunker import chunk_text_table_aware
                         text_chunks = chunk_text_table_aware(content, max_chars=2000)
                     except ImportError:
                         text_chunks = [content[:2000]]
-
-                    for i, chunk_text in enumerate(text_chunks[:5]):  # max 5 chunks per entry
+                    for i, chunk_text in enumerate(text_chunks[:5]):
                         chunks.append({
                             "content": chunk_text,
                             "entry_id": entry.get("id", ""),
@@ -1387,12 +1636,11 @@ class KnowledgeHandler(ApiHandler):
             return chunks
 
         chunks = await asyncio.to_thread(_load_chunks)
-
         if not chunks:
             return {"status": "ok", "answer": "Could not read any KB entries.",
-                    "citations": [], "sources_found": 0}
+                    "citations": [], "sources_found": 0, "conversation_id": conv_id}
 
-        # ── Step 2: Hybrid search ──
+        # ── Step 4: Hybrid search ──
         def _search():
             try:
                 from modules.rag.hybrid_search import HybridSearcher
@@ -1400,94 +1648,49 @@ class KnowledgeHandler(ApiHandler):
                 searcher.index(chunks)
                 return searcher.search(query, top_k=top_k)
             except ImportError:
-                # Fallback: simple keyword matching
-                query_lower = query.lower()
-                scored = []
-                for chunk in chunks:
-                    score = sum(1 for word in query_lower.split()
-                                if word in chunk.get("content", "").lower())
-                    if score > 0:
-                        chunk["hybrid_score"] = score
-                        scored.append(chunk)
-                return sorted(scored, key=lambda x: x.get("hybrid_score", 0),
-                              reverse=True)[:top_k]
+                q = query.lower()
+                scored = [c for c in chunks
+                          if sum(1 for w in q.split() if w in c.get("content", "").lower()) > 0]
+                scored.sort(key=lambda x: x.get("hybrid_score", 0), reverse=True)
+                return scored[:top_k]
 
         results = await asyncio.to_thread(_search)
-
         if not results:
             return {"status": "ok",
-                    "answer": f"No relevant entries found for: '{query}'. Try different search terms or add more articles to the Knowledge Base.",
-                    "citations": [], "sources_found": 0}
+                    "answer": f"No relevant entries found for: '{query}'.",
+                    "citations": [], "sources_found": 0, "conversation_id": conv_id}
 
-        # ── Step 3: Build citation context ──
+        # ── Step 5: Build citation context ──
         from modules.rag.citations import CitationRegistry, render_context, normalize_citations, CITATION_PROMPT
-
         registry = CitationRegistry()
         context_block = render_context(results, registry, max_chars=10000)
 
-        # ── Step 4: Send to LLM ──
-        def _call_llm():
-            full_prompt = f"{CITATION_PROMPT}\n\n{context_block}\n\nUser question: {query}"
-
-            # Try to use the configured LLM via LiteLLM
-            try:
-                import litellm
-                # Determine model from Agent Zero settings
-                import json as _json
-                config_path = os.path.join(os.path.dirname(KB_DIR),
-                                           "usr", "plugins", "_model_config", "config.json")
-                model_name = "gpt-4o-mini"  # fallback
-                api_base = ""
-                provider = "openai"
-
-                if os.path.isfile(config_path):
-                    try:
-                        with open(config_path) as f:
-                            cfg = _json.load(f)
-                        chat = cfg.get("chat_model", {})
-                        provider = chat.get("provider", "openai")
-                        model_name = chat.get("name", "gpt-4o-mini")
-                        api_base = chat.get("api_base", "")
-                    except Exception:
-                        pass
-
-                # Build LiteLLM model string
-                if provider == "lm_studio" and api_base:
-                    llm_model = f"lm_studio/{model_name}"
-                    kwargs = {"api_base": api_base}
-                elif provider == "ollama" and api_base:
-                    llm_model = f"ollama/{model_name}"
-                    kwargs = {"api_base": api_base}
-                else:
-                    llm_model = model_name
-                    kwargs = {}
-
-                response = litellm.completion(
-                    model=llm_model,
-                    messages=[{"role": "user", "content": full_prompt}],
-                    max_tokens=1500,
-                    temperature=0.3,
-                    **kwargs,
-                )
-                return response.choices[0].message.content
-
-            except Exception as e:
-                log.warning(f"LLM call failed: {e}")
-                # Fallback: return the raw context without LLM processing
-                return None
-
-        answer = await asyncio.to_thread(_call_llm)
+        # ── Step 6: LLM with conversation history ──
+        full_prompt = f"{context_block}\n\nUser question: {query}"
+        answer = await asyncio.to_thread(
+            self._call_llm_sync, full_prompt, CITATION_PROMPT, 1500, history_msgs
+        )
 
         if not answer:
-            # LLM failed — return the retrieved context as a summary
             answer = "## Retrieved Sources\n\n"
             for r in results[:5]:
-                n = registry.register("kb", str(r.get("entry_id", "")),
-                                      r.get("title", ""), r.get("content", ""))
-                answer += f"**[{n}] {r.get('title', 'Untitled')}**\n{r.get('content', '')[:500]}...\n\n"
+                registry.register("kb", str(r.get("entry_id", "")),
+                                  r.get("title", ""), r.get("content", ""))
+                answer += f"**{r.get('title', 'Untitled')}**\n{r.get('content', '')[:500]}...\n\n"
         else:
-            # Normalize citations in the answer
             answer = normalize_citations(answer, registry)
+
+        # ── Step 7: Persist conversation ──
+        conv.setdefault("messages", []).append(
+            {"role": "user", "content": query, "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")}
+        )
+        conv["messages"].append(
+            {"role": "assistant", "content": answer,
+             "citations": registry.to_dict()["citations"],
+             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")}
+        )
+        conv["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        self._save_conversation(conv)
 
         return {
             "status": "ok",
@@ -1495,4 +1698,213 @@ class KnowledgeHandler(ApiHandler):
             "citations": registry.to_dict()["citations"],
             "sources_found": len(results),
             "query": query,
+            "conversation_id": conv_id,
+            "notebook_id": nb_id,
         }
+
+    # ─────────────────────────────────────────────────────────────────────
+    # Study Guide, Briefing, Suggested Questions, Source Summary
+    # ─────────────────────────────────────────────────────────────────────
+
+    def _load_notebook_content(self, nb_id: str, max_per_source: int = 3000) -> tuple[list, str]:
+        """Return (entries_with_content, combined_text) for a notebook's sources."""
+        data = self._load_notebooks()
+        index = _load_index()
+        entry_map = {e.get("id", ""): e for e in index.get("entries", [])}
+        results = []
+        combined = ""
+        for nb in data.get("notebooks", []):
+            if nb["id"] == nb_id:
+                for src in nb.get("sources", []):
+                    e = entry_map.get(src.get("entry_id", ""), {})
+                    if not e:
+                        continue
+                    fp = e.get("file", "")
+                    content = ""
+                    if fp and os.path.isfile(fp):
+                        try:
+                            with open(fp, "r", encoding="utf-8") as f:
+                                content = f.read(max_per_source)
+                        except Exception:
+                            pass
+                    results.append({**e, "_content": content})
+                    combined += f"\n\n=== {e.get('title', 'Source')} ===\n{content}"
+                break
+        return results, combined
+
+    async def _generate_study_guide(self, input: dict) -> dict:
+        """Generate a study guide (key concepts, FAQ, glossary) from notebook sources."""
+        import asyncio
+        nb_id = input.get("notebook_id", "")
+        if not nb_id:
+            return {"status": "error", "error": "notebook_id required"}
+
+        sources, combined = self._load_notebook_content(nb_id, max_per_source=2000)
+        if not combined.strip():
+            return {"status": "error", "error": "No sources in notebook"}
+
+        prompt = (
+            "You are a pharmaceutical science educator. Based on the research below, generate a study guide.\n\n"
+            "Output EXACTLY this structure (use these exact headings):\n\n"
+            "## Key Concepts\n"
+            "List 6-10 key concepts as bullet points with a 1-sentence explanation each.\n\n"
+            "## FAQ\n"
+            "List 6-8 Q&A pairs in format:\n**Q:** question\n**A:** answer\n\n"
+            "## Glossary\n"
+            "List 8-12 technical terms with definitions.\n\n"
+            "## Key Takeaways\n"
+            "3-5 bullet points summarizing the most important findings.\n\n"
+            f"Research:\n{combined[:12000]}"
+        )
+
+        guide_text = await asyncio.to_thread(self._call_llm_sync, prompt, max_tokens=2000)
+        if not guide_text:
+            return {"status": "error", "error": "LLM unavailable"}
+
+        # Cache in notebook
+        data = self._load_notebooks()
+        for nb in data.get("notebooks", []):
+            if nb["id"] == nb_id:
+                nb["study_guide"] = {"content": guide_text,
+                                     "generated_at": time.strftime("%Y-%m-%d %H:%M:%S")}
+                break
+        self._save_notebooks(data)
+
+        return {"status": "ok", "study_guide": guide_text,
+                "source_count": len(sources), "notebook_id": nb_id}
+
+    async def _generate_briefing(self, input: dict) -> dict:
+        """Generate an executive briefing document from notebook sources."""
+        import asyncio
+        nb_id = input.get("notebook_id", "")
+        if not nb_id:
+            return {"status": "error", "error": "notebook_id required"}
+
+        sources, combined = self._load_notebook_content(nb_id, max_per_source=2500)
+        if not combined.strip():
+            return {"status": "error", "error": "No sources in notebook"}
+
+        source_titles = [s.get("title", "Untitled") for s in sources]
+        prompt = (
+            "You are a pharmaceutical research analyst. Write an executive briefing based on these sources.\n\n"
+            f"Sources: {', '.join(source_titles)}\n\n"
+            "Output this structure:\n\n"
+            "## Executive Summary\n2-3 paragraph synthesis of key findings.\n\n"
+            "## Key Findings\nBullet points of the most significant results.\n\n"
+            "## Contradictions & Debates\nAreas where sources disagree (or 'No major contradictions identified').\n\n"
+            "## Knowledge Gaps\nWhat questions remain unanswered.\n\n"
+            "## Recommended Next Steps\n3-5 actionable recommendations for further research.\n\n"
+            f"Research:\n{combined[:14000]}"
+        )
+
+        briefing_text = await asyncio.to_thread(self._call_llm_sync, prompt, max_tokens=2000)
+        if not briefing_text:
+            return {"status": "error", "error": "LLM unavailable"}
+
+        data = self._load_notebooks()
+        for nb in data.get("notebooks", []):
+            if nb["id"] == nb_id:
+                nb["briefing"] = {"content": briefing_text,
+                                  "generated_at": time.strftime("%Y-%m-%d %H:%M:%S")}
+                break
+        self._save_notebooks(data)
+
+        return {"status": "ok", "briefing": briefing_text,
+                "source_count": len(sources), "notebook_id": nb_id}
+
+    async def _suggest_questions(self, input: dict) -> dict:
+        """Generate 5-8 suggested follow-up questions for a notebook or single entry."""
+        import asyncio
+        nb_id = input.get("notebook_id", "")
+        entry_id = input.get("entry_id", "")
+
+        if nb_id:
+            sources, combined = self._load_notebook_content(nb_id, max_per_source=1500)
+            context_label = f"notebook ({len(sources)} sources)"
+        elif entry_id:
+            index = _load_index()
+            combined = ""
+            for e in index.get("entries", []):
+                if e.get("id") == entry_id:
+                    fp = e.get("file", "")
+                    if fp and os.path.isfile(fp):
+                        with open(fp, "r", encoding="utf-8") as f:
+                            combined = f.read(3000)
+                    break
+            context_label = "entry"
+        else:
+            return {"status": "error", "error": "notebook_id or entry_id required"}
+
+        if not combined.strip():
+            return {"status": "error", "error": "No content found"}
+
+        prompt = (
+            "Based on the following research, generate 6 insightful follow-up questions a researcher would ask.\n"
+            "Make them specific, analytical, and pharma-focused.\n"
+            "Output ONLY a JSON array of strings, e.g.:\n"
+            '["Question 1?", "Question 2?", ...]\n\n'
+            f"Research:\n{combined[:6000]}"
+        )
+
+        raw = await asyncio.to_thread(self._call_llm_sync, prompt, max_tokens=400)
+        questions = []
+        if raw:
+            try:
+                import re
+                m = re.search(r'\[.*?\]', raw, re.DOTALL)
+                if m:
+                    questions = json.loads(m.group())
+            except Exception:
+                # Fallback: split by newline, strip bullets
+                questions = [line.strip().lstrip("-•0123456789. ").strip()
+                             for line in raw.split("\n") if "?" in line][:8]
+
+        if nb_id:
+            # Cache questions on the notebook
+            data = self._load_notebooks()
+            for nb in data.get("notebooks", []):
+                if nb["id"] == nb_id:
+                    nb["suggested_questions"] = questions
+                    nb["questions_generated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                    break
+            self._save_notebooks(data)
+
+        return {"status": "ok", "questions": questions,
+                "context": context_label, "notebook_id": nb_id}
+
+    async def _summarize_source(self, input: dict) -> dict:
+        """Summarize a single KB entry in 3-5 sentences."""
+        import asyncio
+        entry_id = input.get("entry_id", "")
+        if not entry_id:
+            return {"status": "error", "error": "entry_id required"}
+
+        index = _load_index()
+        content = ""
+        title = ""
+        for e in index.get("entries", []):
+            if e.get("id") == entry_id:
+                title = e.get("title", "")
+                fp = e.get("file", "")
+                if fp and os.path.isfile(fp):
+                    try:
+                        with open(fp, "r", encoding="utf-8") as f:
+                            content = f.read(5000)
+                    except Exception:
+                        pass
+                break
+
+        if not content:
+            return {"status": "error", "error": "Entry not found"}
+
+        prompt = (
+            f"Summarize this research entry in 3-5 clear sentences for a pharmaceutical scientist.\n"
+            f"Focus on: key findings, methods, and implications.\n\n"
+            f"Title: {title}\n\nContent:\n{content}"
+        )
+        summary = await asyncio.to_thread(self._call_llm_sync, prompt, max_tokens=300)
+        if not summary:
+            # Fallback: first 400 chars of content
+            summary = content[:400].strip() + "..."
+
+        return {"status": "ok", "summary": summary, "entry_id": entry_id, "title": title}
