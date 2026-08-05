@@ -33,7 +33,7 @@ const mdLiteFactory = () => ({
     sanitizing: "Sanitizing PDB", parameterizing: "Parameterizing",
     solvating: "Adding solvent", minimizing: "Minimizing energy",
     equilibrating: "Equilibrating", starting: "Starting MD",
-    running: "Running MD", completed: "Complete ✓", stopped: "Stopped",
+    running: "Running MD", prepared: "Prepared ✓", completed: "Complete ✓", stopped: "Stopped",
     interrupted: "Interrupted (sleep/crash) — Resume available",
     resuming: "Resuming from checkpoint...",
     error: "Error", unknown: "Unknown"
@@ -98,7 +98,7 @@ const mdLiteFactory = () => ({
     document.body.appendChild(i); i.click();
   },
 
-  // Prepare system (standard)
+  // Prepare system (standard) — returns immediately, polls status in background
   async prepare() {
     this.loading = true; this.errorMessage = ""; this.jobId = null; this.liveLog = [];
     try {
@@ -126,6 +126,12 @@ const mdLiteFactory = () => ({
         });
         if (r.status === "ok") {
           this.jobId = r.job_id || imp.job_id;
+          if (r.preparing) {
+            // Preparation running in background — poll for status
+            this.liveLog.push("Preparing system...");
+            this._pollPrepare();
+            return;
+          }
           this.step = 2;
           const atoms = r.total_atoms || ((r.protein_atoms || 0) + (r.ligand_atoms || 0));
           this.liveLog.push(`Complex prepared · ${atoms || "?"} atoms`);
@@ -155,6 +161,12 @@ const mdLiteFactory = () => ({
       const r = await callJsonApi("md_lite", p);
       if (r.status === "ok") {
         this.jobId = r.job_id;
+        if (r.preparing) {
+          // Preparation running in background — poll for status
+          this.liveLog.push("Preparing system...");
+          this._pollPrepare();
+          return;
+        }
         this.step = 2;
         this.liveLog.push(`Minimization complete · ${r.min_energy_kjmol} kJ/mol`);
       } else {
@@ -164,25 +176,64 @@ const mdLiteFactory = () => ({
     this.loading = false;
   },
 
+  // Poll status during preparation (like pollStatus but for prepare phase)
+  _pollPrepare() {
+    this._lastPhase = null;
+    const poll = async () => {
+      if (!this.jobId) return;
+      try {
+        const r = await callJsonApi("md_lite", { action: "status", job_id: this.jobId });
+        this.status = r;
+        // Show phase changes in live log
+        const phase = r.phase || r.status;
+        if (phase && phase !== this._lastPhase) {
+          this._lastPhase = phase;
+          const label = this.phaseLabels[phase] || phase;
+          this.liveLog.push(`▸ ${label}`);
+        }
+        // Check if preparation finished
+        if (r.status === "prepared" || r.phase === "prepared") {
+          this.step = 2;
+          this.loading = false;
+          if (r.total_atoms) {
+            this.liveLog.push(`Complex prepared · ${r.total_atoms} atoms (${r.protein_atoms || "?"} protein + ${r.ligand_atoms || "?"} ligand)`);
+            if (r.ligand_smiles) this.liveLog.push(`Ligand SMILES: ${r.ligand_smiles}`);
+          } else {
+            this.liveLog.push(`Minimization complete · ${r.min_energy_kjmol || "?"} kJ/mol`);
+          }
+          clearInterval(this._preparePollTimer);
+          return;
+        }
+        if (r.status === "error") {
+          this.errorMessage = r.error || "Preparation failed";
+          this.loading = false;
+          clearInterval(this._preparePollTimer);
+          return;
+        }
+      } catch {}
+    };
+    poll();
+    this._preparePollTimer = setInterval(poll, 2000);
+  },
+
   // Auto-prepare complex (PDBFixer + RDKit) — bridges docking → MD
+  // Returns immediately, polls status in background
   async prepareComplex() {
     this.loading = true; this.errorMessage = ""; this.jobId = null; this.liveLog = [];
     try {
       const p = { action: "prepare_complex" };
-      if (this._proteinContent) p.protein_pdb_path = this._proteinName;
-      if (this._ligandContent) p.ligand_pdbqt_path = this._ligandName;
-      // Pass file content for server-side processing
-      if (this._proteinContent) {
-        p.protein_pdb_content = this._proteinContent;
-        p.ligand_pdbqt_content = this._ligandContent || "";
-      }
+      if (this._proteinContent) p.protein_pdb_content = this._proteinContent;
+      if (this._ligandContent) p.ligand_pdbqt_content = this._ligandContent;
       const r = await callJsonApi("md_lite", p);
       if (r.status === "ok") {
         this.jobId = r.job_id;
+        if (r.preparing) {
+          this.liveLog.push("Preparing complex (PDBFixer + RDKit)...");
+          this._pollPrepare();
+          return;
+        }
         this.step = 2;
         this.liveLog.push(`Complex prepared: ${r.total_atoms} atoms (${r.protein_atoms} protein + ${r.ligand_atoms} ligand)`);
-        if (r.ligand_smiles) this.liveLog.push(`Ligand SMILES: ${r.ligand_smiles}`);
-        this.liveLog.push(r.message || "Ready for MD simulation");
       } else {
         this.errorMessage = r.error || "Complex preparation failed";
       }
@@ -351,6 +402,7 @@ const mdLiteFactory = () => ({
   resetAll() {
     clearInterval(this._pollTimer);
     clearInterval(this._logPollTimer);
+    clearInterval(this._preparePollTimer);
     this.step = 1; this.jobId = null;
     this.result = null; this.status = null; this.errorMessage = "";
     this.liveLog = []; this.mdLog = [];

@@ -253,21 +253,27 @@ class MDLite(ApiHandler):
             eng._update_status("prepared", {"min_energy_kjmol": round(energy, 1)})
             return round(energy, 1)
 
-        try:
-            energy = await asyncio.to_thread(_do_prepare)
-            return {"status": "ok", "job_id": job_id, "prepared": True,
-                    "min_energy_kjmol": energy}
-        except FileNotFoundError as e:
-            _write_status(job_dir, "error", {"phase": "error", "error": str(e)})
-            return {"status": "error", "error": f"PDB file not found: {e}"}
-        except ImportError as e:
-            _write_status(job_dir, "error", {"phase": "error", "error": str(e)})
-            return {"status": "error", "error": f"Missing dependency: {e}. Install OpenMM: pip install openmm mdtraj"}
-        except Exception as e:
-            log.exception("Prepare failed")
-            _write_status(job_dir, "error", {"phase": "error", "error": str(e)})
-            msg = _friendly_error(str(e))
-            return {"status": "error", "error": msg}
+        # Run preparation in a background thread so the frontend can poll status
+        def _run_prepare():
+            try:
+                energy = _do_prepare()
+                _write_status(job_dir, "prepared", {
+                    "phase": "prepared", "progress_pct": 100,
+                    "min_energy_kjmol": round(energy, 1),
+                })
+            except FileNotFoundError as e:
+                _write_status(job_dir, "error", {"phase": "error", "error": f"PDB file not found: {e}"})
+            except ImportError as e:
+                _write_status(job_dir, "error", {"phase": "error", "error": f"Missing dependency: {e}. Install OpenMM: pip install openmm mdtraj"})
+            except Exception as e:
+                log.exception("Prepare failed")
+                msg = _friendly_error(str(e))
+                _write_status(job_dir, "error", {"phase": "error", "error": msg})
+
+        t = threading.Thread(target=_run_prepare, daemon=True)
+        t.start()
+        _jobs[job_id] = t
+        return {"status": "ok", "job_id": job_id, "preparing": True}
 
     async def _prepare_complex(self, input):
         """Prepare a protein-ligand complex for MD — bridges docking → MD gap.
@@ -324,43 +330,47 @@ class MDLite(ApiHandler):
             else:
                 return {"status": "error", "error": "ligand_pdbqt path required and must exist, or provide ligand_pdbqt_content (or import_docking first)"}
 
-        def _do_complex():
-            from modules.md_lite.preparation import prepare_complex
-            output_path = os.path.join(job_dir, "prepared_complex.pdb")
-            return prepare_complex(protein_path, ligand_path, output_path)
+        # Run complex preparation in background thread so frontend can poll status
+        def _run_complex():
+            try:
+                from modules.md_lite.preparation import prepare_complex
+                output_path = os.path.join(job_dir, "prepared_complex.pdb")
+                result = prepare_complex(protein_path, ligand_path, output_path)
 
-        try:
-            result = await asyncio.to_thread(_do_complex)
+                if result.get("status") == "ok":
+                    pa = result.get("protein_atoms") or 0
+                    la = result.get("ligand_atoms") or 0
+                    result["total_atoms"] = result.get("total_atoms") or (pa + la if (pa or la) else 0)
+                    _write_status(job_dir, "prepared", {
+                        "phase": "prepared", "progress_pct": 100,
+                        "total_atoms": result["total_atoms"],
+                        "protein_atoms": result.get("protein_atoms", 0),
+                        "ligand_atoms": result.get("ligand_atoms", 0),
+                        "ligand_smiles": result.get("ligand_smiles", ""),
+                        "message": result.get("message", "Complex prepared"),
+                    })
+                    try:
+                        from modules.knowledge.auto_store import auto_store
+                        auto_store("md_lite",
+                            f"MD Complex Prepared: {result.get('total_atoms', 0)} atoms",
+                            result,
+                            source="MD Lite Preparation",
+                            tags=["md", "preparation", "complex"],
+                            category="md_simulation")
+                    except Exception:
+                        pass
+                elif result.get("status") == "error":
+                    _write_status(job_dir, "error", {"phase": "error", "error": result.get("error", "Unknown error")})
+                else:
+                    _write_status(job_dir, "error", {"phase": "error", "error": "Complex preparation returned unexpected result"})
+            except Exception as e:
+                log.error(f"Complex preparation failed: {e}")
+                _write_status(job_dir, "error", {"phase": "error", "error": str(e)})
 
-            if result.get("status") == "ok":
-                # Ensure UI-facing totals
-                pa = result.get("protein_atoms") or 0
-                la = result.get("ligand_atoms") or 0
-                result["total_atoms"] = result.get("total_atoms") or (pa + la if (pa or la) else 0)
-                _write_status(job_dir, "prepared", {"phase": "prepared", "total_atoms": result["total_atoms"]})
-                try:
-                    from modules.knowledge.auto_store import auto_store
-                    auto_store("md_lite",
-                        f"MD Complex Prepared: {result.get('total_atoms', 0)} atoms",
-                        result,
-                        source="MD Lite Preparation",
-                        tags=["md", "preparation", "complex"],
-                        category="md_simulation")
-                except Exception:
-                    pass
-
-                result["job_id"] = job_id
-                result["job_dir"] = job_dir
-                result["next_step"] = f"Call action='run' with job_id='{job_id}' to start MD simulation"
-
-            elif result.get("status") == "error" and "error" in result:
-                _write_status(job_dir, "error", {"phase": "error", "error": result.get("error")})
-
-            return result
-
-        except Exception as e:
-            log.error(f"Complex preparation failed: {e}")
-            _write_status(job_dir, "error", {"phase": "error", "error": str(e)})
+        t = threading.Thread(target=_run_complex, daemon=True)
+        t.start()
+        _jobs[job_id] = t
+        return {"status": "ok", "job_id": job_id, "preparing": True}
             return {"status": "error", "error": str(e)}
 
     def _run(self, input):
