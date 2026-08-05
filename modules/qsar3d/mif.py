@@ -363,7 +363,10 @@ class MIFCalculator:
         """Pre-compute grid box encompassing all molecules."""
         all_coords = []
         for mol in mols:
-            conf = mol.GetConformer()
+            try:
+                conf = mol.GetConformer()
+            except ValueError:
+                continue  # skip molecules without 3D coordinates
             if conf:
                 for i in range(mol.GetNumAtoms()):
                     pos = conf.GetAtomPosition(i)

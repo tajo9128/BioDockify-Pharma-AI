@@ -29,11 +29,17 @@ class MolecularAligner:
         self.max_iters = max_iters
 
     def generate_3d(self, mol: Chem.Mol) -> Chem.Mol:
-        """Generate 3D coordinates using ETKDG."""
+        """Generate 3D coordinates using ETKDGv3 with random-coords fallback."""
         mol = Chem.AddHs(mol)
         params = AllChem.ETKDGv3()
         params.randomSeed = 42
-        AllChem.EmbedMolecule(mol, params)
+        result = AllChem.EmbedMolecule(mol, params)
+        if result == -1:
+            # Fallback: random initial coordinates
+            result = AllChem.EmbedMolecule(mol, randomSeed=42, useRandomCoords=True, maxAttempts=10)
+        if result == -1:
+            logger.warning(f"EmbedMolecule failed for molecule — returning without 3D coords")
+            return mol
         try:
             AllChem.MMFFOptimizeMolecule(mol, maxIters=self.max_iters)
         except Exception:
@@ -155,6 +161,11 @@ class MolecularAligner:
                 logger.warning(f"Invalid SMILES: {smi}")
                 continue
             mol = self.generate_3d(mol)
+            try:
+                mol.GetConformer()  # verify 3D coords exist
+            except ValueError:
+                logger.warning(f"Could not generate 3D coordinates for: {smi}")
+                continue
             mols.append(mol)
             activities.append(float(act))
 

@@ -48,8 +48,8 @@ class StructureStandardizer:
             if mol is None:
                 return None
 
-            # Step 3: Neutralize charges (select parent)
-            mol = self.uncharger.choose(mol)
+            # Step 3: Neutralize charges
+            mol = self.uncharger.uncharge(mol)
             if mol is None:
                 return None
 

@@ -98,30 +98,62 @@ def calculate_descriptors(smiles_list):
     from rdkit import RDLogger
     RDLogger.DisableLog("rdApp.*")
 
-    descriptor_names = [
-        "MolWt", "MolLogP", "TPSA", "NumHDonors", "NumHAcceptors",
-        "NumRotatableBonds", "NumAromaticRings", "NumAliphaticRings",
-        "NumSaturatedRings", "NumHeteroatoms", "NumHeavyAtoms",
-        "FractionCSP3", "RingCount", "NumAmideBonds",
-        "LabuteASA", "BalabanJ", "BertzCT", "HallKierAlpha",
-        "Kappa1", "Kappa2", "Kappa3", "Chi0", "Chi1", "Chi0n", "Chi1n",
-        "Chi0v", "Chi1v", "Chi2v", "Chi3v", "Chi4v",
-        "MaxAbsEStateIndex", "MinAbsEStateIndex", "MaxEStateIndex", "MinEStateIndex",
-        "qed", "MolMR",
-        "NumValenceElectrons", "NumRadicalElectrons",
-        "MaxPartialCharge", "MinPartialCharge",
-        "MaxAbsPartialCharge", "MinAbsPartialCharge",
-        "FpDensityMorgan1", "FpDensityMorgan2", "FpDensityMorgan3",
-        "NumNHOHCount", "NumNOCount",
-        "NumAliphaticCarbocycles", "NumAliphaticHeterocycles",
-        "NumAromaticCarbocycles", "NumAromaticHeterocycles",
+    # (display_name, function) pairs — using correct RDKit API names
+    descriptor_funcs = [
+        ("MolWt", Descriptors.MolWt),
+        ("MolLogP", Descriptors.MolLogP),
+        ("TPSA", Descriptors.TPSA),
+        ("NumHDonors", Descriptors.NumHDonors),
+        ("NumHAcceptors", Descriptors.NumHAcceptors),
+        ("NumRotatableBonds", Descriptors.NumRotatableBonds),
+        ("NumAromaticRings", Descriptors.NumAromaticRings),
+        ("NumAliphaticRings", Descriptors.NumAliphaticRings),
+        ("NumSaturatedRings", Descriptors.NumSaturatedRings),
+        ("NumHeteroatoms", Descriptors.NumHeteroatoms),
+        ("HeavyAtomCount", Descriptors.HeavyAtomCount),
+        ("FractionCSP3", rdMolDescriptors.CalcFractionCSP3),
+        ("RingCount", Descriptors.RingCount),
+        ("NumAmideBonds", rdMolDescriptors.CalcNumAmideBonds),
+        ("LabuteASA", Descriptors.LabuteASA),
+        ("BalabanJ", Descriptors.BalabanJ),
+        ("BertzCT", Descriptors.BertzCT),
+        ("HallKierAlpha", Descriptors.HallKierAlpha),
+        ("Kappa1", Descriptors.Kappa1),
+        ("Kappa2", Descriptors.Kappa2),
+        ("Kappa3", Descriptors.Kappa3),
+        ("Chi0", Descriptors.Chi0),
+        ("Chi1", Descriptors.Chi1),
+        ("Chi0n", Descriptors.Chi0n),
+        ("Chi1n", Descriptors.Chi1n),
+        ("Chi0v", Descriptors.Chi0v),
+        ("Chi1v", Descriptors.Chi1v),
+        ("Chi2v", Descriptors.Chi2v),
+        ("Chi3v", Descriptors.Chi3v),
+        ("Chi4v", Descriptors.Chi4v),
+        ("MaxAbsEStateIndex", Descriptors.MaxAbsEStateIndex),
+        ("MinAbsEStateIndex", Descriptors.MinAbsEStateIndex),
+        ("MaxEStateIndex", Descriptors.MaxEStateIndex),
+        ("MinEStateIndex", Descriptors.MinEStateIndex),
+        ("qed", Descriptors.qed),
+        ("MolMR", Descriptors.MolMR),
+        ("NumValenceElectrons", Descriptors.NumValenceElectrons),
+        ("NumRadicalElectrons", Descriptors.NumRadicalElectrons),
+        ("MaxPartialCharge", Descriptors.MaxPartialCharge),
+        ("MinPartialCharge", Descriptors.MinPartialCharge),
+        ("MaxAbsPartialCharge", Descriptors.MaxAbsPartialCharge),
+        ("MinAbsPartialCharge", Descriptors.MinAbsPartialCharge),
+        ("FpDensityMorgan1", Descriptors.FpDensityMorgan1),
+        ("FpDensityMorgan2", Descriptors.FpDensityMorgan2),
+        ("FpDensityMorgan3", Descriptors.FpDensityMorgan3),
+        ("NHOHCount", Descriptors.NHOHCount),
+        ("NOCount", Descriptors.NOCount),
+        ("NumAliphaticCarbocycles", Descriptors.NumAliphaticCarbocycles),
+        ("NumAliphaticHeterocycles", Descriptors.NumAliphaticHeterocycles),
+        ("NumAromaticCarbocycles", Descriptors.NumAromaticCarbocycles),
+        ("NumAromaticHeterocycles", Descriptors.NumAromaticHeterocycles),
     ]
-
-    descriptor_funcs = []
-    for name in descriptor_names:
-        func = getattr(Descriptors, name, None) or getattr(rdMolDescriptors, name, None)
-        if func:
-            descriptor_funcs.append((name, func))
+    # Filter to only those that actually exist in this RDKit version
+    descriptor_funcs = [(n, f) for n, f in descriptor_funcs if callable(f)]
 
     all_desc = []
     valid_idx = []
