@@ -231,7 +231,7 @@
           ]" :key="filter.key">
             <div class="filter-card" :class="$store.admet.result[filter.key]?.pass?'pass':'fail'">
               <div class="filter-header">
-                <span class="material-symbols-outlined" x-text="$store.admet.result[filter.key]?.pass?'check_circle':'cancel'"></span>
+                <span style="font-size:18px" x-text="$store.admet.result[filter.key]?.pass?'✓':'✗'"></span>
                 <div>
                   <span class="filter-name" x-text="filter.name"></span>
                   <span class="filter-ref" x-text="filter.ref"></span>
@@ -242,7 +242,7 @@
               <div class="filter-violations" x-show="$store.admet.result[filter.key]?.violations?.length">
                 <template x-for="v in $store.admet.result[filter.key]?.violations||[]" :key="v">
                   <div class="violation-item">
-                    <span class="material-symbols-outlined" style="font-size:14px;color:#ef4444">error</span>
+                    <span style="font-size:14px;color:#ef4444;font-weight:bold">✗</span>
                     <span x-text="v"></span>
                   </div>
                 </template>
@@ -252,7 +252,7 @@
           <!-- Golden Triangle -->
           <div class="filter-card" :class="$store.admet.result.golden_triangle?'pass':'fail'">
             <div class="filter-header">
-              <span class="material-symbols-outlined" x-text="$store.admet.result.golden_triangle?'check_circle':'cancel'"></span>
+              <span style="font-size:18px" x-text="$store.admet.result.golden_triangle?'✓':'✗'"></span>
               <div><span class="filter-name">Golden Triangle</span><span class="filter-ref">Johnson & Luty 2009</span></div>
               <span class="filter-badge" :class="$store.admet.result.golden_triangle?'pass':'fail'"
                     x-text="$store.admet.result.golden_triangle?'PASS':'FAIL'"></span>
