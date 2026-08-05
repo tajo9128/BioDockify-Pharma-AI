@@ -116,6 +116,11 @@ class FacultyTools(ApiHandler):
             return self._bloom_analysis(input)
         elif action == "lab_manual":
             return self._lab_manual(input)
+        # ── Textbook Integration (book-to-skill) ──
+        elif action == "textbook_extract":
+            return self._textbook_extract(input)
+        elif action == "textbook_chapter":
+            return self._textbook_chapter(input)
         else:
             return {
                 "actions": ["syllabus", "plan_semester", "plan_class", "lesson_plan", "prep_notes",
@@ -123,7 +128,8 @@ class FacultyTools(ApiHandler):
                             "analyze_syllabus_enhanced", "divide_into_classes",
                             "find_reference_books", "generate_class_slides", "create_class_ppt",
                             "exam_paper", "rubric", "grade_calculator", "co_po_mapping", "question_blueprint",
-                            "bloom_questions", "bloom_analysis", "lab_manual"],
+                            "bloom_questions", "bloom_analysis", "lab_manual",
+                            "textbook_extract", "textbook_chapter"],
                 "hint": "Send action with topic/text"
             }
 
@@ -1600,3 +1606,152 @@ class FacultyTools(ApiHandler):
             f"What are the possible sources of error?",
             f"How would you improve the accuracy of results?",
         ]
+
+    # ── Textbook Integration (book-to-skill) ──────────────────────────────────
+
+    def _textbook_extract(self, input: dict) -> dict:
+        """Extract text and chapter structure from an uploaded textbook.
+
+        Supports: PDF, EPUB, DOCX, HTML, TXT, RTF, MD.
+        Returns chapter list with metadata for syllabus mapping, lecture generation, etc.
+
+        Input:
+            file_content: base64-encoded file content
+            file_name: original filename (for format detection)
+        """
+        file_content = input.get("file_content", "")
+        file_name = input.get("file_name", "textbook.pdf")
+
+        if not file_content:
+            return {"error": "file_content (base64) is required"}
+
+        try:
+            import base64
+            file_bytes = base64.b64decode(file_content)
+        except Exception as e:
+            return {"error": f"Invalid base64 content: {e}"}
+
+        try:
+            from modules.faculty.textbook_parser import extract_textbook
+            result = extract_textbook(file_bytes, file_name)
+        except ImportError:
+            return {"error": "Textbook parser module not available"}
+        except Exception as e:
+            return {"error": f"Extraction failed: {e}"}
+
+        if not result.get("success"):
+            return {"error": result.get("error", "Extraction failed")}
+
+        # Store extracted text for later chapter queries
+        import time
+        textbook_id = f"tb_{int(time.time())}"
+        self._textbook_cache = getattr(self, "_textbook_cache", {})
+        self._textbook_cache[textbook_id] = {
+            "text": result["text"],
+            "chapters": result["chapters"],
+            "filename": file_name,
+        }
+
+        # Auto-store to KB
+        try:
+            _store_to_kb(
+                "Textbook",
+                f"Textbook: {file_name}",
+                result["text"][:5000],
+                tags="textbook," + file_name
+            )
+        except Exception:
+            pass
+
+        # Return chapters (without full text to keep response small)
+        chapters_summary = []
+        for ch in result["chapters"]:
+            chapters_summary.append({
+                "number": ch["number"],
+                "title": ch["title"],
+                "word_count": ch["word_count"],
+                "preview": ch["content"][:200] + "..." if len(ch["content"]) > 200 else ch["content"],
+            })
+
+        return {
+            "success": True,
+            "textbook_id": textbook_id,
+            "filename": file_name,
+            "structure": result["structure"],
+            "metadata": result["metadata"],
+            "chapters": chapters_summary,
+            "chapter_count": len(chapters_summary),
+        }
+
+    def _textbook_chapter(self, input: dict) -> dict:
+        """Generate content from a specific textbook chapter.
+
+        Can generate: lecture notes, slides, assignment, questions from a chapter.
+
+        Input:
+            textbook_id: ID from textbook_extract
+            chapter_number: which chapter to use
+            action_type: "lecture" | "slides" | "assignment" | "questions"
+            topic: override topic (optional, defaults to chapter title)
+        """
+        textbook_id = input.get("textbook_id", "")
+        chapter_number = int(input.get("chapter_number", 1))
+        action_type = input.get("action_type", "lecture")
+        topic = input.get("topic", "")
+
+        # Retrieve cached textbook
+        self._textbook_cache = getattr(self, "_textbook_cache", {})
+        textbook = self._textbook_cache.get(textbook_id)
+        if not textbook:
+            return {"error": "Textbook not found. Upload again with textbook_extract."}
+
+        # Find the chapter
+        from modules.faculty.textbook_parser import extract_chapter_content
+        chapter_content = extract_chapter_content(textbook["text"], chapter_number)
+        if not chapter_content:
+            return {"error": f"Chapter {chapter_number} not found in textbook"}
+
+        # Find chapter title
+        chapter_title = topic
+        if not chapter_title:
+            for ch in textbook.get("chapters", []):
+                if ch.get("number") == chapter_number:
+                    chapter_title = ch.get("title", f"Chapter {chapter_number}")
+                    break
+            if not chapter_title:
+                chapter_title = f"Chapter {chapter_number}"
+
+        # Truncate content for LLM context
+        content_for_llm = chapter_content[:8000]
+
+        # Generate based on action_type
+        if action_type == "lecture":
+            return self._gen_lecture({
+                "topic": chapter_title,
+                "duration": input.get("duration", "60"),
+                "level": input.get("level", "undergraduate"),
+                "reference_text": content_for_llm,
+            })
+        elif action_type == "slides":
+            return self._make_slides({
+                "topic": chapter_title,
+                "num_slides": input.get("num_slides", 10),
+                "style": input.get("style", "academic"),
+                "reference_text": content_for_llm,
+            })
+        elif action_type == "assignment":
+            return self._gen_assignment({
+                "topic": chapter_title,
+                "type": input.get("type", "homework"),
+                "difficulty": input.get("difficulty", "medium"),
+                "reference_text": content_for_llm,
+            })
+        elif action_type == "questions":
+            return self._gen_questions({
+                "topic": chapter_title,
+                "num_questions": input.get("num_questions", 10),
+                "type": input.get("q_type", "mixed"),
+                "reference_text": content_for_llm,
+            })
+        else:
+            return {"error": f"Unknown action_type: {action_type}. Use: lecture, slides, assignment, questions"}

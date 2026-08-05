@@ -66,6 +66,16 @@
       toolContent: "",
       toolResult: null,
 
+      // ── Textbook tab ──
+      textbookFileContent: "",
+      textbookFileName: "",
+      textbookId: null,
+      textbookChapters: [],
+      textbookStructure: null,
+      textbookMeta: null,
+      textbookResult: null,
+      textbookGenAction: "lecture",
+
       // ── File Upload ──
       handleFileUpload(event) {
         const file = event.target.files[0];
@@ -277,6 +287,72 @@
         this.loading = false;
       },
 
+      // ── Textbook methods ──
+      handleTextbookUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        this.textbookFileName = file.name;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          this.textbookFileContent = (e.target.result.split(",")[1] || "");
+        };
+        reader.readAsDataURL(file);
+      },
+
+      clearTextbook() {
+        this.textbookFileContent = "";
+        this.textbookFileName = "";
+        this.textbookId = null;
+        this.textbookChapters = [];
+        this.textbookStructure = null;
+        this.textbookMeta = null;
+        this.textbookResult = null;
+      },
+
+      async extractTextbook() {
+        if (!this.textbookFileContent) { this.error = "Upload a textbook file first"; return; }
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("faculty_tools", {
+            action: "textbook_extract",
+            file_content: this.textbookFileContent,
+            file_name: this.textbookFileName,
+          });
+          if (r.error) { this.error = r.error; }
+          else {
+            this.textbookId = r.textbook_id;
+            this.textbookChapters = r.chapters || [];
+            this.textbookStructure = r.structure || {};
+            this.textbookMeta = r.metadata || {};
+            this.textbookResult = r;
+            this.message = `Extracted ${r.chapter_count} chapters from ${r.filename}`;
+            setTimeout(() => { this.message = ""; }, 5000);
+          }
+        } catch (e) { this.error = "Extraction failed: " + e.message; }
+        this.loading = false;
+      },
+
+      async generateFromChapter(chapterNum, chapterTitle) {
+        if (!this.textbookId) { this.error = "Extract a textbook first"; return; }
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("faculty_tools", {
+            action: "textbook_chapter",
+            textbook_id: this.textbookId,
+            chapter_number: chapterNum,
+            action_type: this.textbookGenAction,
+            topic: chapterTitle,
+          });
+          if (r.error) { this.error = r.error; }
+          else {
+            this.textbookResult = r;
+            this.message = `Generated ${this.textbookGenAction} for Chapter ${chapterNum}`;
+            setTimeout(() => { this.message = ""; }, 5000);
+          }
+        } catch (e) { this.error = "Generation failed: " + e.message; }
+        this.loading = false;
+      },
+
       reset() {
         this.syllabusText = ""; this.syllabusResult = null; this.classSchedule = null;
         this.bookSearchResults = []; this.selectedBooks = []; this.bookSearchDone = false;
@@ -312,6 +388,8 @@
         <span class="material-symbols-outlined">science</span> Lab Manual</button>
       <button class="fc-tab" :class="{active:$store.classPrep.activeTab==='tools'}" @click="$store.classPrep.activeTab='tools'">
         <span class="material-symbols-outlined">build</span> Tools</button>
+      <button class="fc-tab" :class="{active:$store.classPrep.activeTab==='textbook'}" @click="$store.classPrep.activeTab='textbook'">
+        <span class="material-symbols-outlined">auto_stories</span> Textbook</button>
     </div>
 
     <!-- Status -->
@@ -539,6 +617,79 @@
         <span class="material-symbols-outlined">play_arrow</span> Run <span x-text="$store.classPrep.toolAction.replace(/_/g, ' ')"></span>
       </button>
       <div x-show="$store.classPrep.toolResult" class="fc-result" style="margin-top:10px;white-space:pre-wrap;font-size:0.7rem;max-height:400px;overflow-y:auto" x-text="typeof $store.classPrep.toolResult === 'string' ? $store.classPrep.toolResult : JSON.stringify($store.classPrep.toolResult, null, 2)"></div>
+    </div>
+
+    <!-- ═══ TEXTBOOK TAB ═══ -->
+    <div x-show="$store.classPrep.activeTab==='textbook'" class="fc-body">
+      <h3>📖 Textbook to Teaching</h3>
+      <p style="font-size:0.62rem;color:var(--color-text-muted);margin-bottom:10px">
+        Upload a textbook (PDF, EPUB, DOCX) and extract chapters. Then generate lectures, slides, assignments, or questions from any chapter.
+      </p>
+
+      <!-- Upload Section -->
+      <div x-show="!$store.classPrep.textbookId" style="margin-bottom:10px">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+          <label class="fc-upload-btn">
+            <span class="material-symbols-outlined" style="font-size:16px">upload_file</span> Upload Textbook
+            <input type="file" accept=".pdf,.epub,.docx,.html,.htm,.txt,.md,.rtf" style="display:none" @change="$store.classPrep.handleTextbookUpload($event)" />
+          </label>
+          <span x-show="$store.classPrep.textbookFileName" style="font-size:0.7rem;color:var(--color-text-muted)" x-text="$store.classPrep.textbookFileName"></span>
+          <button x-show="$store.classPrep.textbookFileName" @click="$store.classPrep.clearTextbook()" style="background:none;border:none;cursor:pointer;color:var(--color-text-muted);font-size:0.7rem">✕</button>
+        </div>
+        <p style="font-size:0.55rem;color:var(--color-text-muted)">Supported: PDF, EPUB, DOCX, HTML, TXT, RTF, MD</p>
+        <button class="fc-btn-primary" @click="$store.classPrep.extractTextbook()" :disabled="$store.classPrep.loading || !$store.classPrep.textbookFileContent">
+          <span class="material-symbols-outlined">auto_stories</span> Extract Chapters
+        </button>
+      </div>
+
+      <!-- Chapter List + Generation -->
+      <div x-show="$store.classPrep.textbookId">
+        <!-- Textbook Info -->
+        <div style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:10px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <span style="font-size:14px;color:#22c55e">✓</span>
+            <span style="font-size:0.7rem;font-weight:600;color:#22c55e" x-text="$store.classPrep.textbookFileName"></span>
+            <button @click="$store.classPrep.clearTextbook()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--color-text-muted);font-size:0.6rem">Upload different file</button>
+          </div>
+          <div style="display:flex;gap:12px;font-size:0.58rem;color:var(--color-text-muted)">
+            <span x-text="($store.classPrep.textbookMeta?.chapters_found || 0) + ' chapters'"></span>
+            <span x-text="($store.classPrep.textbookMeta?.word_count || 0).toLocaleString() + ' words'"></span>
+            <span x-text="($store.classPrep.textbookMeta?.format || '').toUpperCase()"></span>
+          </div>
+        </div>
+
+        <!-- Generation Mode -->
+        <div style="display:flex;gap:4px;margin-bottom:10px">
+          <button class="fc-chip" :class="{active:$store.classPrep.textbookGenAction==='lecture'}" @click="$store.classPrep.textbookGenAction='lecture'">📖 Lecture</button>
+          <button class="fc-chip" :class="{active:$store.classPrep.textbookGenAction==='slides'}" @click="$store.classPrep.textbookGenAction='slides'">📊 Slides</button>
+          <button class="fc-chip" :class="{active:$store.classPrep.textbookGenAction==='assignment'}" @click="$store.classPrep.textbookGenAction='assignment'">📝 Assignment</button>
+          <button class="fc-chip" :class="{active:$store.classPrep.textbookGenAction==='questions'}" @click="$store.classPrep.textbookGenAction='questions'">❓ Questions</button>
+        </div>
+
+        <!-- Chapter List -->
+        <h4 style="font-size:0.7rem;margin:0 0 6px">Chapters</h4>
+        <div style="max-height:400px;overflow-y:auto">
+          <template x-for="ch in $store.classPrep.textbookChapters" :key="ch.number">
+            <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--color-border);border-radius:8px;margin-bottom:4px;background:var(--color-panel)">
+              <span style="font-size:0.62rem;font-weight:700;color:var(--color-primary);min-width:24px" x-text="'Ch ' + ch.number"></span>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:0.68rem;font-weight:600;color:var(--color-text)" x-text="ch.title"></div>
+                <div style="font-size:0.52rem;color:var(--color-text-muted)" x-text="ch.word_count.toLocaleString() + ' words'"></div>
+              </div>
+              <button class="fc-btn-sm" @click="$store.classPrep.generateFromChapter(ch.number, ch.title)" :disabled="$store.classPrep.loading">
+                <span class="material-symbols-outlined" style="font-size:14px">auto_awesome</span>
+                <span x-text="$store.classPrep.textbookGenAction"></span>
+              </button>
+            </div>
+          </template>
+        </div>
+
+        <!-- Generated Result -->
+        <div x-show="$store.classPrep.textbookResult && !$store.classPrep.textbookResult.chapters" class="fc-result" style="margin-top:10px">
+          <h4 x-text="'Generated ' + $store.classPrep.textbookGenAction" style="font-size:0.7rem;margin:0 0 6px"></h4>
+          <div style="white-space:pre-wrap;font-size:0.65rem;max-height:300px;overflow-y:auto;color:var(--color-text)" x-text="JSON.stringify($store.classPrep.textbookResult, null, 2)"></div>
+        </div>
+      </div>
     </div>
 
     <style>
