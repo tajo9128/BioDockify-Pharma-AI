@@ -141,8 +141,8 @@ export const store = createStore("backupRecovery", {
   async createAutoBackup() {
     this.creating = true; this.message = "Creating auto-backup...";
     try {
-      const r = await callJsonApi("backup_create", { action: "create" });
-      if (r.status === "ok") { this.message = r.message || "Auto-backup created"; }
+      const r = await callJsonApi("backup_auto", { action: "create" });
+      if (r.success) { this.message = r.message || "Auto-backup created"; await this.loadBackups(); }
       else { this.error = r.error || "Backup failed"; }
     } catch (e) { this.error = "Backup failed: " + e.message; }
     this.creating = false;
@@ -152,8 +152,8 @@ export const store = createStore("backupRecovery", {
     if (!confirm("Restore from most recent auto-backup? This will overwrite current data.")) return;
     this.restoring = true; this.message = "Restoring from latest backup...";
     try {
-      const r = await callJsonApi("backup_create", { action: "restore" });
-      if (r.status === "ok") { this.message = r.message || "Restored from backup"; }
+      const r = await callJsonApi("backup_auto", { action: "restore" });
+      if (r.success) { this.message = r.message || "Restored from backup"; }
       else { this.error = r.error || "Restore failed"; }
     } catch (e) { this.error = "Restore failed: " + e.message; }
     this.restoring = false;
@@ -163,8 +163,8 @@ export const store = createStore("backupRecovery", {
     if (!confirm("Restore from " + name + "? This will overwrite current data.")) return;
     this.restoring = true; this.message = "Restoring from " + name + "...";
     try {
-      const r = await callJsonApi("backup_create", { action: "restore_specific", backup_name: name });
-      if (r.status === "ok") { this.message = r.message || "Restored"; }
+      const r = await callJsonApi("backup_auto", { action: "restore", backup_id: name });
+      if (r.success) { this.message = r.message || "Restored"; }
       else { this.error = r.error || "Restore failed"; }
     } catch (e) { this.error = "Restore failed: " + e.message; }
     this.restoring = false;
@@ -173,7 +173,7 @@ export const store = createStore("backupRecovery", {
   async listAutoBackups() {
     this.loading = true;
     try {
-      const r = await callJsonApi("backup_create", { action: "list" });
+      const r = await callJsonApi("backup_auto", { action: "list" });
       if (r.status === "ok") { this.autoBackupList = r.backups || []; }
     } catch (e) {}
     this.loading = false;
@@ -181,7 +181,7 @@ export const store = createStore("backupRecovery", {
 
   async loadAutoBackupStatus() {
     try {
-      const r = await callJsonApi("backup_create", { action: "status" });
+      const r = await callJsonApi("backup_auto", { action: "status" });
       if (r.status === "ok") { this.autoBackupStatus = r; }
     } catch (e) {}
   },

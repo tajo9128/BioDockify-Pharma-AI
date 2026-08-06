@@ -39,10 +39,16 @@ class BackupCrypto:
     def _load_or_generate_key(self, password: str, key_path: str) -> bytes:
         if not CRYPTO_AVAILABLE:
             return None
-            
+
         if password:
-            # Derive key from password
-            salt = b'biodockify_salt_static' # In prod, store random salt
+            salt_path = key_path + ".salt"
+            if os.path.exists(salt_path):
+                with open(salt_path, 'rb') as f:
+                    salt = f.read()
+            else:
+                salt = os.urandom(16)
+                with open(salt_path, 'wb') as f:
+                    f.write(salt)
             kdf = PBKDF2HMAC(
                 algorithm=hashes.SHA256(),
                 length=32,
@@ -50,7 +56,7 @@ class BackupCrypto:
                 iterations=100000,
             )
             return base64.urlsafe_b64encode(kdf.derive(password.encode()))
-        
+
         if os.path.exists(key_path):
             with open(key_path, 'rb') as f:
                 return f.read()
@@ -63,11 +69,10 @@ class BackupCrypto:
     def encrypt_file(self, file_path: str, output_path: str):
         """Encrypts a file and saves it to output_path."""
         if not self.cipher:
-            # No encryption - just copy
             import shutil
             shutil.copy(file_path, output_path)
             return
-            
+
         with open(file_path, 'rb') as f:
             data = f.read()
         encrypted = self.cipher.encrypt(data)
@@ -77,11 +82,10 @@ class BackupCrypto:
     def decrypt_file(self, file_path: str, output_path: str):
         """Decrypts a file and saves it to output_path."""
         if not self.cipher:
-            # No encryption - just copy
             import shutil
             shutil.copy(file_path, output_path)
             return
-            
+
         with open(file_path, 'rb') as f:
             data = f.read()
         decrypted = self.cipher.decrypt(data)

@@ -7,9 +7,10 @@ from .drive_client import DriveClient
 from .crypto import BackupCrypto
 
 class BackupManager:
-    def __init__(self, drive_client: DriveClient):
+    def __init__(self, drive_client: DriveClient, password: str = None):
         self.drive = drive_client
-        self.crypto = BackupCrypto(password="biodockify_secure_default") # In prod, get from user settings
+        crypto_password = password or os.environ.get("BACKUP_ENCRYPTION_KEY", "biodockify_secure_default")
+        self.crypto = BackupCrypto(password=crypto_password)
         self.temp_dir = os.path.join(tempfile.gettempdir(), "agent_zero_backup_temp")
         if not os.path.exists(self.temp_dir):
             os.makedirs(self.temp_dir)
@@ -75,8 +76,12 @@ class BackupManager:
             # 2. Decrypt
             self.crypto.decrypt_file(enc_path, zip_path)
 
-            # 3. Unzip
+            # 3. Unzip with path traversal protection
             with zipfile.ZipFile(zip_path, 'r') as zipf:
+                for member in zipf.namelist():
+                    member_path = os.path.realpath(os.path.join(dest_root, member))
+                    if not member_path.startswith(os.path.realpath(dest_root) + os.sep) and member_path != os.path.realpath(dest_root):
+                        raise Exception(f"Path traversal detected in archive: {member}")
                 zipf.extractall(dest_root)
 
             return {"status": "success", "message": "Restored successfully"}
