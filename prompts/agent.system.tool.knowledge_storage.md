@@ -35,7 +35,6 @@ print("Stored:", entry["id"], "→", entry["file"])
 - `literature_search` → literature
 - `deep_research` → deep_research
 - `docking_run`, `docking_mmgbsa`, `docking_analysis` → docking
-- `md_lite` → md_simulation
 - `qsar3d` → qsar
 - `pharmacophore` → pharmacophore
 - `drug_analysis`, `admet_predict`, `drug_properties` → drug_analysis

@@ -16,7 +16,7 @@
   <img src="assets/screenshot.png" alt="BioDockify Pharma AI Screenshot" width="800">
 </p>
 
-**BioDockify Pharma AI** is a pharmaceutical research platform built on the **Agent Zero v2.0** core, with **25+ integrated modules** covering all 8 pharmacy departments. It features AutoDock Vina molecular docking with MM-GBSA free energy scoring, OpenMM molecular dynamics (MD Lite) with publication-grade trajectory analysis (MDAnalysis), **56 biostatistics analysis types** (SPSS/jamovi-level), **12 advanced Academic Writer skills** (EQUATOR reporting guidelines, PRISMA systematic review pipeline, per-section quality scoring, De-AIGC rewrite, claim verification), **7-level drug interaction database** (50+ clinically significant pairs), **Perplexity-style citation system** with hybrid search (BM25 + FAISS + RRF), Obsidian bidirectional sync, a Knowledge Base with retrieval-grounded RAG chat, an Academic Writer with pharma-specific claim verification and ICH compliance checks, a 36,145-journal recommender, 4 AI sub-agents, and bulletproof backup to PC.
+**BioDockify Pharma AI** is a pharmaceutical research platform built on the **Agent Zero v2.0** core, with **22+ integrated modules** covering all 8 pharmacy departments. It features AutoDock Vina molecular docking with MM-GBSA free energy scoring, **56 biostatistics analysis types** (SPSS/jamovi-level), **12 advanced Academic Writer skills** (EQUATOR reporting guidelines, PRISMA systematic review pipeline, per-section quality scoring, De-AIGC rewrite, claim verification), **7-level drug interaction database** (50+ clinically significant pairs), **Perplexity-style citation system** with hybrid search (BM25 + FAISS + RRF), Obsidian bidirectional sync, a Knowledge Base with retrieval-grounded RAG chat, an Academic Writer with pharma-specific claim verification and ICH compliance checks, a 36,145-journal recommender, 4 AI sub-agents, and bulletproof backup to PC.
 
 ---
 
@@ -65,7 +65,6 @@ BioDockify supports any OpenAI-compatible local LLM through its AI Engine module
 | 9 | **Drug Analysis** | 3Dmol.js viewer + Properties (hERG/AMES/pKa/BBB) + Filters + Optimization + PubChem | RDKit + PubChem |
 | 10 | **Docking Analysis** | 3D receptor+ligand viewer, interactions, PLIF, clusters, external file upload | 3Dmol.js + RDKit |
 | 11 | **Knowledge Base** | Open Notebook LM-style: Notebooks, Sources, Notes, Chat, AI transformations, podcast, source filters (by module + time), category sidebar, DOCX export, full text extraction (PDF/DOCX/XLSX) | auto_store |
-| 12 | **MD Lite** | OpenMM molecular dynamics, GPU-accelerated (CUDA/OpenCL), 24-48hr background runs with auto-resume + **PDBFixer protein preparation** | OpenMM + MDTraj |
 | 13 | **System Health** | Platform-aware health badges (Vina/MM-GBSA/RDKit/Meeko), Docker vs Windows | health.py |
 | 14 | **Deep Research** | 5-database collection (PubMed, S2, Crossref, OpenAlex, arXiv), relevance scanning | 5 live APIs |
 | 15 | **Backup & Recovery** | Full system backup/restore + Save to PC + Restore from PC + daily auto-backup | backup APIs |
@@ -317,23 +316,6 @@ Agent0 (Main Orchestrator)
 
 8 interactive Plotly dashboards: Property Distributions, Correlation Heatmap, Chemical Space PCA, Drug-likeness Analysis, 3D Chemical Space, Parallel Coordinates, Scatter Matrix, Summary Table.
 
-### MD Lite — 12 Advanced Analyses
-
-| # | Analysis | GROMACS Equivalent |
-|---|----------|-------------------|
-| 1 | Hydrogen Bonds (residue-resolved) | `gmx hbond` |
-| 2 | Water Bridges | — |
-| 3 | Native Contacts (Q fraction) | — |
-| 4 | Radial Distribution Function | `gmx rdf` |
-| 5 | Ramachandran | `gmx rama` |
-| 6 | PCA (essential dynamics) | `gmx covar` + `gmx anaeig` |
-| 7 | H-Bond Lifetimes | — |
-| 8 | Ligand-Residue Distances | `gmx distance` |
-| 9 | Secondary Structure (DSSP) | `gmx do_dssp` |
-| 10 | Dielectric Constant | — |
-| 11 | **Free Energy Landscape** | `gmx covar` + `gmx anaeig` + `gmx sham` |
-| 12 | **Entropy (QHA + Schlitter)** | `gmx anaeig -entropy` |
-
 ### QSAR — 20+ ML Models
 
 Models: PLS, Ridge, Lasso, ElasticNet, KNN, DecisionTree, RandomForest, GradientBoosting, ExtraTrees, AdaBoost, Bagging, SVR, KernelRidge, MLP, XGBoost, LightGBM, CatBoost, Voting, Stacking.
@@ -370,7 +352,6 @@ The biggest architectural change: **llama-server is now bundled inside the BioDo
 | No claim verification | **6-type pharma claim verification** (efficacy, safety, PK/PD, mechanism, comparative, dosing) |
 | No pharma scorecard | **8-dimension quality scorecard** (study design, stats, safety, efficacy, PK/PD, regulatory, citations, writing) |
 | No ICH compliance checks | **CONSORT/STROBE/PRISMA/ARRIVE/ICH** compliance checking |
-| No PDBFixer in MD Lite | **PDBFixer integration** — auto-fixes missing atoms, hydrogens, terminal residues |
 | No in-app model manager | **4-tab AI Engine panel** (Status, Models, Runtimes, Benchmark) |
 | No benchmark | **Built-in tok/s benchmark** with Good/OK/Slow verdict |
 | 3 stability sprints | **5 stability sprints** completed (security, backend, frontend, Docker, docs) |
@@ -461,14 +442,6 @@ and refactors the module architecture for testability.
 - **In-app panel**: right-canvas rail → "BioDockify AI Engine" → Status/Models/
   Runtimes/Benchmark tabs
 
-#### MD Lite — Publication-Grade Analysis Suite
-- **10 advanced analyses** via MDAnalysis: H-bond (residue-resolved, occupancy,
-  distances), Water Bridges, Native Contacts (Q fraction), RDF (solvation
-  shells), Ramachandran, PCA/Essential Dynamics, H-bond Lifetimes,
-  Ligand-Residue Distances, Secondary Structure (DSSP), Dielectric Constant
-- **PDBFixer installed** — fixes missing H atoms, terminal residues, missing
-  atoms that caused "No template found for residue X" errors
-
 #### Pharma Departments — All 8 Upgraded
 - **Pharmaceutics**: 6→10 actions + DOE (full factorial/fractional/Taguchi)
 - **Clinical Pharmacy**: DDI database 15→50+ pairs, AUC-vancomycin, Beers
@@ -478,7 +451,6 @@ and refactors the module architecture for testability.
 - **Regulatory**: Fixed EMA search (was stub)
 - **Pharmacology**: Unchanged (already strong at 7 actions)
 - **Medicinal Chemistry**: Unchanged (already strong at 10 actions)
-- **MD Lite**: 10+11 actions (basic + advanced analysis)
 
 #### Literature Search — Fixed
 - Fixed PubMed PMCID extraction (was returning empty → Tier-1 full text broken)
@@ -506,8 +478,6 @@ and refactors the module architecture for testability.
 | v7.9.0 | Pharma Utilities Module — 9 shared calculations |
 | v7.8.0 | 7 advanced writing skills (PaperForge + Rigorous inspired) |
 | v7.7.1 | 5 advanced research skills (EQUATOR, AI disclosure, PRISMA, peer review, integrity gate) |
-| v7.7.0 | MD Lite publication-grade analysis suite (MDAnalysis) |
-| v7.6.6 | PDBFixer installed — MD "missing H atoms" root cause fixed |
 | v7.6.5 | Rollback Bonsai bundling to ~13 GB working image |
 | v7.6.0 | Graphify knowledge graph for AI agent codebase understanding |
 | v7.5.9 | Obsidian bidirectional sync |

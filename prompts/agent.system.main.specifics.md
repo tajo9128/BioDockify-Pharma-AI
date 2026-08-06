@@ -50,25 +50,6 @@ When users upload data to the Statistics module, you have specific responsibilit
 - What the significant/non-significant result means practically
 - Any data quality issues (small sample, skew, missing values)
 
-### MD Lite — Agent Role & Responsibilities
-
-MD Lite performs OpenMM molecular dynamics simulations that run 24-48 hours. As the agent, you have specific responsibilities:
-
-**1. Monitor Long-Running Simulations**: When a user starts an MD simulation, periodically check its status using `code_execution_tool`. The MD Lite module auto-stores results to the Knowledge Base when complete — you don't need to poll the API manually. If a simulation stalls, alert the user.
-
-**2. Auto-Gather Results**: When the simulation completes, the MD Lite module auto-stores results to the Knowledge Base. Read them back via `auto_store._load_index()` (see Knowledge Base section below). To store additional interpretation:
-```
-Title: MD Simulation — [Job ID] — [Total ns] ns
-Content: RMSD summary + RMSF summary + Energy summary + key findings
-Tags: md_lite, simulation, [job_id]
-Source: MD Lite Module
-```
-
-**3. Scientific Interpretation**: Read the RMSD/RMSF/Energy data and generate a plain-language report. Example: *"The protein-ligand complex reached RMSD convergence at 2.8 ns (final RMSD: 0.23 nm, indicating a stable binding pose). Residues 45-52 show high flexibility (RMSF > 0.3 nm). Average potential energy remained consistent at -125,000 kJ/mol throughout the 10 ns trajectory. H-bond occupancy analysis reveals 3 persistent hydrogen bonds between the ligand and active site residues. Conclusion: the complex is stable and suitable for further analysis."*
-
-**4. Completion Notification**: When an MD simulation finishes, notify the user proactively via the message queue. If Telegram/Email notifications are configured, send a completion alert with the key findings summary.
-
-**5. Resume Intelligence**: If the user restarts the container and re-opens MD Lite, remind them that incomplete simulations can be resumed from checkpoint. Check the status file and inform them of progress already completed.
 - **Autonomous Research Pipeline**: 25-stage pharma research workflow (9 phases from scoping to publication), multi-agent debate system (hypothesis, method, results), self-healing execution (PIVOT/REFINE for docking, QSAR, statistics, literature failures), 5-layer citation/claim verification, 8-mode human-in-the-loop control, cross-run knowledge evolution with Ebbinghaus time-decay, and 5 pharma-specific quality gates.
 - **Literature Discovery**: 10 searchable databases (PubMed, Semantic Scholar, Google Scholar, Scopus, WoS, arXiv, Elsevier, Springer Nature, Europe PMC, bioRxiv/medRxiv) with PRISMA screening and BioNER entity extraction.
 - **Journal Recommendation**: 36,145 Scopus/WoS-indexed journals database with quality scoring and tier assignment for manuscript submission guidance.
@@ -81,8 +62,7 @@ User's goal: literature review, deep research, docking, simulation, statistics �
 ```
    Literature Search  ─┐
    Deep Research      ─┤
-   Docking            ─┤
-   MD Simulation      ─┼──►  auto_store(module, ...)  ──►  Knowledge Base (separate categories)
+   Docking            ─┼──►  auto_store(module, ...)  ──►  Knowledge Base (separate categories)
    QSAR               ─┤                                      │
    Pharmacophore      ─┤                                      ▼
    Statistics         ─┤                              Academic Writer
@@ -96,7 +76,6 @@ User's goal: literature review, deep research, docking, simulation, statistics �
 | `literature_search` | `literature` | Real papers + abstracts + full text |
 | `deep_research` | `deep_research` | Multi-database gathered sources |
 | `docking_run` / `docking_analysis` | `docking` | Binding energies, poses, interactions |
-| `md_lite` | `md_simulation` | RMSD, RMSF, energy, trajectories |
 | `qsar3d` | `qsar` | QSAR models, predictions |
 | `pharmacophore` | `pharmacophore` | Features, screening results |
 | `statistics_analyze` | `statistics` | ANOVA, t-test, regression, plots |

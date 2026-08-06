@@ -44,4 +44,4 @@ asyncio.run(dock())
 3. Use exhaustiveness=64 for publication quality (default 8 is too low).
 4. For batch docking (multiple ligands), call multiple times or use the docking_analysis module.
 
-**Pipeline context:** Docking → Docking Analysis → MD Lite → Knowledge Base → Academic Writer
+**Pipeline context:** Docking → Docking Analysis → Knowledge Base → Academic Writer
