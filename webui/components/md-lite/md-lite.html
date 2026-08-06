@@ -88,11 +88,12 @@
 
       <!-- Simulation Length -->
       <div class="mc"><h4>Simulation Length <span class="mbadge c">Fast Mode</span></h4>
+        <p style="font-size:0.48rem;color:var(--color-text-muted);margin:0 0 6px">Actual time depends on system size. Large proteins (100K+ atoms) take hours-days on CPU.</p>
         <div class="mrl">
-          <label class="mr" :class="{on:settings.total_ns===1}" @click="settings.total_ns=1"><span>1 ns</span><small>~5 min CPU</small></label>
-          <label class="mr" :class="{on:settings.total_ns===5}" @click="settings.total_ns=5"><span>5 ns</span><small>~25 min CPU</small></label>
-          <label class="mr" :class="{on:settings.total_ns===10}" @click="settings.total_ns=10"><span>10 ns</span><small>~50 min CPU</small></label>
-          <label class="mr" :class="{on:settings.total_ns===50}" @click="settings.total_ns=50"><span>50 ns</span><small>~4 hr CPU</small></label>
+          <label class="mr" :class="{on:settings.total_ns===1}" @click="settings.total_ns=1"><span>1 ns</span><small>Quick test</small></label>
+          <label class="mr" :class="{on:settings.total_ns===5}" @click="settings.total_ns=5"><span>5 ns</span><small>Short run</small></label>
+          <label class="mr" :class="{on:settings.total_ns===10}" @click="settings.total_ns=10"><span>10 ns</span><small>Medium run</small></label>
+          <label class="mr" :class="{on:settings.total_ns===50}" @click="settings.total_ns=50"><span>50 ns</span><small>Long run (hours-days)</small></label>
         </div>
       </div>
 
