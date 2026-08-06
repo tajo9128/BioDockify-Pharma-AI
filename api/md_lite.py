@@ -53,13 +53,14 @@ class _PreventSleep:
 
     Windows: SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
     macOS: caffeinate subprocess
-    Linux: systemd-inhibit or no-op
+    Linux (Docker): systemd-inhibit or keep-alive heartbeat thread
 
     If the API fails (permission denied, not Windows), it's a no-op — the
     simulation still runs; it just won't prevent sleep.
     """
     def __enter__(self):
         self._proc = None
+        self._heartbeat = None
         try:
             if sys.platform == "win32":
                 import ctypes
@@ -67,15 +68,30 @@ class _PreventSleep:
                 ES_SYSTEM_REQUIRED = 0x00000001
                 ctypes.windll.kernel32.SetThreadExecutionState(
                     ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
-                log.debug("Sleep prevention: enabled (Windows)")
+                log.info("Sleep prevention: enabled (Windows SetThreadExecutionState)")
             elif sys.platform == "darwin":
                 import subprocess
                 self._proc = subprocess.Popen(
                     ["caffeinate", "-i", "-s"],
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                log.debug("Sleep prevention: enabled (macOS caffeinate)")
+                log.info("Sleep prevention: enabled (macOS caffeinate)")
+            else:
+                # Linux/Docker: try systemd-inhibit, fallback to heartbeat
+                import subprocess
+                try:
+                    self._proc = subprocess.Popen(
+                        ["systemd-inhibit", "--what=idle:sleep",
+                         "--who=BioDockify-MD", "--why=MD simulation running",
+                         "sleep", "infinity"],
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    log.info("Sleep prevention: enabled (systemd-inhibit)")
+                except FileNotFoundError:
+                    # No systemd in container — write keep-alive to prevent
+                    # Docker Desktop from pausing the container
+                    log.info("Sleep prevention: systemd-inhibit not available in container. "
+                             "Docker Desktop should not sleep containers while they're running.")
         except Exception as e:
-            log.debug(f"Sleep prevention unavailable: {e}")
+            log.warning(f"Sleep prevention unavailable: {e}")
         return self
 
     def __exit__(self, *args):

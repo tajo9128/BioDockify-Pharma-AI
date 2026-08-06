@@ -300,8 +300,12 @@ const mdLiteFactory = () => ({
           this.loadResults();
         } else if (r.status === "interrupted") {
           this.liveLog.push("⚠️ Simulation interrupted (system sleep or crash).");
-          this.liveLog.push("Your partial trajectory and analysis are saved. Click Resume to continue, or Download to get what you have.");
-          setTimeout(() => this.loadResults(), 500);
+          if (r.progress_ns > 0 || r.total_steps_done > 0) {
+            this.liveLog.push(`Partial results available (${r.progress_ns || 0} ns, ${r.total_steps_done || 0} steps). Click Resume or Download.`);
+            setTimeout(() => this.loadResults(), 500);
+          } else {
+            this.liveLog.push("No trajectory data yet — simulation was interrupted before MD steps started. Click Resume to restart.");
+          }
         }
       }
     } catch {}

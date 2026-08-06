@@ -765,7 +765,9 @@ class MDEngine:
 
         OpenMM reporters are called inside simulation.step() every `report_interval` steps,
         so status updates happen even while a long simulation.step() is blocking.
+        Also updates every STATUS_INTERVAL_SEC seconds regardless of step count.
         """
+        STATUS_INTERVAL_SEC = 120  # update at least every 2 minutes
         engine = self  # capture reference for the reporter closure
 
         class _StatusReporter:
@@ -789,8 +791,31 @@ class MDEngine:
                 engine._update_status("running")
                 self._last_report_time = now
 
+        class _TimeReporter:
+            """Fallback reporter: updates status every STATUS_INTERVAL_SEC seconds."""
+            def __init__(self):
+                self._last = time.time()
+
+            def describeNextReport(self, simulation):
+                # Report every 1 step — we check time in report()
+                return (1, False, True, False, False, None)
+
+            def report(self, simulation, state):
+                now = time.time()
+                if now - self._last >= STATUS_INTERVAL_SEC:
+                    step = simulation.currentStep
+                    engine._steps_done = step
+                    elapsed = now - engine._start_time if engine._start_time else 1
+                    if elapsed > 0 and step > 0:
+                        steps_per_sec = step / elapsed
+                        remaining = engine._total_steps - step
+                        engine._reporter_eta = round((remaining / steps_per_sec) / 60, 1) if steps_per_sec > 0 else 0
+                    engine._update_status("running")
+                    self._last = now
+
         self.simulation.reporters.append(_StatusReporter())
-        log.info(f"Status reporter added (every {report_interval} steps)")
+        self.simulation.reporters.append(_TimeReporter())
+        log.info(f"Status reporters added (every {report_interval} steps + every {STATUS_INTERVAL_SEC}s)")
 
     def _update_status(self, status, extra=None):
         data = {"status": status, "timestamp": time.time(),
@@ -830,8 +855,9 @@ class MDEngine:
 
         chunk_steps = int(checkpoint_interval_ns * steps_per_ns)
         # Status reporter: updates status.json inside simulation.step() every N steps
-        # CPU: every 1000 steps (~4 min at 0.65 steps/sec). GPU: every 5000 steps.
-        status_interval = 1000 if self.platform_name == "CPU" else 5000
+        # CPU: every 50 steps (~10 min at 0.08 steps/sec for large systems).
+        # GPU: every 5000 steps (fast, updates every few seconds).
+        status_interval = 50 if self.platform_name == "CPU" else 5000
         self._add_status_reporter(status_interval)
         self._total_steps = total_steps
         self._chunks_total = max(1, total_steps // chunk_steps)
