@@ -131,7 +131,7 @@ class BackupService:
                 "python_version": platform.python_version(),
                 "cpu_count": str(psutil.cpu_count()),
                 "memory_total": str(psutil.virtual_memory().total),
-                "disk_usage": str(psutil.disk_usage('/').total if os.path.exists('/') else 0)
+                "disk_usage": str(psutil.disk_usage('/' if platform.system() != 'Windows' else os.environ.get('SystemDrive', 'C:\\')).total)
             }
         except Exception as e:
             return {"error": f"Failed to collect system info: {str(e)}"}
@@ -140,9 +140,9 @@ class BackupService:
         """Collect environment information for metadata"""
         try:
             return {
-                "user": os.environ.get("USER", "unknown"),
-                "home": os.environ.get("HOME", "unknown"),
-                "shell": os.environ.get("SHELL", "unknown"),
+                "user": os.environ.get("USER", os.environ.get("USERNAME", "unknown")),
+                "home": os.environ.get("HOME", os.environ.get("USERPROFILE", "unknown")),
+                "shell": os.environ.get("SHELL", os.environ.get("COMSPEC", "unknown")),
                 "path": os.environ.get("PATH", "")[:200] + "..." if len(os.environ.get("PATH", "")) > 200 else os.environ.get("PATH", ""),
                 "timezone": str(datetime.datetime.now().astimezone().tzinfo),
                 "working_directory": os.getcwd(),
@@ -413,9 +413,10 @@ class BackupService:
             return zip_path
 
         except Exception as e:
-            # Cleanup on error
-            if os.path.exists(zip_path):
-                os.remove(zip_path)
+            # Cleanup on error — remove entire temp dir
+            import shutil
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir, ignore_errors=True)
             raise Exception(f"Error creating backup: {str(e)}")
 
     async def inspect_backup(self, backup_file) -> Dict[str, Any]:

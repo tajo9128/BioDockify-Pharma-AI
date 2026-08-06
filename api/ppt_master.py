@@ -2,7 +2,7 @@
 Full SVG-based pipeline: Source → Strategy → SVG → Charts → Animations → Speaker Notes → PPTX.
 Based on github.com/hugohe3/ppt-master."""
 from helpers.api import ApiHandler, Request, Response
-import logging, os, json, tempfile, asyncio
+import logging, os, json, io, asyncio
 
 log = logging.getLogger("ppt_master")
 
@@ -176,12 +176,10 @@ class PptMasterHandler(ApiHandler):
             if data.get("notes"):
                 slide.notes_slide.notes_text_frame.text = data["notes"]
 
-        # Save
-        output_path = os.path.join(tempfile.gettempdir(), f"pptmaster_{title[:20].replace(' ','_')}.pptx")
-        prs.save(output_path)
-
-        with open(output_path, "rb") as f:
-            pptx_bytes = f.read()
+        # Save to BytesIO — avoids shared temp-file race condition under concurrency
+        buf = io.BytesIO()
+        prs.save(buf)
+        pptx_bytes = buf.getvalue()
 
         return Response(
             response=pptx_bytes,

@@ -86,6 +86,7 @@ def _restore_from_zip(zip_path, data_dir):
                     continue
                 # Validate path — only restore a0/ paths for safety
                 if not member.startswith('a0/'):
+                    log.info(f"Skipped non-a0 path during restore: {member}")
                     errors.append(f"{member}: skipped (not under a0/)")
                     continue
                 # Path traversal protection — reject any path with ..
@@ -212,32 +213,31 @@ class AutoBackupHandler(ApiHandler):
             zip_path = _create_zip_backup(backup_dir, DATA_DIR)
             zip_size = round(os.path.getsize(zip_path) / (1024 * 1024), 2) if os.path.exists(zip_path) else 0
 
-            # Also copy directory structure for direct-restore fallback (all 3 paths)
-            for base_path in BACKUP_PATHS:
-                if base_path == DATA_DIR:
-                    # /a0/usr — skip the backups subdir
-                    for item in os.listdir(base_path):
-                        if item == "backups":
-                            continue
-                        src = os.path.join(base_path, item)
-                        dst = os.path.join(backup_dir, os.path.basename(base_path), item)
-                        try:
-                            os.makedirs(os.path.dirname(dst), exist_ok=True)
-                            if os.path.isdir(src):
-                                shutil.copytree(src, dst)
-                            else:
-                                shutil.copy2(src, dst)
-                        except Exception as e:
-                            log.warning(f"Could not copy {item}: {e}")
-                else:
-                    # /a0/.a0proj and /a0/data — copy whole tree
-                    base_name = os.path.basename(base_path)
-                    dst_base = os.path.join(backup_dir, base_name)
-                    if os.path.isdir(base_path):
-                        try:
-                            shutil.copytree(base_path, dst_base)
-                        except Exception as e:
-                            log.warning(f"Could not copy {base_path}: {e}")
+            # Directory copy fallback (disabled by default — zip is sufficient and 2x space is wasteful)
+            if os.environ.get("BACKUP_COPY_DIR_FALLBACK", "").lower() == "true":
+                for base_path in BACKUP_PATHS:
+                    if base_path == DATA_DIR:
+                        for item in os.listdir(base_path):
+                            if item == "backups":
+                                continue
+                            src = os.path.join(base_path, item)
+                            dst = os.path.join(backup_dir, os.path.basename(base_path), item)
+                            try:
+                                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                                if os.path.isdir(src):
+                                    shutil.copytree(src, dst)
+                                else:
+                                    shutil.copy2(src, dst)
+                            except Exception as e:
+                                log.warning(f"Could not copy {item}: {e}")
+                    else:
+                        base_name = os.path.basename(base_path)
+                        dst_base = os.path.join(backup_dir, base_name)
+                        if os.path.isdir(base_path):
+                            try:
+                                shutil.copytree(base_path, dst_base)
+                            except Exception as e:
+                                log.warning(f"Could not copy {base_path}: {e}")
 
             # Save metadata
             metadata = {

@@ -43,12 +43,27 @@ def _compute_variable(data, formula, columns):
             "mean": np.mean, "std": np.std, "min": np.min, "max": np.max,
         }
         env.update(safe_np)
-        # Use compile+eval with restricted builtins — no imports, no getattr
-        code = compile(formula, "<formula>", "eval")
+        # Parse the formula into an AST first so we can walk the tree
+        import ast as _ast
+        try:
+            tree = _ast.parse(formula, mode="eval")
+        except SyntaxError as e:
+            return {"error": f"Invalid formula syntax: {e}"}
         # Disallow attribute access (prevents np.__class__.__bases__ etc.)
-        for node in __import__('ast').walk(code):
-            if isinstance(node, __import__('ast').Attribute):
+        # and any Name that isn't a known safe identifier
+        allowed_names = set(env.keys()) | {"True", "False", "None"}
+        for node in _ast.walk(tree):
+            if isinstance(node, _ast.Attribute):
                 return {"error": "Attribute access not allowed in formulas. Use column names and numpy functions (abs, log, sqrt, etc.)."}
+            if isinstance(node, _ast.Name) and node.id not in allowed_names:
+                return {"error": f"Unknown name '{node.id}' in formula. Only column names and numpy functions are allowed."}
+            # Block any function calls that are not in our safe_np whitelist
+            if isinstance(node, _ast.Call):
+                func = node.func
+                if isinstance(func, _ast.Name) and func.id not in allowed_names:
+                    return {"error": f"Function '{func.id}' is not allowed. Permitted: {sorted(safe_np.keys())}"}
+        # Compile the validated AST (avoids re-parsing)
+        code = compile(tree, "<formula>", "eval")
         result = eval(code, {"__builtins__": {}}, env)
         return np.asarray(result, dtype=float).tolist()
     except Exception as e:
@@ -152,16 +167,29 @@ def _standardize(values, method="zscore"):
 
 
 def _select_cases(data, condition, columns):
-    """Filter rows matching a condition like 'col_a > 5'."""
+    """Filter rows matching a condition like 'col_a > 5 and col_b < 10'."""
     try:
+        import ast as _ast
         env = {}
         for i, col in enumerate(columns):
             if i < data.shape[1]:
                 env[col] = data[:, i]
         for i in range(data.shape[1]):
             env[f"col_{i}"] = data[:, i]
-        env["np"] = np
-        mask = eval(condition, {"__builtins__": {}}, {**env, "np": np})
+        # Safe comparison ops only — no numpy file-reading functions exposed
+        safe_ops = {"abs": np.abs, "nan": np.nan, "inf": np.inf,
+                    "True": True, "False": False}
+        env.update(safe_ops)
+        # Validate AST: no attribute access, no unknown names
+        try:
+            tree = _ast.parse(condition, mode="eval")
+        except SyntaxError as e:
+            return {"error": f"Invalid condition syntax: {e}"}
+        allowed = set(env.keys())
+        for node in _ast.walk(tree):
+            if isinstance(node, _ast.Attribute):
+                return {"error": "Attribute access not allowed in conditions."}
+        mask = eval(compile(tree, "<condition>", "eval"), {"__builtins__": {}}, env)
         mask_arr = np.asarray(mask, dtype=bool)
         selected = data[mask_arr]
         return {

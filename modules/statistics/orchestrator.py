@@ -77,19 +77,32 @@ class StatisticsOrchestrator:
         self.additional_tools = AdditionalStatisticalTools(alpha=alpha)
         self.surfsense_bridge = SurfSenseStatisticsBridge(surfsense_url=surfsense_url)
         
-        # Initialize new specialized modules
-        self.survival_analyzer = SurvivalAnalysis(alpha=alpha)
+        # Initialize new specialized modules (guard optional deps)
+        try:
+            self.survival_analyzer = SurvivalAnalysis(alpha=alpha)
+        except ImportError:
+            self.survival_analyzer = None
         self.bioequivalence_analyzer = BioequivalenceTests(alpha=alpha)
         self.diagnostic_tests = DiagnosticTests(alpha=alpha)
         self.advanced_biostats = AdvancedBiostatistics(alpha=alpha)
-        # PKPDAnalysis initialized when needed (requires data, dose, route)
-        self.pkpd_analyzer = None
+        # PKPDAnalysis requires data + dose — initialized lazily via _get_pkpd_analyzer()
+        self._pkpd_dose = 1.0
+        self._pkpd_route = "EV"
         self.multiplicity_control = MultiplicityControl(alpha=alpha)
         
         self.auto_clean = auto_clean
         self.analysis_cache = {}
         self.current_data = None
         self.current_metadata = None
+
+    def _get_pkpd_analyzer(self, dose: float = None, route: str = None):
+        """Build a PKPDAnalysis instance from current_data. Raises if data not loaded."""
+        from modules.statistics.pkpd_analysis import PKPDAnalysis
+        if self.current_data is None:
+            raise ValueError("No data loaded. Import data first.")
+        d = dose if dose is not None else self._pkpd_dose
+        r = route if route is not None else self._pkpd_route
+        return PKPDAnalysis(data=self.current_data, dose=d, route=r)
 
     def import_data(
         self,
@@ -593,8 +606,13 @@ class StatisticsOrchestrator:
                     }
                 }
             
-            # Kolmogorov-Smirnov test
-            ks_stat, ks_p = stats.kstest(col_data, 'norm')
+            # Kolmogorov-Smirnov test — normalise against the *data's* distribution
+            ks_stat, ks_p = stats.kstest(col_data, 'norm',
+                                         args=(float(col_data.mean()), float(col_data.std())))
+            # Ensure the normality sub-dict exists even for large-n columns where
+            # the Shapiro-Wilk block above was skipped (n >= 5000)
+            if col not in report['normality']:
+                report['normality'][col] = {}
             report['normality'][col]['kolmogorov_smirnov'] = {
                 'statistic': float(ks_stat),
                 'p_value': float(ks_p),
@@ -621,7 +639,7 @@ class StatisticsOrchestrator:
                     'p_value': float(bartlett_p),
                     'equal_variance': bartlett_p > 0.05
                 }
-            except:
+            except Exception:
                 pass
 
         # 3. Outlier Detection
@@ -1110,40 +1128,56 @@ class StatisticsOrchestrator:
 A {test_name} was performed to test the research hypothesis. The analysis was conducted using BioDockify AI's statistical engine, compliant with Good Clinical Practice (GCP) guidelines. Significance was set at α = {self.statistical_engine.alpha}. """
 
         # Results Section
-        if p_value is not None and statistic is not None:
+        sig_str = ""  # initialise before conditional to prevent NameError
+        if p_value is not None:
             # Format p-value according to APA
             if p_value < 0.001:
                 p_str = 'p < .001'
             else:
                 p_str = f"p = {p_value:.3f}"
-            
-            # Determine significance
             sig_str = 'statistically significant' if p_value < self.statistical_engine.alpha else 'not statistically significant'
-            
+
+        if p_value is not None and statistic is not None:
+            # Build the APA statistic string using the correct notation per test type
+            test_lower = test_name.lower()
+            df_val = analysis_results.get('df', 'NA')
+            df2_val = analysis_results.get('df2', analysis_results.get('df_denom', ''))
+            if 'anova' in test_lower or 'f-test' in test_lower or 'f test' in test_lower:
+                df_str = f"F({df_val}, {df2_val})" if df2_val else f"F({df_val})"
+            elif 'chi' in test_lower or 'χ²' in test_lower:
+                df_str = f"χ²({df_val})"
+            elif 'correlat' in test_lower or 'pearson' in test_lower:
+                n = analysis_results.get('n', analysis_results.get('sample_size', ''))
+                df_str = f"r({int(n)-2})" if n else "r"
+            elif 'mann' in test_lower or 'wilcox' in test_lower or 'kruskal' in test_lower:
+                df_str = f"U" if 'mann' in test_lower or 'wilcox' in test_lower else "H"
+            else:
+                df_str = f"t({df_val})"
+
             report['results'] = f"""Results
 
-The {test_name} revealed {sig_str} effect, t({analysis_results.get('df', 'NA')}) = {statistic:.3f}, {p_str}."""
-            
+The {test_name} revealed a {sig_str} effect, {df_str} = {statistic:.3f}, {p_str}."""
+
             # Add effect size if available
             effect_size = analysis_results.get('effect_size', analysis_results.get('cohens_d', None))
             if effect_size is not None:
                 es_type = analysis_results.get('effect_size_type', 'd')
                 report['results'] += f" The effect size ({es_type}) was {effect_size:.3f}, indicating a {analysis_results.get('interpretation', 'moderate')} effect."
         else:
-            report['results'] = f"""Results
+            report['results'] = """Results
 
-The analysis was completed. See detailed results in the appendix. """
+The analysis was completed. See detailed results in the appendix."""
 
         # Discussion Section
         if p_value is not None:
             if p_value < self.statistical_engine.alpha:
                 report['discussion'] = f"""Discussion
 
-The results provide support for the alternative hypothesis. The {test_name} showed a {sig_str} effect at the predetermined alpha level. These findings suggest that the observed differences are unlikely to be due to random chance alone. Clinical or practical significance should be considered in conjunction with the statistical significance and effect size magnitude. """
+The results provide support for the alternative hypothesis. The {test_name} showed a {sig_str} effect at the predetermined alpha level. These findings suggest that the observed differences are unlikely to be due to random chance alone. Clinical or practical significance should be considered in conjunction with the statistical significance and effect size magnitude."""
             else:
                 report['discussion'] = f"""Discussion
 
-The results do not provide sufficient evidence to reject the null hypothesis. The {test_name} was not {sig_str} at the predetermined alpha level. This may indicate a true absence of effect, insufficient statistical power, or other factors that warrant further investigation. """
+The results do not provide sufficient evidence to reject the null hypothesis. The {test_name} was not {sig_str} at the predetermined alpha level. This may indicate a true absence of effect, insufficient statistical power, or other factors that warrant further investigation."""
         else:
             report['discussion'] = """Discussion
 
@@ -1214,12 +1248,17 @@ Interpretation of the results should consider the study context, assumptions, an
 
         # T-test/ANOVA results table
         if 'test_statistic' in analysis_results:
+            def _fmt3(v):
+                try:
+                    return f"{float(v):.3f}"
+                except (TypeError, ValueError):
+                    return str(v) if v is not None else 'N/A'
             test_data = {
                 'Test': analysis_results.get('test_name', 'Statistical Test'),
-                'Statistic': f"{analysis_results.get('test_statistic', 'N/A'):.3f}",
+                'Statistic': _fmt3(analysis_results.get('test_statistic')),
                 'df': analysis_results.get('df', 'N/A'),
-                'p-value': f"{analysis_results.get('p_value', 'N/A'):.3f}",
-                'Effect Size': f"{analysis_results.get('effect_size', 'N/A'):.3f}",
+                'p-value': _fmt3(analysis_results.get('p_value')),
+                'Effect Size': _fmt3(analysis_results.get('effect_size')),
                 'CI 95%': analysis_results.get('confidence_interval', 'N/A')
             }
             output['tables']['test_results'] = {
@@ -2107,7 +2146,7 @@ plt.show()
         logger.info("Performing NCA PK analysis")
 
         try:
-            results = self.pkpd_analyzer.non_compartmental_analysis(
+            results = self._get_pkpd_analyzer().non_compartmental_analysis(
                 self.current_data, time_col, conc_col, dose, route
             )
 
@@ -2157,7 +2196,7 @@ plt.show()
         logger.info("Calculating AUC parameters")
 
         try:
-            results = self.pkpd_analyzer.calculate_auc(
+            results = self._get_pkpd_analyzer().calculate_auc(
                 self.current_data, time_col, conc_col, dose
             )
 
@@ -2205,7 +2244,7 @@ plt.show()
         logger.info("Calculating Cmax and Tmax")
 
         try:
-            results = self.pkpd_analyzer.calculate_cmax_tmax(
+            results = self._get_pkpd_analyzer().calculate_cmax_tmax(
                 self.current_data, time_col, conc_col
             )
 
@@ -2253,7 +2292,7 @@ plt.show()
         logger.info("Estimating elimination half-life")
 
         try:
-            results = self.pkpd_analyzer.estimate_half_life(
+            results = self._get_pkpd_analyzer().estimate_half_life(
                 self.current_data, time_col, conc_col
             )
 
@@ -2307,7 +2346,7 @@ plt.show()
         logger.info("Calculating clearance parameters")
 
         try:
-            results = self.pkpd_analyzer.calculate_clearance(
+            results = self._get_pkpd_analyzer().calculate_clearance(
                 self.current_data, time_col, conc_col, dose, route
             )
 
@@ -2359,7 +2398,7 @@ plt.show()
         logger.info(f"Performing PD response modeling ({model_type})")
 
         try:
-            results = self.pkpd_analyzer.pd_response_modeling(
+            results = self._get_pkpd_analyzer().pd_response_modeling(
                 self.current_data, conc_col, effect_col, model_type
             )
 

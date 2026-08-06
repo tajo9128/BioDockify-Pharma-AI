@@ -100,5 +100,17 @@ class PlagiarismChecker:
         except Exception:
             return 0.0
 
-# Singleton
-plagiarism_checker = PlagiarismChecker()
+# Lazy singleton — initialised on first use so import never triggers vector-store errors
+_plagiarism_checker_instance = None
+
+
+def get_plagiarism_checker() -> "PlagiarismChecker":
+    global _plagiarism_checker_instance
+    if _plagiarism_checker_instance is None:
+        _plagiarism_checker_instance = PlagiarismChecker()
+    return _plagiarism_checker_instance
+
+
+# Legacy alias — kept for any code that imports `plagiarism_checker` directly;
+# evaluates lazily through the property-like access pattern.
+plagiarism_checker = None  # set to None; callers should use get_plagiarism_checker()

@@ -66,33 +66,77 @@ class SurfSenseClient:
     
     async def search(self, query: str, search_space_id: Optional[str] = None, top_k: int = 5) -> List[Dict[str, Any]]:
         """
-        SEARCH KNOWLEDGE BASE - Redirects to ChromaDB (Built-in, FREE, No API).
-        
-        This does NOT use SurfSense's search API.
-        Instead, it queries the internal ChromaDB vector store.
+        Hybrid BM25 + vector search over the Knowledge Base.
+
+        Loads all KB entries scoped to search_space_id (maps to category) when provided,
+        runs HybridSearcher (Reciprocal Rank Fusion), falls back to vector-only on import error.
         """
         try:
-            logger.info(f"Searching ChromaDB for: {query[:50]}...")
-            
-            from modules.rag.vector_store import get_vector_store
-            
-            vector_store = get_vector_store()
-            results = await vector_store.search(query, k=top_k)
-            
-            formatted_results = []
-            for doc in results:
-                formatted_results.append({
-                    "text": doc.get("text", ""),
-                    "source": doc.get("metadata", {}).get("source", "unknown"),
-                    "score": doc.get("score", 1.0),
-                    "metadata": doc.get("metadata", {})
-                })
-            
-            logger.info(f"ChromaDB search returned {len(formatted_results)} results")
-            return formatted_results
-            
+            import os, json
+            kb_dir_path = os.path.realpath(os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "..", "..", "data", "knowledge_base"
+            ))
+            index_file = os.path.join(kb_dir_path, "index.json")
+            entries = []
+            if os.path.isfile(index_file):
+                with open(index_file, "r", encoding="utf-8") as f:
+                    idx = json.load(f)
+                entries = idx.get("entries", [])
+
+            # Filter by search space (= category)
+            if search_space_id:
+                entries = [e for e in entries if e.get("category") == search_space_id]
+
+            # Build chunks for hybrid search
+            chunks = []
+            for entry in entries[:200]:  # cap for memory
+                fp = entry.get("file", "")
+                if not fp or not os.path.isfile(fp):
+                    continue
+                try:
+                    with open(fp, "r", encoding="utf-8") as f:
+                        text = f.read(3000)
+                    chunks.append({
+                        "content": text,
+                        "entry_id": entry.get("id", ""),
+                        "title": entry.get("title", ""),
+                        "source": entry.get("source", entry.get("title", "")),
+                        "category": entry.get("category", ""),
+                        "text": text,
+                        "metadata": {"source": entry.get("title", ""), "category": entry.get("category", "")},
+                    })
+                except Exception:
+                    continue
+
+            if not chunks:
+                return []
+
+            try:
+                from modules.rag.hybrid_search import HybridSearcher
+                searcher = HybridSearcher()
+                searcher.index(chunks)
+                results = searcher.search(query, top_k=top_k)
+                return [
+                    {
+                        "text": r.get("content", r.get("text", "")),
+                        "source": r.get("source", r.get("title", "unknown")),
+                        "score": r.get("hybrid_score", 1.0),
+                        "metadata": r.get("metadata", {}),
+                    }
+                    for r in results
+                ]
+            except ImportError:
+                # Fallback to vector store
+                from modules.rag.vector_store import get_vector_store
+                vs = get_vector_store()
+                if vs:
+                    raw = await vs.search(query, k=top_k)
+                    return [{"text": d.get("text", ""), "source": d.get("metadata", {}).get("source", ""),
+                             "score": d.get("score", 1.0), "metadata": d.get("metadata", {})} for d in raw]
+                return []
+
         except Exception as e:
-            logger.error(f"ChromaDB search error: {e}")
+            logger.error(f"KB search error: {e}")
             return []
     
     async def chat(self, message: str, search_space_id: Optional[str] = None,

@@ -124,10 +124,14 @@ def generate_ai_disclosure(venue: str, tool_name: str, tasks: List[str],
 
     statement = policy["template"].replace("[AI TOOL NAME]", tool_name)
     statement = statement.replace("[TOOL NAME]", tool_name)
+    statement = statement.replace("[AI TOOL]", tool_name)
     statement = statement.replace("[DESCRIPTION]", "pharmaceutical research AI assistant")
     statement = statement.replace("[REASON FOR USE]", tasks_str)
+    statement = statement.replace("[SPECIFIC TASK: e.g., language editing, data analysis, figure generation]", tasks_str)
+    statement = statement.replace("[SPECIFIC TASK: e.g., proofreading, code generation, figure formatting]", tasks_str)
+    statement = statement.replace("[SPECIFIC TASK: e.g., literature screening, data extraction, statistical analysis assistance]", tasks_str)
     statement = statement.replace("[SPECIFIC TASK]", tasks_str)
-    statement = statement.replace("[AUTHOR(S)]", "The authors")
+    statement = statement.replace("[Author(s)]", "The author(s)")
     statement = statement.replace("[AUTHOR(S)]", "The authors")
 
     # Add author responsibility clause

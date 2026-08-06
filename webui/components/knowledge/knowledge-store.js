@@ -56,6 +56,21 @@ export const store = createStore("knowledgeModal", {
   recentFilter: "all",    // "all" | "7d" | "30d"
   sourceFilter: "all",    // "all" or a source module name
 
+  // NotebookLM features
+  activeNotebook: null,          // currently open notebook object
+  notebookList: [],
+  notebookLoading: false,
+  studyGuide: "",
+  studyGuideLoading: false,
+  briefing: "",
+  briefingLoading: false,
+  suggestedQuestions: [],
+  questionsLoading: false,
+  conversationId: null,          // current chat conversation ID
+  conversationList: [],
+  conversationListLoading: false,
+  sourceLoading: {},             // {entryId: true} while summarizing
+
   _restored: false,
 
   // Detect if an entry contains a paper/document collection
@@ -639,23 +654,25 @@ export const store = createStore("knowledgeModal", {
     this.activeTab = "chat";
   },
 
-  async sendMessage() {
-    if (!this.chatInput.trim()) return;
-    const msg = this.chatInput.trim();
+  async sendMessage(prefill) {
+    const msg = (prefill || this.chatInput || "").trim();
+    if (!msg) return;
     this.chatMessages.push({ role: "user", content: msg });
     this.chatInput = "";
     this.chatLoading = true;
+    this.suggestedQuestions = []; // clear chips after user sends
     try {
-      // Real RAG: call kb_chat API (hybrid search + LLM + citations)
       const r = await callJsonApi("knowledge", {
         action: "kb_chat",
         query: msg,
         top_k: 8,
+        notebook_id: this.activeNotebook?.id || "",
+        conversation_id: this.conversationId || "",
       });
       if (r.status === "ok") {
-        // Render answer with citation links
+        // Persist conversation ID for the session
+        if (r.conversation_id) this.conversationId = r.conversation_id;
         let answer = r.answer || "No answer generated.";
-        // Attach clickable citations
         const citations = r.citations || [];
         if (citations.length > 0) {
           answer += "\n\n**Sources:**\n";
@@ -663,8 +680,7 @@ export const store = createStore("knowledgeModal", {
             answer += `[${c.label}] ${c.display}\n`;
           }
         }
-        this.chatMessages.push({ role: "assistant", content: answer });
-        // Store citations for the UI to render as clickable links
+        this.chatMessages.push({ role: "assistant", content: answer, citations });
         this._lastCitations = citations;
       } else {
         this.chatMessages.push({ role: "assistant", content: r.error || "KB chat failed." });
@@ -673,6 +689,171 @@ export const store = createStore("knowledgeModal", {
       this.chatMessages.push({ role: "assistant", content: "Error: " + e.message });
     }
     this.chatLoading = false;
+  },
+
+  startNewConversation() {
+    this.conversationId = null;
+    this.chatMessages = [];
+    this.suggestedQuestions = [];
+    this.message = "New conversation started";
+    setTimeout(() => { this.message = ""; }, 1500);
+  },
+
+  async loadConversationList() {
+    this.conversationListLoading = true;
+    try {
+      const r = await callJsonApi("knowledge", {
+        action: "list_conversations",
+        notebook_id: this.activeNotebook?.id || "",
+      });
+      if (r.status === "ok") this.conversationList = r.conversations || [];
+    } catch (e) { console.error("loadConversationList:", e); }
+    this.conversationListLoading = false;
+  },
+
+  async loadConversation(conv) {
+    try {
+      const r = await callJsonApi("knowledge", {
+        action: "get_conversation",
+        conversation_id: conv.id,
+      });
+      if (r.status === "ok" && r.conversation) {
+        this.conversationId = conv.id;
+        this.chatMessages = r.conversation.messages || [];
+        this.activeTab = "chat";
+      }
+    } catch (e) { this.error = "Failed to load conversation"; }
+  },
+
+  async deleteConversation(conv) {
+    try {
+      await callJsonApi("knowledge", { action: "delete_conversation", conversation_id: conv.id });
+      this.conversationList = this.conversationList.filter(c => c.id !== conv.id);
+      if (this.conversationId === conv.id) {
+        this.conversationId = null;
+        this.chatMessages = [];
+      }
+    } catch (e) { this.error = "Delete failed"; }
+  },
+
+  // ── NotebookLM Generation Methods ──────────────────────────────────
+
+  async generateStudyGuide() {
+    if (!this.activeNotebook?.id) { this.error = "Open a notebook first"; return; }
+    this.studyGuideLoading = true; this.studyGuide = "";
+    try {
+      const r = await callJsonApi("knowledge", {
+        action: "generate_study_guide",
+        notebook_id: this.activeNotebook.id,
+      });
+      if (r.status === "ok") {
+        this.studyGuide = r.study_guide || "";
+        this.message = "Study guide generated";
+        setTimeout(() => { this.message = ""; }, 2000);
+      } else {
+        this.error = r.error || "Study guide generation failed";
+      }
+    } catch (e) { this.error = "Error: " + e.message; }
+    this.studyGuideLoading = false;
+  },
+
+  async generateBriefing() {
+    if (!this.activeNotebook?.id) { this.error = "Open a notebook first"; return; }
+    this.briefingLoading = true; this.briefing = "";
+    try {
+      const r = await callJsonApi("knowledge", {
+        action: "generate_briefing",
+        notebook_id: this.activeNotebook.id,
+      });
+      if (r.status === "ok") {
+        this.briefing = r.briefing || "";
+        this.message = "Briefing document generated";
+        setTimeout(() => { this.message = ""; }, 2000);
+      } else {
+        this.error = r.error || "Briefing generation failed";
+      }
+    } catch (e) { this.error = "Error: " + e.message; }
+    this.briefingLoading = false;
+  },
+
+  async loadSuggestedQuestions() {
+    if (!this.activeNotebook?.id) return;
+    this.questionsLoading = true;
+    try {
+      const r = await callJsonApi("knowledge", {
+        action: "suggest_questions",
+        notebook_id: this.activeNotebook.id,
+      });
+      if (r.status === "ok") this.suggestedQuestions = r.questions || [];
+    } catch (e) { console.error("suggest_questions:", e); }
+    this.questionsLoading = false;
+  },
+
+  async summarizeSource(entry) {
+    const id = entry.id || entry.entry_id;
+    if (!id) return;
+    this.sourceLoading = { ...this.sourceLoading, [id]: true };
+    try {
+      const r = await callJsonApi("knowledge", {
+        action: "summarize_source",
+        entry_id: String(id),
+      });
+      if (r.status === "ok") {
+        // Attach summary to the entry object in the list
+        const idx = this.entries.findIndex(e => e.id == id);
+        if (idx >= 0) this.entries[idx]._summary = r.summary;
+        entry._summary = r.summary;
+      }
+    } catch (e) { console.error("summarize_source:", e); }
+    this.sourceLoading = { ...this.sourceLoading, [id]: false };
+  },
+
+  async openNotebook(nb) {
+    this.activeNotebook = nb;
+    this.studyGuide = nb.study_guide?.content || "";
+    this.briefing = nb.briefing?.content || "";
+    this.suggestedQuestions = nb.suggested_questions || [];
+    this.conversationId = null;
+    this.chatMessages = [];
+    await this.loadConversationList();
+    if (!this.suggestedQuestions.length) this.loadSuggestedQuestions();
+    this.activeTab = "chat";
+  },
+
+  async loadNotebooks() {
+    this.notebookLoading = true;
+    try {
+      const r = await callJsonApi("knowledge", { action: "list_notebooks" });
+      if (r.status === "ok") this.notebookList = r.notebooks || [];
+    } catch (e) { console.error("loadNotebooks:", e); }
+    this.notebookLoading = false;
+  },
+
+  async generatePodcast() {
+    if (!this.activeNotebook?.id) { this.error = "Open a notebook first"; return; }
+    this.podcastLoading = true; this.podcastUrl = "";
+    try {
+      const r = await callJsonApi("knowledge", {
+        action: "generate_podcast",
+        notebook_id: this.activeNotebook.id,
+        length: "medium",
+      });
+      if (r.audio_base64) {
+        const byteStr = atob(r.audio_base64);
+        const bytes = new Uint8Array(byteStr.length);
+        for (let i = 0; i < byteStr.length; i++) bytes[i] = byteStr.charCodeAt(i);
+        const blob = new Blob([bytes], { type: "audio/mp3" });
+        this.podcastUrl = URL.createObjectURL(blob);
+        this.podcastText = r.script || "";
+        this.message = "Podcast generated";
+      } else if (r.script) {
+        this.podcastText = r.script;
+        this.message = r.message || "Script generated (install edge-tts for audio)";
+      } else {
+        this.error = r.error || "Podcast failed";
+      }
+    } catch (e) { this.error = "Podcast error: " + e.message; }
+    this.podcastLoading = false;
   },
 
   buildLibrary() {

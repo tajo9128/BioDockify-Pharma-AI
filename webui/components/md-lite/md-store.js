@@ -30,9 +30,10 @@ const mdLiteFactory = () => ({
   // Phase display
   phaseLabels: {
     idle: "Idle", preparing: "Preparing PDB", preparing_complex: "Preparing complex",
-    sanitizing: "Sanitizing PDB", parameterizing: "Parameterizing",
-    solvating: "Adding solvent", minimizing: "Minimizing energy",
-    equilibrating: "Equilibrating", starting: "Starting MD",
+    sanitizing: "Sanitizing PDB", parameterizing: "Parameterizing forcefield",
+    solvating: "Adding solvent box", minimizing: "Minimizing energy",
+    equilibrating: "Equilibrating system", starting: "Starting MD",
+    loading_system: "Building simulation system",
     running: "Running MD", prepared: "Prepared ✓", completed: "Complete ✓", stopped: "Stopped",
     interrupted: "Interrupted (sleep/crash) — Resume available",
     resuming: "Resuming from checkpoint...",
@@ -280,12 +281,12 @@ const mdLiteFactory = () => ({
         if (r.status === "error") {
           this.liveLog.push(`❌ ${label}: ${r.error || "unknown error"}`);
         } else {
-          this.liveLog.push(`▸ ${label}`);
+          this.liveLog.push(`▸ ${label}${r.message ? " — " + r.message : ""}`);
         }
         if (this.liveLog.length > 30) this.liveLog.shift();
       }
-      // Add chunks to live log when progress changes
-      if (r.chunk && r.progress_pct !== this._lastProgress) {
+      // Add chunks to live log when progress changes (production phase)
+      if (r.chunk && r.progress_pct > 0 && r.progress_pct !== this._lastProgress) {
         this._lastProgress = r.progress_pct;
         const eta = r.eta_minutes ? ` · ETA ${r.eta_minutes} min` : "";
         this.liveLog.push(`Segment ${r.chunk} · ${r.progress_ns} ns · ${r.progress_pct}%${eta}`);

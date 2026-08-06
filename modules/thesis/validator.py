@@ -94,8 +94,9 @@ class ThesisValidator:
         
         # Rule 2: No citations in Results or Abstract
         if chapter_enum in [ChapterId.RESULTS, ChapterId.FRONT_MATTER]:
-            if "[" in text or "(" in text and re.search(r"\d{4}", text):
-                # Simple heuristic for citations
+            has_bracket_cite = re.search(r"\[\d{1,3}\]", text)
+            has_paren_cite = re.search(r"\([A-Z][a-z]+.*?\d{4}\)", text)
+            if has_bracket_cite or has_paren_cite:
                 if chapter_enum == ChapterId.RESULTS or "Abstract" in text:
                     violations.append("STRICT RULE: No citations allowed in Results or Abstract.")
 

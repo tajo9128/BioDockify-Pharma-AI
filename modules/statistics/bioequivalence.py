@@ -1519,9 +1519,11 @@ class BioequivalenceTests:
             f"  Overall p-value: {tost_results['p_value_overall']:.4f}\n"
             f"\nANOVA Results:\n"
             f"  Treatment effect F = {anova_results['treatment_effect']['f']:.4f}, p = {anova_results['treatment_effect']['p_value']:.4f}\n"
-            f"  Period effect F = {anova_results['period_effect']['f']:.4f}, p = {anova_results['period_effect']['p_value']:.4f}\n"
-            f"  Sequence (carryover) effect F = {anova_results['sequence_effect']['f']:.4f}, p = {anova_results['sequence_effect']['p_value']:.4f}\n"
-            f"\n{'-'*70}\n"
+            + (f"  Period effect F = {anova_results['period_effect']['f']:.4f}, p = {anova_results['period_effect']['p_value']:.4f}\n"
+               if anova_results.get('period_effect') else "  Period effect: N/A\n")
+            + (f"  Sequence (carryover) effect F = {anova_results['sequence_effect']['f']:.4f}, p = {anova_results['sequence_effect']['p_value']:.4f}\n"
+               if anova_results.get('sequence_effect') else "  Sequence effect: N/A\n")
+            + f"\n{'-'*70}\n"
             f"REGULATORY DECISION\n"
             f"{'-'*70}\n"
         )

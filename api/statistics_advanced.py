@@ -300,19 +300,23 @@ def _stepwise_regression(X, y, direction="forward", criterion="aic"):
         X_final = sm.add_constant(X_clean[:, sorted(selected)])
         final_model = sm.OLS(y_clean, X_final).fit()
 
+        # Use positional index into params/pvalues (params[0]=intercept, params[1..n]=features)
+        sorted_sel = sorted(selected)
         return {
             "success": True,
             "direction": direction,
             "criterion": criterion,
-            "selected_features": sorted(selected),
+            "selected_features": sorted_sel,
             "n_observations": n,
             "steps": steps,
             "r_squared": round(float(final_model.rsquared), 4),
             "adj_r_squared": round(float(final_model.rsquared_adj), 4),
             "aic": round(float(final_model.aic), 2),
             "bic": round(float(final_model.bic), 2),
-            "params": {f"x_{i}": round(float(final_model.params[i + 1]), 4) for i in sorted(selected)},
-            "p_values": {f"x_{i}": round(float(final_model.pvalues[i + 1]), 4) for i in sorted(selected)},
+            "params": {f"x_{orig_i}": round(float(final_model.params[pos + 1]), 4)
+                       for pos, orig_i in enumerate(sorted_sel)},
+            "p_values": {f"x_{orig_i}": round(float(final_model.pvalues[pos + 1]), 4)
+                         for pos, orig_i in enumerate(sorted_sel)},
         }
     except Exception as e:
         return {"error": str(e)}

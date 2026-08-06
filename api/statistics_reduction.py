@@ -148,9 +148,10 @@ def _cronbach_alpha(data: list, columns: list):
             total_remain = np.var(remaining.sum(axis=1), ddof=1)
             alpha_dropped = (k - 1) / (k - 2) * (1 - sum(var_remain) / total_remain) if k > 2 and total_remain > 0 else None
 
-            # Item-total correlation
-            total_score = X.sum(axis=1)
-            item_total_corr = np.corrcoef(X[:, i], total_score)[0, 1] if total_variance > 0 else 0
+            # Corrected item-total correlation: exclude item from the rest-score
+            # (including the item inflates the correlation artificially)
+            rest_score = X.sum(axis=1) - X[:, i]
+            item_total_corr = np.corrcoef(X[:, i], rest_score)[0, 1] if total_variance > 0 else 0
 
             item_stats.append({
                 "item": col_name,

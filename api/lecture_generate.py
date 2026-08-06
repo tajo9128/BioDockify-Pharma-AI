@@ -11,6 +11,7 @@ class LectureGenerate(ApiHandler):
             return {"error": "Topic is required", "lecture": None}
 
         try:
+            import asyncio
             from modules.faculty_materials import ClassMaterialsGenerator
             gen = ClassMaterialsGenerator()
 
@@ -18,7 +19,8 @@ class LectureGenerate(ApiHandler):
             week_info = {"week": 1, "topic": topic, "duration": duration, "level": level}
             resources = {"level": level}
 
-            raw = gen.generate_lecture_notes(topic, week_info, resources)
+            # Wrap blocking file I/O (_save_notes) off the async event loop
+            raw = await asyncio.to_thread(gen.generate_lecture_notes, topic, week_info, resources)
 
             # Reshape generator output to UI-expected format
             # Generator returns: {topic, week, content: {introduction, learning_objectives, ...}}

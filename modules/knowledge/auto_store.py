@@ -107,6 +107,39 @@ MODULE_TO_CATEGORY = {
 }
 
 
+_INDEX_LOCK_FILE = INDEX_FILE + ".lock"
+
+
+def _lock_index():
+    """Acquire a file-based lock for index.json writes (cross-platform)."""
+    deadline = time.time() + 10
+    while time.time() < deadline:
+        try:
+            fd = os.open(_INDEX_LOCK_FILE, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.close(fd)
+            return True
+        except FileExistsError:
+            try:
+                if time.time() - os.path.getmtime(_INDEX_LOCK_FILE) > 30:
+                    os.remove(_INDEX_LOCK_FILE)
+                    continue
+            except OSError:
+                pass
+            time.sleep(0.05)
+    try:
+        os.remove(_INDEX_LOCK_FILE)
+    except OSError:
+        pass
+    return False
+
+
+def _unlock_index():
+    try:
+        os.remove(_INDEX_LOCK_FILE)
+    except OSError:
+        pass
+
+
 def _load_index():
     if os.path.exists(INDEX_FILE):
         try:
@@ -118,11 +151,14 @@ def _load_index():
 
 
 def _save_index(index):
+    _lock_index()
     try:
         with open(INDEX_FILE, "w", encoding="utf-8") as f:
             json.dump(index, f, ensure_ascii=False, indent=2)
     except Exception as e:
         log.error(f"Failed to save KB index: {e}")
+    finally:
+        _unlock_index()
 
 
 def _is_literature_stub(content: str) -> str:

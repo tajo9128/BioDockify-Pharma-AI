@@ -39,19 +39,39 @@ Examples:
 
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from lifelines import KaplanMeierFitter, CoxPHFitter, NelsonAalenFitter
-from lifelines.statistics import logrank_test, multivariate_logrank_test
-from lifelines.utils import survival_table_from_events
 from typing import Dict, List, Any, Optional, Union, Tuple
 from datetime import datetime
 import warnings
 warnings.filterwarnings('ignore')
 
-# Set style for pharmaceutical-quality plots
-plt.style.use('seaborn-v0_8-whitegrid')
-sns.set_palette("husl")
+try:
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    # Use a safe fallback style name for both old and new matplotlib
+    try:
+        plt.style.use('seaborn-v0_8-whitegrid')
+    except OSError:
+        try:
+            plt.style.use('seaborn-whitegrid')
+        except OSError:
+            pass  # Default style is fine
+    sns.set_palette("husl")
+    HAS_PLOTTING = True
+except ImportError:
+    plt = None
+    sns = None
+    HAS_PLOTTING = False
+
+try:
+    from lifelines import KaplanMeierFitter, CoxPHFitter, NelsonAalenFitter
+    from lifelines.statistics import logrank_test, multivariate_logrank_test
+    from lifelines.utils import survival_table_from_events
+    HAS_LIFELINES = True
+except ImportError:
+    HAS_LIFELINES = False
+    KaplanMeierFitter = None
+    CoxPHFitter = None
+    NelsonAalenFitter = None
 
 
 class SurvivalAnalysis:
@@ -88,6 +108,8 @@ class SurvivalAnalysis:
         self.confidence_level = confidence_level
         self.analysis_history = []
         self.current_analysis = None
+        if not HAS_LIFELINES:
+            raise ImportError("lifelines is required for survival analysis. Install with: pip install lifelines")
         self.km_fitter = KaplanMeierFitter()
         self.cox_fitter = CoxPHFitter()
         self.na_fitter = NelsonAalenFitter()
@@ -900,8 +922,9 @@ class SurvivalAnalysis:
         total_time_B = durations_B.sum()
         total_time = total_time_A + total_time_B
         
-        E_A = O_A + O_B * (total_time_A / total_time)
-        E_B = O_A + O_B * (total_time_B / total_time)
+        # Standard log-rank expected events: E_A = (O_A + O_B) * (T_A / T_total)
+        E_A = (O_A + O_B) * (total_time_A / total_time)
+        E_B = (O_A + O_B) * (total_time_B / total_time)
         
         # Hazard ratio
         hr = (O_A / E_A) / (O_B / E_B) if E_A > 0 and E_B > 0 else np.nan
