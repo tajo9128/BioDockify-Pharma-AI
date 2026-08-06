@@ -49,8 +49,8 @@ class DeepResearchHandler(ApiHandler):
         if not topic:
             return {"status": "error", "error": "Topic required"}
 
-        max_sources = int(input.get("max_sources", 100))
-        databases = input.get("databases", ["pubmed", "semantic_scholar", "crossref", "openalex", "arxiv", "europe_pmc", "biorxiv"])
+        max_sources = int(input.get("max_sources", 20))
+        databases = input.get("databases", ["pubmed", "europe_pmc", "semantic_scholar"])
         if not databases:
             return {"error": "At least one database must be selected"}
         year_from = input.get("year_from", "")
@@ -105,69 +105,79 @@ class DeepResearchHandler(ApiHandler):
 
         stats["total"] = len(unique_sources)
 
-        # ── Fetch full text for sources (limited to max_store to avoid wasted requests) ──
-        max_store = int(input.get("max_store", 50))
+        # ── Split into 2 rounds: return first 50% immediately, fetch rest in background ──
+        max_store = int(input.get("max_store", 10))
         retrieval_pool = unique_sources[:max_store]
-        full_text_count = 0
-        try:
-            from modules.literature.full_text import FullTextRetriever
-            retriever = FullTextRetriever()
-            for src in retrieval_pool:
-                if not src.get("title"):
-                    continue
-                try:
-                    ft = await retriever.retrieve_async(src)
-                    if ft and len(ft) > 200:
-                        src["full_text"] = ft
-                        src["full_text_available"] = True
-                        full_text_count += 1
-                    else:
-                        src["full_text_available"] = False
-                except Exception:
-                    src["full_text_available"] = False
-            log.info(f"Full text retrieved for {full_text_count}/{len(retrieval_pool)} sources")
-        except ImportError:
-            log.warning("FullTextRetriever not available — storing metadata only")
-        except Exception as e:
-            log.warning(f"Full text retrieval error: {e}")
-        stats["full_text_count"] = full_text_count
+        mid = len(retrieval_pool) // 2
+        first_half = retrieval_pool[:mid] if mid > 0 else retrieval_pool[:1]
+        second_half = retrieval_pool[mid:] if mid > 0 else []
 
-        # Save session (with full text included)
+        # Save session immediately (metadata only — no full text yet)
         session_path = os.path.join(STORAGE_DIR, f"session_{session_id}.json")
         with open(session_path, "w", encoding="utf-8") as f:
-            json.dump({"topic": topic, "sources": unique_sources, "stats": stats, "created_at": datetime.now().isoformat()}, f, ensure_ascii=False, indent=2)
+            json.dump({"topic": topic, "sources": unique_sources, "stats": stats,
+                        "created_at": datetime.now().isoformat()}, f, ensure_ascii=False, indent=2)
 
-        # ── AUTO-STORE to Knowledge Base — ONLY full-text articles ──
-        # User requirement: metadata/abstracts must NOT be saved to KB.
-        # Only full-text articles get stored (so they're citable in theses).
-        kb_stored = 0
-        kb_skipped = 0
-        try:
-            from modules.knowledge.auto_store import auto_store
-            for src in retrieval_pool:
-                title = src.get("title", "Untitled")
-                authors = ", ".join(src.get("authors", [])[:5])
-                full_text = src.get("full_text", "")
+        # ── Background: fetch full text for ALL sources + store to KB ──
+        def _fetch_and_store():
+            ft_count = 0
+            kb_count = 0
+            try:
+                from modules.literature.full_text import FullTextRetriever
+                retriever = FullTextRetriever()
+                for src in retrieval_pool:
+                    if not src.get("title"):
+                        continue
+                    try:
+                        ft = retriever.retrieve(src)
+                        if ft and len(ft) > 200:
+                            src["full_text"] = ft
+                            src["full_text_available"] = True
+                            ft_count += 1
+                        else:
+                            src["full_text_available"] = False
+                    except Exception:
+                        src["full_text_available"] = False
+                log.info(f"Full text retrieved for {ft_count}/{len(retrieval_pool)} sources")
+            except Exception as e:
+                log.warning(f"Full text retrieval error: {e}")
 
-                # SKIP if no full text (only metadata/abstract available)
-                if not full_text or len(full_text) < 2000:
-                    kb_skipped += 1
-                    continue
+            # Store full-text articles to KB
+            try:
+                from modules.knowledge.auto_store import auto_store
+                for src in retrieval_pool:
+                    full_text = src.get("full_text", "")
+                    if not full_text or len(full_text) < 2000:
+                        continue
+                    title = src.get("title", "Untitled")
+                    authors = ", ".join(src.get("authors", [])[:5])
+                    year = src.get("year", "")
+                    doi = src.get("doi", "")
+                    content = f"**Authors:** {authors}\n**Year:** {year}\n**DOI:** {doi}\n\n## Full Text\n\n{full_text}"
+                    auto_store(module_name="deep_research", title=title, content=content,
+                               source="Deep Research", tags=["deep_research", "literature"],
+                               category="deep_research", metadata={"doi": doi, "authors": authors, "year": year})
+                    kb_count += 1
+            except Exception as e:
+                log.warning(f"KB store error: {e}")
 
-                content = f"**Authors:** {authors}\n**Year:** {src.get('year','')}\n**Source:** {src.get('database','')}\n**DOI:** {src.get('doi','')}\n**PMID:** {src.get('pmid','')}\n**URL:** {src.get('url','')}\n\n## Full Text\n\n{full_text}"
+            # Update session with full text
+            try:
+                stats["full_text_count"] = ft_count
+                stats["kb_stored"] = kb_count
+                with open(session_path, "w", encoding="utf-8") as f:
+                    json.dump({"topic": topic, "sources": unique_sources, "stats": stats,
+                                "created_at": datetime.now().isoformat()}, f, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
 
-                auto_store(
-                    module_name="deep_research",
-                    title=title,
-                    content=content,
-                    source=f"Research: {topic}",
-                    tags=["deep_research", src.get('database',''), topic[:30]],
-                    metadata={"doi": src.get("doi",""), "pmid": src.get("pmid",""), "full_text": True},
-                    category="deep_research",
-                )
-                kb_stored += 1
-        except Exception as e:
-            log.warning(f"KB store failed: {e}")
+        # Start background fetch (don't await)
+        import threading
+        threading.Thread(target=_fetch_and_store, daemon=True).start()
+
+        # Return first 50% immediately (metadata only — fast response)
+        stats["full_text_count"] = 0
+        stats["kb_stored"] = 0
 
         return {
             "status": "ok",
