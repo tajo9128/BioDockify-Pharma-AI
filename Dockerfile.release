@@ -58,19 +58,13 @@ RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
     pingouin>=0.5.4 reportlab>=4.0.0 fastapi>=0.110.0 \
     "numpy>=1.24,<2.5" \
     chromadb>=0.4.0 faiss-cpu>=1.7.4 sentence-transformers>=2.2.0 \
-    openmm>=8.1.0 mdtraj>=1.9.9 pdbfixer>=2.0.0 mdanalysis>=2.7.0 \
     xgboost>=2.0.0 lightgbm>=4.0.0 catboost>=1.2.0
 
-# ─── Verify critical imports (OpenMM forcefields + RDKit) ───
+# ─── Verify critical imports ───
 RUN /opt/venv-a0/bin/python -c "\
-import openmm; print('OpenMM', openmm.__version__); \
-from openmm.app import ForceField; \
-ff = ForceField('amber14-all.xml', 'tip3p.xml'); \
-print('Forcefield OK: amber14-all.xml + tip3p.xml'); \
-from rdkit import Chem; print('RDKit OK'); \
-from pdbfixer import PDBFixer; print('PDBFixer OK')" \
+from rdkit import Chem; print('RDKit OK')" \
     && echo "All critical packages verified" \
-    || (echo "ERROR: Critical package import failed — MD Lite will not work" && exit 1)
+    || (echo "ERROR: Critical package import failed" && exit 1)
 
 # ─── Execution venv (/opt/venv): same packages as framework so code_execution_tool works ───
 RUN /opt/venv/bin/python -m pip install --no-cache-dir \
@@ -78,7 +72,6 @@ RUN /opt/venv/bin/python -m pip install --no-cache-dir \
     scipy>=1.11.0 scikit-learn>=1.3.0 pandas>=2.0.0 matplotlib>=3.7.0 \
     statsmodels>=0.14.0 seaborn>=0.12.0 plotly>=5.18.0 \
     "numpy>=1.24,<2.5" \
-    openmm>=8.1.0 mdtraj>=1.9.9 pdbfixer>=2.0.0 mdanalysis>=2.7.0 \
     xgboost>=2.0.0 lightgbm>=4.0.0 catboost>=1.2.0 \
     && /usr/bin/python3 -m pip install --no-cache-dir supervisor 2>/dev/null || true \
     && echo "Execution venv packages installed"
