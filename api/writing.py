@@ -1,6 +1,6 @@
 """Writing Tools API — Flask handler for LaTeX export, gap analysis, lit matrix, PRISMA, faculty review, citation verification, journal suggestions."""
 from helpers.api import ApiHandler, Request
-import asyncio, logging, urllib.request
+import asyncio, logging, os, urllib.request
 
 log = logging.getLogger("writing_tools")
 
@@ -63,7 +63,7 @@ class WritingTools(ApiHandler):
         if action == "synthesis_review":         return self._synthesis_review(input)
         if action == "cite_locked_draft":       return await self._cite_locked_draft(input)
         if action == "polish":                  return await self._polish(input)
-        return {"actions": ["export-latex","export-docx","gap-analysis","literature-matrix","prisma-flowchart","faculty-review","verify-citations","suggest-journals","kb_sources","kb_categories","pharma_citation_verify","pharma_reporting_check","pharma_scorecard","equator_checklist","ai_disclosure","prisma_pipeline","peer_review","integrity_audit","citation_network","de_aigc","section_analysis","citation_gaps","terminology_check","scientific_rigor","quality_control","executive_summary","synthesis_review","cite_locked_draft"]}
+        return {"actions": ["export-latex","export-docx","gap-analysis","literature-matrix","prisma-flowchart","faculty-review","verify-citations","suggest-journals","kb_sources","kb_categories","pharma_citation_verify","pharma_reporting_check","pharma_scorecard","equator_checklist","ai_disclosure","prisma_pipeline","peer_review","integrity_audit","citation_network","de_aigc","section_analysis","citation_gaps","terminology_check","scientific_rigor","quality_control","executive_summary","synthesis_review","cite_locked_draft","polish"]}
 
     def _kb_categories(self, input: dict) -> dict:
         """List all KB categories with entry counts — for the writer's category dropdown."""
@@ -255,7 +255,7 @@ class WritingTools(ApiHandler):
             for s in sections:
                 h = s.get("heading", "Section")
                 c = s.get("content", "")
-                doc += f"\\section{{{_sanitize(h)}}}\n{c}\n"
+                doc += f"\\section{{{_sanitize(h)}}}\n{_sanitize(c)}\n"
             doc += "\\end{document}"
             return {"status": "ok", "latex": doc}
         except Exception as e:
@@ -399,7 +399,7 @@ class WritingTools(ApiHandler):
         """Verify pharmaceutical citations against real databases.
         Pharma-focused: prioritizes PubMed, Europe PMC, CrossRef.
         Returns per-citation status: verified/suspicious/hallucinated."""
-        import re, urllib.request, urllib.parse, json as _json, time as _time
+        import re, urllib.request, urllib.parse, json as _json
 
         text = input.get("text", "")
         citations = input.get("citations", [])  # [{doi, pmid, title, authors, year}]
@@ -498,7 +498,7 @@ class WritingTools(ApiHandler):
                 result["error"] = str(e)[:200]
 
             results.append(result)
-            _time.sleep(0.15)  # Rate limit
+            await asyncio.sleep(0.15)  # Rate limit (non-blocking)
 
         total = len(results)
         score = round(verified / max(total, 1) * 100, 1)
@@ -1047,12 +1047,10 @@ class WritingTools(ApiHandler):
         """
         from modules.writing.academic_skills import build_citation_network, generate_citation_graph_mermaid
 
-        # Load KB entries
-        index_path = "/a0/data/knowledge_base/index.json"
+        # Load KB entries via the shared loader
         try:
-            import json
-            with open(index_path, "r", encoding="utf-8") as f:
-                index = json.load(f)
+            from modules.knowledge.auto_store import _load_index
+            index = _load_index()
             entries = index.get("entries", [])
         except Exception as e:
             return {"status": "error", "error": f"Failed to load KB index: {e}"}
@@ -1239,11 +1237,21 @@ class WritingTools(ApiHandler):
         try:
             from modules.knowledge.auto_store import _load_index
             index = _load_index()
-            for entry in index:
+            entries = index.get("entries", [])
+            topic_lower = topic.lower()
+            for entry in entries:
                 title = entry.get("title", "")
-                content = entry.get("content", "") or ""
+                # Read file content for abstract if available
+                content = ""
+                filepath = entry.get("file", "")
+                if filepath and os.path.isfile(filepath):
+                    try:
+                        with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+                            content = f.read(3000)
+                    except Exception:
+                        pass
                 # Topic relevance filter (case-insensitive)
-                if topic.lower() in title.lower() or topic.lower() in content.lower()[:500]:
+                if topic_lower in title.lower() or topic_lower in content.lower()[:500]:
                     papers.append({
                         "title": title,
                         "abstract": content[:2000],

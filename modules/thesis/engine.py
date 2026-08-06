@@ -248,7 +248,7 @@ INSTRUCTIONS:
 
 Write the section:"""
 
-            section_content = self._agent_callback(prompt)
+            section_content = await asyncio.to_thread(self._agent_callback, prompt)
             content.append(f"## {section.title}")
             content.append(section_content if section_content else f"*{section.description}*")
             content.append("")
