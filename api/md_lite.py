@@ -12,6 +12,42 @@ _workflows = {}  # in-memory workflow tracking: job_id -> MDWorkflow (for stop)
 _resume_lock = threading.Lock()
 
 
+def _is_pdbqt(text: str) -> bool:
+    """Detect if content is PDBQT format (has ROOT/ENDROOT or extra columns)."""
+    for line in text.split("\n")[:50]:
+        stripped = line.strip()
+        if stripped.startswith(("ROOT", "ENDROOT", "BRANCH", "ENDBRANCH", "TORSDOF")):
+            return True
+        if stripped.startswith("ATOM") and len(stripped) > 76:
+            try:
+                float(stripped[66:76])
+                return True
+            except ValueError:
+                pass
+    return False
+
+
+def _pdbqt_to_pdb(text: str) -> str:
+    """Convert PDBQT content to standard PDB format.
+
+    Strips non-standard records (ROOT, ENDROOT, BRANCH, etc.) and
+    truncates ATOM/HETATM lines to 78 columns (standard PDB width).
+    """
+    keep_records = {"ATOM", "HETATM", "TER", "END", "MODEL", "ENDMDL",
+                    "CRYST1", "SSBOND", "LINK", "HELIX", "SHEET", "SEQRES"}
+    lines = []
+    for line in text.split("\n"):
+        stripped = line.rstrip()
+        if not stripped:
+            continue
+        rec = stripped[:6].strip().upper()
+        if rec in keep_records:
+            if len(stripped) > 78:
+                stripped = stripped[:78]
+            lines.append(stripped)
+    return "\n".join(lines)
+
+
 class _PreventSleep:
     """Prevent OS sleep while MD simulation is running.
 
@@ -109,9 +145,8 @@ def _friendly_error(msg):
         return "PDB file is empty or contains no valid atomic coordinates. Upload a valid protein structure."
     if "invalid literal for int()" in msg or "PdbStructure" in msg:
         return ("PDB file format error. The file contains malformed ATOM/HETATM records. "
-                "Upload a clean .pdb file from RCSB PDB or your docking software. "
-                "Tip: If using a docked complex, ensure the protein has all hydrogens and "
-                "no non-standard residues. Use PDBFixer or Modeller to clean the PDB first.")
+                "Upload a .pdb or .pdbqt file. Docking PDBQT files are auto-converted to PDB. "
+                "For best results, use a clean PDB from RCSB or your docking software.")
     if "Could not locate file" in msg or "No OpenMM forcefield" in msg or (
         "forcefield" in msg.lower() and "locate" in msg.lower()
     ):
@@ -186,6 +221,14 @@ class MDLite(ApiHandler):
         complex_content = str(input.get("complex_pdb", "") or "").strip()
         protein_content = str(input.get("protein_pdb", "") or "").strip()
         ligand_content = str(input.get("ligand_sdf", "") or "").strip()
+
+        # Auto-detect PDBQT format and convert to PDB (docking output → MD input)
+        if complex_content and _is_pdbqt(complex_content):
+            log.info("Detected PDBQT format — converting to PDB")
+            complex_content = _pdbqt_to_pdb(complex_content)
+        if protein_content and _is_pdbqt(protein_content):
+            log.info("Detected PDBQT in protein — converting to PDB")
+            protein_content = _pdbqt_to_pdb(protein_content)
 
         pdb_path = None
         if complex_content and len(complex_content) > 50 and ("ATOM" in complex_content or "HETATM" in complex_content):
