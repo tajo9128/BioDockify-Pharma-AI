@@ -10,6 +10,74 @@
       smiles: "",
       activity: "",
       name: "3D-QSAR Model",
+
+      // ── Preset datasets for students ──
+      presets: {
+        "cox2": {
+          label: "COX-2 Inhibitors (12 compounds, pIC50)",
+          smiles: "CC(=O)OC1=CC=CC=C1C(=O)O\nCC1=CC=C(C=C1)C(=O)C2=CC=C(C=C2)S(=O)(=O)N\nCC1=CC=C(C=C1)C2=CC(=NN2C3=CC=C(C=C3)S(=O)(=O)N)C(F)(F)F\nCC1=C(C=NO1)C(=O)NC2=CC=C(C=C2)S(=O)(=O)N\nO=C(O)C1=CC=CC=C1NC2=CC=CC=C2\nCC(=O)NC1=CC=C(C=C1)O\nO=C(O)C1=CC2=C(C=C1)OC(=O)C3=CC=CC=C3O2\nO=C(O)C1=CC=C(O)C=C1\nCC1=CC(=CC=C1O)C\nO=C(O)C1=CC=CC=C1O\nCC(=O)NC1=CC=CC=C1\nO=CNC1=CC=CC=C1",
+          activity: "4.8\n7.2\n8.1\n7.5\n5.2\n4.1\n6.3\n3.8\n4.5\n3.5\n3.2\n3.0",
+          name: "COX-2 Inhibitors QSAR",
+        },
+        "ace": {
+          label: "ACE Inhibitors (10 compounds, pIC50)",
+          smiles: "CCOC(=O)C(CCC1=CC=CC=C1)NC(C)C(=O)N2CCCC2C(=O)O\nCCOC(=O)C(CC(C)C)NC(C)C(=O)NCC(=O)O\nCCOC(=O)C(CCCNC(=N)N)NC(C)C(=O)NCC(=O)O\nCCOC(=O)C(CC1=CC=CC=C1)NC(C)C(=O)NCC(=O)O\nCCOC(=O)C(CCSC)NC(C)C(=O)NCC(=O)O\nCCOC(=O)C(CO)NC(C)C(=O)NCC(=O)O\nCCOC(=O)C(CC(=O)N)NC(C)C(=O)NCC(=O)O\nCCOC(=O)C(CC1=CC=C(C=C1)O)NC(C)C(=O)NCC(=O)O\nCCOC(=O)C(CC1=CN=CN1)NC(C)C(=O)NCC(=O)O\nCCOC(=O)C(CC1=CC=CC=C1)NC(C)C(=O)NCC(=O)O",
+          activity: "8.5\n7.8\n9.1\n8.2\n7.5\n6.8\n7.2\n8.0\n8.8\n7.9",
+          name: "ACE Inhibitors QSAR",
+        },
+        "statins": {
+          label: "Statins (8 compounds, pIC50)",
+          smiles: "CC(C)C1=C(C(=O)OC2CC(CC=C2C)C=C(C)CCC(CC)OC(=O)C)C(=C(C(=O)O1)O)O\nCC(C)C1=C(C(=O)OC2CC(CC=C2C)C=C(C)CCC(CC)OC(=O)C)C(=C(C(=O)O1)CC=O)O\nCC(C)C1=C(C(=O)OC2CC(CC=C2C)C=C(C)CCCC(C)O)C(=C(C(=O)O1)O)O\nCC(C)C1=C(C(=O)OC2CC(CC=C2C)C=C(C)CCCC(C)O)C(=C(C(=O)O1)CC=O)O\nCC(C)C1=C(C(=O)O)C(=C(C(=O)O1)O)C2=CC=C(C=C2)F\nCC(C)C1=C(C(=O)O)C(=C(C(=O)O1)CC=O)C2=CC=C(C=C2)F\nCC(C)C1=C(C(=O)O)C(=C(C(=O)O1)O)C2=CC=C(C=C2)Cl\nCC(C)C1=C(C(=O)O)C(=C(C(=O)O1)CC=O)C2=CC=C(C=C2)Cl",
+          activity: "9.2\n9.5\n8.8\n9.1\n8.5\n8.9\n8.2\n8.6",
+          name: "Statins QSAR",
+        },
+        "benzodiazepines": {
+          label: "Benzodiazepines (10 compounds, pEC50)",
+          smiles: "CN1C(=O)CN=C(C2=CC=CC=C2)C3=CC=CC=C31\nCN1C(=O)CN=C(C2=CC=CC=C2Cl)C3=CC=CC=C31\nCN1C(=O)CN=C(C2=CC=CC=C2F)C3=CC=CC=C31\nCN1C(=O)CN=C(C2=CC=CC=C2[N+](=O)[O-])C3=CC=CC=C31\nCN1C(=O)CN=C(C2=CC=C(C=C2)Cl)C3=CC=CC=C31\nCN1C(=O)CN=C(C2=CC=C(C=C2)F)C3=CC=CC=C31\nCN1C(=O)CN=C(C2=CC=C(C=C2)[N+](=O)[O-])C3=CC=CC=C31\nCN1C(=O)CN=C(C2=CC=CC=C2Br)C3=CC=CC=C31\nCN1C(=O)CN=C(C2=CC=C(C=C2)Br)C3=CC=CC=C31\nCN1C(=O)CN=C(C2=CC=C(C=C2)OC)C3=CC=CC=C31",
+          activity: "7.0\n7.8\n7.2\n6.5\n7.5\n7.0\n6.2\n7.6\n7.3\n6.8",
+          name: "Benzodiazepines QSAR",
+        },
+      },
+
+      loadPreset(key) {
+        const p = this.presets[key];
+        if (!p) return;
+        this.smiles = p.smiles;
+        this.activity = p.activity;
+        this.name = p.name;
+      },
+
+      handleCsvUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const text = e.target.result;
+          const lines = text.trim().split("\n").filter(l => l.trim());
+          const header = lines[0].toLowerCase();
+          // Find SMILES and activity columns
+          const cols = header.split(",").map(c => c.trim());
+          const smiIdx = cols.findIndex(c => c.includes("smiles") || c.includes("smi"));
+          const actIdx = cols.findIndex(c => c.includes("activity") || c.includes("pic50") || c.includes("ic50") || c.includes("value") || c.includes("pIC50"));
+          if (smiIdx < 0 || actIdx < 0) {
+            this.error = "CSV must have 'SMILES' and 'activity' columns";
+            return;
+          }
+          const smiles = [];
+          const activities = [];
+          for (let i = 1; i < lines.length; i++) {
+            const parts = lines[i].split(",").map(p => p.trim().replace(/^"|"$/g, ""));
+            if (parts[smiIdx] && parts[actIdx]) {
+              smiles.push(parts[smiIdx]);
+              activities.push(parts[actIdx]);
+            }
+          }
+          this.smiles = smiles.join("\n");
+          this.activity = activities.join("\n");
+          this.name = file.name.replace(/\.[^.]+$/, "");
+        };
+        reader.readAsText(file);
+      },
       gridSpacing: 2.0,
       gridMargin: 5.0,
       fieldTypes: ["steric", "electrostatic"],
@@ -170,6 +238,20 @@
       
       <!-- Build Tab -->
       <div x-show="$store.qsar3dModal.activeTab === 'build'">
+        <!-- Quick Start: Presets + CSV Upload -->
+        <div style="margin-bottom:12px;padding:10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px">
+          <div style="font-size:0.7rem;font-weight:600;margin-bottom:6px">Quick Start</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">
+            <template x-for="(preset, key) in $store.qsar3dModal.presets" :key="key">
+              <button style="padding:4px 8px;background:var(--color-background);border:1px solid var(--color-border);border-radius:12px;font-size:0.6rem;cursor:pointer;color:var(--color-text)" @click="$store.qsar3dModal.loadPreset(key)" x-text="preset.label"></button>
+            </template>
+          </div>
+          <label style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;background:var(--color-background);border:1px solid var(--color-border);border-radius:6px;cursor:pointer;font-size:0.65rem;color:var(--color-text)">
+            <span class="material-symbols-outlined" style="font-size:14px">upload_file</span> Upload CSV (SMILES + activity columns)
+            <input type="file" accept=".csv" style="display:none" @change="$store.qsar3dModal.handleCsvUpload($event)" />
+          </label>
+        </div>
+
         <div class="input-group">
           <label>Mode:</label>
           <select x-model="$store.qsar3dModal.mode" class="mt-input">
@@ -177,19 +259,19 @@
             <option value="2d">2D-QSAR (Descriptors)</option>
           </select>
         </div>
-        
+
         <div class="input-group">
           <label>Model Name:</label>
           <input type="text" x-model="$store.qsar3dModal.name" class="mt-input" />
         </div>
-        
+
         <div class="input-group">
           <label>SMILES (one per line):</label>
           <textarea x-model="$store.qsar3dModal.smiles" class="mt-input" rows="6" placeholder="CC(=O)OC1=CC=CC=C1C(=O)O&#10;CC12CCC3C(CCC4CC(=O)CCC34C)C1CCC2O&#10;..."></textarea>
         </div>
-        
+
         <div class="input-group">
-          <label>Activity values (one per line):</label>
+          <label>Activity values (pIC50, one per line):</label>
           <textarea x-model="$store.qsar3dModal.activity" class="mt-input" rows="6" placeholder="7.2&#10;8.5&#10;6.1&#10;..."></textarea>
         </div>
         
