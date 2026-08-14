@@ -25,7 +25,7 @@ try:
             BEDROCK_CONFIG = json.load(f)
         log.info(f"Bedrock config loaded from {config_path}")
     else:
-        log.warning(f"Bedrock config not found at {config_path}")
+        log.debug(f"Bedrock config not found at {config_path} — Bedrock features disabled")
 except ImportError:
     log.warning("boto3 not installed — Bedrock features unavailable. Install: pip install boto3")
 
