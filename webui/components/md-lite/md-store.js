@@ -19,6 +19,7 @@ const mdLiteFactory = () => ({
   gpuVramGb: 0,
   gpuRequired: false,
   platformWarning: "",
+  systemEstimate: null,  // {solvated_atoms, est_vram_gb, est_ns_per_day, gpu_name, gpu_vram_gb}
 
   // Live monitor
   liveLog: [],
@@ -40,6 +41,20 @@ const mdLiteFactory = () => ({
     interrupted: "Interrupted (sleep/crash) — Resume available",
     resuming: "Resuming from checkpoint...",
     error: "Error", unknown: "Unknown"
+  },
+
+  get etaHours() {
+    if (!this.systemEstimate?.est_ns_per_day) return null;
+    return (this.settings.total_ns / this.systemEstimate.est_ns_per_day) * 24;
+  },
+  get etaText() {
+    const h = this.etaHours;
+    if (h == null) return "";
+    return h >= 1 ? `~${h.toFixed(1)} h` : `~${Math.round(h * 60)} min`;
+  },
+  get vramTight() {
+    const e = this.systemEstimate;
+    return !!(e?.gpu_vram_gb && e?.est_vram_gb && e.est_vram_gb > 0.85 * e.gpu_vram_gb);
   },
 
   get phaseLabel() {
@@ -215,6 +230,17 @@ const mdLiteFactory = () => ({
           } else {
             this.liveLog.push(`Minimization complete · ${r.min_energy_kjmol || "?"} kJ/mol`);
           }
+          // Capture the automatic size/VRAM/speed estimate for Step 2 display
+          if (r.solvated_atoms) {
+            this.systemEstimate = {
+              solvated_atoms: r.solvated_atoms,
+              est_vram_gb: r.est_vram_gb,
+              est_ns_per_day: r.est_ns_per_day,
+              gpu_name: r.gpu_name || this.gpuName,
+              gpu_vram_gb: r.gpu_vram_gb || this.gpuVramGb,
+            };
+            this.liveLog.push(`System: ${r.solvated_atoms.toLocaleString()} atoms · ~${r.est_vram_gb} GB VRAM · ~${r.est_ns_per_day} ns/day`);
+          }
           clearInterval(this._preparePollTimer);
           return;
         }
@@ -275,7 +301,14 @@ const mdLiteFactory = () => ({
         pressure: this.settings.pressure, platform: this.settings.platform,
         fast_mode: this.settings.fast_mode,
       });
-      if (r.status === "ok") { this.platformWarning = r.platform_warning || ""; this.step = 3; this.startPolling(); }
+      if (r.status === "ok") {
+        this.platformWarning = r.platform_warning || "";
+        this.step = 3;
+        if (r.estimate) {
+          this.liveLog.push(`⏱ Estimated: ${r.estimate.solvated_atoms.toLocaleString()} atoms · ~${r.estimate.est_ns_per_day} ns/day → ${r.estimate.eta_text} for ${this.settings.total_ns} ns`);
+        }
+        this.startPolling();
+      }
       else { this.errorMessage = r.error || "Run failed"; }
     } catch (e) { this.errorMessage = "Error: " + (e.message || "API unavailable"); }
     this.loading = false;
@@ -436,6 +469,7 @@ const mdLiteFactory = () => ({
     this.liveLog = []; this.mdLog = [];
     this.platformWarning = ""; this._lastPhase = null;
     this.mmpbsaResult = null; this.mmpbsaLoading = false;
+    this.systemEstimate = null;
     this._complexContent = null; this._proteinContent = null; this._ligandContent = null;
     this._complexName = ""; this._proteinName = ""; this._ligandName = "";
   },

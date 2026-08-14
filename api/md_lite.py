@@ -512,8 +512,30 @@ class MDLite(ApiHandler):
             t = threading.Thread(target=_run_md, name=f"md-lite-{job_id}", daemon=False)
             t.start()
             _jobs[job_id] = t
+
+            # ── ETA estimate from the prepared system info (status.json) ──
+            estimate = None
+            try:
+                with open(os.path.join(job_dir, "status.json")) as f:
+                    st = json.load(f)
+                atoms = st.get("solvated_atoms") or 0
+                ns_day = st.get("est_ns_per_day") or 0
+                if atoms and ns_day:
+                    eta_h = (total_ns / ns_day) * 24.0
+                    estimate = {
+                        "solvated_atoms": atoms,
+                        "est_vram_gb": st.get("est_vram_gb"),
+                        "est_ns_per_day": ns_day,
+                        "gpu_name": st.get("gpu_name", ""),
+                        "eta_hours": round(eta_h, 1),
+                        "eta_text": (f"~{eta_h:.1f} h" if eta_h >= 1 else f"~{eta_h*60:.0f} min"),
+                    }
+            except Exception:
+                pass
+
             return {"status": "ok", "job_id": job_id, "running": True,
-                    "total_ns": total_ns, "platform": platform, "fast_mode": fast_mode}
+                    "total_ns": total_ns, "platform": platform, "fast_mode": fast_mode,
+                    "estimate": estimate}
         except Exception as e:
             _write_status(job_dir, "error", {"error": str(e)})
             return {"status": "error", "error": str(e)}

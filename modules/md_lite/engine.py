@@ -175,6 +175,64 @@ def _detect_gpu_device():
     return gpu_name, vram_gb
 
 
+# ── System-size / VRAM / speed estimation ────────────────────────────────────
+# OpenMM mixed precision on CUDA: ~0.32 GB VRAM per 10k atoms + ~0.5 GB context.
+_VRAM_PER_10K_ATOMS_GB = 0.32
+_VRAM_OVERHEAD_GB = 0.5
+
+# Reference throughput (ns/day) for a ~30k-atom solvated protein-ligand system,
+# mixed precision, PME, 2 fs timestep. Anchored to public OpenMM benchmarks.
+_GPU_SPEED_NS_DAY_30K = [
+    # (name fragment, ns/day at 30k atoms) — checked against lowercase name
+    ("4090", 500), ("4080", 380), ("3090", 300),
+    ("3080", 260), ("4070", 300), ("3070", 190), ("3060 ti", 190),
+    ("2080 ti", 200), ("2080", 170), ("3060", 140), ("2070", 140),
+    ("1080 ti", 170), ("2050", 100), ("2060", 110), ("3050", 110),
+    ("1660", 95), ("1650", 80), ("1080", 150), ("1070", 120), ("1060", 80),
+    ("1050", 55), ("1030", 35),
+]
+_DEFAULT_SPEED_30K = 80.0  # assume GTX 1650-class when GPU unknown
+
+
+def estimate_vram_gb(num_atoms: int) -> float:
+    """Estimate GPU memory (GB) needed for a solvated system (mixed precision)."""
+    return _VRAM_OVERHEAD_GB + (num_atoms / 10000.0) * _VRAM_PER_10K_ATOMS_GB
+
+
+def estimate_ns_per_day(num_atoms: int, gpu_name: str = "") -> float:
+    """Estimate simulation throughput (ns/day) for this system on this GPU.
+
+    Speed scales ~inversely with atom count (memory-bandwidth-bound).
+    Reference is anchored at 30k atoms; results clamped to a sane range.
+    """
+    if num_atoms <= 0:
+        return 0.0
+    ref = _DEFAULT_SPEED_30K
+    name = (gpu_name or "").lower()
+    for frag, spd in _GPU_SPEED_NS_DAY_30K:
+        if frag in name:
+            ref = float(spd)
+            break
+    ns_day = ref * (30000.0 / num_atoms)
+    return round(max(3.0, min(800.0, ns_day)), 1)
+
+
+def check_system_fits_gpu(num_atoms: int) -> None:
+    """Raise RuntimeError when the system would not fit in GPU memory.
+
+    Only enforces when GPU VRAM was positively detected; unknown VRAM is
+    allowed through (OpenMM would throw a real OOM at context creation).
+    """
+    est = estimate_vram_gb(num_atoms)
+    _check_gpu()  # populate _GPU_VRAM_GB / _GPU_NAME (cached)
+    if _GPU_VRAM_GB > 0 and est > 0.92 * _GPU_VRAM_GB:
+        raise RuntimeError(
+            f"Solvated system too large for {_GPU_NAME or 'this GPU'} "
+            f"({_GPU_VRAM_GB:.1f} GB VRAM): ~{num_atoms:,} atoms need "
+            f"~{est:.1f} GB. Reduce the system: use a smaller protein, trim "
+            "non-essential residues, or rebuild with less solvent padding.")
+
+
 def _cuda_sanity_benchmark():
     """Run a tiny 1000-step simulation on CUDA. Returns (ok, detail)."""
     try:
@@ -514,6 +572,7 @@ class MDEngine:
         self._chunks_done = 0
         self._start_time = 0
         self._reporter_eta = 0
+        self.system_info = {}  # populated after solvation: atoms, est VRAM, est speed
         self.phase = "idle"  # idle|sanitizing|parameterizing|solvating|minimizing|equilibrating|running|completed|error
         self.status_file = os.path.join(workdir, "status.json")
 
@@ -765,6 +824,28 @@ class MDEngine:
             solvated = False
         log.info(f"[PREP] Solvation: {time.time()-t_h:.1f}s ({self.modeller.topology.getNumAtoms()} atoms)")
 
+        # ── Automatic atom-count / VRAM / speed pre-check ──
+        n_atoms = self.modeller.topology.getNumAtoms()
+        est_vram = estimate_vram_gb(n_atoms)
+        est_speed = estimate_ns_per_day(n_atoms, _GPU_NAME)
+        self.system_info = {
+            "solvated_atoms": n_atoms,
+            "est_vram_gb": round(est_vram, 2),
+            "est_ns_per_day": est_speed,
+            "gpu_name": _GPU_NAME,
+            "gpu_vram_gb": round(_GPU_VRAM_GB, 1),
+        }
+        log.info(f"[CHECK] {n_atoms:,} atoms · est {est_vram:.1f} GB VRAM · "
+                 f"~{est_speed:.0f} ns/day on {_GPU_NAME or 'GPU'}")
+        # Hard-stop before createSystem if it clearly won't fit the GPU
+        check_system_fits_gpu(n_atoms)
+        # Surface the estimate in status.json for the UI
+        self._update_status(self.phase if self.phase != "idle" else "solvating", {
+            **self.system_info,
+            "message": (f"{n_atoms:,} atoms · ~{est_vram:.1f} GB VRAM · "
+                        f"~{est_speed:.0f} ns/day"),
+        })
+
         # STEP 5: Build the FINAL system — the ONLY createSystem call now.
         # Use PME (periodic) when solvated, NoCutoff when running bare-protein.
         if solvated:
@@ -814,18 +895,12 @@ class MDEngine:
                     self.modeller.topology, self.system,
                     self.integrator, platform)
         except Exception as e:
-            # GPU failed at real workload (driver mismatch, OOM, etc.) → fallback to CPU
-            if platform.getName() != "CPU":
-                log.warning(f"{platform.getName()} simulation build failed ({e}), falling back to CPU")
-                self.platform_warning = f"{platform.getName()} failed: {e}. Using CPU."
-                platform = mm.Platform.getPlatformByName("CPU")
-                import multiprocessing
-                cpu_threads = str(max(1, multiprocessing.cpu_count() - 1))
-                self.simulation = app.Simulation(
-                    self.modeller.topology, self.system,
-                    self.integrator, platform, {"Threads": cpu_threads})
-            else:
-                raise
+            # GPU-only: no CPU fallback. A failure here is usually OOM or a
+            # driver problem — surface it clearly instead of a days-long CPU run.
+            raise RuntimeError(
+                f"GPU simulation build failed on {platform.getName()}: {e}. "
+                "This is usually out-of-video-memory — reduce system size "
+                "(smaller protein or less solvent padding) — or a driver issue.")
         self.simulation.context.setPositions(self.modeller.positions)
         self.platform_name = platform.getName()
         log.info(f"[PREP] build_simulation (platform={platform.getName()}): {time.time()-t0:.1f}s")

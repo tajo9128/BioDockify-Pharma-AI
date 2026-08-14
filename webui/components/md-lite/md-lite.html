@@ -86,13 +86,39 @@
         </div>
       </div>
 
-      <!-- Simulation Length -->
+      <!-- Automatic system-size / VRAM / speed estimate -->
+      <template x-if="systemEstimate">
+        <div class="mc" style="border-left:3px solid var(--color-primary)">
+          <h4>System Estimate</h4>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:0.56rem">
+            <span style="padding:3px 8px;background:var(--color-background);border-radius:6px">
+              🧬 <b x-text="systemEstimate.solvated_atoms.toLocaleString()"></b> atoms
+            </span>
+            <span style="padding:3px 8px;background:var(--color-background);border-radius:6px">
+              🎮 ~<b x-text="systemEstimate.est_vram_gb"></b> GB VRAM
+              <span x-show="systemEstimate.gpu_vram_gb" style="color:var(--color-text-muted)" x-text="' / ' + systemEstimate.gpu_vram_gb + ' GB'"></span>
+            </span>
+            <span style="padding:3px 8px;background:var(--color-background);border-radius:6px">
+              ⚡ ~<b x-text="systemEstimate.est_ns_per_day"></b> ns/day
+            </span>
+            <span style="padding:3px 8px;background:var(--color-background);border-radius:6px">
+              ⏱ <b x-text="etaText"></b> for <b x-text="settings.total_ns"></b> ns
+            </span>
+          </div>
+          <p x-show="vramTight" style="font-size:0.52rem;color:#f59e0b;margin:6px 0 0">
+            ⚠️ VRAM usage is close to the GPU limit — long runs may go slower or
+            fail. Consider a smaller solvent box or shorter simulation.
+          </p>
+        </div>
+      </template>
+
+      <!-- Simulation Length (ETA auto-computed from measured system size) -->
       <div class="mc"><h4>Simulation Length <span class="mbadge c">Fast Mode</span></h4>
         <div class="mrl">
-          <label class="mr" :class="{on:settings.total_ns===1}" @click="settings.total_ns=1"><span>1 ns</span><small>~5 min CPU</small></label>
-          <label class="mr" :class="{on:settings.total_ns===5}" @click="settings.total_ns=5"><span>5 ns</span><small>~25 min CPU</small></label>
-          <label class="mr" :class="{on:settings.total_ns===10}" @click="settings.total_ns=10"><span>10 ns</span><small>~50 min CPU</small></label>
-          <label class="mr" :class="{on:settings.total_ns===50}" @click="settings.total_ns=50"><span>50 ns</span><small>~4 hr CPU</small></label>
+          <label class="mr" :class="{on:settings.total_ns===1}" @click="settings.total_ns=1"><span>1 ns</span><small x-text="systemEstimate ? ('~' + Math.max(1, Math.round(24/systemEstimate.est_ns_per_day*60)) + ' min') : 'Quick test'"></small></label>
+          <label class="mr" :class="{on:settings.total_ns===5}" @click="settings.total_ns=5"><span>5 ns</span><small x-text="systemEstimate ? ('~' + (5/systemEstimate.est_ns_per_day*24).toFixed(1) + ' h') : 'Short run'"></small></label>
+          <label class="mr" :class="{on:settings.total_ns===10}" @click="settings.total_ns=10"><span>10 ns</span><small x-text="systemEstimate ? ('~' + (10/systemEstimate.est_ns_per_day*24).toFixed(1) + ' h') : 'Medium run'"></small></label>
+          <label class="mr" :class="{on:settings.total_ns===50}" @click="settings.total_ns=50"><span>50 ns</span><small x-text="systemEstimate ? ('~' + (50/systemEstimate.est_ns_per_day*24).toFixed(0) + ' h') : 'Long run'"></small></label>
         </div>
       </div>
 
