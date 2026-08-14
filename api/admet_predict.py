@@ -303,6 +303,7 @@ class AdmetPredict(ApiHandler):
             n_rings = rdMolDescriptors.CalcNumRings(mol)
             mr = Crippen.MolMR(mol)
             n_atoms = mol.GetNumAtoms()
+            n_atoms_total = Chem.AddHs(mol).GetNumAtoms()
             n_carbon = sum(1 for a in mol.GetAtoms() if a.GetAtomicNum() == 6)
             n_hetero = rdMolDescriptors.CalcNumHeteroatoms(mol)
 
@@ -327,23 +328,23 @@ class AdmetPredict(ApiHandler):
             # Egan (Egan 2000)
             egan = _druglikeness_egan(mol, logp, tpsa)
 
-            # Ghose (Ghose 1999)
-            ghose = _druglikeness_ghose(mol, logp, mw, mr, n_atoms)
+            # Ghose (Ghose 1999) — uses total atom count including hydrogens
+            ghose = _druglikeness_ghose(mol, logp, mw, mr, n_atoms_total)
 
             # Muegge (Muegge 2001)
             muegge = _druglikeness_muegge(mol, mw, logp, tpsa, n_rings,
                                            n_carbon, n_hetero, rot, hba, hbd)
 
-            # Ghose preferred range (Ghose 1999) — tighter than qualifying
+            # Ghose preferred range (Ghose 1999) — tighter than qualifying, total atoms incl. H
             ghose_pref_violations = []
             if logp > 4.1 or logp < 1.3: ghose_pref_violations.append(f"LogP {logp:.2f} (1.3-4.1)")
             if mw < 230 or mw > 390: ghose_pref_violations.append(f"MW {mw:.1f} (230-390)")
             if mr < 70 or mr > 110: ghose_pref_violations.append(f"MR {mr:.1f} (70-110)")
-            if n_atoms < 30 or n_atoms > 55: ghose_pref_violations.append(f"N atoms {n_atoms} (30-55)")
+            if n_atoms_total < 30 or n_atoms_total > 55: ghose_pref_violations.append(f"N atoms {n_atoms_total} (30-55)")
             ghose_pref = {"pass": len(ghose_pref_violations) == 0, "violations": ghose_pref_violations}
 
-            # Golden Triangle (Johnson & Luty 2009)
-            golden = 200 <= mw <= 500 and 2 <= logp <= 5
+            # Golden Triangle (Johnson & Luty 2009) — MW 200-500, LogP -2 to 5
+            golden = 200 <= mw <= 500 and -2 <= logp <= 5
 
             # QED (Bickerton 2012)
             qed = round(QED.qed(mol), 3) if hasattr(QED, 'qed') else "N/A"
