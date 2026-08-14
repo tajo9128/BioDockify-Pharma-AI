@@ -1,4 +1,8 @@
-"""OpenMM MD Engine — setup, force field, integrator, simulation runners."""
+"""OpenMM MD Engine — setup, force field, integrator, simulation runners.
+
+GPU-ONLY mode: MD Lite requires a CUDA GPU with ≥ 4 GB VRAM (GTX 1650 or better).
+CPU simulations are rejected — they take days for 1 ns and are not viable.
+"""
 import os, json, time, logging, threading
 import openmm as mm
 import openmm.app as app
@@ -6,89 +10,208 @@ import openmm.unit as unit
 
 log = logging.getLogger("md_lite")
 
-# Cache the benchmarked platform so we only pay the ~2s cost once per process.
-_BENCHMARKED_PLATFORM = None
-_BENCHMARK_WARNING = ""
-_BENCHMARK_LOCK = threading.Lock()
+# ── GPU requirement ──────────────────────────────────────────────────────────
+MIN_VRAM_GB = 4.0           # GTX 1650 has 4 GB — the minimum viable GPU
+MIN_GPU_NAME = "GTX 1650"   # reference card for the requirement message
+
+# Cache the GPU check so we only pay the ~2s cost once per process.
+_GPU_CHECKED = False
+_GPU_AVAILABLE = False
+_GPU_NAME = ""
+_GPU_VRAM_GB = 0.0
+_GPU_WARNING = ""
+_GPU_LOCK = threading.Lock()
 
 
-def _benchmark_platform():
-    """Run a tiny MD step on CUDA vs CPU and pick the faster one.
+def _check_gpu():
+    """Verify a CUDA GPU with ≥ MIN_VRAM_GB is present and usable.
 
-    Solves the 'CUDA reported available but no GPU in Docker' trap: OpenMM
-    lists CUDA as a platform even when there is no device, and then runs
-    10-50x slower than CPU. A 1000-step benchmark detects this in ~2s.
+    The DEFINITIVE test is: can OpenMM create a CUDA context and step a
+    simulation? If yes, the GPU works — never reject a working GPU just
+    because a detection helper (nvidia-smi etc.) is missing.
+
+    Name/VRAM detection is best-effort, used for display and the VRAM floor.
+    VRAM only causes rejection when positively measured below the minimum.
+
+    Returns (available: bool, warning: str). Result is cached.
     """
-    global _BENCHMARKED_PLATFORM, _BENCHMARK_WARNING
-    with _BENCHMARK_LOCK:
-        if _BENCHMARKED_PLATFORM is not None:
-            return _BENCHMARKED_PLATFORM, _BENCHMARK_WARNING
+    global _GPU_CHECKED, _GPU_AVAILABLE, _GPU_NAME, _GPU_VRAM_GB, _GPU_WARNING
+    with _GPU_LOCK:
+        if _GPU_CHECKED:
+            return _GPU_AVAILABLE, _GPU_WARNING
+        _GPU_CHECKED = True
+        _GPU_AVAILABLE = False
+        _GPU_WARNING = ""
 
-        _BENCHMARKED_PLATFORM = "CPU"
-        _BENCHMARK_WARNING = ""
+        # 1. Best-effort device info first (for diagnostics + VRAM floor)
+        gpu_name, vram_gb = _detect_gpu_device()
+        _GPU_NAME = gpu_name
+        _GPU_VRAM_GB = vram_gb
+        log.info(f"GPU detection: name={gpu_name!r} vram={vram_gb:.1f}GB")
+
+        # Reject ONLY when VRAM was positively measured below the minimum.
+        # Unknown VRAM (0) must NOT reject — detection may simply be unavailable.
+        if vram_gb > 0 and vram_gb < MIN_VRAM_GB:
+            _GPU_WARNING = (
+                f"GPU '{gpu_name}' has only {vram_gb:.1f} GB VRAM. "
+                f"MD Lite requires ≥ {MIN_VRAM_GB:.0f} GB (GTX 1650 or better). "
+                "Solvent-box protein-ligand systems typically need ≥ 2 GB of GPU "
+                "memory; 4 GB is the practical minimum."
+            )
+            return _GPU_AVAILABLE, _GPU_WARNING
+
+        # 2. THE definitive test — run a tiny CUDA simulation via OpenMM.
+        ok, detail = _cuda_sanity_benchmark()
+        if ok:
+            _GPU_AVAILABLE = True
+            _GPU_WARNING = ""
+            if not _GPU_NAME:
+                _GPU_NAME = "CUDA GPU"  # works, but name unknown
+            log.info(f"GPU OK: {_GPU_NAME} ({vram_gb:.1f} GB VRAM) — benchmark: {detail}")
+            return _GPU_AVAILABLE, _GPU_WARNING
+
+        # 3. Benchmark failed — build the most specific message we can.
+        nvidia_smi_found_gpu = bool(gpu_name)
+        platform_names = []
         try:
-            all_platforms = []
-            for i in range(mm.Platform.getNumPlatforms()):
-                p = mm.Platform.getPlatform(i)
-                all_platforms.append((p.getName(), p.getSpeed()))
-            has_cuda = any("CUDA" in n for n, _ in all_platforms)
-            has_opencl = any("OpenCL" in n for n, _ in all_platforms)
-            if not (has_cuda or has_opencl):
-                return _BENCHMARKED_PLATFORM, _BENCHMARK_WARNING
+            platform_names = [mm.Platform.getPlatform(i).getName()
+                              for i in range(mm.Platform.getNumPlatforms())]
+        except Exception:
+            pass
 
-            import numpy as np
-            system = mm.System()
-            for _ in range(2):
-                system.addParticle(1.0)
-            force = mm.HarmonicBondForce()
-            force.addBond(0, 1, 0.1, 1000.0)
-            system.addForce(force)
-            positions = np.array([[0, 0, 0], [0.1, 0, 0]]) * unit.nanometers
+        if "CUDA" not in platform_names:
+            _GPU_WARNING = (
+                "MD Lite requires an NVIDIA GPU (GTX 1650 or better, ≥4 GB VRAM) "
+                "and a CUDA-enabled OpenMM build. OpenMM reports no CUDA platform "
+                "(available: " + ", ".join(platform_names) + "). "
+                "Install NVIDIA drivers and a CUDA build of OpenMM."
+            )
+        elif nvidia_smi_found_gpu:
+            _GPU_WARNING = (
+                f"An NVIDIA GPU was detected ({gpu_name}) but OpenMM could not run "
+                f"on it ({detail}). Update NVIDIA drivers; if using Docker, start "
+                "the container with --gpus all and the NVIDIA Container Toolkit."
+            )
+        else:
+            _GPU_WARNING = (
+                "MD Lite requires an NVIDIA GPU (GTX 1650 or better, ≥4 GB VRAM). "
+                f"No usable CUDA device ({detail}). CPU is not supported — 1 ns "
+                "takes days. If using Docker: docker run --gpus all ..."
+            )
+        return _GPU_AVAILABLE, _GPU_WARNING
 
-            candidates = []
-            if has_cuda:
-                candidates.append("CUDA")
-            if has_opencl:
-                candidates.append("OpenCL")
-            candidates.append("CPU")
 
-            timings = {}
-            for name in candidates:
-                try:
-                    plat = mm.Platform.getPlatformByName(name)
-                    props = {}
-                    if name == "CUDA":
-                        props = {"DeviceIndex": "0", "Precision": "mixed"}
-                    elif name == "OpenCL":
-                        props = {"DeviceIndex": "0", "Precision": "mixed"}
-                    integ = mm.VerletIntegrator(0.001)
-                    sim = app.Simulation(mm.Topology(), system, integ, plat, props)
-                    sim.context.setPositions(positions)
-                    # Warm-up step (GPU kernel compilation)
-                    sim.step(10)
-                    t0 = time.time()
-                    sim.step(1000)
-                    timings[name] = time.time() - t0
-                except Exception as e:
-                    timings[name] = float("inf")
-                    log.debug(f"Platform benchmark {name} failed: {e}")
+def _detect_gpu_device():
+    """Best-effort GPU name + VRAM detection. Returns (name, vram_gb).
 
-            if timings:
-                best = min(timings, key=timings.get)
-                if timings[best] != float("inf"):
-                    _BENCHMARKED_PLATFORM = best
-                    for gpu_name in ("CUDA", "OpenCL"):
-                        if gpu_name in timings and "CPU" in timings and \
-                                timings[gpu_name] > timings["CPU"] * 1.5 and best == "CPU":
-                            _BENCHMARK_WARNING = (
-                                f"GPU ({gpu_name}) available but CPU is "
-                                f"{timings[gpu_name]/timings['CPU']:.1f}x faster "
-                                f"(no usable GPU device). Using CPU."
-                            )
-                    log.info(f"Platform benchmark: {timings} -> using {_BENCHMARKED_PLATFORM}")
+    Tries multiple methods so a working GPU is never missed:
+      1. nvidia-smi (PATH + common Windows install paths)
+      2. Windows WMI (win32_VideoController)
+    Returns ("", 0.0) when detection is unavailable — callers must treat
+    that as "unknown", not "no GPU".
+    """
+    gpu_name, vram_gb = "", 0.0
+
+    # Method 1: nvidia-smi — try several locations (Windows often lacks PATH)
+    smi_candidates = ["nvidia-smi"]
+    if os.name == "nt":
+        smi_candidates += [
+            r"C:\Windows\System32\nvidia-smi.exe",
+            r"C:\Program Files\NVIDIA Corporation\NVSMI\nvidia-smi.exe",
+        ]
+    for smi in smi_candidates:
+        try:
+            import subprocess
+            result = subprocess.run(
+                [smi, "--query-gpu=name,memory.total",
+                 "--format=csv,noheader,nounits"],
+                capture_output=True, text=True, timeout=10)
+            if result.returncode == 0 and result.stdout.strip():
+                first_line = result.stdout.strip().split("\n")[0]
+                parts = [p.strip() for p in first_line.split(",")]
+                if len(parts) >= 2 and parts[0]:
+                    gpu_name = parts[0]
+                    try:
+                        # memory.total prints MiB with noheader,nounits
+                        vram_gb = float(parts[1].split()[0]) / 1024.0
+                    except (ValueError, IndexError):
+                        vram_gb = 0.0
+                    return gpu_name, vram_gb
+        except FileNotFoundError:
+            continue
         except Exception as e:
-            log.warning(f"Platform benchmark failed, defaulting to CPU: {e}")
-        return _BENCHMARKED_PLATFORM, _BENCHMARK_WARNING
+            log.debug(f"nvidia-smi ({smi}) failed: {e}")
+            continue
+
+    # Method 2: Windows WMI — works without nvidia-smi on PATH
+    if os.name == "nt":
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["wmic", "path", "win32_VideoController",
+                 "get", "name,AdapterRAM"],
+                capture_output=True, text=True, timeout=10)
+            if result.returncode == 0 and result.stdout.strip():
+                for line in result.stdout.strip().split("\n"):
+                    line = line.strip()
+                    if not line or line.lower().startswith("name"):
+                        continue
+                    # Format: "<bytes>  <name>" (or reversed on some systems)
+                    tokens = line.split(None, 1)
+                    for tok in tokens:
+                        if tok.isdigit() and len(tok) >= 9:  # ≥ ~512 MB in bytes
+                            vram_gb = int(tok) / (1024 ** 3)
+                            name_tok = [t for t in tokens if t is not tok]
+                            if name_tok and ("NVIDIA" in name_tok[0].upper()
+                                             or "GeForce" in name_tok[0]
+                                             or "RTX" in name_tok[0]
+                                             or "GTX" in name_tok[0]):
+                                gpu_name = name_tok[0]
+                                return gpu_name, vram_gb
+        except Exception as e:
+            log.debug(f"WMI GPU detection failed: {e}")
+
+    # Detection unavailable — ("", 0.0) means UNKNOWN, not absent
+    return gpu_name, vram_gb
+
+
+def _cuda_sanity_benchmark():
+    """Run a tiny 1000-step simulation on CUDA. Returns (ok, detail)."""
+    try:
+        import numpy as np
+        system = mm.System()
+        for _ in range(2):
+            system.addParticle(1.0)
+        force = mm.HarmonicBondForce()
+        force.addBond(0, 1, 0.1, 1000.0)
+        system.addForce(force)
+        positions = np.array([[0, 0, 0], [0.1, 0, 0]]) * unit.nanometers
+
+        plat = mm.Platform.getPlatformByName("CUDA")
+        integ = mm.VerletIntegrator(0.001)
+        sim = app.Simulation(mm.Topology(), system, integ, plat,
+                             {"DeviceIndex": "0", "Precision": "mixed"})
+        sim.context.setPositions(positions)
+        sim.step(10)   # warm-up (kernel compile)
+        t0 = time.time()
+        sim.step(1000)
+        elapsed = time.time() - t0
+        return True, f"1000 steps in {elapsed:.2f}s"
+    except Exception as e:
+        return False, str(e)[:120]
+
+
+# Backwards-compatible alias (engine internals + api/md_lite.py call this)
+def _benchmark_platform():
+    """Legacy entry point — now a strict GPU gate.
+
+    Returns ("CUDA", "") when a qualifying GPU is present,
+    ("CPU", warning) otherwise. MD Lite callers must refuse to run on CPU.
+    """
+    available, warning = _check_gpu()
+    if available:
+        return "CUDA", ""
+    return "CPU", warning
 
 
 FORCEFIELD_CHAINS = [
@@ -395,49 +518,26 @@ class MDEngine:
         self.status_file = os.path.join(workdir, "status.json")
 
     def detect_platform(self):
-        """Auto-detect best platform using a real benchmark (not just availability).
+        """GPU-ONLY platform selection. CPU is never returned.
 
-        Priority: user-explicit CUDA/OpenCL → benchmark winner → CPU fallback.
-        On Windows, sets DeviceIndex and mixed precision for GPU platforms.
+        Runs the strict GPU gate (CUDA platform present, device detected,
+        ≥ 4 GB VRAM, sanity benchmark passes). Raises RuntimeError when no
+        qualifying GPU is found — callers must surface the error to the user.
         """
-        all_platforms = []
-        for i in range(mm.Platform.getNumPlatforms()):
-            p = mm.Platform.getPlatform(i)
-            all_platforms.append((p.getName(), p.getSpeed()))
-        platform_names = [n for n, _ in all_platforms]
-
-        # If user explicitly requested CPU, honor it.
-        if self.platform_name.upper() == "CPU":
-            log.info("Platform: CPU (user-selected)")
-            return mm.Platform.getPlatformByName("CPU"), {}
-
-        # If user explicitly requested CUDA or OpenCL, try it directly first.
-        if self.platform_name.upper() in ("CUDA", "OPENCL"):
-            requested = self.platform_name.upper()
-            if requested in platform_names:
-                props = {"DeviceIndex": str(self.device_index), "Precision": "mixed"}
-                try:
-                    plat = mm.Platform.getPlatformByName(requested)
-                    log.info(f"Platform: {requested} (user-selected, device={self.device_index})")
-                    return plat, props
-                except Exception as e:
-                    log.warning(f"Requested {requested} failed: {e}, falling back to benchmark")
-            else:
-                log.warning(f"Requested {requested} not available (have: {platform_names})")
-
-        # "auto" or fallback: run the benchmark to pick the genuinely fastest.
-        best_name, warning = _benchmark_platform()
+        available, warning = _check_gpu()
         self.platform_warning = warning
-        props = {}
-        if best_name in ("CUDA", "OpenCL"):
-            props = {"DeviceIndex": str(self.device_index), "Precision": "mixed"}
-        try:
-            plat = mm.Platform.getPlatformByName(best_name)
-            log.info(f"Platform: {best_name} (benchmarked){' — ' + warning if warning else ''}")
-            return plat, props
-        except Exception:
-            log.warning(f"Benchmarked platform {best_name} unavailable, using CPU")
-            return mm.Platform.getPlatformByName("CPU"), {}
+
+        if not available:
+            raise RuntimeError(warning or
+                "MD Lite requires an NVIDIA GPU (GTX 1650 or better, ≥ 4 GB VRAM). "
+                "CPU simulations are not supported — 1 ns takes days on CPU.")
+
+        # A qualifying GPU is present — use CUDA with mixed precision.
+        props = {"DeviceIndex": str(self.device_index), "Precision": "mixed"}
+        plat = mm.Platform.getPlatformByName("CUDA")
+        log.info(f"Platform: CUDA (device={self.device_index}, "
+                 f"{_GPU_NAME or 'unknown GPU'}, {_GPU_VRAM_GB:.1f} GB VRAM)")
+        return plat, props
 
     def _load_forcefield(self):
         """Try multiple forcefield combinations, return first that works."""
@@ -965,21 +1065,18 @@ class MDEngine:
         platforms = []
         for i in range(mm.Platform.getNumPlatforms()):
             p = mm.Platform.getPlatform(i)
-            info = {"name": p.getName(), "speed": p.getSpeed()}
-            if p.getName() == "CUDA":
-                try:
-                    info["devices"] = p.getPropertyDefaultValue("DeviceIndex")
-                    info["cuda_compiler"] = p.getPropertyDefaultValue("CudaCompiler") if hasattr(p, "getPropertyDefaultValue") else ""
-                except Exception:
-                    pass
-            platforms.append(info)
-        gpu_available = any("CUDA" in p["name"] or "OpenCL" in p["name"] for p in platforms)
-        best_name, warning = _benchmark_platform()
+            platforms.append({"name": p.getName(), "speed": p.getSpeed()})
+        available, warning = _check_gpu()
         return {
             "openmm": True,
             "platforms": platforms,
-            "gpu_available": gpu_available,
-            "selected_platform": best_name,
+            "gpu_available": available,
+            "gpu_name": _GPU_NAME,
+            "gpu_vram_gb": round(_GPU_VRAM_GB, 1),
+            "min_vram_gb": MIN_VRAM_GB,
+            "requirement": f"NVIDIA {MIN_GPU_NAME} or better, ≥{MIN_VRAM_GB:.0f} GB VRAM (GPU-only, CPU not supported)",
+            "selected_platform": "CUDA" if available else "",
             "platform_warning": warning,
-            "using_gpu": best_name in ("CUDA", "OpenCL"),
+            "using_gpu": available,
+            "ready": available,
         }

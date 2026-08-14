@@ -218,14 +218,34 @@ class MDLite(ApiHandler):
             return {"status": "error", "error": "OpenMM is not installed. Rebuild the Docker image or run: pip install openmm pdbfixer mdtraj"}
         try:
             from modules.md_lite.engine import MDEngine
-            return {"status": "ok", **MDEngine.health()}
+            h = MDEngine.health()
+            # GPU-only mode: surface readiness + requirement explicitly
+            h["ready"] = bool(h.get("gpu_available"))
+            if not h.get("gpu_available"):
+                h["gpu_required"] = True
+            return {"status": "ok", **h}
         except Exception as e:
             return {"status": "error", "error": str(e)}
+
+    def _require_gpu(self):
+        """Raise with a clear message when no qualifying GPU is present."""
+        from modules.md_lite.engine import _check_gpu
+        available, warning = _check_gpu()
+        if not available:
+            raise RuntimeError(warning or
+                "MD Lite requires an NVIDIA GPU (GTX 1650 or better, ≥ 4 GB VRAM). "
+                "CPU simulations are not supported.")
 
     async def _prepare(self, input):
         """Prepare PDB for MD — runs in a worker thread so the event loop
         (and the frontend status poller) stay responsive. Writes phase updates
         to status.json so the user sees progress instead of a black box."""
+        # GPU-only: refuse before creating any job files
+        try:
+            self._require_gpu()
+        except RuntimeError as e:
+            return {"status": "error", "error": str(e), "gpu_required": True}
+
         job_id = input.get("job_id") or str(uuid.uuid4())[:8]
         job_dir = os.path.join(WORKDIR, job_id)
         os.makedirs(job_dir, exist_ok=True)
@@ -432,7 +452,17 @@ class MDLite(ApiHandler):
         return {"status": "ok", "job_id": job_id, "preparing": True}
 
     def _run(self, input):
-        job_id = input["job_id"]
+        job_id = input.get("job_id", "")
+        if not job_id:
+            return {"status": "error", "error": "job_id required"}
+        # GPU-only: refuse to start a simulation without a qualifying GPU
+        try:
+            self._require_gpu()
+        except RuntimeError as e:
+            _write_status(os.path.join(WORKDIR, job_id), "error",
+                          {"phase": "error", "error": str(e)})
+            return {"status": "error", "error": str(e), "gpu_required": True}
+
         total_ns = float(input.get("total_ns", 1))
         forcefield = input.get("forcefield", "amber14")
         temperature = float(input.get("temperature", 300))

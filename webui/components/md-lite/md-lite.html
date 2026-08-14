@@ -57,10 +57,10 @@
         </div>
       </div>
 
-      <button class="mrn" @click="prepare()" :disabled="loading">
+      <button class="mrn" @click="prepare()" :disabled="loading || !gpuAvailable">
         <span class="material-symbols-outlined">science</span> Prepare System
       </button>
-      <button class="mrn" style="background:#8b5cf6;margin-top:6px" @click="prepareComplex()" :disabled="loading">
+      <button class="mrn" style="background:#8b5cf6;margin-top:6px" @click="prepareComplex()" :disabled="loading || !gpuAvailable">
         <span class="material-symbols-outlined">auto_fix_high</span> Auto-Prepare (PDBFixer + RDKit)
       </button>
       <p style="color:var(--color-text-muted);font-size:0.52rem;text-align:center;margin-top:4px">
@@ -97,18 +97,16 @@
       </div>
 
       <!-- Engine -->
-      <div class="mc"><h4>Engine <span x-show="gpuAvailable" class="mbadge g">GPU Detected</span><span x-show="!gpuAvailable" class="mbadge c">CPU Only</span></h4>
+      <div class="mc"><h4>Engine <span x-show="gpuAvailable" class="mbadge g" x-text="'GPU: ' + (gpuName || 'CUDA') + ' · ' + gpuVramGb + ' GB'"></span><span x-show="!gpuAvailable" class="mbadge c">GPU Required (CPU not supported)</span></h4>
         <div class="mrl">
           <label class="mr" :class="{on:settings.platform==='auto'}" @click="settings.platform='auto'">
-            <span>Auto</span><small>Fastest available (benchmarked)</small>
-          </label>
-          <label class="mr" :class="{on:settings.platform==='CUDA'}" @click="settings.platform='CUDA'">
-            <span>GPU CUDA</span><small x-text="gpuName || 'NVIDIA'"></small>
-          </label>
-          <label class="mr" :class="{on:settings.platform==='CPU'}" @click="settings.platform='CPU'">
-            <span>CPU</span><small>Slower, always available</small>
+            <span>CUDA (GPU)</span><small x-text="gpuName || 'NVIDIA · mixed precision'"></small>
           </label>
         </div>
+        <p x-show="!gpuAvailable" style="font-size:0.52rem;color:#ef4444;margin:6px 0 0">
+          ⚠️ MD Lite runs GPU-only. Requires NVIDIA GTX 1650 (4 GB) or better.
+          1 ns takes days on CPU — not supported. Docker users: start with --gpus all.
+        </p>
       </div>
 
       <!-- Advanced (collapsible) -->
@@ -131,7 +129,7 @@
         </div>
       </div>
 
-      <button class="mrn" @click="runMD()" :disabled="loading">
+      <button class="mrn" @click="runMD()" :disabled="loading || !gpuAvailable">
         <span class="material-symbols-outlined">play_arrow</span> Run Simulation
       </button>
       <p style="font-size:0.46rem;color:var(--color-text-muted);text-align:center;margin:4px 0">Runs in background · Auto-resumes from checkpoint</p>

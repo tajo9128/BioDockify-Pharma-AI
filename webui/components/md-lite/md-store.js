@@ -16,6 +16,8 @@ const mdLiteFactory = () => ({
   expandedAdvanced: false,
   gpuAvailable: false,
   gpuName: "",
+  gpuVramGb: 0,
+  gpuRequired: false,
   platformWarning: "",
 
   // Live monitor
@@ -62,25 +64,30 @@ const mdLiteFactory = () => ({
     try {
       const r = await callJsonApi("md_lite", { action: "health" });
       this.platformWarning = "";
+      this.gpuRequired = false;
       if (r.status === "error" || r.error) {
         this.platformWarning = "OpenMM not available: " + (r.error || "install failed") + ". MD Lite will not work until OpenMM is installed.";
         return;
       }
-      // Support both old (r.gpu) and new (r.gpu_available) response shapes
       const hasGpu = r.gpu_available ?? r.gpu ?? false;
-      const usingGpu = r.using_gpu ?? hasGpu;
       if (hasGpu) {
         this.gpuAvailable = true;
-        this.gpuName = r.platforms?.find(p => p.name.includes("CUDA"))?.name || "GPU";
+        this.gpuName = r.gpu_name || "CUDA GPU";
+        this.gpuVramGb = r.gpu_vram_gb || 0;
+        this.liveLog.push(`GPU: ${this.gpuName} (${this.gpuVramGb} GB VRAM)`);
       } else {
         this.gpuAvailable = false;
+        this.gpuRequired = true;
+        // Clear GPU-requirement message — MD Lite cannot run on this machine
+        this.platformWarning =
+          "⚠️ NVIDIA GPU required (GTX 1650 or better, ≥4 GB VRAM). " +
+          (r.platform_warning || "No qualifying CUDA device detected. ") +
+          "MD simulations take days on CPU and are not supported. " +
+          "If using Docker, start the container with: docker run --gpus all ...";
+        return;
       }
-      // Always use "auto" — the benchmark picks the fastest platform
       this.settings.platform = "auto";
       if (r.platform_warning) this.platformWarning = r.platform_warning;
-      if (r.selected_platform) {
-        this.liveLog.push(`Platform: ${r.selected_platform} (${usingGpu ? "GPU" : "CPU"} mode)`);
-      }
     } catch (e) {
       this.platformWarning = "MD Lite backend unavailable: " + (e.message || "API error");
     }
@@ -101,6 +108,12 @@ const mdLiteFactory = () => ({
 
   // Prepare system (standard) — returns immediately, polls status in background
   async prepare() {
+    // GPU-only: block before doing anything on CPU-only machines
+    if (this.gpuRequired || !this.gpuAvailable) {
+      this.errorMessage = this.platformWarning || "NVIDIA GPU required (GTX 1650+, ≥4 GB VRAM). CPU is not supported.";
+      await this.checkHealth(); // refresh state
+      return;
+    }
     this.loading = true; this.errorMessage = ""; this.jobId = null; this.liveLog = [];
     try {
       // Docking import → prepare_complex (protein + docked ligand on disk)
@@ -220,6 +233,11 @@ const mdLiteFactory = () => ({
   // Auto-prepare complex (PDBFixer + RDKit) — bridges docking → MD
   // Returns immediately, polls status in background
   async prepareComplex() {
+    if (this.gpuRequired || !this.gpuAvailable) {
+      this.errorMessage = this.platformWarning || "NVIDIA GPU required (GTX 1650+, ≥4 GB VRAM). CPU is not supported.";
+      await this.checkHealth();
+      return;
+    }
     this.loading = true; this.errorMessage = ""; this.jobId = null; this.liveLog = [];
     try {
       const p = { action: "prepare_complex" };
@@ -244,6 +262,11 @@ const mdLiteFactory = () => ({
 
   // Run MD
   async runMD() {
+    if (this.gpuRequired || !this.gpuAvailable) {
+      this.errorMessage = this.platformWarning || "NVIDIA GPU required (GTX 1650+, ≥4 GB VRAM). CPU is not supported.";
+      await this.checkHealth();
+      return;
+    }
     this.loading = true; this.errorMessage = ""; this.liveLog = []; this.mdLog = [];
     try {
       const r = await callJsonApi("md_lite", {
