@@ -1,0 +1,9 @@
+SMILES,activity,name
+CC(C)C1=C(C(=O)OC2CC(CC=C2C)C=C(C)CCC(CC)OC(=O)C)C(=C(C(=O)O1)O)O,9.2,Lovastatin
+CC(C)C1=C(C(=O)OC2CC(CC=C2C)C=C(C)CCC(CC)OC(=O)C)C(=C(C(=O)O1)CC=O)O,9.5,Simvastatin
+CC(C)C1=C(C(=O)OC2CC(CC=C2C)C=C(C)CCCC(C)O)C(=C(C(=O)O1)O)O,8.8,Pravastatin
+CC(C)C1=C(C(=O)OC2CC(CC=C2C)C=C(C)CCCC(C)O)C(=C(C(=O)O1)CC=O)O,9.1,Mevastatin
+CC(C)C1=C(C(=O)O)C(=C(C(=O)O1)O)C2=CC=C(C=C2)F,8.5,Fluvastatin
+CC(C)C1=C(C(=O)O)C(=C(C(=O)O1)CC=O)C2=CC=C(C=C2)F,8.9,Fluvastatin_metabolite
+CC(C)C1=C(C(=O)O)C(=C(C(=O)O1)O)C2=CC=C(C=C2)Cl,8.2,Cerivastatin
+CC(C)C1=C(C(=O)O)C(=C(C(=O)O1)CC=O)C2=CC=C(C=C2)Cl,8.6,Cerivastatin_metabolite

@@ -21,6 +21,7 @@ const defaultModules = [
   { id: "journal-finder", title: "Journal Finder", icon: "verified", component: "/components/journal-finder/journal-finder.html", order: 12, defaultWidth: 600, defaultHeight: 550 },
   { id: "backup", title: "Backup & Recovery", icon: "backup", component: "/components/backup-recovery/recovery-panel.html", order: 13, defaultWidth: 650, defaultHeight: 450 },
   { id: "system-health", title: "System Health", icon: "monitoring", component: "/components/system-health/system-health.html", order: 14, defaultWidth: 500, defaultHeight: 500 },
+  { id: "md-lite", title: "MD Lite", icon: "animation", component: "/components/md-lite/md-lite.html", order: 4.5, defaultWidth: 700, defaultHeight: 600 },
   { id: "formulation", title: "Formulation", icon: "science", component: "/components/formulation/formulation.html", order: 15, defaultWidth: 750, defaultHeight: 600 },
   { id: "clinical", title: "Clinical Pharmacy", icon: "clinical_notes", component: "/components/clinical/clinical.html", order: 16, defaultWidth: 750, defaultHeight: 600 },
   { id: "pharma-analysis", title: "Pharma Analysis", icon: "biotech", component: "/components/pharma-analysis/pharma-analysis.html", order: 17, defaultWidth: 750, defaultHeight: 600 },

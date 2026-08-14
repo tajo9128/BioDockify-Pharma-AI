@@ -1,0 +1,11 @@
+SMILES,activity,name
+CCOC(=O)C(CCC1=CC=CC=C1)NC(C)C(=O)N2CCCC2C(=O)O,8.5,Enalapril
+CCOC(=O)C(CC(C)C)NC(C)C(=O)NCC(=O)O,7.8,Lisinopril
+CCOC(=O)C(CCCNC(=N)N)NC(C)C(=O)NCC(=O)O,9.1,Captopril
+CCOC(=O)C(CC1=CC=CC=C1)NC(C)C(=O)NCC(=O)O,8.2,Benazepril
+CCOC(=O)C(CCSC)NC(C)C(=O)NCC(=O)O,7.5,Fosinopril
+CCOC(=O)C(CO)NC(C)C(=O)NCC(=O)O,6.8,Ramipril
+CCOC(=O)C(CC(=O)N)NC(C)C(=O)NCC(=O)O,7.2,Perindopril
+CCOC(=O)C(CC1=CC=C(C=C1)O)NC(C)C(=O)NCC(=O)O,8.0,Quinapril
+CCOC(=O)C(CC1=CN=CN1)NC(C)C(=O)NCC(=O)O,8.8,Trandolapril
+CCOC(=O)C(CC1=CC=CC=C1)NC(C)C(=O)N2CCOCC2,7.9,Imidapril

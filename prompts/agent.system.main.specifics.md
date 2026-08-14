@@ -62,7 +62,8 @@ User's goal: literature review, deep research, docking, simulation, statistics �
 ```
    Literature Search  ─┐
    Deep Research      ─┤
-   Docking            ─┼──►  auto_store(module, ...)  ──►  Knowledge Base (separate categories)
+   Docking            ─┤
+   MD Simulation      ─┼──►  auto_store(module, ...)  ──►  Knowledge Base (separate categories)
    QSAR               ─┤                                      │
    Pharmacophore      ─┤                                      ▼
    Statistics         ─┤                              Academic Writer
@@ -76,6 +77,7 @@ User's goal: literature review, deep research, docking, simulation, statistics �
 | `literature_search` | `literature` | Real papers + abstracts + full text |
 | `deep_research` | `deep_research` | Multi-database gathered sources |
 | `docking_run` / `docking_analysis` | `docking` | Binding energies, poses, interactions |
+| `md_lite` | `md_simulation` | RMSD, RMSF, energy, trajectories |
 | `qsar3d` | `qsar` | QSAR models, predictions |
 | `pharmacophore` | `pharmacophore` | Features, screening results |
 | `statistics_analyze` | `statistics` | ANOVA, t-test, regression, plots |

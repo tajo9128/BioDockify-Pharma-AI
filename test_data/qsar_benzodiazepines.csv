@@ -1,0 +1,11 @@
+SMILES,activity,name
+CN1C(=O)CN=C(C2=CC=CC=C2)C3=CC=CC=C31,7.0,Diazepam
+CN1C(=O)CN=C(C2=CC=CC=C2Cl)C3=CC=CC=C31,7.8,Chlordiazepoxide
+CN1C(=O)CN=C(C2=CC=CC=C2F)C3=CC=CC=C31,7.2,Flurazepam
+CN1C(=O)CN=C(C2=CC=CC=C2[N+](=O)[O-])C3=CC=CC=C31,6.5,Nitrazepam
+CN1C(=O)CN=C(C2=CC=C(C=C2)Cl)C3=CC=CC=C31,7.5,Clonazepam
+CN1C(=O)CN=C(C2=CC=C(C=C2)F)C3=CC=CC=C31,7.0,Flunitrazepam
+CN1C(=O)CN=C(C2=CC=C(C=C2)[N+](=O)[O-])C3=CC=CC=C31,6.2,Clonazepam_metabolite
+CN1C(=O)CN=C(C2=CC=CC=C2Br)C3=CC=CC=C31,7.6,Bromazepam
+CN1C(=O)CN=C(C2=CC=C(C=C2)Br)C3=CC=CC=C31,7.3,Bromazepam_metabolite
+CN1C(=O)CN=C(C2=CC=C(C=C2)OC)C3=CC=CC=C31,6.8,Midazolam

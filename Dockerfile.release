@@ -59,11 +59,15 @@ RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
     pingouin>=0.5.4 reportlab>=4.0.0 fastapi>=0.110.0 \
     "numpy>=1.24,<2.5" \
     chromadb>=0.4.0 faiss-cpu>=1.7.4 sentence-transformers>=2.2.0 \
+    openmm>=8.1.0 mdtraj>=1.9.9 pdbfixer>=2.0.0 \
     xgboost>=2.0.0 lightgbm>=4.0.0
 
 # ─── Verify critical imports ───
 RUN /opt/venv-a0/bin/python -c "\
-from rdkit import Chem; print('RDKit OK')" \
+from rdkit import Chem; print('RDKit OK'); \
+from openmm.app import ForceField; \
+ff = ForceField('amber14-all.xml', 'tip3p.xml'); \
+print('OpenMM + forcefields OK')" \
     && echo "All critical packages verified" \
     || (echo "ERROR: Critical package import failed" && exit 1)
 

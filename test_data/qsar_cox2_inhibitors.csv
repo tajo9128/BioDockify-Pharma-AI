@@ -1,0 +1,19 @@
+SMILES,activity,pIC50,name
+CC(=O)OC1=CC=CC=C1C(=O)O,4.8,4.8,Aspirin
+CC(C)Cc1ccc(cc1)C(C)C(=O)O,7.2,7.2,Ibuprofen
+CN(C)C(=N)N=C(N)N,4.1,4.1,Metformin
+CC1=CC=C(C=C1)C(=O)C2=CC=C(C=C2)S(=O)(=O)N,8.1,8.1,Celecoxib
+CC1=CC=C(C=C1)C2=CC(=NN2C3=CC=C(C=C3)S(=O)(=O)N)C(F)(F)F,7.5,7.5,Etoricoxib
+CC1=C(C=NO1)C(=O)NC2=CC=C(C=C2)S(=O)(=O)N,7.8,7.8,Valdecoxib
+O=C(O)C1=CC=CC=C1NC2=CC=CC=C2,5.2,5.2,Diclofenac
+CC(=O)NC1=CC=C(C=C1)O,4.1,4.1,Paracetamol
+O=C(O)C1=CC2=C(C=C1)OC(=O)C3=CC=CC=C3O2,6.3,6.3,Naproxen
+O=C(O)C1=CC=C(O)C=C1,3.8,3.8,Salicylic acid
+CC1=CC(=CC=C1O)C,4.5,4.5,Cresol
+O=C(O)C1=CC=CC=C1O,3.5,3.5,Hydroxybenzoic acid
+CC(=O)NC1=CC=CC=C1,3.2,3.2,Acetanilide
+O=CNC1=CC=CC=C1,3.0,3.0,Formanilide
+CC12CCC3C(CCC4CC(=O)CCC34C)C1CCC2O,9.2,9.2,Testosterone
+CC12CCC3C(CCC4CC(=O)CCC34C)C1CCC2OC(=O)C,8.8,8.8,Testosterone acetate
+CC1CC2C3CCC4=CC(=O)C=CC4(C3(C(CC2(C1(C(=O)CO)O)C)O)F)C,9.5,9.5,Dexamethasone
+CC1CC2C3CCC4=CC(=O)C=CC4(C3(C(CC2(C1(C(=O)C)O)C)O)C)C,8.9,8.9,Cortisone
