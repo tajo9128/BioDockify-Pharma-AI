@@ -86,10 +86,17 @@ class _PreventSleep:
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     log.info("Sleep prevention: enabled (systemd-inhibit)")
                 except FileNotFoundError:
-                    # No systemd in container — write keep-alive to prevent
-                    # Docker Desktop from pausing the container
-                    log.info("Sleep prevention: systemd-inhibit not available in container. "
-                             "Docker Desktop should not sleep containers while they're running.")
+                    # No systemd in container — cannot prevent host sleep from inside Docker.
+                    # One-time actionable hint for the host OS.
+                    log.warning(
+                        "Sleep prevention: Docker cannot prevent host OS sleep. "
+                        "If running overnight, disable host sleep:\n"
+                        "  Windows: powercfg /change standby-timeout-ac 0\n"
+                        "  macOS:   sudo pmset -a sleep 0\n"
+                        "  Linux:   systemd-inhibit --what=idle sleep infinity\n"
+                        "MD Lite checkpoints every 0.1 ns — an interruption loses ≤2-3 min. "
+                        "Auto-resume is enabled: interrupted jobs restart from checkpoint on server start."
+                    )
         except Exception as e:
             log.warning(f"Sleep prevention unavailable: {e}")
         return self
@@ -138,8 +145,83 @@ def _scan_interrupted_jobs():
         pass
 
 
-# Run on module import (server startup)
-_scan_interrupted_jobs()
+def _auto_resume_interrupted():
+    """Auto-resume interrupted jobs that have a checkpoint.
+
+    Runs after _scan_interrupted_jobs. Restarts the MD simulation from the
+    last checkpoint so the user's work continues automatically after host
+    sleep, Docker restart, or crash.
+    """
+    try:
+        for job_id in os.listdir(WORKDIR):
+            job_dir = os.path.join(WORKDIR, job_id)
+            sf = os.path.join(job_dir, "status.json")
+            if not os.path.isfile(sf):
+                continue
+            try:
+                with open(sf) as f:
+                    data = json.load(f)
+                if data.get("status") != "interrupted":
+                    continue
+                checkpoint = os.path.join(job_dir, "checkpoint.xml")
+                if not os.path.isfile(checkpoint):
+                    log.info(f"Auto-resume skip {job_id}: no checkpoint")
+                    continue
+
+                # Load run config
+                config_path = os.path.join(job_dir, "run_config.json")
+                if os.path.isfile(config_path):
+                    with open(config_path) as f:
+                        cfg = json.load(f)
+                else:
+                    log.info(f"Auto-resume skip {job_id}: no run_config.json")
+                    continue
+
+                # Find PDB
+                pdb = None
+                for candidate in ["prepared_complex.pdb", "prepared.pdb", "complex.pdb", "protein.pdb"]:
+                    path = os.path.join(job_dir, candidate)
+                    if os.path.exists(path):
+                        pdb = path
+                        break
+                if not pdb:
+                    continue
+
+                total_ns = float(cfg.get("total_ns", 5))
+                forcefield = cfg.get("forcefield", "amber14")
+                temperature = float(cfg.get("temperature", 300))
+                pressure = float(cfg.get("pressure", 1.0))
+                platform = cfg.get("platform", "auto")
+                fast_mode = cfg.get("fast_mode", True)
+
+                from modules.md_lite.workflow import MDWorkflow
+                wf = MDWorkflow(job_dir)
+                _write_status(job_dir, "resuming", {"phase": "resuming", "message": "Auto-resumed after restart"})
+
+                def _run_resume(jid=job_id, _wf=wf, _pdb=pdb, _ns=total_ns,
+                                _ff=forcefield, _temp=temperature, _press=pressure,
+                                _plat=platform, _fast=fast_mode):
+                    try:
+                        _wf.run(_pdb, _ns, _ff, _temp, _press, _plat, fast_mode=_fast)
+                    except Exception as e:
+                        log.error(f"Auto-resume failed for {jid}: {e}")
+                        _wf._safe_update_status("error", {"error": str(e), "phase": "error"})
+                    finally:
+                        _jobs.pop(jid, None)
+                        _workflows.pop(jid, None)
+
+                t = threading.Thread(target=_run_resume, name=f"md-lite-autor-{job_id}", daemon=False)
+                t.start()
+                _jobs[job_id] = t
+                _workflows[job_id] = wf
+                log.info(f"Auto-resumed job {job_id} from checkpoint ({total_ns} ns target)")
+            except Exception as e:
+                log.warning(f"Auto-resume error for {job_id}: {e}")
+    except Exception:
+        pass
+
+
+# Startup calls moved to after _write_status is defined (see below)
 
 
 def _write_status(job_dir, status, extra=None):
@@ -154,6 +236,11 @@ def _write_status(job_dir, status, extra=None):
             json.dump(data, f)
     except Exception:
         pass
+
+
+# Run on module import (server startup) — after _write_status is defined
+_scan_interrupted_jobs()
+_auto_resume_interrupted()
 
 
 def _friendly_error(msg):

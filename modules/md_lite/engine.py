@@ -1026,7 +1026,10 @@ class MDEngine:
         # On CPU, checkpoint more frequently (0.25 ns = 125k steps ≈ every few min)
         # so less work is lost if the laptop sleeps. On GPU, 0.5 ns is fine.
         if checkpoint_interval_ns is None:
-            checkpoint_interval_ns = 0.25 if self.platform_name == "CPU" else 0.5
+            # Frequent checkpoints for overnight reliability: an interruption
+            # (host sleep, crash, Docker restart) loses at most ~0.1 ns of work.
+            # Cost on GPU is ~1-2 s per save ≈ 1% overhead.
+            checkpoint_interval_ns = 0.1
 
         chunk_steps = int(checkpoint_interval_ns * steps_per_ns)
         # Status reporter: updates status.json inside simulation.step() every N steps

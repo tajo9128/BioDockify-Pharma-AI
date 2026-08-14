@@ -57,6 +57,33 @@ const mdLiteFactory = () => ({
     return !!(e?.gpu_vram_gb && e?.est_vram_gb && e.est_vram_gb > 0.85 * e.gpu_vram_gb);
   },
 
+  // ── Screen Wake Lock (prevents host sleep while simulation is running) ──
+  _wakeLock: null,
+  async _acquireWakeLock() {
+    try {
+      if (navigator.wakeLock && document.visibilityState === 'visible') {
+        this._wakeLock = await navigator.wakeLock.request('screen');
+        this.liveLog.push('🔒 Screen wake lock active (prevents sleep)');
+        // Re-acquire if tab becomes visible again (browser may release on hidden)
+        this._visibilityHandler = async () => {
+          if (document.visibilityState === 'visible' && !this._wakeLock) {
+            try { this._wakeLock = await navigator.wakeLock.request('screen'); } catch {}
+          }
+        };
+        document.addEventListener('visibilitychange', this._visibilityHandler);
+      }
+    } catch { /* Wake Lock not supported or blocked — silent fail */ }
+  },
+  _releaseWakeLock() {
+    try {
+      if (this._wakeLock) { this._wakeLock.release(); this._wakeLock = null; }
+      if (this._visibilityHandler) {
+        document.removeEventListener('visibilitychange', this._visibilityHandler);
+        this._visibilityHandler = null;
+      }
+    } catch {}
+  },
+
   get phaseLabel() {
     const p = this.status?.phase || "idle";
     return this.phaseLabels[p] || p;
@@ -316,6 +343,7 @@ const mdLiteFactory = () => ({
 
   startPolling() {
     this.liveLog.push("MD simulation started — " + (this.settings.fast_mode ? "fast mode" : "full mode"));
+    this._acquireWakeLock();  // keep screen on while sim runs
     this._lastProgress = 0;
     this._lastTime = Date.now();
     this.pollStatus();
@@ -351,6 +379,7 @@ const mdLiteFactory = () => ({
       if (r.status === "completed" || r.status === "error" || r.status === "stopped" || r.status === "interrupted") {
         clearInterval(this._pollTimer);
         clearInterval(this._logPollTimer);
+        this._releaseWakeLock();  // simulation ended — allow host to sleep
         if (r.status === "completed") {
           this.liveLog.push("Simulation complete ✓");
           this.loadResults();
@@ -410,6 +439,7 @@ const mdLiteFactory = () => ({
       await callJsonApi("md_lite", { action: "stop", job_id: this.jobId });
       clearInterval(this._pollTimer);
       clearInterval(this._logPollTimer);
+      this._releaseWakeLock();
     } catch {}
   },
 
