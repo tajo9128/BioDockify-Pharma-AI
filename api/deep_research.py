@@ -106,7 +106,7 @@ class DeepResearchHandler(ApiHandler):
         stats["total"] = len(unique_sources)
 
         # ── Split into 2 rounds: return first 50% immediately, fetch rest in background ──
-        max_store = int(input.get("max_store", 10))
+        max_store = int(input.get("max_store", 1000))
         retrieval_pool = unique_sources[:max_store]
         mid = len(retrieval_pool) // 2
         first_half = retrieval_pool[:mid] if mid > 0 else retrieval_pool[:1]
@@ -354,7 +354,7 @@ class DeepResearchHandler(ApiHandler):
     def _store_to_kb(self, input: dict) -> dict:
         """Store selected sources to knowledge base with proper categorization."""
         session_id = input.get("session_id", "")
-        max_store = int(input.get("max_store", 50))
+        max_store = int(input.get("max_store", 1000))
         topic = input.get("topic", "")
 
         session_path = os.path.join(STORAGE_DIR, f"session_{session_id}.json")

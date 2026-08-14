@@ -197,7 +197,7 @@ export const store = createStore("researchDashboard", {
     if (!this.drSessionId) { this.error = "Collect sources first"; return; }
     this.loading = true; this.error = "";
     try {
-      const r = await callJsonApi("deep_research", { action: "store", session_id: this.drSessionId, max_store: 50, topic: this.drTopic });
+      const r = await callJsonApi("deep_research", { action: "store", session_id: this.drSessionId, max_store: 1000, topic: this.drTopic });
       if (r.status === "ok") {
         this.message = `${r.stored} papers stored in Knowledge Base`;
       } else { this.error = r.error || "Store failed"; }

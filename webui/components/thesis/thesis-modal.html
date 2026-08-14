@@ -118,8 +118,8 @@
           const r = await callJsonApi("writing", {
             action: "kb_sources",
             category: this.kbSelectedCategory,
-            max_chars: 100000,
-            max_entries: 300,
+            max_chars: 200000,
+            max_entries: 10000,
           });
           if (r.status === "ok") {
             this.kbSources = r.sources || [];
@@ -221,7 +221,7 @@
             topic: this.topic,
             section,
             category: this.kbSelectedCategory || "",
-            top_k: 12,
+            top_k: 30,
           });
           if (r.error) { this.error = r.error; return; }
           // Check if KB was empty

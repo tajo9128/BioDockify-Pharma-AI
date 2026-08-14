@@ -201,6 +201,15 @@ api_keys_round_robin: dict[str, int] = {}
 
 @extensible
 def get_api_key(service: str) -> str:
+    # Bedrock uses a bearer token with a different env var convention
+    if service.lower() == "bedrock":
+        key = (
+            dotenv.get_dotenv_value("AWS_BEARER_TOKEN_BEDROCK")
+            or dotenv.get_dotenv_value("BEDROCK_API_KEY")
+            or dotenv.get_dotenv_value("AWS_ACCESS_KEY_ID")
+            or "None"
+        )
+        return key
     # get api key for the service
     key = (
         dotenv.get_dotenv_value(f"API_KEY_{service.upper()}")

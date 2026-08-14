@@ -680,7 +680,7 @@ class KnowledgeHandler(ApiHandler):
     def _library(self, input: dict) -> dict:
         """Get library contents by category."""
         category = input.get("category", "")
-        limit = int(input.get("limit", 50))
+        limit = int(input.get("limit", 10000))
 
         index = _load_index()
         entries = index.get("entries", [])

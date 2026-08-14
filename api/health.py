@@ -140,6 +140,19 @@ class HealthCheck(ApiHandler):
             except:
                 health["checks"].append({"name": "RDKit", "status": "fail"})
 
+            # AWS Bedrock
+            try:
+                from bridges.bedrock_bridge import is_bedrock_available, get_bedrock_status
+                bedrock_ok = is_bedrock_available()
+                bedrock_status = get_bedrock_status()
+                health["checks"].append({
+                    "name": "AWS Bedrock",
+                    "status": "ok" if bedrock_ok else "warn",
+                    "detail": f"Region: {bedrock_status['region']}" if bedrock_ok else "Not configured",
+                })
+            except Exception:
+                health["checks"].append({"name": "AWS Bedrock", "status": "warn", "detail": "Bridge not loaded"})
+
             # Disk
             usage = shutil.disk_usage("/")
             free_gb = round(usage.free / (1024**3), 1)

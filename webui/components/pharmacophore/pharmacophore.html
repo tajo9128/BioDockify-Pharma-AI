@@ -13,6 +13,7 @@
       error: "",
       screenSmiles: "",
       screenLibrary: "",
+      screenMethod: "enhanced",
       screenResult: null,
       hypothesisSmiles: "",
       hypothesisResult: null,
@@ -32,12 +33,28 @@
       batchNames: "",
       batchResult: null,
 
+      // Compare
+      compareSmiles1: "",
+      compareSmiles2: "",
+      compareResult: null,
+
+      // Interactions (OpenPharmaco)
+      interactionPdb: "",
+      interactionLigand: "",
+      interactionCutoff: 5.0,
+      interactionResult: null,
+
+      // Model (Pharmer)
+      modelSmiles: "",
+      modelCoverage: 0.6,
+      modelExcluded: false,
+      modelResult: null,
+
       async generate() {
         if (!this.smiles) return;
-        this.loading = true;
-        this.error = "";
+        this.loading = true; this.error = "";
         try {
-          const r = await callJsonApi("pharmacophore", { action: "generate", smiles: this.smiles.trim() });
+          const r = await callJsonApi("pharmacophore", { action: "enhanced_detect", smiles: this.smiles.trim() });
           if (!r.success) { this.error = r.error; } else { this.result = r; }
         } catch (e) { this.error = e.message; }
         this.loading = false;
@@ -45,10 +62,9 @@
 
       async proteinModel() {
         if (!this.proteinPdb) return;
-        this.loading = true;
-        this.error = "";
+        this.loading = true; this.error = "";
         try {
-          const r = await callJsonApi("pharmacophore", { action: "protein_model", protein_pdb: this.proteinPdb });
+          const r = await callJsonApi("pharmacophore", { action: "enhanced_protein_features", protein_pdb: this.proteinPdb });
           if (!r.success) { this.error = r.error; } else { this.result = r; }
         } catch (e) { this.error = e.message; }
         this.loading = false;
@@ -56,14 +72,15 @@
 
       async screen() {
         if (!this.screenSmiles || !this.screenLibrary) return;
-        this.loading = true;
-        this.error = "";
+        this.loading = true; this.error = "";
         try {
           const librarySmiles = this.screenLibrary.split("\n").map(s => s.trim()).filter(s => s);
+          const action = this.screenMethod === "enhanced" ? "enhanced_screen" : "screen";
           const r = await callJsonApi("pharmacophore", {
-            action: "screen",
+            action,
             query_smiles: this.screenSmiles.trim(),
             library_smiles: librarySmiles,
+            num_conformers: 3,
           });
           if (!r.success) { this.error = r.error; } else { this.screenResult = r; }
         } catch (e) { this.error = e.message; }
@@ -72,14 +89,10 @@
 
       async hypothesis() {
         if (!this.hypothesisSmiles) return;
-        this.loading = true;
-        this.error = "";
+        this.loading = true; this.error = "";
         try {
           const smilesList = this.hypothesisSmiles.split("\n").map(s => s.trim()).filter(s => s);
-          const r = await callJsonApi("pharmacophore", {
-            action: "hypothesis",
-            active_smiles: smilesList,
-          });
+          const r = await callJsonApi("pharmacophore", { action: "hypothesis", active_smiles: smilesList });
           if (!r.success) { this.error = r.error; } else { this.hypothesisResult = r; }
         } catch (e) { this.error = e.message; }
         this.loading = false;
@@ -87,13 +100,9 @@
 
       async fingerprint() {
         if (!this.fingerprintSmiles) return;
-        this.loading = true;
-        this.error = "";
+        this.loading = true; this.error = "";
         try {
-          const r = await callJsonApi("pharmacophore", {
-            action: "enhanced_fingerprint",
-            smiles: this.fingerprintSmiles.trim(),
-          });
+          const r = await callJsonApi("pharmacophore", { action: "enhanced_fingerprint", smiles: this.fingerprintSmiles.trim() });
           if (!r.success) { this.error = r.error; } else { this.fingerprintResult = r; }
         } catch (e) { this.error = e.message; }
         this.loading = false;
@@ -101,8 +110,7 @@
 
       async shapeMatch() {
         if (!this.shapeQuery || !this.shapeTarget) return;
-        this.loading = true;
-        this.error = "";
+        this.loading = true; this.error = "";
         try {
           const r = await callJsonApi("pharmacophore", {
             action: "enhanced_shape",
@@ -128,12 +136,49 @@
         this.loading = false;
       },
 
-      _downloadCsv(csvString, filename) {
-        const blob = new Blob([csvString], { type: "text/csv" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url; a.download = filename;
-        a.click(); URL.revokeObjectURL(url);
+      async compare() {
+        if (!this.compareSmiles1 || !this.compareSmiles2) return;
+        this.loading = true; this.error = ""; this.compareResult = null;
+        try {
+          const r = await callJsonApi("pharmacophore", {
+            action: "compare",
+            smiles_1: this.compareSmiles1.trim(),
+            smiles_2: this.compareSmiles2.trim(),
+          });
+          if (!r.success) { this.error = r.error; } else { this.compareResult = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async interactions() {
+        if (!this.interactionPdb || !this.interactionLigand) return;
+        this.loading = true; this.error = ""; this.interactionResult = null;
+        try {
+          const r = await callJsonApi("pharmacophore", {
+            action: "enhanced_interactions",
+            protein_pdb: this.interactionPdb,
+            ligand_smiles: this.interactionLigand.trim(),
+            cutoff: this.interactionCutoff,
+          });
+          if (!r.success) { this.error = r.error; } else { this.interactionResult = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async buildModel() {
+        if (!this.modelSmiles) return;
+        this.loading = true; this.error = ""; this.modelResult = null;
+        try {
+          const smilesList = this.modelSmiles.split("\n").map(s => s.trim()).filter(s => s);
+          const r = await callJsonApi("pharmacophore", {
+            action: "enhanced_model",
+            active_smiles: smilesList,
+            min_coverage: this.modelCoverage,
+            excluded_volume: this.modelExcluded,
+          });
+          if (!r.success) { this.error = r.error; } else { this.modelResult = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
       },
 
       async batch() {
@@ -142,15 +187,27 @@
         try {
           const smilesList = this.batchSmiles.split("\n").map(s => s.trim()).filter(s => s);
           const namesList = this.batchNames ? this.batchNames.split("\n").map(s => s.trim()).filter(s => s) : [];
-          const r = await callJsonApi("pharmacophore", {
-            action: "batch",
-            smiles_list: smilesList,
-            names: namesList,
-          });
+          const r = await callJsonApi("pharmacophore", { action: "batch", smiles_list: smilesList, names: namesList });
           if (!r.success) { this.error = r.error; } else { this.batchResult = r; }
         } catch (e) { this.error = e.message; }
         this.loading = false;
       },
+
+      _downloadCsv(csvString, filename) {
+        const blob = new Blob([csvString], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = url; a.download = filename;
+        a.click(); URL.revokeObjectURL(url);
+      },
+
+      _rmsdColor(rmsd) {
+        if (rmsd == null) return "#94a3b8";
+        if (rmsd < 1.5) return "#22c55e";
+        if (rmsd < 3.0) return "#f59e0b";
+        return "#ef4444";
+      },
+
+      _scoreBarWidth(score) { return Math.min(100, Math.max(0, (score || 0) * 100)); },
     });
   </script>
 </head>
@@ -161,64 +218,108 @@
         <span class="material-symbols-outlined header-icon">hub</span>
         <div>
           <h2>Pharmacophore Modeling</h2>
-          <p class="header-subtitle">OpenPharmaco + Pharmer engine</p>
+          <p class="header-subtitle">OpenPharmaco + Pharmer + Omixium</p>
         </div>
+      </div>
+      <div class="engine-badges">
+        <span class="engine-badge op">OpenPharmaco</span>
+        <span class="engine-badge ph">Pharmer</span>
+        <span class="engine-badge om">Omixium</span>
       </div>
     </div>
     <div class="panel-body">
       <!-- Error display -->
       <div x-show="$store.pharmacophoreModal.error" class="dock-error" x-text="$store.pharmacophoreModal.error"></div>
-      
+
       <!-- Tabs -->
       <div class="tabs">
-        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'generate'}" @click="$store.pharmacophoreModal.activeTab = 'generate'">Generate</button>
-        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'complete'}" @click="$store.pharmacophoreModal.activeTab = 'complete'">Complete</button>
-        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'protein'}" @click="$store.pharmacophoreModal.activeTab = 'protein'">Protein</button>
+        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'generate'}" @click="$store.pharmacophoreModal.activeTab = 'generate'">Detect</button>
+        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'complete'}" @click="$store.pharmacophoreModal.activeTab = 'complete'">Analyze</button>
+        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'model'}" @click="$store.pharmacophoreModal.activeTab = 'model'">Model</button>
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'screen'}" @click="$store.pharmacophoreModal.activeTab = 'screen'">Screen</button>
+        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'compare'}" @click="$store.pharmacophoreModal.activeTab = 'compare'">Compare</button>
+        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'interactions'}" @click="$store.pharmacophoreModal.activeTab = 'interactions'">Interactions</button>
+        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'protein'}" @click="$store.pharmacophoreModal.activeTab = 'protein'">Protein</button>
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'batch'}" @click="$store.pharmacophoreModal.activeTab = 'batch'">Batch</button>
-        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'hypothesis'}" @click="$store.pharmacophoreModal.activeTab = 'hypothesis'">Hypothesis</button>
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'fingerprint'}" @click="$store.pharmacophoreModal.activeTab = 'fingerprint'">Fingerprint</button>
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'shape'}" @click="$store.pharmacophoreModal.activeTab = 'shape'">Shape</button>
       </div>
-      
-      <!-- Generate Tab -->
+
+      <!-- ═══════════════ Detect Tab (OpenPharmaco) ═══════════════ -->
       <div x-show="$store.pharmacophoreModal.activeTab === 'generate'">
+        <div class="section-engine"><span class="engine-badge op">OpenPharmaco</span> SMARTS + RDKit feature factory with clustering</div>
         <div class="input-group">
           <label>SMILES:</label>
           <input type="text" x-model="$store.pharmacophoreModal.smiles" class="mt-input" placeholder="CC(=O)OC1=CC=CC=C1C(=O)O" @keyup.enter="$store.pharmacophoreModal.generate()" />
         </div>
-        
         <button class="btn-run" @click="$store.pharmacophoreModal.generate()" :disabled="$store.pharmacophoreModal.loading || !$store.pharmacophoreModal.smiles">
           <span x-show="$store.pharmacophoreModal.loading" class="loading-spinner"></span>
-          Generate Pharmacophore
+          Detect Features
         </button>
-        
-        <!-- Generate Result -->
-        <template x-if="$store.pharmacophoreModal.result && $store.pharmacophoreModal.result.features">
+
+        <template x-if="$store.pharmacophoreModal.result && $store.pharmacophoreModal.result.features && $store.pharmacophoreModal.activeTab === 'generate'">
           <div class="result-card">
             <h3>Pharmacophore Features (<span x-text="$store.pharmacophoreModal.result.num_features"></span>)</h3>
-            <div class="features-grid">
-              <template x-for="(count, type) in $store.pharmacophoreModal.result.feature_summary" :key="type">
-                <div class="feature-card">
-                  <div class="feature-type" x-text="type"></div>
-                  <div class="feature-count" x-text="count"></div>
+
+            <!-- Source breakdown -->
+            <div class="source-breakdown" x-data="{
+              get smartsCount() { return ($store.pharmacophoreModal.result.features || []).filter(f => f.source === 'functional_group').length },
+              get rdkitCount() { return ($store.pharmacophoreModal.result.features || []).filter(f => f.source === 'rdkit_factory').length },
+            }">
+              <span class="source-pill smarts" x-text="smartsCount + ' SMARTS'"></span>
+              <span class="source-pill rdkit" x-text="rdkitCount + ' RDKit'"></span>
+              <span class="source-pill merged" x-show="$store.pharmacophoreModal.result.features?.some(f => f.merged_count)" x-text="($store.pharmacophoreModal.result.features?.filter(f => f.merged_count).length || 0) + ' clustered'"></span>
+            </div>
+
+            <!-- Feature type summary with color bars -->
+            <div class="feature-bars">
+              <template x-for="(feat, idx) in $store.pharmacophoreModal.result.features" :key="idx">
+                <div class="feature-row" x-show="idx === 0 || feat.family !== $store.pharmacophoreModal.result.features[idx-1]?.family">
+                  <div class="feature-bar-label">
+                    <span class="color-dot" :style="'background:' + feat.color"></span>
+                    <span x-text="feat.family"></span>
+                  </div>
+                  <div class="feature-bar-track">
+                    <div class="feature-bar-fill" :style="'width:' + (($store.pharmacophoreModal.result.features.filter(f => f.family === feat.family).length / $store.pharmacophoreModal.result.num_features) * 100) + '%;background:' + feat.color"></div>
+                  </div>
+                  <span class="feature-bar-count" x-text="$store.pharmacophoreModal.result.features.filter(f => f.family === feat.family).length"></span>
                 </div>
               </template>
             </div>
-            <div class="features-list">
-              <template x-for="(feat, index) in $store.pharmacophoreModal.result.features" :key="index">
-                <div class="feature-item">
-                  <div class="feature-badge" :style="'background:' + feat.color" x-text="feat.family"></div>
-                  <div class="feature-pos" x-text="'(' + feat.position.x + ', ' + feat.position.y + ', ' + feat.position.z + ')'"></div>
-                </div>
-              </template>
+
+            <!-- Feature table -->
+            <div class="feature-table-wrap">
+              <table class="feature-table">
+                <thead><tr><th>Type</th><th>Source</th><th>Position</th><th>Radius</th><th>Atoms</th></tr></thead>
+                <tbody>
+                  <template x-for="(feat, idx) in $store.pharmacophoreModal.result.features" :key="idx">
+                    <tr>
+                      <td><span class="color-dot" :style="'background:' + feat.color"></span> <span x-text="feat.family"></span></td>
+                      <td><span class="source-pill" :class="feat.source === 'functional_group' ? 'smarts' : 'rdkit'" x-text="feat.source === 'functional_group' ? (feat.functional_group || 'SMARTS') : 'RDKit'"></span></td>
+                      <td class="mono" x-text="feat.position.x + ', ' + feat.position.y + ', ' + feat.position.z"></td>
+                      <td x-text="feat.radius + ' A'"></td>
+                      <td class="mono" x-text="(feat.atoms || []).join(',')"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
             </div>
+
+            <!-- Visualization data -->
+            <template x-if="$store.pharmacophoreModal.result.visualization">
+              <div class="viz-summary">
+                <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">view_in_ar</span>
+                <span x-text="$store.pharmacophoreModal.result.visualization.count + ' 3D spheres ready'"></span>
+                <span style="color:var(--color-text-muted);margin-left:8px" x-text="'Types: ' + ($store.pharmacophoreModal.result.visualization.feature_types || []).join(', ')"></span>
+              </div>
+            </template>
           </div>
         </template>
       </div>
 
-      <!-- Complete Analysis Tab -->
+      <!-- ═══════════════ Complete Analysis Tab (Omixium) ═══════════════ -->
       <div x-show="$store.pharmacophoreModal.activeTab === 'complete'">
+        <div class="section-engine"><span class="engine-badge om">Omixium</span> 8 publication-grade outputs</div>
         <div class="input-group">
           <label>SMILES:</label>
           <input type="text" x-model="$store.pharmacophoreModal.completeSmiles" class="mt-input" placeholder="CC(=O)OC1=CC=CC=C1C(=O)O" @keyup.enter="$store.pharmacophoreModal.complete()" />
@@ -233,56 +334,364 @@
         </button>
         <template x-if="$store.pharmacophoreModal.completeResult?.success">
           <div class="result-card">
-            <h3>Complete Pharmacophore — <span x-text="$store.pharmacophoreModal.completeResult.name"></span></h3>
+            <h3>Complete Pharmacophore &mdash; <span x-text="$store.pharmacophoreModal.completeResult.name"></span></h3>
+
+            <!-- Feature summary grid -->
             <div class="features-grid">
               <template x-for="(count, type) in $store.pharmacophoreModal.completeResult.feature_summary" :key="type">
                 <div class="feature-card"><div class="feature-type" x-text="type"></div><div class="feature-count" x-text="count"></div></div>
               </template>
             </div>
+
             <!-- 2D Plot -->
-            <div x-show="$store.pharmacophoreModal.completeResult.plot_2d_b64" style="margin-top:10px;text-align:center">
-              <img :src="'data:image/png;base64,' + $store.pharmacophoreModal.completeResult.plot_2d_b64" style="max-width:100%;border-radius:8px" />
+            <div x-show="$store.pharmacophoreModal.completeResult.plot_2d_b64" class="output-section">
+              <h4><span class="material-symbols-outlined">image</span> 2D Pharmacophore Map</h4>
+              <img :src="'data:image/png;base64,' + $store.pharmacophoreModal.completeResult.plot_2d_b64" class="output-img" />
             </div>
+
             <!-- 3D Plot -->
-            <div x-show="$store.pharmacophoreModal.completeResult.plot_3d_html" style="margin-top:10px" x-html="$store.pharmacophoreModal.completeResult.plot_3d_html"></div>
+            <div x-show="$store.pharmacophoreModal.completeResult.plot_3d_html" class="output-section">
+              <h4><span class="material-symbols-outlined">view_in_ar</span> 3D Interactive View</h4>
+              <div class="plotly-container" x-html="$store.pharmacophoreModal.completeResult.plot_3d_html"></div>
+            </div>
+
             <!-- Heatmap -->
-            <div x-show="$store.pharmacophoreModal.completeResult.distance_heatmap_b64" style="margin-top:10px;text-align:center">
-              <img :src="'data:image/png;base64,' + $store.pharmacophoreModal.completeResult.distance_heatmap_b64" style="max-width:100%;border-radius:8px" />
+            <div x-show="$store.pharmacophoreModal.completeResult.distance_heatmap_b64" class="output-section">
+              <h4><span class="material-symbols-outlined">grid_on</span> Distance Heatmap</h4>
+              <img :src="'data:image/png;base64,' + $store.pharmacophoreModal.completeResult.distance_heatmap_b64" class="output-img" />
             </div>
+
             <!-- Distribution -->
-            <div x-show="$store.pharmacophoreModal.completeResult.distribution_b64" style="margin-top:10px;text-align:center">
-              <img :src="'data:image/png;base64,' + $store.pharmacophoreModal.completeResult.distribution_b64" style="max-width:100%;border-radius:8px" />
+            <div x-show="$store.pharmacophoreModal.completeResult.distribution_b64" class="output-section">
+              <h4><span class="material-symbols-outlined">bar_chart</span> Feature Distribution</h4>
+              <img :src="'data:image/png;base64,' + $store.pharmacophoreModal.completeResult.distribution_b64" class="output-img" />
             </div>
+
             <!-- Molecular Properties -->
-            <div x-show="$store.pharmacophoreModal.completeResult.molecular_properties" style="margin-top:10px">
-              <h4>Molecular Properties</h4>
-              <template x-for="(val, key) in $store.pharmacophoreModal.completeResult.molecular_properties" :key="key">
-                <div style="display:flex;justify-content:space-between;font-size:0.56rem;padding:2px 0;border-bottom:1px solid var(--color-border)">
-                  <span x-text="key"></span><span x-text="val"></span>
-                </div>
-              </template>
+            <div x-show="$store.pharmacophoreModal.completeResult.molecular_properties" class="output-section">
+              <h4><span class="material-symbols-outlined">science</span> Molecular Properties</h4>
+              <div class="props-grid">
+                <template x-for="(val, key) in $store.pharmacophoreModal.completeResult.molecular_properties" :key="key">
+                  <div class="prop-item">
+                    <span class="prop-key" x-text="key.replace(/_/g, ' ')"></span>
+                    <span class="prop-val" x-text="val"></span>
+                  </div>
+                </template>
+              </div>
             </div>
+
             <!-- Download CSVs -->
-            <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px">
-              <button class="act-btn" x-show="$store.pharmacophoreModal.completeResult.features_csv" @click="$store.pharmacophoreModal._downloadCsv($store.pharmacophoreModal.completeResult.features_csv, ($store.pharmacophoreModal.completeResult.name || 'molecule') + '_features.csv')">
-                <span class="material-symbols-outlined" style="font-size:14px">download</span> Features CSV
-              </button>
-              <button class="act-btn" x-show="$store.pharmacophoreModal.completeResult.distances_csv" @click="$store.pharmacophoreModal._downloadCsv($store.pharmacophoreModal.completeResult.distances_csv, ($store.pharmacophoreModal.completeResult.name || 'molecule') + '_distances.csv')">
-                <span class="material-symbols-outlined" style="font-size:14px">download</span> Distances CSV
-              </button>
-              <button class="act-btn" x-show="$store.pharmacophoreModal.completeResult.fingerprint_summary_csv" @click="$store.pharmacophoreModal._downloadCsv($store.pharmacophoreModal.completeResult.fingerprint_summary_csv, ($store.pharmacophoreModal.completeResult.name || 'molecule') + '_fingerprint.csv')">
-                <span class="material-symbols-outlined" style="font-size:14px">download</span> Fingerprint CSV
-              </button>
-              <button class="act-btn" x-show="$store.pharmacophoreModal.completeResult.properties_csv" @click="$store.pharmacophoreModal._downloadCsv($store.pharmacophoreModal.completeResult.properties_csv, ($store.pharmacophoreModal.completeResult.name || 'molecule') + '_properties.csv')">
-                <span class="material-symbols-outlined" style="font-size:14px">download</span> Properties CSV
-              </button>
+            <div class="output-section">
+              <h4><span class="material-symbols-outlined">download</span> Export Data</h4>
+              <div class="download-row">
+                <button class="dl-btn" x-show="$store.pharmacophoreModal.completeResult.features_csv" @click="$store.pharmacophoreModal._downloadCsv($store.pharmacophoreModal.completeResult.features_csv, ($store.pharmacophoreModal.completeResult.name || 'mol') + '_features.csv')">Features CSV</button>
+                <button class="dl-btn" x-show="$store.pharmacophoreModal.completeResult.distances_csv" @click="$store.pharmacophoreModal._downloadCsv($store.pharmacophoreModal.completeResult.distances_csv, ($store.pharmacophoreModal.completeResult.name || 'mol') + '_distances.csv')">Distances CSV</button>
+                <button class="dl-btn" x-show="$store.pharmacophoreModal.completeResult.fingerprint_summary_csv" @click="$store.pharmacophoreModal._downloadCsv($store.pharmacophoreModal.completeResult.fingerprint_summary_csv, ($store.pharmacophoreModal.completeResult.name || 'mol') + '_fingerprint.csv')">Fingerprint CSV</button>
+                <button class="dl-btn" x-show="$store.pharmacophoreModal.completeResult.properties_csv" @click="$store.pharmacophoreModal._downloadCsv($store.pharmacophoreModal.completeResult.properties_csv, ($store.pharmacophoreModal.completeResult.name || 'mol') + '_properties.csv')">Properties CSV</button>
+              </div>
             </div>
           </div>
         </template>
       </div>
 
-      <!-- Batch Tab -->
+      <!-- ═══════════════ Model Tab (Pharmer) ═══════════════ -->
+      <div x-show="$store.pharmacophoreModal.activeTab === 'model'">
+        <div class="section-engine"><span class="engine-badge ph">Pharmer</span> Consensus pharmacophore model with excluded volumes</div>
+        <div class="input-group">
+          <label>Active SMILES (one per line, min 2):</label>
+          <textarea x-model="$store.pharmacophoreModal.modelSmiles" class="mt-input" rows="5" placeholder="CC(=O)OC1=CC=CC=C1C(=O)O&#10;CC(C)CC1=CC=C(C=C1)C(C)C(=O)O&#10;COC1=CC2=CC(=CC2=CC1)C(C)C(=O)O"></textarea>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:10px">
+          <label style="font-size:0.7rem;font-weight:600">Min Coverage:</label>
+          <input type="number" x-model.number="$store.pharmacophoreModal.modelCoverage" min="0.3" max="1" step="0.1" class="mt-input" style="width:70px" />
+          <label style="font-size:0.7rem;display:flex;align-items:center;gap:4px">
+            <input type="checkbox" x-model="$store.pharmacophoreModal.modelExcluded" /> Excluded volumes
+          </label>
+        </div>
+        <button class="btn-run" @click="$store.pharmacophoreModal.buildModel()" :disabled="$store.pharmacophoreModal.loading || !$store.pharmacophoreModal.modelSmiles">
+          <span x-show="$store.pharmacophoreModal.loading" class="loading-spinner"></span>
+          Build Consensus Model
+        </button>
+
+        <template x-if="$store.pharmacophoreModal.modelResult?.success !== undefined && $store.pharmacophoreModal.modelResult?.consensus_features">
+          <div class="result-card">
+            <h3>Consensus Model &mdash; <span x-text="$store.pharmacophoreModal.modelResult.n_molecules"></span> molecules</h3>
+            <div class="stats-row">
+              <div class="stat"><div class="stat-label">Features</div><div class="stat-value" x-text="$store.pharmacophoreModal.modelResult.n_features"></div></div>
+              <div class="stat"><div class="stat-label">FP Bits Set</div><div class="stat-value" x-text="$store.pharmacophoreModal.modelResult.fingerprint_bits_set + '/256'"></div></div>
+              <div class="stat"><div class="stat-label">Excluded Vol.</div><div class="stat-value" x-text="($store.pharmacophoreModal.modelResult.excluded_volumes || []).length"></div></div>
+            </div>
+
+            <!-- Consensus features with coverage bars -->
+            <div class="consensus-list">
+              <template x-for="(feat, idx) in $store.pharmacophoreModal.modelResult.consensus_features" :key="idx">
+                <div class="consensus-item">
+                  <span class="color-dot" :style="'background:' + feat.color"></span>
+                  <span class="consensus-type" x-text="feat.family"></span>
+                  <div class="coverage-bar-wrap">
+                    <div class="coverage-bar" :style="'width:' + (feat.coverage * 100) + '%;background:' + feat.color"></div>
+                  </div>
+                  <span class="coverage-pct" x-text="Math.round(feat.coverage * 100) + '%'"></span>
+                  <span class="consensus-radius" x-text="'r=' + feat.radius + 'A'"></span>
+                </div>
+              </template>
+            </div>
+
+            <!-- Excluded volumes -->
+            <template x-if="$store.pharmacophoreModal.modelResult.excluded_volumes?.length > 0">
+              <div style="margin-top:10px">
+                <h4 style="font-size:0.75rem;margin:0 0 6px">Excluded Volumes</h4>
+                <template x-for="(ev, idx) in $store.pharmacophoreModal.modelResult.excluded_volumes" :key="idx">
+                  <div style="font-size:0.6rem;color:var(--color-text-muted);padding:2px 0">
+                    <span x-text="'(' + ev.x.toFixed(1) + ', ' + ev.y.toFixed(1) + ', ' + ev.z.toFixed(1) + ') r=' + ev.radius + 'A'"></span>
+                    &mdash; <span x-text="ev.reason"></span>
+                  </div>
+                </template>
+              </div>
+            </template>
+
+            <!-- Viz spheres -->
+            <template x-if="$store.pharmacophoreModal.modelResult.visualization">
+              <div class="viz-summary">
+                <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">view_in_ar</span>
+                <span x-text="$store.pharmacophoreModal.modelResult.visualization.count + ' spheres | Types: ' + ($store.pharmacophoreModal.modelResult.visualization.feature_types || []).join(', ')"></span>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+
+      <!-- ═══════════════ Screen Tab (Pharmer + OpenPharmaco) ═══════════════ -->
+      <div x-show="$store.pharmacophoreModal.activeTab === 'screen'">
+        <div class="section-engine">
+          <span class="engine-badge ph">Pharmer</span> Multi-conformer 3D matching
+          <span class="engine-badge op">OpenPharmaco</span> Weighted type scoring
+        </div>
+        <div class="input-group">
+          <label>Query SMILES:</label>
+          <input type="text" x-model="$store.pharmacophoreModal.screenSmiles" class="mt-input" placeholder="CC(=O)OC1=CC=CC=C1C(=O)O" />
+        </div>
+        <div class="input-group">
+          <label>Library SMILES (one per line):</label>
+          <textarea x-model="$store.pharmacophoreModal.screenLibrary" class="mt-input" rows="6" placeholder="CC(C)CC1=CC=C(C=C1)C(C)C(=O)O&#10;COC1=CC2=CC(=CC2=CC1)C(C)C(=O)O&#10;C1CCCCC1"></textarea>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
+          <label style="font-size:0.7rem;font-weight:600">Method:</label>
+          <label style="font-size:0.65rem;display:flex;align-items:center;gap:3px">
+            <input type="radio" x-model="$store.pharmacophoreModal.screenMethod" value="enhanced" /> Enhanced 3D (Pharmer)
+          </label>
+          <label style="font-size:0.65rem;display:flex;align-items:center;gap:3px">
+            <input type="radio" x-model="$store.pharmacophoreModal.screenMethod" value="basic" /> Basic type-match
+          </label>
+        </div>
+        <button class="btn-run" @click="$store.pharmacophoreModal.screen()" :disabled="$store.pharmacophoreModal.loading || !$store.pharmacophoreModal.screenSmiles || !$store.pharmacophoreModal.screenLibrary">
+          <span x-show="$store.pharmacophoreModal.loading" class="loading-spinner"></span>
+          Screen Library
+        </button>
+
+        <template x-if="$store.pharmacophoreModal.screenResult">
+          <div class="result-card">
+            <h3>Screening Results</h3>
+            <div class="stats-row">
+              <div class="stat"><div class="stat-label">Screened</div><div class="stat-value" x-text="$store.pharmacophoreModal.screenResult.total_screened"></div></div>
+              <div class="stat"><div class="stat-label">Hits</div><div class="stat-value good" x-text="$store.pharmacophoreModal.screenResult.total_hits"></div></div>
+              <div class="stat" x-show="$store.pharmacophoreModal.screenResult.query_features"><div class="stat-label">Query Features</div><div class="stat-value" x-text="$store.pharmacophoreModal.screenResult.query_features || $store.pharmacophoreModal.screenResult.query_types?.length"></div></div>
+              <div class="stat"><div class="stat-label">Method</div><div class="stat-value" style="font-size:0.65rem" x-text="$store.pharmacophoreModal.screenResult.method || 'enhanced'"></div></div>
+            </div>
+            <!-- Hits table -->
+            <div class="feature-table-wrap">
+              <table class="feature-table">
+                <thead><tr><th>SMILES</th><th>Score</th><th>Matched</th><th style="width:120px">Score Bar</th></tr></thead>
+                <tbody>
+                  <template x-for="(hit, idx) in $store.pharmacophoreModal.screenResult.hits" :key="idx">
+                    <tr>
+                      <td class="mono" style="max-width:180px;overflow:hidden;text-overflow:ellipsis" x-text="hit.smiles"></td>
+                      <td><b x-text="(hit.score * 100).toFixed(1) + '%'"></b></td>
+                      <td>
+                        <span x-text="hit.matched_count || (hit.matched_features || []).length"></span>
+                        <span style="color:var(--color-text-muted);font-size:0.55rem" x-text="' (' + ((hit.matched_types || hit.matched_features || []).join(', ')) + ')'"></span>
+                      </td>
+                      <td>
+                        <div class="score-bar-track">
+                          <div class="score-bar-fill" :style="'width:' + $store.pharmacophoreModal._scoreBarWidth(hit.score) + '%'"></div>
+                        </div>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- ═══════════════ Compare Tab ═══════════════ -->
+      <div x-show="$store.pharmacophoreModal.activeTab === 'compare'">
+        <div class="section-engine"><span class="engine-badge op">OpenPharmaco</span> Feature matching + RMSD</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="input-group">
+            <label>Molecule 1:</label>
+            <input type="text" x-model="$store.pharmacophoreModal.compareSmiles1" class="mt-input" placeholder="CC(=O)OC1=CC=CC=C1C(=O)O" />
+          </div>
+          <div class="input-group">
+            <label>Molecule 2:</label>
+            <input type="text" x-model="$store.pharmacophoreModal.compareSmiles2" class="mt-input" placeholder="CC(C)CC1=CC=C(C=C1)C(C)C(=O)O" />
+          </div>
+        </div>
+        <button class="btn-run" @click="$store.pharmacophoreModal.compare()" :disabled="$store.pharmacophoreModal.loading || !$store.pharmacophoreModal.compareSmiles1 || !$store.pharmacophoreModal.compareSmiles2">
+          <span x-show="$store.pharmacophoreModal.loading" class="loading-spinner"></span>
+          Compare Pharmacophores
+        </button>
+
+        <template x-if="$store.pharmacophoreModal.compareResult?.success">
+          <div class="result-card">
+            <h3>Pharmacophore Comparison</h3>
+            <!-- Big metrics -->
+            <div class="compare-metrics">
+              <div class="big-metric">
+                <div class="big-metric-value" :style="'color:' + ($store.pharmacophoreModal.compareResult.similarity >= 0.5 ? '#22c55e' : '#f59e0b')" x-text="($store.pharmacophoreModal.compareResult.similarity * 100).toFixed(1) + '%'"></div>
+                <div class="big-metric-label">Similarity</div>
+              </div>
+              <div class="big-metric">
+                <div class="big-metric-value" :style="'color:' + $store.pharmacophoreModal._rmsdColor($store.pharmacophoreModal.compareResult.rmsd)" x-text="($store.pharmacophoreModal.compareResult.rmsd != null ? $store.pharmacophoreModal.compareResult.rmsd + ' A' : 'N/A')"></div>
+                <div class="big-metric-label">RMSD</div>
+              </div>
+              <div class="big-metric">
+                <div class="big-metric-value" style="color:#6366f1" x-text="$store.pharmacophoreModal.compareResult.pharmacophore_overlap_pct + '%'"></div>
+                <div class="big-metric-label">Overlap</div>
+              </div>
+            </div>
+
+            <!-- Feature counts -->
+            <div class="stats-row" style="margin-top:12px">
+              <div class="stat"><div class="stat-label">Mol 1 Features</div><div class="stat-value" x-text="$store.pharmacophoreModal.compareResult.mol1_features"></div></div>
+              <div class="stat"><div class="stat-label">Mol 2 Features</div><div class="stat-value" x-text="$store.pharmacophoreModal.compareResult.mol2_features"></div></div>
+              <div class="stat"><div class="stat-label">Matched</div><div class="stat-value good" x-text="$store.pharmacophoreModal.compareResult.match_count"></div></div>
+            </div>
+
+            <!-- Matched features table -->
+            <template x-if="$store.pharmacophoreModal.compareResult.matched?.length">
+              <div style="margin-top:12px">
+                <h4 style="font-size:0.75rem;margin:0 0 6px">Matched Features</h4>
+                <div class="feature-table-wrap">
+                  <table class="feature-table">
+                    <thead><tr><th>Type</th><th>Distance (A)</th><th>Quality</th></tr></thead>
+                    <tbody>
+                      <template x-for="(m, idx) in $store.pharmacophoreModal.compareResult.matched" :key="idx">
+                        <tr>
+                          <td x-text="m.type"></td>
+                          <td x-text="m.distance"></td>
+                          <td>
+                            <div class="score-bar-track" style="width:60px">
+                              <div class="score-bar-fill" :style="'width:' + Math.max(0, (1 - m.distance/5) * 100) + '%;background:' + (m.distance < 1.5 ? '#22c55e' : m.distance < 3 ? '#f59e0b' : '#ef4444')"></div>
+                            </div>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </template>
+
+            <!-- Unmatched -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px" x-show="$store.pharmacophoreModal.compareResult.unmatched_mol1?.length || $store.pharmacophoreModal.compareResult.unmatched_mol2?.length">
+              <div>
+                <h4 style="font-size:0.7rem;color:#ef4444;margin:0 0 4px">Unmatched in Mol 1</h4>
+                <template x-for="u in $store.pharmacophoreModal.compareResult.unmatched_mol1 || []">
+                  <div style="font-size:0.6rem;padding:2px 0" x-text="u.type"></div>
+                </template>
+              </div>
+              <div>
+                <h4 style="font-size:0.7rem;color:#ef4444;margin:0 0 4px">Unmatched in Mol 2</h4>
+                <template x-for="u in $store.pharmacophoreModal.compareResult.unmatched_mol2 || []">
+                  <div style="font-size:0.6rem;padding:2px 0" x-text="u.type"></div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- ═══════════════ Interactions Tab (OpenPharmaco + Pharmer) ═══════════════ -->
+      <div x-show="$store.pharmacophoreModal.activeTab === 'interactions'">
+        <div class="section-engine"><span class="engine-badge op">OpenPharmaco</span> Complementary pair detection <span class="engine-badge ph">Pharmer</span> Interaction distances</div>
+        <div class="input-group">
+          <label>Protein PDB:</label>
+          <textarea x-model="$store.pharmacophoreModal.interactionPdb" class="mt-input" rows="6" placeholder="Paste PDB content here..."></textarea>
+        </div>
+        <div class="input-group">
+          <label>Ligand SMILES:</label>
+          <input type="text" x-model="$store.pharmacophoreModal.interactionLigand" class="mt-input" placeholder="CC(=O)OC1=CC=CC=C1C(=O)O" />
+        </div>
+        <div class="input-group" style="display:flex;gap:10px;align-items:center">
+          <label style="font-size:0.7rem;font-weight:600">Cutoff (A):</label>
+          <input type="number" x-model.number="$store.pharmacophoreModal.interactionCutoff" min="3" max="10" step="0.5" class="mt-input" style="width:70px" />
+        </div>
+        <button class="btn-run" @click="$store.pharmacophoreModal.interactions()" :disabled="$store.pharmacophoreModal.loading || !$store.pharmacophoreModal.interactionPdb || !$store.pharmacophoreModal.interactionLigand">
+          <span x-show="$store.pharmacophoreModal.loading" class="loading-spinner"></span>
+          Extract Interactions
+        </button>
+
+        <template x-if="$store.pharmacophoreModal.interactionResult?.success">
+          <div class="result-card">
+            <h3>Interaction Pharmacophore</h3>
+            <div class="stats-row">
+              <div class="stat"><div class="stat-label">Ligand Features</div><div class="stat-value" x-text="$store.pharmacophoreModal.interactionResult.ligand_features"></div></div>
+              <div class="stat"><div class="stat-label">Protein Features</div><div class="stat-value" x-text="$store.pharmacophoreModal.interactionResult.protein_features"></div></div>
+              <div class="stat"><div class="stat-label">Interactions</div><div class="stat-value good" x-text="$store.pharmacophoreModal.interactionResult.n_interactions"></div></div>
+            </div>
+
+            <template x-if="$store.pharmacophoreModal.interactionResult.interaction_features?.length">
+              <div class="feature-table-wrap">
+                <table class="feature-table">
+                  <thead><tr><th>Type</th><th>Interacts With</th><th>Distance</th><th>Interaction</th></tr></thead>
+                  <tbody>
+                    <template x-for="(feat, idx) in $store.pharmacophoreModal.interactionResult.interaction_features" :key="idx">
+                      <tr>
+                        <td><span class="color-dot" :style="'background:' + feat.color"></span> <span x-text="feat.family"></span></td>
+                        <td><b x-text="feat.interacting_with"></b></td>
+                        <td x-text="feat.interaction_distance + ' A'"></td>
+                        <td style="font-size:0.55rem;color:var(--color-text-muted)" x-text="feat.interaction_type"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </template>
+            <div x-show="!$store.pharmacophoreModal.interactionResult.interaction_features?.length" style="padding:12px;text-align:center;color:var(--color-text-muted);font-size:0.7rem">
+              No complementary interactions found within cutoff distance
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- ═══════════════ Protein Tab ═══════════════ -->
+      <div x-show="$store.pharmacophoreModal.activeTab === 'protein'">
+        <div class="section-engine"><span class="engine-badge op">OpenPharmaco</span> Per-residue protein feature extraction</div>
+        <div class="input-group">
+          <label>Protein PDB:</label>
+          <textarea x-model="$store.pharmacophoreModal.proteinPdb" class="mt-input" rows="8" placeholder="Paste PDB content here..."></textarea>
+        </div>
+        <button class="btn-run" @click="$store.pharmacophoreModal.proteinModel()" :disabled="$store.pharmacophoreModal.loading || !$store.pharmacophoreModal.proteinPdb">
+          <span x-show="$store.pharmacophoreModal.loading" class="loading-spinner"></span>
+          Extract Protein Features
+        </button>
+        <template x-if="$store.pharmacophoreModal.result && $store.pharmacophoreModal.result.features && $store.pharmacophoreModal.activeTab === 'protein'">
+          <div class="result-card">
+            <h3>Protein Features (<span x-text="$store.pharmacophoreModal.result.num_features"></span>)</h3>
+            <div class="features-grid">
+              <template x-for="(count, type) in $store.pharmacophoreModal.result.feature_summary" :key="type">
+                <div class="feature-card"><div class="feature-type" x-text="type"></div><div class="feature-count" x-text="count"></div></div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- ═══════════════ Batch Tab (Omixium) ═══════════════ -->
       <div x-show="$store.pharmacophoreModal.activeTab === 'batch'">
+        <div class="section-engine"><span class="engine-badge om">Omixium</span> Batch analysis + Tanimoto similarity matrix</div>
         <div class="input-group">
           <label>SMILES (one per line):</label>
           <textarea x-model="$store.pharmacophoreModal.batchSmiles" class="mt-input" rows="6" placeholder="CC(=O)OC1=CC=CC=C1C(=O)O&#10;CC(C)Cc1ccc(cc1)C(C)C(=O)O&#10;CN(C)C(=N)N=C(N)N"></textarea>
@@ -297,15 +706,16 @@
         </button>
         <template x-if="$store.pharmacophoreModal.batchResult?.success">
           <div class="result-card">
-            <h3>Batch Results — <span x-text="$store.pharmacophoreModal.batchResult.molecule_count"></span> molecules</h3>
-            <div style="font-size:0.56rem;color:var(--color-text-muted);margin-bottom:8px">
-              Avg features: <b x-text="$store.pharmacophoreModal.batchResult.summary?.avg_features"></b> ·
-              Types: <span x-text="$store.pharmacophoreModal.batchResult.summary?.feature_types?.join(', ')"></span>
+            <h3>Batch Results &mdash; <span x-text="$store.pharmacophoreModal.batchResult.molecule_count"></span> molecules</h3>
+            <div class="stats-row">
+              <div class="stat"><div class="stat-label">Analyzed</div><div class="stat-value" x-text="$store.pharmacophoreModal.batchResult.summary?.analyzed"></div></div>
+              <div class="stat"><div class="stat-label">Avg Features</div><div class="stat-value" x-text="$store.pharmacophoreModal.batchResult.summary?.avg_features"></div></div>
+              <div class="stat"><div class="stat-label">Types Found</div><div class="stat-value" style="font-size:0.6rem" x-text="($store.pharmacophoreModal.batchResult.summary?.feature_types || []).length"></div></div>
             </div>
             <template x-for="(mol, i) in $store.pharmacophoreModal.batchResult.results" :key="i">
-              <div style="padding:6px;margin:4px 0;background:var(--color-background);border-radius:4px;font-size:0.54rem">
+              <div class="batch-mol-item">
                 <b x-text="mol.name || ('Molecule ' + (i+1))"></b>
-                — <span x-text="mol.num_features"></span> features
+                &mdash; <span x-text="mol.num_features"></span> features
                 (<span x-text="Object.keys(mol.feature_summary||{}).join(', ')"></span>)
               </div>
             </template>
@@ -313,216 +723,201 @@
         </template>
       </div>
 
-      <!-- Protein Model Tab -->
-      <div x-show="$store.pharmacophoreModal.activeTab === 'protein'">
-        <div class="input-group">
-          <label>Protein PDB:</label>
-          <textarea x-model="$store.pharmacophoreModal.proteinPdb" class="mt-input" rows="8" placeholder="Paste PDB content here..."></textarea>
-        </div>
-        
-        <button class="btn-run" @click="$store.pharmacophoreModal.proteinModel()" :disabled="$store.pharmacophoreModal.loading || !$store.pharmacophoreModal.proteinPdb">
-          <span x-show="$store.pharmacophoreModal.loading" class="loading-spinner"></span>
-          Extract Features
-        </button>
-        
-        <!-- Protein Model Result -->
-        <template x-if="$store.pharmacophoreModal.result && $store.pharmacophoreModal.result.features && $store.pharmacophoreModal.activeTab === 'protein'">
-          <div class="result-card">
-            <h3>Protein Features (<span x-text="$store.pharmacophoreModal.result.num_features"></span>)</h3>
-            <div class="features-grid">
-              <template x-for="(count, type) in $store.pharmacophoreModal.result.feature_summary" :key="type">
-                <div class="feature-card">
-                  <div class="feature-type" x-text="type"></div>
-                  <div class="feature-count" x-text="count"></div>
-                </div>
-              </template>
-            </div>
-          </div>
-        </template>
+      <!-- ═══════════════ Hypothesis Tab ═══════════════ -->
+      <div x-show="$store.pharmacophoreModal.activeTab === 'hypothesis'" style="display:none">
+        <!-- Hidden: superseded by Model tab. Keep for API compatibility. -->
       </div>
-      
-      <!-- Screen Tab -->
-      <div x-show="$store.pharmacophoreModal.activeTab === 'screen'">
-        <div class="input-group">
-          <label>Query SMILES:</label>
-          <input type="text" x-model="$store.pharmacophoreModal.screenSmiles" class="mt-input" placeholder="CC(=O)OC1=CC=CC=C1C(=O)O" />
-        </div>
-        
-        <div class="input-group">
-          <label>Library SMILES (one per line):</label>
-          <textarea x-model="$store.pharmacophoreModal.screenLibrary" class="mt-input" rows="8" placeholder="CC12CCC3C(CCC4CC(=O)CCC34C)C1CCC2O&#10;..."></textarea>
-        </div>
-        
-        <button class="btn-run" @click="$store.pharmacophoreModal.screen()" :disabled="$store.pharmacophoreModal.loading || !$store.pharmacophoreModal.screenSmiles || !$store.pharmacophoreModal.screenLibrary">
-          <span x-show="$store.pharmacophoreModal.loading" class="loading-spinner"></span>
-          Screen Library
-        </button>
-        
-        <!-- Screen Result -->
-        <template x-if="$store.pharmacophoreModal.screenResult">
-          <div class="result-card">
-            <h3>Screening Results</h3>
-            <div class="stats-row">
-              <div class="stat"><div class="stat-label">Query Features</div><div class="stat-value" x-text="$store.pharmacophoreModal.screenResult.query_types?.length"></div></div>
-              <div class="stat"><div class="stat-label">Screened</div><div class="stat-value" x-text="$store.pharmacophoreModal.screenResult.total_screened"></div></div>
-              <div class="stat"><div class="stat-label">Hits</div><div class="stat-value" x-text="$store.pharmacophoreModal.screenResult.total_hits"></div></div>
-            </div>
-            <div class="hits-list">
-              <template x-for="(hit, index) in $store.pharmacophoreModal.screenResult.hits" :key="index">
-                <div class="hit-item">
-                  <div class="hit-smiles" x-text="hit.smiles"></div>
-                  <div class="hit-score">
-                    <span class="score-value" x-text="hit.weighted_score"></span>
-                    <span class="score-label">%</span>
-                  </div>
-                  <div class="hit-types" x-text="hit.matched_types.join(', ')"></div>
-                </div>
-              </template>
-            </div>
-          </div>
-        </template>
-      </div>
-      
-      <!-- Hypothesis Tab -->
-      <div x-show="$store.pharmacophoreModal.activeTab === 'hypothesis'">
-        <div class="input-group">
-          <label>Active SMILES (one per line):</label>
-          <textarea x-model="$store.pharmacophoreModal.hypothesisSmiles" class="mt-input" rows="8" placeholder="CC(=O)OC1=CC=CC=C1C(=O)O&#10;CC12CCC3C(CCC4CC(=O)CCC34C)C1CCC2O&#10;..."></textarea>
-        </div>
-        
-        <button class="btn-run" @click="$store.pharmacophoreModal.hypothesis()" :disabled="$store.pharmacophoreModal.loading || !$store.pharmacophoreModal.hypothesisSmiles">
-          <span x-show="$store.pharmacophoreModal.loading" class="loading-spinner"></span>
-          Generate Hypothesis
-        </button>
-        
-        <!-- Hypothesis Result -->
-        <template x-if="$store.pharmacophoreModal.hypothesisResult">
-          <div class="result-card">
-            <h3>Pharmacophore Hypothesis</h3>
-            <div class="hypothesis-features">
-              <template x-for="(feat, index) in $store.pharmacophoreModal.hypothesisResult.hypothesis" :key="index">
-                <div class="hypothesis-feature">
-                  <div class="feature-badge" :style="'background:' + feat.color" x-text="feat.type"></div>
-                  <div class="feature-center" x-text="'Center: (' + feat.center.join(', ') + ')'"></div>
-                  <div class="feature-coverage" x-text="'Coverage: ' + (feat.coverage * 100).toFixed(0) + '%'"></div>
-                </div>
-              </template>
-            </div>
-          </div>
-        </template>
-      </div>
-      
-      <!-- Fingerprint Tab -->
+
+      <!-- ═══════════════ Fingerprint Tab (Pharmer) ═══════════════ -->
       <div x-show="$store.pharmacophoreModal.activeTab === 'fingerprint'">
+        <div class="section-engine"><span class="engine-badge ph">Pharmer</span> 256-bit triplet pharmacophore fingerprint</div>
         <div class="input-group">
           <label>SMILES:</label>
           <input type="text" x-model="$store.pharmacophoreModal.fingerprintSmiles" class="mt-input" placeholder="CC(=O)OC1=CC=CC=C1C(=O)O" @keyup.enter="$store.pharmacophoreModal.fingerprint()" />
         </div>
-        
         <button class="btn-run" @click="$store.pharmacophoreModal.fingerprint()" :disabled="$store.pharmacophoreModal.loading || !$store.pharmacophoreModal.fingerprintSmiles">
           <span x-show="$store.pharmacophoreModal.loading" class="loading-spinner"></span>
           Generate Fingerprint
         </button>
-        
-        <!-- Fingerprint Result -->
         <template x-if="$store.pharmacophoreModal.fingerprintResult">
           <div class="result-card">
             <h3>Pharmacophore Fingerprint</h3>
             <div class="stats-row">
               <div class="stat"><div class="stat-label">Features</div><div class="stat-value" x-text="$store.pharmacophoreModal.fingerprintResult.num_features"></div></div>
-              <div class="stat"><div class="stat-label">Bits Set</div><div class="stat-value" x-text="$store.pharmacophoreModal.fingerprintResult.bits_set"></div></div>
+              <div class="stat"><div class="stat-label">Bits Set</div><div class="stat-value good" x-text="$store.pharmacophoreModal.fingerprintResult.bits_set"></div></div>
               <div class="stat"><div class="stat-label">Total Bits</div><div class="stat-value" x-text="$store.pharmacophoreModal.fingerprintResult.bits_total"></div></div>
+              <div class="stat"><div class="stat-label">Density</div><div class="stat-value" x-text="(($store.pharmacophoreModal.fingerprintResult.bits_set / $store.pharmacophoreModal.fingerprintResult.bits_total) * 100).toFixed(1) + '%'"></div></div>
             </div>
-            <div class="fingerprint-display">
-              <div class="fp-label">Fingerprint:</div>
-              <div class="fp-string" x-text="$store.pharmacophoreModal.fingerprintResult.fingerprint"></div>
+            <!-- Fingerprint density bar -->
+            <div class="fp-density-bar">
+              <template x-for="(bit, i) in $store.pharmacophoreModal.fingerprintResult.fingerprint?.split('') || []" :key="i">
+                <div class="fp-bit" :class="{'fp-bit-on': bit === '1'}"></div>
+              </template>
+            </div>
+            <div class="fp-legend">
+              <span style="color:var(--color-primary)">&#9632;</span> bit=1 &nbsp;
+              <span style="color:var(--color-border)">&#9632;</span> bit=0
             </div>
           </div>
         </template>
       </div>
-      
-      <!-- Shape Match Tab -->
+
+      <!-- ═══════════════ Shape Tab ═══════════════ -->
       <div x-show="$store.pharmacophoreModal.activeTab === 'shape'">
-        <div class="input-group">
-          <label>Query SMILES:</label>
-          <input type="text" x-model="$store.pharmacophoreModal.shapeQuery" class="mt-input" placeholder="CC(=O)OC1=CC=CC=C1C(=O)O" />
+        <div class="section-engine"><span class="engine-badge ph">Pharmer</span> Shape Tanimoto volume overlap</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="input-group">
+            <label>Query SMILES:</label>
+            <input type="text" x-model="$store.pharmacophoreModal.shapeQuery" class="mt-input" placeholder="CC(=O)OC1=CC=CC=C1C(=O)O" />
+          </div>
+          <div class="input-group">
+            <label>Target SMILES:</label>
+            <input type="text" x-model="$store.pharmacophoreModal.shapeTarget" class="mt-input" placeholder="CC(C)CC1=CC=C(C=C1)C(C)C(=O)O" />
+          </div>
         </div>
-        
-        <div class="input-group">
-          <label>Target SMILES:</label>
-          <input type="text" x-model="$store.pharmacophoreModal.shapeTarget" class="mt-input" placeholder="CC12CCC3C(CCC4CC(=O)CCC34C)C1CCC2O" @keyup.enter="$store.pharmacophoreModal.shapeMatch()" />
-        </div>
-        
         <button class="btn-run" @click="$store.pharmacophoreModal.shapeMatch()" :disabled="$store.pharmacophoreModal.loading || !$store.pharmacophoreModal.shapeQuery || !$store.pharmacophoreModal.shapeTarget">
           <span x-show="$store.pharmacophoreModal.loading" class="loading-spinner"></span>
           Compare Shapes
         </button>
-        
-        <!-- Shape Result -->
         <template x-if="$store.pharmacophoreModal.shapeResult">
           <div class="result-card">
             <h3>Shape Similarity</h3>
-            <div class="stats-row">
-              <div class="stat"><div class="stat-label">Similarity</div><div class="stat-value" :class="{'good': $store.pharmacophoreModal.shapeResult.shape_similarity >= 0.5, 'bad': $store.pharmacophoreModal.shapeResult.shape_similarity < 0.5}" x-text="($store.pharmacophoreModal.shapeResult.shape_similarity * 100).toFixed(1) + '%'"></div></div>
-              <div class="stat"><div class="stat-label">Match</div><div class="stat-value" :class="{'good': $store.pharmacophoreModal.shapeResult.match, 'bad': !$store.pharmacophoreModal.shapeResult.match}" x-text="$store.pharmacophoreModal.shapeResult.match ? 'YES' : 'NO'"></div></div>
+            <div class="compare-metrics">
+              <div class="big-metric">
+                <div class="big-metric-value" :style="'color:' + ($store.pharmacophoreModal.shapeResult.shape_similarity >= 0.5 ? '#22c55e' : '#f59e0b')" x-text="($store.pharmacophoreModal.shapeResult.shape_similarity * 100).toFixed(1) + '%'"></div>
+                <div class="big-metric-label">Shape Tanimoto</div>
+              </div>
+              <div class="big-metric">
+                <div class="big-metric-value" :style="'color:' + ($store.pharmacophoreModal.shapeResult.match ? '#22c55e' : '#ef4444')" x-text="$store.pharmacophoreModal.shapeResult.match ? 'MATCH' : 'NO MATCH'"></div>
+                <div class="big-metric-label">Threshold 50%</div>
+              </div>
             </div>
           </div>
         </template>
       </div>
     </div>
-    
+
     <style>
       .dock-panel { display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background) }
-      .panel-header { padding:14px 20px;border-bottom:1px solid var(--color-border);background:var(--color-panel) }
+      .panel-header { padding:14px 20px;border-bottom:1px solid var(--color-border);background:var(--color-panel);display:flex;align-items:center;justify-content:space-between }
       .header-left { display:flex;align-items:center;gap:12px }
       .header-icon { font-size:28px;color:var(--color-primary) }
       .panel-header h2 { color:var(--color-text);font-size:1.05rem;margin:0;font-weight:700 }
       .header-subtitle { color:var(--color-text-muted);font-size:0.7rem;margin:0 }
       .panel-body { flex:1;overflow-y:auto;padding:16px 20px }
       .dock-error { padding:8px 10px;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.2);border-radius:6px;color:#ff6b6b;font-size:0.68rem;margin-bottom:10px }
-      .tabs { display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap }
-      .tabs button { flex:1;padding:8px 12px;border:1px solid var(--color-border);background:var(--color-panel);color:var(--color-text);font-size:0.7rem;cursor:pointer;border-radius:6px;min-width:80px }
+
+      /* Engine badges */
+      .engine-badges { display:flex;gap:4px }
+      .engine-badge { padding:2px 7px;border-radius:10px;font-size:0.55rem;font-weight:700;letter-spacing:0.3px }
+      .engine-badge.op { background:rgba(34,197,94,0.15);color:#16a34a }
+      .engine-badge.ph { background:rgba(99,102,241,0.15);color:#6366f1 }
+      .engine-badge.om { background:rgba(245,158,11,0.15);color:#d97706 }
+      .section-engine { margin-bottom:12px;font-size:0.65rem;color:var(--color-text-muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap }
+
+      /* Tabs */
+      .tabs { display:flex;gap:3px;margin-bottom:16px;flex-wrap:wrap }
+      .tabs button { padding:7px 10px;border:1px solid var(--color-border);background:var(--color-panel);color:var(--color-text);font-size:0.65rem;cursor:pointer;border-radius:6px }
       .tabs button.active { background:var(--color-primary);color:white;border-color:var(--color-primary) }
-      .input-group { margin-bottom:12px }
-      .input-group label { display:block;font-size:0.75rem;font-weight:600;color:var(--color-text);margin-bottom:4px }
-      .mt-input { width:100%;padding:8px 10px;border:1px solid var(--color-border);border-radius:7px;background:var(--color-panel);color:var(--color-text);font-size:0.7rem;font-family:monospace;box-sizing:border-box }
+
+      /* Inputs */
+      .input-group { margin-bottom:10px }
+      .input-group label { display:block;font-size:0.72rem;font-weight:600;color:var(--color-text);margin-bottom:3px }
+      .mt-input { width:100%;padding:7px 10px;border:1px solid var(--color-border);border-radius:7px;background:var(--color-panel);color:var(--color-text);font-size:0.7rem;font-family:monospace;box-sizing:border-box }
       .mt-input:focus { outline:none;border-color:var(--color-primary) }
-      .btn-run { display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px;padding:10px;background:var(--color-primary);border:none;border-radius:8px;color:white;cursor:pointer;font-size:0.8rem;font-weight:600 }
+      .btn-run { display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px;margin-bottom:12px;padding:10px;background:var(--color-primary);border:none;border-radius:8px;color:white;cursor:pointer;font-size:0.78rem;font-weight:600 }
       .btn-run:disabled { opacity:0.5;cursor:not-allowed }
-      .loading-spinner { width:15px;height:15px;border:2px solid rgba(255,255,255,0.3);border-top:2px solid white;border-radius:50%;animation:spin 0.8s linear infinite }
+      .loading-spinner { width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top:2px solid white;border-radius:50%;animation:spin 0.8s linear infinite }
       @keyframes spin { to { transform:rotate(360deg) } }
-      .result-card { margin-top:16px;padding:16px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px }
-      .result-card h3 { margin:0 0 12px 0;font-size:0.9rem;color:var(--color-text) }
-      .stats-row { display:flex;gap:12px;margin-bottom:12px }
-      .stat { flex:1;text-align:center;padding:8px;background:rgba(34,197,94,0.05);border-radius:6px }
-      .stat-label { font-size:0.65rem;color:var(--color-text-muted);font-weight:600 }
-      .stat-value { font-size:0.85rem;font-weight:700;color:#22c55e;margin-top:2px }
+
+      /* Results */
+      .result-card { margin-top:12px;padding:14px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:8px }
+      .result-card h3 { margin:0 0 10px 0;font-size:0.88rem;color:var(--color-text) }
+      .result-card h4 { font-size:0.76rem;color:var(--color-text);margin:12px 0 6px;display:flex;align-items:center;gap:5px }
+      .result-card h4 .material-symbols-outlined { font-size:16px;color:var(--color-primary) }
+
+      /* Stats */
+      .stats-row { display:flex;gap:8px;margin-bottom:10px }
+      .stat { flex:1;text-align:center;padding:8px 4px;background:rgba(99,102,241,0.04);border-radius:6px;border:1px solid var(--color-border) }
+      .stat-label { font-size:0.6rem;color:var(--color-text-muted);font-weight:600 }
+      .stat-value { font-size:0.82rem;font-weight:700;color:var(--color-primary);margin-top:2px }
       .stat-value.good { color:#22c55e }
-      .stat-value.bad { color:#ff6b6b }
-      .features-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-bottom:12px }
-      .feature-card { text-align:center;padding:8px;background:rgba(65,105,225,0.05);border-radius:6px }
-      .feature-type { font-size:0.7rem;font-weight:600;color:var(--color-text) }
-      .feature-count { font-size:0.85rem;font-weight:700;color:var(--color-primary);margin-top:2px }
-      .features-list { display:flex;flex-wrap:wrap;gap:6px }
-      .feature-item { display:flex;align-items:center;gap:4px;font-size:0.65rem }
-      .feature-badge { padding:2px 8px;border-radius:4px;color:white;font-size:0.6rem;font-weight:600 }
-      .feature-pos { font-family:monospace;font-size:0.6rem;color:var(--color-text-muted) }
-      .hits-list { display:flex;flex-direction:column;gap:6px }
-      .hit-item { display:flex;align-items:center;gap:12px;padding:8px;background:rgba(34,197,94,0.05);border-radius:6px }
-      .hit-smiles { flex:1;font-family:monospace;font-size:0.65rem;color:var(--color-text) }
-      .hit-score { text-align:center }
-      .score-value { font-size:0.85rem;font-weight:700;color:#22c55e }
-      .score-label { font-size:0.6rem;color:var(--color-text-muted) }
-      .hit-types { font-size:0.6rem;color:var(--color-text-muted) }
-      .hypothesis-features { display:flex;flex-direction:column;gap:8px }
-      .hypothesis-feature { display:flex;align-items:center;gap:12px;padding:8px;background:rgba(65,105,225,0.05);border-radius:6px }
-      .feature-center { font-family:monospace;font-size:0.65rem;color:var(--color-text-muted) }
-      .feature-coverage { font-size:0.7rem;font-weight:600;color:#22c55e }
-      .fingerprint-display { margin-top:12px }
-      .fp-label { font-size:0.7rem;font-weight:600;color:var(--color-text);margin-bottom:4px }
-      .fp-string { font-family:monospace;font-size:0.65rem;color:var(--color-text);word-break:break-all;background:rgba(0,0,0,0.05);padding:8px;border-radius:6px }
-      .act-btn { display:flex;align-items:center;gap:3px;padding:5px 10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;font-size:0.65rem;color:var(--color-text);cursor:pointer }
-      .act-btn:hover { border-color:var(--color-primary) }
+
+      /* Feature grid */
+      .features-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;margin-bottom:10px }
+      .feature-card { text-align:center;padding:7px;background:rgba(65,105,225,0.05);border-radius:6px }
+      .feature-type { font-size:0.65rem;font-weight:600;color:var(--color-text) }
+      .feature-count { font-size:0.82rem;font-weight:700;color:var(--color-primary);margin-top:2px }
+
+      /* Source pills */
+      .source-breakdown { display:flex;gap:6px;margin-bottom:10px }
+      .source-pill { padding:2px 8px;border-radius:10px;font-size:0.58rem;font-weight:700 }
+      .source-pill.smarts { background:rgba(34,197,94,0.15);color:#16a34a }
+      .source-pill.rdkit { background:rgba(99,102,241,0.15);color:#6366f1 }
+      .source-pill.merged { background:rgba(245,158,11,0.15);color:#d97706 }
+
+      /* Feature bars */
+      .feature-bars { margin-bottom:12px }
+      .feature-row { display:flex;align-items:center;gap:8px;padding:3px 0 }
+      .feature-bar-label { min-width:100px;font-size:0.65rem;font-weight:600;display:flex;align-items:center;gap:5px }
+      .feature-bar-track { flex:1;height:8px;background:var(--color-border);border-radius:4px;overflow:hidden }
+      .feature-bar-fill { height:100%;border-radius:4px;transition:width 0.3s }
+      .feature-bar-count { font-size:0.65rem;font-weight:700;min-width:20px;text-align:right;color:var(--color-text) }
+      .color-dot { width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0 }
+
+      /* Feature table */
+      .feature-table-wrap { overflow-x:auto;margin-top:8px }
+      .feature-table { width:100%;border-collapse:collapse;font-size:0.6rem }
+      .feature-table th { text-align:left;padding:5px 6px;border-bottom:2px solid var(--color-border);font-weight:700;color:var(--color-text-muted);font-size:0.58rem;text-transform:uppercase }
+      .feature-table td { padding:4px 6px;border-bottom:1px solid var(--color-border);color:var(--color-text) }
+      .feature-table .mono { font-family:monospace;font-size:0.55rem }
+
+      /* Score bars */
+      .score-bar-track { height:8px;background:var(--color-border);border-radius:4px;overflow:hidden }
+      .score-bar-fill { height:100%;background:linear-gradient(90deg,#22c55e,#6366f1);border-radius:4px;transition:width 0.3s }
+
+      /* Compare metrics */
+      .compare-metrics { display:flex;gap:12px;justify-content:center;margin:12px 0 }
+      .big-metric { text-align:center;padding:12px 16px;background:rgba(99,102,241,0.04);border-radius:8px;border:1px solid var(--color-border);min-width:80px }
+      .big-metric-value { font-size:1.3rem;font-weight:800 }
+      .big-metric-label { font-size:0.6rem;color:var(--color-text-muted);font-weight:600;margin-top:2px }
+
+      /* Consensus model */
+      .consensus-list { display:flex;flex-direction:column;gap:6px }
+      .consensus-item { display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(99,102,241,0.04);border-radius:6px }
+      .consensus-type { font-size:0.7rem;font-weight:700;min-width:90px }
+      .coverage-bar-wrap { flex:1;height:10px;background:var(--color-border);border-radius:5px;overflow:hidden }
+      .coverage-bar { height:100%;border-radius:5px;transition:width 0.3s }
+      .coverage-pct { font-size:0.65rem;font-weight:700;min-width:35px;text-align:right }
+      .consensus-radius { font-size:0.58rem;color:var(--color-text-muted);min-width:50px }
+
+      /* Fingerprint density */
+      .fp-density-bar { display:flex;flex-wrap:wrap;gap:1px;margin-top:10px;padding:6px;background:var(--color-background);border-radius:6px;border:1px solid var(--color-border) }
+      .fp-bit { width:4px;height:12px;background:var(--color-border);border-radius:1px }
+      .fp-bit.fp-bit-on { background:var(--color-primary) }
+      .fp-legend { font-size:0.58rem;color:var(--color-text-muted);margin-top:4px;text-align:center }
+
+      /* Viz summary */
+      .viz-summary { margin-top:10px;padding:8px 12px;background:rgba(99,102,241,0.06);border-radius:6px;font-size:0.65rem;color:var(--color-text);border:1px solid rgba(99,102,241,0.15) }
+
+      /* Output sections (complete analysis) */
+      .output-section { margin-top:14px;padding-top:10px;border-top:1px solid var(--color-border) }
+      .output-img { max-width:100%;border-radius:8px;border:1px solid var(--color-border) }
+      .plotly-container { border-radius:8px;overflow:hidden;border:1px solid var(--color-border) }
+
+      /* Properties grid */
+      .props-grid { display:grid;grid-template-columns:1fr 1fr;gap:2px }
+      .prop-item { display:flex;justify-content:space-between;padding:4px 8px;font-size:0.6rem;border-bottom:1px solid var(--color-border) }
+      .prop-key { color:var(--color-text-muted);text-transform:capitalize }
+      .prop-val { font-weight:700;color:var(--color-text) }
+
+      /* Download buttons */
+      .download-row { display:flex;flex-wrap:wrap;gap:6px }
+      .dl-btn { display:flex;align-items:center;gap:4px;padding:6px 12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:6px;font-size:0.65rem;color:var(--color-text);cursor:pointer;font-weight:600 }
+      .dl-btn:hover { border-color:var(--color-primary);color:var(--color-primary) }
+
+      /* Batch */
+      .batch-mol-item { padding:6px 8px;margin:4px 0;background:var(--color-background);border-radius:4px;font-size:0.6rem;border:1px solid var(--color-border) }
     </style>
   </div>
 </body>

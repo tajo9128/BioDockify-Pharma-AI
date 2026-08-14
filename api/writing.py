@@ -96,8 +96,8 @@ class WritingTools(ApiHandler):
 
             category = input.get("category", "literature")        # single category or "all"
             categories = input.get("categories", [])                # OR list of categories
-            max_chars = int(input.get("max_chars", 100000))         # 100K char budget
-            max_entries = int(input.get("max_entries", 300))
+            max_chars = int(input.get("max_chars", 200000))         # 200K char budget
+            max_entries = int(input.get("max_entries", 10000))
 
             if categories:
                 target_cats = set(categories)
@@ -1405,7 +1405,7 @@ class WritingTools(ApiHandler):
                         text_chunks = chunk_text_table_aware(content, max_chars=2000)
                     except ImportError:
                         text_chunks = [content[:2000]]
-                    for i, chunk_text in enumerate(text_chunks[:5]):
+                    for i, chunk_text in enumerate(text_chunks[:12]):
                         chunks.append({
                             "content": chunk_text,
                             "entry_id": entry.get("id", ""),
@@ -1465,7 +1465,7 @@ class WritingTools(ApiHandler):
         from modules.rag.citations import CitationRegistry, render_context, normalize_citations, CITATION_PROMPT
 
         registry = CitationRegistry()
-        context_block = render_context(results, registry, max_chars=12000)
+        context_block = render_context(results, registry, max_chars=30000)
 
         # ── Step 4: Section-specific prompt ──
         section_prompts = {

@@ -455,7 +455,7 @@ export const store = createStore("knowledgeModal", {
         const db = b.createdAt || new Date(b.id || 0).toISOString();
         return db.localeCompare(da);
       })
-      .slice(0, 50);
+      .slice(0, 10000);
   },
 
   get favoriteEntries() {
@@ -895,7 +895,7 @@ export const store = createStore("knowledgeModal", {
         this.libraryCategories.sort((a, b) => b.count - a.count);
       }
       // Load KB entries into entries array
-      const r2 = await callJsonApi("knowledge", { action: "library", limit: 100 });
+      const r2 = await callJsonApi("knowledge", { action: "library", limit: 10000 });
       if (r2.status === "ok" && r2.entries) {
         for (const entry of r2.entries) {
           const exists = this.entries.find(e => e.question === entry.title && e.source === entry.source);
@@ -922,7 +922,7 @@ export const store = createStore("knowledgeModal", {
     this.libraryCategory = category;
     this.loading = true;
     try {
-      const r = await callJsonApi("knowledge", { action: "library", category: category, limit: 50 });
+      const r = await callJsonApi("knowledge", { action: "library", category: category, limit: 10000 });
       if (r.status === "ok") {
         this.libraryEntries = r.entries || [];
       }
