@@ -201,15 +201,14 @@ def _residue_energy_decomposition(receptor_atoms, ligand_atoms, interactions):
 
 def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, interactions, known_smiles=""):
     """Generate 2D interaction diagram SVG via RDKit.
-    Uses known_smiles if provided, otherwise tries to reconstruct from PDBQT atoms."""
+
+    Produces a proper ligand 2D structure with interaction annotations.
+    Filters out water (HOH) from direct interactions, deduplicates entries.
+    """
     try:
         import numpy as np
         from rdkit import Chem
         from rdkit.Chem import Draw, AllChem
-        try:
-            from rdkit.Chem.Draw import IPythonConsole
-        except ImportError:
-            pass  # IPython not needed for SVG generation
         import io
 
         if pose_index >= len(ligand_models):
@@ -236,27 +235,66 @@ def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, 
             except Exception:
                 pass
 
-        if smiles:
-            lig_mol = Chem.MolFromSmiles(smiles)
-            if lig_mol:
-                AllChem.Compute2DCoords(lig_mol)
-                d2d = Draw.MolDraw2DSVG(600, 400)
-                d2d.DrawMolecule(lig_mol)
+        if not smiles:
+            return None
 
-                hb_legend = [f"{hb['residue']}{hb['resseq']} ({hb['distance']}\u00c5)" for hb in interactions.get("hydrogen_bonds", [])[:8]]
-                hp_legend = [f"{hp['residue']}{hp['resseq']}" for hp in interactions.get("hydrophobic_contacts", [])[:8]]
-                pi_legend = [f"pi-pi: {pi['residue']}{pi['resseq']}" for pi in interactions.get("pi_stacking", [])[:4]]
+        lig_mol = Chem.MolFromSmiles(smiles)
+        if not lig_mol:
+            return None
 
-                y = 340
-                d2d.DrawString(f"H-Bonds: {', '.join(hb_legend) if hb_legend else 'none'}", 10, y, size=12)
-                y += 18
-                d2d.DrawString(f"Hydrophobic: {', '.join(hp_legend) if hp_legend else 'none'}", 10, y, size=12)
-                y += 18
-                d2d.DrawString(f"Pi-Stacking: {', '.join(pi_legend) if pi_legend else 'none'}", 10, y, size=12)
+        AllChem.Compute2DCoords(lig_mol)
 
-                d2d.FinishDrawing()
-                return d2d.GetDrawingText()
-        return None
+        # ── Filter and deduplicate interactions ──
+        def _dedup(items, key_fn):
+            seen = set()
+            result = []
+            for item in items:
+                k = key_fn(item)
+                if k not in seen and "HOH" not in str(item.get("residue", "")):
+                    seen.add(k)
+                    result.append(item)
+            return result
+
+        hbonds = _dedup(interactions.get("hydrogen_bonds", []),
+                        lambda h: (h.get("residue", ""), h.get("resseq", 0)))
+        hydrophobic = _dedup(interactions.get("hydrophobic_contacts", []),
+                             lambda h: (h.get("residue", ""), h.get("resseq", 0)))
+        pi_stacking = _dedup(interactions.get("pi_stacking", []),
+                             lambda p: (p.get("residue", ""), p.get("resseq", 0)))
+        salt_bridges = _dedup(interactions.get("salt_bridges", []),
+                              lambda s: (s.get("residue", ""), s.get("resseq", 0)))
+
+        # ── Build SVG ──
+        W, H = 700, 500
+        d2d = Draw.MolDraw2DSVG(W, H - 150)
+        d2d.DrawMolecule(lig_mol)
+        d2d.FinishDrawing()
+        mol_svg = d2d.GetDrawingText()
+
+        # Build interaction legend as clean HTML/SVG overlay
+        legend_lines = []
+        if hbonds:
+            items = ", ".join(f"{h['residue']}{h['resseq']}({h['distance']}Å)" for h in hbonds[:6])
+            legend_lines.append(f'<text x="10" y="360" fill="#4169E1" font-size="11" font-family="sans-serif">● H-Bonds: {items}</text>')
+        if hydrophobic:
+            items = ", ".join(f"{h['residue']}{h['resseq']}" for h in hydrophobic[:6])
+            legend_lines.append(f'<text x="10" y="378" fill="#FFD700" font-size="11" font-family="sans-serif">● Hydrophobic: {items}</text>')
+        if pi_stacking:
+            items = ", ".join(f"{p["residue"]}{p["resseq"]}" for p in pi_stacking[:4])
+            legend_lines.append(f'<text x="10" y="396" fill="#9932CC" font-size="11" font-family="sans-serif">● π-Stacking: {items}</text>')
+        if salt_bridges:
+            items = ", ".join(f"{s["residue"]}{s["resseq"]}" for s in salt_bridges[:4])
+            legend_lines.append(f'<text x="10" y="414" fill="#DC143C" font-size="11" font-family="sans-serif">● Salt Bridges: {items}</text>')
+
+        # Inject legend into SVG
+        legend_svg = "\n".join(legend_lines)
+        # Replace closing </svg> with legend + close
+        if "</svg>" in mol_svg:
+            combined = mol_svg.replace("</svg>", f'{legend_svg}\n</svg>')
+        else:
+            combined = mol_svg
+
+        return combined
     except Exception as e:
         log.warning(f"SVG generation failed: {e}")
         return None
