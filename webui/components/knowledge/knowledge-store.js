@@ -1,5 +1,6 @@
 ﻿import { createStore } from "/js/AlpineStore.js";
 import { callJsonApi, getCsrfToken } from "/js/api.js";
+import { sanitizeHtml } from "/js/safe-markdown.js";
 
 const LS_KEY = "biodockify.notebook";
 
@@ -171,6 +172,12 @@ export const store = createStore("knowledgeModal", {
       if (block.startsWith('<')) return block; // already HTML
       return '<p style="margin:8px 0;line-height:1.7">' + block.replace(/\n/g, '<br>') + '</p>';
     }).join('\n');
+
+    // SECURITY: DOMPurify sanitize — the link/DOI regexes above don't
+    // quote-escape URLs, allowing attribute injection from uploaded document
+    // text ([x](https://a" onmouseover="alert(1))). sanitizeHtml strips
+    // event handlers, javascript: URLs, and other vectors.
+    try { html = sanitizeHtml(html); } catch (e) { /* if DOMPurify unavailable, fall through */ }
 
     return html;
   },

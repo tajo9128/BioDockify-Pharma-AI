@@ -2,6 +2,7 @@
 Based on Open3DQSAR + Py-CoMFA merged engine."""
 from helpers.api import ApiHandler, Request
 from helpers import files
+from helpers.validation import MODEL_ID_RE
 import asyncio, os, json, uuid, logging, numpy as np
 from datetime import datetime
 
@@ -15,6 +16,12 @@ class QSAR3DHandler(ApiHandler):
     
     async def process(self, input: dict, request: Request) -> dict:
         action = input.get("action", "")
+        # SECURITY: validate model_id on actions that use it (prevents pickle
+        # deserialization of arbitrary .pkl files via path traversal)
+        if action in ("predict", "delete", "info", "models"):
+            model_id = input.get("model_id", "")
+            if model_id and not MODEL_ID_RE.match(model_id):
+                return {"success": False, "error": "Invalid model_id format"}
         if action == "build": return await self._build(input)
         if action == "predict": return self._predict(input)
         if action == "models": return self._models(input)

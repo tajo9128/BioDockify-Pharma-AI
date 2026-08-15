@@ -126,29 +126,16 @@ class GetCsrfToken(ApiHandler):
 
     def initialize_allowed_origins(self, request: Request):
         """
-        If A0 is hosted on a server, add the first visit origin to ALLOWED_ORIGINS.
-        This simplifies deployment process as users can access their new instance without
-        additional setup while keeping it secure.
+        SECURITY: Origin auto-allowlist removed (was a DNS-rebinding attack vector).
+
+        Previously, the first non-localhost origin to hit the server was
+        permanently saved to ALLOWED_ORIGINS in .env. A malicious website
+        could get itself allow-listed, then (after DNS rebinding) issue
+        authenticated cross-origin requests.
+
+        Now: only localhost origins are allowed by default. For remote
+        access, users must explicitly set ALLOWED_ORIGINS in usr/.env:
+            ALLOWED_ORIGINS=http://192.168.1.100,http://myserver.example.com
         """
-        # dotenv value is already set, do nothing
-        denv = dotenv.get_dotenv_value(ALLOWED_ORIGINS_KEY)
-        if denv:
-            return
-
-        # get the origin from the request
-        req_origin = self.get_origin_from_request(request)
-        if not req_origin:
-            return
-
-        # check if the origin is allowed by default
-        allowed_origins = self.get_default_allowed_origins()
-        match = any(
-            fnmatch.fnmatch(req_origin, allowed_origin)
-            for allowed_origin in allowed_origins
-        )
-        if match:
-            return
-
-        # if not, add it to the allowed origins
-        allowed_origins.append(req_origin)
-        dotenv.save_dotenv_value(ALLOWED_ORIGINS_KEY, ",".join(allowed_origins))
+        # No auto-allowlist — return without saving anything
+        return

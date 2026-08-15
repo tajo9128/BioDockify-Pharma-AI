@@ -1,6 +1,7 @@
 """Knowledge Base API — central hub for all research data.
 All modules store data here. Academic Writer, Slides, Faculty CMD read from here."""
 from helpers.api import ApiHandler, Request, Response
+from helpers.validation import sanitize_category
 import os, json, logging, time
 
 log = logging.getLogger("knowledge_api")
@@ -548,7 +549,8 @@ class KnowledgeHandler(ApiHandler):
 
     def _store(self, input: dict) -> dict:
         """Store content in knowledge base with category."""
-        category = input.get("category", "misc")
+        # SECURITY: sanitize category to prevent path traversal via os.path.join(KB_DIR, category)
+        category = sanitize_category(input.get("category", "misc"), CATEGORIES)
         title = input.get("title", "Untitled")
         content = input.get("content", "")
         tags = input.get("tags", "")
@@ -702,7 +704,8 @@ class KnowledgeHandler(ApiHandler):
 
         try:
             files = input.get("files", [])
-            category = input.get("category", "")
+            # SECURITY: sanitize category to prevent path traversal
+            category = sanitize_category(input.get("category", ""), CATEGORIES) if input.get("category") else ""
             tags = input.get("tags", "")
 
             if not files:

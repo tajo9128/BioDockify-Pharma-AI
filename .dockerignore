@@ -96,11 +96,20 @@ pnpm-lock.yaml
 Dockerfile*
 docker-compose*.yml
 
-# Secrets
+# Secrets — nested env files must be explicitly excluded (Docker only matches
+# .env at root, not usr/.env or usr/secrets.env — Dockerfile COPY . /a0/ would
+# bake real secrets into the public image layer).
 .env
 .env.*
+**/.env
+**/.env.*
+**/secrets.env
+**/variables.env
 *.pem
 *.key
+usr/
+.a0proj/
+backups/
 
 # Bonsai model — downloaded via RUN curl in Dockerfile, not COPYied from build context.
 # Keeping it out of the context avoids a 1.1 GB duplication and speeds up builds.

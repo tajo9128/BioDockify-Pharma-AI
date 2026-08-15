@@ -14,8 +14,14 @@ import datetime
 import logging
 import glob
 from helpers.api import ApiHandler, Request
+from helpers.validation import BACKUP_ID_RE
 
 log = logging.getLogger("backup_auto")
+
+
+def _validate_backup_id(backup_id: str) -> bool:
+    """Backup IDs are always backup_YYYYMMDD_HHMMSS or uploaded_YYYYMMDD_HHMMSS."""
+    return bool(backup_id and BACKUP_ID_RE.match(backup_id))
 
 BACKUPS_DIR = "/a0/usr/backups"
 DATA_DIR = "/a0/usr"
@@ -323,6 +329,10 @@ class AutoBackupHandler(ApiHandler):
                 return {"success": False, "error": "No backups available"}
             backup_id = backups[0]["id"]
 
+        # SECURITY: prevent path traversal via backup_id
+        if not _validate_backup_id(backup_id):
+            return {"success": False, "error": "Invalid backup ID format"}
+
         backup_dir = os.path.join(BACKUPS_DIR, backup_id)
         if not os.path.isdir(backup_dir):
             return {"success": False, "error": f"Backup not found: {backup_id}"}
@@ -364,6 +374,9 @@ class AutoBackupHandler(ApiHandler):
 
     def _delete(self, backup_id):
         """Delete a specific backup."""
+        # SECURITY: prevent path traversal via backup_id (shutil.rmtree on arbitrary dir)
+        if not _validate_backup_id(backup_id):
+            return {"error": "Invalid backup ID format"}
         backup_dir = os.path.join(BACKUPS_DIR, backup_id)
         if not os.path.isdir(backup_dir):
             return {"error": f"Backup not found: {backup_id}"}
@@ -376,6 +389,9 @@ class AutoBackupHandler(ApiHandler):
     def _download(self, backup_id):
         """Download a backup zip file — streams the file to the browser."""
         from flask import send_file
+        # SECURITY: prevent path traversal via backup_id
+        if not _validate_backup_id(backup_id):
+            return {"error": "Invalid backup ID format"}
         backup_dir = os.path.join(BACKUPS_DIR, backup_id)
         zip_path = os.path.join(backup_dir, "backup.zip")
         if not os.path.exists(zip_path):

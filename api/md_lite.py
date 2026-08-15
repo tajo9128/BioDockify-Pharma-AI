@@ -1,11 +1,17 @@
 """MD Lite API — OpenMM molecular dynamics simulation handler."""
 from helpers.api import ApiHandler, Request, Response
 from helpers import files
+from helpers.validation import is_safe_id
 import os, json, time, uuid, asyncio, threading, logging, shutil, sys
 
 log = logging.getLogger("md_lite")
 WORKDIR = files.get_abs_path("usr/md-lite")
 os.makedirs(WORKDIR, exist_ok=True)
+
+
+def _validate_job_id(job_id: str) -> bool:
+    """Validate job_id to prevent path traversal (same regex as docking)."""
+    return is_safe_id(job_id)
 
 _jobs = {}  # in-memory job tracking: job_id -> threading.Thread
 _workflows = {}  # in-memory workflow tracking: job_id -> MDWorkflow (for stop)
@@ -281,6 +287,13 @@ class MDLite(ApiHandler):
                 "action": action,
                 "job_id": request.args.get("job_id", ""),
             }
+
+        # SECURITY: validate job_id on every action that uses it (path traversal prevention)
+        if action not in ("health",):
+            job_id = input.get("job_id", "")
+            if job_id and not _validate_job_id(job_id):
+                return {"status": "error", "error": "Invalid job_id format"}
+
         if action == "health":           return self._health()
         if action == "prepare":          return await self._prepare(input)
         if action == "prepare_complex":  return await self._prepare_complex(input)

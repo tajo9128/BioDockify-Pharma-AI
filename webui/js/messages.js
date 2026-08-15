@@ -14,6 +14,7 @@ import { formatDuration } from "./time-utils.js";
 import { Scroller } from "./scroller.js";
 import { callJsExtensions } from "/js/extensions.js";
 import { addBlankTargetsToLinks } from "/js/html-links.js";
+import { sanitizeHtml } from "/js/safe-markdown.js";
 
 // Delay before collapsing previous steps when a new step is added
 const STEP_COLLAPSE_DELAY = {
@@ -708,6 +709,11 @@ export function _drawMessage({
       processedContent = convertImgFilePaths(processedContent);
       processedContent = convertFilePaths(processedContent);
       processedContent = marked.parse(processedContent, { breaks: true });
+      // SECURITY: sanitize after markdown parse — LLM output can contain
+      // injected HTML from prompt-injected documents (uploaded PDFs, literature
+      // abstracts). sanitizeHtml (DOMPurify) strips event handlers, javascript:
+      // URLs, and iframes while keeping safe formatting.
+      processedContent = sanitizeHtml(processedContent);
       processedContent = convertPathsToLinks(processedContent);
       processedContent = addBlankTargetsToLinks(processedContent);
 

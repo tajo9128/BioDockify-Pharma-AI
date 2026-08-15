@@ -78,6 +78,31 @@ class UiServerRuntime:
             ),
         )
 
+        # ── Security headers ──────────────────────────────────────────────────
+        @webapp.after_request
+        def _add_security_headers(response):
+            # CSP: allow self + inline (Alpine.js uses inline scripts/styles) +
+            # CDN for Plotly/Google Fonts/PDF.js. Block everything else.
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com; "
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                "font-src 'self' https://fonts.gstatic.com; "
+                "img-src 'self' data: blob: https:; "
+                "connect-src 'self' wss: ws: https:; "
+                "frame-src 'self' blob:; "
+                "object-src 'none'; "
+                "base-uri 'self'"
+            )
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["X-Frame-Options"] = "SAMEORIGIN"
+            response.headers["X-XSS-Protection"] = "1; mode=block"
+            response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+            # Remove server fingerprint
+            response.headers.pop("Server", None)
+            response.headers.pop("X-Powered-By", None)
+            return response
+
         lock = threading.RLock()
         socketio_server = socketio.AsyncServer(
             async_mode="asgi",

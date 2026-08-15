@@ -10,7 +10,7 @@ class BackupCreate(ApiHandler):
 
     @classmethod
     def requires_loopback(cls) -> bool:
-        return False
+        return True  # SECURITY: localhost-only — prevents remote exfiltration of entire workspace
 
     async def process(self, input: dict, request: Request) -> dict | Response:
         try:

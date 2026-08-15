@@ -4,6 +4,12 @@ from helpers import files
 import os, logging, math, json, re
 import numpy as np
 
+
+def _svg_escape(text: str) -> str:
+    """Escape text for safe insertion into SVG/XML markup."""
+    return (text.replace("&", "&amp;").replace("<", "&lt;")
+                .replace(">", "&gt;").replace('"', "&quot;"))
+
 log = logging.getLogger("docking_analysis_api")
 JOBS_DIR = files.get_abs_path("tmp/docking_jobs")
 
@@ -272,18 +278,19 @@ def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, 
         mol_svg = d2d.GetDrawingText()
 
         # Build interaction legend as clean HTML/SVG overlay
+        # SECURITY: SVG-escape residue names (come from uploaded PDB — attacker-controllable)
         legend_lines = []
         if hbonds:
-            items = ", ".join(f"{h['residue']}{h['resseq']}({h['distance']}Å)" for h in hbonds[:6])
+            items = ", ".join(f"{_svg_escape(h['residue'])}{h['resseq']}({h['distance']}Å)" for h in hbonds[:6])
             legend_lines.append(f'<text x="10" y="360" fill="#4169E1" font-size="11" font-family="sans-serif">● H-Bonds: {items}</text>')
         if hydrophobic:
-            items = ", ".join(f"{h['residue']}{h['resseq']}" for h in hydrophobic[:6])
+            items = ", ".join(f"{_svg_escape(h['residue'])}{h['resseq']}" for h in hydrophobic[:6])
             legend_lines.append(f'<text x="10" y="378" fill="#FFD700" font-size="11" font-family="sans-serif">● Hydrophobic: {items}</text>')
         if pi_stacking:
-            items = ", ".join(f"{p["residue"]}{p["resseq"]}" for p in pi_stacking[:4])
+            items = ", ".join(f"{_svg_escape(p['residue'])}{p['resseq']}" for p in pi_stacking[:4])
             legend_lines.append(f'<text x="10" y="396" fill="#9932CC" font-size="11" font-family="sans-serif">● π-Stacking: {items}</text>')
         if salt_bridges:
-            items = ", ".join(f"{s["residue"]}{s["resseq"]}" for s in salt_bridges[:4])
+            items = ", ".join(f"{_svg_escape(s['residue'])}{s['resseq']}" for s in salt_bridges[:4])
             legend_lines.append(f'<text x="10" y="414" fill="#DC143C" font-size="11" font-family="sans-serif">● Salt Bridges: {items}</text>')
 
         # Inject legend into SVG

@@ -168,15 +168,32 @@ class SelfHealHandler(ApiHandler):
 
         return result
 
+    # Whitelist of allowed service names (prevents shell injection)
+    _ALLOWED_SERVICES = {"biodockify", "webui", "agent", "searxng", "sshd"}
+
+    def _validate_service(self, service: str) -> str | None:
+        """Return the service name if it's in the whitelist, else None."""
+        if service in self._ALLOWED_SERVICES:
+            return service
+        return None
+
     def _restart_service(self, input: dict) -> dict:
-        """Restart a specific service."""
+        """Restart a specific service (whitelisted names only)."""
         service = input.get("service", "biodockify")
-        out, err, code = _run(f"docker compose restart {service} 2>&1", timeout=30)
+        if not self._validate_service(service):
+            return {"status": "error", "error": f"Invalid service name. Allowed: {', '.join(sorted(self._ALLOWED_SERVICES))}"}
+        # shell=False with argument list — no injection possible
+        out, err, code = _run(["docker", "compose", "restart", service], timeout=30)
         return {"status": "ok" if code == 0 else "fail", "service": service, "output": out[:200] if code == 0 else err[:200]}
 
     def _get_logs(self, input: dict) -> dict:
-        """Get recent logs for a service."""
+        """Get recent logs for a service (whitelisted names only)."""
         service = input.get("service", "biodockify")
-        lines = int(input.get("lines", 50))
-        out, _, code = _run(f"docker compose logs --tail={lines} {service} 2>&1", timeout=10)
+        if not self._validate_service(service):
+            return {"status": "error", "error": f"Invalid service name. Allowed: {', '.join(sorted(self._ALLOWED_SERVICES))}"}
+        try:
+            lines = max(1, min(int(input.get("lines", 50)), 500))
+        except (ValueError, TypeError):
+            lines = 50
+        out, _, code = _run(["docker", "compose", "logs", f"--tail={lines}", service], timeout=10)
         return {"status": "ok", "logs": out[-5000:], "service": service}

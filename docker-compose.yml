@@ -24,7 +24,9 @@ services:
       dockerfile: Dockerfile.release
     container_name: biodockify
     ports:
-      - "80:80"
+      # SECURITY: 127.0.0.1 = localhost only. Change to "80:80" ONLY if you
+      # need LAN access AND have set AUTH_LOGIN + AUTH_PASSWORD below.
+      - "127.0.0.1:80:80"
     volumes:
       # ═══════════════════════════════════════════════════════════════════
       #  CHANGE THESE 2 PATHS TO YOUR OWN PC FOLDERS
@@ -50,8 +52,9 @@ services:
       #    Mac/Linux: - ~/biodockify-backups:/app/data
       - F:/biodockify-backups:/app/data
 
-      # 3) DOCKER SOCKET — enables Backup panel to list Docker volumes
-      - /var/run/docker.sock:/var/run/docker.sock
+      # SECURITY: Docker socket removed — was a host-takeover vector
+      # (root in container + docker.sock = full host control).
+      # If you need Docker volume backup, mount it selectively.
 
     environment:
       - PORT=50001

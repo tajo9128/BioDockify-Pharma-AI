@@ -187,7 +187,7 @@
                         <span class="material-symbols-outlined" style="font-size:12px">delete</span>
                       </button>
                     </div>
-                    <div class="nb-note-body" x-html="note.content.replace(/\n/g, '<br>')"></div>
+                    <div class="nb-note-body" style="white-space:pre-wrap" x-text="note.content"></div>
                   </div>
                 </template>
                 <div x-show="$store.knowledgeModal.notebookNotes.length === 0" class="nb-empty-col">

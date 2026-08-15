@@ -1,10 +1,16 @@
 """Deep Research API — collect thousands of sources from multiple databases, scan, filter, store."""
 from helpers.api import ApiHandler, Request, Response
+from helpers.validation import SESSION_ID_RE
 import asyncio, logging, json, re, os, urllib.request, urllib.parse
 from typing import Dict, List, Any
 from datetime import datetime
 
 log = logging.getLogger("deep_research")
+
+
+def _validate_session_id(session_id: str) -> bool:
+    """Session IDs are always date_time format (YYYYMMDD_HHMMSS)."""
+    return bool(session_id and SESSION_ID_RE.match(session_id))
 
 
 async def _async_urlopen(req, timeout=30):
@@ -21,6 +27,12 @@ os.makedirs(STORAGE_DIR, exist_ok=True)
 class DeepResearchHandler(ApiHandler):
     async def process(self, input: dict, request: Request) -> dict | Response:
         action = input.get("action", "collect")
+
+        # SECURITY: validate session_id on all actions that use it (path traversal prevention)
+        if action not in ("collect", "list", "literature_map"):
+            session_id = input.get("session_id", "")
+            if session_id and not _validate_session_id(session_id):
+                return {"status": "error", "error": "Invalid session_id format (expected YYYYMMDD_HHMMSS)"}
 
         if action == "collect":
             return await self._collect_sources(input)

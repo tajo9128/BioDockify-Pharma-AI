@@ -38,7 +38,7 @@
                             <div class="notification-content">
                                 <div class="notification-title" x-show="notification.title" x-text="notification.title">
                                 </div>
-                                <div class="notification-message" x-html="notification.message">
+                                <div class="notification-message" x-text="notification.message">
                                 </div>
                                 <div class="notification-timestamp"
                                     x-text="$store.notificationStore?.formatTimestamp(notification.timestamp) || notification.timestamp">
@@ -60,7 +60,7 @@
                                     x-transition:leave="transition ease-in duration-200"
                                     x-transition:leave-start="opacity-100 max-h-96"
                                     x-transition:leave-end="opacity-0 max-h-0">
-                                    <div class="notification-detail-content" x-html="notification.detail"></div>
+                                    <div class="notification-detail-content" style="white-space:pre-wrap" x-text="notification.detail"></div>
                                 </div>
                             </div>
                         </div>
