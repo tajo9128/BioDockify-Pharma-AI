@@ -244,9 +244,10 @@ def _write_status(job_dir, status, extra=None):
         pass
 
 
-# Run on module import (server startup) — after _write_status is defined
+# Run on module import (server startup) — scan and mark interrupted jobs
 _scan_interrupted_jobs()
-_auto_resume_interrupted()
+if os.environ.get("MD_LITE_AUTO_RESUME", "").lower() in ("1", "true", "yes"):
+    _auto_resume_interrupted()
 
 
 def _friendly_error(msg):
@@ -953,19 +954,24 @@ class MDLite(ApiHandler):
                     traj_path = alt
                     break
 
-        top_path = os.path.join(job_dir, "prepared.pdb")
-        if not os.path.exists(top_path):
-            top_path = os.path.join(job_dir, "topology.pdb")
-        if not os.path.exists(top_path):
-            for name in ["input.pdb", "protein.pdb", "system.pdb"]:
-                alt = os.path.join(job_dir, name)
-                if os.path.exists(alt):
-                    top_path = alt
-                    break
+        top_candidates = [
+            os.path.join(job_dir, "topology.pdb"),
+            os.path.join(job_dir, "prepared_complex.pdb"),
+            os.path.join(job_dir, "prepared.pdb"),
+            os.path.join(job_dir, "complex.pdb"),
+            os.path.join(job_dir, "protein.pdb"),
+            os.path.join(job_dir, "system.pdb"),
+            os.path.join(job_dir, "input.pdb"),
+        ]
+        top_path = None
+        for cand in top_candidates:
+            if os.path.exists(cand) and os.path.getsize(cand) > 50:
+                top_path = cand
+                break
 
         if not os.path.exists(traj_path):
             return {"status": "error", "error": "No trajectory file found. Run MD simulation first."}
-        if not os.path.exists(top_path):
+        if not top_path or not os.path.exists(top_path):
             return {"status": "error", "error": "No topology file found."}
 
         analyses = input.get("analyses")  # None = all

@@ -192,17 +192,19 @@ def analyze(traj_path, top_path, workdir):
         results["hbonds"] = {"count": hb_count, "top_donor_acceptor": hb_labels}
         _style_dark()
         fig, ax = plt.subplots(figsize=(6, 3))
-        # Compute per-frame H-bond count (sample every Nth frame to avoid O(n_frames) slowness)
+        # Compute per-frame H-bond count using sliced trajectory (vectorized)
         n_total = protein_traj.n_frames
         stride = max(1, n_total // 50)
+        sampled_traj = protein_traj[::stride]
         hb_per_frame = []
-        for i in range(0, n_total, stride):
-            f = protein_traj[i]
-            hbf = md.baker_hubbard(f, periodic=False)
+        for i in range(sampled_traj.n_frames):
+            hbf = md.baker_hubbard(sampled_traj[i], periodic=False)
             hb_per_frame.append(len(hbf))
+        if not hb_per_frame:
+            hb_per_frame = [hb_count]
         ax.plot(hb_per_frame, color="#f59e0b", linewidth=1)
         ax.set_title("Hydrogen Bonds per Frame", fontsize=12, fontweight="bold", color="#f59e0b")
-        ax.set_xlabel(f"Frame (stride={stride})"); ax.set_ylabel("Count")
+        ax.set_xlabel(f"Sampled Frames (stride={stride})"); ax.set_ylabel("Count")
         ax.grid(axis="y", alpha=0.3)
         results["hbonds_plot"] = _fig_to_b64(fig); plt.close(fig)
         results["hbonds"]["avg_per_frame"] = round(float(np.mean(hb_per_frame)), 1)

@@ -2,7 +2,7 @@ import { callJsonApi } from "/js/api.js";
 
 const mdLiteFactory = () => ({
   step: 1, jobId: null, loading: false, errorMessage: "", result: null,
-  status: null, _pollTimer: null, _logPollTimer: null,
+  status: null, _pollTimer: null, _logPollTimer: null, _preparePollTimer: null,
 
   // Input
   inputMethod: "complex",
@@ -464,8 +464,17 @@ const mdLiteFactory = () => ({
   download() { if (this.jobId) window.open("/api/md_lite?action=download&job_id="+this.jobId, "_blank"); },
 
   saveToKB() {
-    if (typeof $store !== "undefined" && $store.knowledgeModal?.addNoteBookEntry && this.result) {
-      $store.knowledgeModal.addNoteBookEntry("MD Lite — " + this.jobId, JSON.stringify(this.result,null,2), "MD Simulation", ["md_lite","simulation"]);
+    if (!this.result || !this.jobId) return;
+    if (typeof $store !== "undefined" && $store.knowledgeModal?.addNoteBookEntry) {
+      $store.knowledgeModal.addNoteBookEntry("MD Lite — " + this.jobId, JSON.stringify(this.result, null, 2), "MD Simulation", ["md_lite", "simulation"]);
+    } else {
+      callJsonApi("knowledge", {
+        action: "save_item",
+        category: "md_simulation",
+        title: "MD Lite — " + this.jobId,
+        content: JSON.stringify(this.result, null, 2),
+        tags: ["md_lite", "simulation"]
+      }).catch(e => console.warn("saveToKB fallback error", e));
     }
   },
 

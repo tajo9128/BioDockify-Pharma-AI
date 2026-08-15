@@ -4,9 +4,16 @@ GPU-ONLY mode: MD Lite requires a CUDA GPU with ≥ 4 GB VRAM (GTX 1650 or bette
 CPU simulations are rejected — they take days for 1 ns and are not viable.
 """
 import os, json, time, logging, threading
-import openmm as mm
-import openmm.app as app
-import openmm.unit as unit
+try:
+    import openmm as mm
+    import openmm.app as app
+    import openmm.unit as unit
+    HAS_OPENMM = True
+except ImportError:
+    HAS_OPENMM = False
+    mm = None
+    app = None
+    unit = None
 
 log = logging.getLogger("md_lite")
 
@@ -428,130 +435,247 @@ def _sanitize_pdb(pdb_path, keep_only_protein=True, keep_ligand_resname=None):
 
 
 def _generate_ligand_forcefield_xml(ligand_pdb_path, output_xml_path):
-    """Generate an OpenMM-compatible forcefield XML for a ligand using RDKit GAFF2 atom types.
+    """Generate a robust OpenMM-compatible forcefield XML for a small-molecule ligand.
 
-    This is the key to protein-ligand MD: AMBER forcefields can't parameterize
-    arbitrary ligands, so we generate custom parameters from RDKit's GAFF2 atom
-    typing and partial charges (Gasteiger or AM1-BCC if available).
+    Extracts connectivity, conformer geometry, Gasteiger charges, and assigns
+    complete parameter sets:
+      - Per-atom distinct types to capture unique chemical environments
+      - HarmonicBondForce with conformer-derived equilibrium lengths and bond-order-scaled k
+      - HarmonicAngleForce for all bonded atom triplets with conformer-derived angles
+      - PeriodicTorsionForce for bonded quartets with periodicity and barrier heights
+      - NonbondedForce (LJ sigma/epsilon + 1-4 scaling) and residue bond definitions
 
     Returns the path to the generated XML file, or None if RDKit is not available.
     """
     try:
         from rdkit import Chem
-        from rdkit.Chem import AllChem, Descriptors
+        from rdkit.Chem import AllChem
+        import numpy as np
     except ImportError:
-        log.warning("RDKit not available — cannot parameterize ligand. Using generic MMFF.")
+        log.warning("RDKit / numpy not available — cannot parameterize ligand.")
         return None
 
     # Read ligand PDB
-    mol = Chem.MolFromPDBFile(ligand_pdb_path, removeHs=False)
+    mol = Chem.MolFromPDBFile(ligand_pdb_path, removeHs=False, sanitize=False)
     if mol is None:
-        # Try reading from PDB block
-        with open(ligand_pdb_path) as f:
-            pdb_block = f.read()
-        mol = Chem.MolFromPDBBlock(pdb_block, removeHs=False)
+        try:
+            with open(ligand_pdb_path, "r", encoding="utf-8", errors="replace") as f:
+                pdb_block = f.read()
+            mol = Chem.MolFromPDBBlock(pdb_block, removeHs=False, sanitize=False)
+        except Exception:
+            pass
     if mol is None:
         log.warning("Could not read ligand PDB with RDKit.")
         return None
 
-    # Assign GAFF2 atom types
-    try:
-        from rdkit.Chem import rdForceFieldHelpers
-        rdForceFieldHelpers.MMFFGetMoleculeProperties(mol)
-    except Exception:
-        pass
-
-    # Get atom positions for the ligand
-    conf = mol.GetConformer()
-    if not conf.Is3D():
-        AllChem.EmbedMolecule(mol, AllChem.ETKDG())
-        conf = mol.GetConformer()
-
-    # Generate OpenMM-style forcefield XML using RDKit's MMFF parameters
-    # This is a simplified GAFF2-style approach using MMFF94 atom types
-    atom_types = {}
-    for atom in mol.GetAtoms():
-        idx = atom.GetIdx()
-        elem = atom.GetSymbol()
-        # Use MMFF atom type as proxy for GAFF2
-        mmff_props = None
+    # Ensure 3D conformer exists
+    if mol.GetNumConformers() == 0 or not mol.GetConformer().Is3D():
         try:
-            mmff_props = Chem.rdForceFieldHelpers.MMFFGetMoleculeForceField(mol, False)
+            Chem.SanitizeMol(mol)
+            AllChem.EmbedMolecule(mol, AllChem.ETKDGv3())
         except Exception:
             pass
-        atom_types[idx] = {
-            "element": elem,
-            "mass": atom.GetMass(),
-            "charge": 0.0,  # Will be set below
+
+    conf = mol.GetConformer() if mol.GetNumConformers() > 0 else None
+
+    # Compute Gasteiger partial charges
+    charges = {}
+    try:
+        mol_copy = Chem.Mol(mol)
+        Chem.SanitizeMol(mol_copy, sanitizeOps=Chem.SanitizeFlags.SANITIZE_ALL ^ Chem.SanitizeFlags.SANITIZE_PROPERTIES)
+        AllChem.ComputeGasteigerCharges(mol_copy)
+        for atom in mol_copy.GetAtoms():
+            idx = atom.GetIdx()
+            c = float(atom.GetDoubleProp('_GasteigerCharge'))
+            charges[idx] = 0.0 if np.isnan(c) or abs(c) < 0.0001 else float(c)
+    except Exception as e:
+        log.debug(f"Gasteiger charge assignment fallback: {e}")
+
+    # Standard element LJ parameters (sigma in nm, epsilon in kJ/mol)
+    LJ_PARAMS = {
+        "H": (0.2471, 0.0657),
+        "C": (0.33996, 0.3598),
+        "N": (0.3250, 0.7113),
+        "O": (0.2960, 0.8786),
+        "F": (0.3118, 0.2552),
+        "P": (0.3742, 0.8368),
+        "S": (0.3564, 1.0460),
+        "CL": (0.3471, 1.1004),
+        "BR": (0.3639, 1.3389),
+        "I": (0.3985, 1.6736),
+    }
+
+    atom_info = {}
+    for atom in mol.GetAtoms():
+        idx = atom.GetIdx()
+        elem = atom.GetSymbol().upper()
+        mass = max(1.008, atom.GetMass())
+        res_info = atom.GetPDBResidueInfo()
+        atom_name = res_info.GetName().strip() if res_info else f"L{idx}"
+        if not atom_name:
+            atom_name = f"L{idx}"
+        type_name = f"LIG_{elem.lower()}{idx}"
+        charge = charges.get(idx, 0.0)
+
+        sig, eps = LJ_PARAMS.get(elem, (0.3200, 0.4000))
+        # Polar hydrogens (connected to O or N) get smaller sigma
+        if elem == "H":
+            for nbr in atom.GetNeighbors():
+                if nbr.GetSymbol().upper() in ("O", "N", "S"):
+                    sig, eps = (0.1069, 0.0657)
+                    break
+
+        atom_info[idx] = {
+            "name": atom_name,
+            "type": type_name,
+            "element": atom.GetSymbol(),
+            "mass": mass,
+            "charge": charge,
+            "sigma": sig,
+            "epsilon": eps,
         }
 
-    # Assign Gasteiger charges
-    try:
-        AllChem.ComputeGasteigerCharges(mol)
-        for atom in mol.GetAtoms():
-            idx = atom.GetIdx()
-            charge = float(atom.GetDoubleProp('_GasteigerCharge'))
-            if abs(charge) < 0.001:
-                charge = 0.0
-            atom_types[idx]["charge"] = charge
-    except Exception as e:
-        log.warning(f"Gasteiger charge calculation failed: {e}")
-
-    # Generate the XML
+    # Start assembling ForceField XML
     xml_lines = [
         '<?xml version="1.0" encoding="utf-8"?>',
         '<ForceField>',
         '  <AtomTypes>',
     ]
-
-    # Create atom types for each unique element
-    type_map = {}
-    for idx, info in atom_types.items():
-        elem = info["element"]
-        if elem not in type_map:
-            type_name = f"lig_{elem.lower()}"
-            type_map[elem] = type_name
-            xml_lines.append(
-                f'    <Type name="{type_name}" class="{elem}" element="{elem}" mass="{info["mass"]:.4f}"/>'
-            )
-
+    for idx, info in atom_info.items():
+        xml_lines.append(
+            f'    <Type name="{info["type"]}" class="{info["type"]}" element="{info["element"]}" mass="{info["mass"]:.4f}"/>'
+        )
     xml_lines.append('  </AtomTypes>')
+
+    # Residue topology
     xml_lines.append('  <Residues>')
     xml_lines.append('    <Residue name="LIG">')
-
-    for idx, info in atom_types.items():
-        type_name = type_map[info["element"]]
-        xml_lines.append(f'      <Atom name="L{idx}" type="{type_name}" charge="{info["charge"]:.6f}"/>')
-
-    xml_lines.append('    </Residue>')
-    xml_lines.append('  </Residues>')
-
-    # Add bonds using actual atom element classes
-    xml_lines.append('  <Bonds>')
+    for idx, info in atom_info.items():
+        xml_lines.append(f'      <Atom name="{info["name"]}" type="{info["type"]}" charge="{info["charge"]:.6f}"/>')
     for bond in mol.GetBonds():
         i = bond.GetBeginAtomIdx()
         j = bond.GetEndAtomIdx()
-        elem_i = atom_types[i]["element"]
-        elem_j = atom_types[j]["element"]
-        bond_order = bond.GetBondType()
-        if bond_order == Chem.rdchem.BondType.DOUBLE:
-            k = "500.0"
-            length = "0.133"
-        elif bond_order == Chem.rdchem.BondType.TRIPLE:
-            k = "600.0"
-            length = "0.120"
+        xml_lines.append(f'      <Bond atomName1="{atom_info[i]["name"]}" atomName2="{atom_info[j]["name"]}"/>')
+    xml_lines.append('    </Residue>')
+    xml_lines.append('  </Residues>')
+
+    # HarmonicBondForce
+    xml_lines.append('  <HarmonicBondForce>')
+    for bond in mol.GetBonds():
+        i = bond.GetBeginAtomIdx()
+        j = bond.GetEndAtomIdx()
+        type_i = atom_info[i]["type"]
+        type_j = atom_info[j]["type"]
+
+        # Default lengths and stiffness based on bond order
+        btype = bond.GetBondType()
+        if btype == Chem.rdchem.BondType.TRIPLE:
+            length_nm, k_val = 0.1200, 450000.0
+        elif btype == Chem.rdchem.BondType.DOUBLE:
+            length_nm, k_val = 0.1340, 350000.0
+        elif btype == Chem.rdchem.BondType.AROMATIC:
+            length_nm, k_val = 0.1390, 320000.0
         else:
-            k = "400.0"
-            length = "0.150"
-        xml_lines.append(f'    <Bond class1="{elem_i}" class2="{elem_j}" length="{length}" k="{k}"/>')
-    xml_lines.append('  </Bonds>')
+            length_nm, k_val = 0.1500, 250000.0
+
+        # Refine with 3D conformer distance if available
+        if conf is not None:
+            p_i = conf.GetAtomPosition(i)
+            p_j = conf.GetAtomPosition(j)
+            d_nm = np.sqrt((p_i.x - p_j.x)**2 + (p_i.y - p_j.y)**2 + (p_i.z - p_j.z)**2) * 0.1
+            if 0.08 <= d_nm <= 0.25:
+                length_nm = d_nm
+
+        xml_lines.append(f'    <Bond type1="{type_i}" type2="{type_j}" length="{length_nm:.4f}" k="{k_val:.1f}"/>')
+    xml_lines.append('  </HarmonicBondForce>')
+
+    # HarmonicAngleForce (all bonded triplets i-j-k)
+    xml_lines.append('  <HarmonicAngleForce>')
+    for atom_j in mol.GetAtoms():
+        j = atom_j.GetIdx()
+        neighbors = [nbr.GetIdx() for nbr in atom_j.GetNeighbors()]
+        if len(neighbors) < 2:
+            continue
+        type_j = atom_info[j]["type"]
+        for a_idx in range(len(neighbors)):
+            for b_idx in range(a_idx + 1, len(neighbors)):
+                i = neighbors[a_idx]
+                k = neighbors[b_idx]
+                type_i = atom_info[i]["type"]
+                type_k = atom_info[k]["type"]
+
+                angle_rad = 1.9106  # ~109.5 deg default
+                if conf is not None:
+                    p_i = np.array([conf.GetAtomPosition(i).x, conf.GetAtomPosition(i).y, conf.GetAtomPosition(i).z])
+                    p_j = np.array([conf.GetAtomPosition(j).x, conf.GetAtomPosition(j).y, conf.GetAtomPosition(j).z])
+                    p_k = np.array([conf.GetAtomPosition(k).x, conf.GetAtomPosition(k).y, conf.GetAtomPosition(k).z])
+                    v1 = p_i - p_j
+                    v2 = p_k - p_j
+                    norm1 = np.linalg.norm(v1)
+                    norm2 = np.linalg.norm(v2)
+                    if norm1 > 1e-4 and norm2 > 1e-4:
+                        cos_theta = np.dot(v1, v2) / (norm1 * norm2)
+                        angle_rad = float(np.arccos(np.clip(cos_theta, -1.0, 1.0)))
+
+                k_angle = 400.0  # kJ/(mol*rad^2)
+                xml_lines.append(f'    <Angle type1="{type_i}" type2="{type_j}" type3="{type_k}" angle="{angle_rad:.4f}" k="{k_angle:.1f}"/>')
+    xml_lines.append('  </HarmonicAngleForce>')
+
+    # PeriodicTorsionForce (bonded quartets i-j-k-l)
+    xml_lines.append('  <PeriodicTorsionForce>')
+    seen_torsions = set()
+    for bond_jk in mol.GetBonds():
+        j = bond_jk.GetBeginAtomIdx()
+        k = bond_jk.GetEndAtomIdx()
+        for atom_i in mol.GetAtomWithIdx(j).GetNeighbors():
+            i = atom_i.GetIdx()
+            if i == k:
+                continue
+            for atom_l in mol.GetAtomWithIdx(k).GetNeighbors():
+                l = atom_l.GetIdx()
+                if l in (j, i):
+                    continue
+                quartet = (i, j, k, l)
+                rev_quartet = (l, k, j, i)
+                if quartet in seen_torsions or rev_quartet in seen_torsions:
+                    continue
+                seen_torsions.add(quartet)
+
+                type_i = atom_info[i]["type"]
+                type_j = atom_info[j]["type"]
+                type_k = atom_info[k]["type"]
+                type_l = atom_info[l]["type"]
+
+                # Torsion parameters
+                btype = bond_jk.GetBondType()
+                if btype == Chem.rdchem.BondType.DOUBLE or btype == Chem.rdchem.BondType.AROMATIC:
+                    periodicity = 2
+                    k_torsion = 15.0
+                    phase = 3.14159
+                else:
+                    periodicity = 3
+                    k_torsion = 4.0
+                    phase = 0.0
+
+                xml_lines.append(
+                    f'    <Proper type1="{type_i}" type2="{type_j}" type3="{type_k}" type4="{type_l}" '
+                    f'periodicity1="{periodicity}" phase1="{phase:.4f}" k1="{k_torsion:.2f}"/>'
+                )
+    xml_lines.append('  </PeriodicTorsionForce>')
+
+    # NonbondedForce (Lennard-Jones + 1-4 scaling)
+    xml_lines.append('  <NonbondedForce coulomb14scale="0.8333333333333334" lj14scale="0.5">')
+    xml_lines.append('    <UseAttributeFromResidue name="charge"/>')
+    for idx, info in atom_info.items():
+        xml_lines.append(f'    <Atom type="{info["type"]}" sigma="{info["sigma"]:.5f}" epsilon="{info["epsilon"]:.5f}"/>')
+    xml_lines.append('  </NonbondedForce>')
 
     xml_lines.append('</ForceField>')
 
-    with open(output_xml_path, 'w') as f:
-        f.write('\n'.join(xml_lines))
+    with open(output_xml_path, 'w', encoding="utf-8") as f:
+        f.write('\n'.join(xml_lines) + '\n')
 
-    log.info(f"Generated ligand forcefield XML: {output_xml_path} ({len(atom_types)} atoms, {len(type_map)} types)")
+    log.info(f"Generated complete ligand forcefield XML: {output_xml_path} ({len(atom_info)} atoms, bonds, angles, torsions, nonbonded)")
     return output_xml_path
 
 
@@ -560,8 +684,8 @@ class MDEngine:
                  platform="auto", device_index=0):
         self.workdir = workdir
         self.forcefield = forcefield
-        self.temperature = temperature * unit.kelvin
-        self.pressure = pressure * unit.bar
+        self.temperature = temperature * unit.kelvin if unit else temperature
+        self.pressure = pressure * unit.bar if unit else pressure
         self.platform_name = platform
         self.device_index = device_index
         self.simulation = None
@@ -1052,7 +1176,7 @@ class MDEngine:
             remaining = total_steps - self._steps_done
             n = min(chunk_steps, remaining)
             self.simulation.step(n)
-            self._steps_done += n
+            self._steps_done = self.simulation.currentStep
             self._chunks_done += 1
             self._save_checkpoint()
             self._update_status("running")

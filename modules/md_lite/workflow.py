@@ -1,8 +1,13 @@
-"""MD Workflow — Minimize → Fast Equilibrate → Production MD."""
-from .engine import MDEngine
 import os, json, time, logging
-import openmm
-import openmm.unit as unit
+from .engine import MDEngine
+try:
+    import openmm
+    import openmm.unit as unit
+    HAS_OPENMM = True
+except ImportError:
+    HAS_OPENMM = False
+    openmm = None
+    unit = None
 
 log = logging.getLogger("md_lite_workflow")
 
