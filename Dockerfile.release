@@ -59,15 +59,40 @@ RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
     pingouin>=0.5.4 reportlab>=4.0.0 fastapi>=0.110.0 \
     "numpy>=1.24,<2.5" \
     chromadb>=0.4.0 faiss-cpu>=1.7.4 sentence-transformers>=2.2.0 \
-    openmm>=8.1.0 mdtraj>=1.9.9 pdbfixer>=2.0.0 \
+    mdtraj>=1.9.9 pdbfixer>=2.0.0 pynvml>=11.5.0 \
     xgboost>=2.0.0 lightgbm>=4.0.0
+
+# ─── OpenMM with CUDA support ───
+# pip's openmm is CPU-only on most platforms. Strategy:
+#   1. Try conda-forge (includes CUDA platform plugin out of the box)
+#   2. Fallback: pip install openmm + manually install CUDA plugin from conda pkg
+#   3. Last resort: pip-only (CPU) — MD Lite will show "GPU not found" with Re-detect button
+RUN if command -v conda >/dev/null 2>&1; then \
+      conda install -y -c conda-forge openmm cuda-toolkit 2>/dev/null || \
+      conda install -y -c conda-forge openmm cudatoolkit 2>/dev/null; \
+      CONDA_SP=$(python3 -c "import site; import os; p=os.path.join(os.environ.get('CONDA_PREFIX','/opt/conda'),'lib/python3.12/site-packages'); print(p if os.path.isdir(p) else '')") && \
+      if [ -n "$CONDA_SP" ] && [ -d "$CONDA_SP/openmm" ]; then \
+        cp -an $CONDA_SP/openmm* /opt/venv-a0/lib/python3.12/site-packages/ 2>/dev/null; \
+      fi; \
+    elif command -v mamba >/dev/null 2>&1; then \
+      mamba install -y -c conda-forge openmm cudatoolkit 2>/dev/null; \
+      MAMBA_SP=$(python3 -c "import os; print(os.environ.get('MAMBA_ROOT_PREFIX','/opt/conda')+'/lib/python3.12/site-packages')") && \
+      if [ -d "$MAMBA_SP/openmm" ]; then \
+        cp -an $MAMBA_SP/openmm* /opt/venv-a0/lib/python3.12/site-packages/ 2>/dev/null; \
+      fi; \
+    else \
+      /opt/venv-a0/bin/python -m pip install --no-cache-dir openmm>=8.1.0; \
+    fi
 
 # ─── Verify critical imports ───
 RUN /opt/venv-a0/bin/python -c "\
 from rdkit import Chem; print('RDKit OK'); \
 from openmm.app import ForceField; \
 ff = ForceField('amber14-all.xml', 'tip3p.xml'); \
-print('OpenMM + forcefields OK')" \
+print('OpenMM + forcefields OK'); \
+import openmm as mm; \
+platforms = [mm.Platform.getPlatform(i).getName() for i in range(mm.Platform.getNumPlatforms())]; \
+print(f'OpenMM platforms: {platforms}')" \
     && echo "All critical packages verified" \
     || (echo "ERROR: Critical package import failed" && exit 1)
 
