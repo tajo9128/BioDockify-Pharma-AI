@@ -81,18 +81,18 @@ class UiServerRuntime:
         # ── Security headers ──────────────────────────────────────────────────
         @webapp.after_request
         def _add_security_headers(response):
-            # CSP: allow self + inline (Alpine.js uses inline scripts/styles) +
-            # CDN for Plotly/Google Fonts/PDF.js. Block everything else.
+            # CSP: permissive enough for the agent UI (Alpine.js, Plotly, KaTeX,
+            # Bootstrap CDN, WebSocket chat, PDF viewer, inline styles/scripts).
+            # Restrictive enough to block injected scripts from untrusted sources.
             response.headers["Content-Security-Policy"] = (
-                "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com; "
+                "default-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data: https: http:; "
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com; "
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-                "font-src 'self' https://fonts.gstatic.com; "
-                "img-src 'self' data: blob: https:; "
-                "connect-src 'self' wss: ws: https:; "
-                "frame-src 'self' blob:; "
-                "object-src 'none'; "
-                "base-uri 'self'"
+                "font-src 'self' data: https://fonts.gstatic.com; "
+                "img-src 'self' data: blob: https: http:; "
+                "connect-src 'self' data: blob: wss: ws: https: http:; "
+                "frame-src 'self' blob: data: https: http:; "
+                "media-src 'self' blob: data: https: http:"
             )
             response.headers["X-Content-Type-Options"] = "nosniff"
             response.headers["X-Frame-Options"] = "SAMEORIGIN"
