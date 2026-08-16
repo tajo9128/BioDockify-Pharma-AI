@@ -296,6 +296,7 @@ class MDLite(ApiHandler):
                 return {"status": "error", "error": "Invalid job_id format"}
 
         if action == "health":           return self._health()
+        if action == "check_gpu":        return self._check_gpu_manual()
         if action == "prepare":          return await self._prepare(input)
         if action == "prepare_complex":  return await self._prepare_complex(input)
         if action == "run":              return self._run(input)
@@ -325,6 +326,19 @@ class MDLite(ApiHandler):
             if not h.get("gpu_available"):
                 h["gpu_required"] = True
             return {"status": "ok", **h}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    def _check_gpu_manual(self):
+        """Reset the GPU detection cache and re-run detection + CUDA benchmark."""
+        try:
+            from modules.md_lite.engine import reset_gpu_cache, MDEngine
+            reset_gpu_cache()
+            h = MDEngine.health()
+            h["ready"] = bool(h.get("gpu_available"))
+            if not h.get("gpu_available"):
+                h["gpu_required"] = True
+            return {"status": "ok", "redetected": True, **h}
         except Exception as e:
             return {"status": "error", "error": str(e)}
 

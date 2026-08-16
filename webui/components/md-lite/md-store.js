@@ -15,6 +15,7 @@ const mdLiteFactory = () => ({
   settings: { total_ns: 1, platform: "auto", forcefield: "amber14", temperature: 300, pressure: 1.0, fast_mode: true },
   expandedAdvanced: false,
   gpuAvailable: false,
+  gpuChecking: false,
   gpuName: "",
   gpuVramGb: 0,
   gpuRequired: false,
@@ -100,6 +101,30 @@ const mdLiteFactory = () => ({
 
   init() {
     this.checkHealth();
+  },
+
+  async redetectGpu() {
+    this.gpuChecking = true;
+    this.platformWarning = "";
+    try {
+      const r = await callJsonApi("md_lite", { action: "check_gpu" });
+      if (r.status === "ok" && r.gpu_available) {
+        this.gpuAvailable = true;
+        this.gpuRequired = false;
+        this.gpuName = r.gpu_name || "CUDA GPU";
+        this.gpuVramGb = r.gpu_vram_gb || 0;
+        this.platformWarning = "";
+        this.liveLog.push(`GPU re-detected: ${this.gpuName} (${this.gpuVramGb} GB VRAM)`);
+      } else {
+        this.gpuAvailable = false;
+        this.gpuRequired = true;
+        this.platformWarning =
+          "⚠️ Re-detection failed. " + (r.platform_warning || r.error || "No qualifying CUDA device found.");
+      }
+    } catch (e) {
+      this.platformWarning = "GPU re-detection error: " + (e.message || "API error");
+    }
+    this.gpuChecking = false;
   },
 
   async checkHealth() {
