@@ -71,26 +71,21 @@ RUN curl -fsSL https://github.com/mamba-org/micromamba-releases/releases/latest/
     chmod +x /usr/local/bin/micromamba && \
     export MAMBA_ROOT_PREFIX=/tmp/mamba && \
     micromamba create -y -n omm -c conda-forge openmm cudatoolkit && \
-    # Find pip's OpenMM plugin directory
-    PIP_PLUGIN_DIR=$(/opt/venv-a0/bin/python -c "import openmm, os; print(os.path.join(os.path.dirname(openmm.__file__), 'lib', 'plugins'))") && \
-    echo "Pip OpenMM plugins at: $PIP_PLUGIN_DIR" && \
-    # Copy ONLY the CUDA plugin .so files (not the Python package!)
-    cp /tmp/mamba/envs/omm/lib/plugins/libOpenMMCUDA.so "$PIP_PLUGIN_DIR/" && \
-    cp /tmp/mamba/envs/omm/lib/plugins/libOpenMMAmoebaCUDA.so "$PIP_PLUGIN_DIR/" 2>/dev/null; \
-    cp /tmp/mamba/envs/omm/lib/plugins/libOpenMMDrudeCUDA.so "$PIP_PLUGIN_DIR/" 2>/dev/null; \
-    cp /tmp/mamba/envs/omm/lib/plugins/libOpenMMRPMDCUDA.so "$PIP_PLUGIN_DIR/" 2>/dev/null; \
-    # CUDA runtime libs needed by the plugin at runtime
-    cp /tmp/mamba/envs/omm/lib/libcudart.so* /usr/local/lib/ && \
-    # libOpenMM.so must be on the linker path for the CUDA plugin to resolve symbols
-    OPENMM_LIB=$(find /opt/venv-a0 -name "libOpenMM.so*" -type f | head -1) && \
-    if [ -n "$OPENMM_LIB" ]; then \
-        cp "$OPENMM_LIB" /usr/local/lib/ && \
-        cd /usr/local/lib && ln -sf $(basename "$OPENMM_LIB") libOpenMM.so; \
-    fi && \
+    # Dedicated plugin directory with ALL platform plugins from conda
+    mkdir -p /opt/openmm-plugins && \
+    cp /tmp/mamba/envs/omm/lib/plugins/libOpenMM*.so /opt/openmm-plugins/ && \
+    # System libs: OpenMM core + CUDA runtime (plugins link against these)
+    cp -a /tmp/mamba/envs/omm/lib/libOpenMM.so* /usr/local/lib/ && \
+    cp -a /tmp/mamba/envs/omm/lib/libcudart.so* /usr/local/lib/ && \
     ldconfig && \
     rm -rf /tmp/mamba /usr/local/bin/micromamba && \
-    echo "CUDA plugin installed into pip's OpenMM" && \
-    ls "$PIP_PLUGIN_DIR"/libOpenMM*CUDA* 2>/dev/null
+    echo "=== Installed plugins ===" && \
+    ls /opt/openmm-plugins/ && \
+    echo "=== System libs ===" && \
+    ldconfig -p | grep -E "OpenMM|cudart"
+
+# Tell OpenMM where to find platform plugins
+ENV OPENMM_PLUGIN_DIR=/opt/openmm-plugins
 
 # ─── Verify critical imports ───
 RUN /opt/venv-a0/bin/python -c "\
@@ -104,14 +99,10 @@ print(f'OpenMM platforms: {platforms}'); \
 import pynvml; print('nvidia-ml-py (pynvml) OK')" \
     && echo "All critical packages verified" \
     || (echo "ERROR: Critical package import failed" && exit 1)
-# Verify CUDA plugin is in pip's OpenMM plugins directory
-RUN /opt/venv-a0/bin/python -c "\
-import openmm, os; \
-pdir = os.path.join(os.path.dirname(openmm.__file__), 'lib', 'plugins'); \
-cuda = os.path.join(pdir, 'libOpenMMCUDA.so'); \
-assert os.path.isfile(cuda), f'CUDA plugin not found at {cuda}'; \
-print(f'CUDA plugin OK: {cuda}')" \
-    || (echo "ERROR: CUDA plugin not in OpenMM plugins dir" && exit 1)
+# Verify CUDA plugin exists
+RUN test -f /opt/openmm-plugins/libOpenMMCUDA.so \
+    && echo "CUDA plugin OK: /opt/openmm-plugins/libOpenMMCUDA.so ✓" \
+    || (echo "ERROR: libOpenMMCUDA.so missing" && exit 1)
 
 # ─── Execution venv: only Flask (framework venv is already the default python3) ───
 RUN /opt/venv/bin/python -m pip install --no-cache-dir flask>=3.0.0 \
