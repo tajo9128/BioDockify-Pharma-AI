@@ -258,7 +258,54 @@ def check_system_fits_gpu(num_atoms: int) -> None:
 
 
 def _cuda_sanity_benchmark():
-    """Run a tiny 1000-step simulation on CUDA. Returns (ok, detail)."""
+    """Run a tiny 1000-step simulation on CUDA. Returns (ok, detail).
+
+    Provides detailed diagnostics when CUDA fails so we know exactly why.
+    """
+    if not HAS_OPENMM:
+        return False, "OpenMM not installed"
+
+    # First: enumerate platforms and check if CUDA is even registered
+    platform_names = []
+    try:
+        platform_names = [mm.Platform.getPlatform(i).getName()
+                          for i in range(mm.Platform.getNumPlatforms())]
+    except Exception as e:
+        return False, f"Platform enumeration failed: {e}"
+
+    log.info(f"OpenMM platforms available: {platform_names}")
+
+    if "CUDA" not in platform_names:
+        # Diagnose WHY CUDA plugin isn't registered
+        import subprocess, os as _os
+        diag = []
+        plugin_dir = _os.environ.get("OPENMM_PLUGIN_DIR", "")
+        diag.append(f"OPENMM_PLUGIN_DIR={plugin_dir}")
+        if plugin_dir and _os.path.isdir(plugin_dir):
+            plugins = [f for f in _os.listdir(plugin_dir) if "CUDA" in f or "cuda" in f]
+            diag.append(f"CUDA plugins in dir: {plugins}")
+            # Try ldd on the CUDA plugin to see missing deps
+            for p in plugins:
+                full = _os.path.join(plugin_dir, p)
+                try:
+                    r = subprocess.run(["ldd", full], capture_output=True, text=True, timeout=5)
+                    missing = [l.strip() for l in r.stdout.split("\n") if "not found" in l]
+                    if missing:
+                        diag.append(f"{p} missing: {missing[:5]}")
+                except Exception:
+                    pass
+        else:
+            diag.append("Plugin dir missing or not set")
+        # Check nvidia-smi
+        try:
+            r = subprocess.run(["nvidia-smi"], capture_output=True, text=True, timeout=5)
+            diag.append(f"nvidia-smi: {'OK' if r.returncode == 0 else 'FAILED'}")
+        except FileNotFoundError:
+            diag.append("nvidia-smi: not found (no GPU driver in container)")
+        log.warning(f"CUDA platform not registered. Diagnostics: {'; '.join(diag)}")
+        return False, f"No CUDA platform ({'; '.join(diag)})"
+
+    # CUDA platform exists — try to actually use it
     try:
         import numpy as np
         system = mm.System()
@@ -274,13 +321,13 @@ def _cuda_sanity_benchmark():
         sim = app.Simulation(mm.Topology(), system, integ, plat,
                              {"DeviceIndex": "0", "Precision": "mixed"})
         sim.context.setPositions(positions)
-        sim.step(10)   # warm-up (kernel compile)
+        sim.step(10)
         t0 = time.time()
         sim.step(1000)
         elapsed = time.time() - t0
         return True, f"1000 steps in {elapsed:.2f}s"
     except Exception as e:
-        return False, str(e)[:120]
+        return False, f"CUDA context failed: {str(e)[:100]}"
 
 
 def reset_gpu_cache():
