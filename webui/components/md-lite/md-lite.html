@@ -73,6 +73,12 @@
       <div x-show="platformWarning && !loading" class="mc" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);padding:8px 12px;margin-top:8px">
         <span class="material-symbols-outlined" style="font-size:14px;color:#f59e0b;vertical-align:middle">warning</span>
         <span style="font-size:0.58rem;color:#f59e0b" x-text="platformWarning"></span>
+        <button @click="redetectGpu()" :disabled="gpuChecking"
+                style="display:block;margin-top:8px;padding:4px 12px;font-size:0.55rem;border-radius:4px;border:1px solid rgba(245,158,11,0.4);background:rgba(245,158,11,0.1);cursor:pointer;color:#d97706;font-weight:600"
+                :style="gpuChecking ? 'opacity:0.6;cursor:not-allowed' : ''">
+          <span x-show="!gpuChecking">↺ Re-detect GPU</span>
+          <span x-show="gpuChecking">Scanning…</span>
+        </button>
       </div>
     </div>
 
