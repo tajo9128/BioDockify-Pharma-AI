@@ -279,12 +279,18 @@ def _cuda_sanity_benchmark():
         # Diagnose WHY CUDA plugin isn't registered
         import subprocess, os as _os
         diag = []
+        # Check both env var and pip's default plugin directory
         plugin_dir = _os.environ.get("OPENMM_PLUGIN_DIR", "")
-        diag.append(f"OPENMM_PLUGIN_DIR={plugin_dir}")
+        if not plugin_dir:
+            try:
+                import openmm as _mm2
+                plugin_dir = _os.path.join(_os.path.dirname(_mm2.__file__), "lib", "plugins")
+            except Exception:
+                pass
+        diag.append(f"plugin_dir={plugin_dir}")
         if plugin_dir and _os.path.isdir(plugin_dir):
             plugins = [f for f in _os.listdir(plugin_dir) if "CUDA" in f or "cuda" in f]
             diag.append(f"CUDA plugins in dir: {plugins}")
-            # Try ldd on the CUDA plugin to see missing deps
             for p in plugins:
                 full = _os.path.join(plugin_dir, p)
                 try:
