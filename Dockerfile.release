@@ -67,25 +67,28 @@ RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
 # includes the CUDA plugin out of the box. Strategy:
 #   1. Install micromamba (lightweight conda, ~5MB)
 #   2. Create env with OpenMM + cudatoolkit from conda-forge
-#   3. Copy OpenMM (with CUDA plugin) into the pip venv
+#   3. Copy Python package into pip venv + shared libs into /usr/local/lib
 #   4. Clean up micromamba env to save image size
 RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj -C /usr/local bin/micromamba && \
     export MAMBA_ROOT_PREFIX=/tmp/mamba && \
     micromamba create -y -n omm -c conda-forge python=3.12 openmm cudatoolkit && \
+    # Copy Python package
     CONDA_SP="/tmp/mamba/envs/omm/lib/python3.12/site-packages" && \
     cp -a $CONDA_SP/openmm /opt/venv-a0/lib/python3.12/site-packages/ && \
-    cp -a $CONDA_SP/openmm*.dist-info /opt/venv-a0/lib/python3.12/site-packages/ 2>/dev/null || true && \
-    # Copy the CUDA platform plugin shared libraries
-    find /tmp/mamba/envs/omm/lib -name "libOpenMM*" -exec cp -a {} /opt/venv-a0/lib/python3.12/site-packages/openmm/ \; 2>/dev/null || true && \
-    find /tmp/mamba/envs/omm/lib -name "plugins" -type d -exec cp -a {} /opt/venv-a0/lib/python3.12/site-packages/openmm/ \; 2>/dev/null || true && \
-    # Also copy the OpenMM lib directory (contains platform plugins)
-    if [ -d "/tmp/mamba/envs/omm/lib/plugins" ]; then \
-      mkdir -p /opt/venv-a0/lib/python3.12/site-packages/openmm/lib && \
-      cp -a /tmp/mamba/envs/omm/lib/plugins /opt/venv-a0/lib/python3.12/site-packages/openmm/lib/; \
-    fi && \
+    cp -a $CONDA_SP/openmm*.dist-info /opt/venv-a0/lib/python3.12/site-packages/ 2>/dev/null; \
+    # Copy shared libraries (libOpenMM.so etc.) to system lib path
+    cp -a /tmp/mamba/envs/omm/lib/libOpenMM*.so* /usr/local/lib/ 2>/dev/null; \
+    # Copy platform plugins (libOpenMMCUDA.so, libOpenMMCPU.so, etc.)
+    mkdir -p /usr/local/openmm/plugins && \
+    cp -a /tmp/mamba/envs/omm/lib/plugins/* /usr/local/openmm/plugins/ 2>/dev/null; \
+    # Update linker cache so libOpenMM.so is found at runtime
+    ldconfig && \
     # Clean up micromamba to save ~500MB+ in image size
     rm -rf /tmp/mamba /usr/local/bin/micromamba && \
     echo "OpenMM with CUDA installed from conda-forge via micromamba"
+
+# Tell OpenMM where to find platform plugins (CUDA, CPU, etc.)
+ENV OPENMM_PLUGIN_DIR=/usr/local/openmm/plugins
 
 # ─── Verify critical imports ───
 RUN /opt/venv-a0/bin/python -c "\
