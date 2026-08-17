@@ -69,7 +69,8 @@ RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
 #   2. Create env with OpenMM + cudatoolkit from conda-forge
 #   3. Copy Python package into pip venv + shared libs into /usr/local/lib
 #   4. Clean up micromamba env to save image size
-RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj -C /usr/local bin/micromamba && \
+RUN curl -fsSL https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64 -o /usr/local/bin/micromamba && \
+    chmod +x /usr/local/bin/micromamba && \
     export MAMBA_ROOT_PREFIX=/tmp/mamba && \
     micromamba create -y -n omm -c conda-forge python=3.12 openmm cudatoolkit && \
     # Move ENTIRE lib directory to permanent path (preserves ALL symlinks intact)
@@ -90,7 +91,7 @@ RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj -C
 
 # OpenMM platform plugin discovery + library path
 ENV OPENMM_PLUGIN_DIR=/opt/openmm-cuda/plugins
-ENV LD_LIBRARY_PATH=/opt/openmm-cuda:${LD_LIBRARY_PATH}
+ENV LD_LIBRARY_PATH="/opt/openmm-cuda"
 
 # ─── Verify critical imports ───
 RUN /opt/venv-a0/bin/python -c "\
