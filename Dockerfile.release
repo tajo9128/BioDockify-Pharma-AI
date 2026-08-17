@@ -72,23 +72,26 @@ RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
 RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj -C /usr/local bin/micromamba && \
     export MAMBA_ROOT_PREFIX=/tmp/mamba && \
     micromamba create -y -n omm -c conda-forge python=3.12 openmm cudatoolkit && \
-    # Copy Python package
+    # Copy Python package to pip venv
     CONDA_SP="/tmp/mamba/envs/omm/lib/python3.12/site-packages" && \
     cp -a $CONDA_SP/openmm /opt/venv-a0/lib/python3.12/site-packages/ && \
     cp -a $CONDA_SP/openmm*.dist-info /opt/venv-a0/lib/python3.12/site-packages/ 2>/dev/null; \
-    # Copy shared libraries (libOpenMM.so etc.) to system lib path
-    cp -a /tmp/mamba/envs/omm/lib/libOpenMM*.so* /usr/local/lib/ 2>/dev/null; \
-    # Copy platform plugins (libOpenMMCUDA.so, libOpenMMCPU.so, etc.)
-    mkdir -p /usr/local/openmm/plugins && \
-    cp -a /tmp/mamba/envs/omm/lib/plugins/* /usr/local/openmm/plugins/ 2>/dev/null; \
-    # Update linker cache so libOpenMM.so is found at runtime
-    ldconfig && \
-    # Clean up micromamba to save ~500MB+ in image size
+    # Keep ALL shared libs from the env — OpenMM CUDA plugin has many deps
+    # (libOpenMM.so, libcudart.so, libnvrtc.so, libcufft.so, etc.)
+    mkdir -p /opt/openmm-cuda && \
+    cp -a /tmp/mamba/envs/omm/lib/*.so* /opt/openmm-cuda/ 2>/dev/null; \
+    cp -a /tmp/mamba/envs/omm/lib/plugins /opt/openmm-cuda/ 2>/dev/null; \
+    # Also check for libs in lib64 or nested cuda dirs
+    find /tmp/mamba/envs/omm -path "*/lib64/*.so*" -exec cp -a {} /opt/openmm-cuda/ \; 2>/dev/null; \
+    # Register with dynamic linker
+    echo "/opt/openmm-cuda" > /etc/ld.so.conf.d/openmm-cuda.conf && ldconfig && \
+    # Clean up everything except what we kept
     rm -rf /tmp/mamba /usr/local/bin/micromamba && \
-    echo "OpenMM with CUDA installed from conda-forge via micromamba"
+    echo "OpenMM with CUDA installed — libs in /opt/openmm-cuda"
 
-# Tell OpenMM where to find platform plugins (CUDA, CPU, etc.)
-ENV OPENMM_PLUGIN_DIR=/usr/local/openmm/plugins
+# Tell OpenMM where to find platform plugins + ensure libs are on path
+ENV OPENMM_PLUGIN_DIR=/opt/openmm-cuda/plugins
+ENV LD_LIBRARY_PATH=/opt/openmm-cuda:${LD_LIBRARY_PATH}
 
 # ─── Verify critical imports ───
 RUN /opt/venv-a0/bin/python -c "\
