@@ -59,17 +59,54 @@ RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
     pingouin>=0.5.4 reportlab>=4.0.0 fastapi>=0.110.0 \
     "numpy>=1.24,<2.5" \
     chromadb>=0.4.0 faiss-cpu>=1.7.4 sentence-transformers>=2.2.0 \
-    openmm>=8.1.0 mdtraj>=1.9.9 pdbfixer>=2.0.0 \
+    mdtraj>=1.9.9 pdbfixer>=2.0.0 nvidia-ml-py>=11.5.0 \
     xgboost>=2.0.0 lightgbm>=4.0.0
+
+# ─── OpenMM CUDA plugin ───
+# pip already installs openmm (CPU-only) via pdbfixer dependency.
+# We only need the CUDA platform plugin .so + CUDA runtime from conda-forge.
+# IMPORTANT: Do NOT copy conda's Python package — it causes Bus error
+# (ABI mismatch between conda's and pip's Python 3.12 builds).
+RUN curl -fsSL https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64 -o /usr/local/bin/micromamba && \
+    chmod +x /usr/local/bin/micromamba && \
+    export MAMBA_ROOT_PREFIX=/tmp/mamba && \
+    micromamba create -y -n omm -c conda-forge openmm cudatoolkit && \
+    # Dedicated plugin directory with ALL platform plugins from conda
+    mkdir -p /opt/openmm-plugins && \
+    cp /tmp/mamba/envs/omm/lib/plugins/libOpenMM*.so /opt/openmm-plugins/ && \
+    # CRITICAL: delete ONLY pip's core libOpenMM.so (exact name) so _openmm.so
+    # falls through to conda's in /usr/local/lib/. Keep libOpenMMAmoeba.so,
+    # libOpenMMDrude.so etc. — _openmm.so links against those directly.
+    find /opt/venv-a0 \( -name "libOpenMM.so" -o -name "libOpenMM.so.*" \) -delete 2>/dev/null; \
+    # Install conda's libOpenMM + CUDA runtime as the single system-wide copy
+    cp -a /tmp/mamba/envs/omm/lib/libOpenMM.so* /usr/local/lib/ && \
+    cp -a /tmp/mamba/envs/omm/lib/libcudart.so* /usr/local/lib/ && \
+    ldconfig && \
+    rm -rf /tmp/mamba /usr/local/bin/micromamba && \
+    echo "=== Installed plugins ===" && \
+    ls /opt/openmm-plugins/ && \
+    echo "=== System libs ===" && \
+    ldconfig -p | grep -E "OpenMM|cudart"
+
+# Tell OpenMM where to find platform plugins
+ENV OPENMM_PLUGIN_DIR=/opt/openmm-plugins
 
 # ─── Verify critical imports ───
 RUN /opt/venv-a0/bin/python -c "\
 from rdkit import Chem; print('RDKit OK'); \
 from openmm.app import ForceField; \
 ff = ForceField('amber14-all.xml', 'tip3p.xml'); \
-print('OpenMM + forcefields OK')" \
+print('OpenMM + forcefields OK'); \
+import openmm as mm; \
+platforms = [mm.Platform.getPlatform(i).getName() for i in range(mm.Platform.getNumPlatforms())]; \
+print(f'OpenMM platforms: {platforms}'); \
+import pynvml; print('nvidia-ml-py (pynvml) OK')" \
     && echo "All critical packages verified" \
     || (echo "ERROR: Critical package import failed" && exit 1)
+# Verify CUDA plugin exists
+RUN test -f /opt/openmm-plugins/libOpenMMCUDA.so \
+    && echo "CUDA plugin OK: /opt/openmm-plugins/libOpenMMCUDA.so ✓" \
+    || (echo "ERROR: libOpenMMCUDA.so missing" && exit 1)
 
 # ─── Execution venv: only Flask (framework venv is already the default python3) ───
 RUN /opt/venv/bin/python -m pip install --no-cache-dir flask>=3.0.0 \

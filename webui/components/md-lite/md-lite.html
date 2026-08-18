@@ -57,10 +57,17 @@
         </div>
       </div>
 
-      <button class="mrn" @click="prepare()" :disabled="loading || !gpuAvailable">
+      <!-- GPU scanning indicator (shown during init fresh check) -->
+      <div x-show="gpuChecking && !loading && !platformWarning" class="mc" style="text-align:center;padding:12px;border:1px solid rgba(99,102,241,0.3);background:rgba(99,102,241,0.06)">
+        <span class="spin"></span>
+        <span style="font-size:0.58rem;color:#6366f1;font-weight:600;margin-left:6px">Detecting GPU…</span>
+        <p style="font-size:0.5rem;color:var(--color-text-muted);margin:4px 0 0">Running CUDA benchmark to verify GPU availability</p>
+      </div>
+
+      <button class="mrn" @click="prepare()" :disabled="loading || !gpuAvailable || gpuChecking">
         <span class="material-symbols-outlined">science</span> Prepare System
       </button>
-      <button class="mrn" style="background:#8b5cf6;margin-top:6px" @click="prepareComplex()" :disabled="loading || !gpuAvailable">
+      <button class="mrn" style="background:#8b5cf6;margin-top:6px" @click="prepareComplex()" :disabled="loading || !gpuAvailable || gpuChecking">
         <span class="material-symbols-outlined">auto_fix_high</span> Auto-Prepare (PDBFixer + RDKit)
       </button>
       <p style="color:var(--color-text-muted);font-size:0.52rem;text-align:center;margin-top:4px">
@@ -69,10 +76,21 @@
       <div x-show="loading" style="text-align:center;padding:8px;color:var(--color-text-muted);font-size:0.58rem">
         <span class="spin"></span> <span x-text="phaseLabel || 'Preparing with OpenMM...'"></span>
       </div>
+      <!-- GPU detected badge -->
+      <div x-show="gpuAvailable && !gpuChecking && !loading" class="mc" style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.3);padding:8px 12px;margin-top:8px">
+        <span class="material-symbols-outlined" style="font-size:14px;color:#22c55e;vertical-align:middle">check_circle</span>
+        <span style="font-size:0.58rem;color:#22c55e;font-weight:600" x-text="'GPU Ready: ' + gpuName + (gpuVramGb ? ' (' + gpuVramGb + ' GB)' : '')"></span>
+      </div>
       <!-- Platform warning (GPU not accessible) -->
-      <div x-show="platformWarning && !loading" class="mc" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);padding:8px 12px;margin-top:8px">
+      <div x-show="platformWarning && !loading && !gpuChecking" class="mc" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);padding:8px 12px;margin-top:8px">
         <span class="material-symbols-outlined" style="font-size:14px;color:#f59e0b;vertical-align:middle">warning</span>
         <span style="font-size:0.58rem;color:#f59e0b" x-text="platformWarning"></span>
+        <button @click="redetectGpu()" :disabled="gpuChecking"
+                style="display:block;margin-top:8px;padding:4px 12px;font-size:0.55rem;border-radius:4px;border:1px solid rgba(245,158,11,0.4);background:rgba(245,158,11,0.1);cursor:pointer;color:#d97706;font-weight:600"
+                :style="gpuChecking ? 'opacity:0.6;cursor:not-allowed' : ''">
+          <span x-show="!gpuChecking">↺ Re-detect GPU</span>
+          <span x-show="gpuChecking">Scanning…</span>
+        </button>
       </div>
     </div>
 
@@ -123,16 +141,22 @@
       </div>
 
       <!-- Engine -->
-      <div class="mc"><h4>Engine <span x-show="gpuAvailable" class="mbadge g" x-text="'GPU: ' + (gpuName || 'CUDA') + ' · ' + gpuVramGb + ' GB'"></span><span x-show="!gpuAvailable" class="mbadge c">GPU Required (CPU not supported)</span></h4>
+      <div class="mc"><h4>Engine <span x-show="gpuAvailable" class="mbadge g" x-text="'GPU: ' + (gpuName || 'CUDA') + ' · ' + gpuVramGb + ' GB'"></span><span x-show="!gpuAvailable && !gpuChecking" class="mbadge c">GPU Required (CPU not supported)</span><span x-show="gpuChecking" class="mbadge" style="background:#6366f1;color:#fff">Detecting…</span></h4>
         <div class="mrl">
           <label class="mr" :class="{on:settings.platform==='auto'}" @click="settings.platform='auto'">
             <span>CUDA (GPU)</span><small x-text="gpuName || 'NVIDIA · mixed precision'"></small>
           </label>
         </div>
-        <p x-show="!gpuAvailable" style="font-size:0.52rem;color:#ef4444;margin:6px 0 0">
+        <p x-show="!gpuAvailable && !gpuChecking" style="font-size:0.52rem;color:#ef4444;margin:6px 0 0">
           ⚠️ MD Lite runs GPU-only. Requires NVIDIA GTX 1650 (4 GB) or better.
           1 ns takes days on CPU — not supported. Docker users: start with --gpus all.
         </p>
+        <button @click="redetectGpu()" :disabled="gpuChecking"
+                style="margin-top:6px;padding:3px 10px;font-size:0.55rem;border-radius:4px;border:1px solid var(--color-border);background:var(--color-panel-2);cursor:pointer;color:var(--color-text-muted)"
+                :style="gpuChecking ? 'opacity:0.6;cursor:not-allowed' : ''">
+          <span x-show="!gpuChecking">↺ Re-detect GPU</span>
+          <span x-show="gpuChecking">Scanning…</span>
+        </button>
       </div>
 
       <!-- Advanced (collapsible) -->

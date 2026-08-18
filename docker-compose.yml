@@ -71,4 +71,15 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+    # GPU passthrough — required for MD Lite (molecular dynamics)
+    # Requires NVIDIA Container Toolkit on host.
+    # If no NVIDIA GPU, comment out deploy block — everything else works without it.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
     restart: unless-stopped

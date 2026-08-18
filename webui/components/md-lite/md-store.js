@@ -15,6 +15,7 @@ const mdLiteFactory = () => ({
   settings: { total_ns: 1, platform: "auto", forcefield: "amber14", temperature: 300, pressure: 1.0, fast_mode: true },
   expandedAdvanced: false,
   gpuAvailable: false,
+  gpuChecking: false,
   gpuName: "",
   gpuVramGb: 0,
   gpuRequired: false,
@@ -99,7 +100,62 @@ const mdLiteFactory = () => ({
   },
 
   init() {
-    this.checkHealth();
+    this.freshGpuCheck();
+  },
+
+  async freshGpuCheck() {
+    this.gpuChecking = true;
+    try {
+      const r = await callJsonApi("md_lite", { action: "check_gpu" });
+      this.platformWarning = "";
+      this.gpuRequired = false;
+      if (r.status === "error" && !r.redetected) {
+        this.platformWarning = "OpenMM not available: " + (r.error || "install failed");
+        this.gpuChecking = false;
+        return;
+      }
+      if (r.gpu_available) {
+        this.gpuAvailable = true;
+        this.gpuName = r.gpu_name || "CUDA GPU";
+        this.gpuVramGb = r.gpu_vram_gb || 0;
+        this.liveLog.push(`GPU: ${this.gpuName} (${this.gpuVramGb} GB VRAM) ✓`);
+      } else {
+        this.gpuAvailable = false;
+        this.gpuRequired = true;
+        this.platformWarning =
+          "⚠️ NVIDIA GPU required (GTX 1650 or better, ≥4 GB VRAM). " +
+          (r.platform_warning || r.error || "No qualifying CUDA device detected. ") +
+          "MD simulations take days on CPU and are not supported. " +
+          "If using Docker, start the container with: docker run --gpus all ...";
+      }
+    } catch (e) {
+      this.platformWarning = "MD Lite backend unavailable: " + (e.message || "API error");
+    }
+    this.gpuChecking = false;
+  },
+
+  async redetectGpu() {
+    this.gpuChecking = true;
+    this.platformWarning = "";
+    try {
+      const r = await callJsonApi("md_lite", { action: "check_gpu" });
+      if (r.status === "ok" && r.gpu_available) {
+        this.gpuAvailable = true;
+        this.gpuRequired = false;
+        this.gpuName = r.gpu_name || "CUDA GPU";
+        this.gpuVramGb = r.gpu_vram_gb || 0;
+        this.platformWarning = "";
+        this.liveLog.push(`GPU re-detected: ${this.gpuName} (${this.gpuVramGb} GB VRAM)`);
+      } else {
+        this.gpuAvailable = false;
+        this.gpuRequired = true;
+        this.platformWarning =
+          "⚠️ Re-detection failed. " + (r.platform_warning || r.error || "No qualifying CUDA device found.");
+      }
+    } catch (e) {
+      this.platformWarning = "GPU re-detection error: " + (e.message || "API error");
+    }
+    this.gpuChecking = false;
   },
 
   async checkHealth() {

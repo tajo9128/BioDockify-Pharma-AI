@@ -56,16 +56,16 @@ def _check_gpu():
         _GPU_VRAM_GB = vram_gb
         log.info(f"GPU detection: name={gpu_name!r} vram={vram_gb:.1f}GB")
 
-        # Reject ONLY when VRAM was positively measured below the minimum.
-        # Unknown VRAM (0) must NOT reject — detection may simply be unavailable.
+        # Log a VRAM warning when positively measured below minimum, but ALWAYS
+        # proceed to the CUDA benchmark — WMI AdapterRAM is unreliable on laptops
+        # and can report 2 GB for a real 4 GB card. The benchmark is the only
+        # definitive test; never reject a GPU without running it.
         if vram_gb > 0 and vram_gb < MIN_VRAM_GB:
-            _GPU_WARNING = (
-                f"GPU '{gpu_name}' has only {vram_gb:.1f} GB VRAM. "
-                f"MD Lite requires ≥ {MIN_VRAM_GB:.0f} GB (GTX 1650 or better). "
-                "Solvent-box protein-ligand systems typically need ≥ 2 GB of GPU "
-                "memory; 4 GB is the practical minimum."
+            log.warning(
+                f"GPU '{gpu_name}' reports only {vram_gb:.1f} GB VRAM via detection "
+                f"(minimum is {MIN_VRAM_GB:.0f} GB). Running CUDA benchmark anyway — "
+                "detection may be inaccurate (WMI AdapterRAM is unreliable on some systems)."
             )
-            return _GPU_AVAILABLE, _GPU_WARNING
 
         # 2. THE definitive test — run a tiny CUDA simulation via OpenMM.
         ok, detail = _cuda_sanity_benchmark()
@@ -112,12 +112,28 @@ def _detect_gpu_device():
     """Best-effort GPU name + VRAM detection. Returns (name, vram_gb).
 
     Tries multiple methods so a working GPU is never missed:
+      0. pynvml (most reliable — NVML direct binding, works on all platforms)
       1. nvidia-smi (PATH + common Windows install paths)
-      2. Windows WMI (win32_VideoController)
+      2. Windows WMI (win32_VideoController) — VRAM unreliable, name only
     Returns ("", 0.0) when detection is unavailable — callers must treat
     that as "unknown", not "no GPU".
     """
     gpu_name, vram_gb = "", 0.0
+
+    # Method 0: pynvml — direct NVML binding, most reliable on any OS
+    try:
+        import pynvml
+        pynvml.nvmlInit()
+        handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+        gpu_name = pynvml.nvmlDeviceGetName(handle)
+        if isinstance(gpu_name, bytes):
+            gpu_name = gpu_name.decode("utf-8", errors="replace")
+        mem = pynvml.nvmlDeviceGetMemoryInfo(handle)
+        vram_gb = mem.total / (1024 ** 3)
+        pynvml.nvmlShutdown()
+        return gpu_name, vram_gb
+    except Exception as e:
+        log.debug(f"pynvml detection failed: {e}")
 
     # Method 1: nvidia-smi — try several locations (Windows often lacks PATH)
     smi_candidates = ["nvidia-smi"]
@@ -125,6 +141,8 @@ def _detect_gpu_device():
         smi_candidates += [
             r"C:\Windows\System32\nvidia-smi.exe",
             r"C:\Program Files\NVIDIA Corporation\NVSMI\nvidia-smi.exe",
+            r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.0\bin\nvidia-smi.exe",
+            r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8\bin\nvidia-smi.exe",
         ]
     for smi in smi_candidates:
         try:
@@ -150,7 +168,8 @@ def _detect_gpu_device():
             log.debug(f"nvidia-smi ({smi}) failed: {e}")
             continue
 
-    # Method 2: Windows WMI — works without nvidia-smi on PATH
+    # Method 2: Windows WMI — name detection only; AdapterRAM is unreliable
+    # (often reports shared system RAM instead of dedicated VRAM on laptops)
     if os.name == "nt":
         try:
             import subprocess
@@ -161,20 +180,18 @@ def _detect_gpu_device():
             if result.returncode == 0 and result.stdout.strip():
                 for line in result.stdout.strip().split("\n"):
                     line = line.strip()
-                    if not line or line.lower().startswith("name"):
+                    if not line or line.lower().startswith(("name", "adapterram")):
                         continue
-                    # Format: "<bytes>  <name>" (or reversed on some systems)
                     tokens = line.split(None, 1)
                     for tok in tokens:
                         if tok.isdigit() and len(tok) >= 9:  # ≥ ~512 MB in bytes
-                            vram_gb = int(tok) / (1024 ** 3)
-                            name_tok = [t for t in tokens if t is not tok]
-                            if name_tok and ("NVIDIA" in name_tok[0].upper()
-                                             or "GeForce" in name_tok[0]
-                                             or "RTX" in name_tok[0]
-                                             or "GTX" in name_tok[0]):
-                                gpu_name = name_tok[0]
-                                return gpu_name, vram_gb
+                            name_tok = [t for t in tokens if t != tok]
+                            if name_tok and any(k in name_tok[0].upper()
+                                                for k in ("NVIDIA", "GEFORCE", "RTX", "GTX", "QUADRO", "TESLA")):
+                                gpu_name = name_tok[0].strip()
+                                # Do NOT use AdapterRAM as vram_gb — it's unreliable.
+                                # Leave vram_gb = 0.0 so the CUDA benchmark is always tried.
+                                return gpu_name, 0.0
         except Exception as e:
             log.debug(f"WMI GPU detection failed: {e}")
 
@@ -241,7 +258,60 @@ def check_system_fits_gpu(num_atoms: int) -> None:
 
 
 def _cuda_sanity_benchmark():
-    """Run a tiny 1000-step simulation on CUDA. Returns (ok, detail)."""
+    """Run a tiny 1000-step simulation on CUDA. Returns (ok, detail).
+
+    Provides detailed diagnostics when CUDA fails so we know exactly why.
+    """
+    if not HAS_OPENMM:
+        return False, "OpenMM not installed"
+
+    # First: enumerate platforms and check if CUDA is even registered
+    platform_names = []
+    try:
+        platform_names = [mm.Platform.getPlatform(i).getName()
+                          for i in range(mm.Platform.getNumPlatforms())]
+    except Exception as e:
+        return False, f"Platform enumeration failed: {e}"
+
+    log.info(f"OpenMM platforms available: {platform_names}")
+
+    if "CUDA" not in platform_names:
+        # Diagnose WHY CUDA plugin isn't registered
+        import subprocess, os as _os
+        diag = []
+        # Check both env var and pip's default plugin directory
+        plugin_dir = _os.environ.get("OPENMM_PLUGIN_DIR", "")
+        if not plugin_dir:
+            try:
+                import openmm as _mm2
+                plugin_dir = _os.path.join(_os.path.dirname(_mm2.__file__), "lib", "plugins")
+            except Exception:
+                pass
+        diag.append(f"plugin_dir={plugin_dir}")
+        if plugin_dir and _os.path.isdir(plugin_dir):
+            plugins = [f for f in _os.listdir(plugin_dir) if "CUDA" in f or "cuda" in f]
+            diag.append(f"CUDA plugins in dir: {plugins}")
+            for p in plugins:
+                full = _os.path.join(plugin_dir, p)
+                try:
+                    r = subprocess.run(["ldd", full], capture_output=True, text=True, timeout=5)
+                    missing = [l.strip() for l in r.stdout.split("\n") if "not found" in l]
+                    if missing:
+                        diag.append(f"{p} missing: {missing[:5]}")
+                except Exception:
+                    pass
+        else:
+            diag.append("Plugin dir missing or not set")
+        # Check nvidia-smi
+        try:
+            r = subprocess.run(["nvidia-smi"], capture_output=True, text=True, timeout=5)
+            diag.append(f"nvidia-smi: {'OK' if r.returncode == 0 else 'FAILED'}")
+        except FileNotFoundError:
+            diag.append("nvidia-smi: not found (no GPU driver in container)")
+        log.warning(f"CUDA platform not registered. Diagnostics: {'; '.join(diag)}")
+        return False, f"No CUDA platform ({'; '.join(diag)})"
+
+    # CUDA platform exists — try to actually use it
     try:
         import numpy as np
         system = mm.System()
@@ -257,13 +327,24 @@ def _cuda_sanity_benchmark():
         sim = app.Simulation(mm.Topology(), system, integ, plat,
                              {"DeviceIndex": "0", "Precision": "mixed"})
         sim.context.setPositions(positions)
-        sim.step(10)   # warm-up (kernel compile)
+        sim.step(10)
         t0 = time.time()
         sim.step(1000)
         elapsed = time.time() - t0
         return True, f"1000 steps in {elapsed:.2f}s"
     except Exception as e:
-        return False, str(e)[:120]
+        return False, f"CUDA context failed: {str(e)[:100]}"
+
+
+def reset_gpu_cache():
+    """Clear the cached GPU check so the next call re-runs detection + benchmark."""
+    global _GPU_CHECKED, _GPU_AVAILABLE, _GPU_NAME, _GPU_VRAM_GB, _GPU_WARNING
+    with _GPU_LOCK:
+        _GPU_CHECKED = False
+        _GPU_AVAILABLE = False
+        _GPU_NAME = ""
+        _GPU_VRAM_GB = 0.0
+        _GPU_WARNING = ""
 
 
 # Backwards-compatible alias (engine internals + api/md_lite.py call this)
