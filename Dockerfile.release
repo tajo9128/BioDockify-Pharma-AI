@@ -74,7 +74,12 @@ RUN curl -fsSL https://github.com/mamba-org/micromamba-releases/releases/latest/
     # Dedicated plugin directory with ALL platform plugins from conda
     mkdir -p /opt/openmm-plugins && \
     cp /tmp/mamba/envs/omm/lib/plugins/libOpenMM*.so /opt/openmm-plugins/ && \
-    # System libs: OpenMM core + CUDA runtime (plugins link against these)
+    # CRITICAL: delete pip's bundled libOpenMM so everything uses ONE copy.
+    # Without this, pip's _openmm.so and the plugins load separate libOpenMM
+    # instances with separate platform registries — plugins register in the
+    # wrong one and never appear.
+    find /opt/venv-a0 -name "libOpenMM*.so*" -delete 2>/dev/null; \
+    # Install conda's libOpenMM + CUDA runtime as the single system-wide copy
     cp -a /tmp/mamba/envs/omm/lib/libOpenMM.so* /usr/local/lib/ && \
     cp -a /tmp/mamba/envs/omm/lib/libcudart.so* /usr/local/lib/ && \
     ldconfig && \
