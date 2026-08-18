@@ -62,28 +62,27 @@ RUN /opt/venv-a0/bin/python -m pip install --no-cache-dir \
     mdtraj>=1.9.9 pdbfixer>=2.0.0 nvidia-ml-py>=11.5.0 \
     xgboost>=2.0.0 lightgbm>=4.0.0
 
-# ─── OpenMM CUDA plugin ───
-# pip already installs openmm (CPU-only) via pdbfixer dependency.
-# We only need the CUDA platform plugin .so + CUDA runtime from conda-forge.
-# IMPORTANT: Do NOT copy conda's Python package — it causes Bus error
-# (ABI mismatch between conda's and pip's Python 3.12 builds).
+# ─── OpenMM with CUDA (full replacement) ───
+# pip's openmm is CPU-only. We replace it ENTIRELY with conda's CUDA build.
+# Must use python=3.12 to match the venv — mixing pip's _openmm.so with
+# conda's libOpenMM.so from a different version causes ABI mismatch.
 RUN curl -fsSL https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64 -o /usr/local/bin/micromamba && \
     chmod +x /usr/local/bin/micromamba && \
     export MAMBA_ROOT_PREFIX=/tmp/mamba && \
-    micromamba create -y -n omm -c conda-forge openmm cudatoolkit && \
-    # Dedicated plugin directory with ALL platform plugins from conda
-    mkdir -p /opt/openmm-plugins && \
-    cp /tmp/mamba/envs/omm/lib/plugins/libOpenMM*.so /opt/openmm-plugins/ && \
-    # CRITICAL: remove pip's OpenMM native libs entirely so _openmm.so
-    # falls through to conda's system-wide copies in /usr/local/lib/.
-    # Leaving any .so in OpenMM.libs/ causes ABI mismatch (undefined symbol).
-    rm -rf /opt/venv-a0/lib/python*/site-packages/OpenMM.libs 2>/dev/null; \
-    find /opt/venv-a0 \( -name "libOpenMM.so" -o -name "libOpenMM.so.*" \) -delete 2>/dev/null; \
-    # Install conda's OpenMM libraries (core + linked) + CUDA runtime as the
-    # single system-wide copy. _openmm.so links against libOpenMMAmoeba.so,
-    # libOpenMMDrude.so, libOpenMMPME.so — these MUST be in ldconfig path.
+    micromamba create -y -n omm -c conda-forge python=3.12 openmm cudatoolkit && \
+    # 1. Remove pip's openmm COMPLETELY (Python package + native libs)
+    /opt/venv-a0/bin/pip uninstall -y openmm 2>/dev/null; \
+    rm -rf /opt/venv-a0/lib/python*/site-packages/openmm \
+           /opt/venv-a0/lib/python*/site-packages/OpenMM.libs \
+           /opt/venv-a0/lib/python*/site-packages/openmm-*.dist-info 2>/dev/null; \
+    # 2. Copy conda's openmm Python package into the venv (version-matched 3.12)
+    cp -a /tmp/mamba/envs/omm/lib/python3.12/site-packages/openmm \
+          /opt/venv-a0/lib/python3.12/site-packages/ && \
+    # 3. Copy ALL shared libraries to system path (core + linked + plugins)
     cp -a /tmp/mamba/envs/omm/lib/libOpenMM*.so* /usr/local/lib/ && \
     cp -a /tmp/mamba/envs/omm/lib/libcudart.so* /usr/local/lib/ && \
+    mkdir -p /opt/openmm-plugins && \
+    cp /tmp/mamba/envs/omm/lib/plugins/libOpenMM*.so /opt/openmm-plugins/ && \
     ldconfig && \
     rm -rf /tmp/mamba /usr/local/bin/micromamba && \
     echo "=== Installed plugins ===" && \
