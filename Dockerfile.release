@@ -79,8 +79,10 @@ RUN curl -fsSL https://github.com/mamba-org/micromamba-releases/releases/latest/
     # Leaving any .so in OpenMM.libs/ causes ABI mismatch (undefined symbol).
     rm -rf /opt/venv-a0/lib/python*/site-packages/OpenMM.libs 2>/dev/null; \
     find /opt/venv-a0 \( -name "libOpenMM.so" -o -name "libOpenMM.so.*" \) -delete 2>/dev/null; \
-    # Install conda's libOpenMM + CUDA runtime as the single system-wide copy
-    cp -a /tmp/mamba/envs/omm/lib/libOpenMM.so* /usr/local/lib/ && \
+    # Install conda's OpenMM libraries (core + linked) + CUDA runtime as the
+    # single system-wide copy. _openmm.so links against libOpenMMAmoeba.so,
+    # libOpenMMDrude.so, libOpenMMPME.so — these MUST be in ldconfig path.
+    cp -a /tmp/mamba/envs/omm/lib/libOpenMM*.so* /usr/local/lib/ && \
     cp -a /tmp/mamba/envs/omm/lib/libcudart.so* /usr/local/lib/ && \
     ldconfig && \
     rm -rf /tmp/mamba /usr/local/bin/micromamba && \
