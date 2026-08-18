@@ -192,8 +192,13 @@
         this.loading = true; this.error = ""; this.result = null;
         try {
           // Cite-locked path for review/paper (Perplexity-grade — every claim cited from KB)
-          if (["lit_review", "review_article", "research_paper"].includes(this.docType)) {
-            await this._genCiteLocked();
+          // Full reviews → agent (unlimited output, can use KB + writing tools)
+          // Short sections → cite-locked (Perplexity-grade, KB-grounded)
+          if (["review_article", "lit_review"].includes(this.docType)) {
+            this._genViaAgent();  // agent writes 25+ pages with full KB access
+          }
+          else if (this.docType === "research_paper") {
+            await this._genCiteLocked();  // cite-locked for research papers
           }
           else if (this.isThesis) await this._genThesis();
           else if (this.docType === "lecture") await this._genLecture();
@@ -319,7 +324,7 @@
 
         const prompts = {
           lit_review: `Write a comprehensive ${this.litScope} literature review on "${this.topic}". ${dept}. Cover publications ${this.litYearStart}-${this.litYearEnd}. Sections: ${this.litSections.join(', ')}. Format with headings and cite references with author names and years.`,
-          review_article: `Write a review article on "${this.topic}". ${dept}. Target ~5000 words. Include: Abstract, Introduction & Background (${branchLabel} focus), Thematic Review Sections, Critical Analysis & Gaps, Future Perspectives, References. Use ${this.resFormat} format.`,
+          review_article: `Write a FULL review article on "${this.topic}". ${dept}. Target 25 pages (~12,500 words). You MUST use the Knowledge Base articles — search the KB for "${this.topic}", retrieve all relevant papers, and cite them with DOI/PMID. Structure: 1) Abstract, 2) Introduction & Background (${branchLabel} focus), 3) Multiple Thematic Review Sections (at least 5), 4) Critical Analysis & Limitations, 5) Research Gaps, 6) Future Perspectives, 7) Conclusion, 8) References with real DOIs. Every paragraph must cite at least one KB source. Use ${this.resFormat} citations. Write section by section — do not truncate.`,
           research_paper: `Write a research paper on "${this.topic}". ${dept}. Target ~${this.resWordCount} words. IMRaD format: Abstract, Introduction, Methods, Results, Discussion, Conclusion, References. Use ${this.resFormat} citations.`,
           meta_analysis: `Write a meta-analysis on "${this.topic}". ${dept}. PRISMA-based: Abstract, Introduction, Methods (search strategy, inclusion/exclusion), Results (forest plot), Discussion, Conclusion. Use ${this.resFormat} format.`,
           thesis: `Write the "${this.thesisChapterId}" chapter for a ${degreeLabel} thesis in ${branchLabel} on "${this.topic}". Follow ${branchLabel} department conventions for methodology and citation style.`,

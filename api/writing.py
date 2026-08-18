@@ -1376,7 +1376,7 @@ class WritingTools(ApiHandler):
         topic = input.get("topic", "").strip()
         section = input.get("section", "background")  # background|methods|findings|gaps|full_review
         category = input.get("category", "")
-        top_k = int(input.get("top_k", 10))
+        top_k = int(input.get("top_k", 30))
         if not topic:
             return {"status": "error", "error": "topic is required"}
 
@@ -1465,7 +1465,8 @@ class WritingTools(ApiHandler):
         from modules.rag.citations import CitationRegistry, render_context, normalize_citations, CITATION_PROMPT
 
         registry = CitationRegistry()
-        context_block = render_context(results, registry, max_chars=30000)
+        # Large context for 25-page reviews: 80K chars ≈ 30-40 articles with abstracts
+        context_block = render_context(results, registry, max_chars=80000)
 
         # ── Step 4: Section-specific prompt ──
         section_prompts = {
