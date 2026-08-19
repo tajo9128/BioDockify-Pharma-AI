@@ -50,6 +50,34 @@ def _check_gpu():
         _GPU_AVAILABLE = False
         _GPU_WARNING = ""
 
+        # 0. Explicitly load platform plugins — OpenMM doesn't always auto-load
+        #    from OPENMM_PLUGIN_DIR (especially in Docker where the env var
+        #    might not reach the Python process).
+        try:
+            import os as _os
+            plugin_dir = _os.environ.get("OPENMM_PLUGIN_DIR", "/opt/openmm-plugins")
+            if _os.path.isdir(plugin_dir):
+                mm.Platform.loadPluginsFromDirectory(plugin_dir)
+                loaded = [mm.Platform.getPlatform(i).getName()
+                          for i in range(mm.Platform.getNumPlatforms())]
+                log.info(f"OpenMM platforms after plugin load: {loaded}")
+        except Exception as e:
+            log.warning(f"Plugin directory load failed: {e}")
+
+        # Check if libcuda.so exists (only present when --gpus all is used)
+        has_nvidia_driver = False
+        try:
+            import ctypes
+            ctypes.CDLL("libcuda.so.1")
+            has_nvidia_driver = True
+        except OSError:
+            try:
+                ctypes.CDLL("libcuda.so")
+                has_nvidia_driver = True
+            except OSError:
+                pass
+        log.info(f"NVIDIA driver (libcuda.so): {'found' if has_nvidia_driver else 'NOT FOUND'}")
+
         # 1. Best-effort device info first (for diagnostics + VRAM floor)
         gpu_name, vram_gb = _detect_gpu_device()
         _GPU_NAME = gpu_name
@@ -87,12 +115,25 @@ def _check_gpu():
             pass
 
         if "CUDA" not in platform_names:
-            _GPU_WARNING = (
-                "MD Lite requires an NVIDIA GPU (GTX 1650 or better, ≥4 GB VRAM) "
-                "and a CUDA-enabled OpenMM build. OpenMM reports no CUDA platform "
-                "(available: " + ", ".join(platform_names) + "). "
-                "Install NVIDIA drivers and a CUDA build of OpenMM."
-            )
+            if not has_nvidia_driver:
+                _GPU_WARNING = (
+                    "⚠️ NVIDIA GPU required but driver not accessible from Docker.\n\n"
+                    "Your container is missing the NVIDIA driver (libcuda.so not found).\n"
+                    "Restart the container with GPU access:\n\n"
+                    "  docker rm -f biodockify\n"
+                    "  docker run -d --name biodockify --gpus all -p 80:80 \\\n"
+                    "    -v biodockify_data:/a0/usr \\\n"
+                    "    tajo9128/biodockify-pharma-ai:latest\n\n"
+                    "If --gpus all fails: install the NVIDIA Container Toolkit\n"
+                    "and enable GPU support in Docker Desktop Settings → Resources."
+                )
+            else:
+                _GPU_WARNING = (
+                    "MD Lite requires an NVIDIA GPU (GTX 1650 or better, ≥4 GB VRAM). "
+                    "NVIDIA driver found but OpenMM CUDA platform not loaded "
+                    "(available: " + ", ".join(platform_names) + "). "
+                    "The CUDA plugin may have failed — check container logs."
+                )
         elif nvidia_smi_found_gpu:
             _GPU_WARNING = (
                 f"An NVIDIA GPU was detected ({gpu_name}) but OpenMM could not run "
