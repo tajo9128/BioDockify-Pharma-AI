@@ -10,6 +10,62 @@ def _svg_escape(text: str) -> str:
     return (text.replace("&", "&amp;").replace("<", "&lt;")
                 .replace(">", "&gt;").replace('"', "&quot;"))
 
+
+def _interaction_only_svg(interactions) -> str:
+    """Fallback 2D diagram: interaction summary without molecular structure.
+
+    Used when the ligand SMILES can't be reconstructed from PDBQT atoms
+    (no bond information). Still shows all interactions in a clean layout.
+    """
+    def _dedup(items):
+        seen = set()
+        result = []
+        for item in items:
+            k = (item.get("residue", ""), item.get("resseq", 0))
+            if k not in seen and "HOH" not in str(item.get("residue", "")):
+                seen.add(k)
+                result.append(item)
+        return result
+
+    hbonds = _dedup(interactions.get("hydrogen_bonds", []))
+    hydrophobic = _dedup(interactions.get("hydrophobic_contacts", []))
+    pi_stacking = _dedup(interactions.get("pi_stacking", []))
+    salt_bridges = _dedup(interactions.get("salt_bridges", []))
+
+    W, H = 700, 500
+    lines = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">',
+        f'<rect width="{W}" height="{H}" fill="white" rx="10"/>',
+        f'<text x="{W//2}" y="40" text-anchor="middle" font-size="18" font-weight="bold" fill="#333" font-family="sans-serif">Protein-Ligand Interactions</text>',
+        f'<line x1="50" y1="60" x2="{W-50}" y2="60" stroke="#ddd" stroke-width="1"/>',
+    ]
+
+    y = 100
+    sections = [
+        ("H-Bonds", hbonds, "#4169E1", "{r}{n} ({d}Å)"),
+        ("Hydrophobic Contacts", hydrophobic, "#FFD700", "{r}{n}"),
+        ("π-Stacking", pi_stacking, "#9932CC", "{r}{n}"),
+        ("Salt Bridges", salt_bridges, "#DC143C", "{r}{n}"),
+    ]
+    for title, items, color, fmt in sections:
+        if not items:
+            continue
+        lines.append(f'<circle cx="60" cy="{y-5}" r="8" fill="{color}"/>')
+        lines.append(f'<text x="80" y="{y}" font-size="14" font-weight="bold" fill="{color}" font-family="sans-serif">{_svg_escape(title)} ({len(items)})</text>')
+        y += 25
+        for item in items[:6]:
+            txt = fmt.format(r=_svg_escape(item.get("residue", "")),
+                             n=item.get("resseq", ""),
+                             d=item.get("distance", ""))
+            lines.append(f'<text x="90" y="{y}" font-size="12" fill="#555" font-family="sans-serif">{txt}</text>')
+            y += 20
+        y += 15
+
+    total = len(hbonds) + len(hydrophobic) + len(pi_stacking) + len(salt_bridges)
+    lines.append(f'<text x="{W//2}" y="{H-30}" text-anchor="middle" font-size="12" fill="#999" font-family="sans-serif">Total: {total} interactions · Ligand structure unavailable (PDBQT has no bond info)</text>')
+    lines.append('</svg>')
+    return "\n".join(lines)
+
 log = logging.getLogger("docking_analysis_api")
 JOBS_DIR = files.get_abs_path("tmp/docking_jobs")
 
@@ -242,7 +298,12 @@ def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, 
                 pass
 
         if not smiles:
-            return None
+            # Fallback: interaction-only diagram (no molecular structure)
+            return _interaction_only_svg(interactions)
+
+        lig_mol = Chem.MolFromSmiles(smiles)
+        if not lig_mol:
+            return _interaction_only_svg(interactions)
 
         lig_mol = Chem.MolFromSmiles(smiles)
         if not lig_mol:

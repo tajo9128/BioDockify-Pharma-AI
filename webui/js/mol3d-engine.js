@@ -16,6 +16,7 @@
  * - Export: PNG snapshot, PDB download
  */
 
+const LOCAL_URL = "/vendor/3dmol/3Dmol-min.js";  // vendored — works offline, no CSP issues
 const CDN_URL = "https://3Dmol.org/build/3Dmol-min.js";
 const CDN_BACKUP = "https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.1.0/3Dmol-min.js";
 
@@ -49,8 +50,10 @@ export function load3Dmol() {
         _cdnCallbacks = [];
       };
       s.onerror = () => {
-        if (!isBackup) {
-          tryLoad(CDN_BACKUP, true);
+        if (url === LOCAL_URL) {
+          tryLoad(CDN_URL, false);           // local failed → CDN
+        } else if (!isBackup) {
+          tryLoad(CDN_BACKUP, true);          // CDN failed → backup CDN
         } else {
           _cdnLoading = false;
           _cdnCallbacks.forEach(cb => cb(false));
@@ -59,7 +62,7 @@ export function load3Dmol() {
       };
       document.head.appendChild(s);
     }
-    tryLoad(CDN_URL, false);
+    tryLoad(LOCAL_URL, false);
   });
 }
 
