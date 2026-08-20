@@ -126,53 +126,78 @@
 
       generateAllSlides() {
         const prompt = `Generate presentation slides for all ${this.numClasses} classes of "${this.courseName}". ` +
-          `Read the syllabus topics from the Knowledge Base. For each class create: ` +
-          `title slide, learning objectives, 5-7 content slides with bullet points, summary slide. ` +
+          `Read the syllabus topics from the Knowledge Base.\n\n` +
+          `IMPORTANT: For each class topic, search the internet for existing PPTs and lecture notes first:\n` +
+          `1. Use web_search to find PowerPoint slides and PDFs for each topic\n` +
+          `2. Use URL fetch to download relevant materials\n` +
+          `3. Use the best content from downloaded materials to create comprehensive slides\n\n` +
+          `For each class create: title slide, learning objectives, 5-7 content slides with bullet points, summary slide.\n` +
+          `Include diagrams, formulas, and tables from the downloaded materials.\n` +
           `Save as PowerPoint files.`;
         this._toAgent(prompt);
       },
 
       createPPT(cls) {
-        const prompt = `Create a PowerPoint presentation for Class ${cls.class_num}: "${cls.topic}" in ${this.courseName}. ` +
-          `Include: title slide, learning objectives, 5-7 content slides with key points, summary. ` +
-          `Save it as a .pptx file.`;
-        this._toAgent(prompt);
-      },
-
-      // ── Lecture ──
-      generateLecture() {
-        if (!this.lectureTopic.trim()) return;
-        const prompt = `Create a ${this.lectureDuration}-minute lecture on "${this.lectureTopic}" ` +
-          `for ${this.lectureLevel} pharmacy students.\n\n` +
-          `Include:\n` +
-          `- Learning objectives (3-5)\n` +
-          `- Detailed lecture notes organized by sections\n` +
-          `- Key concepts with definitions\n` +
-          `- Real-world examples\n` +
-          `- Summary/conclusion\n` +
-          `- 3 homework questions\n\n` +
-          `Format professionally. Store in Knowledge Base.`;
-        this._toAgent(prompt);
-      },
-
-      // ── Slides ──
-      generateSlides() {
-        if (!this.slidesTopic.trim()) return;
-        const prompt = `Create ${this.slidesCount} presentation slides on "${this.slidesTopic}" ` +
-          `in ${this.slidesStyle} style for pharmacy students.\n\n` +
-          `Each slide should have:\n` +
-          `- Clear title\n` +
-          `- 3-5 bullet points\n` +
-          `- Speaker notes\n\n` +
+        const prompt = `Create a PowerPoint presentation for Class ${cls.class_num}: "${cls.topic}" in ${this.courseName}.\n\n` +
+          `IMPORTANT: Search the internet for existing lecture materials on "${cls.topic}" first:\n` +
+          `1. Use web_search to find PPTs, PDFs, and lecture notes on this topic\n` +
+          `2. Use URL fetch to download the most relevant materials\n` +
+          `3. Extract key content and use it to create comprehensive slides\n\n` +
+          `Include: title slide, learning objectives, 5-7 content slides with key points, diagrams, summary.\n` +
           `Save as a .pptx file.`;
         this._toAgent(prompt);
       },
 
-      // ── Assignment ──
+      // ── Lecture (with web research) ──
+      generateLecture() {
+        if (!this.lectureTopic.trim()) return;
+        const prompt = `Create a comprehensive ${this.lectureDuration}-minute lecture on "${this.lectureTopic}" ` +
+          `for ${this.lectureLevel} pharmacy students.\n\n` +
+          `IMPORTANT: Before writing, search the internet for existing lecture notes, PDFs, and PPTs on this topic:\n` +
+          `1. Use web_search to find lecture notes, PDF, and PowerPoint files on "${this.lectureTopic}"\n` +
+          `2. Use URL fetch to download the most relevant PDFs and PPTs you find\n` +
+          `3. Extract key content, diagrams, formulas, and examples from those materials\n` +
+          `4. Synthesize everything into a comprehensive lecture\n\n` +
+          `The lecture must include:\n` +
+          `- Learning objectives (3-5)\n` +
+          `- Detailed sections with definitions, mechanisms, and diagrams\n` +
+          `- Key concepts from the downloaded materials\n` +
+          `- Real-world pharma examples and case studies\n` +
+          `- Tables, formulas, and figures where relevant\n` +
+          `- Summary/conclusion\n` +
+          `- 5 homework questions with answers\n\n` +
+          `Store the final lecture in the Knowledge Base.`;
+        this._toAgent(prompt);
+      },
+
+      // ── Slides (with web research) ──
+      generateSlides() {
+        if (!this.slidesTopic.trim()) return;
+        const prompt = `Create ${this.slidesCount} presentation slides on "${this.slidesTopic}" ` +
+          `in ${this.slidesStyle} style for pharmacy students.\n\n` +
+          `IMPORTANT: Before creating, search the internet for existing PPTs and lecture materials:\n` +
+          `1. Use web_search to find PowerPoint slides and lecture notes on "${this.slidesTopic}"\n` +
+          `2. Use URL fetch to download the most relevant PPTs and PDFs\n` +
+          `3. Extract key points, diagrams, and content from those materials\n` +
+          `4. Create comprehensive slides using the best content you found\n\n` +
+          `Each slide must have:\n` +
+          `- Clear title\n` +
+          `- 3-5 bullet points with detailed content\n` +
+          `- Speaker notes with explanations\n` +
+          `- Include relevant diagrams, formulas, and tables\n\n` +
+          `Save as a .pptx file and store in Knowledge Base.`;
+        this._toAgent(prompt);
+      },
+
+      // ── Assignment (with web research) ──
       generateAssignment() {
         if (!this.assignTopic.trim()) return;
         const prompt = `Create a ${this.assignDifficulty} difficulty ${this.assignType.replace('_', ' ')} ` +
           `on "${this.assignTopic}" for pharmacy students.\n\n` +
+          `IMPORTANT: Search the internet for existing assignments and problems on this topic:\n` +
+          `1. Use web_search to find assignments, problem sets, and case studies\n` +
+          `2. Use URL fetch to download relevant materials\n` +
+          `3. Use the best problems and formats from downloaded materials\n\n` +
           `Include:\n` +
           `- Clear instructions\n` +
           `- Questions/problems appropriate for ${this.assignDifficulty} level\n` +
@@ -182,25 +207,33 @@
         this._toAgent(prompt);
       },
 
-      // ── Questions ──
+      // ── Questions (with web research) ──
       generateQuestions() {
         if (!this.qTopic.trim()) return;
         const bloom = this.qBloomLevel !== "all" ? ` at ${this.qBloomLevel} level (Bloom's taxonomy)` : "";
         const prompt = `Generate ${this.qCount} ${this.qType.replace('_', ' ')} exam questions${bloom} ` +
           `on "${this.qTopic}" for pharmacy students.\n\n` +
+          `IMPORTANT: Search the internet for existing exam questions and question banks:\n` +
+          `1. Use web_search to find exam papers, question banks, and MCQs on this topic\n` +
+          `2. Use URL fetch to download relevant materials\n` +
+          `3. Use the best questions as reference to create original questions\n\n` +
           `Include:\n` +
           `- Questions with clear wording\n` +
-          `- Answer key\n` +
+          `- Answer key with detailed explanations\n` +
           `- Marks allocation per question\n` +
           `- Time estimates\n\n` +
           `Store in Knowledge Base.`;
         this._toAgent(prompt);
       },
 
-      // ── Lab Manual ──
+      // ── Lab Manual (with web research) ──
       generateLabManual() {
         if (!this.labTopic.trim()) return;
         const prompt = `Create a comprehensive lab manual for the experiment "${this.labTopic}" (${this.labDuration}).\n\n` +
+          `IMPORTANT: Search the internet for existing lab manuals and protocols:\n` +
+          `1. Use web_search to find lab manuals, protocols, and SOPs on this experiment\n` +
+          `2. Use URL fetch to download relevant PDFs and documents\n` +
+          `3. Use the best procedures and safety guidelines from downloaded materials\n\n` +
           `Include:\n` +
           `1. Objective\n` +
           `2. Principle (with theory)\n` +
@@ -209,7 +242,7 @@
           `5. Observation table\n` +
           `6. Calculations\n` +
           `7. Expected results\n` +
-          `8. Precautions\n` +
+          `8. Precautions and safety\n` +
           `9. Viva voce questions (5-8)\n\n` +
           `Store in Knowledge Base.`;
         this._toAgent(prompt);
