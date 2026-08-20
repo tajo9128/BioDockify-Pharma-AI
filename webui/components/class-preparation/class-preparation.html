@@ -15,65 +15,42 @@
 
       // ── Syllabus tab ──
       syllabusText: "",
-      syllabusResult: null,
       uploadedFileContent: "",
       uploadedFileName: "",
       numClasses: 10,
-      classSchedule: null,
-      bookSearchResults: [],
-      selectedBooks: [],
-      bookSearchDone: false,
-      classesToGenerate: [],
-      currentClassIdx: 0,
-      generating: false,
-      generatedSlides: {},
-      reviewingClass: null,
-      reviewSlides: null,
 
       // ── Lecture tab ──
       lectureTopic: "",
       lectureDuration: "60",
       lectureLevel: "undergraduate",
-      lectureResult: null,
 
       // ── Slides tab ──
       slidesTopic: "",
       slidesCount: 10,
       slidesStyle: "academic",
-      slidesResult: null,
 
       // ── Assignment tab ──
       assignTopic: "",
       assignType: "homework",
       assignDifficulty: "medium",
-      assignResult: null,
 
       // ── Questions tab ──
       qTopic: "",
       qCount: 10,
       qType: "mixed",
       qBloomLevel: "all",
-      qResult: null,
 
       // ── Lab Manual tab ──
       labTopic: "",
       labDuration: "3 hours",
-      labResult: null,
 
       // ── Tools tab ──
       toolAction: "rubric",
       toolTopic: "",
       toolContent: "",
-      toolResult: null,
 
       // ── Textbook tab ──
-      textbookFileContent: "",
       textbookFileName: "",
-      textbookId: null,
-      textbookChapters: [],
-      textbookStructure: null,
-      textbookMeta: null,
-      textbookResult: null,
       textbookGenAction: "lecture",
 
       // ── File Upload ──
@@ -94,174 +71,215 @@
         if (this.syllabusText.startsWith("[Uploaded:")) this.syllabusText = "";
       },
 
-      // ── Syllabus workflow ──
-      async analyzeSyllabus() {
-        if (!this.syllabusText.trim() && !this.uploadedFileContent) return;
-        this.loading = true; this.error = "";
-        try {
-          const payload = { action: "analyze_syllabus_enhanced" };
-          if (this.uploadedFileContent) {
-            payload.file_content = this.uploadedFileContent;
-            payload.file_name = this.uploadedFileName;
-            if (this.syllabusText.trim() && !this.syllabusText.startsWith("[Uploaded:")) payload.text = this.syllabusText;
-          } else { payload.text = this.syllabusText; }
-          const r = await callJsonApi("faculty_tools", payload);
-          if (r.error) {
-            // Parser failed → fall back to Agent Zero (handles any format)
-            this._sendSyllabusToAgent();
-            return;
-          }
-          this.syllabusResult = r;
-          this.courseName = r.course_name || "Course";
-          this.message = `Found ${r.topic_count} topics and ${r.book_count} reference books`;
-        } catch (e) {
-          // API failed → fall back to Agent Zero
-          this._sendSyllabusToAgent();
-          return;
-        }
-        this.loading = false;
-      },
-
-      _sendSyllabusToAgent() {
-        // Send syllabus task to Agent Zero chat — the agent reads it with its
-        // own tools (file upload, KB search, code execution) and handles any format
-        const fname = this.uploadedFileName || "pasted text";
-        const prompt = `I've uploaded a syllabus file (${fname}) to the Knowledge Base (or it's in the chat). ` +
-          `Please read it and create a complete teaching plan: ` +
-          `1) List all topics/units you find, 2) Divide them into ${this.numClasses} classes, ` +
-          `3) Suggest a course name, 4) Return the class schedule with topic per class. ` +
-          `Then ask if I want to generate slides for any class.`;
-        const input = document.getElementById("chat-input");
+      // ═══════════════════════════════════════════════════════════
+      // AGENT DISPATCH — same pattern as Research CMD
+      // Every tab calls _toAgent(prompt) which fills the chat input
+      // ═══════════════════════════════════════════════════════════
+      _toAgent(prompt) {
+        this.loading = true;
+        const input = document.querySelector("#chat-input, #chat-bar-input textarea, .chat-bar-input textarea");
         if (input) {
           input.value = prompt;
           input.dispatchEvent(new Event("input", { bubbles: true }));
           input.focus();
-          this.message = "Syllabus sent to Agent — it will analyze and create the teaching plan";
-          this.loading = false;
+          this.message = "✅ Task sent to Agent — check the chat panel for results";
+          this.error = "";
         } else {
-          this.error = "Chat input not found — open the chat panel first";
-          this.loading = false;
+          this.error = "Chat input not found. Open the chat panel first, then try again.";
+          this.message = "";
         }
-      },
-      },
-
-      // ── Send any task to Agent Zero (the agent handles everything) ──
-      _toAgent(prompt) {
-        const input = document.getElementById("chat-input");
-        if (!input) { this.error = "Chat input not found — open the chat panel first"; return; }
-        input.value = prompt;
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.focus();
-        this.message = "Task sent to Agent — check the chat panel for results";
         this.loading = false;
+        setTimeout(() => { this.message = ""; }, 6000);
       },
 
-      async divideClasses() {
-        if (!this.syllabusResult) return;
-        const topics = this.syllabusResult.topics || [];
-        const units = this.syllabusResult.units || [];
-        this._toAgent(`Divide these syllabus topics into ${this.numClasses} classes for "${this.courseName}".\n\nTopics:\n${topics.map((t,i)=>`${i+1}. ${t}`).join('\n')}\n${units.length ? `\nUnits:\n${units.map(u=>`- ${u.title}: ${u.topics.join(', ')}`).join('\n')}` : ''}\n\nReturn a numbered class schedule with the main topic and subtopics for each class.`);
+      // ── Syllabus: analyze + create teaching plan ──
+      analyzeSyllabus() {
+        if (!this.syllabusText.trim() && !this.uploadedFileContent) return;
+        const fname = this.uploadedFileName || "pasted text";
+        const prompt = `I have a syllabus (${fname}) that needs to be analyzed for teaching preparation.\n\n` +
+          `Please:\n` +
+          `1. Read the syllabus (it may be uploaded to the Knowledge Base or pasted below)\n` +
+          `2. List ALL topics and units found\n` +
+          `3. Divide them into ${this.numClasses} classes\n` +
+          `4. Create a numbered class schedule with main topic + subtopics per class\n` +
+          `5. Store the class schedule in the Knowledge Base\n\n` +
+          (this.syllabusText.trim() && !this.syllabusText.startsWith("[Uploaded:")
+            ? `Syllabus text:\n${this.syllabusText.substring(0, 3000)}\n`
+            : `The syllabus file "${fname}" has been uploaded — read it from the Knowledge Base.\n`);
+        this._toAgent(prompt);
       },
 
-      async searchBooks() {
-        this._toAgent(`Find reference books and textbooks for "${this.courseName}" (${this.syllabusResult?.reference_books?.join(', ') || 'any relevant pharma topics'}). Search the web for current editions with authors and ISBNs. Return a formatted list.`);
+      divideClasses() {
+        const prompt = `Divide the syllabus topics for "${this.courseName}" into ${this.numClasses} classes. ` +
+          `Read the syllabus from the Knowledge Base if available. ` +
+          `Return a numbered class schedule with the main topic and subtopics for each class. ` +
+          `Store the schedule in the Knowledge Base.`;
+        this._toAgent(prompt);
       },
 
-      toggleBookSelection(idx) {
-        const i = this.selectedBooks.indexOf(idx);
-        if (i >= 0) this.selectedBooks.splice(i, 1); else this.selectedBooks.push(idx);
+      searchBooks() {
+        const prompt = `Find reference books and textbooks for "${this.courseName}". ` +
+          `Search the web for current editions with authors, publishers, and ISBNs. ` +
+          `Focus on pharmacy/pharmaceutical science textbooks. Return a formatted list.`;
+        this._toAgent(prompt);
       },
 
-      async generateAllSlides() {
-        this._toAgent(`Generate presentation slides for all ${this.numClasses} classes of "${this.courseName}". Use the syllabus topics from the Knowledge Base. For each class: title slide, 5-7 content slides with bullet points, summary slide. Create them as PowerPoint files.`);
+      generateAllSlides() {
+        const prompt = `Generate presentation slides for all ${this.numClasses} classes of "${this.courseName}". ` +
+          `Read the syllabus topics from the Knowledge Base. For each class create: ` +
+          `title slide, learning objectives, 5-7 content slides with bullet points, summary slide. ` +
+          `Save as PowerPoint files.`;
+        this._toAgent(prompt);
       },
 
-      reviewClass(cls) {
-        this.reviewingClass = cls;
-        this.reviewSlides = this.generatedSlides[cls.class_num] || null;
-      },
-
-      async createPPT(cls) {
-        this._toAgent(`Create a PowerPoint presentation for Class ${cls.class_num}: "${cls.topic}" in ${this.courseName}. Include: title slide, learning objectives, 5-7 content slides, summary. Save it as a .pptx file.`);
+      createPPT(cls) {
+        const prompt = `Create a PowerPoint presentation for Class ${cls.class_num}: "${cls.topic}" in ${this.courseName}. ` +
+          `Include: title slide, learning objectives, 5-7 content slides with key points, summary. ` +
+          `Save it as a .pptx file.`;
+        this._toAgent(prompt);
       },
 
       // ── Lecture ──
-      async generateLecture() {
+      generateLecture() {
         if (!this.lectureTopic.trim()) return;
-        this._toAgent(`Create a ${this.lectureDuration}-minute lecture on "${this.lectureTopic}" for ${this.lectureLevel} pharmacy students. Include: learning objectives, detailed notes with sections, key concepts, examples, summary, 3 homework questions.`);
+        const prompt = `Create a ${this.lectureDuration}-minute lecture on "${this.lectureTopic}" ` +
+          `for ${this.lectureLevel} pharmacy students.\n\n` +
+          `Include:\n` +
+          `- Learning objectives (3-5)\n` +
+          `- Detailed lecture notes organized by sections\n` +
+          `- Key concepts with definitions\n` +
+          `- Real-world examples\n` +
+          `- Summary/conclusion\n` +
+          `- 3 homework questions\n\n` +
+          `Format professionally. Store in Knowledge Base.`;
+        this._toAgent(prompt);
       },
 
       // ── Slides ──
-      async generateSlides() {
+      generateSlides() {
         if (!this.slidesTopic.trim()) return;
-        this._toAgent(`Create ${this.slidesCount} presentation slides on "${this.slidesTopic}" in ${this.slidesStyle} style for pharmacy students. Each slide: clear title, 3-5 bullet points, speaker notes. Save as .pptx.`);
+        const prompt = `Create ${this.slidesCount} presentation slides on "${this.slidesTopic}" ` +
+          `in ${this.slidesStyle} style for pharmacy students.\n\n` +
+          `Each slide should have:\n` +
+          `- Clear title\n` +
+          `- 3-5 bullet points\n` +
+          `- Speaker notes\n\n` +
+          `Save as a .pptx file.`;
+        this._toAgent(prompt);
       },
 
       // ── Assignment ──
-      async generateAssignment() {
+      generateAssignment() {
         if (!this.assignTopic.trim()) return;
-        this._toAgent(`Create a ${this.assignDifficulty} ${this.assignType} assignment on "${this.assignTopic}" for pharmacy students. Include: instructions, questions/problems, marking scheme, learning outcomes.`);
+        const prompt = `Create a ${this.assignDifficulty} difficulty ${this.assignType.replace('_', ' ')} ` +
+          `on "${this.assignTopic}" for pharmacy students.\n\n` +
+          `Include:\n` +
+          `- Clear instructions\n` +
+          `- Questions/problems appropriate for ${this.assignDifficulty} level\n` +
+          `- Marking scheme with points\n` +
+          `- Learning outcomes assessed\n\n` +
+          `Store in Knowledge Base.`;
+        this._toAgent(prompt);
       },
 
       // ── Questions ──
-      async generateQuestions() {
+      generateQuestions() {
         if (!this.qTopic.trim()) return;
         const bloom = this.qBloomLevel !== "all" ? ` at ${this.qBloomLevel} level (Bloom's taxonomy)` : "";
-        this._toAgent(`Generate ${this.qCount} ${this.qType} exam questions${bloom} on "${this.qTopic}" for pharmacy students. Include answer key and marks allocation.`);
+        const prompt = `Generate ${this.qCount} ${this.qType.replace('_', ' ')} exam questions${bloom} ` +
+          `on "${this.qTopic}" for pharmacy students.\n\n` +
+          `Include:\n` +
+          `- Questions with clear wording\n` +
+          `- Answer key\n` +
+          `- Marks allocation per question\n` +
+          `- Time estimates\n\n` +
+          `Store in Knowledge Base.`;
+        this._toAgent(prompt);
       },
 
       // ── Lab Manual ──
-      async generateLabManual() {
+      generateLabManual() {
         if (!this.labTopic.trim()) return;
-        this._toAgent(`Create a lab manual for the experiment "${this.labTopic}" (${this.labDuration}). Include: objective, principle, apparatus/reagents, procedure (numbered steps), observations table, calculations, result, precautions, viva questions.`);
+        const prompt = `Create a comprehensive lab manual for the experiment "${this.labTopic}" (${this.labDuration}).\n\n` +
+          `Include:\n` +
+          `1. Objective\n` +
+          `2. Principle (with theory)\n` +
+          `3. Apparatus and reagents\n` +
+          `4. Procedure (numbered steps)\n` +
+          `5. Observation table\n` +
+          `6. Calculations\n` +
+          `7. Expected results\n` +
+          `8. Precautions\n` +
+          `9. Viva voce questions (5-8)\n\n` +
+          `Store in Knowledge Base.`;
+        this._toAgent(prompt);
       },
 
-      // ── Tools (rubric, grade, co-po, plagiarism, exam, blueprint, bloom_analysis) ──
-      async runTool() {
+      // ── Tools ──
+      runTool() {
         if (!this.toolTopic.trim() && !this.toolContent.trim()) return;
-        const toolNames = { rubric: "grading rubric", grade_calculator: "grade calculation template", co_po_mapping: "CO-PO mapping matrix", exam_paper: "exam paper", question_blueprint: "question blueprint", bloom_analysis: "Bloom's taxonomy analysis", plagiarism: "plagiarism check", lesson_plan: "lesson plan", prep_notes: "preparation notes" };
+        const toolNames = {
+          rubric: "grading rubric",
+          grade_calculator: "grade calculation template",
+          co_po_mapping: "CO-PO mapping matrix",
+          exam_paper: "complete exam paper",
+          question_blueprint: "question blueprint",
+          bloom_analysis: "Bloom's taxonomy analysis",
+          plagiarism: "plagiarism assessment",
+          lesson_plan: "detailed lesson plan",
+          prep_notes: "teacher preparation notes",
+        };
         const toolName = toolNames[this.toolAction] || this.toolAction;
-        const topic = this.toolTopic.trim() || this.toolContent.substring(0, 100);
-        this._toAgent(`Create a ${toolName} for: "${topic}". ${this.toolContent.trim() ? `Content to analyze: ${this.toolContent.substring(0, 500)}...` : ''}`);
+        const topic = this.toolTopic.trim() || "the provided content";
+        const content = this.toolContent.trim();
+        const prompt = `Create a ${toolName} for: "${topic}".\n` +
+          (content ? `\nContent to analyze:\n${content.substring(0, 2000)}\n` : "") +
+          `\nFormat professionally and store in Knowledge Base.`;
+        this._toAgent(prompt);
       },
 
-      // ── Textbook methods ──
+      // ── Textbook ──
       handleTextbookUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
         this.textbookFileName = file.name;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          this.textbookFileContent = (e.target.result.split(",")[1] || "");
-        };
-        reader.readAsDataURL(file);
+        // File is uploaded to KB via the agent — just store the name
+        this.message = `Textbook "${file.name}" ready — click "Send to Agent" to analyze`;
       },
 
       clearTextbook() {
-        this.textbookFileContent = "";
         this.textbookFileName = "";
-        this.textbookId = null;
-        this.textbookChapters = [];
-        this.textbookStructure = null;
-        this.textbookMeta = null;
-        this.textbookResult = null;
       },
 
-      async extractTextbook() {
-        if (!this.textbookFileContent) { this.error = "Upload a textbook file first"; return; }
-        this._toAgent(`I've uploaded the textbook "${this.textbookFileName}". Please read it from the Knowledge Base or chat attachments. List all chapters with titles and word counts. Then ask me which chapter I want to generate content from.`);
+      extractTextbook() {
+        if (!this.textbookFileName) { this.error = "Upload a textbook file first"; return; }
+        const prompt = `I've uploaded the textbook "${this.textbookFileName}" to the Knowledge Base.\n\n` +
+          `Please:\n` +
+          `1. Read the textbook from the Knowledge Base\n` +
+          `2. List all chapters with titles\n` +
+          `3. Estimate word count per chapter\n` +
+          `4. Identify the main topics covered\n\n` +
+          `Then tell me which chapter I'd like to generate teaching content from.`;
+        this._toAgent(prompt);
       },
 
-      async generateFromChapter(chapterNum, chapterTitle) {
-        const genNames = { lecture: "lecture notes", slides: "presentation slides", assignment: "assignment", questions: "exam questions" };
-        this._toAgent(`From the textbook, create ${genNames[this.textbookGenAction] || this.textbookGenAction} for Chapter ${chapterNum}: "${chapterTitle}". Use the textbook content from the Knowledge Base.`);
+      generateFromChapter(chapterNum, chapterTitle) {
+        const genNames = {
+          lecture: "lecture notes",
+          slides: "presentation slides",
+          assignment: "assignment",
+          questions: "exam questions",
+        };
+        const genName = genNames[this.textbookGenAction] || this.textbookGenAction;
+        const prompt = `From the textbook in the Knowledge Base, create ${genName} for Chapter ${chapterNum}: "${chapterTitle}".\n\n` +
+          `Use the textbook content. Include all relevant concepts, definitions, and examples from that chapter.`;
+        this._toAgent(prompt);
       },
 
       reset() {
-        this.syllabusText = ""; this.syllabusResult = null; this.classSchedule = null;
-        this.bookSearchResults = []; this.selectedBooks = []; this.bookSearchDone = false;
-        this.classesToGenerate = []; this.generatedSlides = {};
-        this.courseName = ""; this.error = ""; this.message = "";
+        this.syllabusText = ""; this.courseName = "";
+        this.uploadedFileContent = ""; this.uploadedFileName = "";
+        this.error = ""; this.message = "";
       },
     });
   </script>
@@ -273,7 +291,7 @@
     <div class="fc-header">
       <span class="material-symbols-outlined fc-icon">school</span>
       <div><h2>Faculty CMD</h2>
-      <p class="fc-sub" x-text="$store.classPrep.courseName || 'All-in-one teaching toolkit'"></p></div>
+      <p class="fc-sub" x-text="$store.classPrep.courseName || 'All teaching tasks sent to Agent'"></p></div>
     </div>
 
     <!-- Tabs -->
@@ -299,81 +317,31 @@
     <!-- Status -->
     <div x-show="$store.classPrep.error" class="fc-error" x-text="$store.classPrep.error"></div>
     <div x-show="$store.classPrep.message" class="fc-msg" x-text="$store.classPrep.message"></div>
-    <div x-show="$store.classPrep.loading" class="fc-loading"><div class="loading-spinner"></div> Processing...</div>
 
     <!-- ═══ SYLLABUS TAB ═══ -->
     <div x-show="$store.classPrep.activeTab==='syllabus'" class="fc-body">
-      <!-- Step 1: Upload -->
-      <div x-show="!$store.classPrep.syllabusResult">
-        <h3>Upload or Paste Syllabus</h3>
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-          <label class="fc-upload-btn">
-            <span class="material-symbols-outlined" style="font-size:16px">upload_file</span> Upload PDF / DOCX
-            <input type="file" accept=".pdf,.docx,.txt" style="display:none" @change="$store.classPrep.handleFileUpload($event)" />
-          </label>
-          <span x-show="$store.classPrep.uploadedFileName" style="font-size:0.7rem;color:var(--color-text-muted)" x-text="$store.classPrep.uploadedFileName"></span>
-          <button x-show="$store.classPrep.uploadedFileName" @click="$store.classPrep.clearUpload()" style="background:none;border:none;cursor:pointer;color:var(--color-text-muted);font-size:0.7rem">✕</button>
-        </div>
-        <textarea x-model="$store.classPrep.syllabusText" class="fc-textarea" rows="10"
-          placeholder="Paste syllabus text here..."></textarea>
-        <button class="fc-btn-primary" @click="$store.classPrep.analyzeSyllabus()" :disabled="$store.classPrep.loading || (!$store.classPrep.syllabusText.trim() && !$store.classPrep.uploadedFileContent)">
-          <span class="material-symbols-outlined">auto_awesome</span> Analyze Syllabus
-        </button>
+      <h3>Upload Syllabus → Agent Creates Teaching Plan</h3>
+      <p style="font-size:0.62rem;color:var(--color-text-muted);margin-bottom:10px">
+        Upload your syllabus (PDF, DOCX, or paste text). The Agent will read it, extract topics,
+        divide into classes, and create a complete teaching plan.
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <label class="fc-upload-btn">
+          <span class="material-symbols-outlined" style="font-size:16px">upload_file</span> Upload PDF / DOCX
+          <input type="file" accept=".pdf,.docx,.txt" style="display:none" @change="$store.classPrep.handleFileUpload($event)" />
+        </label>
+        <span x-show="$store.classPrep.uploadedFileName" style="font-size:0.7rem;color:var(--color-text-muted)" x-text="$store.classPrep.uploadedFileName"></span>
+        <button x-show="$store.classPrep.uploadedFileName" @click="$store.classPrep.clearUpload()" style="background:none;border:none;cursor:pointer;color:var(--color-text-muted);font-size:0.7rem">✕</button>
       </div>
-
-      <!-- Step 2: Divide into classes -->
-      <div x-show="$store.classPrep.syllabusResult && !$store.classPrep.classSchedule">
-        <h3 x-text="'Syllabus: ' + ($store.classPrep.syllabusResult.course_name || 'Detected')"></h3>
-        <p style="font-size:0.7rem;color:var(--color-text-muted)" x-text="($store.classPrep.syllabusResult.topic_count || 0) + ' topics found'"></p>
-        <div style="display:flex;gap:8px;align-items:center;margin:10px 0">
-          <label>Number of Classes:</label>
-          <input type="number" x-model.number="$store.classPrep.numClasses" min="1" max="100" class="fc-input-num" />
-        </div>
-        <button class="fc-btn-primary" @click="$store.classPrep.divideClasses()" :disabled="$store.classPrep.loading">Divide into Classes</button>
-        <button class="fc-btn-sm" @click="$store.classPrep.reset()" style="margin-left:8px">Reset</button>
+      <textarea x-model="$store.classPrep.syllabusText" class="fc-textarea" rows="8"
+        placeholder="Or paste syllabus text here..."></textarea>
+      <div style="display:flex;gap:8px;align-items:center;margin:8px 0">
+        <label style="font-size:0.65rem;color:var(--color-text-muted)">Classes:</label>
+        <input type="number" x-model.number="$store.classPrep.numClasses" min="1" max="100" class="fc-input-num" />
       </div>
-
-      <!-- Step 3: Review + Generate -->
-      <div x-show="$store.classPrep.classSchedule">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h3 x-text="$store.classPrep.classSchedule.num_classes + ' Classes'"></h3>
-          <div style="display:flex;gap:4px">
-            <button class="fc-btn-sm" @click="$store.classPrep.searchBooks()" :disabled="$store.classPrep.loading">📚 Find Books</button>
-            <button class="fc-btn-primary" @click="$store.classPrep.classesToGenerate=$store.classPrep.classSchedule.classes||[]; $store.classPrep.generateAllSlides()" :disabled="$store.classPrep.generating">
-              <span class="material-symbols-outlined">slideshow</span> Generate All Slides
-            </button>
-            <button class="fc-btn-sm" @click="$store.classPrep.reset()">Reset</button>
-          </div>
-        </div>
-        <div x-show="$store.classPrep.generating" class="fc-loading"><div class="loading-spinner"></div> Generating <span x-text="($store.classPrep.currentClassIdx+1)"></span> / <span x-text="$store.classPrep.classesToGenerate.length"></span>...</div>
-        <div class="fc-class-list">
-          <template x-for="cls in ($store.classPrep.classSchedule.classes || [])" :key="cls.class_num">
-            <div class="fc-class-card">
-              <div style="display:flex;justify-content:space-between;align-items:center">
-                <strong x-text="'Class ' + cls.class_num + ': ' + cls.topic"></strong>
-                <div style="display:flex;gap:4px">
-                  <button class="fc-btn-sm" @click="$store.classPrep.reviewClass(cls)" x-show="$store.classPrep.generatedSlides[cls.class_num]">View</button>
-                  <button class="fc-btn-sm" @click="$store.classPrep.createPPT(cls)" x-show="$store.classPrep.generatedSlides[cls.class_num]">📥 PPT</button>
-                </div>
-              </div>
-              <div x-show="$store.classPrep.reviewingClass?.class_num===cls.class_num && $store.classPrep.reviewSlides" style="margin-top:6px;padding:6px;background:var(--color-panel);border-radius:6px;font-size:0.65rem;max-height:200px;overflow-y:auto">
-                <template x-for="s in ($store.classPrep.reviewSlides?.slides || [])" :key="s.title">
-                  <div style="margin-bottom:4px"><strong x-text="s.title"></strong><div x-text="(s.bullets||[]).join(', ')" style="color:var(--color-text-muted)"></div></div>
-                </template>
-              </div>
-            </div>
-          </template>
-        </div>
-        <!-- Books -->
-        <div x-show="$store.classPrep.bookSearchDone && $store.classPrep.bookSearchResults.length" style="margin-top:10px">
-          <h4>Reference Books</h4>
-          <template x-for="(book, i) in $store.classPrep.bookSearchResults" :key="i">
-            <div class="fc-book-item" @click="$store.classPrep.toggleBookSelection(i)" :class="{selected: $store.classPrep.selectedBooks.includes(i)}">
-              <span x-text="book.title || book"></span>
-            </div>
-          </template>
-        </div>
-      </div>
+      <button class="fc-btn-primary" @click="$store.classPrep.analyzeSyllabus()" :disabled="$store.classPrep.loading || (!$store.classPrep.syllabusText.trim() && !$store.classPrep.uploadedFileContent)">
+        <span class="material-symbols-outlined">psychology</span> Send to Agent
+      </button>
     </div>
 
     <!-- ═══ LECTURE TAB ═══ -->
@@ -391,16 +359,8 @@
         </div>
       </div>
       <button class="fc-btn-primary" @click="$store.classPrep.generateLecture()" :disabled="$store.classPrep.loading || !$store.classPrep.lectureTopic">
-        <span class="material-symbols-outlined">auto_awesome</span> Generate Lecture
+        <span class="material-symbols-outlined">psychology</span> Send to Agent
       </button>
-      <div x-show="$store.classPrep.lectureResult" class="fc-result" style="margin-top:10px">
-        <h4 x-text="$store.classPrep.lectureResult.topic || 'Lecture Notes'"></h4>
-        <div x-show="$store.classPrep.lectureResult.lecture?.content" style="font-size:0.7rem;white-space:pre-wrap;max-height:400px;overflow-y:auto" x-text="JSON.stringify($store.classPrep.lectureResult.lecture?.content || $store.classPrep.lectureResult.lecture, null, 2)"></div>
-        <div x-show="$store.classPrep.lectureResult.homework" style="margin-top:6px;font-size:0.65rem;color:var(--color-text-muted)">
-          <strong>Homework:</strong>
-          <template x-for="h in ($store.classPrep.lectureResult.homework || [])"><div x-text="'• ' + h"></div></template>
-        </div>
-      </div>
     </div>
 
     <!-- ═══ SLIDES TAB ═══ -->
@@ -418,14 +378,8 @@
         </div>
       </div>
       <button class="fc-btn-primary" @click="$store.classPrep.generateSlides()" :disabled="$store.classPrep.loading || !$store.classPrep.slidesTopic">
-        <span class="material-symbols-outlined">slideshow</span> Generate Slides
+        <span class="material-symbols-outlined">psychology</span> Send to Agent
       </button>
-      <div x-show="$store.classPrep.slidesResult" class="fc-result" style="margin-top:10px">
-        <h4 x-text="($store.classPrep.slidesResult.slides?.length || 0) + ' slides generated'"></h4>
-        <template x-for="s in ($store.classPrep.slidesResult.slides || [])" :key="s.title">
-          <div class="fc-slide-card"><strong x-text="s.title"></strong><div x-text="(s.bullets||s.content||'').toString().substring(0,150)" style="font-size:0.65rem;color:var(--color-text-muted)"></div></div>
-        </template>
-      </div>
     </div>
 
     <!-- ═══ ASSIGNMENT TAB ═══ -->
@@ -450,9 +404,8 @@
         </div>
       </div>
       <button class="fc-btn-primary" @click="$store.classPrep.generateAssignment()" :disabled="$store.classPrep.loading || !$store.classPrep.assignTopic">
-        <span class="material-symbols-outlined">assignment</span> Generate Assignment
+        <span class="material-symbols-outlined">psychology</span> Send to Agent
       </button>
-      <div x-show="$store.classPrep.assignResult" class="fc-result" style="margin-top:10px;white-space:pre-wrap;font-size:0.7rem;max-height:400px;overflow-y:auto" x-text="typeof $store.classPrep.assignResult === 'string' ? $store.classPrep.assignResult : JSON.stringify($store.classPrep.assignResult, null, 2)"></div>
     </div>
 
     <!-- ═══ QUESTIONS TAB ═══ -->
@@ -470,7 +423,7 @@
             <option value="true_false">True/False</option>
           </select>
         </div>
-        <div style="flex:1"><label class="fc-label">Bloom's Level</label>
+        <div style="flex:1"><label class="fc-label">Bloom's</label>
           <select x-model="$store.classPrep.qBloomLevel" class="fc-select">
             <option value="all">All</option>
             <option value="remember">Remember</option>
@@ -483,9 +436,8 @@
         </div>
       </div>
       <button class="fc-btn-primary" @click="$store.classPrep.generateQuestions()" :disabled="$store.classPrep.loading || !$store.classPrep.qTopic">
-        <span class="material-symbols-outlined">quiz</span> Generate Questions
+        <span class="material-symbols-outlined">psychology</span> Send to Agent
       </button>
-      <div x-show="$store.classPrep.qResult" class="fc-result" style="margin-top:10px;white-space:pre-wrap;font-size:0.7rem;max-height:400px;overflow-y:auto" x-text="typeof $store.classPrep.qResult === 'string' ? $store.classPrep.qResult : JSON.stringify($store.classPrep.qResult, null, 2)"></div>
     </div>
 
     <!-- ═══ LAB MANUAL TAB ═══ -->
@@ -496,9 +448,8 @@
         <div style="flex:1"><label class="fc-label">Duration</label><input type="text" x-model="$store.classPrep.labDuration" class="fc-input" placeholder="3 hours" /></div>
       </div>
       <button class="fc-btn-primary" @click="$store.classPrep.generateLabManual()" :disabled="$store.classPrep.loading || !$store.classPrep.labTopic">
-        <span class="material-symbols-outlined">science</span> Generate Lab Manual
+        <span class="material-symbols-outlined">psychology</span> Send to Agent
       </button>
-      <div x-show="$store.classPrep.labResult" class="fc-result" style="margin-top:10px;white-space:pre-wrap;font-size:0.7rem;max-height:400px;overflow-y:auto" x-text="typeof $store.classPrep.labResult === 'string' ? $store.classPrep.labResult : JSON.stringify($store.classPrep.labResult, null, 2)"></div>
     </div>
 
     <!-- ═══ TOOLS TAB ═══ -->
@@ -506,93 +457,52 @@
       <h3>Faculty Tools</h3>
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">
         <button class="fc-chip" :class="{active:$store.classPrep.toolAction==='rubric'}" @click="$store.classPrep.toolAction='rubric'">Rubric</button>
-        <button class="fc-chip" :class="{active:$store.classPrep.toolAction==='grade_calculator'}" @click="$store.classPrep.toolAction='grade_calculator'">Grade Calculator</button>
-        <button class="fc-chip" :class="{active:$store.classPrep.toolAction==='co_po_mapping'}" @click="$store.classPrep.toolAction='co_po_mapping'">CO-PO Mapping</button>
+        <button class="fc-chip" :class="{active:$store.classPrep.toolAction==='grade_calculator'}" @click="$store.classPrep.toolAction='grade_calculator'">Grade Calc</button>
+        <button class="fc-chip" :class="{active:$store.classPrep.toolAction==='co_po_mapping'}" @click="$store.classPrep.toolAction='co_po_mapping'">CO-PO</button>
         <button class="fc-chip" :class="{active:$store.classPrep.toolAction==='exam_paper'}" @click="$store.classPrep.toolAction='exam_paper'">Exam Paper</button>
-        <button class="fc-chip" :class="{active:$store.classPrep.toolAction==='question_blueprint'}" @click="$store.classPrep.toolAction='question_blueprint'">Question Blueprint</button>
-        <button class="fc-chip" :class="{active:$store.classPrep.toolAction==='bloom_analysis'}" @click="$store.classPrep.toolAction='bloom_analysis'">Bloom's Analysis</button>
-        <button class="fc-chip" :class="{active:$store.classPrep.toolAction==='plagiarism'}" @click="$store.classPrep.toolAction='plagiarism'">Plagiarism Check</button>
+        <button class="fc-chip" :class="{active:$store.classPrep.toolAction==='question_blueprint'}" @click="$store.classPrep.toolAction='question_blueprint'">Blueprint</button>
+        <button class="fc-chip" :class="{active:$store.classPrep.toolAction==='bloom_analysis'}" @click="$store.classPrep.toolAction='bloom_analysis'">Bloom's</button>
+        <button class="fc-chip" :class="{active:$store.classPrep.toolAction==='plagiarism'}" @click="$store.classPrep.toolAction='plagiarism'">Plagiarism</button>
         <button class="fc-chip" :class="{active:$store.classPrep.toolAction==='lesson_plan'}" @click="$store.classPrep.toolAction='lesson_plan'">Lesson Plan</button>
         <button class="fc-chip" :class="{active:$store.classPrep.toolAction==='prep_notes'}" @click="$store.classPrep.toolAction='prep_notes'">Prep Notes</button>
       </div>
       <input type="text" x-model="$store.classPrep.toolTopic" class="fc-input" placeholder="Topic / Title" />
       <textarea x-show="$store.classPrep.toolAction==='plagiarism' || $store.classPrep.toolAction==='bloom_analysis'" x-model="$store.classPrep.toolContent" class="fc-textarea" rows="4" placeholder="Paste text to analyze..."></textarea>
       <button class="fc-btn-primary" @click="$store.classPrep.runTool()" :disabled="$store.classPrep.loading || (!$store.classPrep.toolTopic.trim() && !$store.classPrep.toolContent.trim())" style="margin-top:8px">
-        <span class="material-symbols-outlined">play_arrow</span> Run <span x-text="$store.classPrep.toolAction.replace(/_/g, ' ')"></span>
+        <span class="material-symbols-outlined">psychology</span> Send to Agent
       </button>
-      <div x-show="$store.classPrep.toolResult" class="fc-result" style="margin-top:10px;white-space:pre-wrap;font-size:0.7rem;max-height:400px;overflow-y:auto" x-text="typeof $store.classPrep.toolResult === 'string' ? $store.classPrep.toolResult : JSON.stringify($store.classPrep.toolResult, null, 2)"></div>
     </div>
 
     <!-- ═══ TEXTBOOK TAB ═══ -->
     <div x-show="$store.classPrep.activeTab==='textbook'" class="fc-body">
       <h3>📖 Textbook to Teaching</h3>
       <p style="font-size:0.62rem;color:var(--color-text-muted);margin-bottom:10px">
-        Upload a textbook (PDF, EPUB, DOCX) and extract chapters. Then generate lectures, slides, assignments, or questions from any chapter.
+        Upload a textbook to the Knowledge Base first (via the KB upload button), then tell the Agent to read it.
+        The Agent will extract chapters and generate teaching content from any chapter.
       </p>
 
-      <!-- Upload Section -->
-      <div x-show="!$store.classPrep.textbookId" style="margin-bottom:10px">
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-          <label class="fc-upload-btn">
-            <span class="material-symbols-outlined" style="font-size:16px">upload_file</span> Upload Textbook
-            <input type="file" accept=".pdf,.epub,.docx,.html,.htm,.txt,.md,.rtf" style="display:none" @change="$store.classPrep.handleTextbookUpload($event)" />
-          </label>
-          <span x-show="$store.classPrep.textbookFileName" style="font-size:0.7rem;color:var(--color-text-muted)" x-text="$store.classPrep.textbookFileName"></span>
-          <button x-show="$store.classPrep.textbookFileName" @click="$store.classPrep.clearTextbook()" style="background:none;border:none;cursor:pointer;color:var(--color-text-muted);font-size:0.7rem">✕</button>
-        </div>
-        <p style="font-size:0.55rem;color:var(--color-text-muted)">Supported: PDF, EPUB, DOCX, HTML, TXT, RTF, MD</p>
-        <button class="fc-btn-primary" @click="$store.classPrep.extractTextbook()" :disabled="$store.classPrep.loading || !$store.classPrep.textbookFileContent">
-          <span class="material-symbols-outlined">auto_stories</span> Extract Chapters
-        </button>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <input type="text" x-model="$store.classPrep.textbookFileName" class="fc-input" placeholder="Textbook filename (e.g. pharmacology.pdf)" style="flex:1" />
       </div>
+      <button class="fc-btn-primary" @click="$store.classPrep.extractTextbook()" :disabled="$store.classPrep.loading || !$store.classPrep.textbookFileName">
+        <span class="material-symbols-outlined">psychology</span> Send to Agent
+      </button>
 
-      <!-- Chapter List + Generation -->
-      <div x-show="$store.classPrep.textbookId">
-        <!-- Textbook Info -->
-        <div style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:10px;margin-bottom:10px">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-            <span style="font-size:14px;color:#22c55e">✓</span>
-            <span style="font-size:0.7rem;font-weight:600;color:#22c55e" x-text="$store.classPrep.textbookFileName"></span>
-            <button @click="$store.classPrep.clearTextbook()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--color-text-muted);font-size:0.6rem">Upload different file</button>
-          </div>
-          <div style="display:flex;gap:12px;font-size:0.58rem;color:var(--color-text-muted)">
-            <span x-text="($store.classPrep.textbookMeta?.chapters_found || 0) + ' chapters'"></span>
-            <span x-text="($store.classPrep.textbookMeta?.word_count || 0).toLocaleString() + ' words'"></span>
-            <span x-text="($store.classPrep.textbookMeta?.format || '').toUpperCase()"></span>
-          </div>
+      <div style="margin-top:12px">
+        <p style="font-size:0.6rem;color:var(--color-text-muted)">Or generate from a specific chapter:</p>
+        <div style="display:flex;gap:8px;margin:8px 0">
+          <input type="number" min="1" placeholder="Ch #" class="fc-input-num" id="tb-ch-num" />
+          <input type="text" placeholder="Chapter title (optional)" class="fc-input" id="tb-ch-title" style="flex:1" />
         </div>
-
-        <!-- Generation Mode -->
-        <div style="display:flex;gap:4px;margin-bottom:10px">
-          <button class="fc-chip" :class="{active:$store.classPrep.textbookGenAction==='lecture'}" @click="$store.classPrep.textbookGenAction='lecture'">📖 Lecture</button>
-          <button class="fc-chip" :class="{active:$store.classPrep.textbookGenAction==='slides'}" @click="$store.classPrep.textbookGenAction='slides'">📊 Slides</button>
-          <button class="fc-chip" :class="{active:$store.classPrep.textbookGenAction==='assignment'}" @click="$store.classPrep.textbookGenAction='assignment'">📝 Assignment</button>
-          <button class="fc-chip" :class="{active:$store.classPrep.textbookGenAction==='questions'}" @click="$store.classPrep.textbookGenAction='questions'">❓ Questions</button>
+        <div style="display:flex;gap:4px;margin-bottom:8px">
+          <button class="fc-chip" :class="{active:$store.classPrep.textbookGenAction==='lecture'}" @click="$store.classPrep.textbookGenAction='lecture'">Lecture</button>
+          <button class="fc-chip" :class="{active:$store.classPrep.textbookGenAction==='slides'}" @click="$store.classPrep.textbookGenAction='slides'">Slides</button>
+          <button class="fc-chip" :class="{active:$store.classPrep.textbookGenAction==='assignment'}" @click="$store.classPrep.textbookGenAction='assignment'">Assignment</button>
+          <button class="fc-chip" :class="{active:$store.classPrep.textbookGenAction==='questions'}" @click="$store.classPrep.textbookGenAction='questions'">Questions</button>
         </div>
-
-        <!-- Chapter List -->
-        <h4 style="font-size:0.7rem;margin:0 0 6px">Chapters</h4>
-        <div style="max-height:400px;overflow-y:auto">
-          <template x-for="ch in $store.classPrep.textbookChapters" :key="ch.number">
-            <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--color-border);border-radius:8px;margin-bottom:4px;background:var(--color-panel)">
-              <span style="font-size:0.62rem;font-weight:700;color:var(--color-primary);min-width:24px" x-text="'Ch ' + ch.number"></span>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:0.68rem;font-weight:600;color:var(--color-text)" x-text="ch.title"></div>
-                <div style="font-size:0.52rem;color:var(--color-text-muted)" x-text="ch.word_count.toLocaleString() + ' words'"></div>
-              </div>
-              <button class="fc-btn-sm" @click="$store.classPrep.generateFromChapter(ch.number, ch.title)" :disabled="$store.classPrep.loading">
-                <span class="material-symbols-outlined" style="font-size:14px">auto_awesome</span>
-                <span x-text="$store.classPrep.textbookGenAction"></span>
-              </button>
-            </div>
-          </template>
-        </div>
-
-        <!-- Generated Result -->
-        <div x-show="$store.classPrep.textbookResult && !$store.classPrep.textbookResult.chapters" class="fc-result" style="margin-top:10px">
-          <h4 x-text="'Generated ' + $store.classPrep.textbookGenAction" style="font-size:0.7rem;margin:0 0 6px"></h4>
-          <div style="white-space:pre-wrap;font-size:0.65rem;max-height:300px;overflow-y:auto;color:var(--color-text)" x-text="JSON.stringify($store.classPrep.textbookResult, null, 2)"></div>
-        </div>
+        <button class="fc-btn-primary" @click="$store.classPrep.generateFromChapter(parseInt(document.getElementById('tb-ch-num')?.value || '1'), document.getElementById('tb-ch-title')?.value || '')" :disabled="$store.classPrep.loading">
+          <span class="material-symbols-outlined">psychology</span> Generate from Chapter
+        </button>
       </div>
     </div>
 
@@ -624,13 +534,6 @@
       .fc-loading { display:flex; align-items:center; gap:8px; font-size:0.7rem; color:var(--color-text-muted); margin-bottom:8px; }
       .loading-spinner { width:14px; height:14px; border:2px solid var(--color-border); border-top:2px solid var(--color-primary); border-radius:50%; animation:spin 0.8s linear infinite; }
       @keyframes spin { to { transform:rotate(360deg); } }
-      .fc-result { padding:10px; background:var(--color-panel); border:1px solid var(--color-border); border-radius:8px; }
-      .fc-class-list { display:flex; flex-direction:column; gap:4px; }
-      .fc-class-card { padding:8px 10px; background:var(--color-panel); border:1px solid var(--color-border); border-radius:8px; border-left:3px solid var(--color-primary); font-size:0.72rem; }
-      .fc-slide-card { padding:6px 8px; background:var(--color-background); border:1px solid var(--color-border); border-radius:6px; margin-bottom:4px; font-size:0.72rem; }
-      .fc-book-item { padding:5px 8px; font-size:0.68rem; cursor:pointer; border-radius:4px; margin-bottom:2px; }
-      .fc-book-item:hover { background:var(--color-panel); }
-      .fc-book-item.selected { background:rgba(var(--color-primary-rgb,59,130,246),0.15); font-weight:600; }
       .fc-chip { padding:4px 10px; background:var(--color-panel); border:1px solid var(--color-border); border-radius:16px; font-size:0.62rem; color:var(--color-text); cursor:pointer; }
       .fc-chip.active { background:var(--color-primary); color:white; border-color:var(--color-primary); }
     </style>
