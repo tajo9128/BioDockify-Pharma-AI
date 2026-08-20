@@ -622,7 +622,8 @@ class FacultyTools(ApiHandler):
                     if bt and len(bt) > 5:
                         books.append(self._parse_book_ref(bt))
                 continue
-            if any(p in low for p in ["unit", "module"]) and (":" in ls or low.startswith(("unit", "module"))):
+            if re.match(r"^(unit|module|chapter|section|part)\s*[-–—:.]?\s*[ivxIVX\d]*", low) or \
+               re.match(r"^\d+\s*[\.\)]\s+[A-Z]", ls):
                 current_section = "units"
                 units.append({"title": ls, "topics": []})
                 continue
@@ -657,6 +658,32 @@ class FacultyTools(ApiHandler):
                     books.append(self._parse_book_ref(line.strip()))
                 elif "isbn" in low:
                     books.append(self._parse_book_ref(line.strip()))
+        if not topics and not units:
+            # Last resort: treat every meaningful line as a topic.
+            # Better to have rough topics than an error — the divide_into_classes
+            # step will organize them anyway.
+            skip_words = ("course", "code", "duration", "credit", "instructor",
+                          "professor", "semester", "department", "university",
+                          "college", "reference", "textbook", "book", "isbn",
+                          "assessment", "exam", "grade", "page", "copyright")
+            for line in lines:
+                ls = line.strip()
+                if not ls or len(ls) < 8:
+                    continue
+                low = ls.lower()
+                if any(w in low for w in skip_words):
+                    continue
+                if not any(c.isalpha() for c in ls):
+                    continue
+                if ls.isupper() and len(ls) < 30:
+                    continue  # ALL CAPS header like "SYLLABUS"
+                topics.append(ls)
+            # If still nothing, accept ANY non-trivial line
+            if not topics:
+                topics = [ls for ls in (l.strip() for l in lines)
+                          if len(ls) > 5 and any(c.isalpha() for c in ls)][:25]
+            if topics:
+                units = [{"title": "All Topics", "topics": topics}]
         if not topics and not units:
             return {"error": "Could not extract topics from syllabus. Ensure the text contains numbered topics or unit headers."}
         result = {
