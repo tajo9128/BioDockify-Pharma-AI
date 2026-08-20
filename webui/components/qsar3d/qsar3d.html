@@ -52,15 +52,19 @@
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (e) => {
-          const text = e.target.result;
-          const lines = text.trim().split("\n").filter(l => l.trim());
+          // Strip BOM (byte order mark — Excel/Windows adds it, breaks header matching)
+          const text = e.target.result.replace(/^\uFEFF/, "");
+          const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+          if (lines.length < 2) {
+            this.error = "CSV is empty or has no data rows";
+            return;
+          }
           const header = lines[0].toLowerCase();
-          // Find SMILES and activity columns
-          const cols = header.split(",").map(c => c.trim());
+          const cols = header.split(",").map(c => c.trim().replace(/^"|"$/g, ""));
           const smiIdx = cols.findIndex(c => c.includes("smiles") || c.includes("smi"));
-          const actIdx = cols.findIndex(c => c.includes("activity") || c.includes("pic50") || c.includes("ic50") || c.includes("value") || c.includes("pIC50"));
+          const actIdx = cols.findIndex(c => c.includes("activity") || c.includes("pic50") || c.includes("ic50") || c.includes("value") || c.includes("ec50") || c.includes("ki"));
           if (smiIdx < 0 || actIdx < 0) {
-            this.error = "CSV must have 'SMILES' and 'activity' columns";
+            this.error = `CSV must have 'SMILES' and 'activity' columns.\n\nYour columns: ${cols.join(', ')}\n\nTip: Use the QSAR demo files in test_data/ (e.g. qsar_cox2_inhibitors.csv), or make sure your CSV has a SMILES column with molecular structures and an activity column with pIC50 values.`;
             return;
           }
           const smiles = [];
@@ -72,9 +76,14 @@
               activities.push(parts[actIdx]);
             }
           }
+          if (smiles.length === 0) {
+            this.error = "No valid data rows found after header";
+            return;
+          }
           this.smiles = smiles.join("\n");
           this.activity = activities.join("\n");
           this.name = file.name.replace(/\.[^.]+$/, "");
+          this.message = `Loaded ${smiles.length} compounds from ${file.name}`;
         };
         reader.readAsText(file);
       },
