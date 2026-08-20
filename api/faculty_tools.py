@@ -40,13 +40,30 @@ def _extract_text_from_file(file_content_b64: str, filename: str) -> str:
     lower = filename.lower()
 
     if lower.endswith(".pdf"):
+        text = ""
         try:
             from pypdf import PdfReader
             reader = PdfReader(io.BytesIO(raw))
-            return "\n".join(page.extract_text() or "" for page in reader.pages)
+            text = "\n".join(page.extract_text() or "" for page in reader.pages)
         except Exception as e:
-            logger.warning(f"PDF extraction failed: {e}")
-            return ""
+            logger.warning(f"pypdf extraction failed: {e}")
+        # If pypdf got nothing (scanned/image PDF), try PyMuPDF
+        if not text.strip():
+            try:
+                import fitz
+                doc = fitz.open(stream=raw, filetype="pdf")
+                text = "\n".join(page.get_text() for page in doc)
+                doc.close()
+            except Exception as e:
+                logger.warning(f"PyMuPDF extraction failed: {e}")
+        # Still nothing → OCR the images (scanned PDF)
+        if not text.strip():
+            try:
+                text = _ocr_pdf(raw)
+                logger.info(f"OCR extracted {len(text)} chars from scanned PDF")
+            except Exception as e:
+                logger.warning(f"OCR extraction failed: {e}")
+        return text
 
     if lower.endswith(".docx"):
         try:
@@ -68,6 +85,34 @@ def _extract_text_from_file(file_content_b64: str, filename: str) -> str:
             return ""
 
     return ""
+
+
+def _ocr_pdf(pdf_bytes: bytes) -> str:
+    """OCR a scanned PDF: render pages as images via PyMuPDF, then tesseract."""
+    import subprocess, tempfile, os
+    import fitz
+    results = []
+    with tempfile.TemporaryDirectory() as tmpdir:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        for i, page in enumerate(doc):
+            # 200 DPI is good balance of accuracy vs speed
+            pix = page.get_pixmap(dpi=200)
+            img_path = os.path.join(tmpdir, f"page_{i}.png")
+            pix.save(img_path)
+            # Run tesseract on the image
+            txt_base = os.path.join(tmpdir, f"ocr_{i}")
+            try:
+                subprocess.run(
+                    ["tesseract", img_path, txt_base, "--psm", "6"],
+                    capture_output=True, timeout=30)
+                txt_path = txt_base + ".txt"
+                if os.path.exists(txt_path):
+                    with open(txt_path, "r", encoding="utf-8", errors="replace") as f:
+                        results.append(f.read())
+            except Exception as e:
+                logger.warning(f"OCR page {i} failed: {e}")
+        doc.close()
+    return "\n\n".join(results)
 
 
 class FacultyTools(ApiHandler):
