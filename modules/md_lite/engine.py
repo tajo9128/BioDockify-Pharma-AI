@@ -318,7 +318,7 @@ def _cuda_sanity_benchmark():
 
     if "CUDA" not in platform_names:
         # Diagnose WHY CUDA plugin isn't registered
-        import subprocess, os as _os
+        import subprocess, os as _os, ctypes
         diag = []
         # Check both env var and pip's default plugin directory
         plugin_dir = _os.environ.get("OPENMM_PLUGIN_DIR", "")
@@ -338,17 +338,41 @@ def _cuda_sanity_benchmark():
                     r = subprocess.run(["ldd", full], capture_output=True, text=True, timeout=5)
                     missing = [l.strip() for l in r.stdout.split("\n") if "not found" in l]
                     if missing:
-                        diag.append(f"{p} missing: {missing[:5]}")
+                        diag.append(f"{p} missing deps: {missing[:5]}")
                 except Exception:
                     pass
         else:
             diag.append("Plugin dir missing or not set")
+        # Check libcuda.so — mounted by NVIDIA Container Toolkit via --gpus all
+        libcuda_found = False
+        for path in ["/usr/lib/x86_64-linux-gnu/libcuda.so.1",
+                     "/usr/lib/libcuda.so.1", "/usr/local/cuda/lib64/libcuda.so.1"]:
+            if _os.path.exists(path):
+                libcuda_found = True
+                break
+        if not libcuda_found:
+            try:
+                ctypes.CDLL("libcuda.so.1")
+                libcuda_found = True
+            except OSError:
+                pass
+        if not libcuda_found:
+            diag.append("libcuda.so.1 NOT FOUND — container not started with --gpus all or NVIDIA Container Toolkit not installed")
+        else:
+            diag.append("libcuda.so.1 found")
         # Check nvidia-smi
         try:
             r = subprocess.run(["nvidia-smi"], capture_output=True, text=True, timeout=5)
             diag.append(f"nvidia-smi: {'OK' if r.returncode == 0 else 'FAILED'}")
         except FileNotFoundError:
             diag.append("nvidia-smi: not found (no GPU driver in container)")
+        # Try force-loading the CUDA plugin manually for a clearer error
+        if plugin_dir and _os.path.isfile(_os.path.join(plugin_dir, "libOpenMMCUDA.so")):
+            try:
+                ctypes.CDLL(_os.path.join(plugin_dir, "libOpenMMCUDA.so"))
+                diag.append("libOpenMMCUDA.so loads OK via ctypes")
+            except OSError as e:
+                diag.append(f"libOpenMMCUDA.so load error: {e}")
         log.warning(f"CUDA platform not registered. Diagnostics: {'; '.join(diag)}")
         return False, f"No CUDA platform ({'; '.join(diag)})"
 

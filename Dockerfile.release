@@ -90,8 +90,9 @@ RUN curl -fsSL https://github.com/mamba-org/micromamba-releases/releases/latest/
     echo "=== System libs ===" && \
     ldconfig -p | grep -E "OpenMM|cudart"
 
-# Tell OpenMM where to find platform plugins
+# Tell OpenMM where to find platform plugins + ensure linker finds libs
 ENV OPENMM_PLUGIN_DIR=/opt/openmm-plugins
+ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
 
 # ─── Verify critical imports ───
 RUN /opt/venv-a0/bin/python -c "\
@@ -105,9 +106,11 @@ print(f'OpenMM platforms: {platforms}'); \
 import pynvml; print('nvidia-ml-py (pynvml) OK')" \
     && echo "All critical packages verified" \
     || (echo "ERROR: Critical package import failed" && exit 1)
-# Verify CUDA plugin exists
+# Verify CUDA plugin exists + show dependency status
 RUN test -f /opt/openmm-plugins/libOpenMMCUDA.so \
     && echo "CUDA plugin OK: /opt/openmm-plugins/libOpenMMCUDA.so ✓" \
+    && echo "=== CUDA plugin dependencies (libcuda.so 'not found' is EXPECTED at build time — NVIDIA mounts it at runtime via --gpus all) ===" \
+    && ldd /opt/openmm-plugins/libOpenMMCUDA.so 2>&1 | head -20 \
     || (echo "ERROR: libOpenMMCUDA.so missing" && exit 1)
 
 # ─── Execution venv: only Flask (framework venv is already the default python3) ───
