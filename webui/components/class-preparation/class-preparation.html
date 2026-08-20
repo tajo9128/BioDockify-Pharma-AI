@@ -106,44 +106,65 @@
             if (this.syllabusText.trim() && !this.syllabusText.startsWith("[Uploaded:")) payload.text = this.syllabusText;
           } else { payload.text = this.syllabusText; }
           const r = await callJsonApi("faculty_tools", payload);
-          if (r.error) { this.error = r.error; this.loading = false; return; }
+          if (r.error) {
+            // Parser failed → fall back to Agent Zero (handles any format)
+            this._sendSyllabusToAgent();
+            return;
+          }
           this.syllabusResult = r;
           this.courseName = r.course_name || "Course";
           this.message = `Found ${r.topic_count} topics and ${r.book_count} reference books`;
-        } catch (e) { this.error = e.message; }
+        } catch (e) {
+          // API failed → fall back to Agent Zero
+          this._sendSyllabusToAgent();
+          return;
+        }
+        this.loading = false;
+      },
+
+      _sendSyllabusToAgent() {
+        // Send syllabus task to Agent Zero chat — the agent reads it with its
+        // own tools (file upload, KB search, code execution) and handles any format
+        const fname = this.uploadedFileName || "pasted text";
+        const prompt = `I've uploaded a syllabus file (${fname}) to the Knowledge Base (or it's in the chat). ` +
+          `Please read it and create a complete teaching plan: ` +
+          `1) List all topics/units you find, 2) Divide them into ${this.numClasses} classes, ` +
+          `3) Suggest a course name, 4) Return the class schedule with topic per class. ` +
+          `Then ask if I want to generate slides for any class.`;
+        const input = document.getElementById("chat-input");
+        if (input) {
+          input.value = prompt;
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          input.focus();
+          this.message = "Syllabus sent to Agent — it will analyze and create the teaching plan";
+          this.loading = false;
+        } else {
+          this.error = "Chat input not found — open the chat panel first";
+          this.loading = false;
+        }
+      },
+      },
+
+      // ── Send any task to Agent Zero (the agent handles everything) ──
+      _toAgent(prompt) {
+        const input = document.getElementById("chat-input");
+        if (!input) { this.error = "Chat input not found — open the chat panel first"; return; }
+        input.value = prompt;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.focus();
+        this.message = "Task sent to Agent — check the chat panel for results";
         this.loading = false;
       },
 
       async divideClasses() {
         if (!this.syllabusResult) return;
-        this.loading = true; this.error = "";
-        try {
-          const r = await callJsonApi("faculty_tools", {
-            action: "divide_into_classes", topics: this.syllabusResult.topics,
-            num_classes: this.numClasses, course_name: this.courseName,
-            units: this.syllabusResult.units || [],
-          });
-          if (r.error) { this.error = r.error; this.loading = false; return; }
-          this.classSchedule = r;
-          this.message = `Divided into ${r.num_classes} classes`;
-        } catch (e) { this.error = e.message; }
-        this.loading = false;
+        const topics = this.syllabusResult.topics || [];
+        const units = this.syllabusResult.units || [];
+        this._toAgent(`Divide these syllabus topics into ${this.numClasses} classes for "${this.courseName}".\n\nTopics:\n${topics.map((t,i)=>`${i+1}. ${t}`).join('\n')}\n${units.length ? `\nUnits:\n${units.map(u=>`- ${u.title}: ${u.topics.join(', ')}`).join('\n')}` : ''}\n\nReturn a numbered class schedule with the main topic and subtopics for each class.`);
       },
 
       async searchBooks() {
-        this.loading = true; this.error = "";
-        try {
-          const r = await callJsonApi("faculty_tools", {
-            action: "find_reference_books",
-            books: this.syllabusResult?.reference_books || [],
-            topic: this.courseName, course_name: this.courseName,
-          });
-          if (r.error) { this.error = r.error; this.loading = false; return; }
-          this.bookSearchResults = r.books || [];
-          this.bookSearchDone = true;
-          this.message = `Found ${r.total_found} reference sources`;
-        } catch (e) { this.error = e.message; }
-        this.loading = false;
+        this._toAgent(`Find reference books and textbooks for "${this.courseName}" (${this.syllabusResult?.reference_books?.join(', ') || 'any relevant pharma topics'}). Search the web for current editions with authors and ISBNs. Return a formatted list.`);
       },
 
       toggleBookSelection(idx) {
@@ -152,25 +173,7 @@
       },
 
       async generateAllSlides() {
-        this.generating = true; this.error = "";
-        const classes = this.classesToGenerate;
-        for (let i = 0; i < classes.length; i++) {
-          this.currentClassIdx = i;
-          const cls = classes[i];
-          try {
-            const r = await callJsonApi("faculty_tools", {
-              action: "generate_class_slides", topic: cls.topic,
-              subtopics: cls.subtopics || [], class_num: cls.class_num,
-              num_slides: 45, course_name: this.courseName,
-            });
-            if (!r.error) {
-              this.generatedSlides[cls.class_num] = r;
-              this.message = `Generated Class ${cls.class_num}: ${cls.topic}`;
-            }
-          } catch (e) { this.error = `Class ${cls.class_num} failed: ${e.message}`; }
-        }
-        this.generating = false;
-        this.message = `All ${classes.length} classes generated!`;
+        this._toAgent(`Generate presentation slides for all ${this.numClasses} classes of "${this.courseName}". Use the syllabus topics from the Knowledge Base. For each class: title slide, 5-7 content slides with bullet points, summary slide. Create them as PowerPoint files.`);
       },
 
       reviewClass(cls) {
@@ -179,112 +182,47 @@
       },
 
       async createPPT(cls) {
-        this.loading = true; this.error = "";
-        try {
-          const slides = this.generatedSlides[cls.class_num]?.slides || [];
-          const r = await callJsonApi("faculty_tools", {
-            action: "create_class_ppt", slides, topic: cls.topic,
-            class_num: cls.class_num, theme: "academic",
-          });
-          if (r.error) { this.error = r.error; this.loading = false; return; }
-          if (r.pptx_base64) {
-            const binary = atob(r.pptx_base64);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-            const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a"); a.href = url;
-            a.download = r.filename || `Class_${cls.class_num}.pptx`;
-            a.click(); URL.revokeObjectURL(url);
-          }
-          this.message = `PPT created for Class ${cls.class_num}`;
-        } catch (e) { this.error = e.message; }
-        this.loading = false;
+        this._toAgent(`Create a PowerPoint presentation for Class ${cls.class_num}: "${cls.topic}" in ${this.courseName}. Include: title slide, learning objectives, 5-7 content slides, summary. Save it as a .pptx file.`);
       },
 
       // ── Lecture ──
       async generateLecture() {
         if (!this.lectureTopic.trim()) return;
-        this.loading = true; this.error = ""; this.lectureResult = null;
-        try {
-          const r = await callJsonApi("faculty_tools", {
-            action: "lecture", topic: this.lectureTopic,
-            duration: this.lectureDuration, level: this.lectureLevel,
-          });
-          if (r.error) { this.error = r.error; } else { this.lectureResult = r; }
-        } catch (e) { this.error = e.message; }
-        this.loading = false;
+        this._toAgent(`Create a ${this.lectureDuration}-minute lecture on "${this.lectureTopic}" for ${this.lectureLevel} pharmacy students. Include: learning objectives, detailed notes with sections, key concepts, examples, summary, 3 homework questions.`);
       },
 
       // ── Slides ──
       async generateSlides() {
         if (!this.slidesTopic.trim()) return;
-        this.loading = true; this.error = ""; this.slidesResult = null;
-        try {
-          const r = await callJsonApi("faculty_tools", {
-            action: "make_slides", topic: this.slidesTopic,
-            num_slides: this.slidesCount, style: this.slidesStyle,
-          });
-          if (r.error) { this.error = r.error; } else { this.slidesResult = r; }
-        } catch (e) { this.error = e.message; }
-        this.loading = false;
+        this._toAgent(`Create ${this.slidesCount} presentation slides on "${this.slidesTopic}" in ${this.slidesStyle} style for pharmacy students. Each slide: clear title, 3-5 bullet points, speaker notes. Save as .pptx.`);
       },
 
       // ── Assignment ──
       async generateAssignment() {
         if (!this.assignTopic.trim()) return;
-        this.loading = true; this.error = ""; this.assignResult = null;
-        try {
-          const r = await callJsonApi("faculty_tools", {
-            action: "assignment", topic: this.assignTopic,
-            type: this.assignType, difficulty: this.assignDifficulty,
-          });
-          if (r.error) { this.error = r.error; } else { this.assignResult = r; }
-        } catch (e) { this.error = e.message; }
-        this.loading = false;
+        this._toAgent(`Create a ${this.assignDifficulty} ${this.assignType} assignment on "${this.assignTopic}" for pharmacy students. Include: instructions, questions/problems, marking scheme, learning outcomes.`);
       },
 
       // ── Questions ──
       async generateQuestions() {
         if (!this.qTopic.trim()) return;
-        this.loading = true; this.error = ""; this.qResult = null;
-        try {
-          const action = this.qBloomLevel !== "all" ? "bloom_questions" : "questions";
-          const payload = { action, topic: this.qTopic, num_questions: this.qCount, type: this.qType };
-          if (this.qBloomLevel !== "all") payload.bloom_level = this.qBloomLevel;
-          const r = await callJsonApi("faculty_tools", payload);
-          if (r.error) { this.error = r.error; } else { this.qResult = r; }
-        } catch (e) { this.error = e.message; }
-        this.loading = false;
+        const bloom = this.qBloomLevel !== "all" ? ` at ${this.qBloomLevel} level (Bloom's taxonomy)` : "";
+        this._toAgent(`Generate ${this.qCount} ${this.qType} exam questions${bloom} on "${this.qTopic}" for pharmacy students. Include answer key and marks allocation.`);
       },
 
       // ── Lab Manual ──
       async generateLabManual() {
         if (!this.labTopic.trim()) return;
-        this.loading = true; this.error = ""; this.labResult = null;
-        try {
-          const r = await callJsonApi("faculty_tools", {
-            action: "lab_manual", topic: this.labTopic, duration: this.labDuration,
-          });
-          if (r.error) { this.error = r.error; } else { this.labResult = r; }
-        } catch (e) { this.error = e.message; }
-        this.loading = false;
+        this._toAgent(`Create a lab manual for the experiment "${this.labTopic}" (${this.labDuration}). Include: objective, principle, apparatus/reagents, procedure (numbered steps), observations table, calculations, result, precautions, viva questions.`);
       },
 
       // ── Tools (rubric, grade, co-po, plagiarism, exam, blueprint, bloom_analysis) ──
       async runTool() {
         if (!this.toolTopic.trim() && !this.toolContent.trim()) return;
-        this.loading = true; this.error = ""; this.toolResult = null;
-        try {
-          const payload = { action: this.toolAction };
-          if (this.toolTopic.trim()) payload.topic = this.toolTopic;
-          if (this.toolContent.trim()) payload.content = this.toolContent;
-          if (this.toolAction === "exam_paper") { payload.topic = this.toolTopic; payload.num_questions = 10; }
-          if (this.toolAction === "bloom_analysis") { payload.content = this.toolContent || this.toolTopic; }
-          const r = await callJsonApi("faculty_tools", payload);
-          if (r.error) { this.error = r.error; } else { this.toolResult = r; }
-        } catch (e) { this.error = e.message; }
-        this.loading = false;
+        const toolNames = { rubric: "grading rubric", grade_calculator: "grade calculation template", co_po_mapping: "CO-PO mapping matrix", exam_paper: "exam paper", question_blueprint: "question blueprint", bloom_analysis: "Bloom's taxonomy analysis", plagiarism: "plagiarism check", lesson_plan: "lesson plan", prep_notes: "preparation notes" };
+        const toolName = toolNames[this.toolAction] || this.toolAction;
+        const topic = this.toolTopic.trim() || this.toolContent.substring(0, 100);
+        this._toAgent(`Create a ${toolName} for: "${topic}". ${this.toolContent.trim() ? `Content to analyze: ${this.toolContent.substring(0, 500)}...` : ''}`);
       },
 
       // ── Textbook methods ──
@@ -311,46 +249,12 @@
 
       async extractTextbook() {
         if (!this.textbookFileContent) { this.error = "Upload a textbook file first"; return; }
-        this.loading = true; this.error = "";
-        try {
-          const r = await callJsonApi("faculty_tools", {
-            action: "textbook_extract",
-            file_content: this.textbookFileContent,
-            file_name: this.textbookFileName,
-          });
-          if (r.error) { this.error = r.error; }
-          else {
-            this.textbookId = r.textbook_id;
-            this.textbookChapters = r.chapters || [];
-            this.textbookStructure = r.structure || {};
-            this.textbookMeta = r.metadata || {};
-            this.textbookResult = r;
-            this.message = `Extracted ${r.chapter_count} chapters from ${r.filename}`;
-            setTimeout(() => { this.message = ""; }, 5000);
-          }
-        } catch (e) { this.error = "Extraction failed: " + e.message; }
-        this.loading = false;
+        this._toAgent(`I've uploaded the textbook "${this.textbookFileName}". Please read it from the Knowledge Base or chat attachments. List all chapters with titles and word counts. Then ask me which chapter I want to generate content from.`);
       },
 
       async generateFromChapter(chapterNum, chapterTitle) {
-        if (!this.textbookId) { this.error = "Extract a textbook first"; return; }
-        this.loading = true; this.error = "";
-        try {
-          const r = await callJsonApi("faculty_tools", {
-            action: "textbook_chapter",
-            textbook_id: this.textbookId,
-            chapter_number: chapterNum,
-            action_type: this.textbookGenAction,
-            topic: chapterTitle,
-          });
-          if (r.error) { this.error = r.error; }
-          else {
-            this.textbookResult = r;
-            this.message = `Generated ${this.textbookGenAction} for Chapter ${chapterNum}`;
-            setTimeout(() => { this.message = ""; }, 5000);
-          }
-        } catch (e) { this.error = "Generation failed: " + e.message; }
-        this.loading = false;
+        const genNames = { lecture: "lecture notes", slides: "presentation slides", assignment: "assignment", questions: "exam questions" };
+        this._toAgent(`From the textbook, create ${genNames[this.textbookGenAction] || this.textbookGenAction} for Chapter ${chapterNum}: "${chapterTitle}". Use the textbook content from the Knowledge Base.`);
       },
 
       reset() {
