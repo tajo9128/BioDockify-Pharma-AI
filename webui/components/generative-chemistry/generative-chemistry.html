@@ -1,0 +1,354 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+
+    export const store = createStore("genChem", {
+      activeTab: "design",
+      loading: false,
+      error: "",
+      message: "",
+
+      // Design tab
+      seedSmiles: "CC(=O)OC1=CC=CC=C1C(=O)O\nCC(C)Cc1ccc(cc1)C(C)C(=O)O",
+      method: "brics",
+      nCandidates: 50,
+      constraints: {
+        mw_min: 200, mw_max: 550,
+        logp_min: 0, logp_max: 5,
+        hbd_max: 5, hba_max: 10,
+      },
+
+      // Results
+      molecules: [],
+      totalGenerated: 0,
+
+      // Optimize tab
+      optimizeSmiles: "",
+      optimizeGenerations: 15,
+
+      // Scaffold tab
+      scaffoldSmiles: "",
+      scaffoldHops: [],
+
+      async generate() {
+        this.loading = true; this.error = ""; this.molecules = [];
+        try {
+          const constraints = {};
+          if (this.constraints.mw_min || this.constraints.mw_max)
+            constraints.mw = { min: this.constraints.mw_min || 0, max: this.constraints.mw_max || 999 };
+          if (this.constraints.logp_min !== undefined || this.constraints.logp_max)
+            constraints.logp = { min: this.constraints.logp_min ?? -5, max: this.constraints.logp_max ?? 10 };
+          if (this.constraints.hbd_max)
+            constraints.hbd = { min: 0, max: this.constraints.hbd_max };
+          if (this.constraints.hba_max)
+            constraints.hba = { min: 0, max: this.constraints.hba_max };
+
+          const r = await callJsonApi("generative_chemistry", {
+            action: "generate",
+            smiles: this.seedSmiles.split("\n").map(s => s.trim()).filter(s => s),
+            method: this.method,
+            n_candidates: this.nCandidates,
+            constraints,
+          });
+          if (r.error) { this.error = r.error; }
+          else {
+            this.molecules = r.molecules || [];
+            this.totalGenerated = r.total_generated || 0;
+            this.message = `Generated ${this.totalGenerated} molecules via ${this.method}`;
+            if (this.molecules.length) this.activeTab = "gallery";
+          }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+        setTimeout(() => { this.message = ""; }, 5000);
+      },
+
+      async optimize() {
+        if (!this.optimizeSmiles.trim()) return;
+        this.loading = true; this.error = ""; this.molecules = [];
+        try {
+          const r = await callJsonApi("generative_chemistry", {
+            action: "optimize",
+            smiles: this.optimizeSmiles.trim(),
+            n_candidates: 20,
+            generations: this.optimizeGenerations,
+          });
+          if (r.error) { this.error = r.error; }
+          else {
+            this.molecules = r.molecules || [];
+            this.totalGenerated = r.total_optimized || 0;
+            this.message = `Optimized to ${this.totalGenerated} candidates`;
+            if (this.molecules.length) this.activeTab = "gallery";
+          }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async scaffoldHop() {
+        if (!this.scaffoldSmiles.trim()) return;
+        this.loading = true; this.error = ""; this.scaffoldHops = [];
+        try {
+          const r = await callJsonApi("generative_chemistry", {
+            action: "scaffold_hop",
+            smiles: this.scaffoldSmiles.trim(),
+          });
+          if (r.error) { this.error = r.error; }
+          else {
+            this.scaffoldHops = r.scaffold_hops || [];
+            this.message = `Found ${this.scaffoldHops.length} scaffold hops`;
+          }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      sendToDocking(smiles) {
+        const input = document.querySelector("#chat-input, #chat-bar-input textarea");
+        if (input) {
+          input.value = `Dock this molecule against a target protein: ${smiles}. Prepare the ligand and receptor, run AutoDock Vina docking, and report the binding affinity and key interactions.`;
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          input.focus();
+          this.message = "Sent to Agent for docking";
+          setTimeout(() => { this.message = ""; }, 5000);
+        }
+      },
+
+      sendToADMET(smiles) {
+        const input = document.querySelector("#chat-input, #chat-bar-input textarea");
+        if (input) {
+          input.value = `Analyze this molecule for ADMET properties: ${smiles}. Run the ADMET predictor and report drug-likeness (Lipinski, Veber, Ghose), BOILED-Egg, and toxicity predictions.`;
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          input.focus();
+          this.message = "Sent to Agent for ADMET analysis";
+          setTimeout(() => { this.message = ""; }, 5000);
+        }
+      },
+
+      scoreColor(score) {
+        if (score >= 0.7) return "#22c55e";
+        if (score >= 0.5) return "#f59e0b";
+        return "#ef4444";
+      },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="gc-panel">
+
+    <div class="gc-header">
+      <span class="material-symbols-outlined gc-icon">science</span>
+      <div><h2>Molecule Designer</h2>
+      <p class="gc-sub">De novo drug design · Scaffold hopping · Multi-objective optimization</p></div>
+    </div>
+
+    <div class="gc-tabs">
+      <button class="gc-tab" :class="{active:$store.genChem.activeTab==='design'}" @click="$store.genChem.activeTab='design'">
+        <span class="material-symbols-outlined">design_services</span> Design</button>
+      <button class="gc-tab" :class="{active:$store.genChem.activeTab==='gallery'}" @click="$store.genChem.activeTab='gallery'">
+        <span class="material-symbols-outlined">grid_view</span> Gallery</button>
+      <button class="gc-tab" :class="{active:$store.genChem.activeTab==='optimize'}" @click="$store.genChem.activeTab='optimize'">
+        <span class="material-symbols-outlined">tune</span> Optimize</button>
+      <button class="gc-tab" :class="{active:$store.genChem.activeTab==='scaffold'}" @click="$store.genChem.activeTab='scaffold'">
+        <span class="material-symbols-outlined">hub</span> Scaffold Hop</button>
+    </div>
+
+    <div x-show="$store.genChem.error" class="gc-error" x-text="$store.genChem.error"></div>
+    <div x-show="$store.genChem.message" class="gc-msg" x-text="$store.genChem.message"></div>
+    <div x-show="$store.genChem.loading" class="gc-loading"><div class="loading-spinner"></div> Generating molecules...</div>
+
+    <!-- ═══ DESIGN TAB ═══ -->
+    <div x-show="$store.genChem.activeTab==='design'" class="gc-body">
+      <h3>Design Novel Molecules</h3>
+
+      <div class="gc-section">
+        <label class="gc-label">Seed Molecules (one SMILES per line — known actives or fragments)</label>
+        <textarea x-model="$store.genChem.seedSmiles" class="gc-textarea" rows="4"
+          placeholder="CC(=O)OC1=CC=CC=C1C(=O)O (Aspirin)&#10;CC(C)Cc1ccc(cc1)C(C)C(=O)O (Ibuprofen)"></textarea>
+      </div>
+
+      <div class="gc-section">
+        <label class="gc-label">Generation Method</label>
+        <div class="gc-method-row">
+          <div class="gc-method-card" :class="{selected:$store.genChem.method==='brics'}" @click="$store.genChem.method='brics'">
+            <strong>🧩 Fragment-Based</strong>
+            <small>BRICS decomposition → recombination. Best for de novo design from known actives.</small>
+          </div>
+          <div class="gc-method-card" :class="{selected:$store.genChem.method==='genetic'}" @click="$store.genChem.method='genetic'">
+            <strong>🧬 Genetic Algorithm</strong>
+            <small>Mutate + evolve toward target properties. Best for multi-objective optimization.</small>
+          </div>
+          <div class="gc-method-card" :class="{selected:$store.genChem.method==='scaffold'}" @click="$store.genChem.method='scaffold'">
+            <strong>🏗️ Scaffold Enumeration</strong>
+            <small>Keep core scaffold → attach R-groups. Best for SAR exploration.</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="gc-section">
+        <label class="gc-label">Property Constraints</label>
+        <div class="gc-constraints">
+          <div class="gc-const-row">
+            <span>MW:</span>
+            <input type="number" x-model="$store.genChem.constraints.mw_min" class="gc-const-input" placeholder="200" />
+            <span>–</span>
+            <input type="number" x-model="$store.genChem.constraints.mw_max" class="gc-const-input" placeholder="550" />
+            <span>Da</span>
+          </div>
+          <div class="gc-const-row">
+            <span>LogP:</span>
+            <input type="number" step="0.5" x-model="$store.genChem.constraints.logp_min" class="gc-const-input" placeholder="0" />
+            <span>–</span>
+            <input type="number" step="0.5" x-model="$store.genChem.constraints.logp_max" class="gc-const-input" placeholder="5" />
+          </div>
+          <div class="gc-const-row">
+            <span>HBD ≤</span>
+            <input type="number" x-model="$store.genChem.constraints.hbd_max" class="gc-const-input" placeholder="5" />
+            <span style="margin-left:12px">HBA ≤</span>
+            <input type="number" x-model="$store.genChem.constraints.hba_max" class="gc-const-input" placeholder="10" />
+          </div>
+        </div>
+      </div>
+
+      <div class="gc-section">
+        <label class="gc-label">Number of Candidates</label>
+        <input type="number" x-model="$store.genChem.nCandidates" min="10" max="200" class="gc-n-input" />
+      </div>
+
+      <button class="gc-btn-primary" @click="$store.genChem.generate()" :disabled="$store.genChem.loading || !$store.genChem.seedSmiles.trim()">
+        <span class="material-symbols-outlined">auto_awesome</span> Generate Molecules
+      </button>
+    </div>
+
+    <!-- ═══ GALLERY TAB ═══ -->
+    <div x-show="$store.genChem.activeTab==='gallery'" class="gc-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h3 x-text="$store.genChem.totalGenerated + ' Generated Molecules'"></h3>
+      </div>
+
+      <div x-show="!$store.genChem.molecules.length" class="gc-empty">
+        <span class="material-symbols-outlined" style="font-size:40px;color:var(--color-border)">grid_view</span>
+        <p>No molecules yet — go to Design tab and generate</p>
+      </div>
+
+      <div class="gc-mol-grid">
+        <template x-for="(mol, i) in $store.genChem.molecules.slice(0, 50)" :key="i">
+          <div class="gc-mol-card">
+            <div class="gc-mol-rank" x-text="'#' + (i+1)"></div>
+            <div class="gc-mol-score-bar">
+              <div class="gc-mol-score-fill" :style="'width:' + (mol.scores?.combined || 0) * 100 + '%'" :style.background="$store.genChem.scoreColor(mol.scores?.combined || 0)"></div>
+              <span class="gc-mol-score-text" x-text="(mol.scores?.combined || 0).toFixed(3)"></span>
+            </div>
+            <div class="gc-mol-smiles" x-text="mol.smiles" :title="mol.smiles"></div>
+            <div class="gc-mol-props">
+              <span x-text="'MW: ' + (mol.scores?.properties?.mw || mol.properties?.mw || '?')"></span>
+              <span x-text="'LogP: ' + (mol.scores?.properties?.logp || mol.properties?.logp || '?')"></span>
+              <span x-text="'QED: ' + (mol.scores?.qed || mol.qed || '?')"></span>
+              <span x-text="'SA: ' + (mol.scores?.sa_score || mol.sa_score || '?')"></span>
+            </div>
+            <div class="gc-mol-actions">
+              <button class="gc-btn-sm" @click="$store.genChem.sendToADMET(mol.smiles)" title="Analyze ADMET">🧬 ADMET</button>
+              <button class="gc-btn-sm" @click="$store.genChem.sendToDocking(mol.smiles)" title="Send to docking">🎯 Dock</button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- ═══ OPTIMIZE TAB ═══ -->
+    <div x-show="$store.genChem.activeTab==='optimize'" class="gc-body">
+      <h3>Optimize Molecule</h3>
+      <p style="font-size:0.62rem;color:var(--color-text-muted);margin-bottom:10px">
+        Start with a known molecule — the genetic algorithm evolves it toward better properties.
+      </p>
+      <input type="text" x-model="$store.genChem.optimizeSmiles" class="gc-input"
+        placeholder="Seed molecule SMILES (e.g. CC(=O)OC1=CC=CC=C1C(=O)O)" />
+      <div style="display:flex;gap:8px;align-items:center;margin:8px 0">
+        <label class="gc-label" style="margin:0">Generations:</label>
+        <input type="number" x-model="$store.genChem.optimizeGenerations" min="5" max="50" class="gc-n-input" />
+      </div>
+      <button class="gc-btn-primary" @click="$store.genChem.optimize()" :disabled="$store.genChem.loading || !$store.genChem.optimizeSmiles.trim()">
+        <span class="material-symbols-outlined">tune</span> Optimize Molecule
+      </button>
+    </div>
+
+    <!-- ═══ SCAFFOLD HOP TAB ═══ -->
+    <div x-show="$store.genChem.activeTab==='scaffold'" class="gc-body">
+      <h3>Scaffold Hopping</h3>
+      <p style="font-size:0.62rem;color:var(--color-text-muted);margin-bottom:10px">
+        Find alternative core scaffolds with similar properties — bioisosteric ring replacements.
+      </p>
+      <input type="text" x-model="$store.genChem.scaffoldSmiles" class="gc-input"
+        placeholder="Molecule SMILES (e.g. CC(=O)OC1=CC=CC=C1C(=O)O)" />
+      <button class="gc-btn-primary" @click="$store.genChem.scaffoldHop()" :disabled="$store.genChem.loading || !$store.genChem.scaffoldSmiles.trim()" style="margin-top:8px">
+        <span class="material-symbols-outlined">hub</span> Find Scaffold Hops
+      </button>
+
+      <div x-show="$store.genChem.scaffoldHops.length" style="margin-top:12px">
+        <h4 style="font-size:0.7rem;margin:0 0 6px">Scaffold Hops</h4>
+        <template x-for="(hop, i) in $store.genChem.scaffoldHops" :key="i">
+          <div class="gc-hop-card">
+            <div class="gc-hop-smiles" x-text="hop.smiles" :title="hop.smiles"></div>
+            <div class="gc-hop-replacement" x-text="hop.replacement"></div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <style>
+      .gc-panel { display:flex; flex-direction:column; height:100%; overflow-y:auto; padding:12px 16px; background:var(--color-background); }
+      .gc-header { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+      .gc-icon { font-size:24px; color:var(--color-primary); }
+      .gc-header h2 { color:var(--color-primary); font-size:0.95rem; margin:0; font-weight:700; }
+      .gc-sub { color:var(--color-text-muted); font-size:0.6rem; margin:2px 0 0; }
+      .gc-tabs { display:flex; gap:2px; flex-wrap:wrap; margin-bottom:10px; border-bottom:1px solid var(--color-border); padding-bottom:6px; }
+      .gc-tab { display:flex; align-items:center; gap:3px; padding:5px 10px; background:none; border:none; border-bottom:2px solid transparent; color:var(--color-text-muted); font-size:0.68rem; cursor:pointer; white-space:nowrap; }
+      .gc-tab:hover { color:var(--color-text); }
+      .gc-tab.active { color:var(--color-primary); border-bottom-color:var(--color-primary); font-weight:600; }
+      .gc-tab .material-symbols-outlined { font-size:15px; }
+      .gc-body { flex:1; }
+      .gc-body h3 { font-size:0.82rem; font-weight:700; margin:0 0 8px; color:var(--color-text); }
+      .gc-section { margin-bottom:12px; }
+      .gc-label { display:block; font-size:0.62rem; font-weight:600; color:var(--color-text-muted); margin-bottom:4px; }
+      .gc-textarea { width:100%; padding:8px 10px; border:1px solid var(--color-border); border-radius:8px; background:var(--color-panel); color:var(--color-text); font-size:0.68rem; font-family:monospace; resize:vertical; box-sizing:border-box; }
+      .gc-input { width:100%; padding:8px 10px; border:1px solid var(--color-border); border-radius:8px; background:var(--color-panel); color:var(--color-text); font-size:0.68rem; font-family:monospace; box-sizing:border-box; }
+      .gc-n-input { width:80px; padding:6px 8px; border:1px solid var(--color-border); border-radius:6px; background:var(--color-panel); color:var(--color-text); font-size:0.7rem; }
+      .gc-btn-primary { display:inline-flex; align-items:center; gap:4px; padding:8px 16px; background:var(--color-primary); color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.74rem; font-weight:600; }
+      .gc-btn-primary:disabled { opacity:0.5; cursor:not-allowed; }
+      .gc-btn-sm { padding:4px 8px; background:var(--color-background); border:1px solid var(--color-border); border-radius:6px; font-size:0.58rem; color:var(--color-text); cursor:pointer; }
+      .gc-error { padding:6px 10px; background:rgba(255,107,107,0.1); border-radius:6px; color:#ff6b6b; font-size:0.7rem; margin-bottom:8px; }
+      .gc-msg { padding:6px 10px; background:rgba(34,197,94,0.1); border-radius:6px; color:#22c55e; font-size:0.7rem; margin-bottom:8px; }
+      .gc-loading { display:flex; align-items:center; gap:8px; font-size:0.7rem; color:var(--color-text-muted); margin-bottom:8px; }
+      .loading-spinner { width:14px; height:14px; border:2px solid var(--color-border); border-top:2px solid var(--color-primary); border-radius:50%; animation:spin 0.8s linear infinite; }
+      @keyframes spin { to { transform:rotate(360deg); } }
+
+      .gc-method-row { display:flex; gap:6px; flex-wrap:wrap; }
+      .gc-method-card { flex:1; min-width:140px; padding:10px; border:2px solid var(--color-border); border-radius:8px; cursor:pointer; transition:0.15s; }
+      .gc-method-card:hover { border-color:var(--color-primary); }
+      .gc-method-card.selected { border-color:var(--color-primary); background:color-mix(in srgb,var(--color-primary) 8%,var(--color-panel)); }
+      .gc-method-card strong { font-size:0.68rem; color:var(--color-text); display:block; margin-bottom:3px; }
+      .gc-method-card small { font-size:0.55rem; color:var(--color-text-muted); line-height:1.3; }
+
+      .gc-constraints { display:flex; flex-direction:column; gap:6px; }
+      .gc-const-row { display:flex; align-items:center; gap:6px; font-size:0.65rem; color:var(--color-text-muted); }
+      .gc-const-input { width:70px; padding:4px 6px; border:1px solid var(--color-border); border-radius:4px; background:var(--color-panel); color:var(--color-text); font-size:0.65rem; }
+
+      .gc-mol-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px; }
+      .gc-mol-card { padding:10px; background:var(--color-panel); border:1px solid var(--color-border); border-radius:8px; position:relative; }
+      .gc-mol-rank { position:absolute; top:6px; right:8px; font-size:0.58rem; font-weight:700; color:var(--color-primary); }
+      .gc-mol-score-bar { height:16px; background:var(--color-border); border-radius:4px; overflow:hidden; position:relative; margin-bottom:6px; }
+      .gc-mol-score-fill { height:100%; border-radius:4px; transition:width 0.3s; }
+      .gc-mol-score-text { position:absolute; top:0; left:0; right:0; text-align:center; font-size:0.55rem; font-weight:700; color:white; line-height:16px; text-shadow:0 1px 2px rgba(0,0,0,0.5); }
+      .gc-mol-smiles { font-family:monospace; font-size:0.58rem; color:var(--color-text); word-break:break-all; margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .gc-mol-props { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px; }
+      .gc-mol-props span { font-size:0.52rem; color:var(--color-text-muted); background:var(--color-background); padding:2px 6px; border-radius:4px; }
+      .gc-mol-actions { display:flex; gap:4px; }
+
+      .gc-hop-card { padding:8px 10px; background:var(--color-panel); border:1px solid var(--color-border); border-radius:8px; margin-bottom:4px; }
+      .gc-hop-smiles { font-family:monospace; font-size:0.65rem; color:var(--color-text); margin-bottom:3px; }
+      .gc-hop-replacement { font-size:0.55rem; color:var(--color-text-muted); }
+
+      .gc-empty { display:flex; flex-direction:column; align-items:center; padding:40px 20px; color:var(--color-text-muted); }
+    </style>
+  </div>
+</body>
+</html>
