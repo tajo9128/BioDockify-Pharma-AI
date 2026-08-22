@@ -278,6 +278,20 @@ Full-featured molecular analysis with 3D visualization:
 - **File Upload**: Parses .sdf, .mol, .pdb, .smi, .smiles.
 - Backend APIs: `structure_3d` (conformer), `structure_export` (multi-format), `pubchem_lookup` (name→SMILES), `drug_properties` (extended properties).
 
+## Structure Draw — ChemCanvas Studio (Module #27)
+
+The agent can draw, convert, and validate chemical structures through the Structure Draw module (right icon rail / All Tools → "Structure Draw"). This is where hand-drawn molecules enter the platform:
+
+- **Draw**: ChemCanvas-style UI with two in-browser editors — Ketcher 3 canvas (full ChemDraw-class: 200+ templates, reactions, S-groups, R-groups, CIP labels, query properties, aromatize, clean-up, MOL/RXN/SMILES/InChI/CDXML/SDF I/O; runs offline via Indigo WASM) and JSME quick-draw (instant-load). Left rail: atoms + functional groups; right rail: 7 template categories (Aromatics, Heterocycles, Bicyclics, Bridged Polycyclics, Crown Ethers, Nucleobases, Amino Acids).
+- **PubChem name lookup**: compound name → canonical SMILES + IUPAC + formula + MW (needs internet; everything else is offline).
+- **Live validation** (as-you-draw): valence/sanitization errors, implicit hydrogens, stereo centers, formula, MW.
+- **Conversion**: SMILES ↔ MOL ↔ InChI/InChIKey (canonical SMILES, formula, MW, molblock out).
+- **Structure library**: `usr/structures/` — shared exchange folder with the ChemCanvas desktop app (Windows/Linux). Drawn molecules save as .mol; .mol/.sdf/.smi/.smiles/.cdxml/.rxn files placed there are importable.
+- **Desktop bridge**: if ChemCanvas (ksharindam) is installed on the host, `launch` starts it with a library file. In Docker, the library folder is volume-mountable so host ChemCanvas and containerized BioDockify share structures.
+- **Send To**: Docking, ADMET, Drug Analysis, Molecule Designer, Bioactivity Predictor, Retrosynthesis.
+- **3D view**: ETKDG conformer in 3Dmol.js viewer.
+- Backend API: `chem_canvas` (11 actions: status, launch, files, import_file, export_file, depict, pubchem_lookup, clean2d, convert, validate, save_to_kb) — call via `from api.chem_canvas import ChemCanvasHandler` in code_execution.
+
 ## Vina/PDBQT Failure Prevention
 Self-healing PDBQT pipeline:
 - **Deep validation**: Checks charge column (71-76) and atom type column (78-79) on every ATOM/HETATM record before Vina
