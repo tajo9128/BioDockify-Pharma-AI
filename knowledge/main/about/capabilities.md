@@ -292,6 +292,49 @@ The agent can draw, convert, and validate chemical structures through the Struct
 - **3D view**: ETKDG conformer in 3Dmol.js viewer.
 - Backend API: `chem_canvas` (11 actions: status, launch, files, import_file, export_file, depict, pubchem_lookup, clean2d, convert, validate, save_to_kb) — call via `from api.chem_canvas import ChemCanvasHandler` in code_execution.
 
+## Molecule Designer — Generative Chemistry (Module #23)
+
+The agent can generate novel molecules and optimize leads via the Molecule Designer module (right icon rail / All Tools → "Designer"). Pure RDKit, no ML training needed:
+
+- **3 generation methods**: BRICS fragment recombination (decompose seed actives → recombine), genetic algorithm (mutate SMILES → score → evolve toward target properties), scaffold enumeration (keep core → attach 30+ R-groups).
+- **Scoring**: per-molecule QED drug-likeness, SA synthetic accessibility, Lipinski compliance, ADMET quick screen, Tanimoto diversity within set, novelty vs seeds, weighted combined score.
+- **Scaffold tools**: Murcko extraction, bioisosteric scaffold hopping, R-group analysis, fragment library building.
+- **rank_docking**: re-ranks docking results with drug-likeness consensus scoring.
+- **Auto-KB**: all outputs store to Knowledge Base (category=drug_design).
+- Backend API: `generative_chemistry` (8 actions: generate, optimize, score, scaffold_hop, scaffolds, r_groups, fragments, rank_docking) — call via `from api.generative_chemistry import GenerativeChemistryHandler`.
+
+## Target Identification (Module #24)
+
+The agent finds and prioritizes drug targets — the starting point of target-based drug discovery:
+
+- **Disease-target search**: ranked associations (OpenTargets Platform, UniProt, ChEMBL live REST APIs) with curated local fallback when offline — report the data source used.
+- **Gene lookup & details**: function, associated diseases, known drugs, UniProt/ChEMBL data for any gene symbol (EGFR, BRAF, TP53...).
+- **Pathway enrichment**: over-represented pathways for a gene list (omics data handoff).
+- **Druggability assessment**: tractability, ligands, suggested modalities (small molecule / antibody / peptide).
+- After picking a target, hand off: Docking (structure-based), Pharmacophore (ligand-based), Bioactivity Predictor, Deep Research (evidence).
+- Backend API: `target_identification` (5 actions: search_disease, search_gene, target_details, pathways, druggability) — call via `from api.target_identification import TargetIdentificationHandler`.
+
+## Bioactivity Predictor (Module #25)
+
+The agent predicts bioactivity (IC50/pIC50) from molecular structure:
+
+- **Prediction**: predicted pIC50 + IC50 (nM) + activity class per target class — 8 classes: kinase, gpcr, protease, nuclear_receptor, ion_channel, transporter, epigenetic, general (descriptor-based + SAR rules; falls back to similarity-based when no model — report lower confidence).
+- **Batch ranking**: rank molecule lists (e.g. Molecule Designer output) by predicted activity.
+- **Similar actives**: known actives similar to a query molecule (Tanimoto threshold).
+- **Activity cliffs / SAR**: pairs with high similarity but large potency difference — key SAR insight.
+- Backend API: `bioactivity_predictor` (5 actions: predict, batch_predict, target_classes, similar, activity_cliffs) — call via `from api.bioactivity_predictor import BioactivityPredictorHandler`.
+
+## Retrosynthesis Planner (Module #26)
+
+The agent plans synthesis routes to purchasable building blocks:
+
+- **Route planning**: multi-step retrosynthetic trees — BRICS disconnection + 16 curated reaction templates (amide coupling, Suzuki, Grignard...), recursive decomposition down to commercially available fragments. `max_depth` and `max_routes` control the search.
+- **Disconnection analysis**: where to break the molecule, with reaction/reagents/conditions per option.
+- **Complexity estimate**: synthetic difficulty score (rings, stereocenters, bridging) — "straightforward" to "very difficult".
+- **Building blocks**: purchasable starting materials for a target (BRICS dummy atoms correctly H-capped).
+- Routes are template suggestions — recommend literature verification before wet lab.
+- Backend API: `retrosynthesis` (5 actions: plan, disconnect, complexity, building_blocks, templates) — call via `from api.retrosynthesis import RetrosynthesisHandler`.
+
 ## Vina/PDBQT Failure Prevention
 Self-healing PDBQT pipeline:
 - **Deep validation**: Checks charge column (71-76) and atom type column (78-79) on every ATOM/HETATM record before Vina
