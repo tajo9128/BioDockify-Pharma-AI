@@ -24,6 +24,7 @@ const defaultModules = [
   { id: "md-lite", title: "MD Lite", icon: "animation", component: "/components/md-lite/md-lite.html", order: 4.5, defaultWidth: 700, defaultHeight: 600 },
   { id: "gen-chem", title: "Molecule Designer", icon: "science", component: "/components/generative-chemistry/generative-chemistry.html", order: 4.7, defaultWidth: 750, defaultHeight: 650 },
   { id: "bioactivity", title: "Bioactivity Predictor", icon: "insights", component: "/components/bioactivity/bioactivity.html", order: 4.8, defaultWidth: 750, defaultHeight: 600 },
+  { id: "chem-canvas", title: "Structure Draw", icon: "draw", component: "/components/chem-canvas/chem-canvas.html", order: 5.5, defaultWidth: 950, defaultHeight: 720 },
   { id: "retrosynthesis", title: "Retrosynthesis", icon: "alt_route", component: "/components/retrosynthesis/retrosynthesis.html", order: 21.1, defaultWidth: 750, defaultHeight: 600 },
   { id: "target-id", title: "Target ID", icon: "track_changes", component: "/components/target-id/target-id.html", order: 2.5, defaultWidth: 750, defaultHeight: 600 },
   { id: "formulation", title: "Formulation", icon: "science", component: "/components/formulation/formulation.html", order: 15, defaultWidth: 750, defaultHeight: 600 },

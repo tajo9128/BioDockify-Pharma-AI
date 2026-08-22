@@ -1,0 +1,685 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+
+    const ATOMS = ["C", "N", "O", "S", "P", "F", "Cl", "Br", "I"];
+    const GROUPS = [
+      ["OH", "O"], ["COOH", "C(=O)O"], ["NH2", "N"], ["CHO", "C=O"],
+      ["CN", "C#N"], ["NO2", "[N+](=O)[O-]"], ["Ph", "c1ccccc1"], ["OMe", "CO"],
+    ];
+    const TEMPLATES = {
+      "Aromatics": [["Benzene", "c1ccccc1"], ["Toluene", "Cc1ccccc1"], ["Phenol", "Oc1ccccc1"], ["Naphthalene", "c1ccc2ccccc2c1"]],
+      "Heterocycles": [["Pyridine", "c1ccncc1"], ["Pyrrole", "c1cc[nH]c1"], ["Furan", "c1ccoc1"], ["Thiophene", "c1ccsc1"], ["Imidazole", "c1c[nH]cn1"], ["Indole", "c1ccc2[nH]ccc2c1"]],
+      "Bicyclics": [["Norbornane", "C1CC2CCC1C2"], ["Decalin", "C1CCC2CCCCC2C1"], ["Bicyclo[2.2.2]", "C1CC2CCC1CC2"]],
+      "Bridged Polycyclics": [["Adamantane", "C1C2CC3CC1CC(C2)C3"], ["Cubane", "C12C3C4C1C5C4C3C25"]],
+      "Crown Ethers": [["12-Crown-4", "C1COCCOCCOCCO1"], ["18-Crown-6", "C1COCCOCCOCCOCCOCCOCCO1"]],
+      "Nucleobases": [["Adenine", "Nc1ncnc2[nH]cnc12"], ["Thymine", "Cc1c[nH]c(=O)[nH]c1=O"], ["Cytosine", "Nc1cc[nH]c(=O)n1"], ["Uracil", "O=c1[nH]cc(=O)[nH]1"]],
+      "Amino Acids": [["Glycine", "NCC(=O)O"], ["Alanine", "C[C@@H](N)C(=O)O"], ["Phenylalanine", "N[C@@H](Cc1ccccc1)C(=O)O"], ["Tryptophan", "N[C@@H](Cc1c[nH]c2ccccc12)C(=O)O"], ["Aspirin", "CC(=O)Oc1ccccc1C(=O)O"]],
+    };
+
+    export const store = createStore("chemCanvas", {
+      activeTab: "studio",
+      loading: false,
+      error: "",
+      message: "",
+
+      // editors
+      ketcherReady: false,
+      jsmeReady: false,
+      jsmeLoaded: false,
+
+      // current structure
+      smiles: "",
+      molblock: "",
+      formula: "",
+      mw: 0,
+      numAtoms: 0,
+      numBonds: 0,
+      implicitH: 0,
+      validation: null,
+
+      // panels
+      properties: null,
+      depiction: "",
+      show3d: false,
+      convertResult: null,
+      detail: null,
+      pubchemQuery: "",
+      exportName: "",
+      exchangeText: "",
+
+      // library + desktop bridge
+      files: [],
+      desktop: null,
+      openCategory: "Aromatics",
+      templates: TEMPLATES,
+      atoms: ATOMS,
+      groups: GROUPS,
+
+      init() { /* global setup */ },
+
+      onOpen() {
+        this.checkDesktop();
+        this.refreshFiles();
+      },
+
+      // ---------- editor plumbing ----------
+
+      ketcherFrame() { return document.getElementById("ketcherFrame"); },
+
+      async waitKetcher() {
+        for (let i = 0; i < 40; i++) {
+          const fr = this.ketcherFrame();
+          if (fr && fr.contentWindow && fr.contentWindow.ketcher) {
+            this.ketcherReady = true;
+            return fr.contentWindow.ketcher;
+          }
+          await new Promise(r => setTimeout(r, 250));
+        }
+        this.ketcherReady = false;
+        return null;
+      },
+
+      async loadJsme() {
+        if (this.jsmeLoaded) return true;
+        await new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = "/vendor/jsme/jsme.nocache.js";
+          s.onload = resolve;
+          s.onerror = reject;
+          document.head.appendChild(s);
+        }).catch(() => { this.error = "JSME failed to load"; return false; });
+        await new Promise(r => setTimeout(r, 600));
+        try {
+          this.jsme = new JSApplet.JSME("jsmeContainer", "640x500", { "optionalGroups": "1" });
+          this.jsmeLoaded = true;
+          this.jsmeReady = true;
+        } catch (e) {
+          this.error = "JSME init failed: " + e;
+          return false;
+        }
+        return true;
+      },
+
+      async getSmiles() {
+        if (this.activeTab === "studio") {
+          const k = await this.waitKetcher();
+          if (!k) return "";
+          try { return await k.getSmiles() || ""; } catch { return ""; }
+        }
+        try { return this.jsme ? this.jsme.smiles() : ""; } catch { return ""; }
+      },
+
+      async setMolecule(smiles) {
+        if (!smiles) return;
+        if (this.activeTab === "studio") {
+          const k = await this.waitKetcher();
+          if (k) { try { await k.setMolecule(smiles); } catch (e) { this.error = "Ketcher: " + e; } }
+        } else {
+          try { if (this.jsme) this.jsme.readMolecule(smiles); } catch (e) { this.error = "JSME: " + e; }
+        }
+        this.smiles = smiles;
+        await this.refreshStatus();
+      },
+
+      async insertFragment(frag) {
+        const cur = await this.getSmiles();
+        await this.setMolecule(cur ? cur + "." + frag : frag);
+        this.flash("Fragment added to canvas");
+      },
+
+      // ---------- status bar (live validation — SketChem style) ----------
+
+      async refreshStatus() {
+        const smi = await this.getSmiles();
+        if (!smi || !smi.trim()) { this.validation = null; this.smiles = ""; return; }
+        this.smiles = smi.split(" ")[0];
+        try {
+          const [v, c] = await Promise.all([
+            callJsonApi("chem_canvas", { action: "validate", smiles: this.smiles }),
+            callJsonApi("chem_canvas", { action: "convert", smiles: this.smiles }),
+          ]);
+          if (!v.error) {
+            this.validation = v;
+            this.formula = v.formula || "";
+            this.numAtoms = v.num_atoms || 0;
+            this.numBonds = v.num_bonds || 0;
+            this.implicitH = v.implicit_h || 0;
+          }
+          if (!c.error) this.mw = c.mw || 0;
+        } catch (e) { /* offline status is non-fatal */ }
+      },
+
+      flash(msg) { this.message = msg; setTimeout(() => this.message = "", 2200); },
+
+      // ---------- top bar actions ----------
+
+      async pullFromCanvas() {
+        const smi = await this.getSmiles();
+        if (!smi) { this.error = "Canvas is empty"; return; }
+        this.smiles = smi.split(" ")[0];
+        await this.refreshStatus();
+        this.flash("Structure captured: " + this.formula);
+      },
+
+      async pubchemLoad() {
+        if (!this.pubchemQuery.trim()) return;
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("chem_canvas", { action: "pubchem_lookup", name: this.pubchemQuery.trim() });
+          if (r.error) { this.error = r.error; return; }
+          await this.setMolecule(r.smiles);
+          this.flash("Loaded from PubChem: " + (r.iupac || r.formula));
+        } finally { this.loading = false; }
+      },
+
+      async clean2d() {
+        const smi = await this.getSmiles();
+        if (!smi) return;
+        const r = await callJsonApi("chem_canvas", { action: "clean2d", smiles: smi });
+        if (r.error) { this.error = r.error; return; }
+        await this.setMolecule(r.smiles);
+        this.flash("2D coordinates recomputed (RDKit)");
+      },
+
+      async showProperties() {
+        const smi = await this.getSmiles();
+        if (!smi) { this.error = "Draw a structure first"; return; }
+        this.loading = true;
+        try {
+          const [d, conv] = await Promise.all([
+            callJsonApi("chem_canvas", { action: "depict", smiles: smi, size: 380 }),
+            callJsonApi("chem_canvas", { action: "convert", smiles: smi }),
+          ]);
+          if (conv.error) { this.error = conv.error; return; }
+          this.properties = { svg: d.svg || "", convert: conv, descriptors: this.validation };
+        } finally { this.loading = false; }
+      },
+
+      async view3d() {
+        const smi = await this.getSmiles();
+        if (!smi) { this.error = "Draw a structure first"; return; }
+        this.loading = true;
+        this.show3d = true;
+        try {
+          const { Mol3DViewer, load3Dmol } = await import("/js/mol3d-engine.js");
+          const r = await callJsonApi("structure_3d", { smiles: smi.split(" ")[0] });
+          if (!r.success) { this.error = r.error || "3D generation failed"; return; }
+          const ok = await load3Dmol();
+          if (!ok) { this.error = "Failed to load 3D viewer"; return; }
+          await new Promise(res => setTimeout(res, 100)); // let the modal div appear
+          if (!this._viewer3d || !this._viewer3d.ready) {
+            this._viewer3d = new Mol3DViewer("cc-3d-canvas", { bgColor: "#ffffff" });
+            if (!this._viewer3d.init()) { this.error = "3D canvas not ready"; return; }
+          }
+          this._viewer3d.removeAll();
+          this._viewer3d.loadLigand(r.sdf, "sdf", { style: "stick", color: "default" });
+          this._viewer3d.zoomTo();
+          this.flash("3D view generated (ETKDG)");
+        } catch (e) {
+          this.error = "3D view unavailable: " + e;
+        } finally { this.loading = false; }
+      },
+
+      async saveToLibrary() {
+        const smi = await this.getSmiles();
+        if (!smi) { this.error = "Draw a structure first"; return; }
+        const name = prompt("Structure name:", this.exportName || "structure");
+        if (!name) return;
+        const r = await callJsonApi("chem_canvas", { action: "export_file", smiles: smi, name, ext: "mol" });
+        if (r.error) { this.error = r.error; return; }
+        this.exportName = name;
+        await this.refreshFiles();
+        this.flash("Saved to library: " + r.file);
+      },
+
+      async saveToKb() {
+        const smi = await this.getSmiles();
+        if (!smi) { this.error = "Draw a structure first"; return; }
+        const name = prompt("Structure name:", this.exportName || "structure");
+        if (!name) return;
+        const r = await callJsonApi("chem_canvas", { action: "save_to_kb", smiles: smi, name });
+        if (r.error) { this.error = r.error; return; }
+        this.flash("Saved to Knowledge Base");
+      },
+
+      // ---------- send-to (cross-module) ----------
+
+      async sendTo(target) {
+        const smi = await this.getSmiles();
+        if (!smi) { this.error = "Draw a structure first"; return; }
+        const s = smi.split(" ")[0];
+        const stores = {
+          docking: () => { const mt = Alpine.store("molecularToolkit"); if (mt) { mt.dockingLigand = s; mt.dockingLigandName = s.slice(0, 20); } },
+          admet: () => { const a = Alpine.store("admet"); if (a) { a.smiles = s; a.activeTab = "generate"; } },
+          editor: () => { const m = Alpine.store("moleculeEditor"); if (m) m.smiles = s; },
+          designer: () => { const g = Alpine.store("genChem"); if (g && g.seeds !== undefined) { g.seeds = (g.seeds ? g.seeds + "\n" : "") + s; } },
+          bioactivity: () => { const b = Alpine.store("bioactivity"); if (b) { b.predictSmiles = s; b.activeTab = "predict"; } },
+          retro: () => { const r = Alpine.store("retroSyn"); if (r) { r.targetSmiles = s; r.activeTab = "plan"; } },
+        };
+        if (stores[target]) { stores[target](); this.flash("SMILES sent — open the target module"); }
+      },
+
+      // ---------- library ----------
+
+      async refreshFiles() {
+        try {
+          const r = await callJsonApi("chem_canvas", { action: "files" });
+          if (!r.error) this.files = r.files || [];
+        } catch {}
+      },
+
+      async importFile(f) {
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("chem_canvas", { action: "import_file", file: f });
+          if (r.error) { this.error = r.error; return; }
+          this.detail = r;
+          this.smiles = r.smiles;
+          await this.refreshStatus();
+          this.activeTab = "library";
+        } finally { this.loading = false; }
+      },
+
+      async deleteFile(name) {
+        if (!confirm("Delete " + name + "?")) return;
+        // deletion via export module pattern is not exposed; rely on agent/files tool
+        this.error = "Use the agent or file browser to delete; library is read-only from the UI";
+      },
+
+      async loadDetailToCanvas() {
+        if (this.detail && this.detail.smiles) {
+          this.activeTab = "studio";
+          await this.setMolecule(this.detail.smiles);
+        }
+      },
+
+      // ---------- exchange ----------
+
+      async exchange() {
+        const text = (this.exchangeText || "").trim();
+        if (!text) return;
+        this.loading = true; this.error = "";
+        try {
+          const isMolblock = text.includes("V2000") || text.includes("V3000");
+          const r = await callJsonApi("chem_canvas", isMolblock
+            ? { action: "convert", molblock: text }
+            : { action: "convert", smiles: text.replace(/\s+/g, "") });
+          if (r.error) { this.error = r.error; return; }
+          this.convertResult = r;
+        } finally { this.loading = false; }
+      },
+
+      async exchangeToCanvas() {
+        if (this.convertResult && this.convertResult.canonical) {
+          this.activeTab = "studio";
+          await this.setMolecule(this.convertResult.canonical);
+        }
+      },
+
+      downloadMol() {
+        const mb = (this.convertResult && this.convertResult.molblock) || "";
+        if (!mb) return;
+        const blob = new Blob([mb], { type: "chemical/x-mdl-molfile" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = (this.exportName || "structure") + ".mol";
+        a.click();
+        URL.revokeObjectURL(a.href);
+      },
+
+      // ---------- desktop bridge ----------
+
+      async checkDesktop() {
+        try {
+          const r = await callJsonApi("chem_canvas", { action: "status" });
+          this.desktop = r;
+        } catch { this.desktop = null; }
+      },
+
+      async launchDesktop(file) {
+        const r = await callJsonApi("chem_canvas", { action: "launch", ...(file ? { file } : {}) });
+        if (r.error) { this.error = r.error; return; }
+        this.flash("ChemCanvas launched" + (file ? " with " + file : ""));
+      },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="chem-canvas" x-init="$store.chemCanvas.onOpen()">
+    <template x-if="$store.chemCanvas">
+      <div class="cc-root">
+        <!-- ============ top toolbar (ChemCanvas style: search + actions) ============ -->
+        <div class="cc-topbar">
+          <div class="cc-title">
+            <span class="material-symbols-outlined">draw</span>
+            <b>ChemCanvas</b> <span class="cc-sub">Studio</span>
+          </div>
+
+          <div class="cc-search">
+            <input type="text" x-model="$store.chemCanvas.pubchemQuery" placeholder="Search PubChem by name (aspirin, ibuprofen...)"
+                   @keydown.enter="$store.chemCanvas.pubchemLoad()">
+            <button class="cc-btn" @click="$store.chemCanvas.pubchemLoad()" :disabled="$store.chemCanvas.loading">
+              <span class="material-symbols-outlined">search</span>
+            </button>
+          </div>
+
+          <div class="cc-actions">
+            <select x-model="$store.chemCanvas.activeTab" class="cc-tabselect">
+              <option value="studio">Studio (Ketcher)</option>
+              <option value="quick">Quick Draw (JSME)</option>
+              <option value="library">Library</option>
+              <option value="exchange">Exchange</option>
+            </select>
+            <button class="cc-btn" @click="$store.chemCanvas.pullFromCanvas()" title="Capture current structure"><span class="material-symbols-outlined">download</span></button>
+            <button class="cc-btn" @click="$store.chemCanvas.clean2d()" title="Clean 2D (RDKit)"><span class="material-symbols-outlined">auto_fix_high</span></button>
+            <button class="cc-btn" @click="$store.chemCanvas.showProperties()" title="Properties"><span class="material-symbols-outlined">analytics</span></button>
+            <button class="cc-btn" @click="$store.chemCanvas.view3d()" title="View 3D"><span class="material-symbols-outlined">3d_rotation</span></button>
+            <button class="cc-btn" @click="$store.chemCanvas.saveToLibrary()" title="Save to library (.mol)"><span class="material-symbols-outlined">save</span></button>
+            <button class="cc-btn" @click="$store.chemCanvas.saveToKb()" title="Save to Knowledge Base"><span class="material-symbols-outlined">psychology</span></button>
+          </div>
+        </div>
+
+        <div class="cc-sendto">
+          <span class="cc-sendto-label">Send to:</span>
+          <button class="cc-chip" @click="$store.chemCanvas.sendTo('docking')">Docking</button>
+          <button class="cc-chip" @click="$store.chemCanvas.sendTo('admet')">ADMET</button>
+          <button class="cc-chip" @click="$store.chemCanvas.sendTo('editor')">Drug Analysis</button>
+          <button class="cc-chip" @click="$store.chemCanvas.sendTo('designer')">Designer</button>
+          <button class="cc-chip" @click="$store.chemCanvas.sendTo('bioactivity')">Bioactivity</button>
+          <button class="cc-chip" @click="$store.chemCanvas.sendTo('retro')">Retrosynthesis</button>
+          <button class="cc-chip cc-desktop" x-show="$store.chemCanvas.desktop && $store.chemCanvas.desktop.installed"
+                  @click="$store.chemCanvas.launchDesktop()">Open in ChemCanvas (desktop)</button>
+          <span class="cc-msg" x-show="$store.chemCanvas.message" x-text="$store.chemCanvas.message"></span>
+          <span class="cc-err" x-show="$store.chemCanvas.error" x-text="$store.chemCanvas.error"></span>
+        </div>
+
+        <!-- ============ main: left rail | canvas | right rail ============ -->
+        <div class="cc-main">
+
+          <!-- left rail: atoms + groups (ChemCanvas layout) -->
+          <div class="cc-left">
+            <div class="cc-rail-label">Atoms</div>
+            <div class="cc-atomgrid">
+              <template x-for="a in $store.chemCanvas.atoms" :key="a">
+                <button class="cc-atom" @click="$store.chemCanvas.insertFragment(a)" x-text="a" :title="'Add ' + a"></button>
+              </template>
+            </div>
+            <div class="cc-rail-label">Groups</div>
+            <div class="cc-groupgrid">
+              <template x-for="[label, smi] in $store.chemCanvas.groups" :key="label">
+                <button class="cc-atom cc-grp" @click="$store.chemCanvas.insertFragment(smi)" x-text="label" :title="smi"></button>
+              </template>
+            </div>
+            <div class="cc-rail-label">Validation</div>
+            <div class="cc-val">
+              <template x-if="$store.chemCanvas.validation === null">
+                <span class="cc-badge cc-muted">draw to validate</span>
+              </template>
+              <template x-if="$store.chemCanvas.validation && $store.chemCanvas.validation.valid">
+                <span class="cc-badge cc-ok">valid ✓</span>
+              </template>
+              <template x-if="$store.chemCanvas.validation && !$store.chemCanvas.validation.valid">
+                <span class="cc-badge cc-bad" :title="$store.chemCanvas.validation.errors.join('; ')">⚠ valence</span>
+              </template>
+            </div>
+          </div>
+
+          <!-- center canvas area -->
+          <div class="cc-center">
+            <!-- Studio: Ketcher -->
+            <template x-if="$store.chemCanvas.activeTab === 'studio'">
+              <div class="cc-canvas-wrap">
+                <iframe id="ketcherFrame" src="/vendor/ketcher/index.html" class="cc-ketcher"
+                        @load="$store.chemCanvas.waitKetcher()"></iframe>
+                <div class="cc-loading" x-show="!$store.chemCanvas.ketcherReady">Loading editor engine (Indigo WASM)…</div>
+              </div>
+            </template>
+
+            <!-- Quick: JSME -->
+            <template x-if="$store.chemCanvas.activeTab === 'quick'">
+              <div class="cc-canvas-wrap" x-init="$store.chemCanvas.loadJsme()">
+                <div id="jsmeContainer" class="cc-jsme"></div>
+              </div>
+            </template>
+
+            <!-- Library -->
+            <template x-if="$store.chemCanvas.activeTab === 'library'">
+              <div class="cc-lib">
+                <div class="cc-lib-head">
+                  <b>Structure Library</b> <span class="cc-sub" x-text="'usr/structures · ' + $store.chemCanvas.files.length + ' files'"></span>
+                  <button class="cc-btn" @click="$store.chemCanvas.refreshFiles()"><span class="material-symbols-outlined">refresh</span></button>
+                  <button class="cc-chip cc-desktop" x-show="$store.chemCanvas.desktop && $store.chemCanvas.desktop.installed"
+                          @click="$store.chemCanvas.launchDesktop()">Open folder in ChemCanvas</button>
+                </div>
+                <div class="cc-lib-grid">
+                  <template x-for="f in $store.chemCanvas.files" :key="f.name">
+                    <div class="cc-card" @click="$store.chemCanvas.importFile(f.name)">
+                      <div class="cc-card-name" x-text="f.name"></div>
+                      <div class="cc-card-meta">
+                        <span x-text="f.ext.toUpperCase()"></span> ·
+                        <span x-text="Math.round(f.size/1024) + ' KB'"></span>
+                        <span x-show="!f.readable" title="Native ChemCanvas format — open in desktop app"> · native</span>
+                      </div>
+                      <div class="cc-card-actions">
+                        <button x-show="f.readable" class="cc-mini" @click.stop="$store.chemCanvas.importFile(f.name)">Import</button>
+                        <button x-show="$store.chemCanvas.desktop && $store.chemCanvas.desktop.installed" class="cc-mini" @click.stop="$store.chemCanvas.launchDesktop(f.name)">Desktop</button>
+                      </div>
+                    </div>
+                  </template>
+                  <div x-show="$store.chemCanvas.files.length === 0" class="cc-empty">
+                    No structures yet — draw one and press Save, or save .mol files into <code>usr/structures/</code>
+                  </div>
+                </div>
+
+                <!-- detail panel -->
+                <template x-if="$store.chemCanvas.detail">
+                  <div class="cc-detail">
+                    <div class="cc-detail-svg" x-html="$store.chemCanvas.detail.svg"></div>
+                    <div class="cc-detail-info">
+                      <div class="cc-detail-name" x-text="$store.chemCanvas.detail.file"></div>
+                      <div class="cc-smiles"><code x-text="$store.chemCanvas.detail.smiles"></code></div>
+                      <table class="cc-prop" x-show="$store.chemCanvas.detail.properties">
+                        <template x-for="[k, v] in Object.entries($store.chemCanvas.detail.properties || {}).slice(0, 14)" :key="k">
+                          <tr><td x-text="k"></td><td x-text="v"></td></tr>
+                        </template>
+                      </table>
+                      <div class="cc-detail-actions">
+                        <button class="cc-chip" @click="$store.chemCanvas.loadDetailToCanvas()">Load into Canvas</button>
+                        <button class="cc-chip cc-desktop" x-show="$store.chemCanvas.desktop && $store.chemCanvas.desktop.installed"
+                                @click="$store.chemCanvas.launchDesktop($store.chemCanvas.detail.file)">Open in ChemCanvas</button>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </template>
+
+            <!-- Exchange -->
+            <template x-if="$store.chemCanvas.activeTab === 'exchange'">
+              <div class="cc-exchange">
+                <div class="cc-xrow">
+                  <textarea x-model="$store.chemCanvas.exchangeText" rows="5"
+                            placeholder="Paste SMILES (or a MDL molblock) to convert…"></textarea>
+                </div>
+                <div class="cc-xrow">
+                  <button class="cc-chip" @click="$store.chemCanvas.exchange()">Convert</button>
+                  <button class="cc-chip" x-show="$store.chemCanvas.convertResult" @click="$store.chemCanvas.exchangeToCanvas()">Load into Canvas</button>
+                  <button class="cc-chip" x-show="$store.chemCanvas.convertResult" @click="$store.chemCanvas.downloadMol()">Download .mol</button>
+                  <button class="cc-chip" @click="$store.chemCanvas.exchangeText = $store.chemCanvas.smiles; $store.chemCanvas.exchange()">Convert current canvas</button>
+                </div>
+                <template x-if="$store.chemCanvas.convertResult">
+                  <div class="cc-xresult">
+                    <div><label>Canonical SMILES</label><code x-text="$store.chemCanvas.convertResult.canonical"></code></div>
+                    <div><label>InChI</label><code x-text="$store.chemCanvas.convertResult.inchi"></code></div>
+                    <div><label>InChIKey</label><code x-text="$store.chemCanvas.convertResult.inchikey"></code></div>
+                    <div><label>Formula</label><code x-text="$store.chemCanvas.convertResult.formula"></code></div>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+
+          <!-- right rail: templates (ChemCanvas layout) -->
+          <div class="cc-right">
+            <div class="cc-rail-label">Templates</div>
+            <template x-for="[cat, items] in Object.entries($store.chemCanvas.templates)" :key="cat">
+              <div class="cc-cat">
+                <button class="cc-cat-btn" @click="$store.chemCanvas.openCategory = ($store.chemCanvas.openCategory === cat ? '' : cat)"
+                        :class="{ open: $store.chemCanvas.openCategory === cat }">
+                  <span class="material-symbols-outlined" x-text="$store.chemCanvas.openCategory === cat ? 'expand_less' : 'expand_more'"></span>
+                  <span x-text="cat"></span>
+                </button>
+                <div class="cc-cat-items" x-show="$store.chemCanvas.openCategory === cat">
+                  <template x-for="[name, smi] in items" :key="name">
+                    <button class="cc-tpl" @click="$store.chemCanvas.insertFragment(smi)" x-text="name" :title="smi"></button>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- ============ status bar (SketChem-style live stats) ============ -->
+        <div class="cc-statusbar">
+          <span x-show="$store.chemCanvas.formula"><b x-text="$store.chemCanvas.formula"></b></span>
+          <span x-show="$store.chemCanvas.numAtoms" x-text="'atoms: ' + $store.chemCanvas.numAtoms"></span>
+          <span x-show="$store.chemCanvas.numBonds" x-text="'bonds: ' + $store.chemCanvas.numBonds"></span>
+          <span x-show="$store.chemCanvas.implicitH" x-text="'implicit H: ' + $store.chemCanvas.implicitH"></span>
+          <span x-show="$store.chemCanvas.validation && $store.chemCanvas.validation.stereocenters"
+                x-text="'stereo centers: ' + $store.chemCanvas.validation.stereocenters"></span>
+          <span class="cc-grow"></span>
+          <span class="cc-smilesbar"><code x-text="$store.chemCanvas.smiles"></code></span>
+        </div>
+
+        <!-- properties modal -->
+        <template x-if="$store.chemCanvas.properties">
+          <div class="cc-modal" @click.self="$store.chemCanvas.properties = null">
+            <div class="cc-modal-box">
+              <div class="cc-modal-head">
+                <b>Structure Properties</b>
+                <button class="cc-btn" @click="$store.chemCanvas.properties = null"><span class="material-symbols-outlined">close</span></button>
+              </div>
+              <div class="cc-modal-body">
+                <div class="cc-detail-svg" x-html="$store.chemCanvas.properties.svg"></div>
+                <table class="cc-prop">
+                  <tr><td>Canonical SMILES</td><td><code x-text="$store.chemCanvas.properties.convert.canonical"></code></td></tr>
+                  <tr><td>Formula</td><td x-text="$store.chemCanvas.properties.convert.formula"></td></tr>
+                  <tr><td>MW</td><td x-text="$store.chemCanvas.properties.convert.mw"></td></tr>
+                  <tr><td>InChIKey</td><td x-text="$store.chemCanvas.properties.convert.inchikey"></td></tr>
+                  <template x-if="$store.chemCanvas.properties.descriptors">
+                    <tr><td>Stereo centers</td><td x-text="$store.chemCanvas.properties.descriptors.stereocenters"></td></tr>
+                  </template>
+                  <template x-if="$store.chemCanvas.properties.descriptors">
+                    <tr><td>Atoms / bonds</td><td x-text="$store.chemCanvas.properties.descriptors.num_atoms + ' / ' + $store.chemCanvas.properties.descriptors.num_bonds"></td></tr>
+                  </template>
+                </table>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- 3D modal -->
+        <template x-if="$store.chemCanvas.show3d">
+          <div class="cc-modal" @click.self="$store.chemCanvas.show3d = false">
+            <div class="cc-modal-box">
+              <div class="cc-modal-head">
+                <b>3D Structure (ETKDG)</b>
+                <button class="cc-btn" @click="$store.chemCanvas.show3d = false"><span class="material-symbols-outlined">close</span></button>
+              </div>
+              <div id="cc-3d-canvas" style="width: 100%; height: 420px;"></div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <style>
+      .chem-canvas { height: 100%; display: flex; }
+      .cc-root { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--color-panel); }
+      .cc-topbar { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-bottom: 1px solid var(--color-border); flex-wrap: wrap; }
+      .cc-title { display: flex; align-items: center; gap: 6px; color: var(--color-primary); font-size: 0.95rem; white-space: nowrap; }
+      .cc-title .material-symbols-outlined { font-size: 20px; }
+      .cc-sub { color: var(--color-text-muted); font-size: 0.75rem; }
+      .cc-search { display: flex; gap: 4px; flex: 1; min-width: 220px; max-width: 420px; }
+      .cc-search input { flex: 1; padding: 5px 9px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-bg, #fff); color: var(--color-text); font-size: 0.78rem; }
+      .cc-actions { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+      .cc-tabselect { padding: 5px; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-bg, #fff); color: var(--color-text); font-size: 0.75rem; }
+      .cc-btn { display: inline-flex; align-items: center; justify-content: center; padding: 5px; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-panel); color: var(--color-primary); cursor: pointer; }
+      .cc-btn:hover { border-color: var(--color-primary); }
+      .cc-btn .material-symbols-outlined { font-size: 18px; }
+      .cc-sendto { display: flex; align-items: center; gap: 5px; padding: 4px 10px; border-bottom: 1px solid var(--color-border); flex-wrap: wrap; }
+      .cc-sendto-label { font-size: 0.68rem; color: var(--color-text-muted); }
+      .cc-chip { font-size: 0.68rem; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--color-border); background: var(--color-panel); color: var(--color-text); cursor: pointer; }
+      .cc-chip:hover { border-color: var(--color-primary); color: var(--color-primary); }
+      .cc-chip.cc-desktop { border-color: var(--color-primary); color: var(--color-primary); }
+      .cc-msg { color: #2e7d32; font-size: 0.7rem; margin-left: 6px; }
+      .cc-err { color: #c62828; font-size: 0.7rem; margin-left: 6px; }
+      .cc-main { flex: 1; display: flex; min-height: 0; }
+      .cc-left, .cc-right { width: 118px; flex-shrink: 0; padding: 8px; border-right: 1px solid var(--color-border); overflow-y: auto; }
+      .cc-right { border-right: none; border-left: 1px solid var(--color-border); width: 132px; }
+      .cc-rail-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); margin: 6px 0 4px; }
+      .cc-atomgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+      .cc-groupgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; }
+      .cc-atom { padding: 5px 2px; font-size: 0.72rem; font-weight: 600; border-radius: 7px; border: 1px solid var(--color-border); background: var(--color-panel); color: var(--color-text); cursor: pointer; }
+      .cc-atom:hover { border-color: var(--color-primary); color: var(--color-primary); }
+      .cc-grp { font-weight: 500; }
+      .cc-val { margin-top: 4px; }
+      .cc-badge { display: inline-block; font-size: 0.65rem; padding: 2px 8px; border-radius: 999px; }
+      .cc-ok { background: #e8f5e9; color: #2e7d32; }
+      .cc-bad { background: #ffebee; color: #c62828; }
+      .cc-muted { color: var(--color-text-muted); }
+      .cc-center { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
+      .cc-canvas-wrap { flex: 1; position: relative; min-height: 0; }
+      .cc-ketcher { width: 100%; height: 100%; border: none; background: #fff; }
+      .cc-jsme { width: 100%; height: 100%; display: flex; justify-content: center; }
+      .cc-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--color-text-muted); font-size: 0.8rem; background: var(--color-panel); }
+      .cc-cat-btn { width: 100%; display: flex; align-items: center; gap: 2px; font-size: 0.7rem; padding: 4px 4px; border: none; background: none; color: var(--color-text); cursor: pointer; text-align: left; }
+      .cc-cat-btn .material-symbols-outlined { font-size: 14px; }
+      .cc-cat-btn.open { color: var(--color-primary); font-weight: 600; }
+      .cc-cat-items { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 2px 0 6px 6px; }
+      .cc-tpl { font-size: 0.63rem; padding: 4px 2px; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-panel); color: var(--color-text); cursor: pointer; }
+      .cc-tpl:hover { border-color: var(--color-primary); color: var(--color-primary); }
+      .cc-lib { flex: 1; overflow-y: auto; padding: 10px; }
+      .cc-lib-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.85rem; }
+      .cc-lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+      .cc-card { border: 1px solid var(--color-border); border-radius: 10px; padding: 8px; cursor: pointer; background: var(--color-bg, #fff); }
+      .cc-card:hover { border-color: var(--color-primary); }
+      .cc-card-name { font-size: 0.72rem; font-weight: 600; word-break: break-all; }
+      .cc-card-meta { font-size: 0.62rem; color: var(--color-text-muted); margin: 3px 0; }
+      .cc-card-actions { display: flex; gap: 4px; }
+      .cc-mini { font-size: 0.62rem; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--color-border); background: none; cursor: pointer; color: var(--color-primary); }
+      .cc-empty { grid-column: 1 / -1; color: var(--color-text-muted); font-size: 0.75rem; padding: 18px; text-align: center; }
+      .cc-detail { display: flex; gap: 14px; margin-top: 14px; border-top: 1px solid var(--color-border); padding-top: 12px; }
+      .cc-detail-svg { width: 220px; flex-shrink: 0; background: #fff; border: 1px solid var(--color-border); border-radius: 10px; padding: 6px; }
+      .cc-detail-svg svg { width: 100%; height: auto; }
+      .cc-detail-info { flex: 1; min-width: 0; }
+      .cc-detail-name { font-size: 0.8rem; font-weight: 600; }
+      .cc-smiles { margin: 6px 0; }
+      .cc-smiles code { font-size: 0.68rem; word-break: break-all; }
+      .cc-prop { font-size: 0.7rem; border-collapse: collapse; }
+      .cc-prop td { padding: 2px 10px 2px 0; border-bottom: 1px dotted var(--color-border); }
+      .cc-prop td:first-child { color: var(--color-text-muted); }
+      .cc-detail-actions { display: flex; gap: 6px; margin-top: 8px; }
+      .cc-exchange { padding: 12px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+      .cc-xrow { display: flex; gap: 6px; }
+      .cc-xrow textarea { flex: 1; padding: 8px; border: 1px solid var(--color-border); border-radius: 8px; font-family: monospace; font-size: 0.72rem; resize: vertical; }
+      .cc-xresult { display: flex; flex-direction: column; gap: 4px; }
+      .cc-xresult label { font-size: 0.62rem; text-transform: uppercase; color: var(--color-text-muted); display: block; }
+      .cc-xresult code { font-size: 0.72rem; word-break: break-all; }
+      .cc-statusbar { display: flex; align-items: center; gap: 12px; padding: 4px 10px; border-top: 1px solid var(--color-border); font-size: 0.68rem; color: var(--color-text-muted); }
+      .cc-statusbar b { color: var(--color-text); }
+      .cc-grow { flex: 1; }
+      .cc-smilesbar { max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .cc-smilesbar code { font-size: 0.65rem; }
+      .cc-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 100; }
+      .cc-modal-box { background: var(--color-panel); border-radius: 12px; padding: 14px; max-width: 620px; width: 90%; max-height: 85vh; overflow-y: auto; }
+      .cc-modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+      .cc-modal-body { display: flex; gap: 14px; }
+      .cc-modal-body .cc-prop { flex: 1; }
+    </style>
+  </div>
+</body>
+</html>

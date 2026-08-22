@@ -1,6 +1,24 @@
 ﻿# BioDockify AI - AGENTS.md
 
-**Last updated: 2026-08-22 | Version: v7.26.0**
+**Last updated: 2026-08-22 | Version: v7.27.0**
+
+## Structure Draw Studio (2026-08-22) — v7.27.0 Release
+
+### ChemCanvas Hybrid — UI looks like ChemCanvas, powered beyond it
+- **ChemCanvas layout** replicated in web: left Atoms/Groups rail, right Templates palette (7 ChemCanvas categories: Aromatics, Heterocycles, Bicyclics, Bridged Polycyclics, Crown Ethers, Nucleobases, Amino Acids), top toolbar with PubChem name search, live status bar
+- **Ketcher 3.17 engine** (vendored `webui/vendor/ketcher/`, 30MB, Apache-2.0, offline Indigo-WASM): full ChemDraw-class canvas — 200+ templates, reactions, S-groups, R-groups, query props, CIP, aromatize, clean-up, undo/redo, MOL/RXN/SMILES/InChI/CDXML/SDF I/O
+- **JSME quick-draw** (vendored `webui/vendor/jsme/`, BSD-3 — previously dormant, now wired): lightweight editor for instant sketching
+- **SketChem-style live validation**: valence/sanitization warnings, implicit H count, stereo centers — RDKit-backed status bar
+- **ChemCanvas desktop bridge**: detects installed app (Windows exe / Linux flatpak-snap-AppImage-deb / PATH / override file), launches it with a library file via async subprocess; shared structure library `usr/structures/` (volume-mountable for Docker)
+- **API: api/chem_canvas.py** (11 actions): status, launch, files, import_file, export_file, depict, pubchem_lookup, clean2d, convert (SMILES/molblock → canonical/InChI/InChIKey/formula/MW/molblock), validate, save_to_kb
+- **3D view**: ETKDG via existing structure_3d API + shared Mol3DViewer (3Dmol.js)
+- **Send-To**: Docking, ADMET, Drug Analysis, Designer, Bioactivity, Retrosynthesis
+- **Agent brain**: prompts/agent.system.tool.chem_canvas.md — file-bridge workflow, PubChem lookup, conversion, validation
+- Feature study done on ChemCanvas (ksharindam) and SketChem (itayYaakov) repos; NO GPL code vendored — ChemCanvas stays a separate process, features reimplemented with Ketcher/JSME/RDKit
+
+### Registration & Docs
+- Desktop grid + All Tools launcher: 27 modules
+- Pharma Chemistry department workflow now starts with structure drawing
 
 ## Drug Discovery Suite (2026-08-22) — v7.26.0 Release
 

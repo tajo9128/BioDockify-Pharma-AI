@@ -50,7 +50,7 @@ BioDockify supports any OpenAI-compatible local LLM through its AI Engine module
 | **Privacy** | No telemetry, no egress, HIPAA/GDPR friendly, fully reproducible thesis work |
 | **Smoke tests** | 27/27 pass (`tests/test_local_llm.py`) |
 
-### 26 Consolidated Research Modules
+### 27 Consolidated Research Modules
 
 | # | Module | Function | Backend |
 |---|--------|----------|---------|
@@ -79,6 +79,7 @@ BioDockify supports any OpenAI-compatible local LLM through its AI Engine module
 | 24 | **Target Identification** | Disease-target search (OpenTargets/UniProt/ChEMBL), gene lookup, pathway enrichment, druggability assessment | live APIs + local fallback |
 | 25 | **Bioactivity Predictor** | IC50/pIC50 prediction per target class (RF on ECFP4), similar actives search, activity cliff/SAR analysis | RDKit + scikit-learn |
 | 26 | **Retrosynthesis Planner** | Multi-step route planning (BRICS + reaction templates), disconnection analysis, complexity score, building block lookup | RDKit |
+| 27 | **Structure Draw (ChemCanvas Studio)** | ChemCanvas-style UI: Ketcher 3 canvas (templates, reactions, S-groups, CIP, cleanup — offline Indigo WASM) + JSME quick-draw + PubChem lookup + SMILES/MOL/InChI conversion + live valence validation + 2D/3D view + structure library + ChemCanvas desktop bridge | Ketcher + JSME + RDKit |
 | — | **All Tools** | Quick-launch grid for all modules | N/A |
 
 ### Statistics — 56 Analysis Types (SPSS/jamovi-level)

@@ -7,7 +7,7 @@
 <body>
   <div x-data class="research-tools">
     <h2 class="tools-heading">All Tools</h2>
-    <p class="tools-desc">26 integrated research modules</p>
+    <p class="tools-desc">27 integrated research modules</p>
 
     <div class="tool-grid">
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('research-dashboard')">
@@ -17,6 +17,10 @@
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('target-id')">
         <span class="material-symbols-outlined">track_changes</span>
         <span class="tool-label">Target ID</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('chem-canvas')">
+        <span class="material-symbols-outlined">draw</span>
+        <span class="tool-label">Draw</span>
       </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('molecular-toolkit')">
         <span class="material-symbols-outlined">biotech</span>
