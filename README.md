@@ -50,7 +50,7 @@ BioDockify supports any OpenAI-compatible local LLM through its AI Engine module
 | **Privacy** | No telemetry, no egress, HIPAA/GDPR friendly, fully reproducible thesis work |
 | **Smoke tests** | 27/27 pass (`tests/test_local_llm.py`) |
 
-### 22 Consolidated Research Modules
+### 26 Consolidated Research Modules
 
 | # | Module | Function | Backend |
 |---|--------|----------|---------|
@@ -75,6 +75,10 @@ BioDockify supports any OpenAI-compatible local LLM through its AI Engine module
 | 20 | **Regulatory Affairs** | eCTD/CTD structure, 40+ ICH guidelines, stability planner, BE report, IND/NDA checklists | ICH database |
 | 21 | **Pharmacology** | Receptor binding (Kd/Bmax), dose-response 4PL (EC50/IC50), Schild pA2, operational model (τ/KA), selectivity, receptor DB, in-vivo design, **NCA PK/PD analysis** | scipy + RDKit |
 | 22 | **Medicinal Chemistry** | Murcko scaffolds, MMPA, Butina clustering, SMARTS search, SA score, retrosynthesis, named reactions, protecting groups, toxicophore scan, stereo analysis | RDKit |
+| 23 | **Molecule Designer** | Generative chemistry: BRICS recombination, genetic algorithm optimization, scaffold enumeration, multi-objective scoring (QED/SA/Lipinski) | RDKit |
+| 24 | **Target Identification** | Disease-target search (OpenTargets/UniProt/ChEMBL), gene lookup, pathway enrichment, druggability assessment | live APIs + local fallback |
+| 25 | **Bioactivity Predictor** | IC50/pIC50 prediction per target class (RF on ECFP4), similar actives search, activity cliff/SAR analysis | RDKit + scikit-learn |
+| 26 | **Retrosynthesis Planner** | Multi-step route planning (BRICS + reaction templates), disconnection analysis, complexity score, building block lookup | RDKit |
 | — | **All Tools** | Quick-launch grid for all modules | N/A |
 
 ### Statistics — 56 Analysis Types (SPSS/jamovi-level)

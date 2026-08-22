@@ -1,0 +1,429 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+
+    export const store = createStore("targetId", {
+      activeTab: "disease",
+      loading: false,
+      error: "",
+      message: "",
+
+      // Disease search
+      diseaseQuery: "",
+      diseaseResults: null,
+
+      // Gene search
+      geneQuery: "",
+      geneResult: null,
+
+      // Target details
+      detailGene: "",
+      detailResult: null,
+
+      // Pathway enrichment
+      pathwayGenes: "",
+      pathwayResult: null,
+
+      // Druggability
+      druggabilityGene: "",
+      druggabilityResult: null,
+
+      async searchDisease() {
+        if (!this.diseaseQuery.trim()) return;
+        this.loading = true; this.error = ""; this.diseaseResults = null;
+        try {
+          const r = await callJsonApi("target_identification", {
+            action: "search_disease",
+            disease: this.diseaseQuery.trim(),
+          });
+          if (r.error) { this.error = r.error; }
+          else { this.diseaseResults = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async searchGene() {
+        if (!this.geneQuery.trim()) return;
+        this.loading = true; this.error = ""; this.geneResult = null;
+        try {
+          const r = await callJsonApi("target_identification", {
+            action: "search_gene",
+            gene: this.geneQuery.trim(),
+          });
+          if (r.error) { this.error = r.error; }
+          else { this.geneResult = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async getDetails() {
+        if (!this.detailGene.trim()) return;
+        this.loading = true; this.error = ""; this.detailResult = null;
+        try {
+          const r = await callJsonApi("target_identification", {
+            action: "target_details",
+            gene: this.detailGene.trim(),
+          });
+          if (r.error) { this.error = r.error; }
+          else { this.detailResult = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async pathwayEnrichment() {
+        const genes = this.pathwayGenes.split(/[,\n]/).map(g => g.trim()).filter(g => g);
+        if (!genes.length) return;
+        this.loading = true; this.error = ""; this.pathwayResult = null;
+        try {
+          const r = await callJsonApi("target_identification", {
+            action: "pathways",
+            genes,
+          });
+          if (r.error) { this.error = r.error; }
+          else { this.pathwayResult = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async assessDruggability() {
+        if (!this.druggabilityGene.trim()) return;
+        this.loading = true; this.error = ""; this.druggabilityResult = null;
+        try {
+          const r = await callJsonApi("target_identification", {
+            action: "druggability",
+            gene: this.druggabilityGene.trim(),
+          });
+          if (r.error) { this.error = r.error; }
+          else { this.druggabilityResult = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      druggabilityColor(label) {
+        if (label === "high") return "#22c55e";
+        if (label === "medium") return "#f59e0b";
+        return "#ef4444";
+      },
+
+      scoreWidth(val) {
+        return Math.round(val * 100) + "%";
+      },
+
+      viewDetails(gene) {
+        this.detailGene = gene;
+        this.activeTab = "details";
+        this.getDetails();
+      },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="ti-panel">
+
+    <div class="ti-header">
+      <span class="material-symbols-outlined ti-icon">my_location</span>
+      <div><h2>Target Identification</h2>
+      <p class="ti-sub">Disease-target search · Gene lookup · Pathway enrichment · Druggability</p></div>
+    </div>
+
+    <div class="ti-tabs">
+      <button class="ti-tab" :class="{active:$store.targetId.activeTab==='disease'}" @click="$store.targetId.activeTab='disease'">
+        <span class="material-symbols-outlined">coronavirus</span> Disease</button>
+      <button class="ti-tab" :class="{active:$store.targetId.activeTab==='gene'}" @click="$store.targetId.activeTab='gene'">
+        <span class="material-symbols-outlined">genetics</span> Gene</button>
+      <button class="ti-tab" :class="{active:$store.targetId.activeTab==='details'}" @click="$store.targetId.activeTab='details'">
+        <span class="material-symbols-outlined">info</span> Details</button>
+      <button class="ti-tab" :class="{active:$store.targetId.activeTab==='pathways'}" @click="$store.targetId.activeTab='pathways'">
+        <span class="material-symbols-outlined">device_hub</span> Pathways</button>
+      <button class="ti-tab" :class="{active:$store.targetId.activeTab==='druggability'}" @click="$store.targetId.activeTab='druggability'">
+        <span class="material-symbols-outlined">medication</span> Druggability</button>
+    </div>
+
+    <div x-show="$store.targetId.error" class="ti-error" x-text="$store.targetId.error"></div>
+    <div x-show="$store.targetId.loading" class="ti-loading"><div class="loading-spinner"></div> Searching targets...</div>
+
+    <!-- DISEASE TAB -->
+    <div x-show="$store.targetId.activeTab==='disease'" class="ti-body">
+      <h3>Search Targets by Disease</h3>
+      <div class="ti-section">
+        <label class="ti-label">Disease / Indication</label>
+        <input type="text" x-model="$store.targetId.diseaseQuery" class="ti-input"
+          placeholder="e.g. cancer, alzheimer, diabetes, inflammation" @keyup.enter="$store.targetId.searchDisease()" />
+      </div>
+      <button class="ti-btn" @click="$store.targetId.searchDisease()" :disabled="$store.targetId.loading">
+        <span class="material-symbols-outlined">search</span> Search Targets
+      </button>
+
+      <template x-if="$store.targetId.diseaseResults">
+        <div class="ti-disease-results">
+          <div class="ti-results-meta">
+            <span x-text="$store.targetId.diseaseResults.num_targets + ' targets found'"></span>
+            <span class="ti-source" x-text="'Source: ' + $store.targetId.diseaseResults.source"></span>
+          </div>
+          <div class="ti-targets-grid">
+            <template x-for="(t, i) in ($store.targetId.diseaseResults.targets || [])" :key="i">
+              <div class="ti-target-card" @click="$store.targetId.viewDetails(t.gene)">
+                <div class="ti-target-head">
+                  <strong x-text="t.gene"></strong>
+                  <span class="ti-score-pill" x-text="'Score: ' + t.score"></span>
+                </div>
+                <p class="ti-target-name" x-text="t.name"></p>
+                <div class="ti-target-meta">
+                  <span class="ti-druggability-badge" :style="'color:' + $store.targetId.druggabilityColor(t.druggability)"
+                    x-text="t.druggability ? ('Druggability: ' + t.druggability) : ''"></span>
+                  <span x-show="t.known_drugs?.length" class="ti-drugs-count"
+                    x-text="t.known_drugs?.length + ' drug(s)'"></span>
+                </div>
+                <div class="ti-known-drugs" x-show="t.known_drugs?.length">
+                  <template x-for="d in (t.known_drugs || []).slice(0, 3)" :key="d">
+                    <span class="ti-drug-pill" x-text="d"></span>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- GENE TAB -->
+    <div x-show="$store.targetId.activeTab==='gene'" class="ti-body">
+      <h3>Look Up Gene / Target</h3>
+      <div class="ti-section">
+        <label class="ti-label">Gene Symbol</label>
+        <input type="text" x-model="$store.targetId.geneQuery" class="ti-input"
+          placeholder="e.g. EGFR, BRAF, TP53, JAK1" @keyup.enter="$store.targetId.searchGene()" />
+      </div>
+      <button class="ti-btn" @click="$store.targetId.searchGene()" :disabled="$store.targetId.loading">
+        <span class="material-symbols-outlined">search</span> Search Gene
+      </button>
+
+      <template x-if="$store.targetId.geneResult">
+        <div class="ti-gene-card">
+          <template x-if="$store.targetId.geneResult.found">
+            <div>
+              <h4 x-text="$store.targetId.geneResult.gene"></h4>
+              <p x-text="$store.targetId.geneResult.name"></p>
+              <div class="ti-gene-meta">
+                <span x-show="$store.targetId.geneResult.uniprot" x-text="'UniProt: ' + $store.targetId.geneResult.uniprot"></span>
+                <span x-text="'Source: ' + $store.targetId.geneResult.source"></span>
+              </div>
+              <button class="ti-btn-sm" @click="$store.targetId.viewDetails($store.targetId.geneResult.gene)">View Full Details</button>
+            </div>
+          </template>
+          <template x-if="!$store.targetId.geneResult.found">
+            <p class="ti-not-found" x-text="$store.targetId.geneResult.message || 'Gene not found'"></p>
+          </template>
+        </div>
+      </template>
+    </div>
+
+    <!-- DETAILS TAB -->
+    <div x-show="$store.targetId.activeTab==='details'" class="ti-body">
+      <h3>Target Details</h3>
+      <div class="ti-section">
+        <label class="ti-label">Gene Symbol</label>
+        <div class="ti-row">
+          <input type="text" x-model="$store.targetId.detailGene" class="ti-input"
+            placeholder="e.g. EGFR" @keyup.enter="$store.targetId.getDetails()" />
+          <button class="ti-btn" @click="$store.targetId.getDetails()" :disabled="$store.targetId.loading">Get Details</button>
+        </div>
+      </div>
+
+      <template x-if="$store.targetId.detailResult">
+        <div class="ti-detail-card">
+          <h4 x-text="$store.targetId.detailResult.gene + ' — ' + ($store.targetId.detailResult.name || '')"></h4>
+          <div class="ti-detail-grid">
+            <div class="ti-detail-item" x-show="$store.targetId.detailResult.uniprot">
+              <span class="ti-label">UniProt</span>
+              <span x-text="$store.targetId.detailResult.uniprot"></span>
+            </div>
+            <div class="ti-detail-item" x-show="$store.targetId.detailResult.chembl_id">
+              <span class="ti-label">ChEMBL</span>
+              <span x-text="$store.targetId.detailResult.chembl_id"></span>
+            </div>
+            <div class="ti-detail-item" x-show="$store.targetId.detailResult.druggability">
+              <span class="ti-label">Druggability</span>
+              <span :style="'color:' + $store.targetId.druggabilityColor($store.targetId.detailResult.druggability)"
+                x-text="$store.targetId.detailResult.druggability"></span>
+            </div>
+            <div class="ti-detail-item" x-show="$store.targetId.detailResult.target_type">
+              <span class="ti-label">Type</span>
+              <span x-text="$store.targetId.detailResult.target_type"></span>
+            </div>
+          </div>
+          <div class="ti-detail-section" x-show="$store.targetId.detailResult.known_drugs?.length">
+            <strong>Known Drugs</strong>
+            <div class="ti-drug-list">
+              <template x-for="d in ($store.targetId.detailResult.known_drugs || [])" :key="d">
+                <span class="ti-drug-pill" x-text="d"></span>
+              </template>
+            </div>
+          </div>
+          <div class="ti-detail-section" x-show="$store.targetId.detailResult.chembl_activities?.length">
+            <strong>ChEMBL Activities</strong>
+            <template x-for="(a, i) in ($store.targetId.detailResult.chembl_activities || [])" :key="i">
+              <div class="ti-activity-row">
+                <code x-text="a.compound"></code>
+                <span x-text="a.type + ': ' + a.value + ' ' + a.units"></span>
+                <span x-show="a.pic50" x-text="'pIC50: ' + a.pic50"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- PATHWAYS TAB -->
+    <div x-show="$store.targetId.activeTab==='pathways'" class="ti-body">
+      <h3>Pathway Enrichment</h3>
+      <div class="ti-section">
+        <label class="ti-label">Gene List (comma or newline separated)</label>
+        <textarea x-model="$store.targetId.pathwayGenes" class="ti-textarea" rows="3"
+          placeholder="EGFR, BRAF, KRAS, TP53&#10;or one per line"></textarea>
+      </div>
+      <button class="ti-btn" @click="$store.targetId.pathwayEnrichment()" :disabled="$store.targetId.loading">
+        <span class="material-symbols-outlined">device_hub</span> Analyze Pathways
+      </button>
+
+      <template x-if="$store.targetId.pathwayResult">
+        <div class="ti-pathway-results">
+          <p x-text="$store.targetId.pathwayResult.pathways_found + ' pathways enriched from ' + $store.targetId.pathwayResult.input_genes + ' genes'"></p>
+          <template x-for="(pw, i) in ($store.targetId.pathwayResult.enriched_pathways || [])" :key="i">
+            <div class="ti-pathway-card">
+              <strong x-text="pw.pathway"></strong>
+              <div class="ti-pw-bar-wrap">
+                <div class="ti-pw-bar" :style="'width:' + $store.targetId.scoreWidth(pw.enrichment_ratio)"></div>
+              </div>
+              <span class="ti-pw-genes" x-text="pw.genes.join(', ') + ' (' + pw.gene_count + ')'"></span>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+
+    <!-- DRUGGABILITY TAB -->
+    <div x-show="$store.targetId.activeTab==='druggability'" class="ti-body">
+      <h3>Druggability Assessment</h3>
+      <div class="ti-section">
+        <label class="ti-label">Gene Symbol</label>
+        <input type="text" x-model="$store.targetId.druggabilityGene" class="ti-input"
+          placeholder="e.g. EGFR, BACE1, TP53" @keyup.enter="$store.targetId.assessDruggability()" />
+      </div>
+      <button class="ti-btn" @click="$store.targetId.assessDruggability()" :disabled="$store.targetId.loading">
+        <span class="material-symbols-outlined">medication</span> Assess
+      </button>
+
+      <template x-if="$store.targetId.druggabilityResult">
+        <div class="ti-drugg-card">
+          <div class="ti-drugg-header">
+            <div class="ti-drugg-score-circle" :style="'border-color:' + $store.targetId.druggabilityColor($store.targetId.druggabilityResult.druggability)">
+              <span x-text="$store.targetId.druggabilityResult.druggability_score"></span>
+            </div>
+            <div>
+              <strong x-text="$store.targetId.druggabilityResult.gene"></strong>
+              <span class="ti-drugg-label" :style="'color:' + $store.targetId.druggabilityColor($store.targetId.druggabilityResult.druggability)"
+                x-text="$store.targetId.druggabilityResult.druggability + ' druggability'"></span>
+              <span class="ti-drugg-family" x-text="'Family: ' + $store.targetId.druggabilityResult.family"></span>
+            </div>
+          </div>
+
+          <div class="ti-drugg-section">
+            <strong>Assessment</strong>
+            <template x-for="(reason, i) in ($store.targetId.druggabilityResult.assessment_reasons || [])" :key="i">
+              <p class="ti-reason" x-text="reason"></p>
+            </template>
+          </div>
+
+          <div class="ti-drugg-section">
+            <strong>Suggested Modalities</strong>
+            <div class="ti-modalities">
+              <template x-for="m in ($store.targetId.druggabilityResult.suggested_modalities || [])" :key="m">
+                <span class="ti-modality-pill" x-text="m"></span>
+              </template>
+            </div>
+          </div>
+
+          <div class="ti-drugg-section" x-show="$store.targetId.druggabilityResult.known_drugs?.length">
+            <strong>Validated Drugs</strong>
+            <div class="ti-drug-list">
+              <template x-for="d in ($store.targetId.druggabilityResult.known_drugs || [])" :key="d">
+                <span class="ti-drug-pill" x-text="d"></span>
+              </template>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+
+  </div>
+
+  <style>
+    .ti-panel { padding: 1.5rem; max-width: 900px; margin: 0 auto; }
+    .ti-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+    .ti-icon { font-size: 2rem; color: var(--color-primary, #6366f1); }
+    .ti-header h2 { margin: 0; font-size: 1.4rem; }
+    .ti-sub { margin: 0; opacity: 0.6; font-size: 0.85rem; }
+    .ti-tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--color-border, #333); margin-bottom: 1.5rem; overflow-x: auto; }
+    .ti-tab { background: none; border: none; padding: 0.6rem 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; color: var(--color-text, #ccc); font-size: 0.85rem; border-bottom: 2px solid transparent; white-space: nowrap; }
+    .ti-tab.active { color: var(--color-primary, #6366f1); border-bottom-color: var(--color-primary, #6366f1); }
+    .ti-tab .material-symbols-outlined { font-size: 1.1rem; }
+    .ti-error { background: #1c0a0a; border: 1px solid #ef4444; color: #f87171; padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.85rem; }
+    .ti-loading { text-align: center; padding: 2rem; color: var(--color-primary, #6366f1); }
+    .ti-body { animation: fadeIn 0.2s; }
+    .ti-body h3 { font-size: 1.1rem; margin: 0 0 1rem 0; }
+    .ti-section { margin-bottom: 1rem; }
+    .ti-label { display: block; font-size: 0.8rem; opacity: 0.7; margin-bottom: 0.4rem; }
+    .ti-input { width: 100%; padding: 0.65rem 0.8rem; background: var(--color-panel, #1a1a2e); border: 1px solid var(--color-border, #333); border-radius: 6px; color: inherit; font-size: 0.9rem; }
+    .ti-textarea { width: 100%; padding: 0.65rem 0.8rem; background: var(--color-panel, #1a1a2e); border: 1px solid var(--color-border, #333); border-radius: 6px; color: inherit; font-family: monospace; font-size: 0.85rem; resize: vertical; }
+    .ti-row { display: flex; gap: 0.5rem; align-items: center; }
+    .ti-btn { display: inline-flex; align-items: center; gap: 0.4rem; background: var(--color-primary, #6366f1); color: #fff; border: none; padding: 0.65rem 1.2rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-top: 0.5rem; }
+    .ti-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .ti-btn-sm { background: var(--color-primary, #6366f1); color: #fff; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; margin-top: 0.5rem; }
+    .ti-results-meta { display: flex; gap: 1rem; font-size: 0.85rem; margin-bottom: 1rem; }
+    .ti-source { opacity: 0.5; }
+    .ti-targets-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem; }
+    .ti-target-card { background: var(--color-panel, #1a1a2e); border: 1px solid var(--color-border, #333); border-radius: 8px; padding: 0.85rem; cursor: pointer; transition: border-color 0.2s; }
+    .ti-target-card:hover { border-color: var(--color-primary, #6366f1); }
+    .ti-target-head { display: flex; justify-content: space-between; align-items: center; }
+    .ti-score-pill { font-size: 0.75rem; opacity: 0.7; }
+    .ti-target-name { font-size: 0.8rem; opacity: 0.7; margin: 0.3rem 0; }
+    .ti-target-meta { display: flex; gap: 1rem; font-size: 0.75rem; margin-bottom: 0.3rem; }
+    .ti-druggability-badge { font-weight: 500; text-transform: capitalize; }
+    .ti-drugs-count { opacity: 0.6; }
+    .ti-known-drugs, .ti-drug-list { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.3rem; }
+    .ti-drug-pill { background: #6366f122; color: #a5b4fc; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.7rem; }
+    .ti-gene-card { background: var(--color-panel, #1a1a2e); border: 1px solid var(--color-border, #333); border-radius: 8px; padding: 1rem; margin-top: 1rem; }
+    .ti-gene-card h4 { margin: 0 0 0.3rem 0; }
+    .ti-gene-card p { margin: 0 0 0.5rem 0; font-size: 0.85rem; opacity: 0.8; }
+    .ti-gene-meta { display: flex; gap: 1.5rem; font-size: 0.8rem; opacity: 0.6; margin-bottom: 0.5rem; }
+    .ti-not-found { opacity: 0.5; font-style: italic; }
+    .ti-detail-card { background: var(--color-panel, #1a1a2e); border: 1px solid var(--color-border, #333); border-radius: 10px; padding: 1.25rem; margin-top: 1rem; }
+    .ti-detail-card h4 { margin: 0 0 1rem 0; }
+    .ti-detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+    .ti-detail-item { font-size: 0.85rem; }
+    .ti-detail-item .ti-label { margin-bottom: 0.2rem; }
+    .ti-detail-section { margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--color-border, #222); }
+    .ti-detail-section strong { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; }
+    .ti-activity-row { display: flex; gap: 1rem; font-size: 0.8rem; padding: 0.3rem 0; border-bottom: 1px solid var(--color-border, #1a1a2e); }
+    .ti-pathway-results { margin-top: 1rem; }
+    .ti-pathway-card { background: var(--color-panel, #1a1a2e); border: 1px solid var(--color-border, #333); border-radius: 6px; padding: 0.75rem; margin-bottom: 0.5rem; }
+    .ti-pw-bar-wrap { height: 6px; background: #ffffff10; border-radius: 3px; overflow: hidden; margin: 0.4rem 0; }
+    .ti-pw-bar { height: 100%; background: var(--color-primary, #6366f1); border-radius: 3px; }
+    .ti-pw-genes { font-size: 0.75rem; opacity: 0.6; }
+    .ti-drugg-card { background: var(--color-panel, #1a1a2e); border: 1px solid var(--color-border, #333); border-radius: 10px; padding: 1.25rem; margin-top: 1rem; }
+    .ti-drugg-header { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1rem; }
+    .ti-drugg-score-circle { width: 70px; height: 70px; border-radius: 50%; border: 4px solid; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: 700; flex-shrink: 0; }
+    .ti-drugg-label { display: block; font-size: 0.9rem; text-transform: capitalize; margin-top: 0.2rem; }
+    .ti-drugg-family { display: block; font-size: 0.8rem; opacity: 0.6; }
+    .ti-drugg-section { margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid var(--color-border, #222); }
+    .ti-drugg-section strong { display: block; margin-bottom: 0.4rem; font-size: 0.85rem; }
+    .ti-reason { margin: 0.2rem 0; font-size: 0.8rem; opacity: 0.8; padding-left: 0.5rem; border-left: 2px solid var(--color-primary, #6366f1); }
+    .ti-modalities { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .ti-modality-pill { background: #22c55e22; color: #4ade80; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.75rem; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  </style>
+</body>
+</html>

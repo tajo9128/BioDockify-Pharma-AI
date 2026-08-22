@@ -1,0 +1,319 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+
+    export const store = createStore("retroSyn", {
+      activeTab: "plan",
+      loading: false,
+      error: "",
+      message: "",
+
+      // Plan tab
+      targetSmiles: "",
+      maxDepth: 4,
+      maxRoutes: 5,
+      routes: [],
+
+      // Disconnect tab
+      disconnectSmiles: "",
+      disconnections: null,
+
+      // Complexity tab
+      complexitySmiles: "",
+      complexityResult: null,
+
+      // Templates
+      templates: [],
+
+      async planRoutes() {
+        if (!this.targetSmiles.trim()) return;
+        this.loading = true; this.error = ""; this.routes = [];
+        try {
+          const r = await callJsonApi("retrosynthesis", {
+            action: "plan",
+            smiles: this.targetSmiles.trim(),
+            max_depth: this.maxDepth,
+            max_routes: this.maxRoutes,
+          });
+          if (r.error) { this.error = r.error; }
+          else {
+            this.routes = r.routes || [];
+            this.message = `Found ${this.routes.length} synthetic route(s)`;
+            if (this.routes.length) this.activeTab = "results";
+          }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+        setTimeout(() => { this.message = ""; }, 5000);
+      },
+
+      async disconnect() {
+        if (!this.disconnectSmiles.trim()) return;
+        this.loading = true; this.error = ""; this.disconnections = null;
+        try {
+          const r = await callJsonApi("retrosynthesis", {
+            action: "disconnect",
+            smiles: this.disconnectSmiles.trim(),
+          });
+          if (r.error) { this.error = r.error; }
+          else { this.disconnections = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async checkComplexity() {
+        if (!this.complexitySmiles.trim()) return;
+        this.loading = true; this.error = ""; this.complexityResult = null;
+        try {
+          const r = await callJsonApi("retrosynthesis", {
+            action: "complexity",
+            smiles: this.complexitySmiles.trim(),
+          });
+          if (r.error) { this.error = r.error; }
+          else { this.complexityResult = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async loadTemplates() {
+        try {
+          const r = await callJsonApi("retrosynthesis", { action: "templates" });
+          this.templates = r.templates || [];
+        } catch (e) { this.error = e.message; }
+      },
+
+      complexityColor(score) {
+        if (score <= 3) return "#22c55e";
+        if (score <= 5) return "#f59e0b";
+        if (score <= 7) return "#f97316";
+        return "#ef4444";
+      },
+
+      reliabilityBar(val) {
+        return `${Math.round(val * 100)}%`;
+      },
+    });
+  </script>
+</head>
+<body>
+  <div x-data x-init="$store.retroSyn.loadTemplates()" class="rs-panel">
+
+    <div class="rs-header">
+      <span class="material-symbols-outlined rs-icon">account_tree</span>
+      <div><h2>Retrosynthesis Planner</h2>
+      <p class="rs-sub">Automated route planning · BRICS disconnection · Reaction templates</p></div>
+    </div>
+
+    <div class="rs-tabs">
+      <button class="rs-tab" :class="{active:$store.retroSyn.activeTab==='plan'}" @click="$store.retroSyn.activeTab='plan'">
+        <span class="material-symbols-outlined">route</span> Plan</button>
+      <button class="rs-tab" :class="{active:$store.retroSyn.activeTab==='results'}" @click="$store.retroSyn.activeTab='results'">
+        <span class="material-symbols-outlined">analytics</span> Routes</button>
+      <button class="rs-tab" :class="{active:$store.retroSyn.activeTab==='disconnect'}" @click="$store.retroSyn.activeTab='disconnect'">
+        <span class="material-symbols-outlined">content_cut</span> Disconnect</button>
+      <button class="rs-tab" :class="{active:$store.retroSyn.activeTab==='complexity'}" @click="$store.retroSyn.activeTab='complexity'">
+        <span class="material-symbols-outlined">speed</span> Complexity</button>
+      <button class="rs-tab" :class="{active:$store.retroSyn.activeTab==='templates'}" @click="$store.retroSyn.activeTab='templates'">
+        <span class="material-symbols-outlined">library_books</span> Templates</button>
+    </div>
+
+    <div x-show="$store.retroSyn.error" class="rs-error" x-text="$store.retroSyn.error"></div>
+    <div x-show="$store.retroSyn.message" class="rs-msg" x-text="$store.retroSyn.message"></div>
+    <div x-show="$store.retroSyn.loading" class="rs-loading"><div class="loading-spinner"></div> Computing retrosynthesis...</div>
+
+    <!-- PLAN TAB -->
+    <div x-show="$store.retroSyn.activeTab==='plan'" class="rs-body">
+      <h3>Plan Synthesis Routes</h3>
+      <div class="rs-section">
+        <label class="rs-label">Target Molecule (SMILES)</label>
+        <input type="text" x-model="$store.retroSyn.targetSmiles" class="rs-input"
+          placeholder="e.g. CC(=O)Nc1ccc(O)cc1 (Paracetamol)" />
+      </div>
+      <div class="rs-row">
+        <div class="rs-section">
+          <label class="rs-label">Max Depth</label>
+          <input type="number" x-model="$store.retroSyn.maxDepth" class="rs-input-sm" min="1" max="6" />
+        </div>
+        <div class="rs-section">
+          <label class="rs-label">Max Routes</label>
+          <input type="number" x-model="$store.retroSyn.maxRoutes" class="rs-input-sm" min="1" max="10" />
+        </div>
+      </div>
+      <button class="rs-btn" @click="$store.retroSyn.planRoutes()" :disabled="$store.retroSyn.loading">
+        <span class="material-symbols-outlined">play_arrow</span> Plan Routes
+      </button>
+    </div>
+
+    <!-- ROUTES TAB -->
+    <div x-show="$store.retroSyn.activeTab==='results'" class="rs-body">
+      <h3>Synthesis Routes</h3>
+      <template x-if="$store.retroSyn.routes.length === 0">
+        <p class="rs-empty">No routes yet. Go to Plan tab and enter a target molecule.</p>
+      </template>
+      <template x-for="(route, idx) in $store.retroSyn.routes" :key="idx">
+        <div class="rs-route-card">
+          <div class="rs-route-header">
+            <span class="rs-rank" x-text="'#' + route.rank"></span>
+            <span class="rs-score">Score: <strong x-text="route.rank_score"></strong></span>
+            <span class="rs-steps" x-text="route.num_steps + ' step(s)'"></span>
+            <span class="rs-badge" :class="route.all_purchasable ? 'badge-green' : 'badge-yellow'"
+              x-text="route.all_purchasable ? 'All purchasable' : 'Needs custom synthesis'"></span>
+          </div>
+          <div class="rs-route-body">
+            <div class="rs-step" x-show="route.first_step">
+              <strong x-text="route.first_step?.reaction || 'Disconnection'"></strong>
+              <span class="rs-reliability" x-text="'Reliability: ' + Math.round((route.first_step?.reliability || 0) * 100) + '%'"></span>
+            </div>
+            <div class="rs-precursors" x-show="route.precursors">
+              <span class="rs-label-sm">Precursors:</span>
+              <template x-for="p in (route.precursors || [])" :key="p.smiles">
+                <code class="rs-smi" x-text="p.smiles"></code>
+              </template>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- DISCONNECT TAB -->
+    <div x-show="$store.retroSyn.activeTab==='disconnect'" class="rs-body">
+      <h3>Single-Step Disconnection</h3>
+      <div class="rs-section">
+        <label class="rs-label">Molecule SMILES</label>
+        <input type="text" x-model="$store.retroSyn.disconnectSmiles" class="rs-input"
+          placeholder="Enter target SMILES for disconnection analysis" />
+      </div>
+      <button class="rs-btn" @click="$store.retroSyn.disconnect()" :disabled="$store.retroSyn.loading">
+        <span class="material-symbols-outlined">content_cut</span> Analyze Disconnections
+      </button>
+      <template x-if="$store.retroSyn.disconnections">
+        <div class="rs-disc-results">
+          <p class="rs-disc-count" x-text="'Found ' + ($store.retroSyn.disconnections.disconnections?.length || 0) + ' disconnection options'"></p>
+          <template x-for="(d, i) in ($store.retroSyn.disconnections.disconnections || [])" :key="i">
+            <div class="rs-disc-card">
+              <strong x-text="d.reaction || d.method || 'Disconnection'"></strong>
+              <div class="rs-disc-frags">
+                <template x-for="f in (d.fragments || d.precursors || [])" :key="f">
+                  <code class="rs-smi" x-text="f"></code>
+                </template>
+              </div>
+              <span class="rs-reliability" x-show="d.reliability" x-text="'Reliability: ' + Math.round((d.reliability || 0) * 100) + '%'"></span>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+
+    <!-- COMPLEXITY TAB -->
+    <div x-show="$store.retroSyn.activeTab==='complexity'" class="rs-body">
+      <h3>Synthetic Complexity</h3>
+      <div class="rs-section">
+        <label class="rs-label">Molecule SMILES</label>
+        <input type="text" x-model="$store.retroSyn.complexitySmiles" class="rs-input"
+          placeholder="Enter SMILES to estimate synthetic complexity" />
+      </div>
+      <button class="rs-btn" @click="$store.retroSyn.checkComplexity()" :disabled="$store.retroSyn.loading">
+        <span class="material-symbols-outlined">speed</span> Estimate Complexity
+      </button>
+      <template x-if="$store.retroSyn.complexityResult">
+        <div class="rs-complexity-result">
+          <div class="rs-complexity-score">
+            <div class="rs-score-circle" :style="'border-color:' + $store.retroSyn.complexityColor($store.retroSyn.complexityResult.complexity_score)">
+              <span x-text="$store.retroSyn.complexityResult.complexity_score"></span>
+            </div>
+            <span class="rs-difficulty" x-text="$store.retroSyn.complexityResult.difficulty"></span>
+          </div>
+          <div class="rs-factors">
+            <h4>Contributing Factors</h4>
+            <template x-for="(val, key) in ($store.retroSyn.complexityResult.factors || {})" :key="key">
+              <div class="rs-factor-row">
+                <span x-text="key.replace('_', ' ')"></span>
+                <strong x-text="val"></strong>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- TEMPLATES TAB -->
+    <div x-show="$store.retroSyn.activeTab==='templates'" class="rs-body">
+      <h3>Reaction Templates Library</h3>
+      <div class="rs-templates-grid">
+        <template x-for="t in $store.retroSyn.templates" :key="t.name">
+          <div class="rs-template-card">
+            <strong x-text="t.name"></strong>
+            <span class="rs-template-cat" x-text="t.category"></span>
+            <div class="rs-template-details">
+              <span x-text="'Reagents: ' + (t.reagents || []).join(', ')"></span>
+              <span x-text="'Conditions: ' + (t.conditions || '')"></span>
+              <div class="rs-template-reliability">
+                <div class="rs-bar" :style="'width:' + $store.retroSyn.reliabilityBar(t.reliability)"></div>
+                <span x-text="$store.retroSyn.reliabilityBar(t.reliability)"></span>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+  </div>
+
+  <style>
+    .rs-panel { padding: 1.5rem; max-width: 900px; margin: 0 auto; }
+    .rs-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+    .rs-icon { font-size: 2rem; color: var(--color-primary, #6366f1); }
+    .rs-header h2 { margin: 0; font-size: 1.4rem; }
+    .rs-sub { margin: 0; opacity: 0.6; font-size: 0.85rem; }
+    .rs-tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--color-border, #333); margin-bottom: 1.5rem; overflow-x: auto; }
+    .rs-tab { background: none; border: none; padding: 0.6rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; color: var(--color-text, #ccc); font-size: 0.85rem; border-bottom: 2px solid transparent; white-space: nowrap; }
+    .rs-tab.active { color: var(--color-primary, #6366f1); border-bottom-color: var(--color-primary, #6366f1); }
+    .rs-tab .material-symbols-outlined { font-size: 1.1rem; }
+    .rs-error { background: #1c0a0a; border: 1px solid #ef4444; color: #f87171; padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.85rem; }
+    .rs-msg { background: #0a1c1a; border: 1px solid #22c55e; color: #4ade80; padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.85rem; }
+    .rs-loading { text-align: center; padding: 2rem; color: var(--color-primary, #6366f1); }
+    .rs-body { animation: fadeIn 0.2s; }
+    .rs-body h3 { font-size: 1.1rem; margin: 0 0 1rem 0; }
+    .rs-section { margin-bottom: 1rem; }
+    .rs-label { display: block; font-size: 0.8rem; opacity: 0.7; margin-bottom: 0.4rem; }
+    .rs-input { width: 100%; padding: 0.65rem 0.8rem; background: var(--color-panel, #1a1a2e); border: 1px solid var(--color-border, #333); border-radius: 6px; color: inherit; font-family: monospace; font-size: 0.9rem; }
+    .rs-input-sm { width: 80px; padding: 0.5rem; background: var(--color-panel, #1a1a2e); border: 1px solid var(--color-border, #333); border-radius: 6px; color: inherit; text-align: center; }
+    .rs-row { display: flex; gap: 1rem; }
+    .rs-btn { display: inline-flex; align-items: center; gap: 0.4rem; background: var(--color-primary, #6366f1); color: #fff; border: none; padding: 0.65rem 1.2rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-top: 0.5rem; }
+    .rs-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .rs-empty { opacity: 0.5; font-style: italic; }
+    .rs-route-card { background: var(--color-panel, #1a1a2e); border: 1px solid var(--color-border, #333); border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; }
+    .rs-route-header { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+    .rs-rank { font-weight: 700; font-size: 1.1rem; color: var(--color-primary, #6366f1); }
+    .rs-score { font-size: 0.85rem; opacity: 0.8; }
+    .rs-steps { font-size: 0.8rem; opacity: 0.6; }
+    .rs-badge { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 99px; }
+    .badge-green { background: #16a34a22; color: #4ade80; border: 1px solid #22c55e44; }
+    .badge-yellow { background: #f59e0b22; color: #fbbf24; border: 1px solid #f59e0b44; }
+    .rs-route-body { font-size: 0.85rem; }
+    .rs-step { margin-bottom: 0.4rem; }
+    .rs-reliability { font-size: 0.8rem; opacity: 0.6; margin-left: 0.5rem; }
+    .rs-smi { display: inline-block; background: #ffffff08; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; margin: 0.2rem 0.3rem 0.2rem 0; word-break: break-all; }
+    .rs-label-sm { font-size: 0.8rem; opacity: 0.6; }
+    .rs-disc-results { margin-top: 1rem; }
+    .rs-disc-card { background: var(--color-panel, #1a1a2e); border: 1px solid var(--color-border, #333); border-radius: 6px; padding: 0.75rem; margin-bottom: 0.5rem; }
+    .rs-disc-frags { margin-top: 0.4rem; }
+    .rs-complexity-result { display: flex; gap: 2rem; align-items: flex-start; margin-top: 1rem; }
+    .rs-complexity-score { text-align: center; }
+    .rs-score-circle { width: 80px; height: 80px; border-radius: 50%; border: 4px solid; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 700; }
+    .rs-difficulty { display: block; margin-top: 0.5rem; font-size: 0.85rem; text-transform: capitalize; }
+    .rs-factors h4 { margin: 0 0 0.5rem 0; font-size: 0.9rem; }
+    .rs-factor-row { display: flex; justify-content: space-between; gap: 2rem; font-size: 0.85rem; padding: 0.25rem 0; border-bottom: 1px solid var(--color-border, #222); text-transform: capitalize; }
+    .rs-templates-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.75rem; }
+    .rs-template-card { background: var(--color-panel, #1a1a2e); border: 1px solid var(--color-border, #333); border-radius: 8px; padding: 0.85rem; }
+    .rs-template-card strong { display: block; margin-bottom: 0.3rem; }
+    .rs-template-cat { font-size: 0.75rem; opacity: 0.5; text-transform: uppercase; }
+    .rs-template-details { margin-top: 0.5rem; font-size: 0.8rem; opacity: 0.7; }
+    .rs-template-details span { display: block; margin-bottom: 0.2rem; }
+    .rs-template-reliability { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.3rem; }
+    .rs-bar { height: 6px; background: var(--color-primary, #6366f1); border-radius: 3px; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  </style>
+</body>
+</html>

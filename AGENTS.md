@@ -1,6 +1,27 @@
 ﻿# BioDockify AI - AGENTS.md
 
-**Last updated: 2026-07-18 | Version: v7.5.2**
+**Last updated: 2026-08-22 | Version: v7.26.0**
+
+## Drug Discovery Suite (2026-08-22) — v7.26.0 Release
+
+### 3 New Modules (full-stack: api/ + modules/ + webui/ + agent brain prompts)
+- **Target Identification**: disease-target search (OpenTargets/UniProt/ChEMBL live APIs + curated local fallback), gene lookup, pathway enrichment, druggability assessment — 5 API actions
+- **Bioactivity Predictor**: IC50/pIC50 prediction per target class (8 classes: kinase, gpcr, protease, nuclear_receptor, ion_channel, transporter, epigenetic, general), similar actives search, activity cliff/SAR analysis — 5 API actions
+- **Retrosynthesis Planner**: multi-step route planning (BRICS + 16 reaction templates), disconnection analysis, complexity score, purchasable building block lookup — 5 API actions
+
+### Agent Zero Brain Wiring (new in this release)
+- Each module ships a `prompts/agent.system.tool.<name>.md` brain file — auto-globbed into the system prompt, teaching the agent when/how to call the module via code_execution
+- Pharma Chemistry department workflow chain updated: Target ID → Virtual screening → Bioactivity prediction → Synthesis planning → Assay → SAR optimization
+
+### Bug Fixes
+- **ApiHandler constructor**: `app`/`thread_lock` args now optional — bare instantiation `DockingRun()` (as written in all brain prompt examples) no longer raises TypeError
+- **Retrosynthesis API**: `plan` action passed unsupported `max_depth` kwarg (TypeError on every call) — planner now accepts `max_depth` properly
+- **Retrosynthesis `building_blocks`**: was passing routes dict into a function that takes SMILES — fixed
+- **BRICS dummy atoms**: only `[1*]`-`[8*]` were capped with H; higher labels (`[16*]` etc.) leaked through as fake "purchasable" fragments — all `[n*]` now capped, wildcard-containing molecules rejected as purchasable
+
+### Registration & Docs
+- Desktop grid + All Tools launcher: 3 new icons (26 modules total)
+- README module table: added Molecule Designer (was missing from v7.25.0) + 3 new modules, count 22 → 26
 
 ## Stability Sprints (2026-07-18) — v7.5.2 Release
 

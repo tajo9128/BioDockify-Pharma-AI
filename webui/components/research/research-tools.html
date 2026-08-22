@@ -7,12 +7,16 @@
 <body>
   <div x-data class="research-tools">
     <h2 class="tools-heading">All Tools</h2>
-    <p class="tools-desc">22 integrated research modules</p>
+    <p class="tools-desc">26 integrated research modules</p>
 
     <div class="tool-grid">
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('research-dashboard')">
         <span class="material-symbols-outlined">rocket_launch</span>
         <span class="tool-label">Research CMD</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('target-id')">
+        <span class="material-symbols-outlined">track_changes</span>
+        <span class="tool-label">Target ID</span>
       </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('molecular-toolkit')">
         <span class="material-symbols-outlined">biotech</span>
@@ -49,6 +53,10 @@
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('gen-chem')">
         <span class="material-symbols-outlined">science</span>
         <span class="tool-label">Designer</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('bioactivity')">
+        <span class="material-symbols-outlined">insights</span>
+        <span class="tool-label">Bioactivity</span>
       </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('knowledge')">
         <span class="material-symbols-outlined">psychology</span>
@@ -93,6 +101,10 @@
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('medicinal_chemistry')">
         <span class="material-symbols-outlined">science</span>
         <span class="tool-label">Med Chemistry</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('retrosynthesis')">
+        <span class="material-symbols-outlined">alt_route</span>
+        <span class="tool-label">Retrosynthesis</span>
       </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('slides')">
         <span class="material-symbols-outlined">slideshow</span>
