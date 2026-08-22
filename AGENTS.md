@@ -1,6 +1,25 @@
 ﻿# BioDockify AI - AGENTS.md
 
-**Last updated: 2026-08-22 | Version: v7.27.0**
+**Last updated: 2026-08-22 | Version: v7.28.0**
+
+## Gap-Filler Suite (2026-08-22) — v7.28.0 Release
+
+Boltzmann Labs competitive analysis (boltzmann.co, 109-feature catalog) → 4 architecture-native gap fills. All pure-Python/RDKit, fully offline.
+
+### 3 New Modules + 1 Extended (30 modules total)
+- **RNA Therapeutics** (#28, `rna_design`): siRNA design (Reynolds 2004 + Tuschl + immune-motif flags + seed-aware off-target screening), codon optimization (E. coli/yeast/human/CHO, CAI Sharp&Li, translation-verified), RNA folding (ViennaRNA optional / Nussinov fallback), mRNA design properties (GC windows, runs, polyA), CRISPR guides (SpCas9 NGG + Cas12a TTTV, rule scores, seed double-weighted off-targets) — 8 API actions. Covers Boltzmann's 20 RNA/DNA features.
+- **Reaction Lab** (#29, `reaction_lab`): forward reactions (12 templates + custom SMARTS, explicit-H handling), combinatorial enumeration, MCS atom mapping, ICH Q1A impurity/degradation prediction (16 SMARTS rules, degradant structures, risk score), condition recommendation (functional-group table + productive-template probe) — 6 API actions.
+- **EnviroTox** (#30, `envirotox`): BCF (Meylan 1999), Koc (Karickhoff 1981), fish 96h LC50 (Könemann 1981 narcosis + reactivity flags), biodegradability (BIOWIN-like rules), PBT/vPvB (REACH Annex XIII), green-chemistry flags, batch triage — validated: DDT → high/PBT/BCF 3869/LC50 0.085 vs aspirin/ethanol/paracetamol → low.
+- **Target ID extended**: `prioritize` + `prioritize_disease` — multi-criteria weighted ranking (association, druggability, essential-gene safety penalty, pathway centrality, novelty) with transparent rationale + Prioritize tab in UI.
+
+### Fixes During Testing
+- siRNA off-target: perfect-match count reporting bug
+- Reaction SMARTS: template [H] patterns need explicit hydrogens — AddHs before RunReactants, RemoveHs from products
+- EnviroTox: recursive SMARTS parse-failure crash (safe matcher), PBT "not a candidate" string matching bug
+
+### Wiring
+- 3 brain prompts + capabilities.md sections (#28-30) + main.specifics rows + Pharma Chemistry chain
+- Desktop grid + All Tools: 30 modules
 
 ## Structure Draw Studio (2026-08-22) — v7.27.0 Release
 

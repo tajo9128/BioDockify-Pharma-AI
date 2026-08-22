@@ -311,7 +311,8 @@ The agent finds and prioritizes drug targets — the starting point of target-ba
 - **Gene lookup & details**: function, associated diseases, known drugs, UniProt/ChEMBL data for any gene symbol (EGFR, BRAF, TP53...).
 - **Pathway enrichment**: over-represented pathways for a gene list (omics data handoff).
 - **Druggability assessment**: tractability, ligands, suggested modalities (small molecule / antibody / peptide).
-- After picking a target, hand off: Docking (structure-based), Pharmacophore (ligand-based), Bioactivity Predictor, Deep Research (evidence).
+- **Target prioritization**: multi-criteria weighted ranking (association + druggability + essential-gene safety penalty + pathway centrality + novelty) with transparent per-criterion rationale; `prioritize` (user candidates) and `prioritize_disease` (auto from disease search).
+- After picking a target, hand off: Docking (structure-based), Pharmacophore (ligand-based), Bioactivity Predictor, RNA Therapeutics (sequence-based knockdown), Deep Research (evidence).
 - Backend API: `target_identification` (5 actions: search_disease, search_gene, target_details, pathways, druggability) — call via `from api.target_identification import TargetIdentificationHandler`.
 
 ## Bioactivity Predictor (Module #25)
@@ -334,6 +335,37 @@ The agent plans synthesis routes to purchasable building blocks:
 - **Building blocks**: purchasable starting materials for a target (BRICS dummy atoms correctly H-capped).
 - Routes are template suggestions — recommend literature verification before wet lab.
 - Backend API: `retrosynthesis` (5 actions: plan, disconnect, complexity, building_blocks, templates) — call via `from api.retrosynthesis import RetrosynthesisHandler`.
+
+## RNA Therapeutics (Module #28)
+
+The agent designs RNA biologics — siRNA, mRNA, and CRISPR — all pure-Python, fully offline:
+
+- **siRNA design**: Reynolds 2004 + Tuschl guidelines; ranked 21-mer candidates (dTdT overhangs), GC/immune-motif flags, seed-region aware off-target screening against user transcripts.
+- **Codon optimization**: E. coli / yeast / human / CHO codon tables, CAI metric, balanced/best strategies, GC-run cleanup, translation-verified output (CDS DNA + mRNA).
+- **RNA folding**: MFE + dot-bracket (ViennaRNA when installed; Nussinov fallback — always works offline). ≤400 nt.
+- **mRNA properties**: GC windows (5'/3'), GC/AU runs, Kozak-like start, polyA signal, segment MFE.
+- **CRISPR guides**: SpCas9 (NGG) and Cas12a (TTTV); rule-based on-target scores, penalties, seed extraction, mismatch off-target screening with seed double-weighting.
+- Backend API: `rna_design` (8 actions: sirna_design, sirna_offtarget, codon_optimize, codon_hosts, fold, mrna_properties, crispr_guides, crispr_offtarget) — call via `from api.rna_design import RNADesignHandler`.
+
+## Reaction Lab (Module #29)
+
+The agent executes synthetic chemistry — the forward complement to Retrosynthesis:
+
+- **Forward reactions**: 12 named templates (amide coupling, Suzuki, reductive amination, Buchwald, SNAr...) + arbitrary reaction SMARTS; products with reagents/conditions.
+- **Library enumeration**: combinatorial products from building-block sets.
+- **Atom mapping**: MCS-based reactant→product conserved-atom correspondence.
+- **Impurity/degradation prediction**: ICH Q1A-aligned SMARTS rules (ester/amide hydrolysis, benzylic/thioether/N-oxide oxidation, dehydration, decarboxylation...) with predicted degradant structures and risk score.
+- **Condition recommendation**: functional-group detected reagent/solvent/temperature systems.
+- Backend API: `reaction_lab` (6 actions: reactions, forward, enumerate, atom_map, impurities, conditions) — call via `from api.reaction_lab import ReactionLabHandler`.
+
+## EnviroTox — Environmental Fate & Ecotoxicity (Module #30)
+
+The agent screens compounds for environmental risk (the environmental counterpart to human ADMET):
+
+- **BCF** (Meylan 1999) with REACH B/vB flags, **Koc** (Karickhoff 1981) + mobility class, **fish 96h LC50** (Könemann 1981 narcosis + reactive flags for nitro/Michael/halogenated), **biodegradability** (BIOWIN-like rules), **PBT/vPvB screening** (REACH Annex XIII), green-chemistry flags.
+- Overall concern triage: low/moderate/high. Batch mode for libraries.
+- Screening-level estimates — the agent must always label them as such (not OECD studies).
+- Backend API: `envirotox` (2 actions: assess, batch) — call via `from api.envirotox import EnviroToxHandler`.
 
 ## Vina/PDBQT Failure Prevention
 Self-healing PDBQT pipeline:

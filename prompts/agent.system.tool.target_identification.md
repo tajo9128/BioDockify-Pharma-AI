@@ -34,6 +34,8 @@ asyncio.run(find_targets())
 - `target_details` — deep dive on one gene: UniProt data, ChEMBL compounds, class
 - `pathways` — pathway enrichment for a gene list (`genes` array)
 - `druggability` — druggability assessment: tractability, ligands, safety
+- `prioritize` — multi-criteria weighted ranking of candidate targets (`candidates`: [{gene, association 0-1, known_drugs}], optional `weights`): association + druggability + safety (essential-gene penalty) + pathway centrality + novelty, with transparent rationale
+- `prioritize_disease` — convenience: fetch disease targets then prioritize (`disease`, `limit`)
 
 **Critical rules:**
 1. Report the data source (API vs local fallback) — offline results are less complete.

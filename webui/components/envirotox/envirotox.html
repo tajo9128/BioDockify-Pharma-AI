@@ -1,0 +1,175 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+
+    export const store = createStore("enviroTox", {
+      activeTab: "assess",
+      loading: false,
+      error: "",
+      message: "",
+
+      smiles: "Clc1ccc(C(c2ccc(Cl)cc2)Cl)cc1",
+      result: null,
+      batchText: "CCO\nCC(=O)Oc1ccccc1C(=O)O",
+      batchResult: null,
+
+      flash(msg) { this.message = msg; setTimeout(() => this.message = "", 2500); },
+
+      async assess() {
+        if (!this.smiles.trim()) { this.error = "Enter SMILES"; return; }
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("envirotox", { action: "assess", smiles: this.smiles.trim() });
+          if (r.error) { this.error = r.error; return; }
+          this.result = r;
+          this.flash(`Overall concern: ${r.overall_concern}`);
+        } finally { this.loading = false; }
+      },
+
+      async batch() {
+        const list = this.batchText.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+        if (!list.length) { this.error = "Enter SMILES list"; return; }
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("envirotox", { action: "batch", smiles_list: list });
+          if (r.error) { this.error = r.error; return; }
+          this.batchResult = r;
+          this.flash(`${r.count} compounds screened`);
+        } finally { this.loading = false; }
+      },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="envirotox">
+    <template x-if="$store.enviroTox">
+      <div class="et-root">
+        <div class="et-tabs">
+          <button :class="{active: $store.enviroTox.activeTab==='assess'}" @click="$store.enviroTox.activeTab='assess'">Assess</button>
+          <button :class="{active: $store.enviroTox.activeTab==='batch'}" @click="$store.enviroTox.activeTab='batch'">Batch Screen</button>
+          <span class="et-msg" x-show="$store.enviroTox.message" x-text="$store.enviroTox.message"></span>
+          <span class="et-err" x-show="$store.enviroTox.error" x-text="$store.enviroTox.error"></span>
+        </div>
+
+        <!-- Assess -->
+        <div class="et-panel" x-show="$store.enviroTox.activeTab==='assess'">
+          <div class="et-row">
+            <input x-model="$store.enviroTox.smiles" placeholder="Compound SMILES" @keydown.enter="$store.enviroTox.assess()">
+            <button class="et-btn" @click="$store.enviroTox.assess()" :disabled="$store.enviroTox.loading">Assess</button>
+          </div>
+          <template x-if="$store.enviroTox.result">
+            <div class="et-block">
+              <div class="et-concern" :class="'concern-' + $store.enviroTox.result.overall_concern">
+                Overall concern: <b x-text="$store.enviroTox.result.overall_concern.toUpperCase()"></b>
+                <span class="et-formula" x-text="$store.enviroTox.result.descriptors.formula + ' · logP ' + $store.enviroTox.result.descriptors.logp + ' · MW ' + $store.enviroTox.result.descriptors.mw"></span>
+              </div>
+
+              <div class="et-grid">
+                <div class="et-card">
+                  <b>Bioconcentration (BCF)</b>
+                  <div class="et-val"><b x-text="$store.enviroTox.result.bioconcentration.bcf_l_kg"></b> L/kg <span class="et-muted" x-text="'(log ' + $store.enviroTox.result.bioconcentration.log_bcf + ')'"></span></div>
+                  <div class="et-flags">
+                    <span class="et-flag bad" x-show="$store.enviroTox.result.bioconcentration.bioaccumulative_b">B ≥ 2000</span>
+                    <span class="et-flag bad" x-show="$store.enviroTox.result.bioconcentration.very_bioaccumulative_vb">vB ≥ 5000</span>
+                  </div>
+                  <div class="et-model" x-text="$store.enviroTox.result.bioconcentration.model"></div>
+                </div>
+                <div class="et-card">
+                  <b>Fish 96h LC50</b>
+                  <div class="et-val"><b x-text="$store.enviroTox.result.fish_toxicity_96h.lc50_mg_l"></b> mg/L</div>
+                  <div class="et-flags">
+                    <span class="et-flag bad" x-show="$store.enviroTox.result.fish_toxicity_96h.toxic_t">T &lt; 10 mg/L</span>
+                  </div>
+                  <div class="et-muted" x-text="$store.enviroTox.result.fish_toxicity_96h.mode_of_action.join('; ')"></div>
+                </div>
+                <div class="et-card">
+                  <b>Biodegradability</b>
+                  <div class="et-val" x-text="$store.enviroTox.result.biodegradability.verdict"></div>
+                  <div class="et-muted" x-text="'score ' + $store.enviroTox.result.biodegradability.biowin_like_score"></div>
+                  <div class="et-muted" x-text="$store.enviroTox.result.pbt_screen.classification"></div>
+                </div>
+                <div class="et-card">
+                  <b>Soil Adsorption (Koc)</b>
+                  <div class="et-val"><b x-text="$store.enviroTox.result.soil_adsorption.koc_l_kg"></b> L/kg</div>
+                  <div class="et-muted" x-text="$store.enviroTox.result.soil_adsorption.mobility"></div>
+                </div>
+              </div>
+
+              <div class="et-flags" x-show="$store.enviroTox.result.green_chemistry_flags.length">
+                <template x-for="f in $store.enviroTox.result.green_chemistry_flags" :key="f">
+                  <span class="et-flag warn" x-text="f"></span>
+                </template>
+              </div>
+              <div class="et-note" x-text="$store.enviroTox.result.disclaimer"></div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Batch -->
+        <div class="et-panel" x-show="$store.enviroTox.activeTab==='batch'">
+          <textarea x-model="$store.enviroTox.batchText" rows="4" placeholder="One SMILES per line"></textarea>
+          <button class="et-btn" @click="$store.enviroTox.batch()" :disabled="$store.enviroTox.loading">Screen Batch</button>
+          <template x-if="$store.enviroTox.batchResult">
+            <table class="et-table">
+              <thead><tr><th>SMILES</th><th>Formula</th><th>logP</th><th>BCF</th><th>LC50 mg/L</th><th>Biodeg</th><th>Concern</th></tr></thead>
+              <tbody>
+                <template x-for="r in $store.enviroTox.batchResult.results" :key="r.smiles">
+                  <tr>
+                    <td><code x-text="(r.smiles || r.error || '').slice(0, 34)"></code></td>
+                    <td x-text="r.formula || ''"></td>
+                    <td x-text="r.logp ?? ''"></td>
+                    <td x-text="r.bcf_l_kg ?? ''"></td>
+                    <td x-text="r.lc50_mg_l ?? ''"></td>
+                    <td class="et-muted" x-text="(r.biodeg || '').split(' ')[0]"></td>
+                    <td><span :class="'concern-badge-' + (r.concern || '')" x-text="r.concern || 'error'"></span></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </template>
+        </div>
+      </div>
+    </template>
+
+    <style>
+      .envirotox { height: 100%; overflow-y: auto; padding: 12px; }
+      .et-root { display: flex; flex-direction: column; gap: 10px; }
+      .et-tabs { display: flex; gap: 6px; align-items: center; }
+      .et-tabs button { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-panel); color: var(--color-text); cursor: pointer; font-size: 0.78rem; }
+      .et-tabs button.active { border-color: var(--color-primary); color: var(--color-primary); font-weight: 600; }
+      .et-msg { color: #2e7d32; font-size: 0.72rem; }
+      .et-err { color: #c62828; font-size: 0.72rem; }
+      .et-panel { display: flex; flex-direction: column; gap: 8px; }
+      .et-panel textarea { padding: 8px; border: 1px solid var(--color-border); border-radius: 8px; font-family: monospace; font-size: 0.72rem; resize: vertical; background: var(--color-bg, #fff); color: var(--color-text); }
+      .et-panel input { flex: 1; padding: 8px; border: 1px solid var(--color-border); border-radius: 8px; font-family: monospace; font-size: 0.72rem; background: var(--color-bg, #fff); color: var(--color-text); }
+      .et-row { display: flex; gap: 8px; }
+      .et-btn { padding: 7px 16px; border-radius: 8px; border: none; background: var(--color-primary); color: #fff; cursor: pointer; font-size: 0.78rem; }
+      .et-btn:disabled { opacity: 0.5; }
+      .et-block { border: 1px solid var(--color-border); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+      .et-concern { font-size: 0.9rem; padding: 6px 0; border-bottom: 1px solid var(--color-border); }
+      .et-formula { font-size: 0.7rem; color: var(--color-text-muted); margin-left: 10px; }
+      .concern-high { color: #c62828; }
+      .concern-moderate { color: #e65100; }
+      .concern-low { color: #2e7d32; }
+      .et-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+      .et-card { border: 1px solid var(--color-border); border-radius: 8px; padding: 8px; font-size: 0.72rem; display: flex; flex-direction: column; gap: 3px; }
+      .et-val { font-size: 0.85rem; }
+      .et-flags { display: flex; gap: 6px; flex-wrap: wrap; }
+      .et-flag { font-size: 0.62rem; padding: 2px 8px; border-radius: 999px; }
+      .et-flag.bad { background: #ffebee; color: #c62828; }
+      .et-flag.warn { background: #fff3e0; color: #e65100; }
+      .et-muted { color: var(--color-text-muted); font-size: 0.65rem; }
+      .et-model { color: var(--color-text-muted); font-size: 0.62rem; font-style: italic; }
+      .et-note { color: var(--color-text-muted); font-size: 0.66rem; font-style: italic; }
+      .et-table { border-collapse: collapse; font-size: 0.7rem; width: 100%; }
+      .et-table th { text-align: left; color: var(--color-text-muted); padding: 4px 8px; border-bottom: 1px solid var(--color-border); }
+      .et-table td { padding: 4px 8px; border-bottom: 1px dotted var(--color-border); }
+      .concern-badge-high { color: #c62828; font-weight: 600; }
+      .concern-badge-moderate { color: #e65100; font-weight: 600; }
+      .concern-badge-low { color: #2e7d32; }
+    </style>
+  </div>
+</body>
+</html>

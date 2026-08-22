@@ -30,6 +30,10 @@
       druggabilityGene: "",
       druggabilityResult: null,
 
+      // Prioritization
+      prioCandidates: "EGFR 0.9 3\nKRAS 0.85 1\nAPP 0.88 0\nPLK1 0.7 0",
+      prioResult: null,
+
       async searchDisease() {
         if (!this.diseaseQuery.trim()) return;
         this.loading = true; this.error = ""; this.diseaseResults = null;
@@ -101,6 +105,23 @@
         this.loading = false;
       },
 
+      async prioritize() {
+        const candidates = this.prioCandidates.split("\n")
+          .map(line => line.trim()).filter(Boolean)
+          .map(line => {
+            const [gene, association, knownDrugs] = line.split(/\s+/);
+            return { gene, association: parseFloat(association || 0.5), known_drugs: parseInt(knownDrugs || 0) };
+          });
+        if (!candidates.length) { this.error = "Enter candidates: GENE ASSOCIATION KNOWN_DRUGS per line"; return; }
+        this.loading = true; this.error = ""; this.prioResult = null;
+        try {
+          const r = await callJsonApi("target_identification", { action: "prioritize", candidates });
+          if (r.error) { this.error = r.error; }
+          else { this.prioResult = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
       druggabilityColor(label) {
         if (label === "high") return "#22c55e";
         if (label === "medium") return "#f59e0b";
@@ -139,6 +160,8 @@
         <span class="material-symbols-outlined">device_hub</span> Pathways</button>
       <button class="ti-tab" :class="{active:$store.targetId.activeTab==='druggability'}" @click="$store.targetId.activeTab='druggability'">
         <span class="material-symbols-outlined">medication</span> Druggability</button>
+      <button class="ti-tab" :class="{active:$store.targetId.activeTab==='prioritize'}" @click="$store.targetId.activeTab='prioritize'">
+        <span class="material-symbols-outlined">format_list_numbered</span> Prioritize</button>
     </div>
 
     <div x-show="$store.targetId.error" class="ti-error" x-text="$store.targetId.error"></div>
@@ -358,9 +381,56 @@
       </template>
     </div>
 
-  </div>
+    <!-- Prioritize -->
+    <div x-show="$store.targetId.activeTab==='prioritize'" class="ti-body">
+      <div class="ti-field">
+        <label>Candidates — one per line: <code>GENE ASSOCIATION(0-1) KNOWN_DRUGS</code></label>
+        <textarea x-model="$store.targetId.prioCandidates" rows="4" class="ti-input"></textarea>
+        <button class="ti-btn" @click="$store.targetId.prioritize()" :disabled="$store.targetId.loading">Prioritize Targets</button>
+      </div>
 
-  <style>
+      <template x-if="$store.targetId.prioResult">
+        <div>
+          <div class="ti-note" x-text="$store.targetId.prioResult.recommendation + ' — ' + $store.targetId.prioResult.note"></div>
+          <div class="ti-prio-list">
+            <template x-for="(t, i) in $store.targetId.prioResult.ranked_targets" :key="t.gene">
+              <div class="ti-prio-card" :class="{first: i===0}">
+                <div class="ti-prio-head">
+                  <span class="ti-prio-rank" x-text="'#' + (i+1)"></span>
+                  <strong x-text="t.gene"></strong>
+                  <span class="ti-prio-family" x-text="t.family"></span>
+                  <span class="ti-prio-score" x-text="t.weighted_score.toFixed(3)"></span>
+                </div>
+                <div class="ti-prio-criteria">
+                  <span x-text="'assoc ' + t.criteria.association"></span>
+                  <span x-text="'drugg ' + t.criteria.druggability"></span>
+                  <span x-text="'safety ' + t.criteria.safety"></span>
+                  <span x-text="'hub ' + t.criteria.pathway_centrality"></span>
+                  <span x-text="'novelty ' + t.criteria.novelty"></span>
+                  <span class="ti-prio-essential" x-show="t.essential_gene">⚠ essential gene</span>
+                </div>
+                <div class="ti-prio-rationale" x-text="t.rationale.join(' · ')"></div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    </div>
+
+    <style>
+      .ti-prio-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+      .ti-prio-card { border: 1px solid var(--color-border); border-radius: 10px; padding: 8px 12px; }
+      .ti-prio-card.first { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 6%, transparent); }
+      .ti-prio-head { display: flex; align-items: center; gap: 10px; }
+      .ti-prio-rank { color: var(--color-text-muted); font-size: 0.7rem; }
+      .ti-prio-family { color: var(--color-text-muted); font-size: 0.68rem; flex: 1; }
+      .ti-prio-score { font-weight: 700; color: var(--color-primary); }
+      .ti-prio-criteria { display: flex; gap: 10px; font-size: 0.64rem; color: var(--color-text-muted); margin: 4px 0; flex-wrap: wrap; }
+      .ti-prio-essential { color: #e65100; }
+      .ti-prio-rationale { font-size: 0.66rem; font-style: italic; color: var(--color-text-muted); }
+      .ti-note { font-size: 0.68rem; color: var(--color-text-muted); font-style: italic; margin: 6px 0; }
     .ti-panel { padding: 1.5rem; max-width: 900px; margin: 0 auto; }
     .ti-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
     .ti-icon { font-size: 2rem; color: var(--color-primary, #6366f1); }

@@ -1,0 +1,292 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+
+    export const store = createStore("rnaTherapy", {
+      activeTab: "sirna",
+      loading: false,
+      error: "",
+      message: "",
+
+      // siRNA
+      mrna: "",
+      sirnaResult: null,
+      otGuide: "",
+      otTranscripts: "",
+
+      // codon
+      protein: "MKTAYIAKQRQISFVKSHFSRQ",
+      host: "human",
+      codonResult: null,
+
+      // folding
+      foldSeq: "",
+      foldResult: null,
+
+      // mrna props
+      mrnaSeq: "",
+      mrnaResult: null,
+
+      // crispr
+      crisprDna: "",
+      nuclease: "spcas9",
+      crisprResult: null,
+
+      flash(msg) { this.message = msg; setTimeout(() => this.message = "", 2500); },
+
+      async designSirna() {
+        if (!this.mrna.trim()) { this.error = "Paste a target mRNA sequence"; return; }
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("rna_design", { action: "sirna_design", mrna: this.mrna.trim(), top: 10 });
+          if (r.error) { this.error = r.error; return; }
+          this.sirnaResult = r;
+          this.flash(`${r.passing} of ${r.total_candidates} candidates pass filters`);
+        } finally { this.loading = false; }
+      },
+
+      async sirnaOfftarget(row) {
+        this.otGuide = row.guide_19;
+        const transcripts = {};
+        transcripts["target_mRNA"] = this.mrna.trim();
+        if (this.otTranscripts.trim()) {
+          for (const line of this.otTranscripts.split("\n")) {
+            const [name, ...rest] = line.split(/\s+/, 2);
+            if (name && rest.length) transcripts[name] = rest.join("");
+          }
+        }
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("rna_design", { action: "sirna_offtarget", guide: row.guide_19, transcripts });
+          this.$store.rnaTherapy.otResult = r.error ? null : r;
+          if (r.error) this.error = r.error;
+          else this.flash(`${r.num_offtargets} off-targets (≤3 mismatches)`);
+        } finally { this.loading = false; }
+      },
+
+      async optimizeCodon() {
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("rna_design", { action: "codon_optimize", protein: this.protein.replace(/\s+/g, ""), host: this.host });
+          if (r.error) { this.error = r.error; return; }
+          this.codonResult = r;
+          this.flash(`CAI ${r.cai} · GC ${r.gc_percent}% · translation verified`);
+        } finally { this.loading = false; }
+      },
+
+      async fold() {
+        if (!this.foldSeq.trim()) { this.error = "Paste an RNA sequence"; return; }
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("rna_design", { action: "fold", sequence: this.foldSeq.trim() });
+          if (r.error) { this.error = r.error; return; }
+          this.foldResult = r;
+          this.flash(`MFE ${r.mfe} kcal/mol (${r.engine})`);
+        } finally { this.loading = false; }
+      },
+
+      async mrnaProps() {
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("rna_design", { action: "mrna_properties", sequence: this.mrnaSeq.trim() });
+          if (r.error) { this.error = r.error; return; }
+          this.mrnaResult = r;
+        } finally { this.loading = false; }
+      },
+
+      async designCrispr() {
+        if (!this.crisprDna.trim()) { this.error = "Paste target DNA"; return; }
+        this.loading = true; this.error = "";
+        try {
+          const r = await callJsonApi("rna_design", { action: "crispr_guides", target_dna: this.crisprDna.trim(), nuclease: this.nuclease, top: 10 });
+          if (r.error) { this.error = r.error; return; }
+          this.crisprResult = r;
+          this.flash(`${r.total_guides} guides found — top score ${r.recommended[0]?.on_target_score ?? '—'}`);
+        } finally { this.loading = false; }
+      },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="rna-therapy">
+    <template x-if="$store.rnaTherapy">
+      <div class="rt-root">
+        <div class="rt-tabs">
+          <button :class="{active: $store.rnaTherapy.activeTab==='sirna'}" @click="$store.rnaTherapy.activeTab='sirna'">siRNA Design</button>
+          <button :class="{active: $store.rnaTherapy.activeTab==='codon'}" @click="$store.rnaTherapy.activeTab='codon'">Codon Optimizer</button>
+          <button :class="{active: $store.rnaTherapy.activeTab==='fold'}" @click="$store.rnaTherapy.activeTab='fold'">RNA Folding</button>
+          <button :class="{active: $store.rnaTherapy.activeTab==='mrna'}" @click="$store.rnaTherapy.activeTab='mrna'">mRNA Properties</button>
+          <button :class="{active: $store.rnaTherapy.activeTab==='crispr'}" @click="$store.rnaTherapy.activeTab='crispr'">CRISPR Guides</button>
+          <span class="rt-msg" x-show="$store.rnaTherapy.message" x-text="$store.rnaTherapy.message"></span>
+          <span class="rt-err" x-show="$store.rnaTherapy.error" x-text="$store.rnaTherapy.error"></span>
+        </div>
+
+        <!-- siRNA -->
+        <div class="rt-panel" x-show="$store.rnaTherapy.activeTab==='sirna'">
+          <textarea x-model="$store.rnaTherapy.mrna" rows="4" placeholder="Paste target mRNA (min 40 nt, ACGU/ACGT)"></textarea>
+          <textarea x-model="$store.rnaTherapy.otTranscripts" rows="2" placeholder="Optional off-target transcripts: NAME SEQUENCE (one per line)"></textarea>
+          <button class="rt-btn" @click="$store.rnaTherapy.designSirna()" :disabled="$store.rnaTherapy.loading">Design siRNAs</button>
+          <template x-if="$store.rnaTherapy.sirnaResult">
+            <div>
+              <div class="rt-note" x-text="$store.rnaTherapy.sirnaResult.note"></div>
+              <table class="rt-table">
+                <thead><tr><th>Pos</th><th>Sense 21</th><th>Antisense 21</th><th>GC%</th><th>Reynolds</th><th>Flags</th><th></th></tr></thead>
+                <tbody>
+                  <template x-for="c in $store.rnaTherapy.sirnaResult.recommended" :key="c.position">
+                    <tr :class="{ok: c.passes}">
+                      <td x-text="c.position"></td>
+                      <td><code x-text="c.sense_21"></code></td>
+                      <td><code x-text="c.antisense_21"></code></td>
+                      <td x-text="c.gc_percent"></td>
+                      <td><b x-text="c.reynolds_score"></b></td>
+                      <td class="rt-warn" x-text="c.warnings.join('; ')"></td>
+                      <td><button class="rt-mini" @click="$store.rnaTherapy.sirnaOfftarget(c)">Off-target</button></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+              <template x-if="$store.rnaTherapy.otResult">
+                <div class="rt-block">
+                  <b>Off-target screen:</b> <span x-text="$store.rnaTherapy.otResult.num_offtargets"></span> hits ·
+                  perfect matches: <span x-text="$store.rnaTherapy.otResult.num_perfect_matches"></span>
+                  <table class="rt-table" x-show="$store.rnaTherapy.otResult.off_targets.length">
+                    <thead><tr><th>Transcript</th><th>Pos</th><th>MM</th><th>Seed MM</th><th>Aligned</th></tr></thead>
+                    <tbody>
+                      <template x-for="(h, i) in $store.rnaTherapy.otResult.off_targets.slice(0,8)" :key="i">
+                        <tr><td x-text="h.transcript"></td><td x-text="h.position"></td><td x-text="h.mismatches"></td>
+                            <td x-text="h.seed_mismatches" :class="{'rt-warn': h.seed_mismatches===0}"></td><td><code x-text="h.aligned"></code></td></tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- Codon -->
+        <div class="rt-panel" x-show="$store.rnaTherapy.activeTab==='codon'">
+          <textarea x-model="$store.rnaTherapy.protein" rows="3" placeholder="Protein sequence (single-letter AA)"></textarea>
+          <div class="rt-row">
+            <label>Host:</label>
+            <select x-model="$store.rnaTherapy.host">
+              <option value="human">Human</option><option value="ecoli">E. coli</option>
+              <option value="yeast">Yeast</option><option value="cho">CHO</option>
+            </select>
+            <button class="rt-btn" @click="$store.rnaTherapy.optimizeCodon()" :disabled="$store.rnaTherapy.loading">Optimize</button>
+          </div>
+          <template x-if="$store.rnaTherapy.codonResult">
+            <div class="rt-block">
+              <div class="rt-stats">
+                <span>CAI: <b x-text="$store.rnaTherapy.codonResult.cai"></b></span>
+                <span>GC: <b x-text="$store.rnaTherapy.codonResult.gc_percent + '%'"></b></span>
+                <span>Length: <b x-text="$store.rnaTherapy.codonResult.length_aa + ' aa'"></b></span>
+                <span x-show="$store.rnaTherapy.codonResult.translation_ok" class="rt-okk">✓ translation verified</span>
+              </div>
+              <label>CDS (DNA)</label><textarea readonly rows="3" x-text="$store.rnaTherapy.codonResult.cds_dna"></textarea>
+              <label>mRNA (U)</label><textarea readonly rows="3" x-text="$store.rnaTherapy.codonResult.mrna"></textarea>
+            </div>
+          </template>
+        </div>
+
+        <!-- Folding -->
+        <div class="rt-panel" x-show="$store.rnaTherapy.activeTab==='fold'">
+          <textarea x-model="$store.rnaTherapy.foldSeq" rows="3" placeholder="RNA sequence (≤400 nt)"></textarea>
+          <button class="rt-btn" @click="$store.rnaTherapy.fold()" :disabled="$store.rnaTherapy.loading">Fold</button>
+          <template x-if="$store.rnaTherapy.foldResult">
+            <div class="rt-block">
+              <div class="rt-stats">
+                <span>MFE: <b x-text="$store.rnaTherapy.foldResult.mfe + ' kcal/mol'"></b></span>
+                <span>GC: <b x-text="$store.rnaTherapy.foldResult.gc_percent + '%'"></b></span>
+                <span>Paired: <b x-text="($store.rnaTherapy.foldResult.paired_fraction*100).toFixed(0) + '%'"></b></span>
+                <span>Engine: <b x-text="$store.rnaTherapy.foldResult.engine"></b></span>
+              </div>
+              <pre class="rt-fold" x-text="$store.rnaTherapy.foldResult.sequence + '\n' + $store.rnaTherapy.foldResult.structure"></pre>
+            </div>
+          </template>
+        </div>
+
+        <!-- mRNA props -->
+        <div class="rt-panel" x-show="$store.rnaTherapy.activeTab==='mrna'">
+          <textarea x-model="$store.rnaTherapy.mrnaSeq" rows="4" placeholder="mRNA / CDS sequence"></textarea>
+          <button class="rt-btn" @click="$store.rnaTherapy.mrnaProps()" :disabled="$store.rnaTherapy.loading">Analyze</button>
+          <template x-if="$store.rnaTherapy.mrnaResult">
+            <table class="rt-table kv">
+              <template x-for="[k, v] of Object.entries($store.rnaTherapy.mrnaResult).filter(([k]) => k !== 'note')">
+                <tr><td x-text="k"></td><td x-text="v"></td></tr>
+              </template>
+              <tr><td colspan="2" class="rt-note" x-text="$store.rnaTherapy.mrnaResult.note"></td></tr>
+            </table>
+          </template>
+        </div>
+
+        <!-- CRISPR -->
+        <div class="rt-panel" x-show="$store.rnaTherapy.activeTab==='crispr'">
+          <textarea x-model="$store.rnaTherapy.crisprDna" rows="4" placeholder="Target DNA (ACGT, min 40 bp)"></textarea>
+          <div class="rt-row">
+            <label>Nuclease:</label>
+            <select x-model="$store.rnaTherapy.nuclease">
+              <option value="spcas9">SpCas9 (NGG)</option>
+              <option value="cas12a">Cas12a (TTTV)</option>
+            </select>
+            <button class="rt-btn" @click="$store.rnaTherapy.designCrispr()" :disabled="$store.rnaTherapy.loading">Design Guides</button>
+          </div>
+          <template x-if="$store.rnaTherapy.crisprResult">
+            <div>
+              <div class="rt-note" x-text="$store.rnaTherapy.crisprResult.note"></div>
+              <table class="rt-table">
+                <thead><tr><th>#</th><th>Guide (DNA)</th><th>PAM</th><th>Strand</th><th>GC%</th><th>Score</th><th>Penalties</th></tr></thead>
+                <tbody>
+                  <template x-for="(g, i) in $store.rnaTherapy.crisprResult.recommended" :key="i">
+                    <tr>
+                      <td x-text="i+1"></td>
+                      <td><code x-text="g.guide_rna"></code></td>
+                      <td x-text="g.pam"></td><td x-text="g.strand"></td>
+                      <td x-text="g.gc_percent"></td>
+                      <td><b x-text="g.on_target_score"></b></td>
+                      <td class="rt-warn" x-text="g.penalties.join('; ')"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </template>
+        </div>
+      </div>
+    </template>
+
+    <style>
+      .rna-therapy { height: 100%; overflow-y: auto; padding: 12px; }
+      .rt-root { display: flex; flex-direction: column; gap: 10px; }
+      .rt-tabs { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+      .rt-tabs button { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-panel); color: var(--color-text); cursor: pointer; font-size: 0.78rem; }
+      .rt-tabs button.active { border-color: var(--color-primary); color: var(--color-primary); font-weight: 600; }
+      .rt-msg { color: #2e7d32; font-size: 0.72rem; }
+      .rt-err { color: #c62828; font-size: 0.72rem; }
+      .rt-panel { display: flex; flex-direction: column; gap: 8px; }
+      .rt-panel textarea { padding: 8px; border: 1px solid var(--color-border); border-radius: 8px; font-family: monospace; font-size: 0.72rem; resize: vertical; background: var(--color-bg, #fff); color: var(--color-text); }
+      .rt-btn { align-self: flex-start; padding: 7px 16px; border-radius: 8px; border: none; background: var(--color-primary); color: #fff; cursor: pointer; font-size: 0.78rem; }
+      .rt-btn:disabled { opacity: 0.5; }
+      .rt-row { display: flex; gap: 8px; align-items: center; font-size: 0.75rem; }
+      .rt-row select { padding: 5px; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-bg, #fff); color: var(--color-text); }
+      .rt-table { border-collapse: collapse; font-size: 0.7rem; width: 100%; }
+      .rt-table th { text-align: left; color: var(--color-text-muted); padding: 4px 8px; border-bottom: 1px solid var(--color-border); }
+      .rt-table td { padding: 4px 8px; border-bottom: 1px dotted var(--color-border); }
+      .rt-table tr.ok td { background: color-mix(in srgb, #2e7d32 8%, transparent); }
+      .rt-table code { font-size: 0.68rem; }
+      .rt-warn { color: #c62828; font-size: 0.65rem; }
+      .rt-note { color: var(--color-text-muted); font-size: 0.68rem; font-style: italic; }
+      .rt-block { border: 1px solid var(--color-border); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+      .rt-block label { font-size: 0.65rem; text-transform: uppercase; color: var(--color-text-muted); }
+      .rt-block textarea { padding: 6px; border: 1px solid var(--color-border); border-radius: 6px; font-family: monospace; font-size: 0.68rem; background: var(--color-bg, #fff); color: var(--color-text); }
+      .rt-stats { display: flex; gap: 14px; font-size: 0.75rem; flex-wrap: wrap; }
+      .rt-okk { color: #2e7d32; }
+      .rt-fold { font-family: monospace; font-size: 0.75rem; letter-spacing: 1px; background: var(--color-bg, #fff); padding: 8px; border-radius: 6px; border: 1px solid var(--color-border); overflow-x: auto; white-space: pre; }
+      .rt-mini { font-size: 0.62rem; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--color-border); background: none; color: var(--color-primary); cursor: pointer; }
+      .kv td:first-child { color: var(--color-text-muted); width: 180px; }
+    </style>
+  </div>
+</body>
+</html>

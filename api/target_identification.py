@@ -19,10 +19,15 @@ class TargetIdentificationHandler(ApiHandler):
             return self._pathways(input)
         elif action == "druggability":
             return self._druggability(input)
+        elif action == "prioritize":
+            return self._prioritize(input)
+        elif action == "prioritize_disease":
+            return self._prioritize_disease(input)
         else:
             return {
-                "actions": ["search_disease", "search_gene", "target_details", "pathways", "druggability"],
-                "hint": "Target identification: find targets for diseases, gene lookup, pathway enrichment, druggability assessment",
+                "actions": ["search_disease", "search_gene", "target_details", "pathways",
+                            "druggability", "prioritize", "prioritize_disease"],
+                "hint": "Target identification: find targets for diseases, gene lookup, pathway enrichment, druggability assessment, multi-criteria prioritization",
             }
 
     def _search_disease(self, input: dict) -> dict:
@@ -70,3 +75,18 @@ class TargetIdentificationHandler(ApiHandler):
 
         from modules.target_identification.enrichment import druggability_assessment
         return druggability_assessment(gene)
+
+    def _prioritize(self, input: dict) -> dict:
+        candidates = input.get("candidates", [])
+        if not candidates:
+            return {"error": "candidates required: [{gene, association (0-1), known_drugs}]"}
+        from modules.target_identification import prioritize_targets
+        return prioritize_targets(candidates, weights=input.get("weights", None))
+
+    def _prioritize_disease(self, input: dict) -> dict:
+        disease = input.get("disease", "")
+        if not disease:
+            return {"error": "disease required"}
+        from modules.target_identification import prioritize_from_disease
+        return prioritize_from_disease(disease, limit=int(input.get("limit", 10)),
+                                       weights=input.get("weights", None))
