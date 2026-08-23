@@ -124,3 +124,7 @@ run_BIO.sh
 
 # Bonsai model (1.1 GB, bundled in Docker image but not in git)
 Bonsai-8B-Q1_0.gguf
+
+# local-only materials (not for repo)
+BioDockify_FDP_*.pptx
+seo/
