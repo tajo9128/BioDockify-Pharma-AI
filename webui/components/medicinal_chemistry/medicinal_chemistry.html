@@ -5,6 +5,8 @@
     import { callJsonApi } from "/js/api.js";
     export const store = createStore("medicinalChemistryModal", {
       activeTab: "murcko", loading: false, error: "", message: "",
+      rgMolecules: "", rgScaffold: "", rgResult: null,
+      afLead: "", afScaffold: "", afPosition: "", afResult: null,
       // Murcko
       mSmiles: "", mResult: null,
       // MMPA
@@ -25,6 +27,31 @@
       txSmiles: "", txResult: null,
       // Stereo
       stSmiles: "", stResult: null,
+
+      async runRGroup() {
+        const mols = this.rgMolecules.split(/[\n;]+/).map(s => s.trim()).filter(Boolean);
+        if (mols.length < 2) { this.error = "Need >=2 molecules (one SMILES per line)"; return; }
+        if (!this.rgScaffold.trim()) { this.error = "Scaffold SMILES required"; return; }
+        this.loading = true; this.error = ""; this.rgResult = null;
+        try {
+          const r = await callJsonApi("medicinal_chemistry", { action: "r_group", molecules: mols, scaffold: this.rgScaffold.trim() });
+          if (r.error) { this.error = r.error; } else { this.rgResult = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async runAnalogueFinder() {
+        if (!this.afLead.trim()) { this.error = "Lead SMILES required"; return; }
+        this.loading = true; this.error = ""; this.afResult = null;
+        try {
+          const payload = { action: "analogue_finder", smiles: this.afLead.trim() };
+          if (this.afScaffold.trim()) payload.scaffold = this.afScaffold.trim();
+          if (this.afPosition.trim()) payload.position = this.afPosition.trim();
+          const r = await callJsonApi("medicinal_chemistry", payload);
+          if (r.error) { this.error = r.error; } else { this.afResult = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
 
       async runMurcko() {
         if (!this.mSmiles) return;
@@ -163,6 +190,7 @@
     </div>
     <div class="dp-tabs">
       <button class="dp-tab" :class="{active:$store.medicinalChemistryModal.activeTab==='murcko'}" @click="$store.medicinalChemistryModal.activeTab='murcko'">Murcko</button>
+      <button class="dp-tab" :class="{active:$store.medicinalChemistryModal.activeTab==='rgroup'}" @click="$store.medicinalChemistryModal.activeTab='rgroup'">R-Groups</button>
       <button class="dp-tab" :class="{active:$store.medicinalChemistryModal.activeTab==='mmpa'}" @click="$store.medicinalChemistryModal.activeTab='mmpa'">MMPA</button>
       <button class="dp-tab" :class="{active:$store.medicinalChemistryModal.activeTab==='cluster'}" @click="$store.medicinalChemistryModal.activeTab='cluster'">Cluster</button>
       <button class="dp-tab" :class="{active:$store.medicinalChemistryModal.activeTab==='smarts'}" @click="$store.medicinalChemistryModal.activeTab='smarts'">SMARTS</button>
@@ -407,7 +435,49 @@
         </div>
       </div>
     </div>
-    <style>
+        <div x-show="$store.medicinalChemistryModal.activeTab==='rgroup'" class="dp-body">
+      <h3 style="font-size:0.8rem;margin:0 0 6px 0">R-Group Decomposition</h3>
+      <textarea x-model="$store.medicinalChemistryModal.rgMolecules" rows="4" placeholder="Molecule SMILES — one per line"></textarea>
+      <input x-model="$store.medicinalChemistryModal.rgScaffold" placeholder="Scaffold SMILES (e.g. O=C(O)c1ccccc1OC(C)=O)">
+      <button class="dp-btn" @click="$store.medicinalChemistryModal.runRGroup()" :disabled="$store.medicinalChemistryModal.loading">Decompose</button>
+      <template x-if="$store.medicinalChemistryModal.rgResult">
+        <div class="dp-card">
+          <b x-text="$store.medicinalChemistryModal.rgResult.n_matched + '/' + $store.medicinalChemistryModal.rgResult.n_input + ' matched'"></b>
+          <template x-for="(freq, pos) in $store.medicinalChemistryModal.rgResult.r_table" :key="pos">
+            <div style="font-size:0.7rem">
+              <b x-text="pos"></b>:
+              <template x-for="(count, sub) in freq" :key="sub">
+                <span style="margin-right:10px"><code x-text="sub"></code> &times;<span x-text="count"></span></span>
+              </template>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <h3 style="font-size:0.8rem;margin:14px 0 6px 0">Analogue Finder</h3>
+      <input x-model="$store.medicinalChemistryModal.afLead" placeholder="Lead SMILES (Murcko scaffold auto-derived)">
+      <div style="display:flex;gap:8px">
+        <input x-model="$store.medicinalChemistryModal.afScaffold" placeholder="Optional scaffold override" style="flex:2">
+        <input x-model="$store.medicinalChemistryModal.afPosition" placeholder="Position (e.g. R2)" style="flex:1">
+      </div>
+      <button class="dp-btn" @click="$store.medicinalChemistryModal.runAnalogueFinder()" :disabled="$store.medicinalChemistryModal.loading">Enumerate Analogues</button>
+      <template x-if="$store.medicinalChemistryModal.afResult">
+        <div class="dp-card">
+          <b x-text="$store.medicinalChemistryModal.afResult.n_analogues + ' analogues'"></b>
+          <span style="font-size:0.66rem;color:var(--color-text-muted)" x-text="'positions: ' + $store.medicinalChemistryModal.afResult.positions.join(', ')"></span>
+          <table style="width:100%;font-size:0.66rem;border-collapse:collapse">
+            <thead><tr><th style="text-align:left">R</th><th style="text-align:left">SMILES</th><th>MW</th><th>LogP</th><th>TPSA</th></tr></thead>
+            <tbody>
+              <template x-for="a in $store.medicinalChemistryModal.afResult.analogues" :key="a.smiles">
+                <tr><td x-text="a.r_group"></td><td><code x-text="a.smiles"></code></td><td x-text="a.mw"></td><td x-text="a.logp"></td><td x-text="a.tpsa"></td></tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </template>
+    </div>
+
+<style>
       .dp-panel{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background);font-family:inherit}
       .dp-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--color-border);background:var(--color-panel)}
       .dp-icon{font-size:24px;color:var(--color-primary)}

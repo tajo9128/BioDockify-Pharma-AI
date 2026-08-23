@@ -247,3 +247,6 @@ idx = _load_index()
 for e in idx["entries"][-20:]:   # most recent 20
     print(e["title"], "→", e["category"], "→", e["file"])
 ```
+| **Enzyme Kinetics** | Michaelis-Menten Vmax/Km fit, competitive Ki (Lineweaver-Burk), IC50 4PL + Cheng-Prusoff | "Fit Vmax and Km to my velocity data" or "What's the Ki?" |
+| **QbD / DoE Studio** | Exact factorial/Box-Behnken/CCD/Plackett-Burman designs, RSM with lack-of-fit + PRESS, mixture (Scheffé) designs | "Design experiments for 3 factors" or "Analyze my QbD runs" |
+| **R-Group SAR tools** | R-group decomposition (R-tables) + analogue enumeration (36 substituents with descriptors) | "Decompose this series on the scaffold" or "Make me analogues at R2" |

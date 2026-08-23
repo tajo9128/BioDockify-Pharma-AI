@@ -18,6 +18,12 @@
 - `operational_model` — Black-Leff model → τ (efficacy), KA (affinity), receptor reserve
 - `selectivity_ratio` — Kd/IC50 ratios across targets, therapeutic window, ≥30× rule
 - `receptor_database` — 25+ curated targets (GPCRs, RTKs, ion channels, transporters, enzymes)
-- `in_vivo_design` — animal model selection + power analysis (Lehr) + dosing for 5 endpoints
+
+
+**Enzyme Kinetics (v7.30.0, ported from biodockify-web):**
+- `enzyme_kinetics` — Michaelis-Menten nonlinear fit: Vmax, Km, R², LB cross-check, optional kcat → catalytic efficiency. Input: substrate[], velocity[].
+- `inhibition` — two modes: `competitive` (velocity matrix [I][S] → Lineweaver-Burk slopes vs [I] → Ki, shared Vmax, Km at I=0) or `ic50` (4PL → IC50, Hill; Ki via Cheng-Prusoff when km + [S] given). Input: inhibitor[], velocities (flat or matrix), substrate[], km.
+- Use kinetics when the user has enzyme velocity data, asks for Vmax/Km/Ki/IC50 of an ENZYME (dose_response is for receptor/ligand assays).
+- Report nonlinear-fit R² as primary; LB is a cross-check only.- `in_vivo_design` — animal model selection + power analysis (Lehr) + dosing for 5 endpoints
 
 **API endpoint:** `POST /api/pharmacology`

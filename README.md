@@ -86,6 +86,9 @@ BioDockify supports any OpenAI-compatible local LLM through its AI Engine module
 | 31 | **Network Pharmacology** | Compound-target networks vs disease targets: 68-compound curated DB + custom compounds, multi-target ranking, target hubs, pathway enrichment | curated DB + Target ID |
 | — | **Clinical signal detection** | Pharmacovigilance disproportionality: PRR + χ², ROR with 95% CI, Evans criteria, batch series | safety_signal |
 | — | **Dereplication+** | Formula analysis (RDBE, NP class hints, adduct m/z table) + ppm matching vs reference compounds | dereplication |
+| — | **Enzyme Kinetics** | Michaelis-Menten Vmax/Km fit, competitive Ki (LB), IC50 4PL + Cheng-Prusoff | scipy |
+| — | **QbD / DoE Studio** | Factorial/Box-Behnken/CCD/Plackett-Burman designs, RSM (lack-of-fit, PRESS), mixture Scheffé models | pure math |
+| — | **R-Group SAR** | R-group decomposition R-tables + analogue enumeration (36 substituents, descriptors) | RDKit RGD |
 | — | **All Tools** | Quick-launch grid for all modules | N/A |
 
 ### Statistics — 56 Analysis Types (SPSS/jamovi-level)

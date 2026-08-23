@@ -439,3 +439,9 @@ The agent has FULL INTERNET ACCESS for:
 - **PubChem Lookup**: Live compound data from PubChem PUG REST API
 - **Drug Properties**: Real-time calculation from SMILES using RDKit
 - **Deep Research**: Collect thousands of papers from 5+ databases, scan for relevance, store to knowledge base
+## Department Suite Upgrades (v7.30.0, ported from biodockify-web)
+
+- **Pharmacology — enzyme kinetics**: `enzyme_kinetics` (Michaelis-Menten Vmax/Km nonlinear fit + LB cross-check + kcat/Km) and `inhibition` (competitive Ki via Lineweaver-Burk slope-vs-[I]; IC50 via 4PL with Cheng-Prusoff Ki). Note: fixed a Ki sign bug present in the webapp source (-b/m is always negative; correct is b/m).
+- **Pharmaceutics — QbD/DoE studio**: exact designs (full factorial, central composite rotatable, Box-Behnken k=3-5, Plackett-Burman) + response-surface analysis with real adequacy diagnostics (lack-of-fit F vs pure error, PRESS predicted R², VIF) + mixture designs (simplex lattice/centroid/axial) with Scheffé models. Self-contained OLS (no external stats engine).
+- **Medicinal chemistry — R-group tools**: `r_group` decomposition (RDKit rdRGroupDecomposition, R-tables) and `analogue_finder` (36 common substituents at a chosen position, full descriptors; auto Murcko scaffold with dummy labeling). Note: RDKit's RGroupDecomposition.Add() returns the item index — 0 is success, not failure.
+

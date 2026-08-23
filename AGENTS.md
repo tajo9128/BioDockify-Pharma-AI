@@ -1,6 +1,38 @@
 ﻿# BioDockify AI - AGENTS.md
 
-**Last updated: 2026-08-23 | Version: v7.29.0**
+**Last updated: 2026-08-23 | Version: v7.30.0**
+
+## Department Suite Upgrade II (2026-08-23) — v7.30.0 Release
+
+Second port wave from biodockify-web — three department upgrades, all offline-native:
+
+### Pharmacology: Enzyme Kinetics (2 new actions)
+- `enzyme_kinetics`: Michaelis-Menten nonlinear fit (Vmax, Km, R²), Lineweaver-Burk
+  cross-check, optional kcat → catalytic efficiency — recovers exact ground truth
+- `inhibition`: competitive mode (velocity matrix → LB slopes vs [I] → Ki, shared Vmax,
+  Km at I=0) and IC50 mode (4PL + Cheng-Prusoff Ki)
+- **Fixed a genuine webapp bug**: Ki = -b/m is always negative and self-nulifies;
+  correct is Ki = b/m (x-intercept at I = -Ki)
+
+### Pharmaceutics: QbD / DoE Studio (4 new actions, ~2000 lines ported)
+- qbd_design: exact full factorial, central composite (rotatable α), Box-Behnken
+  (k=3-5 only — k≥6 refused rather than emitting a wrong matrix), Plackett-Burman
+- qbd_analyze: response surfaces with honest adequacy — lack-of-fit F vs pure error,
+  PRESS predicted R², VIF; self-contained OLS (replaced webapp stats dependency)
+- mixture_design / mixture_analyze: simplex lattice/centroid/axial + Scheffé models
+- Verified: exact coefficient recovery on synthetic RSM (X1=10, X2=5, X1²=-8) and mixture data
+
+### Medicinal Chemistry: R-Group Tools (2 new actions)
+- `r_group`: RDKit rdRGroupDecomposition → R-tables (substituent frequency per position)
+- `analogue_finder`: auto-labeled Murcko core → 36 common substituents at any position,
+  bond-level enumeration with descriptors (MW/LogP/TPSA/HBD/HBA) — 31 valid aspirin
+  analogues at the Cl position, zero broken products
+- **RDKit pitfall fixed**: RGroupDecomposition.Add() returns the item index — 0 is
+  success (truthiness checks drop the first molecule)
+
+### Frontend + wiring
+- Kinetics tab (Pharmacology), QbD Design + Mixture tabs (Formulation), R-Groups tab
+  (Medicinal Chemistry); 3 brain prompts updated; capabilities.md + main.specifics rows
 
 ## Department Upgrade Suite (2026-08-23) — v7.29.0 Release
 
