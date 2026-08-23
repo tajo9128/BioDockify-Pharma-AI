@@ -1,0 +1,201 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+
+    export const store = createStore("netPharm", {
+      activeTab: "study",
+      loading: false,
+      error: "",
+      message: "",
+      result: null,
+      compoundsDb: null,
+
+      // study inputs
+      mode: "disease",
+      disease: "inflammation",
+      geneList: "TNF\nIL6\nNFKB1\nPTGS2",
+      customCompounds: "",
+      dbCount: 0,
+
+      flash(msg) { this.message = msg; setTimeout(() => this.message = "", 2500); },
+
+      async loadDb() {
+        if (this.dbCount) return;
+        try {
+          const r = await callJsonApi("netpharm", { action: "compounds" });
+          this.dbCount = r.count || 0;
+          this.compoundsDb = r.compounds || {};
+        } catch {}
+      },
+
+      parseCustom() {
+        // format: NAME: TARGET1, TARGET2 (one per line)
+        const out = {};
+        for (const line of this.customCompounds.split("\n")) {
+          const [name, rest] = line.split(":");
+          if (name && rest) out[name.trim()] = rest.split(",").map(t => t.trim()).filter(Boolean);
+        }
+        return Object.keys(out).length ? out : null;
+      },
+
+      async analyze() {
+        this.loading = true; this.error = ""; this.result = null;
+        try {
+          const custom = this.parseCustom();
+          const payload = { action: this.mode === "disease" ? "analyze_disease" : "analyze", custom_compounds: custom };
+          if (this.mode === "disease") {
+            payload.disease = this.disease.trim();
+            if (!payload.disease) { this.error = "Enter a disease"; return; }
+          } else {
+            payload.gene_list = this.geneList.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+            if (!payload.gene_list.length) { this.error = "Enter gene symbols"; return; }
+          }
+          const r = await callJsonApi("netpharm", payload);
+          if (r.error) { this.error = r.error; return; }
+          this.result = r;
+          this.activeTab = "results";
+          this.flash(`${r.compounds_hitting_network} compounds hit the network — top: ${r.ranked_compounds[0]?.compound || "—"}`);
+        } finally { this.loading = false; }
+      },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="netpharm" x-init="$store.netPharm.loadDb()">
+    <template x-if="$store.netPharm">
+      <div class="np-root">
+        <div class="np-tabs">
+          <button :class="{active: $store.netPharm.activeTab==='study'}" @click="$store.netPharm.activeTab='study'">Study</button>
+          <button :class="{active: $store.netPharm.activeTab==='compounds'}" @click="$store.netPharm.activeTab='compounds'">
+            Compound DB <span class="np-count" x-text="'(' + ($store.netPharm.dbCount || '…') + ')'"></span>
+          </button>
+          <button :class="{active: $store.netPharm.activeTab==='results'}" @click="$store.netPharm.activeTab='results'">Network</button>
+          <span class="np-msg" x-show="$store.netPharm.message" x-text="$store.netPharm.message"></span>
+          <span class="np-err" x-show="$store.netPharm.error" x-text="$store.netPharm.error"></span>
+        </div>
+
+        <!-- Study -->
+        <div class="np-panel" x-show="$store.netPharm.activeTab==='study'">
+          <div class="np-row">
+            <label><input type="radio" value="disease" x-model="$store.netPharm.mode"> By disease</label>
+            <label><input type="radio" value="genes" x-model="$store.netPharm.mode"> By gene list</label>
+          </div>
+          <div x-show="$store.netPharm.mode==='disease'">
+            <input x-model="$store.netPharm.disease" placeholder="Disease (e.g. diabetes, alzheimer, inflammation)" @keydown.enter="$store.netPharm.analyze()">
+            <div class="np-note">Disease targets fetched via Target Identification (OpenTargets/UniProt with curated fallback).</div>
+          </div>
+          <div x-show="$store.netPharm.mode==='genes'">
+            <textarea x-model="$store.netPharm.geneList" rows="5" placeholder="Gene symbols — one per line or comma-separated"></textarea>
+          </div>
+          <textarea x-model="$store.netPharm.customCompounds" rows="3" placeholder="Optional custom compounds — NAME: TARGET1, TARGET2 (one per line)"></textarea>
+          <button class="np-btn" @click="$store.netPharm.analyze()" :disabled="$store.netPharm.loading">Build Network</button>
+          <div class="np-note">Screens the curated compound-target database + your custom compounds against the disease targets; ranks by overlap, finds hubs, enriches pathways.</div>
+        </div>
+
+        <!-- Compounds DB -->
+        <div class="np-panel" x-show="$store.netPharm.activeTab==='compounds'">
+          <div class="np-dbgrid">
+            <template x-for="[name, targets] of Object.entries($store.netPharm.compoundsDb || {})" :key="name">
+              <div class="np-card">
+                <b x-text="name"></b>
+                <div class="np-targets" x-text="targets.join(', ')"></div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <div class="np-panel" x-show="$store.netPharm.activeTab==='results'">
+          <template x-if="$store.netPharm.result">
+            <div class="np-results">
+              <div class="np-stats">
+                <span x-show="$store.netPharm.result.disease">Disease: <b x-text="$store.netPharm.result.disease"></b></span>
+                <span>Disease targets: <b x-text="$store.netPharm.result.num_disease_targets"></b></span>
+                <span>Compounds screened: <b x-text="$store.netPharm.result.num_compounds_screened"></b></span>
+                <span>Hitting network: <b x-text="$store.netPharm.result.compounds_hitting_network"></b></span>
+                <span>Multi-target: <b x-text="$store.netPharm.result.multi_target_compounds"></b></span>
+              </div>
+
+              <label class="np-lbl">Ranked compounds (by disease-target overlap)</label>
+              <table class="np-table">
+                <thead><tr><th>#</th><th>Compound</th><th>Hits</th><th>% disease targets</th><th>Jaccard</th><th>Direct targets</th></tr></thead>
+                <tbody>
+                  <template x-for="(c, i) in $store.netPharm.result.ranked_compounds" :key="c.compound">
+                    <tr :class="{multi: c.multi_target}">
+                      <td x-text="i+1"></td>
+                      <td><b x-text="c.compound"></b> <span class="np-mt" x-show="c.multi_target" title="hits ≥2 disease targets">multi</span></td>
+                      <td x-text="c.num_hits"></td>
+                      <td x-text="c.percent_of_disease_targets + '%'"></td>
+                      <td x-text="c.jaccard"></td>
+                      <td class="np-muted" x-text="c.direct_hits.join(', ')"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+
+              <label class="np-lbl">Target hubs (most compounds hitting)</label>
+              <div class="np-hubs">
+                <template x-for="h in $store.netPharm.result.target_hubs" :key="h.target">
+                  <span class="np-hub" :class="{big: h.degree >= 10}"><b x-text="h.target"></b> <span x-text="h.degree"></span></span>
+                </template>
+              </div>
+
+              <template x-if="$store.netPharm.result.pathway_enrichment">
+                <div>
+                  <label class="np-lbl">Pathway enrichment (covered targets)</label>
+                  <table class="np-table">
+                    <thead><tr><th>Pathway</th><th>Genes in set</th><th>Coverage</th></tr></thead>
+                    <tbody>
+                      <template x-for="p in ($store.netPharm.result.pathway_enrichment.enriched_pathways || []).slice(0, 10)" :key="p.pathway">
+                        <tr><td x-text="p.pathway"></td><td class="np-muted" x-text="p.genes.join(', ')"></td><td x-text="(p.enrichment_ratio*100).toFixed(0) + '%'"></td></tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+              <div class="np-note" x-text="$store.netPharm.result.network_note + ' ' + ($store.netPharm.result.disclaimer || '')"></div>
+            </div>
+          </template>
+          <div x-show="!$store.netPharm.result" class="np-empty">Build a network in the Study tab first.</div>
+        </div>
+      </div>
+    </template>
+
+    <style>
+      .netpharm { height: 100%; overflow-y: auto; padding: 12px; }
+      .np-root { display: flex; flex-direction: column; gap: 10px; }
+      .np-tabs { display: flex; gap: 6px; align-items: center; }
+      .np-tabs button { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-panel); color: var(--color-text); cursor: pointer; font-size: 0.78rem; }
+      .np-tabs button.active { border-color: var(--color-primary); color: var(--color-primary); font-weight: 600; }
+      .np-count { font-size: 0.65rem; color: var(--color-text-muted); }
+      .np-msg { color: #2e7d32; font-size: 0.72rem; }
+      .np-err { color: #c62828; font-size: 0.72rem; }
+      .np-panel { display: flex; flex-direction: column; gap: 8px; }
+      .np-panel input, .np-panel textarea { padding: 8px; border: 1px solid var(--color-border); border-radius: 8px; font-family: monospace; font-size: 0.72rem; background: var(--color-bg, #fff); color: var(--color-text); }
+      .np-panel textarea { resize: vertical; }
+      .np-btn { align-self: flex-start; padding: 7px 16px; border-radius: 8px; border: none; background: var(--color-primary); color: #fff; cursor: pointer; font-size: 0.78rem; }
+      .np-btn:disabled { opacity: 0.5; }
+      .np-row { display: flex; gap: 14px; font-size: 0.75rem; }
+      .np-note { color: var(--color-text-muted); font-size: 0.66rem; font-style: italic; }
+      .np-dbgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+      .np-card { border: 1px solid var(--color-border); border-radius: 8px; padding: 8px; font-size: 0.72rem; }
+      .np-targets { color: var(--color-text-muted); font-size: 0.64rem; margin-top: 3px; }
+      .np-results { display: flex; flex-direction: column; gap: 10px; }
+      .np-stats { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.74rem; }
+      .np-lbl { font-size: 0.65rem; text-transform: uppercase; color: var(--color-text-muted); }
+      .np-table { border-collapse: collapse; font-size: 0.7rem; width: 100%; }
+      .np-table th { text-align: left; color: var(--color-text-muted); padding: 4px 8px; border-bottom: 1px solid var(--color-border); }
+      .np-table td { padding: 4px 8px; border-bottom: 1px dotted var(--color-border); }
+      .np-table tr.multi td { background: color-mix(in srgb, var(--color-primary) 6%, transparent); }
+      .np-mt { font-size: 0.58rem; padding: 1px 6px; border-radius: 999px; background: color-mix(in srgb, var(--color-primary) 15%, transparent); color: var(--color-primary); }
+      .np-muted { color: var(--color-text-muted); font-size: 0.65rem; }
+      .np-hubs { display: flex; gap: 6px; flex-wrap: wrap; }
+      .np-hub { font-size: 0.68rem; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--color-border); }
+      .np-hub.big { border-color: var(--color-primary); color: var(--color-primary); font-weight: 600; }
+      .np-empty { color: var(--color-text-muted); font-size: 0.75rem; padding: 20px; text-align: center; }
+    </style>
+  </div>
+</body>
+</html>

@@ -1,6 +1,32 @@
 ﻿# BioDockify AI - AGENTS.md
 
-**Last updated: 2026-08-22 | Version: v7.28.0**
+**Last updated: 2026-08-23 | Version: v7.29.0**
+
+## Department Upgrade Suite (2026-08-23) — v7.29.0 Release
+
+Ported department features from biodockify-web (advanced webapp) into the offline Community Edition:
+
+### New Module: Network Pharmacology (#31, `netpharm`)
+- 68-compound curated compound-target database (phytochemicals + common drugs → HGNC targets)
+- Compound ranking by disease-target overlap (direct hits, % coverage, Jaccard), multi-target flags
+- Target hubs (degree = compounds hitting), pathway enrichment of covered targets
+- Entry points: analyze (gene list), analyze_disease (disease → Target ID → network)
+- Frontend wizard (Study/Compound DB/Network tabs) + brain prompt — 4 API actions
+
+### Clinical Pharmacy: pharmacovigilance signal detection (ported from webapp)
+- modules/clinical/safety_signal.py: PRR + chi-square (Evans 2001), ROR with 95% CI
+  (Rothman 2004, Haldane-Anscombe correction), Evans signal criteria, batch event series
+- New API actions: signal_detect, signal_series
+
+### Pharmacognosy: dereplication upgrades (ported from webapp)
+- Formula analysis: strict parsing, monoisotopic mass (IUPAC), RDBE, NP class heuristics
+  (alkaloid/flavonoid/terpenoid/steroid/...), adduct m/z table ([M+H]+...[M+2H]2+)
+- Reference matching: observed m/z vs user references with ppm tolerance + adduct selection
+- New API actions: formula_analysis, dereplication_match
+
+### Registration & Docs
+- Desktop grid + All Tools: 31 modules; capabilities.md #31 + companion notes;
+  main.specifics rows (netpharm + signal detection)
 
 ## Gap-Filler Suite (2026-08-22) — v7.28.0 Release
 

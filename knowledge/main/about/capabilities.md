@@ -367,6 +367,16 @@ The agent screens compounds for environmental risk (the environmental counterpar
 - Screening-level estimates — the agent must always label them as such (not OECD studies).
 - Backend API: `envirotox` (2 actions: assess, batch) — call via `from api.envirotox import EnviroToxHandler`.
 
+## Network Pharmacology (Module #31)
+
+The agent builds compound-target networks in TCM/network-pharmacology style:
+
+- **68-compound curated offline database** (phytochemicals + common drugs → HGNC targets), extendable with user `custom_compounds` at analysis time.
+- **Network analysis**: compounds ranked by disease-target overlap (direct hits, % coverage, Jaccard), multi-target compounds flagged, **target hubs** (degree = number of hitting compounds), pathway enrichment of covered targets (offline curated).
+- **Entry points**: `analyze` (user gene list), `analyze_disease` (disease → targets via Target Identification → network).
+- Backend API: `netpharm` (4 actions: compounds, compound_targets, analyze, analyze_disease) — call via `from api.netpharm import NetPharmHandler`.
+- Companion department tools (ported from biodockify-web): pharmacovigilance signal detection (`clinical` API: signal_detect/signal_series — PRR, ROR with 95% CI, Evans criteria), formula analysis + dereplication ppm matching (`natural_products` API: formula_analysis/dereplication_match — RDBE, NP class hints, adduct table).
+
 ## Vina/PDBQT Failure Prevention
 Self-healing PDBQT pipeline:
 - **Deep validation**: Checks charge column (71-76) and atom type column (78-79) on every ATOM/HETATM record before Vina

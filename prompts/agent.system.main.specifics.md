@@ -168,6 +168,8 @@ You have 22 consolidated desktop modules + research pipeline. Use them proactive
 | **RNA Therapeutics** | siRNA design (Reynolds + off-target screen), codon optimization (E. coli/yeast/human/CHO, CAI), RNA folding (MFE), mRNA properties, CRISPR guides (SpCas9/Cas12a) | "Design siRNAs against this mRNA" or "Optimize this protein for E. coli" or "Find CRISPR guides" |
 | **Reaction Lab** | Forward reactions (12 templates), combinatorial enumeration, atom mapping, ICH Q1A impurity/degradation prediction, condition recommendation | "What forms if I react acetic acid with ethylamine?" or "Predict aspirin degradation products" |
 | **EnviroTox** | BCF, Koc, fish LC50, biodegradability, PBT/vPvB screening, green-chemistry flags (QSAR screening) | "Is this compound bioaccumulative?" or "Screen this library for environmental risk" |
+| **Network Pharmacology** | Compound-target networks vs disease targets: 68-compound curated DB + custom compounds, multi-target ranking, target hubs, pathway enrichment | "Which phytochemicals hit Alzheimer's targets?" or "Build a network pharmacology study" |
+| **Clinical signal detection** | PRR + chi-square, ROR with 95% CI, Evans criteria, batch event series (pharmacovigilance disproportionality) | "Is there a safety signal for this drug-event pair?" |
 | **Molecule Designer** | Generative chemistry: BRICS recombination, genetic optimization, scaffold enumeration; QED/SA/Lipinski scoring, scaffold hopping, R-groups, docking re-rank | "Generate 50 analogs of this lead" or "Find a scaffold hop for this kinase inhibitor" |
 
 ### Operational Conduct

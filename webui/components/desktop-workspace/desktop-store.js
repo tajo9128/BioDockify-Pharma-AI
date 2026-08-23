@@ -29,6 +29,7 @@ const defaultModules = [
   { id: "reaction-lab", title: "Reaction Lab", icon: "science", component: "/components/reaction-lab/reaction-lab.html", order: 21.2, defaultWidth: 800, defaultHeight: 620 },
   { id: "target-id", title: "Target ID", icon: "track_changes", component: "/components/target-id/target-id.html", order: 2.5, defaultWidth: 750, defaultHeight: 600 },
   { id: "rna", title: "RNA Therapeutics", icon: "genetics", component: "/components/rna/rna.html", order: 2.7, defaultWidth: 800, defaultHeight: 620 },
+  { id: "netpharm", title: "Network Pharmacology", icon: "hub", component: "/components/netpharm/netpharm.html", order: 2.8, defaultWidth: 820, defaultHeight: 640 },
   { id: "envirotox", title: "EnviroTox", icon: "eco", component: "/components/envirotox/envirotox.html", order: 19.5, defaultWidth: 800, defaultHeight: 620 },
   { id: "formulation", title: "Formulation", icon: "science", component: "/components/formulation/formulation.html", order: 15, defaultWidth: 750, defaultHeight: 600 },
   { id: "clinical", title: "Clinical Pharmacy", icon: "clinical_notes", component: "/components/clinical/clinical.html", order: 16, defaultWidth: 750, defaultHeight: 600 },

@@ -7,7 +7,7 @@
 <body>
   <div x-data class="research-tools">
     <h2 class="tools-heading">All Tools</h2>
-    <p class="tools-desc">30 integrated research modules</p>
+    <p class="tools-desc">31 integrated research modules</p>
 
     <div class="tool-grid">
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('research-dashboard')">
@@ -21,6 +21,10 @@
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('rna')">
         <span class="material-symbols-outlined">genetics</span>
         <span class="tool-label">RNA</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('netpharm')">
+        <span class="material-symbols-outlined">hub</span>
+        <span class="tool-label">Net Pharm</span>
       </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('chem-canvas')">
         <span class="material-symbols-outlined">draw</span>

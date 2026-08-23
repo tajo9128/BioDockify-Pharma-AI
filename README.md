@@ -50,7 +50,7 @@ BioDockify supports any OpenAI-compatible local LLM through its AI Engine module
 | **Privacy** | No telemetry, no egress, HIPAA/GDPR friendly, fully reproducible thesis work |
 | **Smoke tests** | 27/27 pass (`tests/test_local_llm.py`) |
 
-### 30 Consolidated Research Modules
+### 31 Consolidated Research Modules
 
 | # | Module | Function | Backend |
 |---|--------|----------|---------|
@@ -83,6 +83,9 @@ BioDockify supports any OpenAI-compatible local LLM through its AI Engine module
 | 28 | **RNA Therapeutics** | siRNA design (Reynolds 2004 + Tuschl + seed off-target screen), codon optimization (E. coli/yeast/human/CHO, CAI), RNA folding (ViennaRNA/Nussinov MFE), mRNA properties, CRISPR guides (SpCas9/Cas12a) with off-target screening | pure Python + optional ViennaRNA |
 | 29 | **Reaction Lab** | Forward reactions (12 templates + custom SMARTS), combinatorial library enumeration, MCS atom mapping, ICH Q1A impurity/degradation prediction, condition recommendation | RDKit |
 | 30 | **EnviroTox** | Environmental screening: BCF (Meylan), Koc (Karickhoff), fish LC50 (Könemann + reactive flags), biodegradability, PBT/vPvB (REACH), green-chemistry flags, batch triage | RDKit QSAR |
+| 31 | **Network Pharmacology** | Compound-target networks vs disease targets: 68-compound curated DB + custom compounds, multi-target ranking, target hubs, pathway enrichment | curated DB + Target ID |
+| — | **Clinical signal detection** | Pharmacovigilance disproportionality: PRR + χ², ROR with 95% CI, Evans criteria, batch series | safety_signal |
+| — | **Dereplication+** | Formula analysis (RDBE, NP class hints, adduct m/z table) + ppm matching vs reference compounds | dereplication |
 | — | **All Tools** | Quick-launch grid for all modules | N/A |
 
 ### Statistics — 56 Analysis Types (SPSS/jamovi-level)
