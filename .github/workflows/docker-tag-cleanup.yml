@@ -66,15 +66,18 @@ jobs:
           DELETED=0
           while IFS=$'\t' read -r TAG DATE; do
             if grep -qxF "$TAG" keep.txt; then continue; fi
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
-              -H "Authorization: Bearer $TOKEN" \
-              "https://hub.docker.com/v2/repositories/$REPO/tags/$TAG/")
-            if [ "$CODE" = "204" ] || [ "$CODE" = "200" ]; then
-              DELETED=$((DELETED+1))
-            else
-              echo "WARN: could not delete $TAG (HTTP $CODE)"
-            fi
-            sleep 0.15
+            for ATTEMPT in 1 2 3; do
+              CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
+                -H "Authorization: Bearer $TOKEN" \
+                "https://hub.docker.com/v2/repositories/$REPO/tags/$TAG/")
+              if [ "$CODE" = "204" ] || [ "$CODE" = "200" ]; then
+                DELETED=$((DELETED+1)); break
+              fi
+              # Hub rate-limits rapid deletes (401/429) — back off and retry
+              sleep $((ATTEMPT * 3))
+            done
+            [ "$CODE" != "204" ] && [ "$CODE" != "200" ] && echo "WARN: could not delete $TAG (HTTP $CODE)"
+            sleep 0.3
           done < tags.tsv
           echo "Deleted $DELETED of $TOTAL tags"
 
