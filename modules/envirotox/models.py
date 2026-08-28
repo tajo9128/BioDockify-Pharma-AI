@@ -12,8 +12,13 @@ These are screening estimates for prioritization — NOT regulatory submissions.
 import math
 from typing import Dict
 
-from rdkit import Chem
-from rdkit.Chem import Crippen, Descriptors, rdMolDescriptors
+try:
+    from rdkit import Chem
+    from rdkit.Chem import Crippen, Descriptors, rdMolDescriptors
+    HAS_RDKIT = True
+except ImportError:
+    HAS_RDKIT = False
+    Chem = None
 
 REACH_B = 2000        # log BCF 3.3 — bioaccumulative
 REACH_vB = 5000       # log BCF 3.7 — very bioaccumulative
@@ -142,6 +147,8 @@ def _pbt(bcf: float, lc50: Dict, biodeg: Dict) -> Dict:
 
 
 def assess(smiles: str) -> Dict:
+    if not HAS_RDKIT:
+        return {"status": "error", "error": "RDKit is required for ecotoxicity assessment"}
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         return {"error": f"Invalid SMILES: {smiles}"}

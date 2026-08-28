@@ -6,8 +6,14 @@ amide coupling, Suzuki, reductive amination, SNAr, Buchwald-Hartwig, etc.
 import logging
 from typing import Dict, List, Optional, Tuple
 
-from rdkit import Chem
-from rdkit.Chem import AllChem, rdChemReactions
+try:
+    from rdkit import Chem
+    from rdkit.Chem import AllChem, rdChemReactions
+    HAS_RDKIT = True
+except ImportError:
+    HAS_RDKIT = False
+    Chem = None
+    rdChemReactions = None
 
 log = logging.getLogger("retrosynthesis.reactions")
 

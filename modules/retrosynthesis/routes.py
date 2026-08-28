@@ -2,8 +2,13 @@
 import logging
 from typing import Dict, List
 
-from rdkit import Chem
-from rdkit.Chem import Descriptors, rdMolDescriptors
+try:
+    from rdkit import Chem
+    from rdkit.Chem import Descriptors, rdMolDescriptors
+    HAS_RDKIT = True
+except ImportError:
+    HAS_RDKIT = False
+    Chem = None
 
 log = logging.getLogger("retrosynthesis.routes")
 
