@@ -20,6 +20,8 @@ on:
 env:
   REGISTRY_NAMESPACE: tajo9128
   IMAGE_NAME: biodockify-pharma-ai
+  # Dockerfile.release builds FROM this tag — never delete it, or the build breaks.
+  BASE_TAG: v7.30.2
 
 jobs:
   prune-tags:
@@ -58,7 +60,7 @@ jobs:
           # Always-pinned tags, then the newest KEEP version tags by push date
           grep -E '^v[0-9]+\.' tags.tsv | sort -t$'\t' -k2,2r > versions.tsv
           head -n "$KEEP" versions.tsv | cut -f1 > keep.txt
-          printf 'latest\ndev\n' >> keep.txt
+          printf 'latest\ndev\n%s\n' "$BASE_TAG" >> keep.txt
           echo "Keeping:"; cat keep.txt | sort | sed 's/^/  /'
 
           DELETED=0
