@@ -78,5 +78,5 @@ jobs:
 
       - name: Final tag count
         run: |
-          REMAINING=$(curl -sf "https://hub.docker.com/v2/repositories/$REGISTRY_NAMESPACE/$IMAGE_NAME/tags/count" | jq -r '.count')
+          REMAINING=$(curl -sf "https://hub.docker.com/v2/repositories/$REGISTRY_NAMESPACE/$IMAGE_NAME/tags/?page_size=1" | jq -r '.count')
           echo "Tags remaining on Docker Hub: $REMAINING"
