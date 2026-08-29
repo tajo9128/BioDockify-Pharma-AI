@@ -9,13 +9,14 @@ on:
       keep_versions:
         description: "How many most-recent version tags (vX.Y.Z) to keep"
         required: false
-        default: "15"
+        default: "3"
   push:
     branches: [main]
     paths:
       - ".github/workflows/docker-tag-cleanup.yml"
+      - "version_info.txt"
   schedule:
-    - cron: "0 3 1 * *"  # monthly, keep the list trimmed
+    - cron: "0 3 * * 0"  # weekly (Sunday 3am) — keeps tag list minimal for Docker Desktop
 
 env:
   REGISTRY_NAMESPACE: tajo9128
@@ -56,7 +57,7 @@ jobs:
       - name: Delete old tags
         run: |
           REPO="$REGISTRY_NAMESPACE/$IMAGE_NAME"
-          KEEP=${{ github.event.inputs.keep_versions || '15' }}
+          KEEP=${{ github.event.inputs.keep_versions || '3' }}
           # Always-pinned tags, then the newest KEEP version tags by push date
           grep -E '^v[0-9]+\.' tags.tsv | sort -t$'\t' -k2,2r > versions.tsv
           head -n "$KEEP" versions.tsv | cut -f1 > keep.txt

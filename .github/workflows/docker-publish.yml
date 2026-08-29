@@ -96,13 +96,14 @@ jobs:
           push: true
           platforms: linux/amd64
           provenance: false
+          # Docker Hub: only latest+dev (keeps tag list tiny so Desktop UI loads instantly)
+          # ghcr.io: full version history (tag browser not a problem on GHCR)
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev
-            ghcr.io/tajo9128/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
-            ghcr.io/tajo9128/${{ env.IMAGE_NAME }}:latest
-            ghcr.io/tajo9128/${{ env.IMAGE_NAME }}:dev
+            ghcr.io/tajo9128/biodockify-pharma-ai:${{ steps.version.outputs.version }}
+            ghcr.io/tajo9128/biodockify-pharma-ai:latest
+            ghcr.io/tajo9128/biodockify-pharma-ai:dev
           labels: |
             org.opencontainers.image.title=BioDockify AI
             org.opencontainers.image.description=Pharma research distribution of BioDockify AI
