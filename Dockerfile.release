@@ -1,16 +1,4 @@
-# Stage 1: pull the existing (487-layer) image
-FROM tajo9128/biodockify-pharma-ai:v7.30.2 AS source
-
-# Stage 2: squash all 487 layers into 1
-FROM scratch AS flat
-COPY --from=source / /
-
-# Stage 3: build on top of the flat single-layer base
-FROM flat
-
-ENV PATH=/opt/venv-a0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ENV OPENMM_PLUGIN_DIR=/opt/openmm-plugins
-ENV LD_LIBRARY_PATH=/usr/local/lib
+FROM tajo9128/biodockify-pharma-ai:v7.0.7
 
 COPY . /a0/
 

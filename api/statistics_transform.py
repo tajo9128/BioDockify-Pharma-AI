@@ -189,6 +189,8 @@ def _select_cases(data, condition, columns):
         for node in _ast.walk(tree):
             if isinstance(node, _ast.Attribute):
                 return {"error": "Attribute access not allowed in conditions."}
+            if isinstance(node, _ast.Name) and node.id not in allowed:
+                return {"error": f"Unknown name '{node.id}' in condition. Only column names and safe operators are allowed."}
         mask = eval(compile(tree, "<condition>", "eval"), {"__builtins__": {}}, env)
         mask_arr = np.asarray(mask, dtype=bool)
         selected = data[mask_arr]

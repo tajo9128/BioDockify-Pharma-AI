@@ -73,11 +73,17 @@ def _detect_launcher() -> list | None:
             for f in sorted(os.listdir(home_apps)):
                 if "chemcanvas" in f.lower() and f.endswith(".AppImage"):
                     return [os.path.join(home_apps, f)]
-        if shutil.which("flatpak"):
+        # only claim installed if the app is actually present — a flatpak/snap
+        # runtime alone is not the app (avoids false "installed" on stock Linux)
+        flatpak_dirs = (
+            os.path.expanduser("~/.local/share/flatpak/app/io.github.ksharindam.chemcanvas"),
+            "/var/lib/flatpak/app/io.github.ksharindam.chemcanvas",
+        )
+        if any(os.path.isdir(fd) for fd in flatpak_dirs):
             return ["flatpak", "run", "io.github.ksharindam.chemcanvas"]
-        if shutil.which("snap"):
+        if os.path.isdir("/snap/chemcanvas"):
             return ["snap", "run", "chemcanvas"]
-    return None
+        return None
 
 
 def _mol_from_text(text: str, ext: str):
@@ -300,10 +306,13 @@ class ChemCanvasHandler(ApiHandler):
             return {"error": f"PubChem lookup failed (offline?): {e}"}
 
         props = (data.get("PropertyTable", {}).get("Properties") or [{}])[0]
-        smiles = props.get("CanonicalSMILES", "")
+        # PubChem renamed CanonicalSMILES -> ConnectivitySMILES in PUG REST;
+        # accept either (plus raw SMILES) so lookups survive future renames
+        smiles = (props.get("CanonicalSMILES") or props.get("ConnectivitySMILES")
+                  or props.get("SMILES") or "")
         if not smiles:
             return {"error": f"'{query}' not found on PubChem"}
-        result = {"query": query, "smiles": smiles,
+        result = {"query": query, "cid": props.get("CID"), "smiles": smiles,
                   "iupac": props.get("IUPACName", ""), "formula": props.get("MolecularFormula", ""),
                   "mw": props.get("MolecularWeight", 0), "svg": _depict_svg(smiles)}
         return result
@@ -349,7 +358,7 @@ class ChemCanvasHandler(ApiHandler):
         except Exception:
             pass
         return {
-            "smiles": smiles,
+            "smiles": smiles or Chem.MolToSmiles(mol),
             "canonical": Chem.MolToSmiles(mol),
             "inchi": inchi_str,
             "inchikey": inchi_key,
