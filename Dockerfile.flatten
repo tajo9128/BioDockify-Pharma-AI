@@ -1,0 +1,11 @@
+# One-time image flattener.
+# The self-referential build chain accumulated 487 layers, which exceeds
+# overlay2's max depth ("failed to register layer: max depth exceeded") and
+# Docker Desktop containerd's mount-option limit ("mount options is too
+# long"). BuildKit handles the deep chain, and this squashes it to ONE layer.
+# Must be built with buildx (docker/setup-buildx-action) — the plain daemon
+# cannot even pull the source image.
+ARG SRCTAG=tajo9128/biodockify-pharma-ai:v7.30.4
+FROM ${SRCTAG}
+FROM scratch
+COPY --from=0 / /

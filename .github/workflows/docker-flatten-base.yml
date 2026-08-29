@@ -1,10 +1,8 @@
 name: Flatten base image (one-time)
 
-# The self-referential build chain (each release FROM the previous) accumulated
-# 487 layers. Docker Desktop's containerd snapshotter cannot mount it:
-# "failed to mount ...: mount options is too long". This squashes the current
-# image into ONE layer and pushes it as tag `base`. Releases then build
-# FROM :base and stay thin (~10 layers) forever.
+# Squashes the 487-layer chained image into a ONE-layer `base` tag via BuildKit
+# (plain docker pull fails on the runner with "max depth exceeded").
+# Releases then build FROM :base and stay thin (~10 layers) forever.
 on:
   workflow_dispatch:
     inputs:
@@ -16,6 +14,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/docker-flatten-base.yml"
+      - "Dockerfile.flatten"
 
 env:
   IMAGE: tajo9128/biodockify-pharma-ai
@@ -24,6 +23,9 @@ jobs:
   flatten:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Free up disk space on runner
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
@@ -32,33 +34,31 @@ jobs:
           sudo docker image prune --all --force 2>/dev/null || true
           df -h /
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Pull source image
-        run: |
-          SRC="${{ github.event.inputs.source_tag || 'v7.30.4' }}"
-          echo "SRC=$SRC" >> "$GITHUB_ENV"
-          docker pull "$IMAGE:$SRC"
+      - name: Flatten and push single-layer base
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.flatten
+          push: true
+          platforms: linux/amd64
+          provenance: false
+          build-args: |
+            SRCTAG=${{ github.event.inputs.source_tag || 'v7.30.4' }}
+          tags: ${{ env.IMAGE }}:base
 
-      - name: Flatten to a single layer (export | import)
+      - name: Verify layer count via BuildKit manifest
         run: |
-          docker create --name flat "$IMAGE:$SRC"
-          docker export flat | docker import - "$IMAGE:single"
-          docker rm flat
-          docker rmi "$IMAGE:$SRC"   # free the 487-layer copy before pushing
-          docker tag "$IMAGE:single" "$IMAGE:base"
-          docker rmi "$IMAGE:single"
-
-      - name: Push base tag
-        run: docker push "$IMAGE:base"
-
-      - name: Verify layer count
-        run: |
-          docker pull "$IMAGE:base"
-          LAYERS=$(docker image inspect "$IMAGE:base" --format '{{len .RootFS.Layers}}')
-          echo "Base image layers: $LAYERS"
-          [ "$LAYERS" -le 2 ] || { echo "ERROR: expected 1 layer, got $LAYERS"; exit 1; }
+          docker buildx imagetools inspect "$IMAGE:base" --format '{{ json .Manifest.Layers }}' | python3 -c "
+import json,sys
+layers = json.load(sys.stdin)
+print(f'Base image layers: {len(layers)}')
+assert len(layers) <= 2, f'expected 1 layer, got {len(layers)}'"
