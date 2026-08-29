@@ -55,10 +55,8 @@ jobs:
             SRCTAG=${{ github.event.inputs.source_tag || 'v7.30.4' }}
           tags: ${{ env.IMAGE }}:base
 
-      - name: Verify layer count via BuildKit manifest
+      - name: Verify layer count
         run: |
-          docker buildx imagetools inspect "$IMAGE:base" --format '{{ json .Manifest.Layers }}' | python3 -c "
-import json,sys
-layers = json.load(sys.stdin)
-print(f'Base image layers: {len(layers)}')
-assert len(layers) <= 2, f'expected 1 layer, got {len(layers)}'"
+          LAYERS=$(docker buildx imagetools inspect "$IMAGE:base" --raw | jq '.layers | length')
+          echo "Base image layers: $LAYERS"
+          [ "$LAYERS" -le 2 ] || { echo "ERROR: expected ≤2 layers, got $LAYERS"; exit 1; }
