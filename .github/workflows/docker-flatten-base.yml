@@ -1,15 +1,14 @@
-name: Flatten base image (one-time)
+name: Flatten Docker Hub image
 
-# Squashes the 487-layer chained image into a ONE-layer `base` tag via BuildKit
-# (plain docker pull fails on the runner with "max depth exceeded").
-# Releases then build FROM :base and stay thin (~10 layers) forever.
+# Replaces the 487-layer :latest/:dev with a single-layer image so Docker
+# Desktop can load tags and show the Pull button instantly.
 on:
   workflow_dispatch:
     inputs:
       source_tag:
-        description: "Existing tag to flatten"
+        description: "Tag to flatten (default: latest)"
         required: false
-        default: "v7.30.4"
+        default: "latest"
   push:
     branches: [main]
     paths:
@@ -43,7 +42,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Flatten and push single-layer base
+      - name: Flatten and push
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -52,11 +51,13 @@ jobs:
           platforms: linux/amd64
           provenance: false
           build-args: |
-            SRCTAG=${{ github.event.inputs.source_tag || 'v7.30.4' }}
-          tags: ${{ env.IMAGE }}:base
+            SRCTAG=${{ env.IMAGE }}:${{ github.event.inputs.source_tag || 'latest' }}
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:dev
 
       - name: Verify layer count
         run: |
-          LAYERS=$(docker buildx imagetools inspect "$IMAGE:base" --raw | jq '.layers | length')
-          echo "Base image layers: $LAYERS"
+          LAYERS=$(docker buildx imagetools inspect "$IMAGE:latest" --raw | jq '.layers | length')
+          echo "Image layers after flatten: $LAYERS"
           [ "$LAYERS" -le 2 ] || { echo "ERROR: expected ≤2 layers, got $LAYERS"; exit 1; }
