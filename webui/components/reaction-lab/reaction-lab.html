@@ -114,297 +114,198 @@
   </script>
 </head>
 <body>
-  <div x-data class="dock-panel" x-init="$store.reactionLab.loadReactions()">
-
-    <!-- Header -->
-    <div class="panel-header">
-      <div class="header-left">
-        <span class="material-symbols-outlined header-icon">science</span>
-        <div>
-          <h2>Reaction Lab</h2>
-          <p class="header-subtitle">Forward reactions · Library enumeration · Impurity prediction · Conditions</p>
+  <div x-data class="reaction-lab" x-init="$store.reactionLab.loadReactions()">
+    <template x-if="$store.reactionLab">
+      <div class="rl-root">
+        <div class="rl-tabs">
+          <button :class="{active: $store.reactionLab.activeTab==='forward'}" @click="$store.reactionLab.activeTab='forward'">Forward Reaction</button>
+          <button :class="{active: $store.reactionLab.activeTab==='enum'}" @click="$store.reactionLab.activeTab='enum'">Library Enumerate</button>
+          <button :class="{active: $store.reactionLab.activeTab==='map'}" @click="$store.reactionLab.activeTab='map'">Atom Mapping</button>
+          <button :class="{active: $store.reactionLab.activeTab==='imp'}" @click="$store.reactionLab.activeTab='imp'">Impurity / Degradation</button>
+          <button :class="{active: $store.reactionLab.activeTab==='cond'}" @click="$store.reactionLab.activeTab='cond'">Conditions</button>
+          <span class="rl-msg" x-show="$store.reactionLab.message" x-text="$store.reactionLab.message"></span>
+          <span class="rl-err" x-show="$store.reactionLab.error" x-text="$store.reactionLab.error"></span>
         </div>
-      </div>
-      <div class="header-right" x-show="$store.reactionLab.reactions.length">
-        <span class="health-badge hlth-info">
-          <span class="material-symbols-outlined" style="font-size:13px">format_list_bulleted</span>
-          <span x-text="$store.reactionLab.reactions.length + ' reaction types'"></span>
-        </span>
-      </div>
-    </div>
 
-    <!-- Tabs -->
-    <div class="dock-tabs">
-      <button class="dock-tab" :class="{active: $store.reactionLab.activeTab==='forward'}" @click="$store.reactionLab.activeTab='forward'">
-        <span class="material-symbols-outlined">play_circle</span> Forward</button>
-      <button class="dock-tab" :class="{active: $store.reactionLab.activeTab==='enum'}" @click="$store.reactionLab.activeTab='enum'">
-        <span class="material-symbols-outlined">grid_view</span> Enumerate</button>
-      <button class="dock-tab" :class="{active: $store.reactionLab.activeTab==='map'}" @click="$store.reactionLab.activeTab='map'">
-        <span class="material-symbols-outlined">join_inner</span> Atom Map</button>
-      <button class="dock-tab" :class="{active: $store.reactionLab.activeTab==='imp'}" @click="$store.reactionLab.activeTab='imp'">
-        <span class="material-symbols-outlined">warning</span> Impurities</button>
-      <button class="dock-tab" :class="{active: $store.reactionLab.activeTab==='cond'}" @click="$store.reactionLab.activeTab='cond'">
-        <span class="material-symbols-outlined">tune</span> Conditions</button>
-    </div>
-
-    <!-- Body -->
-    <div class="panel-body">
-      <div x-show="$store.reactionLab.error" class="dock-error" x-text="$store.reactionLab.error"></div>
-      <div x-show="$store.reactionLab.message" class="dock-msg" x-text="$store.reactionLab.message"></div>
-      <div x-show="$store.reactionLab.loading" class="dock-loading"><div class="loading-spinner"></div><span>Computing reaction...</span></div>
-
-      <!-- Forward -->
-      <div class="tab-content" x-show="$store.reactionLab.activeTab==='forward'">
-        <h3 class="section-title">Forward Reaction</h3>
-        <div class="dock-card">
+        <!-- Forward -->
+        <div class="rl-panel" x-show="$store.reactionLab.activeTab==='forward'">
           <div class="rl-row">
-            <label class="param-label">Reaction</label>
-            <select x-model="$store.reactionLab.reaction" class="rl-select">
+            <label>Reaction:</label>
+            <select x-model="$store.reactionLab.reaction">
               <template x-for="r in $store.reactionLab.reactions" :key="r.name">
                 <option :value="r.name" x-text="r.name"></option>
               </template>
             </select>
           </div>
-          <textarea x-model="$store.reactionLab.reactantsText" rows="3" class="mt-textarea" placeholder="Reactant SMILES — one per line"></textarea>
-          <input x-model="$store.reactionLab.customSmarts" class="mt-input" placeholder="Optional: custom reaction SMARTS (reactants>>product)">
-        </div>
-        <button class="btn-run" @click="$store.reactionLab.runForward()" :disabled="$store.reactionLab.loading">
-          <span class="material-symbols-outlined">play_arrow</span>
-          <span x-text="$store.reactionLab.loading ? 'Running...' : 'Run Reaction'"></span>
-        </button>
-        <template x-if="$store.reactionLab.forwardResult">
-          <div class="rl-block">
-            <div class="data-info-bar" x-show="$store.reactionLab.forwardResult.reagents">
-              <span class="material-symbols-outlined success-icon">science</span>
-              <span class="rl-stat" x-text="'Reagents: ' + ($store.reactionLab.forwardResult.reagents || []).join(', ')"></span>
-              <span class="rl-stat" x-show="$store.reactionLab.forwardResult.conditions" x-text="'Conditions: ' + $store.reactionLab.forwardResult.conditions"></span>
+          <textarea x-model="$store.reactionLab.reactantsText" rows="3" placeholder="Reactant SMILES — one per line"></textarea>
+          <input x-model="$store.reactionLab.customSmarts" placeholder="Optional: custom reaction SMARTS (reactants>>product)">
+          <button class="rl-btn" @click="$store.reactionLab.runForward()" :disabled="$store.reactionLab.loading">Run Reaction</button>
+          <template x-if="$store.reactionLab.forwardResult">
+            <div class="rl-block">
+              <div class="rl-stats" x-show="$store.reactionLab.forwardResult.reagents">
+                <span x-show="$store.reactionLab.forwardResult.reagents" x-text="'Reagents: ' + ($store.reactionLab.forwardResult.reagents || []).join(', ')"></span>
+                <span x-show="$store.reactionLab.forwardResult.conditions" x-text="'Conditions: ' + $store.reactionLab.forwardResult.conditions"></span>
+              </div>
+              <table class="rl-table">
+                <thead><tr><th>Product SMILES</th><th></th></tr></thead>
+                <tbody>
+                  <template x-for="p in $store.reactionLab.forwardResult.products" :key="p.smiles">
+                    <tr>
+                      <td><code x-text="p.smiles"></code></td>
+                      <td><button class="rl-mini" @click="$store.reactionLab.sendTo(p.smiles)">→ Retro</button></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+              <div class="rl-note" x-text="$store.reactionLab.forwardResult.note"></div>
             </div>
-            <table class="rl-table">
-              <thead><tr><th>Product SMILES</th><th></th></tr></thead>
-              <tbody>
-                <template x-for="p in $store.reactionLab.forwardResult.products" :key="p.smiles">
-                  <tr>
-                    <td><code x-text="p.smiles"></code></td>
-                    <td><button class="rl-mini" @click="$store.reactionLab.sendTo(p.smiles)">→ Retro</button></td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-            <div class="rl-note" x-text="$store.reactionLab.forwardResult.note"></div>
-          </div>
-        </template>
-      </div>
+          </template>
+        </div>
 
-      <!-- Enumerate -->
-      <div class="tab-content" x-show="$store.reactionLab.activeTab==='enum'">
-        <h3 class="section-title">Library Enumeration</h3>
-        <div class="dock-card">
+        <!-- Enumerate -->
+        <div class="rl-panel" x-show="$store.reactionLab.activeTab==='enum'">
           <div class="rl-row">
-            <label class="param-label">Reaction</label>
-            <select x-model="$store.reactionLab.reaction" class="rl-select">
+            <label>Reaction:</label>
+            <select x-model="$store.reactionLab.reaction">
               <template x-for="r in $store.reactionLab.reactions" :key="'e'+r.name">
                 <option :value="r.name" x-text="r.name"></option>
               </template>
             </select>
           </div>
-          <textarea x-model="$store.reactionLab.blocksText" rows="3" class="mt-textarea" placeholder="Building blocks: comma-separated SMILES per slot, one line per reactant slot"></textarea>
-        </div>
-        <button class="btn-run" @click="$store.reactionLab.enumerate()" :disabled="$store.reactionLab.loading">
-          <span class="material-symbols-outlined">grid_view</span>
-          <span x-text="$store.reactionLab.loading ? 'Enumerating...' : 'Enumerate Library'"></span>
-        </button>
-        <template x-if="$store.reactionLab.enumResult">
-          <div class="rl-block">
-            <div class="data-info-bar">
-              <span class="material-symbols-outlined success-icon">check_circle</span>
-              <span class="rl-stat"><b x-text="$store.reactionLab.enumResult.num_products"></b> unique products</span>
-              <span class="rl-stat" x-text="$store.reactionLab.enumResult.num_combinations + ' combinations'"></span>
-              <span class="rl-stat" x-show="$store.reactionLab.enumResult.reagents" x-text="'Reagents: ' + ($store.reactionLab.enumResult.reagents || []).join(', ')"></span>
-            </div>
-            <table class="rl-table">
-              <thead><tr><th>Product</th><th>From</th></tr></thead>
-              <tbody>
-                <template x-for="p in $store.reactionLab.enumResult.products.slice(0, 50)" :key="p.smiles">
-                  <tr><td><code x-text="p.smiles"></code></td><td class="rl-muted" x-text="(p.from || []).join(' + ')"></td></tr>
-                </template>
-              </tbody>
-            </table>
-          </div>
-        </template>
-      </div>
-
-      <!-- Atom map -->
-      <div class="tab-content" x-show="$store.reactionLab.activeTab==='map'">
-        <h3 class="section-title">Atom Mapping</h3>
-        <div class="dock-card">
-          <textarea x-model="$store.reactionLab.mapReactantsText" rows="2" class="mt-textarea" placeholder="Reactant SMILES — one per line"></textarea>
-          <input x-model="$store.reactionLab.mapProduct" class="mt-input" placeholder="Product SMILES">
-        </div>
-        <button class="btn-run" @click="$store.reactionLab.mapAtoms()" :disabled="$store.reactionLab.loading">
-          <span class="material-symbols-outlined">join_inner</span>
-          <span x-text="$store.reactionLab.loading ? 'Mapping...' : 'Map Atoms'"></span>
-        </button>
-        <template x-if="$store.reactionLab.mapResult">
-          <div class="rl-block">
-            <div class="data-info-bar">
-              <span class="material-symbols-outlined success-icon">check_circle</span>
-              <span class="rl-stat">Conserved: <b x-text="$store.reactionLab.mapResult.total_conserved_atoms"></b> atoms</span>
-              <span class="rl-stat">Unaccounted: <b x-text="$store.reactionLab.mapResult.atoms_unaccounted"></b></span>
-            </div>
-            <template x-for="m in $store.reactionLab.mapResult.mappings" :key="m.reactant_index">
-              <div class="rl-maprow">
-                <b x-text="m.reactant"></b>
-                <span x-text="m.conserved_atoms + ' / ' + m.reactant_atoms + ' atoms conserved (' + (m.conservation*100).toFixed(0) + '%)'"></span>
+          <textarea x-model="$store.reactionLab.blocksText" rows="3" placeholder="Building blocks: comma-separated SMILES per slot, one line per reactant slot"></textarea>
+          <button class="rl-btn" @click="$store.reactionLab.enumerate()" :disabled="$store.reactionLab.loading">Enumerate Library</button>
+          <template x-if="$store.reactionLab.enumResult">
+            <div class="rl-block">
+              <div class="rl-stats">
+                <span><b x-text="$store.reactionLab.enumResult.num_products"></b> unique products</span>
+                <span x-text="$store.reactionLab.enumResult.num_combinations + ' combinations'"></span>
+                <span x-show="$store.reactionLab.enumResult.reagents" x-text="'Reagents: ' + ($store.reactionLab.enumResult.reagents || []).join(', ')"></span>
               </div>
-            </template>
-            <div class="rl-note" x-text="$store.reactionLab.mapResult.note"></div>
-          </div>
-        </template>
-      </div>
-
-      <!-- Impurities -->
-      <div class="tab-content" x-show="$store.reactionLab.activeTab==='imp'">
-        <h3 class="section-title">Impurity &amp; Degradation Prediction</h3>
-        <div class="dock-card">
-          <div class="dock-card-header">
-            <span class="material-symbols-outlined dock-card-icon">warning</span>
-            <h4>Drug Molecule</h4>
-          </div>
-          <input x-model="$store.reactionLab.impSmiles" class="mt-input" placeholder="Drug SMILES (e.g. aspirin)">
-        </div>
-        <button class="btn-run" @click="$store.reactionLab.impurities()" :disabled="$store.reactionLab.loading">
-          <span class="material-symbols-outlined">warning</span>
-          <span x-text="$store.reactionLab.loading ? 'Predicting...' : 'Predict Impurities'"></span>
-        </button>
-        <template x-if="$store.reactionLab.impResult">
-          <div class="rl-block">
-            <div class="data-info-bar">
-              <span class="material-symbols-outlined" :class="$store.reactionLab.impResult.risk_level === 'high' ? 'rl-err-icon' : 'success-icon'">shield</span>
-              <span class="rl-stat">Risk: <b :class="'risk-' + $store.reactionLab.impResult.risk_level" x-text="$store.reactionLab.impResult.risk_level.toUpperCase()"></b></span>
-              <span class="rl-stat">score <b x-text="$store.reactionLab.impResult.degradation_risk_score"></b></span>
-              <span class="rl-stat"><b x-text="$store.reactionLab.impResult.num_findings"></b> findings</span>
+              <table class="rl-table">
+                <thead><tr><th>Product</th><th>From</th></tr></thead>
+                <tbody>
+                  <template x-for="p in $store.reactionLab.enumResult.products.slice(0, 50)" :key="p.smiles">
+                    <tr><td><code x-text="p.smiles"></code></td><td class="rl-muted" x-text="(p.from || []).join(' + ')"></td></tr>
+                  </template>
+                </tbody>
+              </table>
             </div>
-            <table class="rl-table">
-              <thead><tr><th>Impurity / Degradation</th><th>Condition</th><th>Sites</th><th>Predicted degradants</th></tr></thead>
-              <tbody>
-                <template x-for="f in $store.reactionLab.impResult.findings" :key="f.impurity">
-                  <tr>
-                    <td x-text="f.impurity"></td>
-                    <td class="rl-muted" x-text="f.condition"></td>
-                    <td x-text="f.sites"></td>
-                    <td><template x-for="d in f.predicted_degradants"><div><code x-text="d"></code></div></template></td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-            <div class="rl-note" x-text="$store.reactionLab.impResult.ich_context"></div>
-          </div>
-        </template>
-      </div>
-
-      <!-- Conditions -->
-      <div class="tab-content" x-show="$store.reactionLab.activeTab==='cond'">
-        <h3 class="section-title">Recommended Conditions</h3>
-        <div class="dock-card">
-          <textarea x-model="$store.reactionLab.condReactantsText" rows="2" class="mt-textarea" placeholder="Reactant SMILES — one per line"></textarea>
+          </template>
         </div>
-        <button class="btn-run" @click="$store.reactionLab.conditions()" :disabled="$store.reactionLab.loading">
-          <span class="material-symbols-outlined">tune</span>
-          <span x-text="$store.reactionLab.loading ? 'Recommending...' : 'Recommend Conditions'"></span>
-        </button>
-        <template x-if="$store.reactionLab.condResult">
-          <div class="rl-block">
-            <template x-for="m in $store.reactionLab.condResult.condition_matches" :key="m.reaction">
-              <div class="rl-cond">
-                <b x-text="m.reaction"></b> <span class="rl-muted" x-text="'(' + m.detected + ')'"></span>
-                <div x-text="m.recommendation"></div>
+
+        <!-- Atom map -->
+        <div class="rl-panel" x-show="$store.reactionLab.activeTab==='map'">
+          <textarea x-model="$store.reactionLab.mapReactantsText" rows="2" placeholder="Reactant SMILES — one per line"></textarea>
+          <input x-model="$store.reactionLab.mapProduct" placeholder="Product SMILES">
+          <button class="rl-btn" @click="$store.reactionLab.mapAtoms()" :disabled="$store.reactionLab.loading">Map Atoms</button>
+          <template x-if="$store.reactionLab.mapResult">
+            <div class="rl-block">
+              <div class="rl-stats">
+                <span>Conserved: <b x-text="$store.reactionLab.mapResult.total_conserved_atoms"></b> atoms</span>
+                <span>Unaccounted: <b x-text="$store.reactionLab.mapResult.atoms_unaccounted"></b></span>
               </div>
-            </template>
-            <template x-if="$store.reactionLab.condResult.productive_reactions.length">
-              <div>
-                <label class="rl-lbl">Also productive (templates):</label>
-                <table class="rl-table">
-                  <thead><tr><th>Reaction</th><th>Example product</th><th>Conditions</th></tr></thead>
-                  <tbody>
-                    <template x-for="p in $store.reactionLab.condResult.productive_reactions" :key="p.reaction">
-                      <tr><td x-text="p.reaction"></td><td><code x-text="p.example_product"></code></td><td class="rl-muted" x-text="p.conditions"></td></tr>
-                    </template>
-                  </tbody>
-                </table>
+              <template x-for="m in $store.reactionLab.mapResult.mappings" :key="m.reactant_index">
+                <div class="rl-maprow">
+                  <b x-text="m.reactant"></b>
+                  <span x-text="m.conserved_atoms + ' / ' + m.reactant_atoms + ' atoms conserved (' + (m.conservation*100).toFixed(0) + '%)'"></span>
+                </div>
+              </template>
+              <div class="rl-note" x-text="$store.reactionLab.mapResult.note"></div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Impurities -->
+        <div class="rl-panel" x-show="$store.reactionLab.activeTab==='imp'">
+          <input x-model="$store.reactionLab.impSmiles" placeholder="Drug SMILES (e.g. aspirin)">
+          <button class="rl-btn" @click="$store.reactionLab.impurities()" :disabled="$store.reactionLab.loading">Predict Impurities</button>
+          <template x-if="$store.reactionLab.impResult">
+            <div class="rl-block">
+              <div class="rl-stats">
+                <span>Risk: <b :class="'risk-' + $store.reactionLab.impResult.risk_level" x-text="$store.reactionLab.impResult.risk_level.toUpperCase()"></b></span>
+                <span>score <b x-text="$store.reactionLab.impResult.degradation_risk_score"></b></span>
+                <span><b x-text="$store.reactionLab.impResult.num_findings"></b> findings</span>
               </div>
-            </template>
-            <div class="rl-note" x-text="$store.reactionLab.condResult.note"></div>
-          </div>
-        </template>
+              <table class="rl-table">
+                <thead><tr><th>Impurity / Degradation</th><th>Condition</th><th>Sites</th><th>Predicted degradants</th></tr></thead>
+                <tbody>
+                  <template x-for="f in $store.reactionLab.impResult.findings" :key="f.impurity">
+                    <tr>
+                      <td x-text="f.impurity"></td>
+                      <td class="rl-muted" x-text="f.condition"></td>
+                      <td x-text="f.sites"></td>
+                      <td><template x-for="d in f.predicted_degradants"><div><code x-text="d"></code></div></template></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+              <div class="rl-note" x-text="$store.reactionLab.impResult.ich_context"></div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Conditions -->
+        <div class="rl-panel" x-show="$store.reactionLab.activeTab==='cond'">
+          <textarea x-model="$store.reactionLab.condReactantsText" rows="2" placeholder="Reactant SMILES — one per line"></textarea>
+          <button class="rl-btn" @click="$store.reactionLab.conditions()" :disabled="$store.reactionLab.loading">Recommend Conditions</button>
+          <template x-if="$store.reactionLab.condResult">
+            <div class="rl-block">
+              <template x-for="m in $store.reactionLab.condResult.condition_matches" :key="m.reaction">
+                <div class="rl-cond">
+                  <b x-text="m.reaction"></b> <span class="rl-muted" x-text="'(' + m.detected + ')'"></span>
+                  <div x-text="m.recommendation"></div>
+                </div>
+              </template>
+              <template x-if="$store.reactionLab.condResult.productive_reactions.length">
+                <div>
+                  <label class="rl-lbl">Also productive (templates):</label>
+                  <table class="rl-table">
+                    <thead><tr><th>Reaction</th><th>Example product</th><th>Conditions</th></tr></thead>
+                    <tbody>
+                      <template x-for="p in $store.reactionLab.condResult.productive_reactions" :key="p.reaction">
+                        <tr><td x-text="p.reaction"></td><td><code x-text="p.example_product"></code></td><td class="rl-muted" x-text="p.conditions"></td></tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+              <div class="rl-note" x-text="$store.reactionLab.condResult.note"></div>
+            </div>
+          </template>
+        </div>
       </div>
-    </div>
+    </template>
 
     <style>
-      .dock-panel { display: flex; flex-direction: column; height: 100%; overflow: hidden; background: var(--color-background); }
-      .panel-header { padding: 14px 20px; border-bottom: 1px solid var(--color-border); background: var(--color-panel); flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
-      .header-left { display: flex; align-items: center; gap: 12px; }
-      .header-icon { font-size: 28px; color: var(--color-primary); }
-      .panel-header h2 { color: var(--color-text); font-size: 1.05rem; margin: 0; font-weight: 700; }
-      .header-subtitle { color: var(--color-text-muted); font-size: 0.7rem; margin: 2px 0 0 0; }
-      .health-badge { display: flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 4px; font-size: 0.56rem; font-weight: 600; }
-      .health-badge.hlth-info { background: rgba(59,130,246,0.1); color: #3b82f6; border: 1px solid rgba(59,130,246,0.2); }
-
-      .dock-tabs { display: flex; gap: 2px; padding: 6px 20px; border-bottom: 1px solid var(--color-border); background: var(--color-panel); flex-shrink: 0; overflow-x: auto; }
-      .dock-tab { display: flex; align-items: center; gap: 4px; padding: 6px 12px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--color-text-muted); cursor: pointer; font-size: 0.68rem; font-weight: 500; transition: all 0.15s; white-space: nowrap; }
-      .dock-tab:hover { color: var(--color-text); }
-      .dock-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
-      .dock-tab .material-symbols-outlined { font-size: 15px; }
-
-      .panel-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
-      .tab-content { min-height: 120px; }
-
-      .dock-error { padding: 8px 10px; background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.2); border-radius: 6px; color: var(--color-error-text, #ff6b6b); font-size: 0.68rem; margin-bottom: 10px; }
-      .dock-msg { padding: 8px 10px; background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); border-radius: 6px; color: #22c55e; font-size: 0.68rem; margin-bottom: 10px; }
-      .dock-loading { display: flex; align-items: center; gap: 6px; padding: 8px 0; font-size: 0.7rem; color: var(--color-text-muted); }
-      .loading-spinner { width: 15px; height: 15px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
-      @keyframes spin { to { transform: rotate(360deg); } }
-
-      .section-title { font-size: 0.78rem; font-weight: 700; color: var(--color-text); margin: 0 0 8px 0; padding-bottom: 6px; border-bottom: 1px solid var(--color-border); }
-
-      .dock-card { padding: 14px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 12px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
-      .dock-card-header { display: flex; align-items: center; gap: 8px; }
-      .dock-card-icon { font-size: 20px; color: var(--color-primary); }
-      .dock-card h4 { color: var(--color-text); font-size: 0.78rem; font-weight: 600; margin: 0; }
-
-      .mt-input { width: 100%; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-background); color: var(--color-text); font-size: 0.7rem; font-family: var(--font-mono, monospace); min-width: 0; }
-      .mt-input:focus { outline: none; border-color: var(--color-primary); }
-      .mt-input::placeholder { font-family: var(--font-family-main); color: var(--color-text-muted); font-size: 0.64rem; }
-      .mt-textarea { width: 100%; min-height: 54px; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-background); color: var(--color-text); font-size: 0.68rem; font-family: var(--font-mono, monospace); resize: vertical; }
-      .mt-textarea:focus { outline: none; border-color: var(--color-primary); }
-
-      .rl-row { display: flex; gap: 8px; align-items: center; }
-      .param-label { font-size: 0.62rem; color: var(--color-text-muted); font-weight: 600; white-space: nowrap; }
-      .rl-select { flex: 1; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-background); color: var(--color-text); font-size: 0.68rem; }
-
-      .btn-run { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 6px; padding: 10px; background: var(--color-primary); border: none; border-radius: 8px; color: white; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: all 0.15s; }
-      .btn-run:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
-      .btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-      .data-info-bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 8px; font-size: 0.7rem; flex-wrap: wrap; }
-      .success-icon { font-size: 16px; color: #22c55e; }
-      .rl-err-icon { color: #ff6b6b; }
-      .rl-stat { color: var(--color-text); }
-
-      .rl-block { border: 1px solid var(--color-border); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; margin-top: 10px; background: var(--color-panel); }
-      .rl-table { border-collapse: collapse; font-size: 0.66rem; width: 100%; }
-      .rl-table th { text-align: left; color: var(--color-text-muted); padding: 4px 8px; border-bottom: 1px solid var(--color-border); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.03em; }
-      .rl-table td { padding: 4px 8px; border-bottom: 1px dotted var(--color-border); vertical-align: top; color: var(--color-text); }
-      .rl-table code { font-size: 0.64rem; font-family: var(--font-mono, monospace); color: var(--color-primary); word-break: break-all; }
-      .rl-note { color: var(--color-text-muted); font-size: 0.62rem; font-style: italic; }
-      .rl-muted { color: var(--color-text-muted); font-size: 0.62rem; }
-      .rl-maprow { display: flex; gap: 10px; font-size: 0.66rem; align-items: baseline; color: var(--color-text); }
-      .rl-cond { padding: 6px 0; border-bottom: 1px dotted var(--color-border); font-size: 0.66rem; color: var(--color-text); }
-      .rl-lbl { font-size: 0.58rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.04em; }
-      .rl-mini { font-size: 0.58rem; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--color-border); background: none; color: var(--color-primary); cursor: pointer; }
-      .rl-mini:hover { border-color: var(--color-primary); }
-      .risk-high { color: #ff6b6b; }
-      .risk-moderate { color: #f59e0b; }
-      .risk-low { color: #22c55e; }
+      .reaction-lab { height: 100%; overflow-y: auto; padding: 12px; }
+      .rl-root { display: flex; flex-direction: column; gap: 10px; }
+      .rl-tabs { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+      .rl-tabs button { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-panel); color: var(--color-text); cursor: pointer; font-size: 0.78rem; }
+      .rl-tabs button.active { border-color: var(--color-primary); color: var(--color-primary); font-weight: 600; }
+      .rl-msg { color: #2e7d32; font-size: 0.72rem; }
+      .rl-err { color: #c62828; font-size: 0.72rem; }
+      .rl-panel { display: flex; flex-direction: column; gap: 8px; }
+      .rl-panel textarea, .rl-panel input { padding: 8px; border: 1px solid var(--color-border); border-radius: 8px; font-family: monospace; font-size: 0.72rem; background: var(--color-bg, #fff); color: var(--color-text); }
+      .rl-panel textarea { resize: vertical; }
+      .rl-btn { align-self: flex-start; padding: 7px 16px; border-radius: 8px; border: none; background: var(--color-primary); color: #fff; cursor: pointer; font-size: 0.78rem; }
+      .rl-btn:disabled { opacity: 0.5; }
+      .rl-row { display: flex; gap: 8px; align-items: center; font-size: 0.75rem; }
+      .rl-row select { padding: 5px; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-bg, #fff); color: var(--color-text); }
+      .rl-table { border-collapse: collapse; font-size: 0.7rem; width: 100%; }
+      .rl-table th { text-align: left; color: var(--color-text-muted); padding: 4px 8px; border-bottom: 1px solid var(--color-border); }
+      .rl-table td { padding: 4px 8px; border-bottom: 1px dotted var(--color-border); vertical-align: top; }
+      .rl-table code { font-size: 0.68rem; }
+      .rl-note { color: var(--color-text-muted); font-size: 0.68rem; font-style: italic; }
+      .rl-muted { color: var(--color-text-muted); font-size: 0.66rem; }
+      .rl-block { border: 1px solid var(--color-border); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+      .rl-stats { display: flex; gap: 14px; font-size: 0.74rem; flex-wrap: wrap; }
+      .rl-maprow { display: flex; gap: 10px; font-size: 0.72rem; align-items: baseline; }
+      .rl-cond { padding: 6px 0; border-bottom: 1px dotted var(--color-border); font-size: 0.74rem; }
+      .rl-lbl { font-size: 0.65rem; text-transform: uppercase; color: var(--color-text-muted); }
+      .rl-mini { font-size: 0.62rem; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--color-border); background: none; color: var(--color-primary); cursor: pointer; }
+      .risk-high { color: #c62828; }
+      .risk-moderate { color: #e65100; }
+      .risk-low { color: #2e7d32; }
     </style>
   </div>
 </body>

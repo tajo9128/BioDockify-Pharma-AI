@@ -1,22 +1,9 @@
-import os, html
+import os, webcolors, html
 import sys
 from datetime import datetime
 from collections.abc import Mapping
 from . import files
 from .strings import sanitize_string
-
-try:
-    import webcolors
-    HAS_WEBCOLORS = True
-except ImportError:
-    HAS_WEBCOLORS = False
-
-_NAMED_COLORS = {
-    "black": (0, 0, 0), "white": (255, 255, 255), "red": (255, 0, 0),
-    "green": (0, 128, 0), "blue": (0, 0, 255), "yellow": (255, 255, 0),
-    "purple": (128, 0, 128), "orange": (255, 165, 0), "gray": (128, 128, 128),
-    "grey": (128, 128, 128), "cyan": (0, 255, 255), "magenta": (255, 0, 255)
-}
 
 _runtime_module = None
 
@@ -57,19 +44,15 @@ class PrintStyle:
                 r = int(color[1:3], 16)
                 g = int(color[3:5], 16)
                 b = int(color[5:7], 16)
-            elif HAS_WEBCOLORS:
+            else:
                 rgb_color = webcolors.name_to_rgb(color)
                 r, g, b = rgb_color.red, rgb_color.green, rgb_color.blue
-            elif color.lower() in _NAMED_COLORS:
-                r, g, b = _NAMED_COLORS[color.lower()]
-            else:
-                return "", ""
 
             if is_background:
                 return f"\033[48;2;{r};{g};{b}m", f"background-color: rgb({r}, {g}, {b});"
             else:
                 return f"\033[38;2;{r};{g};{b}m", f"color: rgb({r}, {g}, {b});"
-        except (ValueError, Exception):
+        except ValueError:
             return "", ""
 
     def _get_styled_text(self, text):

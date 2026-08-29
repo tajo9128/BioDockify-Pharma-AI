@@ -6,12 +6,7 @@ curated template database plus a functional-group decision table.
 import logging
 from typing import Dict, List
 
-try:
-    from rdkit import Chem
-    HAS_RDKIT = True
-except ImportError:
-    HAS_RDKIT = False
-    Chem = None
+from rdkit import Chem
 
 from ..retrosynthesis.reactions import REACTION_TEMPLATES
 
@@ -35,8 +30,6 @@ FG_TABLE = [
 
 
 def recommend_conditions(reactant_smiles: List[str]) -> Dict:
-    if not HAS_RDKIT:
-        return {"status": "error", "error": "RDKit is required for condition recommendation"}
     if not reactant_smiles:
         return {"error": "reactant_smiles (list) required"}
     mols = []

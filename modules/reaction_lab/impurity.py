@@ -8,14 +8,8 @@ plausible structures where a transform can be applied.
 import logging
 from typing import Dict, List
 
-try:
-    from rdkit import Chem
-    from rdkit.Chem import AllChem, Descriptors
-    from rdkit import RDLogger
-    HAS_RDKIT = True
-except ImportError:
-    HAS_RDKIT = False
-    Chem = None
+from rdkit import Chem
+from rdkit.Chem import AllChem, Descriptors
 
 log = logging.getLogger("reaction_lab.impurity")
 
@@ -56,17 +50,14 @@ DEGRADATION_RULES = [
 ]
 
 
-def predict_impurities(smiles, conditions: List[str] = None) -> Dict:
+def predict_impurities(smiles: str, conditions: List[str] = None) -> Dict:
     """Flag degradation susceptibilities; generate plausible degradant structures."""
-    if not HAS_RDKIT:
-        return {"status": "error", "error": "RDKit is required for impurity prediction"}
-    if isinstance(smiles, list):
-        smiles = ".".join(smiles)
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         return {"error": f"Invalid SMILES: {smiles}"}
     conditions = [c.lower() for c in (conditions or [])]
 
+    from rdkit import RDLogger
     RDLogger.DisableLog("rdApp.warning")
 
     findings = []

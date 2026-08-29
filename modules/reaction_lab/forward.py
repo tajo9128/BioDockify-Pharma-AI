@@ -7,14 +7,8 @@ supports arbitrary reaction SMARTS. Combinatorial enumeration supported.
 import logging
 from typing import Dict, List
 
-try:
-    from rdkit import Chem
-    from rdkit.Chem import rdChemReactions
-    HAS_RDKIT = True
-except ImportError:
-    HAS_RDKIT = False
-    Chem = None
-    rdChemReactions = None
+from rdkit import Chem
+from rdkit.Chem import rdChemReactions
 
 from ..retrosynthesis.reactions import REACTION_TEMPLATES
 
@@ -49,8 +43,6 @@ def run_smarts(reaction_smarts: str, reactants: List[str]) -> Dict:
 
 def _apply_smarts(smarts: str, reactants: List[str], name: str = "",
                   reagents=None, conditions: str = "", reliability=None) -> Dict:
-    if not HAS_RDKIT:
-        return {"error": "RDKit is required for forward reaction prediction"}
     if not reactants or not isinstance(reactants, list):
         return {"error": "reactants required (list of SMILES)"}
     try:

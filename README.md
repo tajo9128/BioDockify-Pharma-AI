@@ -156,41 +156,18 @@ Output: Per-pose MM-GBSA energies, Z-scores, and consensus with Vina (`0.4*Vina_
 
 ---
 
-## Quick Start — Install in 2 Minutes
+## Quick Start — One Command
 
-> **Easiest method:** Download [`install.bat`](install.bat) from this repo and double-click it. It does everything below automatically.
+### Students: just run `docker compose up -d` and open http://localhost
 
-### Step 1: Install Docker Desktop (one-time)
-
-Download from [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/) and install. Open it and wait until the bottom-left shows **"Engine running"**.
-
-### Step 2: Open BioDockify
-
-Open **PowerShell** (press `Win+X` → "Terminal") and paste this single command:
+That's it. BioDockify starts with all features ready. Connect a local LLM via Ollama/LM Studio for offline AI, or use any cloud provider.
 
 ```bash
-docker run -d -p 80:80 -v biodockify_data:/a0/usr --name biodockify --pull always tajo9128/biodockify-pharma-ai:latest
+docker compose up -d
+# Visit http://localhost
+# Local AI downloads automatically on first start
+# Subsequent starts are instant
 ```
-
-Wait for download to finish (~18 GB, one-time only), then open **http://localhost** in your browser.
-
-That's it. BioDockify is running.
-
-### After first install — starting again
-
-If you restart your computer, BioDockify starts automatically. If it doesn't:
-- Open Docker Desktop → **Containers** → click the play button next to "biodockify"
-- Or open Terminal and run: `docker start biodockify`
-
-### Common Problems
-
-| Problem | Fix |
-|---------|-----|
-| **Docker Desktop search shows "loading tags"** | Don't use search. Use the terminal command above — it always works. |
-| **No Pull button in Docker Desktop** | This is a Docker Desktop bug for signed-out users. The terminal command above bypasses this completely. |
-| **Download stuck or very slow** | Campus networks rate-limit Docker Hub. Use the GitHub mirror instead: `docker pull ghcr.io/tajo9128/biodockify-pharma-ai:latest` |
-| **"port 80 already in use"** | Change the port: replace `-p 80:80` with `-p 8080:80`, then open http://localhost:8080 |
-| **Want to sign into Docker Desktop** | Top-right "Sign in" (free account) — this fixes the search/Pull button issue and removes rate limits |
 
 ### Prerequisites
 

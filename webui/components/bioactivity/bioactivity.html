@@ -96,310 +96,222 @@
   </script>
 </head>
 <body>
-  <div x-data x-init="$store.bioactivity.init()" class="dock-panel">
+  <div x-data x-init="$store.bioactivity.init()" class="ba-panel">
 
-    <!-- Header -->
-    <div class="panel-header">
-      <div class="header-left">
-        <span class="material-symbols-outlined header-icon">insights</span>
-        <div>
-          <h2>Bioactivity Predictor</h2>
-          <p class="header-subtitle">IC50/pIC50 prediction · SAR analysis · Similarity search</p>
-        </div>
-      </div>
-      <div class="header-right" x-show="Object.keys($store.bioactivity.targetClasses).length">
-        <span class="health-badge hlth-info">
-          <span class="material-symbols-outlined" style="font-size:13px">category</span>
-          <span x-text="Object.keys($store.bioactivity.targetClasses).length + ' target classes'"></span>
-        </span>
-      </div>
+    <div class="ba-header">
+      <span class="material-symbols-outlined ba-icon">biotech</span>
+      <div><h2>Bioactivity Predictor</h2>
+      <p class="ba-sub">IC50/pIC50 prediction · SAR analysis · Similarity search</p></div>
     </div>
 
-    <!-- Tabs -->
-    <div class="dock-tabs">
-      <button class="dock-tab" :class="{active: $store.bioactivity.activeTab==='predict'}" @click="$store.bioactivity.activeTab='predict'">
+    <div class="ba-tabs">
+      <button class="ba-tab" :class="{active:$store.bioactivity.activeTab==='predict'}" @click="$store.bioactivity.activeTab='predict'">
         <span class="material-symbols-outlined">target</span> Predict</button>
-      <button class="dock-tab" :class="{active: $store.bioactivity.activeTab==='batch'}" @click="$store.bioactivity.activeTab='batch'">
+      <button class="ba-tab" :class="{active:$store.bioactivity.activeTab==='batch'}" @click="$store.bioactivity.activeTab='batch'">
         <span class="material-symbols-outlined">playlist_add_check</span> Batch</button>
-      <button class="dock-tab" :class="{active: $store.bioactivity.activeTab==='similar'}" @click="$store.bioactivity.activeTab='similar'">
+      <button class="ba-tab" :class="{active:$store.bioactivity.activeTab==='similar'}" @click="$store.bioactivity.activeTab='similar'">
         <span class="material-symbols-outlined">search</span> Similar Actives</button>
     </div>
 
-    <!-- Body -->
-    <div class="panel-body">
-      <div x-show="$store.bioactivity.error" class="dock-error" x-text="$store.bioactivity.error"></div>
-      <div x-show="$store.bioactivity.loading" class="dock-loading"><div class="loading-spinner"></div><span>Predicting bioactivity...</span></div>
+    <div x-show="$store.bioactivity.error" class="ba-error" x-text="$store.bioactivity.error"></div>
+    <div x-show="$store.bioactivity.message" class="ba-msg" x-text="$store.bioactivity.message"></div>
+    <div x-show="$store.bioactivity.loading" class="ba-loading"><div class="loading-spinner"></div> Predicting bioactivity...</div>
 
-      <!-- PREDICT TAB -->
-      <div x-show="$store.bioactivity.activeTab==='predict'" class="tab-content">
-        <h3 class="section-title">Predict IC50 / Bioactivity</h3>
-        <div class="dock-card">
-          <div class="dock-card-header">
-            <span class="material-symbols-outlined dock-card-icon">target</span>
-            <h4>Molecule (SMILES)</h4>
-          </div>
-          <input type="text" x-model="$store.bioactivity.predictSmiles" class="mt-input"
-            placeholder="e.g. c1ccc(Nc2nccc(-c3cn[nH]c3)n2)cc1" @keyup.enter="$store.bioactivity.predict()" />
-          <div class="ba-param-row">
-            <label class="param-label">Target Class</label>
-            <select x-model="$store.bioactivity.targetClass" class="ba-select">
-              <template x-for="(info, key) in $store.bioactivity.targetClasses" :key="key">
-                <option :value="key" x-text="info.name || key"></option>
-              </template>
-            </select>
-          </div>
-        </div>
-        <button class="btn-run" @click="$store.bioactivity.predict()" :disabled="$store.bioactivity.loading || !$store.bioactivity.predictSmiles.trim()">
-          <span class="material-symbols-outlined">play_arrow</span>
-          <span x-text="$store.bioactivity.loading ? 'Predicting...' : 'Predict'"></span>
-        </button>
-
-        <template x-if="$store.bioactivity.prediction">
-          <div class="ba-result-card">
-            <div class="ba-result-header">
-              <div class="ba-pic50-box">
-                <span class="ba-pic50-value" x-text="$store.bioactivity.prediction.predicted_pic50"></span>
-                <span class="ba-pic50-label">pIC50</span>
-              </div>
-              <div class="ba-ic50-box">
-                <span class="ba-ic50-value" x-text="$store.bioactivity.prediction.predicted_ic50_nM + ' nM'"></span>
-                <span class="ba-pic50-label">IC50</span>
-              </div>
-              <div class="ba-activity-badge" :style="'background:' + $store.bioactivity.activityColor($store.bioactivity.prediction.activity_class) + '22; color:' + $store.bioactivity.activityColor($store.bioactivity.prediction.activity_class)">
-                <span x-text="$store.bioactivity.prediction.activity_class"></span>
-              </div>
-            </div>
-
-            <div class="ba-confidence">
-              <span class="param-label">Confidence</span>
-              <div class="ba-conf-bar">
-                <div class="ba-conf-fill" :style="'width:' + $store.bioactivity.confidenceWidth($store.bioactivity.prediction.confidence)"></div>
-              </div>
-              <span class="ba-conf-val" x-text="$store.bioactivity.confidenceWidth($store.bioactivity.prediction.confidence)"></span>
-            </div>
-
-            <div class="ba-details">
-              <div class="ba-detail-row">
-                <span>Target:</span> <strong x-text="$store.bioactivity.prediction.target_name"></strong>
-              </div>
-              <div class="ba-detail-row">
-                <span>Method:</span> <span x-text="$store.bioactivity.prediction.method"></span>
-              </div>
-              <div class="ba-detail-row" x-show="$store.bioactivity.prediction.sar_features?.length">
-                <span>SAR Features:</span>
-                <div class="ba-sar-tags">
-                  <template x-for="f in ($store.bioactivity.prediction.sar_features || [])" :key="f">
-                    <span class="ba-sar-tag" x-text="f"></span>
-                  </template>
-                </div>
-              </div>
-            </div>
-          </div>
-        </template>
-
-        <div class="no-results" x-show="!$store.bioactivity.prediction && !$store.bioactivity.loading">
-          <span class="material-symbols-outlined">target</span>
-          <p>Enter a molecule SMILES to predict its bioactivity</p>
-        </div>
+    <!-- PREDICT TAB -->
+    <div x-show="$store.bioactivity.activeTab==='predict'" class="ba-body">
+      <h3>Predict IC50 / Bioactivity</h3>
+      <div class="ba-section">
+        <label class="ba-label">Molecule (SMILES)</label>
+        <input type="text" x-model="$store.bioactivity.predictSmiles" class="ba-input"
+          placeholder="e.g. c1ccc(Nc2nccc(-c3cn[nH]c3)n2)cc1" />
       </div>
-
-      <!-- BATCH TAB -->
-      <div x-show="$store.bioactivity.activeTab==='batch'" class="tab-content">
-        <h3 class="section-title">Batch Prediction</h3>
-        <div class="dock-card">
-          <div class="dock-card-header">
-            <span class="material-symbols-outlined dock-card-icon">playlist_add_check</span>
-            <h4>Molecules (one SMILES per line, max 50)</h4>
-          </div>
-          <textarea x-model="$store.bioactivity.batchSmiles" class="mt-textarea" rows="5"
-            placeholder="CC(=O)OC1=CC=CC=C1C(=O)O&#10;CC(C)Cc1ccc(cc1)C(C)C(=O)O&#10;c1ccc(Nc2nccc(n2)-c2cn[nH]c2)cc1"></textarea>
-          <div class="ba-param-row">
-            <label class="param-label">Target Class</label>
-            <select x-model="$store.bioactivity.batchTarget" class="ba-select">
-              <template x-for="(info, key) in $store.bioactivity.targetClasses" :key="key">
-                <option :value="key" x-text="info.name || key"></option>
-              </template>
-            </select>
-          </div>
-        </div>
-        <button class="btn-run" @click="$store.bioactivity.batchPredict()" :disabled="$store.bioactivity.loading || !$store.bioactivity.batchSmiles.trim()">
-          <span class="material-symbols-outlined">play_arrow</span>
-          <span x-text="$store.bioactivity.loading ? 'Predicting...' : 'Predict All'"></span>
-        </button>
-
-        <template x-if="$store.bioactivity.batchResults">
-          <div class="ba-batch-results">
-            <div class="analysis-grid">
-              <div class="analysis-card selected">
-                <span class="card-title">Predicted</span>
-                <span class="card-desc" style="font-size:0.9rem;font-weight:700;color:var(--color-primary)" x-text="$store.bioactivity.batchResults.summary?.predicted || 0"></span>
-              </div>
-              <div class="analysis-card">
-                <span class="card-title">Active</span>
-                <span class="card-desc" style="font-size:0.9rem;font-weight:700;color:#22c55e" x-text="$store.bioactivity.batchResults.summary?.num_active || 0"></span>
-              </div>
-              <div class="analysis-card">
-                <span class="card-title">Highly Active</span>
-                <span class="card-desc" style="font-size:0.9rem;font-weight:700;color:#4ade80" x-text="$store.bioactivity.batchResults.summary?.num_highly_active || 0"></span>
-              </div>
-              <div class="analysis-card">
-                <span class="card-title">Mean pIC50</span>
-                <span class="card-desc" style="font-size:0.9rem;font-weight:700" x-text="$store.bioactivity.batchResults.summary?.mean_pic50 || '-'"></span>
-              </div>
-            </div>
-            <div class="ba-batch-table">
-              <div class="ba-table-head">
-                <span>SMILES</span><span>pIC50</span><span>IC50 (nM)</span><span>Activity</span>
-              </div>
-              <template x-for="(p, i) in ($store.bioactivity.batchResults.predictions || [])" :key="i">
-                <div class="ba-table-row" x-show="!p.error">
-                  <code x-text="(p.smiles || '').substring(0, 30) + (p.smiles?.length > 30 ? '...' : '')"></code>
-                  <span x-text="p.predicted_pic50"></span>
-                  <span x-text="p.predicted_ic50_nM"></span>
-                  <span class="ba-act-cell" :style="'color:' + $store.bioactivity.activityColor(p.activity_class)" x-text="p.activity_class"></span>
-                </div>
-              </template>
-            </div>
-          </div>
-        </template>
+      <div class="ba-section">
+        <label class="ba-label">Target Class</label>
+        <select x-model="$store.bioactivity.targetClass" class="ba-select">
+          <template x-for="(info, key) in $store.bioactivity.targetClasses" :key="key">
+            <option :value="key" x-text="info.name || key"></option>
+          </template>
+        </select>
       </div>
+      <button class="ba-btn" @click="$store.bioactivity.predict()" :disabled="$store.bioactivity.loading">
+        <span class="material-symbols-outlined">play_arrow</span> Predict
+      </button>
 
-      <!-- SIMILAR TAB -->
-      <div x-show="$store.bioactivity.activeTab==='similar'" class="tab-content">
-        <h3 class="section-title">Find Similar Active Compounds</h3>
-        <div class="dock-card">
-          <div class="dock-card-header">
-            <span class="material-symbols-outlined dock-card-icon">search</span>
-            <h4>Query Molecule (SMILES)</h4>
+      <template x-if="$store.bioactivity.prediction">
+        <div class="ba-result-card">
+          <div class="ba-result-header">
+            <div class="ba-pic50-box">
+              <span class="ba-pic50-value" x-text="$store.bioactivity.prediction.predicted_pic50"></span>
+              <span class="ba-pic50-label">pIC50</span>
+            </div>
+            <div class="ba-ic50-box">
+              <span x-text="$store.bioactivity.prediction.predicted_ic50_nM + ' nM'"></span>
+              <span class="ba-pic50-label">IC50</span>
+            </div>
+            <div class="ba-activity-badge" :style="'background:' + $store.bioactivity.activityColor($store.bioactivity.prediction.activity_class) + '22; color:' + $store.bioactivity.activityColor($store.bioactivity.prediction.activity_class)">
+              <span x-text="$store.bioactivity.prediction.activity_class"></span>
+            </div>
           </div>
-          <input type="text" x-model="$store.bioactivity.similarSmiles" class="mt-input"
-            placeholder="Enter SMILES to find similar known actives" @keyup.enter="$store.bioactivity.findSimilar()" />
-          <div class="ba-param-row">
-            <label class="param-label">Target Class</label>
-            <select x-model="$store.bioactivity.similarTarget" class="ba-select">
-              <option value="general">All Classes</option>
-              <template x-for="(info, key) in $store.bioactivity.targetClasses" :key="key">
-                <option :value="key" x-text="info.name || key"></option>
-              </template>
-            </select>
+
+          <div class="ba-confidence">
+            <span class="ba-label">Confidence</span>
+            <div class="ba-conf-bar">
+              <div class="ba-conf-fill" :style="'width:' + $store.bioactivity.confidenceWidth($store.bioactivity.prediction.confidence)"></div>
+            </div>
+            <span x-text="$store.bioactivity.confidenceWidth($store.bioactivity.prediction.confidence)"></span>
+          </div>
+
+          <div class="ba-details">
+            <div class="ba-detail-row">
+              <span>Target:</span> <strong x-text="$store.bioactivity.prediction.target_name"></strong>
+            </div>
+            <div class="ba-detail-row">
+              <span>Method:</span> <span x-text="$store.bioactivity.prediction.method"></span>
+            </div>
+            <div class="ba-detail-row" x-show="$store.bioactivity.prediction.sar_features?.length">
+              <span>SAR Features:</span>
+              <div class="ba-sar-tags">
+                <template x-for="f in ($store.bioactivity.prediction.sar_features || [])" :key="f">
+                  <span class="ba-sar-tag" x-text="f"></span>
+                </template>
+              </div>
+            </div>
           </div>
         </div>
-        <button class="btn-run" @click="$store.bioactivity.findSimilar()" :disabled="$store.bioactivity.loading || !$store.bioactivity.similarSmiles.trim()">
-          <span class="material-symbols-outlined">search</span>
-          <span x-text="$store.bioactivity.loading ? 'Searching...' : 'Find Similar'"></span>
-        </button>
+      </template>
+    </div>
 
-        <template x-if="$store.bioactivity.similarResults">
-          <div class="ba-similar-results">
-            <div class="data-info-bar">
-              <span class="material-symbols-outlined success-icon">check_circle</span>
-              <span class="analysis-name" x-text="'Found ' + ($store.bioactivity.similarResults.num_similar || 0) + ' similar active compounds'"></span>
+    <!-- BATCH TAB -->
+    <div x-show="$store.bioactivity.activeTab==='batch'" class="ba-body">
+      <h3>Batch Prediction</h3>
+      <div class="ba-section">
+        <label class="ba-label">Molecules (one SMILES per line, max 50)</label>
+        <textarea x-model="$store.bioactivity.batchSmiles" class="ba-textarea" rows="5"
+          placeholder="CC(=O)OC1=CC=CC=C1C(=O)O&#10;CC(C)Cc1ccc(cc1)C(C)C(=O)O&#10;c1ccc(Nc2nccc(n2)-c2cn[nH]c2)cc1"></textarea>
+      </div>
+      <div class="ba-section">
+        <label class="ba-label">Target Class</label>
+        <select x-model="$store.bioactivity.batchTarget" class="ba-select">
+          <template x-for="(info, key) in $store.bioactivity.targetClasses" :key="key">
+            <option :value="key" x-text="info.name || key"></option>
+          </template>
+        </select>
+      </div>
+      <button class="ba-btn" @click="$store.bioactivity.batchPredict()" :disabled="$store.bioactivity.loading">
+        <span class="material-symbols-outlined">play_arrow</span> Predict All
+      </button>
+
+      <template x-if="$store.bioactivity.batchResults">
+        <div class="ba-batch-results">
+          <div class="ba-batch-summary">
+            <span>Predicted: <strong x-text="$store.bioactivity.batchResults.summary?.predicted || 0"></strong></span>
+            <span>Active: <strong x-text="$store.bioactivity.batchResults.summary?.num_active || 0"></strong></span>
+            <span>Highly Active: <strong x-text="$store.bioactivity.batchResults.summary?.num_highly_active || 0"></strong></span>
+            <span>Mean pIC50: <strong x-text="$store.bioactivity.batchResults.summary?.mean_pic50 || '-'"></strong></span>
+          </div>
+          <div class="ba-batch-table">
+            <div class="ba-table-head">
+              <span>SMILES</span><span>pIC50</span><span>IC50 (nM)</span><span>Activity</span>
             </div>
-            <template x-for="(hit, i) in ($store.bioactivity.similarResults.similar_actives || [])" :key="i">
-              <div class="ba-hit-card">
-                <strong x-text="hit.name"></strong>
-                <code class="ba-smi" x-text="hit.smiles"></code>
-                <div class="ba-hit-meta">
-                  <span>Similarity: <strong x-text="hit.similarity"></strong></span>
-                  <span>pIC50: <strong x-text="hit.pic50"></strong></span>
-                </div>
+            <template x-for="(p, i) in ($store.bioactivity.batchResults.predictions || [])" :key="i">
+              <div class="ba-table-row" x-show="!p.error">
+                <code x-text="(p.smiles || '').substring(0, 30) + (p.smiles?.length > 30 ? '...' : '')"></code>
+                <span x-text="p.predicted_pic50"></span>
+                <span x-text="p.predicted_ic50_nM"></span>
+                <span class="ba-act-cell" :style="'color:' + $store.bioactivity.activityColor(p.activity_class)" x-text="p.activity_class"></span>
               </div>
             </template>
           </div>
-        </template>
-      </div>
+        </div>
+      </template>
     </div>
 
-    <style>
-      .dock-panel { display: flex; flex-direction: column; height: 100%; overflow: hidden; background: var(--color-background); }
-      .panel-header { padding: 14px 20px; border-bottom: 1px solid var(--color-border); background: var(--color-panel); flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
-      .header-left { display: flex; align-items: center; gap: 12px; }
-      .header-icon { font-size: 28px; color: var(--color-primary); }
-      .panel-header h2 { color: var(--color-text); font-size: 1.05rem; margin: 0; font-weight: 700; }
-      .header-subtitle { color: var(--color-text-muted); font-size: 0.7rem; margin: 2px 0 0 0; }
-      .health-badge { display: flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 4px; font-size: 0.56rem; font-weight: 600; }
-      .health-badge.hlth-info { background: rgba(59,130,246,0.1); color: #3b82f6; border: 1px solid rgba(59,130,246,0.2); }
+    <!-- SIMILAR TAB -->
+    <div x-show="$store.bioactivity.activeTab==='similar'" class="ba-body">
+      <h3>Find Similar Active Compounds</h3>
+      <div class="ba-section">
+        <label class="ba-label">Query Molecule (SMILES)</label>
+        <input type="text" x-model="$store.bioactivity.similarSmiles" class="ba-input"
+          placeholder="Enter SMILES to find similar known actives" />
+      </div>
+      <div class="ba-section">
+        <label class="ba-label">Target Class</label>
+        <select x-model="$store.bioactivity.similarTarget" class="ba-select">
+          <option value="general">All Classes</option>
+          <template x-for="(info, key) in $store.bioactivity.targetClasses" :key="key">
+            <option :value="key" x-text="info.name || key"></option>
+          </template>
+        </select>
+      </div>
+      <button class="ba-btn" @click="$store.bioactivity.findSimilar()" :disabled="$store.bioactivity.loading">
+        <span class="material-symbols-outlined">search</span> Find Similar
+      </button>
 
-      .dock-tabs { display: flex; gap: 2px; padding: 6px 20px; border-bottom: 1px solid var(--color-border); background: var(--color-panel); flex-shrink: 0; overflow-x: auto; }
-      .dock-tab { display: flex; align-items: center; gap: 4px; padding: 6px 12px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--color-text-muted); cursor: pointer; font-size: 0.68rem; font-weight: 500; transition: all 0.15s; white-space: nowrap; }
-      .dock-tab:hover { color: var(--color-text); }
-      .dock-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
-      .dock-tab .material-symbols-outlined { font-size: 15px; }
+      <template x-if="$store.bioactivity.similarResults">
+        <div class="ba-similar-results">
+          <p x-text="'Found ' + ($store.bioactivity.similarResults.num_similar || 0) + ' similar active compounds'"></p>
+          <template x-for="(hit, i) in ($store.bioactivity.similarResults.similar_actives || [])" :key="i">
+            <div class="ba-hit-card">
+              <strong x-text="hit.name"></strong>
+              <code class="ba-smi" x-text="hit.smiles"></code>
+              <div class="ba-hit-meta">
+                <span>Similarity: <strong x-text="hit.similarity"></strong></span>
+                <span>pIC50: <strong x-text="hit.pic50"></strong></span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
 
-      .panel-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
-      .tab-content { min-height: 120px; }
-
-      .dock-error { padding: 8px 10px; background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.2); border-radius: 6px; color: var(--color-error-text, #ff6b6b); font-size: 0.68rem; margin-bottom: 10px; }
-      .dock-loading { display: flex; align-items: center; gap: 6px; padding: 8px 0; font-size: 0.7rem; color: var(--color-text-muted); }
-      .loading-spinner { width: 15px; height: 15px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
-      @keyframes spin { to { transform: rotate(360deg); } }
-
-      .section-title { font-size: 0.78rem; font-weight: 700; color: var(--color-text); margin: 0 0 8px 0; padding-bottom: 6px; border-bottom: 1px solid var(--color-border); }
-
-      .dock-card { padding: 14px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 12px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
-      .dock-card-header { display: flex; align-items: center; gap: 8px; }
-      .dock-card-icon { font-size: 20px; color: var(--color-primary); }
-      .dock-card h4 { color: var(--color-text); font-size: 0.78rem; font-weight: 600; margin: 0; }
-
-      .mt-input { width: 100%; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-background); color: var(--color-text); font-size: 0.7rem; font-family: var(--font-mono, monospace); min-width: 0; }
-      .mt-input:focus { outline: none; border-color: var(--color-primary); }
-      .mt-input::placeholder { font-family: var(--font-family-main); color: var(--color-text-muted); font-size: 0.64rem; }
-      .mt-textarea { width: 100%; min-height: 54px; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-background); color: var(--color-text); font-size: 0.68rem; font-family: var(--font-mono, monospace); resize: vertical; }
-      .mt-textarea:focus { outline: none; border-color: var(--color-primary); }
-
-      .ba-param-row { display: flex; gap: 8px; align-items: center; }
-      .param-label { font-size: 0.62rem; color: var(--color-text-muted); font-weight: 600; white-space: nowrap; }
-      .ba-select { flex: 1; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-background); color: var(--color-text); font-size: 0.68rem; }
-
-      .btn-run { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 6px; padding: 10px; background: var(--color-primary); border: none; border-radius: 8px; color: white; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: all 0.15s; }
-      .btn-run:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
-      .btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-      .data-info-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 10px; font-size: 0.75rem; }
-      .success-icon { font-size: 16px; color: #22c55e; }
-      .analysis-name { color: var(--color-text); font-weight: 500; }
-
-      .analysis-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
-      .analysis-card { display: flex; flex-direction: column; align-items: center; padding: 12px 8px; background: var(--color-panel); border: 2px solid var(--color-border); border-radius: 10px; text-align: center; gap: 2px; }
-      .analysis-card.selected { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 8%, var(--color-panel)); }
-      .card-title { font-size: 0.66rem; font-weight: 700; color: var(--color-text); }
-      .card-desc { font-size: 0.6rem; color: var(--color-text-muted); }
-
-      .no-results { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; color: var(--color-text-muted); text-align: center; }
-      .no-results .material-symbols-outlined { font-size: 42px; opacity: 0.25; margin-bottom: 10px; }
-      .no-results p { font-size: 0.8rem; margin: 0; }
-
-      .ba-result-card { background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 10px; padding: 14px; margin-top: 10px; }
-      .ba-result-header { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 10px; }
-      .ba-pic50-box, .ba-ic50-box { text-align: center; }
-      .ba-pic50-value { font-size: 1.6rem; font-weight: 700; display: block; color: var(--color-primary); font-family: var(--font-mono, monospace); }
-      .ba-ic50-value { font-size: 0.9rem; font-weight: 700; display: block; color: var(--color-text); }
-      .ba-pic50-label { font-size: 0.58rem; opacity: 0.5; color: var(--color-text-muted); }
-      .ba-activity-badge { padding: 4px 10px; border-radius: 99px; font-size: 0.66rem; font-weight: 600; }
-      .ba-confidence { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-      .ba-conf-bar { flex: 1; height: 7px; background: var(--color-border); border-radius: 4px; overflow: hidden; }
-      .ba-conf-fill { height: 100%; background: var(--color-primary); border-radius: 4px; transition: width 0.3s; }
-      .ba-conf-val { font-size: 0.64rem; font-weight: 700; color: var(--color-text); font-family: var(--font-mono, monospace); }
-      .ba-details { border-top: 1px solid var(--color-border); padding-top: 8px; }
-      .ba-detail-row { display: flex; gap: 6px; font-size: 0.64rem; margin-bottom: 4px; align-items: flex-start; color: var(--color-text-muted); }
-      .ba-detail-row strong { color: var(--color-text); }
-      .ba-sar-tags { display: flex; flex-wrap: wrap; gap: 4px; }
-      .ba-sar-tag { background: color-mix(in srgb, var(--color-primary) 12%, transparent); color: var(--color-primary); padding: 2px 6px; border-radius: 4px; font-size: 0.58rem; font-weight: 500; }
-
-      .ba-batch-results { margin-top: 10px; }
-      .ba-batch-table { font-size: 0.64rem; margin-top: 10px; }
-      .ba-table-head { display: grid; grid-template-columns: 2fr 0.8fr 1fr 1.6fr; gap: 6px; padding: 6px 8px; font-weight: 600; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--color-text-muted); border-bottom: 1px solid var(--color-border); }
-      .ba-table-row { display: grid; grid-template-columns: 2fr 0.8fr 1fr 1.6fr; gap: 6px; padding: 5px 8px; border-bottom: 1px dotted var(--color-border); color: var(--color-text); }
-      .ba-table-row code { font-size: 0.6rem; font-family: var(--font-mono, monospace); color: var(--color-primary); word-break: break-all; }
-      .ba-act-cell { font-size: 0.6rem; }
-
-      .ba-similar-results { margin-top: 4px; }
-      .ba-hit-card { background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; padding: 10px; margin-bottom: 6px; }
-      .ba-hit-card strong { font-size: 0.7rem; color: var(--color-text); }
-      .ba-smi { display: block; font-size: 0.6rem; margin: 3px 0; word-break: break-all; opacity: 0.7; color: var(--color-primary); font-family: var(--font-mono, monospace); }
-      .ba-hit-meta { display: flex; gap: 14px; font-size: 0.62rem; color: var(--color-text-muted); }
-      .ba-hit-meta strong { color: var(--color-text); }
-    </style>
   </div>
+
+  <style>
+    .ba-panel { padding: 1.5rem; max-width: 900px; margin: 0 auto; }
+    .ba-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+    .ba-icon { font-size: 2rem; color: var(--color-primary, #6366f1); }
+    .ba-header h2 { margin: 0; font-size: 1.4rem; }
+    .ba-sub { margin: 0; opacity: 0.6; font-size: 0.85rem; }
+    .ba-tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--color-border, #333); margin-bottom: 1.5rem; }
+    .ba-tab { background: none; border: none; padding: 0.6rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; color: var(--color-text, #ccc); font-size: 0.85rem; border-bottom: 2px solid transparent; }
+    .ba-tab.active { color: var(--color-primary, #6366f1); border-bottom-color: var(--color-primary, #6366f1); }
+    .ba-tab .material-symbols-outlined { font-size: 1.1rem; }
+    .ba-error { background: #1c0a0a; border: 1px solid #ef4444; color: #f87171; padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.85rem; }
+    .ba-msg { background: #0a1c1a; border: 1px solid #22c55e; color: #4ade80; padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.85rem; }
+    .ba-loading { text-align: center; padding: 2rem; color: var(--color-primary, #6366f1); }
+    .ba-body { animation: fadeIn 0.2s; }
+    .ba-body h3 { font-size: 1.1rem; margin: 0 0 1rem 0; }
+    .ba-section { margin-bottom: 1rem; }
+    .ba-label { display: block; font-size: 0.8rem; opacity: 0.7; margin-bottom: 0.4rem; }
+    .ba-input { width: 100%; padding: 0.65rem 0.8rem; background: var(--color-panel, #1a1a2e); border: 1px solid var(--color-border, #333); border-radius: 6px; color: inherit; font-family: monospace; font-size: 0.9rem; }
+    .ba-textarea { width: 100%; padding: 0.65rem 0.8rem; background: var(--color-panel, #1a1a2e); border: 1px solid var(--color-border, #333); border-radius: 6px; color: inherit; font-family: monospace; font-size: 0.85rem; resize: vertical; }
+    .ba-select { padding: 0.5rem 0.8rem; background: var(--color-panel, #1a1a2e); border: 1px solid var(--color-border, #333); border-radius: 6px; color: inherit; font-size: 0.85rem; }
+    .ba-btn { display: inline-flex; align-items: center; gap: 0.4rem; background: var(--color-primary, #6366f1); color: #fff; border: none; padding: 0.65rem 1.2rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-top: 0.5rem; }
+    .ba-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .ba-result-card { background: var(--color-panel, #1a1a2e); border: 1px solid var(--color-border, #333); border-radius: 10px; padding: 1.25rem; margin-top: 1.5rem; }
+    .ba-result-header { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .ba-pic50-box, .ba-ic50-box { text-align: center; }
+    .ba-pic50-value { font-size: 2rem; font-weight: 700; display: block; }
+    .ba-pic50-label { font-size: 0.75rem; opacity: 0.5; }
+    .ba-activity-badge { padding: 0.4rem 0.8rem; border-radius: 99px; font-size: 0.8rem; font-weight: 500; }
+    .ba-confidence { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+    .ba-conf-bar { flex: 1; height: 8px; background: #ffffff10; border-radius: 4px; overflow: hidden; }
+    .ba-conf-fill { height: 100%; background: var(--color-primary, #6366f1); border-radius: 4px; transition: width 0.3s; }
+    .ba-details { border-top: 1px solid var(--color-border, #222); padding-top: 0.75rem; }
+    .ba-detail-row { display: flex; gap: 0.5rem; font-size: 0.85rem; margin-bottom: 0.4rem; align-items: flex-start; }
+    .ba-sar-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+    .ba-sar-tag { background: #6366f122; color: #a5b4fc; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
+    .ba-batch-results { margin-top: 1.5rem; }
+    .ba-batch-summary { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1rem; font-size: 0.85rem; }
+    .ba-batch-table { font-size: 0.8rem; }
+    .ba-table-head { display: grid; grid-template-columns: 2fr 1fr 1fr 2fr; gap: 0.5rem; padding: 0.5rem; font-weight: 600; opacity: 0.7; border-bottom: 1px solid var(--color-border, #333); }
+    .ba-table-row { display: grid; grid-template-columns: 2fr 1fr 1fr 2fr; gap: 0.5rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--color-border, #1a1a2e); }
+    .ba-act-cell { font-size: 0.75rem; }
+    .ba-similar-results { margin-top: 1rem; }
+    .ba-hit-card { background: var(--color-panel, #1a1a2e); border: 1px solid var(--color-border, #333); border-radius: 6px; padding: 0.75rem; margin-bottom: 0.5rem; }
+    .ba-smi { display: block; font-size: 0.8rem; margin: 0.3rem 0; word-break: break-all; opacity: 0.7; }
+    .ba-hit-meta { display: flex; gap: 1.5rem; font-size: 0.8rem; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  </style>
 </body>
 </html>

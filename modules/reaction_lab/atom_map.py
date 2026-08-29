@@ -8,30 +8,13 @@ is a deterministic structural correspondence.)
 import logging
 from typing import Dict, List
 
-try:
-    from rdkit import Chem
-    from rdkit.Chem import rdFMCS
-    HAS_RDKIT = True
-except ImportError:
-    HAS_RDKIT = False
-    Chem = None
-    rdFMCS = None
+from rdkit import Chem
+from rdkit.Chem import rdFMCS
 
 log = logging.getLogger("reaction_lab.atom_map")
 
 
-def map_reaction(reactants, product: str = None) -> Dict:
-    if not HAS_RDKIT:
-        return {"status": "error", "error": "RDKit is required for atom mapping"}
-
-    # Support single reaction SMILES string (e.g. 'A.B>>C')
-    if isinstance(reactants, str) and ">>" in reactants and product is None:
-        r_part, p_part = reactants.split(">>", 1)
-        reactants = [s.strip() for s in r_part.split(".") if s.strip()]
-        product = p_part.split(".")[0].strip()
-    elif isinstance(reactants, str):
-        reactants = [reactants]
-
+def map_reaction(reactants: List[str], product: str) -> Dict:
     if not reactants or not product:
         return {"error": "reactants (list) and product required"}
     pmol = Chem.MolFromSmiles(product)

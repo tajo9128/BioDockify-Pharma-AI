@@ -12,14 +12,9 @@ import logging
 import re
 from typing import Dict, List, Optional, Set, Tuple
 
-try:
-    from rdkit import Chem
-    from rdkit.Chem import BRICS, Descriptors, rdMolDescriptors, AllChem
-    from rdkit.Chem.Scaffolds import MurckoScaffold
-    HAS_RDKIT = True
-except ImportError:
-    HAS_RDKIT = False
-    Chem = None
+from rdkit import Chem
+from rdkit.Chem import BRICS, Descriptors, rdMolDescriptors, AllChem
+from rdkit.Chem.Scaffolds import MurckoScaffold
 
 from .reactions import REACTION_TEMPLATES, reverse_reaction
 
@@ -176,9 +171,16 @@ def _plan_recursive(smiles: str, depth: int, visited: Set[str], max_depth: int) 
 
 
 def plan_synthesis(smiles: str, max_routes: int = 3, max_depth: int = MAX_RECURSION_DEPTH) -> Dict:
-    """Plan complete synthesis routes from purchasable building blocks."""
-    if not HAS_RDKIT:
-        return {"status": "error", "error": "RDKit is required for retrosynthesis planning"}
+    """Plan complete synthesis routes from purchasable building blocks.
+
+    Args:
+        smiles: Target molecule SMILES
+        max_routes: Maximum number of alternative routes to return
+        max_depth: Maximum retrosynthetic recursion depth
+
+    Returns:
+        Dict with routes, each route being a tree of steps.
+    """
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         return {"error": "Invalid SMILES"}
