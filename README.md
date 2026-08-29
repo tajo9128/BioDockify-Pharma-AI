@@ -169,6 +169,28 @@ docker compose up -d
 # Subsequent starts are instant
 ```
 
+### ⚠️ If Docker Desktop search shows "loading tags" and no Pull button
+
+This is a **Docker Desktop search bug for signed-out users** — the image itself is fine. Use any of these working methods:
+
+**Method 1 — Pull dialog (no search needed):**
+Docker Desktop → **Images** (left sidebar) → **Pull** button → type `tajo9128/biodockify-pharma-ai` → Pull.
+
+**Method 2 — Terminal (always works):**
+```bash
+docker pull tajo9128/biodockify-pharma-ai:latest
+docker run -d -p 80:80 --name biodockify tajo9128/biodockify-pharma-ai:latest
+# Then open http://localhost
+```
+
+**Method 3 — Fix the search itself:**
+Sign in to Docker Hub inside Docker Desktop (top-right "Sign in", free account), then restart Docker Desktop. Tags and the Pull button will appear in search.
+
+**On shared campus networks:** Docker Hub rate-limits anonymous pulls per IP. Sign in inside Docker Desktop, or pull from our GitHub mirror which has no such limits:
+```bash
+docker pull ghcr.io/tajo9128/biodockify-pharma-ai:latest
+```
+
 ### Prerequisites
 
 - **Docker Desktop** (Windows/macOS) or Docker Engine (Linux) — required
