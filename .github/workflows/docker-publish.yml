@@ -35,10 +35,13 @@ jobs:
           if [ -n "${{ github.event.inputs.force_version }}" ]; then
             VERSION="${{ github.event.inputs.force_version }}"
           else
+            # Use the version from version_info.txt (single source of truth).
+            # This keeps GitHub tags, Docker Hub tags, and the in-app version identical.
             RAW_VERSION=$(cat version_info.txt | tr -d '[:space:]')
             if [ -z "$RAW_VERSION" ]; then
               echo "ERROR: version_info.txt is empty"; exit 1
             fi
+            # Ensure it starts with 'v'
             if [[ "$RAW_VERSION" != v* ]]; then
               VERSION="v$RAW_VERSION"
             else
@@ -76,6 +79,8 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      # Second registry: ghcr.io has no Docker Hub anonymous rate limits —
+      # gives users on shared IPs (campuses) a pull source that always works.
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -83,8 +88,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 1: Build and push full image to GHCR (all layers preserved for debugging)
-      - name: Build and push to GHCR
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -93,40 +97,21 @@ jobs:
           platforms: linux/amd64
           provenance: false
           tags: |
-            ghcr.io/tajo9128/biodockify-pharma-ai:${{ steps.version.outputs.version }}
-            ghcr.io/tajo9128/biodockify-pharma-ai:latest
-            ghcr.io/tajo9128/biodockify-pharma-ai:dev
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev
+            ghcr.io/tajo9128/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ghcr.io/tajo9128/${{ env.IMAGE_NAME }}:latest
+            ghcr.io/tajo9128/${{ env.IMAGE_NAME }}:dev
           labels: |
             org.opencontainers.image.title=BioDockify AI
             org.opencontainers.image.description=Pharma research distribution of BioDockify AI
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
 
-      # Step 2: Flatten image for Docker Hub (487 layers → 1 layer)
-      # Docker Desktop hangs on "loading tags" when manifests have hundreds of layers.
-      # crane flatten squashes all layers while preserving image config (CMD, ENV, etc).
-      - name: Install crane
-        run: |
-          CRANE_VERSION=$(curl -s "https://api.github.com/repos/google/go-containerregistry/releases/latest" | jq -r '.tag_name')
-          curl -sL "https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz" | tar -xzf - crane
-          chmod +x crane && sudo mv crane /usr/local/bin/
-          crane version
-
-      - name: Flatten and push to Docker Hub
-        run: |
-          echo "Flattening ghcr.io image (487 layers → 1 layer) for Docker Hub..."
-          crane flatten ghcr.io/tajo9128/biodockify-pharma-ai:latest \
-            --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          echo "Pushing dev tag..."
-          crane tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest dev
-          echo "Docker Hub push complete (single-layer image)"
-          echo "Verifying layer count..."
-          crane manifest ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest | jq '.layers | length'
-
       - name: Verify packages in built image
         run: |
           echo "Running package verification..."
-          docker pull ghcr.io/tajo9128/biodockify-pharma-ai:latest
-          docker run --rm ghcr.io/tajo9128/biodockify-pharma-ai:latest /exe/verify_packages.sh || echo "WARNING: Some packages missing — check logs above"
+          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} /exe/verify_packages.sh || echo "WARNING: Some packages missing — check logs above"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -137,13 +122,10 @@ jobs:
 
             **Pharmaceutical research distribution of [BioDockify Pharma AI](https://github.com/tajo9128/BioDockify-Pharma-AI)**
 
-            ### Docker (recommended)
+            ### Docker
             ```bash
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            docker run -d -p 80:80 -v biodockify_data:/a0/usr --name biodockify --restart unless-stopped ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            docker run -d -p 80:80 -v biodockify_usr:/a0/usr -v ~/biodockify-backups:/a0/usr/backups --name biodockify ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
             ```
-
-            ### Windows one-click
-            Download `install.bat` from this repo and double-click it.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
