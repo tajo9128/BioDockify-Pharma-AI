@@ -27,5 +27,3 @@
 - `stereo_analysis` — chiral centers, R/S, E/Z, stereoisomer count, canonical SMILES
 
 **API endpoint:** `POST /api/medicinal_chemistry`
-- `r_group` — R-group decomposition: molecules + scaffold → R-table (substituent frequency per labeled position). The heart of SAR discussions. Input: molecules[], scaffold.
-- `analogue_finder` — enumerate a lead at one R position with 36 common substituents (Me/Et/F/Cl/CF3/OMe/NH2/Ph/heterocycles...), each with MW/LogP/TPSA/HBD/HBA. Auto-derives Murcko scaffold; choose position (R1/R2/...). Chain with mmpa + bioactivity_predictor for prioritization.

@@ -2,6 +2,7 @@
 <head>
   <script type="module">
     import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
 
     export const store = createStore("slidesModal", {
       topic: "",
@@ -13,69 +14,72 @@
       error: "",
       message: "",
 
-      // ═══════════════════════════════════════════════════════════
-      // AUTOMATIC SLIDE GENERATION — sends comprehensive task to Agent
-      // Agent: searches internet → downloads PDFs/PPTs → reads them →
-      //        creates slides → generates .pptx via ppt-master skill
-      // ═══════════════════════════════════════════════════════════
-      generate() {
+      async generate() {
         if (!this.topic.trim()) return;
         this.loading = true;
         this.error = "";
-        this.message = "Sending task to Agent...";
-
-        const citations = this.includeCitations ? `\n6. Include citations/references on the last slide (author, year, source)` : "";
-
-        const prompt = `Create a complete ${this.numSlides}-slide presentation on "${this.topic}" in ${this.style} style for pharmacy students.
-
-IMPORTANT — Follow this workflow step by step:
-
-STEP 1: RESEARCH (do this first)
-- Use web_search to find existing lecture notes, PDFs, PPTs, and academic materials on "${this.topic}"
-- Search multiple sources: site:edu, site:ac.in, "lecture notes", "PPT", "PDF", "presentation"
-- Use URL fetch to download the 3-5 most relevant PDFs and PPTs you find
-- Read the downloaded materials and extract key content
-
-STEP 2: ORGANIZE CONTENT
-- Create an outline with ${this.numSlides} slides covering all key aspects of "${this.topic}"
-- Include: title slide, learning objectives, main content slides, summary, references
-- Use content from the downloaded materials (not just your training data)
-
-STEP 3: GENERATE PPTX
-- Use the ppt-master skill to create the presentation
-- Each slide should have: clear title, 4-6 bullet points with real content, speaker notes
-- Include diagrams, tables, formulas where appropriate
-- Use a professional ${this.style} theme${citations}
-
-STEP 4: SAVE AND DELIVER
-- Save the .pptx file in the workspace
-- Tell me where to download it
-
-The presentation must be lecture-ready with accurate, well-researched content from the downloaded materials.`;
-
-        const input = document.querySelector("#chat-input, #chat-bar-input textarea, .chat-bar-input textarea");
-        if (input) {
-          input.value = prompt;
-          input.dispatchEvent(new Event("input", { bubbles: true }));
-          input.focus();
-          this.message = "✅ Task sent to Agent — it will research the internet, download materials, and create your presentation";
-          this.result = { topic: this.topic, slides: [], sent: true };
-        } else {
-          this.error = "Chat input not found. Open the chat panel first.";
+        this.result = null;
+        try {
+          const resp = await callJsonApi("ppt_master", {
+            action: "generate_content",
+            topic: this.topic,
+            style: this.style,
+            num_slides: this.numSlides,
+          });
+          if (resp.error) { this.error = resp.error; }
+          else if (resp.slides && resp.slides.length) {
+            this.result = { topic: resp.topic || this.topic, slides: resp.slides };
+          } else { this.error = "No slides generated"; }
+        } catch (e) {
+          this.error = e.message || "Slide generation failed";
         }
         this.loading = false;
-        setTimeout(() => { this.message = ""; }, 8000);
       },
 
       sendToAgent() {
-        this.generate();
+        const input = document.getElementById("chat-input");
+        if (input) {
+          input.value = `Create a ${this.numSlides}-slide presentation on "${this.topic}" in ${this.style} style. For each slide provide: slide number, title, 3-4 bullet points, and speaker notes. Format: Slide N: [Title]\n• Point 1\n• Point 2\n\nSpeaker notes: ...`;
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          input.focus();
+          this.result = { topic: this.topic, slides: [], message: "Slide task sent to agent chat. Check the chat panel." };
+        } else {
+          this.error = "Chat input not found. Open a new chat first.";
+        }
       },
 
-      clear() {
-        this.topic = "";
-        this.result = null;
+      clear() { this.topic = ""; this.result = null; this.error = ""; },
+
+      async downloadPptx() {
+        if (!this.result?.slides?.length) { this.error = "Generate slides first"; return; }
+        this.loading = true;
         this.error = "";
-        this.message = "";
+        try {
+          const slides = this.result.slides.map(s => ({
+            type: "content",
+            title: s.title || s.heading || "Untitled",
+            bullets: (s.content || s.body || "").split("\n").filter(l => l.trim()),
+            notes: s.notes || s.speaker_notes || "",
+          }));
+          const resp = await fetch("/api/ppt_master", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "generate", slides, theme: this.style, topic: this.topic.substring(0, 50) }),
+          });
+          if (resp.ok) {
+            const blob = await resp.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${this.topic.substring(0, 30).replace(/\s+/g, "_")}.pptx`;
+            a.click();
+            URL.revokeObjectURL(url);
+          } else {
+            const err = await resp.json().catch(() => ({}));
+            this.error = err.error || "PPTX generation failed";
+          }
+        } catch (e) { this.error = "PPTX download failed: " + e.message; }
+        this.loading = false;
       },
     });
   </script>
@@ -89,10 +93,10 @@ The presentation must be lecture-ready with accurate, well-researched content fr
     <div class="panel-content">
       <div class="form-section">
         <div class="input-row">
-          <input type="text" x-model="$store.slidesModal.topic" placeholder="Presentation topic (e.g. Pharmacokinetics, Drug Design)..." class="topic-input" @keyup.enter="$store.slidesModal.generate()" />
+          <input type="text" x-model="$store.slidesModal.topic" placeholder="Presentation topic..." class="topic-input" @keyup.enter="$store.slidesModal.generate()" />
           <button class="btn-gen" @click="$store.slidesModal.generate()" :disabled="$store.slidesModal.loading || !$store.slidesModal.topic">
-            <span class="material-symbols-outlined">psychology</span>
-            Research & Create
+            <span class="material-symbols-outlined">auto_awesome</span>
+            Generate
           </button>
         </div>
         <div class="options-row">
@@ -107,7 +111,7 @@ The presentation must be lecture-ready with accurate, well-researched content fr
           </div>
           <div class="opt-group">
             <label class="opt-label">Slides</label>
-            <input type="number" x-model="$store.slidesModal.numSlides" min="3" max="50" class="opt-input" />
+            <input type="number" x-model="$store.slidesModal.numSlides" min="3" max="30" class="opt-input" />
           </div>
           <div class="opt-group check-opt">
             <label class="opt-check">
@@ -118,70 +122,48 @@ The presentation must be lecture-ready with accurate, well-researched content fr
         </div>
       </div>
 
-      <!-- Info banner explaining the process -->
-      <div class="info-banner">
-        <span class="material-symbols-outlined" style="font-size:16px;color:var(--color-primary)">info</span>
-        <div>
-          <strong>Automatic workflow:</strong> Agent searches the internet for lecture notes, PDFs & PPTs on your topic,
-          downloads the best materials, extracts key content, then creates a lecture-ready PowerPoint presentation.
-        </div>
-      </div>
-
       <div x-show="$store.slidesModal.error" class="error-banner" x-text="$store.slidesModal.error"></div>
-      <div x-show="$store.slidesModal.message" class="msg-banner" x-text="$store.slidesModal.message"></div>
+      <div x-show="$store.slidesModal.loading" class="loading-bar"><div class="loading-spinner"></div><span>Generating slides...</span></div>
 
-      <template x-if="$store.slidesModal.result?.sent">
+      <template x-if="$store.slidesModal.result">
         <div class="results">
           <div class="results-header">
-            <h3 x-text="$store.slidesModal.topic"></h3>
-          </div>
-          <div class="status-card">
-            <div class="status-step">
-              <span class="material-symbols-outlined status-icon active">search</span>
-              <div>
-                <strong>1. Internet Research</strong>
-                <p>Agent searches for existing lecture notes, PDFs, PPTs</p>
-              </div>
-            </div>
-            <div class="status-step">
-              <span class="material-symbols-outlined status-icon">download</span>
-              <div>
-                <strong>2. Download Materials</strong>
-                <p>Agent downloads the best PDFs and presentations</p>
-              </div>
-            </div>
-            <div class="status-step">
-              <span class="material-symbols-outlined status-icon">article</span>
-              <div>
-                <strong>3. Extract Content</strong>
-                <p>Agent reads materials and extracts key concepts</p>
-              </div>
-            </div>
-            <div class="status-step">
-              <span class="material-symbols-outlined status-icon">slideshow</span>
-              <div>
-                <strong>4. Create PPTX</strong>
-                <p>Agent generates the presentation using ppt-master</p>
-              </div>
-            </div>
-            <div class="status-note">
-              Check the <strong>chat panel</strong> to watch the agent work. The final .pptx will be available for download when complete.
+            <h3 x-text="$store.slidesModal.result.topic || $store.slidesModal.topic"></h3>
+            <div class="results-actions">
+              <button class="act-btn" @click="$store.slidesModal.sendToAgent()"><span class="material-symbols-outlined">psychology</span> Send to Agent</button>
+              <button class="act-btn" @click="$store.slidesModal.downloadPptx()" style="background:var(--color-primary);color:white;border-color:var(--color-primary)"><span class="material-symbols-outlined">download</span> Download PPTX</button>
+              <button class="act-btn" @click="$store.slidesModal.clear()"><span class="material-symbols-outlined">refresh</span> New</button>
             </div>
           </div>
-          <div class="results-actions">
-            <button class="act-btn" @click="$store.slidesModal.clear()"><span class="material-symbols-outlined">refresh</span> New Topic</button>
+          <div class="slide-list">
+            <template x-if="$store.slidesModal.result.slides">
+              <template x-for="(slide, i) in $store.slidesModal.result.slides" :key="i">
+                <div class="slide-card">
+                  <div class="slide-num" x-text="'Slide ' + (i + 1)"></div>
+                  <div class="slide-body">
+                    <div class="slide-title" x-text="slide.title || slide.heading || ''"></div>
+                    <div class="slide-content" x-text="slide.content || slide.body || ''"></div>
+                  </div>
+                </div>
+              </template>
+            </template>
+          </div>
+          <div class="agent-help">
+            <button class="agent-help-btn" @click="$store.slidesModal.sendToAgent()">
+              <span class="material-symbols-outlined">psychology</span>
+              Agent: refine and export these slides
+            </button>
           </div>
         </div>
       </template>
 
       <div x-show="!$store.slidesModal.result && !$store.slidesModal.loading" class="empty-state">
         <span class="material-symbols-outlined empty-icon">slideshow</span>
-        <p>Enter a topic — the Agent will research the internet and create a complete presentation</p>
+        <p>Enter a topic to generate a presentation</p>
         <div class="quick-chips">
           <button class="chip" @click="$store.slidesModal.topic='Advances in mRNA vaccine technology'; $store.slidesModal.generate()">mRNA vaccines</button>
           <button class="chip" @click="$store.slidesModal.topic='AI-driven drug discovery pipelines'; $store.slidesModal.generate()">AI drug discovery</button>
           <button class="chip" @click="$store.slidesModal.topic='Pharmacokinetics and pharmacodynamics overview'; $store.slidesModal.generate()">PK/PD overview</button>
-          <button class="chip" @click="$store.slidesModal.topic='Docking studies in drug design'; $store.slidesModal.generate()">Docking</button>
         </div>
       </div>
     </div>
@@ -206,31 +188,28 @@ The presentation must be lecture-ready with accurate, well-researched content fr
       .check-opt { display: flex; align-items: flex-end; padding-bottom: 4px; }
       .opt-check { display: flex; align-items: center; gap: 4px; font-size: 0.7rem; color: var(--color-text); cursor: pointer; }
       .opt-check input { accent-color: var(--color-primary); }
-
-      .info-banner { display: flex; gap: 8px; padding: 10px 12px; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); border-radius: 8px; margin-bottom: 14px; font-size: 0.65rem; color: var(--color-text); line-height: 1.5; }
-      .error-banner { padding: 6px 10px; background: rgba(255,107,107,0.1); border-radius: 6px; color: #ff6b6b; font-size: 0.7rem; margin-bottom: 10px; }
-      .msg-banner { padding: 8px 10px; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); border-radius: 6px; color: #22c55e; font-size: 0.7rem; margin-bottom: 10px; font-weight: 500; }
+      .error-banner { padding: 6px 10px; background: rgba(255,107,107,0.1); border-radius: 6px; color: var(--color-error-text); font-size: 0.7rem; margin-bottom: 10px; }
+      .loading-bar { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; color: var(--color-text-muted); }
+      .loading-spinner { width: 14px; height: 14px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
 
       .results { margin-top: 8px; }
-      .results-header { margin-bottom: 12px; }
-      .results-header h3 { font-size: 0.85rem; font-weight: 700; color: var(--color-text); margin: 0; }
-      .results-actions { display: flex; gap: 4px; margin-top: 10px; }
+      .results-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
+      .results-header h3 { font-size: 0.8rem; font-weight: 700; color: var(--color-text); margin: 0; }
+      .results-actions { display: flex; gap: 4px; }
       .act-btn { display: flex; align-items: center; gap: 3px; padding: 4px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.65rem; color: var(--color-text); cursor: pointer; }
       .act-btn:hover { border-color: var(--color-primary); }
-
-      .status-card { background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 10px; padding: 16px; }
-      .status-step { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--color-border); }
-      .status-step:last-of-type { border-bottom: none; }
-      .status-icon { font-size: 20px; color: var(--color-text-muted); }
-      .status-icon.active { color: var(--color-primary); animation: pulse 2s infinite; }
-      .status-step strong { font-size: 0.72rem; color: var(--color-text); display: block; margin-bottom: 2px; }
-      .status-step p { font-size: 0.62rem; color: var(--color-text-muted); margin: 0; }
-      .status-note { margin-top: 12px; padding: 8px 10px; background: rgba(59,130,246,0.08); border-radius: 6px; font-size: 0.62rem; color: var(--color-text); line-height: 1.4; }
-      @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-
+      .slide-list { display: flex; flex-direction: column; gap: 6px; }
+      .slide-card { display: flex; gap: 10px; padding: 10px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; border-left: 3px solid var(--color-primary); }
+      .slide-num { font-size: 0.65rem; font-weight: 700; color: var(--color-primary); white-space: nowrap; padding-top: 2px; }
+      .slide-body { flex: 1; min-width: 0; }
+      .slide-title { font-size: 0.74rem; font-weight: 600; color: var(--color-text); margin-bottom: 2px; }
+      .slide-content { font-size: 0.68rem; color: var(--color-text-muted); line-height: 1.4; }
+      .agent-help { margin-top: 12px; }
+      .agent-help-btn { display: flex; align-items: center; gap: 4px; padding: 8px 12px; background: color-mix(in srgb, var(--color-accent, #4fc3f7) 8%, var(--color-panel)); border: 1px solid color-mix(in srgb, var(--color-accent, #4fc3f7) 25%, var(--color-border)); border-radius: 8px; color: var(--color-text); cursor: pointer; font-size: 0.68rem; width: 100%; justify-content: center; }
       .empty-state { display: flex; flex-direction: column; align-items: center; padding: 36px 20px; text-align: center; }
       .empty-icon { font-size: 40px; color: var(--color-border); margin-bottom: 10px; }
-      .empty-state p { color: var(--color-text-muted); font-size: 0.72rem; margin: 0 0 10px 0; }
+      .empty-state p { color: var(--color-text-muted); font-size: 0.75rem; margin: 0 0 10px 0; }
       .quick-chips { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; }
       .chip { padding: 5px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.68rem; color: var(--color-text); cursor: pointer; }
       .chip:hover { border-color: var(--color-primary); }

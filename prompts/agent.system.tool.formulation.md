@@ -19,10 +19,3 @@
 - `optimize` — DOE/RSM formulation optimization
 
 **API endpoint:** `POST /api/formulation`
-
-**QbD / DoE Studio (v7.30.0, ported from biodockify-web):**
-- `qbd_design` — exact DoE matrices: full_factorial, central_composite (rotatable α), box_behnken (k=3-5), plackett_burman. Input: factors [{name, low, high}].
-- `qbd_analyze` — response-surface fit with real adequacy: coefficient table (p-values, VIF), lack-of-fit F test vs pure error, PRESS/predicted R². Input: runs (from qbd_design), responses [{name, values}].
-- `mixture_design` — simplex lattice/centroid + axial for formulation components; proportions + real amounts (total: 1.0 fractions / 100 % / mg).
-- `mixture_analyze` — Scheffé mixture models (linear/quadratic/special-cubic) with adequacy.
-- Workflow: qbd_design → user runs experiments → qbd_analyze with measured values. NEVER claim an optimum is validated — it is a model prediction until the confirmatory batch is made.

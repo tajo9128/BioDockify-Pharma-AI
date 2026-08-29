@@ -41,16 +41,11 @@ class ClinicalHandler(ApiHandler):
             result = self._beers_criteria(input)
         elif action == "stopp_start":
             result = self._stopp_start(input)
-        elif action == "signal_detect":
-            result = self._signal_detect(input)
-        elif action == "signal_series":
-            result = self._signal_series(input)
         else:
             return {
                 "actions": [
                     "drug_interaction", "tdm", "renal_adjust", "hepatic_adjust",
-                    "naranjo", "ckd_epi", "vancomycin_auc", "beers_criteria", "stopp_start",
-                    "signal_detect", "signal_series"
+                    "naranjo", "ckd_epi", "vancomycin_auc", "beers_criteria", "stopp_start"
                 ],
                 "hint": "Clinical pharmacy tools: drug interactions, TDM, dose adjustment, ADR assessment, geriatric screening"
             }
@@ -173,31 +168,3 @@ class ClinicalHandler(ApiHandler):
             medications=input.get("medications", []),
             conditions=input.get("conditions", []),
         )
-
-    def _signal_detect(self, input: dict) -> dict:
-        """Pharmacovigilance disproportionality: PRR + chi-square, ROR + 95% CI, Evans criteria.
-
-        Contingency table: a = drug+event, b = drug+other events, c = other drugs+event, d = other drugs+other events.
-        """
-        from modules.clinical.safety_signal import analyze_contingency, SafetySignalInputError
-        try:
-            return analyze_contingency(
-                input.get("a"), input.get("b"), input.get("c"), input.get("d"),
-                label=input.get("label"),
-                min_cases=int(input.get("min_cases", 3)),
-                prr_threshold=float(input.get("prr_threshold", 2.0)),
-                chi_square_threshold=float(input.get("chi_square_threshold", 4.0)),
-            )
-        except (SafetySignalInputError, TypeError, ValueError) as e:
-            return {"error": str(e)}
-
-    def _signal_series(self, input: dict) -> dict:
-        """Batch disproportionality analysis for several drug-event pairs (forest-plot rows)."""
-        from modules.clinical.safety_signal import analyze_event_series, SafetySignalInputError
-        events = input.get("events", [])
-        if not events:
-            return {"error": "events required: [{label, a, b, c, d}]"}
-        try:
-            return analyze_event_series(events)
-        except (SafetySignalInputError, TypeError, ValueError) as e:
-            return {"error": str(e)}

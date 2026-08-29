@@ -50,7 +50,7 @@ BioDockify supports any OpenAI-compatible local LLM through its AI Engine module
 | **Privacy** | No telemetry, no egress, HIPAA/GDPR friendly, fully reproducible thesis work |
 | **Smoke tests** | 27/27 pass (`tests/test_local_llm.py`) |
 
-### 31 Consolidated Research Modules
+### 22 Consolidated Research Modules
 
 | # | Module | Function | Backend |
 |---|--------|----------|---------|
@@ -75,20 +75,6 @@ BioDockify supports any OpenAI-compatible local LLM through its AI Engine module
 | 20 | **Regulatory Affairs** | eCTD/CTD structure, 40+ ICH guidelines, stability planner, BE report, IND/NDA checklists | ICH database |
 | 21 | **Pharmacology** | Receptor binding (Kd/Bmax), dose-response 4PL (EC50/IC50), Schild pA2, operational model (τ/KA), selectivity, receptor DB, in-vivo design, **NCA PK/PD analysis** | scipy + RDKit |
 | 22 | **Medicinal Chemistry** | Murcko scaffolds, MMPA, Butina clustering, SMARTS search, SA score, retrosynthesis, named reactions, protecting groups, toxicophore scan, stereo analysis | RDKit |
-| 23 | **Molecule Designer** | Generative chemistry: BRICS recombination, genetic algorithm optimization, scaffold enumeration, multi-objective scoring (QED/SA/Lipinski) | RDKit |
-| 24 | **Target Identification** | Disease-target search (OpenTargets/UniProt/ChEMBL), gene lookup, pathway enrichment, druggability assessment | live APIs + local fallback |
-| 25 | **Bioactivity Predictor** | IC50/pIC50 prediction per target class (RF on ECFP4), similar actives search, activity cliff/SAR analysis | RDKit + scikit-learn |
-| 26 | **Retrosynthesis Planner** | Multi-step route planning (BRICS + reaction templates), disconnection analysis, complexity score, building block lookup | RDKit |
-| 27 | **Structure Draw (ChemCanvas Studio)** | ChemCanvas-style UI: Ketcher 3 canvas (templates, reactions, S-groups, CIP, cleanup — offline Indigo WASM) + JSME quick-draw + PubChem lookup + SMILES/MOL/InChI conversion + live valence validation + 2D/3D view + structure library + ChemCanvas desktop bridge | Ketcher + JSME + RDKit |
-| 28 | **RNA Therapeutics** | siRNA design (Reynolds 2004 + Tuschl + seed off-target screen), codon optimization (E. coli/yeast/human/CHO, CAI), RNA folding (ViennaRNA/Nussinov MFE), mRNA properties, CRISPR guides (SpCas9/Cas12a) with off-target screening | pure Python + optional ViennaRNA |
-| 29 | **Reaction Lab** | Forward reactions (12 templates + custom SMARTS), combinatorial library enumeration, MCS atom mapping, ICH Q1A impurity/degradation prediction, condition recommendation | RDKit |
-| 30 | **EnviroTox** | Environmental screening: BCF (Meylan), Koc (Karickhoff), fish LC50 (Könemann + reactive flags), biodegradability, PBT/vPvB (REACH), green-chemistry flags, batch triage | RDKit QSAR |
-| 31 | **Network Pharmacology** | Compound-target networks vs disease targets: 68-compound curated DB + custom compounds, multi-target ranking, target hubs, pathway enrichment | curated DB + Target ID |
-| — | **Clinical signal detection** | Pharmacovigilance disproportionality: PRR + χ², ROR with 95% CI, Evans criteria, batch series | safety_signal |
-| — | **Dereplication+** | Formula analysis (RDBE, NP class hints, adduct m/z table) + ppm matching vs reference compounds | dereplication |
-| — | **Enzyme Kinetics** | Michaelis-Menten Vmax/Km fit, competitive Ki (LB), IC50 4PL + Cheng-Prusoff | scipy |
-| — | **QbD / DoE Studio** | Factorial/Box-Behnken/CCD/Plackett-Burman designs, RSM (lack-of-fit, PRESS), mixture Scheffé models | pure math |
-| — | **R-Group SAR** | R-group decomposition R-tables + analogue enumeration (36 substituents, descriptors) | RDKit RGD |
 | — | **All Tools** | Quick-launch grid for all modules | N/A |
 
 ### Statistics — 56 Analysis Types (SPSS/jamovi-level)

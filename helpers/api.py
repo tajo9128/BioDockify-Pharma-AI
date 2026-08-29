@@ -40,9 +40,7 @@ Output = Union[Dict[str, Any], Response]
 
 
 class ApiHandler:
-    def __init__(self, app: Flask | None = None, thread_lock: ThreadLockType | None = None):
-        # Optional args: framework route dispatch always supplies both; bare
-        # instantiation (agent code_execution, e.g. DockingRun()) is also valid.
+    def __init__(self, app: Flask, thread_lock: ThreadLockType):
         self.app = app
         self.thread_lock = thread_lock
 

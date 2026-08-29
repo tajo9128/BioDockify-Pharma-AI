@@ -17,77 +17,6 @@
       excCategory: "", excResult: null,
       // DOE Optimize
       doeObjective: "", doeFactors: "", doeResult: null,
-      qbdFactorsText: "Temp 40 80 °C\nTime 10 60 min\nBinder 0.5 2 %",
-      qbdDesignType: "central_composite", qbdDesign: null,
-      qbdResponsesText: "", qbdAnalysis: null,
-      mixComponentsText: "API\nFiller\nLubricant", mixDesignType: "simplex_centroid",
-      mixTotal: "100", mixDesign: null, mixResponsesText: "", mixAnalysis: null,
-      parseFactors(t) {
-        return t.split(/\n+/).map(line => {
-          const parts = line.trim().split(/[\s,]+/);
-          if (parts.length >= 3) return { name: parts[0], low: parseFloat(parts[1]), high: parseFloat(parts[2]) };
-          return null;
-        }).filter(Boolean);
-      },
-
-      async runQbdDesign() {
-        const factors = this.parseFactors(this.qbdFactorsText);
-        if (factors.length < 2) { this.error = "Need >=2 factors: NAME LOW HIGH per line"; return; }
-        this.loading = true; this.error = ""; this.qbdDesign = null;
-        try {
-          const r = await callJsonApi("formulation", { action: "qbd_design", factors, design_type: this.qbdDesignType });
-          if (r.error) { this.error = r.error; } else { this.qbdDesign = r; }
-        } catch (e) { this.error = e.message; }
-        this.loading = false;
-      },
-
-      async runQbdAnalyze() {
-        if (!this.qbdDesign) { this.error = "Generate a design first"; return; }
-        const vals = this.qbdResponsesText.split(/[\n,]+/).map(s => parseFloat(s.trim())).filter(x => !isNaN(x));
-        if (vals.length !== this.qbdDesign.n_runs) { this.error = `Need ${this.qbdDesign.n_runs} response values (design has ${this.qbdDesign.n_runs} runs)`; return; }
-        this.loading = true; this.error = ""; this.qbdAnalysis = null;
-        try {
-          const names = this.qbdDesign.factors.map(f => f.name);
-          const r = await callJsonApi("formulation", {
-            action: "qbd_analyze",
-            runs: this.qbdDesign.runs,
-            factor_names: names,
-            responses: [{ name: "response", values: vals }],
-          });
-          if (r.error) { this.error = r.error; } else { this.qbdAnalysis = r; }
-        } catch (e) { this.error = e.message; }
-        this.loading = false;
-      },
-
-      async runMixDesign() {
-        const comps = this.mixComponentsText.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).map(name => ({ name }));
-        if (comps.length < 2) { this.error = "Need >=2 components (one per line)"; return; }
-        this.loading = true; this.error = ""; this.mixDesign = null;
-        try {
-          const r = await callJsonApi("formulation", { action: "mixture_design", components: comps, design_type: this.mixDesignType, total: parseFloat(this.mixTotal) || 1.0 });
-          if (r.error) { this.error = r.error; } else { this.mixDesign = r; }
-        } catch (e) { this.error = e.message; }
-        this.loading = false;
-      },
-
-      async runMixAnalyze() {
-        if (!this.mixDesign) { this.error = "Generate a mixture design first"; return; }
-        const vals = this.mixResponsesText.split(/[\n,]+/).map(s => parseFloat(s.trim())).filter(x => !isNaN(x));
-        if (vals.length !== this.mixDesign.n_runs) { this.error = `Need ${this.mixDesign.n_runs} response values`; return; }
-        this.loading = true; this.error = ""; this.mixAnalysis = null;
-        try {
-          const names = this.mixDesign.components || this.mixDesign.component_names;
-          const r = await callJsonApi("formulation", {
-            action: "mixture_analyze",
-            runs: this.mixDesign.runs,
-            component_names: names,
-            responses: [{ name: "response", values: vals }],
-          });
-          if (r.error) { this.error = r.error; } else { this.mixAnalysis = r; }
-        } catch (e) { this.error = e.message; }
-        this.loading = false;
-      },
-
       async runKinetics() {
         if (!this.kTime || !this.kRelease) return;
         this.loading = true; this.error = "";
@@ -168,8 +97,6 @@
       <button class="dp-tab" :class="{active:$store.formulationModal.activeTab==='nano'}" @click="$store.formulationModal.activeTab='nano'">Nanoparticle</button>
       <button class="dp-tab" :class="{active:$store.formulationModal.activeTab==='stability'}" @click="$store.formulationModal.activeTab='stability'">Stability</button>
       <button class="dp-tab" :class="{active:$store.formulationModal.activeTab==='doe'}" @click="$store.formulationModal.activeTab='doe'">DOE Optimize</button>
-      <button class="dp-tab" :class="{active:$store.formulationModal.activeTab==='qbd'}" @click="$store.formulationModal.activeTab='qbd'">QbD Design</button>
-      <button class="dp-tab" :class="{active:$store.formulationModal.activeTab==='mixture'}" @click="$store.formulationModal.activeTab='mixture'">Mixture</button>
       <button class="dp-tab" :class="{active:$store.formulationModal.activeTab==='excipients'}" @click="$store.formulationModal.activeTab='excipients'">Excipients</button>
     </div>
     <div class="dp-body">
@@ -299,112 +226,7 @@
         </div>
       </div>
     </div>
-        <div x-show="$store.formulationModal.activeTab==='qbd'" class="dp-body">
-      <label class="dp-label">Factors — NAME LOW HIGH per line</label>
-      <textarea x-model="$store.formulationModal.qbdFactorsText" rows="4"></textarea>
-      <div style="display:flex;gap:8px;align-items:center">
-        <select x-model="$store.formulationModal.qbdDesignType">
-          <option value="central_composite">Central Composite (RSM)</option>
-          <option value="box_behnken">Box-Behnken (RSM)</option>
-          <option value="full_factorial">Full Factorial</option>
-          <option value="plackett_burman">Plackett-Burman (screening)</option>
-        </select>
-        <button class="dp-btn" @click="$store.formulationModal.runQbdDesign()" :disabled="$store.formulationModal.loading">Generate Design</button>
-      </div>
-      <template x-if="$store.formulationModal.qbdDesign">
-        <div class="dp-card">
-          <b x-text="$store.formulationModal.qbdDesign.n_runs + ' runs'"></b>
-          <table style="width:100%;font-size:0.68rem;border-collapse:collapse">
-            <thead><tr>
-              <th style="text-align:left">#</th>
-              <template x-for="f in $store.formulationModal.qbdDesign.factors" :key="f.name"><th style="text-align:left" x-text="f.name"></th></template>
-            </tr></thead>
-            <tbody>
-              <template x-for="r in $store.formulationModal.qbdDesign.runs" :key="r.run">
-                <tr>
-                  <td x-text="r.run"></td>
-                  <template x-for="f in $store.formulationModal.qbdDesign.factors" :key="f.name">
-                    <td x-text="r.actual[f.name]"></td>
-                  </template>
-                </tr>
-              </template>
-            </tbody>
-          </table>
-          <label class="dp-label">Measured responses (one per run, same order)</label>
-          <textarea x-model="$store.formulationModal.qbdResponsesText" rows="2"></textarea>
-          <button class="dp-btn" @click="$store.formulationModal.runQbdAnalyze()" :disabled="$store.formulationModal.loading">Fit Response Surface</button>
-        </div>
-      </template>
-      <template x-if="$store.formulationModal.qbdAnalysis">
-        <div class="dp-card">
-          <template x-for="resp in $store.formulationModal.qbdAnalysis.responses" :key="resp.response">
-            <div style="font-size:0.7rem">
-              <b x-text="resp.selected_order + ' model'"></b>
-              <table style="width:100%;font-size:0.66rem;border-collapse:collapse">
-                <thead><tr><th style="text-align:left">Term</th><th>Coeff</th><th>p</th></tr></thead>
-                <tbody>
-                  <template x-for="ct in resp.model.coefficients" :key="ct.term">
-                    <tr><td x-text="ct.term"></td><td x-text="ct.coefficient"></td><td x-text="ct.p_value < 0.05 ? ct.p_value + ' *' : ct.p_value"></td></tr>
-                  </template>
-                </tbody>
-              </table>
-            </div>
-          </template>
-        </div>
-      </template>
-    </div>
-
-    <div x-show="$store.formulationModal.activeTab==='mixture'" class="dp-body">
-      <div style="display:flex;gap:8px;align-items:center">
-        <div style="flex:1">
-          <label class="dp-label">Components (one per line)</label>
-          <textarea x-model="$store.formulationModal.mixComponentsText" rows="3"></textarea>
-        </div>
-        <div>
-          <label class="dp-label">Total</label>
-          <input x-model="$store.formulationModal.mixTotal" style="width:80px" title="1.0 fractions, 100 %, 500 mg">
-          <select x-model="$store.formulationModal.mixDesignType">
-            <option value="simplex_centroid">Simplex Centroid</option>
-            <option value="simplex_lattice">Simplex Lattice</option>
-          </select>
-        </div>
-      </div>
-      <button class="dp-btn" @click="$store.formulationModal.runMixDesign()" :disabled="$store.formulationModal.loading">Generate Mixture Design</button>
-      <template x-if="$store.formulationModal.mixDesign">
-        <div class="dp-card">
-          <b x-text="$store.formulationModal.mixDesign.n_runs + ' runs'"></b>
-          <table style="width:100%;font-size:0.68rem;border-collapse:collapse">
-            <thead><tr><th style="text-align:left">#</th>
-              <template x-for="cn in $store.formulationModal.mixDesign.component_names || $store.formulationModal.mixDesign.components" :key="cn"><th style="text-align:left" x-text="typeof cn === 'object' ? cn.name : cn"></th></template>
-            </tr></thead>
-            <tbody>
-              <template x-for="r in $store.formulationModal.mixDesign.runs" :key="r.run">
-                <tr><td x-text="r.run"></td>
-                  <template x-for="v, i in r.proportion_vector" :key="i"><td x-text="v"></td></template>
-                </tr>
-              </template>
-            </tbody>
-          </table>
-          <label class="dp-label">Measured responses (one per run)</label>
-          <textarea x-model="$store.formulationModal.mixResponsesText" rows="2"></textarea>
-          <button class="dp-btn" @click="$store.formulationModal.runMixAnalyze()" :disabled="$store.formulationModal.loading">Fit Scheffé Model</button>
-        </div>
-      </template>
-      <template x-if="$store.formulationModal.mixAnalysis">
-        <div class="dp-card" style="font-size:0.7rem">
-          <template x-for="resp in $store.formulationModal.mixAnalysis.responses" :key="resp.response">
-            <div>
-              <b x-text="resp.model + ' Scheffé model'"></b>
-              <template x-for="ct in resp.coefficients" :key="ct.term">
-                <div><span x-text="ct.term"></span> = <b x-text="ct.coefficient"></b></div>
-              </template>
-            </div>
-          </template>
-        </div>
-      </template>
-    </div>
-
-<style>
+    <style>
       .dp-panel{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background)}
       .dp-header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0}
       .dp-icon{font-size:24px;color:var(--color-primary)}

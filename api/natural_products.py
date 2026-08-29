@@ -28,12 +28,10 @@ class NaturalProductsHandler(ApiHandler):
         elif action == "ic50": result = self._ic50(input)
         elif action == "plant_database": result = self._plant_database(input)
         elif action == "dereplication": result = self._dereplication(input)
-        elif action == "formula_analysis": result = self._formula_analysis(input)
-        elif action == "dereplication_match": result = self._dereplication_match(input)
         elif action == "selectivity_index": result = self._selectivity_index(input)
         else:
             return {
-                "actions": ["phytochemical_screen", "extraction_yield", "ic50", "plant_database", "dereplication", "formula_analysis", "dereplication_match", "selectivity_index"],
+                "actions": ["phytochemical_screen", "extraction_yield", "ic50", "plant_database", "dereplication", "selectivity_index"],
                 "hint": "Natural products: phytochemical screening, extraction yields, IC50 calculation, plant database"
             }
         if result and not result.get("error"):
@@ -413,25 +411,3 @@ class NaturalProductsHandler(ApiHandler):
             "interpretation": "Highly selective (SI > 10)" if si > 10 else ("Selective (SI > 3)" if si > 3 else "Non-selective (SI < 3)"),
             "reference": "Badisa et al., Molecules 2020"
         }
-
-    def _formula_analysis(self, input):
-        """Full formula profile: monoisotopic mass, RDBE, NP class hints, adduct m/z table."""
-        formula = input.get("formula", "")
-        if not formula:
-            return {"error": "formula required (e.g. C21H30O2)"}
-        from modules.natural_products.dereplication import analyze_formula
-        try:
-            return analyze_formula(formula)
-        except ValueError as e:
-            return {"error": str(e)}
-
-    def _dereplication_match(self, input):
-        """Match observed m/z against reference compounds with ppm tolerance."""
-        mz = input.get("observed_mz")
-        references = input.get("references", [])
-        if mz is None:
-            return {"error": "observed_mz required"}
-        from modules.natural_products.dereplication import match_candidates
-        return match_candidates(mz, references,
-                                tolerance_ppm=float(input.get("tolerance_ppm", 5.0)),
-                                adduct=input.get("adduct", "[M+H]+"))

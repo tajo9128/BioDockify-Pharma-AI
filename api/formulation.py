@@ -33,13 +33,9 @@ class FormulationHandler(ApiHandler):
         elif action == "stability": result = self._stability(input)
         elif action == "excipient_db": result = self._excipient_db(input)
         elif action == "optimize": result = self._optimize(input)
-        elif action == "qbd_design": result = self._qbd_design(input)
-        elif action == "qbd_analyze": result = self._qbd_analyze(input)
-        elif action == "mixture_design": result = self._mixture_design(input)
-        elif action == "mixture_analyze": result = self._mixture_analyze(input)
         else:
             return {
-                "actions": ["release_kinetics", "dissolution_f2", "nanoparticle", "stability", "excipient_db", "optimize", "qbd_design", "qbd_analyze", "mixture_design", "mixture_analyze"],
+                "actions": ["release_kinetics", "dissolution_f2", "nanoparticle", "stability", "excipient_db", "optimize"],
                 "hint": "Pharmaceutics tools: release kinetics, dissolution comparison, nanoparticle characterization, stability prediction"
             }
         # Auto-store to Knowledge Base if successful
@@ -455,70 +451,3 @@ class FormulationHandler(ApiHandler):
 
         except Exception as e:
             return {"error": f"Optimization failed: {e}"}
-
-    # ── QbD / DoE (ported from biodockify-web) ──────────────────────
-
-    def _qbd_design(self, input):
-        """Design of experiments: full factorial, Box-Behnken, central composite, Plackett-Burman."""
-        factors = input.get("factors", [])
-        if not factors:
-            return {"error": "factors required: [{name, low, high}]"}
-        from modules.formulation.qbd import generate_design, QbDError
-        try:
-            return generate_design(factors,
-                                   design_type=input.get("design_type", "central_composite"),
-                                   centre_points=int(input.get("centre_points", 3)),
-                                   levels=int(input.get("levels", 2)),
-                                   alpha_mode=input.get("alpha_mode", "rotatable"),
-                                   randomize=bool(input.get("randomize", True)),
-                                   seed=input.get("seed"),
-                                   replicates=int(input.get("replicates", 1)))
-        except (QbDError, TypeError, ValueError) as e:
-            return {"error": str(e)}
-
-    def _qbd_analyze(self, input):
-        """Response-surface analysis of executed runs: coefficient tables, lack-of-fit, PRESS."""
-        runs = input.get("runs", [])
-        responses = input.get("responses", [])
-        if not runs or not responses:
-            return {"error": "runs (from qbd_design + measured values) and responses: [{name, values}] required"}
-        from modules.formulation.qbd import analyse_rsm, QbDError
-        try:
-            return analyse_rsm(runs, responses,
-                               factor_names=input.get("factor_names"),
-                               model_order=input.get("model_order", "quadratic"),
-                               compare_orders=bool(input.get("compare_orders", True)))
-        except (QbDError, TypeError, ValueError) as e:
-            return {"error": str(e)}
-
-    def _mixture_design(self, input):
-        """Mixture designs (simplex lattice / centroid) for formulation components."""
-        components = input.get("components", [])
-        if not components:
-            return {"error": "components required: [{name, unit?}]"}
-        from modules.formulation.mixture import generate_mixture_design, MixtureError
-        try:
-            return generate_mixture_design(components,
-                                           design_type=input.get("design_type", "simplex_centroid"),
-                                           degree=int(input.get("degree", 2)),
-                                           include_axial=bool(input.get("include_axial", True)),
-                                           centre_replicates=int(input.get("centre_replicates", 3)),
-                                           total=float(input.get("total", 1.0)),
-                                           randomize=bool(input.get("randomize", True)),
-                                           seed=input.get("seed"))
-        except (MixtureError, TypeError, ValueError) as e:
-            return {"error": str(e)}
-
-    def _mixture_analyze(self, input):
-        """Scheffe mixture model fit with adequacy diagnostics."""
-        runs = input.get("runs", [])
-        responses = input.get("responses", [])
-        if not runs or not responses:
-            return {"error": "runs (from mixture_design + measured values) and responses: [{name, values}] required"}
-        from modules.formulation.mixture import analyse_mixture, MixtureError
-        try:
-            return analyse_mixture(runs, responses,
-                                   component_names=input.get("component_names"),
-                                   model=input.get("model", "quadratic"))
-        except (MixtureError, TypeError, ValueError) as e:
-            return {"error": str(e)}

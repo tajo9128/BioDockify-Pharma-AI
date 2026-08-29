@@ -5,8 +5,6 @@
     import { callJsonApi } from "/js/api.js";
     export const store = createStore("pharmacologyModal", {
       activeTab: "binding", loading: false, error: "", message: "",
-      ekSubstrate: "0.5\n1\n2\n5\n10\n20", ekVelocity: "", ekKcat: "", ekResult: null,
-      inhInhibitor: "", inhSubstrate: "", inhVelocities: "", inhKm: "", inhResult: null,
 
       // PK/PD state
       pkFile: null, pkFileName: "", pkColumns: [], pkRowCount: 0,
@@ -26,46 +24,6 @@
       rdbQuery: "", rdbResult: null,
       // In-vivo design
       ivEndpoint: "anti-inflammatory", ivEffect: "1.5", ivAlpha: "0.05", ivPower: "0.80", ivSpecies: "rat", ivResult: null,
-
-      linesOf(t) { return t.split(/[\n,]+/).map(s => s.trim()).filter(Boolean); },
-
-      async runEnzymeKinetics() {
-        const s = this.linesOf(this.ekSubstrate).map(Number);
-        const v = this.linesOf(this.ekVelocity).map(Number);
-        if (!v.length) { this.error = "Paste velocity values"; return; }
-        this.loading = true; this.error = ""; this.ekResult = null;
-        try {
-          const payload = { action: "enzyme_kinetics", substrate: s, velocity: v };
-          if (this.ekKcat) payload.kcat = parseFloat(this.ekKcat);
-          const r = await callJsonApi("pharmacology", payload);
-          if (r.error) { this.error = r.error; } else { this.ekResult = r; }
-        } catch (e) { this.error = e.message; }
-        this.loading = false;
-      },
-
-      async runInhibition() {
-        const inh = this.linesOf(this.inhInhibitor).map(Number);
-        const sub = this.linesOf(this.inhSubstrate).map(Number);
-        let vel = this.linesOf(this.inhVelocities).map(Number);
-        // matrix mode if substrate provided and counts align (velocities per [I] per [S])
-        let velocities = vel;
-        if (sub.length >= 3 && this.inhVelocities.includes("\n\n") === false) {
-          // flat: if len(vel) == len(inh)*len(sub), reshape to matrix
-          if (vel.length === inh.length * sub.length) {
-            velocities = [];
-            for (let i = 0; i < inh.length; i++) velocities.push(vel.slice(i * sub.length, (i + 1) * sub.length));
-          }
-        }
-        this.loading = true; this.error = ""; this.inhResult = null;
-        try {
-          const payload = { action: "inhibition", inhibitor: inh, velocities };
-          if (sub.length) payload.substrate = sub;
-          if (this.inhKm) payload.km = parseFloat(this.inhKm);
-          const r = await callJsonApi("pharmacology", payload);
-          if (r.error) { this.error = r.error; } else { this.inhResult = r; }
-        } catch (e) { this.error = e.message; }
-        this.loading = false;
-      },
 
       async runBinding() {
         if (!this.rbConc || !this.rbTotal) return;
@@ -264,7 +222,6 @@
       <button class="dp-tab" :class="{active:$store.pharmacologyModal.activeTab==='iv'}" @click="$store.pharmacologyModal.activeTab='iv'">In-Vivo Design</button>
       <button class="dp-tab" :class="{active:$store.pharmacologyModal.activeTab==='nca'}" @click="$store.pharmacologyModal.activeTab='nca'">NCA</button>
       <button class="dp-tab" :class="{active:$store.pharmacologyModal.activeTab==='pkpd'}" @click="$store.pharmacologyModal.activeTab='pkpd'">PK/PD</button>
-      <button class="dp-tab" :class="{active:$store.pharmacologyModal.activeTab==='kinetics'}" @click="$store.pharmacologyModal.activeTab='kinetics'">Enzyme Kinetics</button>
     </div>
     <div class="dp-body">
       <div x-show="$store.pharmacologyModal.error" class="dp-error" x-text="$store.pharmacologyModal.error"></div>
@@ -537,68 +494,7 @@
         </div>
       </div>
     </div>
-        <div x-show="$store.pharmacologyModal.activeTab==='kinetics'" class="dp-body">
-      <h3 style="font-size:0.8rem;margin:0 0 6px 0">Michaelis-Menten Kinetics</h3>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div>
-          <label class="dp-label">[S] substrate (one per line)</label>
-          <textarea x-model="$store.pharmacologyModal.ekSubstrate" rows="6"></textarea>
-        </div>
-        <div>
-          <label class="dp-label">velocity v (matching order)</label>
-          <textarea x-model="$store.pharmacologyModal.ekVelocity" rows="6" placeholder="e.g. 22.2&#10;33.3&#10;50&#10;71.4&#10;83.3&#10;90.9"></textarea>
-        </div>
-      </div>
-      <input x-model="$store.pharmacologyModal.ekKcat" placeholder="Optional kcat (1/s) for catalytic efficiency" style="width:60%">
-      <button class="dp-btn" @click="$store.pharmacologyModal.runEnzymeKinetics()" :disabled="$store.pharmacologyModal.loading">Fit Vmax / Km</button>
-      <template x-if="$store.pharmacologyModal.ekResult">
-        <div class="dp-card">
-          <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:0.78rem">
-            <span>Vmax = <b x-text="$store.pharmacologyModal.ekResult.vmax"></b></span>
-            <span>Km = <b x-text="$store.pharmacologyModal.ekResult.km"></b></span>
-            <span>R&sup2; = <b x-text="$store.pharmacologyModal.ekResult.r_squared"></b></span>
-            <span x-show="$store.pharmacologyModal.ekResult.catalytic_efficiency_kcat_over_km">kcat/Km = <b x-text="$store.pharmacologyModal.ekResult.catalytic_efficiency_kcat_over_km"></b></span>
-          </div>
-          <div style="font-size:0.66rem;color:var(--color-text-muted)" x-text="'LB cross-check: Vmax ' + $store.pharmacologyModal.ekResult.lineweaver_burk.vmax + ', Km ' + $store.pharmacologyModal.ekResult.lineweaver_burk.km"></div>
-        </div>
-      </template>
-
-      <h3 style="font-size:0.8rem;margin:14px 0 6px 0">Inhibition Analysis (Ki / IC50)</h3>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-        <div>
-          <label class="dp-label">[I] inhibitor</label>
-          <textarea x-model="$store.pharmacologyModal.inhInhibitor" rows="4" placeholder="0&#10;1&#10;2&#10;4"></textarea>
-        </div>
-        <div>
-          <label class="dp-label">[S] substrate (for matrix/Ki)</label>
-          <textarea x-model="$store.pharmacologyModal.inhSubstrate" rows="4" placeholder="optional"></textarea>
-        </div>
-        <div>
-          <label class="dp-label">velocities (flat or I&times;S row-major)</label>
-          <textarea x-model="$store.pharmacologyModal.inhVelocities" rows="4"></textarea>
-        </div>
-      </div>
-      <input x-model="$store.pharmacologyModal.inhKm" placeholder="Known Km (for IC50&rarr;Ki Cheng-Prusoff)" style="width:60%">
-      <button class="dp-btn" @click="$store.pharmacologyModal.runInhibition()" :disabled="$store.pharmacologyModal.loading">Analyze Inhibition</button>
-      <template x-if="$store.pharmacologyModal.inhResult">
-        <div class="dp-card">
-          <span x-show="$store.pharmacologyModal.inhResult.mode==='competitive_lineweaver_burk'">
-            <b>Competitive LB:</b> Ki = <b x-text="$store.pharmacologyModal.inhResult.ki"></b>,
-            Vmax = <b x-text="$store.pharmacologyModal.inhResult.vmax"></b>,
-            Km(I=0) = <b x-text="$store.pharmacologyModal.inhResult.km_app_at_zero_inhibitor"></b>,
-            R&sup2; = <b x-text="$store.pharmacologyModal.inhResult.r_squared"></b>
-          </span>
-          <span x-show="$store.pharmacologyModal.inhResult.mode==='ic50_4pl'">
-            <b>IC50 (4PL):</b> IC50 = <b x-text="$store.pharmacologyModal.inhResult.ic50"></b>,
-            Hill = <b x-text="$store.pharmacologyModal.inhResult.hill"></b>,
-            Ki = <b x-text="$store.pharmacologyModal.inhResult.ki_cheng_prusoff ?? '—'"></b>,
-            R&sup2; = <b x-text="$store.pharmacologyModal.inhResult.r_squared"></b>
-          </span>
-        </div>
-      </template>
-    </div>
-
-<style>
+    <style>
       .dp-panel{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background);font-family:inherit}
       .dp-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--color-border);background:var(--color-panel)}
       .dp-icon{font-size:24px;color:var(--color-primary)}
