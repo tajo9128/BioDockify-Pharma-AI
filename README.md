@@ -513,3 +513,6 @@ BioDockify Pharma AI is open-source under the [MIT License](LICENSE), inherited 
 
 - [GitHub Issues](https://github.com/tajo9128/BioDockify-Pharma-AI/issues)
 - [Docker Hub](https://hub.docker.com/r/tajo9128/biodockify-pharma-ai)
+
+
+<!-- Security scan triggered at 2026-09-05 08:01:03 -->
