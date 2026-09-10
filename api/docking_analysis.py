@@ -262,16 +262,16 @@ def _residue_energy_decomposition(receptor_atoms, ligand_atoms, interactions):
 
 
 def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, interactions, known_smiles=""):
-    """Generate 2D interaction diagram SVG via RDKit.
+    """Generate a radial 2D interaction diagram (LigPlot-style) via RDKit.
 
-    Produces a proper ligand 2D structure with interaction annotations.
-    Filters out water (HOH) from direct interactions, deduplicates entries.
+    Ligand 2D structure in the center, interacting residues on a ring around
+    it, color-coded connectors with distances. Water (HOH) filtered out.
     """
     try:
+        import math
         import numpy as np
         from rdkit import Chem
         from rdkit.Chem import Draw, AllChem
-        import io
 
         if pose_index >= len(ligand_models):
             return None
@@ -298,20 +298,15 @@ def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, 
                 pass
 
         if not smiles:
-            # Fallback: interaction-only diagram (no molecular structure)
             return _interaction_only_svg(interactions)
 
         lig_mol = Chem.MolFromSmiles(smiles)
         if not lig_mol:
             return _interaction_only_svg(interactions)
-
-        lig_mol = Chem.MolFromSmiles(smiles)
-        if not lig_mol:
-            return None
 
         AllChem.Compute2DCoords(lig_mol)
 
-        # ── Filter and deduplicate interactions ──
+        # ── Filter and deduplicate interactions (water excluded) ──
         def _dedup(items, key_fn):
             seen = set()
             result = []
@@ -331,38 +326,131 @@ def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, 
         salt_bridges = _dedup(interactions.get("salt_bridges", []),
                               lambda s: (s.get("residue", ""), s.get("resseq", 0)))
 
-        # ── Build SVG ──
-        W, H = 700, 500
-        d2d = Draw.MolDraw2DSVG(W, H - 150)
+        # ── Collect residues: strongest interactions first, cap the ring ──
+        contacts = []  # {label, kind, distance}
+        for h in hbonds:
+            contacts.append({"label": f"{h.get('residue','')}{h.get('resseq','')}", "kind": "hbond",
+                             "dist": h.get("distance")})
+        for s in salt_bridges:
+            contacts.append({"label": f"{s.get('residue','')}{s.get('resseq','')}", "kind": "salt",
+                             "dist": s.get("distance")})
+        for p in pi_stacking:
+            contacts.append({"label": f"{p.get('residue','')}{p.get('resseq','')}", "kind": "pi",
+                             "dist": p.get("distance")})
+        for h in hydrophobic:
+            contacts.append({"label": f"{h.get('residue','')}{h.get('resseq','')}", "kind": "phobic",
+                             "dist": h.get("distance")})
+        # One entry per residue label (keep strongest kind order)
+        by_label = {}
+        for c in contacts:
+            if c["label"] not in by_label:
+                by_label[c["label"]] = c
+        ring = list(by_label.values())[:14]
+
+        # ── Canvas geometry ──
+        W, H = 780, 620
+        CX, CY = W / 2, 285            # ring center
+        RX, RY = 285, 205              # residue ring radii
+        LW, LH = 330, 230              # ligand drawing size
+        LX, LY = CX - LW / 2, CY - LH / 2
+
+        # ── Ligand 2D drawing (RDKit SVG, contents embedded + translated) ──
+        d2d = Draw.MolDraw2DSVG(LW, LH)
+        opts = d2d.drawOptions()
+        try:
+            opts.clearBackground = False
+            opts.bondLineWidth = 2.0
+        except Exception:
+            pass
         d2d.DrawMolecule(lig_mol)
         d2d.FinishDrawing()
         mol_svg = d2d.GetDrawingText()
+        inner = mol_svg[mol_svg.find(">") + 1:mol_svg.rfind("</svg>")]
+        # strip RDKit's own background rect (if any) to keep ours
+        inner = inner.replace('fill="#ffffff"', 'fill="none"')
 
-        # Build interaction legend as clean HTML/SVG overlay
-        # SECURITY: SVG-escape residue names (come from uploaded PDB — attacker-controllable)
-        legend_lines = []
-        if hbonds:
-            items = ", ".join(f"{_svg_escape(h['residue'])}{h['resseq']}({h['distance']}Å)" for h in hbonds[:6])
-            legend_lines.append(f'<text x="10" y="360" fill="#4169E1" font-size="11" font-family="sans-serif">● H-Bonds: {items}</text>')
-        if hydrophobic:
-            items = ", ".join(f"{_svg_escape(h['residue'])}{h['resseq']}" for h in hydrophobic[:6])
-            legend_lines.append(f'<text x="10" y="378" fill="#FFD700" font-size="11" font-family="sans-serif">● Hydrophobic: {items}</text>')
-        if pi_stacking:
-            items = ", ".join(f"{_svg_escape(p['residue'])}{p['resseq']}" for p in pi_stacking[:4])
-            legend_lines.append(f'<text x="10" y="396" fill="#9932CC" font-size="11" font-family="sans-serif">● π-Stacking: {items}</text>')
-        if salt_bridges:
-            items = ", ".join(f"{_svg_escape(s['residue'])}{s['resseq']}" for s in salt_bridges[:4])
-            legend_lines.append(f'<text x="10" y="414" fill="#DC143C" font-size="11" font-family="sans-serif">● Salt Bridges: {items}</text>')
+        STYLE = {
+            "hbond":  {"color": "#2563eb", "name": "H-Bond",        "dash": "6 4",  "icon": "---"},
+            "salt":   {"color": "#dc2626", "name": "Salt Bridge",   "dash": "2 3",  "icon": "⊕"},
+            "pi":     {"color": "#7c3aed", "name": "π-Stacking",    "dash": "8 3",  "icon": "π"},
+            "phobic": {"color": "#d97706", "name": "Hydrophobic",   "dash": None,   "icon": "~"},
+        }
 
-        # Inject legend into SVG
-        legend_svg = "\n".join(legend_lines)
-        # Replace closing </svg> with legend + close
-        if "</svg>" in mol_svg:
-            combined = mol_svg.replace("</svg>", f'{legend_svg}\n</svg>')
-        else:
-            combined = mol_svg
+        parts = []
+        parts.append(
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" '
+            f'viewBox="0 0 {W} {H}" font-family="Segoe UI, Arial, sans-serif">'
+        )
+        parts.append(f'<rect width="{W}" height="{H}" fill="#ffffff" rx="10"/>')
+        parts.append(
+            f'<text x="{W/2}" y="26" text-anchor="middle" font-size="16" font-weight="700" fill="#111827">'
+            f'Pose #{pose_index + 1} — Protein–Ligand Interactions</text>'
+        )
 
-        return combined
+        # ── Connectors + residue labels around the ring ──
+        n = len(ring)
+        label_w, label_h = 78, 22
+        for i, c in enumerate(ring):
+            ang = (-90 + i * 360 / max(n, 1)) * math.pi / 180
+            px = CX + RX * math.cos(ang)
+            py = CY + RY * math.sin(ang)
+            st = STYLE[c["kind"]]
+            lbl = _svg_escape(c["label"])
+            dist = c.get("dist")
+            dist_txt = f"{float(dist):.1f}Å" if dist not in (None, "") else ""
+
+            # clamp label inside canvas
+            px = min(max(px, label_w / 2 + 6), W - label_w / 2 - 6)
+            py = min(max(py, 60), H - 96)
+
+            # line from label toward ligand box edge
+            tx = CX + (LW / 2 - 14) * (1 if px > CX else -1)
+            ty = CY + (LH / 2 - 14) * (1 if py > CY else -1)
+            dash = f' stroke-dasharray="{st["dash"]}"' if st["dash"] else ""
+            parts.append(
+                f'<line x1="{px:.0f}" y1="{py:.0f}" x2="{tx:.0f}" y2="{ty:.0f}" '
+                f'stroke="{st["color"]}" stroke-width="1.7" opacity="0.85"{dash}/>'
+            )
+            if dist_txt and c["kind"] in ("hbond", "salt"):
+                mx, my = (px + tx) / 2, (py + ty) / 2
+                parts.append(
+                    f'<text x="{mx:.0f}" y="{my - 4:.0f}" text-anchor="middle" font-size="10" '
+                    f'fill="{st["color"]}" font-weight="600">{_svg_escape(dist_txt)}</text>'
+                )
+            parts.append(
+                f'<g><rect x="{px - label_w/2:.0f}" y="{py - label_h/2:.0f}" width="{label_w}" height="{label_h}" '
+                f'rx="11" fill="#ffffff" stroke="{st["color"]}" stroke-width="1.6"/>'
+                f'<text x="{px:.0f}" y="{py + 4:.0f}" text-anchor="middle" font-size="12" '
+                f'font-weight="700" fill="#1f2937">{lbl}</text></g>'
+            )
+
+        # ligand on top of connector ends
+        parts.append(f'<g transform="translate({LX},{LY})">{inner}</g>')
+        parts.append(
+            f'<text x="{CX}" y="{LY + LH + 16}" text-anchor="middle" font-size="12" '
+            f'font-weight="600" fill="#374151">Ligand</text>'
+        )
+
+        # ── Legend ──
+        lx = 30
+        parts.append(f'<line x1="20" y1="{H-58}" x2="{W-20}" y2="{H-58}" stroke="#e5e7eb"/>')
+        for kind in ("hbond", "salt", "pi", "phobic"):
+            st = STYLE[kind]
+            dash = f' stroke-dasharray="{st["dash"]}"' if st["dash"] else ""
+            parts.append(
+                f'<line x1="{lx}" y1="{H-36}" x2="{lx+26}" y2="{H-36}" stroke="{st["color"]}" '
+                f'stroke-width="2"{dash}/>'
+            )
+            parts.append(
+                f'<text x="{lx+32}" y="{H-32}" font-size="11" fill="#374151">{st["name"]}</text>'
+            )
+            lx += 32 + 14 * len(st["name"]) + 24
+        parts.append(
+            f'<text x="{W-24}" y="{H-32}" text-anchor="end" font-size="10" fill="#9ca3af">'
+            f'distances in Å · HOH excluded</text>'
+        )
+        parts.append("</svg>")
+        return "\n".join(parts)
     except Exception as e:
         log.warning(f"SVG generation failed: {e}")
         return None
