@@ -12,6 +12,7 @@ const defaultModules = [
   { id: "molecular-toolkit", title: "Molecular Toolkit", icon: "biotech", component: "/components/molecular-toolkit/molecular-toolkit.html", order: 4, defaultWidth: 750, defaultHeight: 600 },
   { id: "admet-predict", title: "ADMET Prediction", icon: "vaccines", component: "/components/admet-predict/admet-predict-panel.html", order: 4.6, defaultWidth: 750, defaultHeight: 600 },
   { id: "qsar", title: "3D-QSAR Modeler", icon: "model_training", component: "/components/qsar3d/qsar3d.html", order: 5, defaultWidth: 750, defaultHeight: 600 },
+  { id: "chem-canvas", title: "Structure Draw", icon: "draw", component: "/components/chem-canvas/chem-canvas.html", order: 5.5, defaultWidth: 950, defaultHeight: 720 },
   { id: "molecule-editor", title: "Drug Analysis", icon: "science", component: "/components/molecule-editor/molecule-editor.html", order: 6, defaultWidth: 850, defaultHeight: 650 },
   { id: "pharmacophore", title: "Pharmacophore", icon: "ads_click", component: "/components/pharmacophore/pharmacophore.html", order: 7, defaultWidth: 650, defaultHeight: 500 },
   { id: "statistics", title: "Statistics", icon: "analytics", component: "/components/statistics/statistics-modal.html", order: 8, defaultWidth: 750, defaultHeight: 550 },

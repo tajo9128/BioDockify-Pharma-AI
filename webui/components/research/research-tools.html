@@ -18,6 +18,10 @@
         <span class="material-symbols-outlined">biotech</span>
         <span class="tool-label">Mol Toolkit</span>
       </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('chem-canvas')">
+        <span class="material-symbols-outlined">draw</span>
+        <span class="tool-label">Draw</span>
+      </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('admet-predict')">
         <span class="material-symbols-outlined">vaccines</span>
         <span class="tool-label">ADMET</span>
