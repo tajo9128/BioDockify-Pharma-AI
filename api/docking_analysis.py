@@ -365,7 +365,12 @@ def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, 
         d2d.DrawMolecule(lig_mol)
         d2d.FinishDrawing()
         mol_svg = d2d.GetDrawingText()
-        inner = mol_svg[mol_svg.find(">") + 1:mol_svg.rfind("</svg>")]
+        # Strip prolog + outer <svg ...> open/close; keep only inner content.
+        # (A plain find(">") can stop at the XML prolog and leave an unclosed
+        # nested <svg> tag behind, producing malformed XML that browsers refuse.)
+        _start = mol_svg.find("<svg")
+        _open_end = mol_svg.find(">", _start)
+        inner = mol_svg[_open_end + 1:mol_svg.rfind("</svg>")] if _start != -1 else ""
         # strip RDKit's own background rect (if any) to keep ours
         inner = inner.replace('fill="#ffffff"', 'fill="none"')
 
