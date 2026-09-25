@@ -279,6 +279,9 @@ def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, 
         smiles = known_smiles.strip() if known_smiles else None
         if not smiles:
             try:
+                # Reconstruct ligand from pose atoms; infer bonds from 3D
+                # coordinates — atoms alone (no bonds) yield no drawable molecule.
+                from rdkit.Chem import rdDetermineBonds
                 lig_coords = np.array([[a["x"], a["y"], a["z"]] for a in latoms])
                 lig_symbols = [a["element"] for a in latoms]
                 rw = Chem.RWMol()
@@ -290,10 +293,15 @@ def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, 
                 mol = rw.GetMol()
                 mol.AddConformer(conf)
                 try:
+                    rdDetermineBonds.DetermineBonds(mol)
+                except Exception:
+                    pass  # keep bondless mol only if inference impossible
+                try:
                     mol = Chem.RemoveHs(mol)
                 except Exception:
                     pass
-                smiles = Chem.MolToSmiles(mol) if mol.GetNumAtoms() > 0 else None
+                if mol.GetNumBonds() > 0:
+                    smiles = Chem.MolToSmiles(mol)
             except Exception:
                 pass
 
@@ -384,7 +392,8 @@ def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, 
         parts = []
         parts.append(
             f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" '
-            f'viewBox="0 0 {W} {H}" font-family="Segoe UI, Arial, sans-serif">'
+            f'viewBox="0 0 {W} {H}" font-family="Segoe UI, Arial, sans-serif" '
+            f'style="max-width:100%;height:auto">'  # keep aspect ratio under flex-shrink containers
         )
         parts.append(f'<rect width="{W}" height="{H}" fill="#ffffff" rx="10"/>')
         parts.append(

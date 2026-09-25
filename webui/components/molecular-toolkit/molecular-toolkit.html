@@ -219,7 +219,11 @@
       async fetchBestPose2d() {
         if (!this.dockingJobId) return;
         try {
-          const r = await callJsonApi("docking_analysis", { action: "interaction_svg", job_id: this.dockingJobId, pose_index: 0 });
+          const payload = { action: "interaction_svg", job_id: this.dockingJobId, pose_index: 0 };
+          // Pass ligand SMILES when we have one — saves the backend from
+          // reconstructing the molecule from pose coordinates.
+          if (this.dockingLigand && !this.dockingLigand.includes("\n")) payload.smiles = this.dockingLigand.trim();
+          const r = await callJsonApi("docking_analysis", payload);
           if (!r.error && r.svg) { this.dockingBestPoseSvg = r.svg; }
         } catch (e) { /* silently */ }
       },
