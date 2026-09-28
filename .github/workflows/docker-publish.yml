@@ -78,6 +78,15 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      # Second registry: ghcr.io has no Docker Hub anonymous rate limits —
+      # a pull source that always works for users on shared campus IPs.
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -90,6 +99,9 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev
+            ghcr.io/tajo9128/biodockify-pharma-ai:${{ steps.version.outputs.version }}
+            ghcr.io/tajo9128/biodockify-pharma-ai:latest
+            ghcr.io/tajo9128/biodockify-pharma-ai:dev
           labels: |
             org.opencontainers.image.title=BioDockify AI
             org.opencontainers.image.description=Pharma research distribution of BioDockify AI
