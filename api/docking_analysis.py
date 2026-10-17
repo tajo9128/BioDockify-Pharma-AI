@@ -359,28 +359,27 @@ def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, 
         W, H = 780, 620
         CX, CY = W / 2, 285            # ring center
         RX, RY = 285, 205              # residue ring radii
-        LW, LH = 330, 230              # ligand drawing size
+        LW, LH = 420, 290              # ligand drawing size
         LX, LY = CX - LW / 2, CY - LH / 2
 
-        # ── Ligand 2D drawing (RDKit SVG, contents embedded + translated) ──
+        # ── Ligand 2D drawing — STOCK RDKit SVG, untouched (same rendering as
+        # the biodockify-web portal: Compute2DCoords → MolDraw2DSVG → as-is).
+        # Embedded as a NESTED <svg> with x/y/width/height — no content
+        # slicing, so the structure renders pixel-identical to the web app.
         d2d = Draw.MolDraw2DSVG(LW, LH)
-        opts = d2d.drawOptions()
-        try:
-            opts.clearBackground = False
-            opts.bondLineWidth = 2.0
-        except Exception:
-            pass
         d2d.DrawMolecule(lig_mol)
         d2d.FinishDrawing()
         mol_svg = d2d.GetDrawingText()
-        # Strip prolog + outer <svg ...> open/close; keep only inner content.
-        # (A plain find(">") can stop at the XML prolog and leave an unclosed
-        # nested <svg> tag behind, producing malformed XML that browsers refuse.)
-        _start = mol_svg.find("<svg")
-        _open_end = mol_svg.find(">", _start)
-        inner = mol_svg[_open_end + 1:mol_svg.rfind("</svg>")] if _start != -1 else ""
-        # strip RDKit's own background rect (if any) to keep ours
-        inner = inner.replace('fill="#ffffff"', 'fill="none"')
+        # drop the XML prolog/DOCTYPE (illegal mid-document when nested);
+        # the <svg> element and all its content stay byte-identical
+        _svg_pos = mol_svg.find("<svg")
+        nested = mol_svg[_svg_pos:] if _svg_pos != -1 else mol_svg
+        _tag_end = nested.find(">")
+        if _tag_end != -1 and "xmlns" in nested[:_tag_end]:
+            # inject x/y position into the root svg tag for nesting
+            head = nested[:_tag_end]
+            head = head.replace("<svg", f'<svg x="{LX}" y="{LY}"', 1)
+            nested = head + nested[_tag_end:]
 
         STYLE = {
             "hbond":  {"color": "#2563eb", "name": "H-Bond",        "dash": "6 4",  "icon": "---"},
@@ -403,7 +402,7 @@ def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, 
 
         # ── Connectors + residue labels around the ring ──
         n = len(ring)
-        label_w, label_h = 78, 22
+        label_w, label_h = 88, 26
         for i, c in enumerate(ring):
             ang = (-90 + i * 360 / max(n, 1)) * math.pi / 180
             px = CX + RX * math.cos(ang)
@@ -414,12 +413,15 @@ def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, 
             dist_txt = f"{float(dist):.1f}Å" if dist not in (None, "") else ""
 
             # clamp label inside canvas
-            px = min(max(px, label_w / 2 + 6), W - label_w / 2 - 6)
-            py = min(max(py, 60), H - 96)
+            px = min(max(px, label_w / 2 + 8), W - label_w / 2 - 8)
+            py = min(max(py, 62), H - 98)
 
-            # line from label toward ligand box edge
-            tx = CX + (LW / 2 - 14) * (1 if px > CX else -1)
-            ty = CY + (LH / 2 - 14) * (1 if py > CY else -1)
+            # aim the connector at the ligand box edge along the pill→center
+            # direction (radiates naturally instead of bunching at 4 corners)
+            dx, dy = CX - px, CY - py
+            hx, hy = LW / 2 - 10, LH / 2 - 10
+            scale = min(hx / abs(dx) if dx else 1e9, hy / abs(dy) if dy else 1e9, 1.0)
+            tx, ty = CX - dx * scale, CY - dy * scale
             dash = f' stroke-dasharray="{st["dash"]}"' if st["dash"] else ""
             parts.append(
                 f'<line x1="{px:.0f}" y1="{py:.0f}" x2="{tx:.0f}" y2="{ty:.0f}" '
@@ -433,13 +435,13 @@ def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, 
                 )
             parts.append(
                 f'<g><rect x="{px - label_w/2:.0f}" y="{py - label_h/2:.0f}" width="{label_w}" height="{label_h}" '
-                f'rx="11" fill="#ffffff" stroke="{st["color"]}" stroke-width="1.6"/>'
-                f'<text x="{px:.0f}" y="{py + 4:.0f}" text-anchor="middle" font-size="12" '
+                f'rx="13" fill="#ffffff" stroke="{st["color"]}" stroke-width="1.6"/>'
+                f'<text x="{px:.0f}" y="{py + 4:.0f}" text-anchor="middle" font-size="11.5" '
                 f'font-weight="700" fill="#1f2937">{lbl}</text></g>'
             )
 
-        # ligand on top of connector ends
-        parts.append(f'<g transform="translate({LX},{LY})">{inner}</g>')
+        # ligand on top of connector ends (nested stock RDKit svg, positioned)
+        parts.append(nested)
         parts.append(
             f'<text x="{CX}" y="{LY + LH + 16}" text-anchor="middle" font-size="12" '
             f'font-weight="600" fill="#374151">Ligand</text>'
@@ -458,9 +460,9 @@ def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, 
             parts.append(
                 f'<text x="{lx+32}" y="{H-32}" font-size="11" fill="#374151">{st["name"]}</text>'
             )
-            lx += 32 + 14 * len(st["name"]) + 24
+            lx += 26 + 7.6 * len(st["name"]) + 16
         parts.append(
-            f'<text x="{W-24}" y="{H-32}" text-anchor="end" font-size="10" fill="#9ca3af">'
+            f'<text x="{lx}" y="{H-32}" font-size="10" fill="#9ca3af">'
             f'distances in Å · HOH excluded</text>'
         )
         parts.append("</svg>")
