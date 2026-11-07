@@ -164,3 +164,26 @@ def cloning_calculator(insert_bp: int, vector_bp: int, insert_mass_ng: float,
             "insert_ng_needed_for_target": round(needed_ins_ng, 1),
             "plasmid_size_bp": insert_bp + vector_bp,
             "note": "660 g/mol per bp dsDNA; typical ligation ratios 3:1–5:1."}
+
+
+def growth_curve(mu_max: float, ks: float, s0: float, yxs: float,
+                 hours: int = 24, x0: float = 0.1) -> Dict[str, Any]:
+    """Batch Monod growth time-course for visualization."""
+    if min(mu_max, ks, s0, yxs) <= 0 or hours <= 0:
+        return {"error": "all parameters must be > 0"}
+    dt = hours / 100
+    x, s = x0, s0
+    times, biomass, substrate = [], [], []
+    for i in range(101):
+        t = i * dt
+        mu = mu_max * s / (ks + s) if (ks + s) > 0 else 0
+        dx = mu * x * dt
+        ds = -dx / yxs
+        x = max(0, x + dx)
+        s = max(0, s + ds)
+        times.append(round(t, 2))
+        biomass.append(round(x, 4))
+        substrate.append(round(s, 4))
+    return {"time_h": times, "biomass_g_L": biomass, "substrate_g_L": substrate,
+            "final_biomass": round(x, 3), "final_substrate": round(s, 3),
+            "note": "Batch Monod (no maintenance/death). Plot time vs biomass/substrate."}

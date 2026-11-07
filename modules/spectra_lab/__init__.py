@@ -275,3 +275,38 @@ def uv_rules(smiles: str) -> Dict[str, Any]:
         out.append({"chromophore": "isolated π or n electrons", "lmax_rule": "C=C ~ 180, C=O ~ 280 (n→π*, weak)", "base_nm": 180})
     return {"chromophores": out,
             "note": "Woodward–Fieser-style rules. Measured λmax confirms conjugation extent."}
+
+
+def parse_spectrum_csv(text: str) -> Dict[str, Any]:
+    """Parse a two-column spectrum CSV and auto-pick peaks with scipy."""
+    import numpy as np
+    from scipy.signal import find_peaks
+    lines = [l.strip() for l in text.splitlines() if l.strip() and not l.startswith("#")]
+    if len(lines) < 10:
+        return {"error": "need at least 10 data rows"}
+    start = 0
+    try:
+        float(lines[0].split(",")[0])
+    except ValueError:
+        start = 1
+    xs, ys = [], []
+    for line in lines[start:]:
+        parts = line.split(",")
+        if len(parts) < 2:
+            continue
+        try:
+            xs.append(float(parts[0]))
+            ys.append(float(parts[1]))
+        except ValueError:
+            continue
+    if len(xs) < 10:
+        return {"error": "only " + str(len(xs)) + " valid rows parsed"}
+    x = np.array(xs)
+    y = np.array(ys)
+    prominence = float(np.max(y)) * 0.1
+    peaks, props = find_peaks(y, prominence=prominence, distance=max(1, len(x) // 100))
+    detected = [{"position": round(float(x[i]), 1), "intensity": round(float(y[i]), 1)}
+                for i in peaks[:30]]
+    return {"n_points": len(xs), "x_range": [float(x.min()), float(x.max())],
+            "peaks_detected": len(peaks), "peaks": detected,
+            "note": "Prominence threshold = 10% of max intensity."}

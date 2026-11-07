@@ -9,6 +9,7 @@
     const DEBOUNCE_MS = 500;
 
     export const store = createStore("moleculeEditor", {
+      previewSvg: '',
       smiles: "", molFile: null, loading: false, error: "", message: "",
       activeTab: "3d",
       mw: null, logP: null, hbd: null, hba: null, tpsa: null,
@@ -27,6 +28,14 @@
       init() {
         try { this.recent = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); } catch(e) { this.recent = []; }
       },
+      async fetchPreview() {
+        if (!this.smiles?.trim()) { this.previewSvg = ''; return; }
+        try {
+          const r = await callJsonApi("chem_canvas", { action: "depict", smiles: this.smiles.trim(), width: 400, height: 300 });
+          this.previewSvg = r.svg || '';
+        } catch (e) { this.previewSvg = ''; }
+      },
+
 
       clearAll() {
         this.smiles = ""; this.mw = null; this.propsLoaded = false;
@@ -432,6 +441,10 @@
              <input type="text" x-model="$store.moleculeEditor.smiles" @input="$store.moleculeEditor._onSmilesChange()" placeholder="SMILES string (e.g. CC(=O)Oc1ccccc1C(=O)O)" class="nb-input" style="font-family:monospace" id="smiles-input-dock" />
             <button class="nb-btn-primary" @click="$store.moleculeEditor.copySmiles()" style="padding:4px 8px;font-size:0.58rem" title="Copy SMILES"><span class="material-symbols-outlined" style="font-size:14px">content_copy</span></button>
           </div>
+      <!-- Live 2D structure preview -->
+      <div x-show="previewSvg" style="margin:8px 0;padding:8px;background:#fff;border-radius:8px;border:1px solid var(--color-border);display:flex;justify-content:center">
+        <div x-html="previewSvg"></div>
+      </div>
           <div style="display:flex;gap:3px;margin-top:4px">
             <button class="me-style-btn" @click="$store.moleculeEditor.validateSmiles()">Validate</button>
             <button class="me-style-btn" @click="$store.moleculeEditor.clearAll()">Clear</button>

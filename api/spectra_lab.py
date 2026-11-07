@@ -17,10 +17,13 @@ class SpectraLabHandler(ApiHandler):
             return self._multiplets(input)
         elif action == "ms_fragments":
             return self._ms_fragments(input)
+        elif action == "parse_spectrum":
+            from modules.spectra_lab import parse_spectrum_csv
+            return {"success": True, **parse_spectrum_csv(str(input.get("csv", "")))}
         elif action == "uv_rules":
             return self._uv(input)
 
-        return {"actions": ["ir_match", "nmr_estimate", "multiplets", "ms_fragments", "uv_rules"],
+        return {"actions": ["ir_match", "nmr_estimate", "multiplets", "ms_fragments", "uv_rules", "parse_spectrum"],
                 "hint": "Spectra Lab — IR matcher, NMR estimate + multiplet analyzer, MS fragment predictor, UV rules."}
 
     @staticmethod

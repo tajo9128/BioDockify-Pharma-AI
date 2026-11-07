@@ -212,7 +212,24 @@ CC(C)Cc1ccc(cc1)C(C)C(=O)O",
       _scoreBarWidth(score) { return Math.min(100, Math.max(0, (score || 0) * 100)); },
     });
   </script>
-<script src="/js/handoff.js"></script>
+<script src="/js/handoff.js">
+const NCI_DIVERSITY = [
+  "CC(=O)Nc1ccc(O)cc1", "CC(=O)OC1=CC=CC=C1C(=O)O", "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
+  "CN1CCC[C@H]1c1cccnc1", "CC(=O)Nc1ccc(cc1)S(N)(=O)=O", "COc1cc2c(cc1OC)C(=O)C=CC2=O",
+  "Cc1ccc(O)cc1", "O=C(O)c1ccccc1O", "CCN(CC)C(=O)c1ccc(N)cc1", "COc1ccc(cc1)C=C",
+  "NC(=O)c1ccncc1", "CC(C)(C)NCC(O)COc1ccc(CC(N)=O)cc1", "COc1ccccc1O",
+  "CC1=C(C(=O)O)C(C)=C(C)C=C1O", "NS(=O)(=O)c1ccc2ccccc2c1", "CCOC(=O)C1(C)CC2CCC1(C)C2",
+  "Oc1ccccc1", "CC(Cc1ccc(cc1)O)N", "COCCCOc1ccc(cc1)C(F)(F)F", "O=C(Nc1ccccc1)Nc1ccccc1",
+  "CC(=O)N1CCN(CC1)c1ccc(Cl)cc1", "Oc1ccc(Cl)cc1", "NC1CCN(CC1)c1ccccc1",
+  "COc1ccc(CCN)cc1", "CC1CCN(CC1)C(=O)c1ccccc1", "NS(=O)(=O)c1ccccc1",
+  "CC(=O)Nc1ccc(I)cc1", "OC(=O)CCc1ccccc1", "NN=C(c1ccccc1)c1ccccc1",
+  "COc1ccc(cc1)C(=O)O", "CC(N)Cc1ccccc1", "OCCNCCO", "NCc1ccccc1",
+  "COc1ccc(N)cc1", "CC(=O)CC(=O)C", "O=C(OCC)c1ccccc1N", "COc1cc(CC(N)=O)ccc1O",
+  "CC(=O)NCCN", "NC1CCCCC1", "COc1ccc2ncccc2c1", "CCOC(=O)Nc1ccccc1",
+  "OC(=O)C1=CC=CC=C1O", "CC(C)(C)c1ccc(O)cc1", "NC(=O)c1ccc(O)cc1",
+  "COCCCO", "CC1=CC=C(C=C1)C=O", "COc1ccc(cc1C(N)=O)O", "NC(=O)CNC(=O)c1ccccc1",
+];
+</script>
 </head>
 <body>
   <div x-data class="dock-panel">
@@ -239,7 +256,10 @@ CC(C)Cc1ccc(cc1)C(C)C(=O)O",
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'generate'}" @click="$store.pharmacophoreModal.activeTab = 'generate'">Detect</button>
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'complete'}" @click="$store.pharmacophoreModal.activeTab = 'complete'">Analyze</button>
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'model'}" @click="$store.pharmacophoreModal.activeTab = 'model'">Model</button>
-        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'screen'}" @click="$store.pharmacophoreModal.activeTab = 'screen'">Screen</button>
+        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'screen'"><div style="display:flex;gap:6px;margin:6px 0">
+            <button @click="$store.pharmacophoreModal.loadNciLibrary()" style="padding:5px 12px;background:var(--color-background);border:1px solid var(--color-primary);border-radius:6px;color:var(--color-primary);cursor:pointer;font-size:0.62rem;font-weight:600">Load NCI Diversity Set (49)</button>
+            <span style="font-size:0.6rem;color:var(--color-text-muted);align-self:center" x-text="($store.pharmacophoreModal.screenResult?.total_hits || 0) + ' hits'"></span>
+          </div> @click="$store.pharmacophoreModal.activeTab = 'screen'">Screen</button>
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'compare'}" @click="$store.pharmacophoreModal.activeTab = 'compare'">Compare</button>
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'interactions'}" @click="$store.pharmacophoreModal.activeTab = 'interactions'">Interactions</button>
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'protein'}" @click="$store.pharmacophoreModal.activeTab = 'protein'">Protein</button>
@@ -268,6 +288,13 @@ CC(C)Cc1ccc(cc1)C(C)C(=O)O",
             <div class="source-breakdown" x-data="{
               get smartsCount() { return ($store.pharmacophoreModal.result.features || []).filter(f => f.source === 'functional_group').length },
               get rdkitCount() { return ($store.pharmacophoreModal.result.features || []).filter(f => f.source === 'rdkit_factory').length },
+      async loadNciLibrary() {
+        // 49-compound NCI Diversity Set subset (pharma-relevant, offline)
+        this.screenLibrary = NCI_DIVERSITY.join('
+');
+        this.flash('NCI Diversity Set loaded — click Screen to run');
+      },
+
             }">
               <span class="source-pill smarts" x-text="smartsCount + ' SMARTS'"></span>
               <span class="source-pill rdkit" x-text="rdkitCount + ' RDKit'"></span>

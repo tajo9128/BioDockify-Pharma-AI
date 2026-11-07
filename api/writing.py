@@ -1405,7 +1405,7 @@ class WritingTools(ApiHandler):
                         text_chunks = chunk_text_table_aware(content, max_chars=2000)
                     except ImportError:
                         text_chunks = [content[:2000]]
-                    for i, chunk_text in enumerate(text_chunks[:12]):
+                    for i, chunk_text in enumerate(text_chunks[:20]):
                         chunks.append({
                             "content": chunk_text,
                             "entry_id": entry.get("id", ""),
@@ -1518,7 +1518,7 @@ class WritingTools(ApiHandler):
                 response = litellm.completion(
                     model=llm_model,
                     messages=[{"role": "user", "content": full_prompt}],
-                    max_tokens=2000,
+                    max_tokens=4000,
                     temperature=0.3,
                     **kwargs,
                 )
@@ -1620,7 +1620,7 @@ class WritingTools(ApiHandler):
                     model=llm_model,
                     messages=[{"role": "system", "content": system},
                               {"role": "user", "content": f"Rewrite in academic style:\n\n{text}"}],
-                    max_tokens=2000,
+                    max_tokens=4000,
                     temperature=0.3,
                     **kwargs,
                 )

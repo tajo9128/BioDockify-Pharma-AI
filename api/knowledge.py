@@ -818,7 +818,7 @@ class KnowledgeHandler(ApiHandler):
                 return ""
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
             pages = []
-            for page in doc[:50]:
+            for page in doc:
                 pages.append(page.get_text())
             doc.close()
             return "\n\n".join(pages).strip() if pages else ""
@@ -1625,7 +1625,7 @@ class KnowledgeHandler(ApiHandler):
                         text_chunks = chunk_text_table_aware(content, max_chars=2000)
                     except ImportError:
                         text_chunks = [content[:2000]]
-                    for i, chunk_text in enumerate(text_chunks[:5]):
+                    for i, chunk_text in enumerate(text_chunks[:15]):
                         chunks.append({
                             "content": chunk_text,
                             "entry_id": entry.get("id", ""),

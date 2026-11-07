@@ -117,3 +117,57 @@ def check_drug_interaction(drug1: str, drug2: str) -> Dict[str, Any]:
         "action": result["action"],
         "reference": "Lexicomp, Micromedex, Stockley's Drug Interactions",
     }
+
+
+# Drug name → pharmacological class map (for DDI lookup expansion)
+# When a user enters "celecoxib", we also check the "nsaid" class entries
+DRUG_CLASS_MAP = {
+    # NSAIDs
+    "ibuprofen": "nsaid", "naproxen": "nsaid", "diclofenac": "nsaid",
+    "celecoxib": "nsaid", "meloxicam": "nsaid", "ketorolac": "nsaid",
+    "indomethacin": "nsaid", "aspirin": "nsaid", "ketoprofen": "nsaid",
+    # SSRIs
+    "fluoxetine": "ssri", "sertraline": "ssri", "paroxetine": "ssri",
+    "citalopram": "ssri", "escitalopram": "ssri", "fluvoxamine": "ssri",
+    # SNRIs
+    "venlafaxine": "snri", "duloxetine": "snri", "desvenlafaxine": "snri",
+    # ACE inhibitors
+    "enalapril": "ace_inhibitor", "lisinopril": "ace_inhibitor",
+    "ramipril": "ace_inhibitor", "captopril": "ace_inhibitor",
+    "perindopril": "ace_inhibitor", "quinapril": "ace_inhibitor",
+    # ARBs
+    "losartan": "arb", "valsartan": "arb", "irbesartan": "arb",
+    "telmisartan": "arb", "candesartan": "arb", "olmesartan": "arb",
+    # Beta blockers
+    "metoprolol": "beta_blocker", "atenolol": "beta_blocker",
+    "propranolol": "beta_blocker", "carvedilol": "beta_blocker",
+    "bisoprolol": "beta_blocker", "nebivolol": "beta_blocker",
+    # MAOIs
+    "phenelzine": "maoi", "tranylcypromine": "maoi", "isocarboxazid": "maoi",
+    "selegiline": "maoi", "moclobemide": "maoi",
+    # Other classes as needed
+    "acetaminophen": "acetaminophen", "paracetamol": "acetaminophen",
+    "warfarin": "warfarin", "digoxin": "digoxin", "lithium": "lithium",
+    "methotrexate": "methotrexate", "theophylline": "theophylline",
+    "carbamazepine": "carbamazepine", "phenytoin": "phenytoin",
+    "clopidogrel": "clopidogrel", "metformin": "metformin",
+    "amiodarone": "amiodarone", "fluconazole": "fluconazole",
+    "metronidazole": "metronidazole", "rifampin": "rifampin",
+    "clarithromycin": "clarithromycin", "erythromycin": "erythromycin",
+    "ciprofloxacin": "ciprofloxacin", "isoniazid": "isoniazid",
+    "trimethoprim": "trimethoprim", "spironolactone": "spironolactone",
+    "verapamil": "verapamil", "diltiazem": "diltiazem",
+    "simvastatin": "simvastatin", "atorvastatin": "atorvastatin",
+    "rosuvastatin": "rosuvastatin", "tacrolimus": "tacrolimus",
+    "cyclosporine": "cyclosporine",
+}
+
+
+def expand_to_classes(drug_name: str) -> set:
+    """Return the set of DDI lookup keys for a drug name (itself + its class)."""
+    key = drug_name.lower().strip()
+    classes = {key}
+    cls = DRUG_CLASS_MAP.get(key)
+    if cls:
+        classes.add(cls)
+    return classes

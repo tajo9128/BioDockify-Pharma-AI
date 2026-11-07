@@ -47,12 +47,16 @@ class BioprocessHandler(ApiHandler):
             return self._bioreactor(input)
         elif action == "media_cn":
             return self._media(input)
+        elif action == "growth_curve":
+            from modules.bioprocess import growth_curve
+            r = growth_curve(self._num(input, "mu_max"), self._num(input, "ks"), self._num(input, "s0"), self._num(input, "yxs"), int(self._num(input, "hours", 24) or 24))
+            return {"success": "error" not in r, **r}
         elif action == "cloning":
             return self._cloning(input)
         elif action == "biosimilar_checklist":
             return {"success": True, **BIOSIMILAR_CHECKLIST}
 
-        return {"actions": ["protein", "antigenicity", "bioreactor", "media_cn", "cloning", "biosimilar_checklist"],
+        return {"actions": ["protein", "antigenicity", "bioreactor", "media_cn", "growth_curve", "cloning", "biosimilar_checklist"],
                 "hint": "Bioprocess Studio — protein properties, epitope screen, chemostat kinetics, media C:N, cloning math, biosimilar comparability."}
 
     @staticmethod

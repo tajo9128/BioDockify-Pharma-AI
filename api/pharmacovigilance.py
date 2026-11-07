@@ -101,11 +101,16 @@ class PharmacovigilanceHandler(ApiHandler):
     _SEV_ORDER = {"Contraindicated": 0, "Major": 1, "Moderate": 2, "Minor": 3}
 
     @staticmethod
-    def _norm_drug(name: str) -> str:
+    def _norm_drug(name: str) -> set:
+        """Normalize + expand to drug-class set (celecoxib → {celecoxib, nsaid})."""
         n = re.sub(r"[^a-z]", "", str(name or "").lower())
-        aliases = {"paracetamol": "acetaminophen", "ibruprofen": "ibuprofen",
-                   "witamin": "vitamin", "ndx": "nsaid", "asa": "aspirin"}
-        return aliases.get(n, n)
+        aliases = {"paracetamol": "acetaminophen", "ibruprofen": "ibuprofen"}
+        n = aliases.get(n, n)
+        try:
+            from modules.clinical.drug_interactions import expand_to_classes
+            return expand_to_classes(n)
+        except ImportError:
+            return {n}
 
     @staticmethod
     def _ddi_check(input: dict) -> dict:
@@ -121,11 +126,11 @@ class PharmacovigilanceHandler(ApiHandler):
         norm = {d: PharmacovigilanceHandler._norm_drug(d) for d in drugs}
         hits = []
         for (d1, d2), info in DRUG_INTERACTIONS.items():
-            for user1, n1 in norm.items():
-                for user2, n2 in norm.items():
+            for user1, n1_set in norm.items():
+                for user2, n2_set in norm.items():
                     if user1 == user2:
                         continue
-                    if (n1 == d1 and n2 == d2):
+                    if (d1 in n1_set and d2 in n2_set):
                         hits.append({"drug_1": user1, "drug_2": user2, **info})
         # also: single-drug interactions with classes present (nsaid, ssri…)
         hits.sort(key=lambda h: PharmacovigilanceHandler._SEV_ORDER.get(h.get("severity", "Minor"), 9))
