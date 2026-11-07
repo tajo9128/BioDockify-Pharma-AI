@@ -5,214 +5,323 @@
     import { callJsonApi } from "/js/api.js";
 
     export const store = createStore("slidesModal", {
-      topic: "",
-      style: "academic",
-      numSlides: 10,
-      includeCitations: true,
-      loading: false,
-      result: null,
-      error: "",
-      message: "",
+      step: 1,               // 1 details · 2 template · 3 generating · 4 done
+      // step 1
+      title: "", topic: "", numSlides: 10, audience: "students",
+      photos: true, citations: true,
+      quickTopics: ["DPP-4 inhibitors in type 2 diabetes", "Pharmacokinetics — ADME", "Molecular docking workflow", "QSAR modeling basics", "Antibiotic resistance mechanisms", "Clinical trial phases"],
+      // step 2
+      templates: [], templateId: "violet_academic",
+      // step 3/4
+      jobId: null, status: null, pollTimer: null, downloading: false,
+      get stageLabel() {
+        const s = (this.status?.stage || "");
+        return { queued: "Queued", research: "Researching the internet", outline: "Planning the deck",
+                 content: "Writing slides", visuals: "Drawing icons & diagrams",
+                 assemble: "Building the .pptx", done: "Done", error: "Failed" }[s] || s;
+      },
+      get pct() { return this.status?.progress || 0; },
 
-      async generate() {
+      async init() {
+        try {
+          const r = await callJsonApi("ppt_master", { action: "deck_templates" });
+          this.templates = r.templates || [];
+        } catch (e) { this.templates = []; }
+      },
+
+      pickQuick(t) {
+        this.title = t; this.topic = t; this.step = this.templateId ? 2 : this.step;
+      },
+      async toTemplate() {
         if (!this.topic.trim()) return;
-        this.loading = true;
-        this.error = "";
-        this.result = null;
+        this.step = 2;
+        if (!this.templates.length) {  // retry — init can fire before the API is warm
+          try {
+            const r = await callJsonApi("ppt_master", { action: "deck_templates" });
+            this.templates = r.templates || [];
+          } catch (e) { /* shown as empty gallery; generation still works */ }
+        }
+      },
+      async start() {
+        this.step = 3; this.status = null;
         try {
-          const resp = await callJsonApi("ppt_master", {
-            action: "generate_content",
-            topic: this.topic,
-            style: this.style,
-            num_slides: this.numSlides,
+          const r = await callJsonApi("ppt_master", {
+            action: "deck_create",
+            title: this.title || this.topic, topic: this.topic,
+            num_slides: this.numSlides, template_id: this.templateId,
+            audience: this.audience, photos: this.photos, citations: this.citations,
           });
-          if (resp.error) { this.error = resp.error; }
-          else if (resp.slides && resp.slides.length) {
-            this.result = { topic: resp.topic || this.topic, slides: resp.slides };
-          } else { this.error = "No slides generated"; }
+          if (r.error) { this.status = { stage: "error", detail: r.error }; return; }
+          this.jobId = r.job_id;
+          this.poll();
+          this.pollTimer = setInterval(() => this.poll(), 2500);
         } catch (e) {
-          this.error = e.message || "Slide generation failed";
-        }
-        this.loading = false;
-      },
-
-      sendToAgent() {
-        const input = document.getElementById("chat-input");
-        if (input) {
-          input.value = `Create a ${this.numSlides}-slide presentation on "${this.topic}" in ${this.style} style. For each slide provide: slide number, title, 3-4 bullet points, and speaker notes. Format: Slide N: [Title]\n• Point 1\n• Point 2\n\nSpeaker notes: ...`;
-          input.dispatchEvent(new Event("input", { bubbles: true }));
-          input.focus();
-          this.result = { topic: this.topic, slides: [], message: "Slide task sent to agent chat. Check the chat panel." };
-        } else {
-          this.error = "Chat input not found. Open a new chat first.";
+          this.status = { stage: "error", detail: e.message };
         }
       },
-
-      clear() { this.topic = ""; this.result = null; this.error = ""; },
-
-      async downloadPptx() {
-        if (!this.result?.slides?.length) { this.error = "Generate slides first"; return; }
-        this.loading = true;
-        this.error = "";
+      async poll() {
+        if (!this.jobId) return;
         try {
-          const slides = this.result.slides.map(s => ({
-            type: "content",
-            title: s.title || s.heading || "Untitled",
-            bullets: (s.content || s.body || "").split("\n").filter(l => l.trim()),
-            notes: s.notes || s.speaker_notes || "",
-          }));
-          const resp = await fetch("/api/ppt_master", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "generate", slides, theme: this.style, topic: this.topic.substring(0, 50) }),
-          });
-          if (resp.ok) {
-            const blob = await resp.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `${this.topic.substring(0, 30).replace(/\s+/g, "_")}.pptx`;
-            a.click();
-            URL.revokeObjectURL(url);
-          } else {
-            const err = await resp.json().catch(() => ({}));
-            this.error = err.error || "PPTX generation failed";
+          const r = await callJsonApi("ppt_master", { action: "deck_status", job_id: this.jobId });
+          this.status = r;
+          if (r.stage === "done" || r.stage === "error") {
+            clearInterval(this.pollTimer);
+            if (r.stage === "done") this.step = 4;
           }
-        } catch (e) { this.error = "PPTX download failed: " + e.message; }
-        this.loading = false;
+        } catch (e) { /* transient */ }
+      },
+      async download() {
+        if (!this.jobId || this.downloading) return;
+        this.downloading = true;
+        try {
+          const tok = await (await fetch("/api/csrf_token", { headers: { Origin: location.origin } })).json();
+          const resp = await fetch("/api/ppt_master", {
+            method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json", "X-CSRF-Token": tok.token, Origin: location.origin },
+            body: JSON.stringify({ action: "deck_download", job_id: this.jobId }),
+          });
+          if (!resp.ok) throw new Error("download failed");
+          const blob = await resp.blob();
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = ((this.title || "deck").replace(/[^\w\- ]/g, "").trim() || "deck") + ".pptx";
+          a.click(); URL.revokeObjectURL(a.href);
+        } catch (e) { this.status = { ...(this.status || {}), detail: "Download failed: " + e.message }; }
+        this.downloading = false;
+      },
+      restart() {
+        clearInterval(this.pollTimer);
+        this.jobId = null; this.status = null; this.step = 1;
       },
     });
   </script>
 </head>
 <body>
-  <div x-data class="slides-panel">
+  <div x-data x-init="$store.slidesModal.init()" class="dock-panel">
+
+    <!-- Header -->
     <div class="panel-header">
-      <span class="material-symbols-outlined panel-icon">slideshow</span>
-      <h2>Slides Generator</h2>
-    </div>
-    <div class="panel-content">
-      <div class="form-section">
-        <div class="input-row">
-          <input type="text" x-model="$store.slidesModal.topic" placeholder="Presentation topic..." class="topic-input" @keyup.enter="$store.slidesModal.generate()" />
-          <button class="btn-gen" @click="$store.slidesModal.generate()" :disabled="$store.slidesModal.loading || !$store.slidesModal.topic">
-            <span class="material-symbols-outlined">auto_awesome</span>
-            Generate
-          </button>
+      <div class="header-left">
+        <span class="material-symbols-outlined header-icon">slideshow</span>
+        <div>
+          <h2>Slide Generator</h2>
+          <p class="header-subtitle">Internet research → detailed editable slides · up to 100</p>
         </div>
-        <div class="options-row">
-          <div class="opt-group">
-            <label class="opt-label">Style</label>
-            <select x-model="$store.slidesModal.style" class="opt-select">
-              <option value="academic">Academic</option>
-              <option value="clinical">Clinical</option>
-              <option value="corporate">Corporate</option>
-              <option value="minimal">Minimal</option>
-            </select>
+      </div>
+      <div class="steps" x-show="$store.slidesModal.step < 4">
+        <template x-for="n in 3" :key="n">
+          <div class="step-dot" :class="{ active: $store.slidesModal.step >= n, current: $store.slidesModal.step === n }">
+            <span class="dot-n" x-text="n"></span>
+            <span class="dot-l" x-text="['Details', 'Template', 'Generate'][n-1]"></span>
           </div>
-          <div class="opt-group">
-            <label class="opt-label">Slides</label>
-            <input type="number" x-model="$store.slidesModal.numSlides" min="3" max="30" class="opt-input" />
+        </template>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="panel-body">
+
+      <!-- STEP 1 · DETAILS -->
+      <div x-show="$store.slidesModal.step === 1" class="tab-content">
+        <h3 class="section-title">What is the deck about?</h3>
+        <div class="dock-card">
+          <div class="dock-card-header"><span class="material-symbols-outlined dock-card-icon">title</span><h4>Presentation title</h4></div>
+          <input type="text" x-model="$store.slidesModal.title" class="mt-input" placeholder="e.g. DPP-4 Inhibitors in Type 2 Diabetes" />
+        </div>
+        <div class="dock-card">
+          <div class="dock-card-header"><span class="material-symbols-outlined dock-card-icon">topic</span><h4>Topic details (what to cover)</h4></div>
+          <textarea x-model="$store.slidesModal.topic" rows="3" class="mt-textarea" placeholder="Describe the topic, chapter or lecture content — the generator researches the open internet (PDF books, lecture notes, SlideShare) for this"></textarea>
+          <div class="chips">
+            <template x-for="t in $store.slidesModal.quickTopics" :key="t">
+              <button class="chip" @click="$store.slidesModal.pickQuick(t)" x-text="t"></button>
+            </template>
           </div>
-          <div class="opt-group check-opt">
-            <label class="opt-check">
-              <input type="checkbox" x-model="$store.slidesModal.includeCitations" />
-              <span>Citations</span>
-            </label>
+        </div>
+        <div class="row2">
+          <div class="dock-card">
+            <div class="dock-card-header"><span class="material-symbols-outlined dock-card-icon">format_list_numbered</span><h4>Number of slides</h4></div>
+            <div class="slide-count-row">
+              <input type="range" min="1" max="100" x-model.number="$store.slidesModal.numSlides" class="slider" />
+              <input type="number" min="1" max="100" x-model.number="$store.slidesModal.numSlides" class="num-input" />
+            </div>
+            <p class="hint"><span x-text="$store.slidesModal.numSlides"></span> slides · each with detailed text, icons & speaker notes</p>
           </div>
+          <div class="dock-card">
+            <div class="dock-card-header"><span class="material-symbols-outlined dock-card-icon">groups</span><h4>Audience</h4></div>
+            <div class="chips">
+              <template x-for="a in ['students','faculty','researchers','industry','clinicians']" :key="a">
+                <button class="chip" :class="{ on: $store.slidesModal.audience === a }" @click="$store.slidesModal.audience = a" x-text="a"></button>
+              </template>
+            </div>
+            <label class="toggle"><input type="checkbox" x-model="$store.slidesModal.citations" /> <span>Sources slide (citations)</span></label>
+            <label class="toggle"><input type="checkbox" x-model="$store.slidesModal.photos" /> <span>Allow web images</span></label>
+          </div>
+        </div>
+        <button class="btn-run" @click="$store.slidesModal.toTemplate()" :disabled="!$store.slidesModal.topic.trim()">
+          <span class="material-symbols-outlined">arrow_forward</span> Choose template
+        </button>
+      </div>
+
+      <!-- STEP 2 · TEMPLATE -->
+      <div x-show="$store.slidesModal.step === 2" class="tab-content">
+        <h3 class="section-title">Pick a look</h3>
+        <div class="tpl-grid">
+          <template x-for="t in $store.slidesModal.templates" :key="t.id">
+            <button class="tpl-card" :class="{ on: $store.slidesModal.templateId === t.id }" @click="$store.slidesModal.templateId = t.id">
+              <span class="tpl-swatches">
+                <span class="sw" :style="'background:#' + t.primary"></span>
+                <span class="sw" :style="'background:#' + t.accent"></span>
+                <span class="sw" :style="'background:#' + t.bg"></span>
+              </span>
+              <span class="tpl-name" x-text="t.name"></span>
+              <span class="tpl-desc" x-text="t.desc"></span>
+              <span class="material-symbols-outlined check" x-show="$store.slidesModal.templateId === t.id">check_circle</span>
+            </button>
+          </template>
+        </div>
+        <div class="row-btns">
+          <button class="btn-back" @click="$store.slidesModal.step = 1"><span class="material-symbols-outlined">arrow_back</span> Back</button>
+          <button class="btn-run" @click="$store.slidesModal.start()">
+            <span class="material-symbols-outlined">rocket_launch</span>
+            Research &amp; generate <span x-text="$store.slidesModal.numSlides"></span> slides
+          </button>
         </div>
       </div>
 
-      <div x-show="$store.slidesModal.error" class="error-banner" x-text="$store.slidesModal.error"></div>
-      <div x-show="$store.slidesModal.loading" class="loading-bar"><div class="loading-spinner"></div><span>Generating slides...</span></div>
-
-      <template x-if="$store.slidesModal.result">
-        <div class="results">
-          <div class="results-header">
-            <h3 x-text="$store.slidesModal.result.topic || $store.slidesModal.topic"></h3>
-            <div class="results-actions">
-              <button class="act-btn" @click="$store.slidesModal.sendToAgent()"><span class="material-symbols-outlined">psychology</span> Send to Agent</button>
-              <button class="act-btn" @click="$store.slidesModal.downloadPptx()" style="background:var(--color-primary);color:white;border-color:var(--color-primary)"><span class="material-symbols-outlined">download</span> Download PPTX</button>
-              <button class="act-btn" @click="$store.slidesModal.clear()"><span class="material-symbols-outlined">refresh</span> New</button>
+      <!-- STEP 3 · GENERATING -->
+      <div x-show="$store.slidesModal.step === 3" class="tab-content center-col">
+        <div class="prog-card" x-show="$store.slidesModal.status">
+          <div class="prog-top">
+            <div class="spinner"></div>
+            <div>
+              <div class="prog-stage" x-text="$store.slidesModal.stageLabel"></div>
+              <div class="prog-detail" x-text="$store.slidesModal.status?.detail || ''"></div>
             </div>
+            <div class="prog-pct" x-text="$store.slidesModal.pct + '%'"></div>
           </div>
-          <div class="slide-list">
-            <template x-if="$store.slidesModal.result.slides">
-              <template x-for="(slide, i) in $store.slidesModal.result.slides" :key="i">
-                <div class="slide-card">
-                  <div class="slide-num" x-text="'Slide ' + (i + 1)"></div>
-                  <div class="slide-body">
-                    <div class="slide-title" x-text="slide.title || slide.heading || ''"></div>
-                    <div class="slide-content" x-text="slide.content || slide.body || ''"></div>
-                  </div>
-                </div>
-              </template>
+          <div class="prog-bar"><div class="prog-fill" :style="'width:' + $store.slidesModal.pct + '%'"></div></div>
+          <div class="stage-row">
+            <template x-for="(s, i) in ['research','outline','content','visuals','assemble','done']" :key="s">
+              <div class="stage-chip" :class="{ done: ['research','outline','content','visuals','assemble','done'].indexOf($store.slidesModal.status?.stage || '') >= i, err: $store.slidesModal.status?.stage === 'error' && i === 0 }"
+                x-text="{research:'Web research',outline:'Outline',content:'Writing',visuals:'Icons',assemble:'PPTX',done:'Ready'}[s]"></div>
             </template>
           </div>
-          <div class="agent-help">
-            <button class="agent-help-btn" @click="$store.slidesModal.sendToAgent()">
-              <span class="material-symbols-outlined">psychology</span>
-              Agent: refine and export these slides
-            </button>
+          <div class="outline-list" x-show="($store.slidesModal.status?.outline || []).length">
+            <template x-for="(t, i) in ($store.slidesModal.status?.outline || []).slice(0, 100)" :key="i">
+              <div class="ol-row" :class="{ done: ($store.slidesModal.status?.slides_done || 0) > i }">
+                <span class="ol-n" x-text="i + 1"></span>
+                <span class="ol-t" x-text="t"></span>
+              </div>
+            </template>
           </div>
+          <div class="err-box" x-show="$store.slidesModal.status?.stage === 'error'" x-text="$store.slidesModal.status?.detail"></div>
+          <button class="btn-back" x-show="$store.slidesModal.status?.stage === 'error'" @click="$store.slidesModal.restart()">Start over</button>
         </div>
-      </template>
+        <div class="prog-card pad" x-show="!$store.slidesModal.status">Starting the job…</div>
+      </div>
 
-      <div x-show="!$store.slidesModal.result && !$store.slidesModal.loading" class="empty-state">
-        <span class="material-symbols-outlined empty-icon">slideshow</span>
-        <p>Enter a topic to generate a presentation</p>
-        <div class="quick-chips">
-          <button class="chip" @click="$store.slidesModal.topic='Advances in mRNA vaccine technology'; $store.slidesModal.generate()">mRNA vaccines</button>
-          <button class="chip" @click="$store.slidesModal.topic='AI-driven drug discovery pipelines'; $store.slidesModal.generate()">AI drug discovery</button>
-          <button class="chip" @click="$store.slidesModal.topic='Pharmacokinetics and pharmacodynamics overview'; $store.slidesModal.generate()">PK/PD overview</button>
+      <!-- STEP 4 · DONE -->
+      <div x-show="$store.slidesModal.step === 4" class="tab-content center-col">
+        <div class="done-card">
+          <span class="material-symbols-outlined done-ic">check_circle</span>
+          <h3 x-text="'“' + ($store.slidesModal.title || 'Deck') + '” is ready'"></h3>
+          <p class="done-sub">
+            <span x-text="$store.slidesModal.status?.slides_done || $store.slidesModal.numSlides"></span> slides ·
+            detailed text · icons · speaker notes ·
+            <b>fully editable in PowerPoint</b>
+          </p>
+          <div class="outline-list compact" x-show="($store.slidesModal.status?.outline || []).length">
+            <template x-for="(t, i) in ($store.slidesModal.status?.outline || [])" :key="i">
+              <div class="ol-row done"><span class="ol-n" x-text="i + 1"></span><span class="ol-t" x-text="t"></span></div>
+            </template>
+          </div>
+          <button class="btn-run" @click="$store.slidesModal.download()" :disabled="$store.slidesModal.downloading">
+            <span class="material-symbols-outlined">download</span>
+            <span x-text="$store.slidesModal.downloading ? 'Downloading…' : 'Download .pptx'"></span>
+          </button>
+          <button class="btn-back" @click="$store.slidesModal.restart()"><span class="material-symbols-outlined">refresh</span> Create another</button>
         </div>
       </div>
     </div>
 
     <style>
-      .slides-panel { display: flex; flex-direction: column; height: 100%; overflow-y: auto; padding: 16px 20px; background: var(--color-background); }
-      .panel-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-      .panel-icon { font-size: 26px; color: var(--color-primary); }
-      .panel-header h2 { color: var(--color-primary); font-size: 1rem; margin: 0; font-weight: 700; }
-      .panel-content { flex: 1; }
-      .form-section { margin-bottom: 14px; }
-      .input-row { display: flex; gap: 8px; margin-bottom: 8px; }
-      .topic-input { flex: 1; padding: 9px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-panel); color: var(--color-text); font-size: 0.78rem; }
-      .topic-input:focus { outline: none; border-color: var(--color-primary); }
-      .btn-gen { display: flex; align-items: center; gap: 4px; padding: 9px 14px; background: var(--color-primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
-      .btn-gen:disabled { opacity: 0.5; cursor: not-allowed; }
-      .options-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
-      .opt-group { flex: 1; min-width: 100px; }
-      .opt-label { display: block; font-size: 0.62rem; font-weight: 600; color: var(--color-text-muted); margin-bottom: 2px; }
-      .opt-select, .opt-input { width: 100%; padding: 5px 8px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-panel); color: var(--color-text); font-size: 0.7rem; }
-      .opt-input { max-width: 70px; }
-      .check-opt { display: flex; align-items: flex-end; padding-bottom: 4px; }
-      .opt-check { display: flex; align-items: center; gap: 4px; font-size: 0.7rem; color: var(--color-text); cursor: pointer; }
-      .opt-check input { accent-color: var(--color-primary); }
-      .error-banner { padding: 6px 10px; background: rgba(255,107,107,0.1); border-radius: 6px; color: var(--color-error-text); font-size: 0.7rem; margin-bottom: 10px; }
-      .loading-bar { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; color: var(--color-text-muted); }
-      .loading-spinner { width: 14px; height: 14px; border: 2px solid var(--color-border); border-top: 2px solid var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
-      @keyframes spin { to { transform: rotate(360deg); } }
+      .dock-panel { display: flex; flex-direction: column; height: 100%; overflow: hidden; background: var(--color-background); }
+      .panel-header { padding: 14px 20px; border-bottom: 1px solid var(--color-border); background: var(--color-panel); flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
+      .header-left { display: flex; align-items: center; gap: 12px; }
+      .header-icon { font-size: 28px; color: var(--color-primary); }
+      .panel-header h2 { color: var(--color-text); font-size: 1.05rem; margin: 0; font-weight: 700; }
+      .header-subtitle { color: var(--color-text-muted); font-size: 0.7rem; margin: 2px 0 0 0; }
+      .steps { display: flex; gap: 14px; }
+      .step-dot { display: flex; align-items: center; gap: 5px; opacity: 0.35; }
+      .step-dot.active { opacity: 0.75; } .step-dot.current { opacity: 1; }
+      .dot-n { width: 20px; height: 20px; border-radius: 50%; background: var(--color-border); color: var(--color-text-muted); display: flex; align-items: center; justify-content: center; font-size: 0.62rem; font-weight: 700; }
+      .step-dot.active .dot-n { background: var(--color-primary); color: white; }
+      .dot-l { font-size: 0.66rem; font-weight: 600; color: var(--color-text-muted); }
+      .step-dot.current .dot-l { color: var(--color-text); }
 
-      .results { margin-top: 8px; }
-      .results-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
-      .results-header h3 { font-size: 0.8rem; font-weight: 700; color: var(--color-text); margin: 0; }
-      .results-actions { display: flex; gap: 4px; }
-      .act-btn { display: flex; align-items: center; gap: 3px; padding: 4px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.65rem; color: var(--color-text); cursor: pointer; }
-      .act-btn:hover { border-color: var(--color-primary); }
-      .slide-list { display: flex; flex-direction: column; gap: 6px; }
-      .slide-card { display: flex; gap: 10px; padding: 10px 12px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 8px; border-left: 3px solid var(--color-primary); }
-      .slide-num { font-size: 0.65rem; font-weight: 700; color: var(--color-primary); white-space: nowrap; padding-top: 2px; }
-      .slide-body { flex: 1; min-width: 0; }
-      .slide-title { font-size: 0.74rem; font-weight: 600; color: var(--color-text); margin-bottom: 2px; }
-      .slide-content { font-size: 0.68rem; color: var(--color-text-muted); line-height: 1.4; }
-      .agent-help { margin-top: 12px; }
-      .agent-help-btn { display: flex; align-items: center; gap: 4px; padding: 8px 12px; background: color-mix(in srgb, var(--color-accent, #4fc3f7) 8%, var(--color-panel)); border: 1px solid color-mix(in srgb, var(--color-accent, #4fc3f7) 25%, var(--color-border)); border-radius: 8px; color: var(--color-text); cursor: pointer; font-size: 0.68rem; width: 100%; justify-content: center; }
-      .empty-state { display: flex; flex-direction: column; align-items: center; padding: 36px 20px; text-align: center; }
-      .empty-icon { font-size: 40px; color: var(--color-border); margin-bottom: 10px; }
-      .empty-state p { color: var(--color-text-muted); font-size: 0.75rem; margin: 0 0 10px 0; }
-      .quick-chips { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; }
-      .chip { padding: 5px 10px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.68rem; color: var(--color-text); cursor: pointer; }
-      .chip:hover { border-color: var(--color-primary); }
+      .panel-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+      .tab-content { min-height: 150px; } .center-col { display: flex; flex-direction: column; align-items: center; }
+      .section-title { font-size: 0.8rem; font-weight: 700; color: var(--color-text); margin: 0 0 8px 0; padding-bottom: 6px; border-bottom: 1px solid var(--color-border); }
+      .dock-card { padding: 13px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 11px; display: flex; flex-direction: column; gap: 9px; margin-bottom: 10px; }
+      .dock-card-header { display: flex; align-items: center; gap: 8px; }
+      .dock-card-icon { font-size: 19px; color: var(--color-primary); }
+      .dock-card h4 { color: var(--color-text); font-size: 0.76rem; font-weight: 600; margin: 0; }
+      .mt-input { width: 100%; padding: 9px 11px; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-background); color: var(--color-text); font-size: 0.78rem; }
+      .mt-input:focus { outline: none; border-color: var(--color-primary); }
+      .mt-textarea { width: 100%; min-height: 64px; padding: 9px 11px; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-background); color: var(--color-text); font-size: 0.75rem; resize: vertical; }
+      .mt-textarea:focus { outline: none; border-color: var(--color-primary); }
+      .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+      .chip { padding: 4px 10px; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 999px; color: var(--color-text-muted); font-size: 0.64rem; cursor: pointer; }
+      .chip:hover, .chip.on { border-color: var(--color-primary); color: var(--color-primary); }
+      .slide-count-row { display: flex; align-items: center; gap: 10px; }
+      .slider { flex: 1; accent-color: var(--color-primary); }
+      .num-input { width: 62px; padding: 6px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-background); color: var(--color-text); font-size: 0.85rem; font-weight: 700; text-align: center; }
+      .hint { font-size: 0.62rem; color: var(--color-text-muted); margin: 0; }
+      .toggle { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; color: var(--color-text); cursor: pointer; }
+      .toggle input { accent-color: var(--color-primary); }
+      .btn-run { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 8px; padding: 11px; background: var(--color-primary); border: none; border-radius: 9px; color: white; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
+      .btn-run:hover:not(:disabled) { opacity: 0.92; } .btn-run:disabled { opacity: 0.45; cursor: not-allowed; }
+      .btn-back { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 9px 16px; background: none; border: 1px solid var(--color-border); border-radius: 9px; color: var(--color-text-muted); cursor: pointer; font-size: 0.75rem; }
+      .btn-back:hover { color: var(--color-text); border-color: var(--color-text-muted); }
+      .row-btns { display: flex; gap: 10px; margin-top: 10px; } .row-btns .btn-back { flex: none; }
+
+      .tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+      .tpl-card { position: relative; text-align: left; padding: 12px; background: var(--color-panel); border: 2px solid var(--color-border); border-radius: 12px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; }
+      .tpl-card.on { border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary); }
+      .tpl-swatches { display: flex; gap: 4px; }
+      .sw { width: 26px; height: 26px; border-radius: 7px; border: 1px solid rgba(0,0,0,0.08); }
+      .tpl-name { font-size: 0.78rem; font-weight: 700; color: var(--color-text); }
+      .tpl-desc { font-size: 0.62rem; color: var(--color-text-muted); }
+      .check { position: absolute; top: 8px; right: 8px; color: var(--color-primary); font-size: 20px; }
+
+      .prog-card { width: 100%; max-width: 860px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+      .prog-card.pad { align-items: center; color: var(--color-text-muted); font-size: 0.8rem; }
+      .prog-top { display: flex; align-items: center; gap: 12px; }
+      .spinner { width: 26px; height: 26px; border: 3px solid var(--color-border); border-top: 3px solid var(--color-primary); border-radius: 50%; animation: spin 0.9s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .prog-stage { font-size: 0.95rem; font-weight: 700; color: var(--color-text); }
+      .prog-detail { font-size: 0.7rem; color: var(--color-text-muted); margin-top: 2px; }
+      .prog-pct { margin-left: auto; font-size: 1.5rem; font-weight: 800; color: var(--color-primary); }
+      .prog-bar { height: 9px; background: var(--color-border); border-radius: 5px; overflow: hidden; }
+      .prog-fill { height: 100%; background: var(--color-primary); border-radius: 5px; transition: width 0.6s; }
+      .stage-row { display: flex; flex-wrap: wrap; gap: 6px; }
+      .stage-chip { padding: 3px 10px; border-radius: 999px; border: 1px solid var(--color-border); color: var(--color-text-muted); font-size: 0.6rem; font-weight: 600; }
+      .stage-chip.done { background: color-mix(in srgb, var(--color-primary) 12%, transparent); border-color: var(--color-primary); color: var(--color-primary); }
+      .stage-chip.err { background: rgba(255,107,107,0.12); border-color: #ff6b6b; color: #ff6b6b; }
+      .outline-list { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
+      .outline-list.compact { max-height: 220px; }
+      .ol-row { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 6px; font-size: 0.68rem; color: var(--color-text-muted); opacity: 0.55; }
+      .ol-row.done { opacity: 1; color: var(--color-text); background: color-mix(in srgb, var(--color-primary) 5%, transparent); }
+      .ol-n { width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%; background: var(--color-border); color: var(--color-text-muted); display: flex; align-items: center; justify-content: center; font-size: 0.58rem; font-weight: 700; }
+      .ol-row.done .ol-n { background: var(--color-primary); color: white; }
+      .err-box { padding: 9px 12px; background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.25); border-radius: 8px; color: #ff6b6b; font-size: 0.7rem; }
+
+      .done-card { width: 100%; max-width: 860px; background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 12px; padding: 22px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+      .done-ic { font-size: 52px; color: #22c55e; }
+      .done-card h3 { margin: 0; font-size: 1.15rem; color: var(--color-text); }
+      .done-sub { margin: 0; font-size: 0.78rem; color: var(--color-text-muted); text-align: center; }
+      .done-sub b { color: var(--color-primary); }
     </style>
   </div>
 </body>

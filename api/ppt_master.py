@@ -2,7 +2,7 @@
 Full SVG-based pipeline: Source → Strategy → SVG → Charts → Animations → Speaker Notes → PPTX.
 Based on github.com/hugohe3/ppt-master."""
 from helpers.api import ApiHandler, Request, Response
-import logging, os, json, io, asyncio
+import logging, os, json, io, asyncio, re
 
 log = logging.getLogger("ppt_master")
 
@@ -26,12 +26,76 @@ class PptMasterHandler(ApiHandler):
             return self._list_templates()
         elif action == "list_workflows":
             return self._list_workflows()
+        elif action == "deck_templates":
+            return self._deck_templates()
+        elif action == "deck_create":
+            return self._deck_create(input)
+        elif action == "deck_status":
+            return self._deck_status(input)
+        elif action == "deck_download":
+            return self._deck_download(input)
 
         return {
-            "actions": ["status", "generate", "list_templates", "list_workflows"],
-            "hint": "PPT Master: SVG-based editable PPTX with native charts, animations, speaker notes audio. "
-                    "Use action=generate with topic + slides_data, or use the ppt-master skill directly for full pipeline."
+            "actions": ["status", "generate", "generate_content", "list_templates", "list_workflows",
+                        "deck_templates", "deck_create", "deck_status", "deck_download"],
+            "hint": "PPT Master: deck_* actions run the internet-research pipeline (PDF books, "
+                    "SlideShare transcripts, online notes → detailed editable PPTX, up to 100 slides)."
         }
+
+    # ── Deck pipeline (Slide Generator 2.0) ──────────────────────────────────
+
+    @staticmethod
+    def _deck_templates() -> dict:
+        from modules.slides.deck_pipeline import list_templates
+        return {"templates": list_templates()}
+
+    @staticmethod
+    def _deck_create(input: dict) -> dict:
+        from modules.slides.deck_pipeline import create_job
+        title = str(input.get("title") or input.get("topic") or "").strip()[:140]
+        topic = str(input.get("topic") or title).strip()[:300]
+        if not topic:
+            return {"error": "Provide a title/topic"}
+        try:
+            n = int(input.get("num_slides", 10))
+        except (TypeError, ValueError):
+            n = 10
+        if not (1 <= n <= 100):
+            return {"error": "num_slides must be 1-100"}
+        return create_job(
+            title=title or topic, topic=topic, num_slides=n,
+            template_id=str(input.get("template_id", "violet_academic")),
+            style=str(input.get("style", "academic")),
+            audience=str(input.get("audience", "students")),
+            photos=bool(input.get("photos", True)),
+            citations=bool(input.get("citations", True)),
+        )
+
+    @staticmethod
+    def _deck_status(input: dict) -> dict:
+        job_id = str(input.get("job_id", ""))
+        if not re.match(r"^[0-9a-f]{6,12}$", job_id):
+            return {"error": "Invalid job id"}
+        from modules.slides.deck_pipeline import read_status
+        return read_status(job_id)
+
+    @staticmethod
+    def _deck_download(input: dict) -> dict:
+        job_id = str(input.get("job_id", ""))
+        if not re.match(r"^[0-9a-f]{6,12}$", job_id):
+            return {"error": "Invalid job id"}
+        from modules.slides.deck_pipeline import read_status, JOBS_ROOT
+        st = read_status(job_id)
+        path = st.get("file")
+        if st.get("stage") != "done" or not path or not os.path.isfile(path):
+            return {"error": "Deck not ready", "stage": st.get("stage")}
+        with open(path, "rb") as f:
+            data = f.read()
+        fname = re.sub(r"[^A-Za-z0-9_\- ]", "", st.get("title", "deck"))[:60].strip().replace(" ", "_") or "deck"
+        safe = os.path.basename(path)
+        return Response(content=data, content_type="application/vnd.openxmlformats-officedocument"
+                        ".presentationml.presentation", headers={"Content-Disposition": f'attachment; filename="{fname}.pptx"'})
+
 
     def _status(self):
         """Check ppt-master skill availability."""
