@@ -5,6 +5,17 @@ import asyncio, logging, json, re, os, urllib.request, urllib.parse
 from typing import Dict, List, Any
 from datetime import datetime
 
+def _safe_num(value, default, kind="number"):
+    """Module-level guard: raw int()/float() on user input crashes the core
+    wrapper into a text/plain 500 the frontend can't parse (no-core-damage
+    policy: fix lives in module handlers, not helpers/api.py)."""
+    try:
+        return kind == "int" and int(value) or float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+
 log = logging.getLogger("deep_research")
 
 
@@ -61,7 +72,7 @@ class DeepResearchHandler(ApiHandler):
         if not topic:
             return {"status": "error", "error": "Topic required"}
 
-        max_sources = int(input.get("max_sources", 20))
+        max_sources = _safe_num(input.get("max_sources"), 20, "int")
         databases = input.get("databases", ["pubmed", "europe_pmc", "semantic_scholar"])
         if not databases:
             return {"error": "At least one database must be selected"}
@@ -118,7 +129,7 @@ class DeepResearchHandler(ApiHandler):
         stats["total"] = len(unique_sources)
 
         # ── Split into 2 rounds: return first 50% immediately, fetch rest in background ──
-        max_store = int(input.get("max_store", 1000))
+        max_store = _safe_num(input.get("max_store"), 1000, "int")
         retrieval_pool = unique_sources[:max_store]
         mid = len(retrieval_pool) // 2
         first_half = retrieval_pool[:mid] if mid > 0 else retrieval_pool[:1]
@@ -206,7 +217,7 @@ class DeepResearchHandler(ApiHandler):
         """Scan collected sources for relevance."""
         session_id = input.get("session_id", "")
         keywords = input.get("keywords", [])
-        min_citations = int(input.get("min_citations", 0))
+        min_citations = _safe_num(input.get("min_citations"), 0, "int")
 
         session_path = os.path.join(STORAGE_DIR, f"session_{session_id}.json")
         if not os.path.exists(session_path):
@@ -299,7 +310,7 @@ class DeepResearchHandler(ApiHandler):
     def _record_screen_decision(self, input: dict) -> dict:
         """Record a single screening decision (include/exclude/maybe + reason)."""
         session_id = input.get("session_id", "")
-        source_idx = int(input.get("source_idx", -1))
+        source_idx = _safe_num(input.get("source_idx"), -1, "int")
         decision = input.get("decision", "pending").lower()  # include|exclude|maybe
         reason = input.get("reason", "")
 
@@ -366,7 +377,7 @@ class DeepResearchHandler(ApiHandler):
     def _store_to_kb(self, input: dict) -> dict:
         """Store selected sources to knowledge base with proper categorization."""
         session_id = input.get("session_id", "")
-        max_store = int(input.get("max_store", 1000))
+        max_store = _safe_num(input.get("max_store"), 1000, "int")
         topic = input.get("topic", "")
 
         session_path = os.path.join(STORAGE_DIR, f"session_{session_id}.json")
@@ -793,7 +804,7 @@ class DeepResearchHandler(ApiHandler):
         seed_doi = (input.get("seed_doi", "") or "").strip().lower()
         seed_query = (input.get("seed_query", "") or "").strip()
         direction = (input.get("direction", "all") or "all").strip().lower()
-        limit = min(int(input.get("limit", 10)), 25)
+        limit = min(_safe_num(input.get("limit"), 10, "int"), 25)
 
         if not seed_doi and not seed_query:
             return {"status": "error", "error": "Provide seed_doi or seed_query"}

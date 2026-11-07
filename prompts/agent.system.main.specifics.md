@@ -237,3 +237,23 @@ idx = _load_index()
 for e in idx["entries"][-20:]:   # most recent 20
     print(e["title"], "→", e["category"], "→", e["file"])
 ```
+
+## Research Module Awareness (v7.37)
+
+BioDockify ships with 50+ research modules across all pharmacy departments. When a user asks about drug design, pharmacology, pharmaceutics, pharmacognosy, analysis, QA, or biotechnology tasks, you can perform the same computations directly using the module APIs via code execution:
+
+- **Docking/QSAR/ADMET/Pharmacophore**: call the API endpoints (`/api/docking_prepare`, `/api/admet_predict`, `/api/qsar3d`, `/api/pharmacophore`) or import from `modules/`
+- **Retrosynthesis/Reactions**: `/api/retrosynthesis`, `/api/reaction_lab`
+- **Pharmacovigilance**: `/api/pharmacovigilance` (PRR/ROR signal detection, DDI screening)
+- **Network Pharmacology**: `/api/netpharm_pro` (pathway ORA, PPI hubs, herb networks)
+- **Preformulation/DoE**: `/api/preformulation` (SMILES profiles, QbD designs)
+- **Spectra**: `/api/spectra_lab` (IR, NMR, MS, UV interpretation)
+- **Phytochemistry**: `/api/phytochem` (fingerprint similarity, marker assay, limits)
+- **GMP/QA**: `/api/gmp_audit` (checklists, deviation-CAPA, inspection planning)
+- **Pharmacoeconomics**: `/api/pharmacoeconomics` (ICER, QALY, NNT, budget impact)
+- **Literature/Knowledge**: `/api/literature_search`, `/api/deep_research`, `/api/knowledge`
+- **Slide Generation**: `/api/ppt_master` (deck_create → internet research → editable PPTX)
+- **Statistics**: `/api/statistics_analyze` (56 analysis types)
+
+See `knowledge/main/about/research-modules.md` for the complete reference table.
+When users ask for something a module can do, prefer the module over manual computation.

@@ -303,6 +303,7 @@
 
     });
   </script>
+<script src="/js/handoff.js"></script>
 </head>
 <body>
   <div x-data x-init="$store.molecularToolkit.checkHealth()" class="dock-panel">
@@ -444,6 +445,7 @@
             <span class="material-symbols-outlined success-icon">check_circle</span>
             <span class="analysis-name" x-text="'Docking: ' + ($store.molecularToolkit.dockingLigandName || 'ligand') + ' → ' + ($store.molecularToolkit.dockingProteinName || 'protein')"></span>
             <span class="row-count" x-text="'(' + $store.molecularToolkit.dockingPoses.length + ' poses)'"></span>
+<div x-show="$store.molecularToolkit.dockingLigand" x-html="window.sendHandoffBar ? sendHandoffBar($store.molecularToolkit.dockingLigand, ['admet','qsar','retro','bioact','pharma']) : ''" style="margin-top:4px"></div>
           </div>
         </div>
 

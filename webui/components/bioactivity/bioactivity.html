@@ -11,17 +11,19 @@
       message: "",
 
       // Predict tab
-      predictSmiles: "",
+      predictSmiles: "CC(=O)Nc1ccc(O)cc1",
       targetClass: "general",
       prediction: null,
 
       // Batch tab
-      batchSmiles: "",
+      batchSmiles: "CC(=O)OC1=CC=CC=C1C(=O)O
+CC(C)Cc1ccc(cc1)C(C)C(=O)O
+CC(=O)Nc1ccc(O)cc1",
       batchTarget: "general",
       batchResults: null,
 
       // Similar tab
-      similarSmiles: "",
+      similarSmiles: "c1ccc(Nc2nccc(-c3cn[nH]c3)n2)cc1",
       similarTarget: "general",
       similarResults: null,
 
@@ -94,6 +96,7 @@
       },
     });
   </script>
+<script src="/js/handoff.js"></script>
 </head>
 <body>
   <div x-data x-init="$store.bioactivity.init()" class="dock-panel">
@@ -168,6 +171,7 @@
               <div class="ba-activity-badge" :style="'background:' + $store.bioactivity.activityColor($store.bioactivity.prediction.activity_class) + '22; color:' + $store.bioactivity.activityColor($store.bioactivity.prediction.activity_class)">
                 <span x-text="$store.bioactivity.prediction.activity_class"></span>
               </div>
+<div x-html="window.sendHandoffBar ? sendHandoffBar($store.bioactivity.predictSmiles, ['admet','dock','retro','pharma']) : ''" style="margin-top:6px"></div>
             </div>
 
             <div class="ba-confidence">

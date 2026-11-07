@@ -112,6 +112,7 @@
       },
     });
   </script>
+<script src="/js/handoff.js"></script>
 </head>
 <body>
   <div x-data class="dock-panel" x-init="$store.reactionLab.loadReactions()">
@@ -191,6 +192,7 @@
               </tbody>
             </table>
             <div class="rl-note" x-text="$store.reactionLab.forwardResult.note"></div>
+<template x-if="$store.reactionLab.forwardResult.products?.length"><div x-html="sendHandoffBar($store.reactionLab.forwardResult.products[0].smiles, ['retro','admet','dock','bioact'])" style="margin-top:6px"></div></template>
           </div>
         </template>
       </div>

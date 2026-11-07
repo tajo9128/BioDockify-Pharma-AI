@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://hub.docker.com/r/tajo9128/biodockify-pharma-ai"><img src="https://img.shields.io/badge/docker-tajo9128%2Fbiodockify--pharma--ai-blue.svg" alt="Docker"/></a>
-  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v7.9.8-green.svg" alt="Version"/></a>
+  <a href="https://github.com/tajo9128/BioDockify-Pharma-AI/releases"><img src="https://img.shields.io/badge/version-v7.37.0-green.svg" alt="Version"/></a>
   <a href="https://github.com/tajo9128/BioDockify-Pharma-AI"><img src="https://img.shields.io/badge/GitHub-BioDockify--Pharma--AI-181717?style=flat&logo=github" alt="GitHub"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"/></a>
   <a href="docs/user-guide/README.md"><img src="https://img.shields.io/badge/docs-user%20guide-lightgrey.svg" alt="Documentation"/></a>
@@ -16,7 +16,7 @@
   <img src="assets/screenshot.png" alt="BioDockify Pharma AI Screenshot" width="800">
 </p>
 
-**BioDockify Pharma AI** is a pharmaceutical research platform built on the **Agent Zero v2.0** core, with **22+ integrated modules** covering all 8 pharmacy departments. It features AutoDock Vina molecular docking with MM-GBSA free energy scoring, **56 biostatistics analysis types** (SPSS/jamovi-level), **12 advanced Academic Writer skills** (EQUATOR reporting guidelines, PRISMA systematic review pipeline, per-section quality scoring, De-AIGC rewrite, claim verification), **7-level drug interaction database** (50+ clinically significant pairs), **Perplexity-style citation system** with hybrid search (BM25 + FAISS + RRF), Obsidian bidirectional sync, a Knowledge Base with retrieval-grounded RAG chat, an Academic Writer with pharma-specific claim verification and ICH compliance checks, a 36,145-journal recommender, 4 AI sub-agents, and bulletproof backup to PC.
+**BioDockify Pharma AI** is a pharmaceutical research platform built on the **Agent Zero v2.0** core, with **50+ integrated modules** covering all 8 pharmacy departments. It features AutoDock Vina molecular docking with MM-GBSA free energy scoring, **56 biostatistics analysis types** (SPSS/jamovi-level), **12 advanced Academic Writer skills** (EQUATOR reporting guidelines, PRISMA systematic review pipeline, per-section quality scoring, De-AIGC rewrite, claim verification), **7-level drug interaction database** (50+ clinically significant pairs), **Perplexity-style citation system** with hybrid search (BM25 + FAISS + RRF), Obsidian bidirectional sync, a Knowledge Base with retrieval-grounded RAG chat, an Academic Writer with pharma-specific claim verification and ICH compliance checks, a 36,145-journal recommender, 4 AI sub-agents, and bulletproof backup to PC.
 
 ---
 
@@ -50,7 +50,7 @@ BioDockify supports any OpenAI-compatible local LLM through its AI Engine module
 | **Privacy** | No telemetry, no egress, HIPAA/GDPR friendly, fully reproducible thesis work |
 | **Smoke tests** | 27/27 pass (`tests/test_local_llm.py`) |
 
-### 22 Consolidated Research Modules
+### 50+ Research Modules — All Pharmacy Departments
 
 | # | Module | Function | Backend |
 |---|--------|----------|---------|
@@ -75,6 +75,18 @@ BioDockify supports any OpenAI-compatible local LLM through its AI Engine module
 | 20 | **Regulatory Affairs** | eCTD/CTD structure, 40+ ICH guidelines, stability planner, BE report, IND/NDA checklists | ICH database |
 | 21 | **Pharmacology** | Receptor binding (Kd/Bmax), dose-response 4PL (EC50/IC50), Schild pA2, operational model (τ/KA), selectivity, receptor DB, in-vivo design, **NCA PK/PD analysis** | scipy + RDKit |
 | 22 | **Medicinal Chemistry** | Murcko scaffolds, MMPA, Butina clustering, SMARTS search, SA score, retrosynthesis, named reactions, protecting groups, toxicophore scan, stereo analysis | RDKit |
+| 23 | **Pharmacovigilance Studio** | PRR/ROR/χ² signal detection (Evans/Rothman criteria), DDI screening (50+ pairs), ICSR drafting, batch disproportionality with forest plots | safety_signal engine |
+| 24 | **Preformulation & Drug Delivery** | SMILES preformulation panel, excipient compatibility matrix, liposome/nanoparticle/mucoadhesion/TDD calculators, QbD DoE (factorial/CCD/Box-Behnken/Plackett-Burman + mixture designs) | RDKit + qbd engine |
+| 25 | **Spectra & Elucidation Lab** | IR functional-group matcher, ¹H/¹³C NMR shift estimation, multiplet analyzer (n+1 rule), MS fragmentation predictor, UV Woodward–Fieser rules | RDKit + correlation tables |
+| 26 | **Bioprocess & Protein Studio** | Protein properties (MW/pI/ε280/GRAVY), B-cell epitope screening, chemostat kinetics (Monod/washout), media C:N calculator, ligation/cloning math, biosimilar comparability checklist (WHO/EMA/FDA/CDSCO) | Pure Python |
+| 27 | **Phytochemistry Lab** | Chromatographic fingerprint similarity (cosine/Pearson), marker-compound assay (ICH Q2 LOD/LOQ), heavy-metal + aflatoxin limits (WHO/EU/AYUSH/USP), ethnobotany DB (12 plants) | scipy |
+| 28 | **Network Pharmacology Pro** | Pathway ORA with Benjamini–Hochberg FDR, PPI topology & hub analysis, herb-compound-target multilayer network (TCM pattern) with Cytoscape JSON export | scipy + seed maps |
+| 29 | **GMP & Quality Audit Suite** | WHO TRS 986 / EU GMP Part I / US 21 CFR 211 / PIC/S checklists, EM grade limits (Annex 1), PW/WFI water specs, deviation-CAPA tracker, self-inspection planner | GMP knowledge base |
+| 30 | **Pharmacoeconomics Lab** | ICER/CEA with WTP sensitivity grids, QALY calculator (discounted), NNT + cost per responder, budget impact model for formulary decisions | Pure Python |
+| 31 | **Molecule Designer** | BRICS de novo generation, genetic algorithm optimization (multi-objective: QED/Lipinski/SA/ADMET/diversity/novelty), scaffold enumeration (30+ R-groups), bioisosteric scaffold hopping | RDKit |
+| 32 | **RNA Therapeutics** | siRNA design (Reynolds scoring + off-target screen), codon optimizer (4 hosts), RNA folding (MFE), mRNA properties, CRISPR guide design (SpCas9/Cas12a) | Pure Python |
+| 33 | **Target Identification** | Disease-target search, gene lookup, pathway enrichment, druggability assessment, target prioritization (multi-criteria weighted scoring) | Seed databases |
+| 34 | **Slide Generator 2.0** | Internet research (PDF books, SlideShare transcripts, Wikipedia) → template wizard → detailed editable PPTX up to 100 slides with icons, diagrams, speaker notes, sources slide | deck_pipeline + LLM |
 | — | **All Tools** | Quick-launch grid for all modules | N/A |
 
 ### Statistics — 56 Analysis Types (SPSS/jamovi-level)

@@ -2,6 +2,17 @@
 from helpers.api import ApiHandler, Request, Response
 import logging
 
+def _safe_num(value, default, kind="number"):
+    """Module-level guard: raw int()/float() on user input crashes the core
+    wrapper into a text/plain 500 the frontend can't parse (no-core-damage
+    policy: fix lives in module handlers, not helpers/api.py)."""
+    try:
+        return kind == "int" and int(value) or float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+
 logger = logging.getLogger("journal_finder")
 
 
@@ -25,8 +36,8 @@ class JournalFinder(ApiHandler):
         wos = input.get("wos")
         oa = input.get("oa")
         subject = input.get("subject", "").strip()
-        limit = min(int(input.get("limit", 25)), 100)
-        offset = int(input.get("offset", 0))
+        limit = min(_safe_num(input.get("limit"), 25, "int"), 100)
+        offset = _safe_num(input.get("offset"), 0, "int")
         result = _query_db(query=query, scopus=scopus, wos=wos, oa=oa, subject=subject, limit=limit, offset=offset)
         return {"status": "ok", "action": "search", **result}
 
@@ -65,7 +76,7 @@ class JournalFinder(ApiHandler):
         abstract = input.get("abstract", input.get("sAbstract", "")).strip()
         keywords = input.get("keywords", input.get("sKeywords", "")).strip()
         oa_only = input.get("oa_only", input.get("sOaOnly", False))
-        max_apc = int(input.get("max_apc", 0))
+        max_apc = _safe_num(input.get("max_apc"), 0, "int")
         q_min = input.get("q_min", input.get("sQMin", "")).strip()
         if not title:
             return {"status": "error", "error": "Article title required"}

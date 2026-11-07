@@ -178,7 +178,10 @@
               <div class="rt-subblock">
                 <b>Off-target screen:</b> <span x-text="$store.rnaTherapy.otResult.num_offtargets"></span> hits ·
                 perfect matches: <span x-text="$store.rnaTherapy.otResult.num_perfect_matches"></span>
-                <table class="rt-table" x-show="$store.rnaTherapy.otResult.off_targets.length">
+                <div x-show="$store.rnaTherapy.otResult && !$store.rnaTherapy.otResult.off_targets.length" class="no-off-targets" style="padding:12px;text-align:center;color:var(--color-text-muted);font-size:0.68rem">
+      No off-targets found (within mismatch threshold) - guide appears specific
+    </div>
+    <table class="rt-table" x-show="$store.rnaTherapy.otResult.off_targets.length">
                   <thead><tr><th>Transcript</th><th>Pos</th><th>MM</th><th>Seed MM</th><th>Aligned</th></tr></thead>
                   <tbody>
                     <template x-for="(h, i) in $store.rnaTherapy.otResult.off_targets.slice(0,8)" :key="i">

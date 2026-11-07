@@ -6,6 +6,17 @@ handles HTTP/JSON concerns, KB storage, and action dispatch.
 from helpers.api import ApiHandler, Request
 import logging
 
+def _safe_num(value, default, kind="number"):
+    """Module-level guard: raw int()/float() on user input crashes the core
+    wrapper into a text/plain 500 the frontend can't parse (no-core-damage
+    policy: fix lives in module handlers, not helpers/api.py)."""
+    try:
+        return kind == "int" and int(value) or float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+
 log = logging.getLogger("clinical")
 
 
@@ -70,12 +81,12 @@ class ClinicalHandler(ApiHandler):
         target = input.get("target_trough")
         result = calculate_tdm(
             drug=input.get("drug", ""),
-            dose_mg=input.get("dose_mg", 0),
-            interval_h=float(interval),
+            dose_mg=_safe_num(input.get("dose_mg"), 0),
+            interval_h=_safe_num(interval, 12.0),
             route=input.get("route", "iv"),
             infusion_time_h=input.get("infusion_time_h", 0),
-            steady_state_peak=float(peak) if peak not in (None, "") else None,
-            steady_state_trough=float(trough) if trough not in (None, "") else None,
+            steady_state_peak=_safe_num(peak, None) if peak not in (None, "") else None,
+            steady_state_trough=_safe_num(trough, None) if trough not in (None, "") else None,
             patient_weight_kg=input.get("patient_weight_kg", 70),
             renal_function=input.get("renal_function"),
         )
@@ -83,9 +94,9 @@ class ClinicalHandler(ApiHandler):
             return result
 
         # Aliases expected by clinical.html
-        dose = float(input.get("dose_mg") or 0)
-        measured = float(trough) if trough not in (None, "") else None
-        target_val = float(target) if target not in (None, "") else None
+        dose = _safe_num(input.get("dose_mg"), 0.0)
+        measured = _safe_num(trough, None) if trough not in (None, "") else None
+        target_val = _safe_num(target, None) if target not in (None, "") else None
         suggested = dose
         adjustment = result.get("trough_status") or "Maintain current dose"
         if measured and target_val and measured > 0 and target_val > 0:
@@ -150,7 +161,7 @@ class ClinicalHandler(ApiHandler):
         from modules.clinical.vancomycin import calculate_vancomycin_auc
         return calculate_vancomycin_auc(
             trough_mg_l=input.get("trough_mg_l", 0),
-            dose_mg=input.get("dose_mg", 0),
+            dose_mg=_safe_num(input.get("dose_mg"), 0),
             interval_h=input.get("interval_h", 12),
             infusion_time_h=input.get("infusion_time_h", 1.0),
             patient_weight_kg=input.get("patient_weight_kg", 70),

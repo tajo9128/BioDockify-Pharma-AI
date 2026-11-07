@@ -131,6 +131,7 @@
       },
     });
   </script>
+<script src="/js/handoff.js"></script>
 </head>
 <body>
   <div x-data class="gc-panel">
@@ -243,6 +244,7 @@
               <span x-text="'MW: ' + (mol.scores?.properties?.mw || mol.properties?.mw || '?')"></span>
               <span x-text="'LogP: ' + (mol.scores?.properties?.logp || mol.properties?.logp || '?')"></span>
               <span x-text="'QED: ' + (mol.scores?.qed || mol.qed || '?')"></span>
+<div x-html="window.sendHandoffBar ? sendHandoffBar(mol.smiles, ['admet','dock','bioact','retro']) : ''" style="margin-top:4px"></div>
               <span x-text="'SA: ' + (mol.scores?.sa_score || mol.sa_score || '?')"></span>
             </div>
             <div class="gc-mol-actions">

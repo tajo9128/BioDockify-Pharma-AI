@@ -5,6 +5,17 @@ import json
 import xml.etree.ElementTree as ET
 import logging
 
+def _safe_num(value, default, kind="number"):
+    """Module-level guard: raw int()/float() on user input crashes the core
+    wrapper into a text/plain 500 the frontend can't parse (no-core-damage
+    policy: fix lives in module handlers, not helpers/api.py)."""
+    try:
+        return kind == "int" and int(value) or float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+
 logger = logging.getLogger("literature_search")
 
 
@@ -31,7 +42,7 @@ class LiteratureSearch(ApiHandler):
             "googlescholar": "google_scholar",
         }
         database = DB_ALIASES.get(database, database)
-        max_results = min(int(input.get("max_results", 100) or 100), 200)
+        max_results = min(_safe_num(input.get("max_results") or 100, 100, "int"), 200)
         store_to_kb = input.get("store_to_kb", False)
 
         # ── BATCH SEARCH: all 10 databases in parallel ──

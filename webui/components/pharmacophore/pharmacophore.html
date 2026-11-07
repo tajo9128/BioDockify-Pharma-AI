@@ -6,25 +6,27 @@
 
     export const store = createStore("pharmacophoreModal", {
       activeTab: "generate",
-      smiles: "",
+      smiles: "CC(=O)Nc1ccc(O)cc1",
       proteinPdb: "",
       result: null,
       loading: false,
       error: "",
-      screenSmiles: "",
-      screenLibrary: "",
+      screenSmiles: "CC(=O)Nc1ccc(O)cc1",
+      screenLibrary: "CC(=O)Nc1ccc(O)cc1
+CC(=O)OC1=CC=CC=C1C(=O)O
+CC(C)Cc1ccc(cc1)C(C)C(=O)O",
       screenMethod: "enhanced",
       screenResult: null,
-      hypothesisSmiles: "",
+      hypothesisSmiles: "CC(=O)Nc1ccc(O)cc1",
       hypothesisResult: null,
-      fingerprintSmiles: "",
+      fingerprintSmiles: "CC(=O)Nc1ccc(O)cc1",
       fingerprintResult: null,
-      shapeQuery: "",
-      shapeTarget: "",
+      shapeQuery: "CC(=O)Nc1ccc(O)cc1",
+      shapeTarget: "CC(=O)OC1=CC=CC=C1C(=O)O",
       shapeResult: null,
 
       // Complete analysis
-      completeSmiles: "",
+      completeSmiles: "CC(=O)Nc1ccc(",
       completeName: "",
       completeResult: null,
 
@@ -210,6 +212,7 @@
       _scoreBarWidth(score) { return Math.min(100, Math.max(0, (score || 0) * 100)); },
     });
   </script>
+<script src="/js/handoff.js"></script>
 </head>
 <body>
   <div x-data class="dock-panel">
@@ -490,6 +493,7 @@
         </button>
 
         <template x-if="$store.pharmacophoreModal.screenResult">
+<div x-html="window.sendHandoffBar ? sendHandoffBar($store.pharmacophore.screenSmiles, ['admet','dock','bioact','retro']) : ''" style="margin-top:6px"></div>
           <div class="result-card">
             <h3>Screening Results</h3>
             <div class="stats-row">

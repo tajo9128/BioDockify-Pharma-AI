@@ -11,7 +11,7 @@
       message: "",
 
       // Plan tab
-      targetSmiles: "",
+      targetSmiles: "CC(=O)Nc1ccc(O)cc1",
       maxDepth: 4,
       maxRoutes: 5,
       routes: [],
@@ -95,6 +95,7 @@
       },
     });
   </script>
+<script src="/js/handoff.js"></script>
 </head>
 <body>
   <div x-data x-init="$store.retroSyn.loadTemplates()" class="dock-panel">
@@ -230,6 +231,7 @@
                   </template>
                 </div>
                 <span class="rs-reliability" x-show="d.reliability" x-text="'Reliability: ' + Math.round((d.reliability || 0) * 100) + '%'"></span>
+<div x-html="window.sendHandoffBar && (route.precursors || [])[0]?.smiles ? sendHandoffBar(route.precursors[0].smiles, ['react','admet','dock']) : ''" style="margin-top:4px"></div>
               </div>
             </template>
           </div>
