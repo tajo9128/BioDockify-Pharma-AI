@@ -136,6 +136,26 @@
 
     <!-- Tabs -->
     <div class="dock-tabs">
+      <div x-show="!$store.reactionLab.forwardResult" class="rl-empty-forward" style="padding:32px 16px;text-align:center;color:var(--color-text-muted);font-size:0.74rem">
+      <div x-show="!$store.reactionLab.enumResult" class="rl-empty-enum" style="padding:32px 16px;text-align:center;color:var(--color-text-muted);font-size:0.74rem">
+      <div x-show="!$store.reactionLab.mapResult" class="rl-empty-map" style="padding:32px 16px;text-align:center;color:var(--color-text-muted);font-size:0.74rem">
+      <div x-show="!$store.reactionLab.impResult" class="rl-empty-imp" style="padding:32px 16px;text-align:center;color:var(--color-text-muted);font-size:0.74rem">
+      <div x-show="!$store.reactionLab.condResult" class="rl-empty-cond" style="padding:32px 16px;text-align:center;color:var(--color-text-muted);font-size:0.74rem">
+        <span class="material-symbols-outlined" style="font-size:42px;opacity:0.2;display:block;margin-bottom:8px">tune</span>
+        Enter reactants to see recommended conditions
+      </div>
+        <span class="material-symbols-outlined" style="font-size:42px;opacity:0.2;display:block;margin-bottom:8px">warning</span>
+        Enter a drug SMILES to see predicted impurities and degradation risks
+      </div>
+        <span class="material-symbols-outlined" style="font-size:42px;opacity:0.2;display:block;margin-bottom:8px">join_inner</span>
+        Enter reactants and a product to see atom conservation
+      </div>
+        <span class="material-symbols-outlined" style="font-size:42px;opacity:0.2;display:block;margin-bottom:8px">grid_view</span>
+        Enter building blocks and enumerate to see the library
+      </div>
+        <span class="material-symbols-outlined" style="font-size:42px;opacity:0.2;display:block;margin-bottom:8px">flask</span>
+        Run a reaction above to see products here
+      </div>
       <button class="dock-tab" :class="{active: $store.reactionLab.activeTab==='forward'}" @click="$store.reactionLab.activeTab='forward'">
         <span class="material-symbols-outlined">play_circle</span> Forward</button>
       <button class="dock-tab" :class="{active: $store.reactionLab.activeTab==='enum'}" @click="$store.reactionLab.activeTab='enum'">
