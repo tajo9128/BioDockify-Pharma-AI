@@ -1,0 +1,330 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+
+    export const store = createStore("pvStudio", {
+      activeTab: "signal",
+      loading: false, error: "", message: "",
+
+      // Signal tab (single 2x2)
+      label: "", a: null, b: null, c: null, d: null,
+      pairResult: null,
+
+      // Batch tab
+      batchCsv: "Rhabdomyolysis-simvastatin,12,8400,320,950000\nHepatitis-isoniazid,45,18000,900,940000\nHeadache-metformin,120,77000,1500,930000",
+      batchResult: null,
+
+      // DDI tab
+      ddiInput: "warfarin, fluconazole, simvastatin, clarithromycin",
+      ddiResult: null,
+      ddiBrowse: null,
+
+      // ICSR tab
+      icsr: { patient_id: "", age: "", sex: "", weight: "", history: "", drug: "", dose: "", route: "", frequency: "", start_date: "", stop_date: "", indication: "", reaction: "", onset_date: "", serious: "", serious_criteria: "", outcome: "", naranjo: "", dechallenge: "", rechallenge: "", alternatives: "", reporter: "", reporter_role: "pharmacist" },
+      icsrResult: null,
+
+      flash(m) { this.message = m; setTimeout(() => this.message = "", 2500); },
+
+      async analyzePair() {
+        this.loading = true; this.error = ""; this.pairResult = null;
+        try {
+          const r = await callJsonApi("pharmacovigilance", { action: "analyze_pair", label: this.label || "Drug–event pair", a: this.a, b: this.b, c: this.c, d: this.d });
+          if (r.error) this.error = r.error; else { this.pairResult = r; }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async analyzeBatch() {
+        this.loading = true; this.error = ""; this.batchResult = null;
+        try {
+          const r = await callJsonApi("pharmacovigilance", { action: "analyze_series", csv: this.batchCsv });
+          if (r.error) this.error = r.error; else { this.batchResult = r; this.flash(`${r.analyzed} pairs · ${r.signal_count} signals`); }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async checkDdi() {
+        this.loading = true; this.error = ""; this.ddiResult = null;
+        try {
+          const r = await callJsonApi("pharmacovigilance", { action: "ddi_check", drugs: this.ddiInput });
+          if (r.error) this.error = r.error; else this.ddiResult = r;
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async browseDdi() {
+        this.loading = true; this.error = "";
+        try { this.ddiBrowse = await callJsonApi("pharmacovigilance", { action: "ddi_list" }); }
+        catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async draftIcsr() {
+        this.loading = true; this.error = ""; this.icsrResult = null;
+        try {
+          const r = await callJsonApi("pharmacovigilance", { action: "icsr_draft", ...this.icsr });
+          if (r.error) this.error = r.error; else this.icsrResult = r;
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      sendToAgent() {
+        const r = this.pairResult || this.batchResult || this.ddiResult;
+        if (!r) return;
+        const msg = "Analyze these pharmacovigilance results (hypothesis-generating only): " + JSON.stringify(r).slice(0, 3000) +
+          ". Provide: 1) clinical interpretation, 2) reporting-bias considerations, 3) recommended case-review steps.";
+        const chat = document.querySelector('#chat-input') || document.querySelector('textarea[data-chat-input]');
+        if (chat) { chat.value = msg; chat.dispatchEvent(new Event('input', { bubbles: true })); chat.focus(); }
+      },
+
+      sevClass(s) { return { Contraindicated: "sev-ci", Major: "sev-maj", Moderate: "sev-mod", Minor: "sev-min" }[s] || "sev-min"; },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="dock-panel">
+
+    <!-- Header -->
+    <div class="panel-header">
+      <div class="header-left">
+        <span class="material-symbols-outlined header-icon">monitor_heart</span>
+        <div>
+          <h2>Pharmacovigilance Studio</h2>
+          <p class="header-subtitle">Signal detection (PRR/ROR) · DDI screening · ADR reporting</p>
+        </div>
+      </div>
+      <span class="badge">Research / academic — not a regulatory tool</span>
+    </div>
+
+    <!-- Tabs -->
+    <div class="dock-tabs">
+      <button class="dock-tab" :class="{active: $store.pvStudio.activeTab==='signal'}" @click="$store.pvStudio.activeTab='signal'"><span class="material-symbols-outlined">query_stats</span> Signal</button>
+      <button class="dock-tab" :class="{active: $store.pvStudio.activeTab==='batch'}" @click="$store.pvStudio.activeTab='batch'"><span class="material-symbols-outlined">table_rows</span> Batch</button>
+      <button class="dock-tab" :class="{active: $store.pvStudio.activeTab==='ddi'}" @click="$store.pvStudio.activeTab='ddi'"><span class="material-symbols-outlined">sync_problem</span> DDI Check</button>
+      <button class="dock-tab" :class="{active: $store.pvStudio.activeTab==='icsr'}" @click="$store.pvStudio.activeTab='icsr'"><span class="material-symbols-outlined">description</span> ADR Report</button>
+    </div>
+
+    <!-- Body -->
+    <div class="panel-body">
+      <div x-show="$store.pvStudio.error" class="dock-error" x-text="$store.pvStudio.error"></div>
+      <div x-show="$store.pvStudio.message" class="dock-msg" x-text="$store.pvStudio.message"></div>
+      <div x-show="$store.pvStudio.loading" class="dock-loading"><div class="loading-spinner"></div><span>Computing…</span></div>
+
+      <!-- SIGNAL -->
+      <div x-show="$store.pvStudio.activeTab==='signal'" class="tab-content">
+        <h3 class="section-title">Disproportionality — one drug–event pair</h3>
+        <div class="dock-card">
+          <div class="grid2x2">
+            <div class="cell input"><label>a — drug + event</label><input type="number" min="0" x-model.number="$store.pvStudio.a" /></div>
+            <div class="cell input"><label>b — drug, other events</label><input type="number" min="0" x-model.number="$store.pvStudio.b" /></div>
+            <div class="cell input"><label>c — other drugs + event</label><input type="number" min="0" x-model.number="$store.pvStudio.c" /></div>
+            <div class="cell input"><label>d — other drugs, other events</label><input type="number" min="0" x-model.number="$store.pvStudio.d" /></div>
+          </div>
+          <input type="text" x-model="$store.pvStudio.label" class="mt-input" placeholder="Label (e.g. Rhabdomyolysis — simvastatin)" />
+          <button class="btn-run" @click="$store.pvStudio.analyzePair()" :disabled="$store.pvStudio.loading || $store.pvStudio.a===null"><span class="material-symbols-outlined">play_arrow</span> Analyze</button>
+        </div>
+        <template x-if="$store.pvStudio.pairResult">
+          <div class="dock-card">
+            <div class="stat-row">
+              <div class="stat"><span class="v" x-text="$store.pvStudio.pairResult.prr ?? '—'"></span><span class="l">PRR</span><span class="ci" x-text="($store.pvStudio.pairResult.prr_95_ci||[]).join(' – ')"></span></div>
+              <div class="stat"><span class="v" x-text="$store.pvStudio.pairResult.ror"></span><span class="l">ROR</span><span class="ci" x-text="($store.pvStudio.pairResult.ror_95_ci||[]).join(' – ')"></span></div>
+              <div class="stat"><span class="v" x-text="$store.pvStudio.pairResult.chi_square ?? '—'"></span><span class="l">χ²</span></div>
+              <div class="stat"><span class="v" x-text="$store.pvStudio.pairResult.cases"></span><span class="l">cases</span></div>
+            </div>
+            <div class="verdict" :class="$store.pvStudio.pairResult.signal">
+              <span class="material-symbols-outlined" x-text="$store.pvStudio.pairResult.signal==='no_signal' ? 'do_not_disturb_on' : 'warning'"></span>
+              <span x-text="{signal_by_both_criteria:'Signal — both criteria', signal_by_one_criterion:'Signal — one criterion', no_signal:'No signal'}[$store.pvStudio.pairResult.signal]"></span>
+            </div>
+            <p class="interp" x-text="$store.pvStudio.pairResult.interpretation"></p>
+            <p class="notice" x-text="$store.pvStudio.pairResult.notice"></p>
+            <button class="btn-agent" @click="$store.pvStudio.sendToAgent()"><span class="material-symbols-outlined">psychology</span> Ask agent to interpret</button>
+          </div>
+        </template>
+      </div>
+
+      <!-- BATCH -->
+      <div x-show="$store.pvStudio.activeTab==='batch'" class="tab-content">
+        <h3 class="section-title">Batch screening — paste contingency rows</h3>
+        <div class="dock-card">
+          <textarea x-model="$store.pvStudio.batchCsv" rows="6" class="mt-textarea" placeholder="label,a,b,c,d — one pair per line"></textarea>
+          <button class="btn-run" @click="$store.pvStudio.analyzeBatch()" :disabled="$store.pvStudio.loading"><span class="material-symbols-outlined">play_arrow</span> Screen all pairs</button>
+        </div>
+        <template x-if="$store.pvStudio.batchResult">
+          <div class="dock-card">
+            <div class="data-info-bar">
+              <span class="material-symbols-outlined success-icon">check_circle</span>
+              <span x-text="$store.pvStudio.batchResult.analyzed + ' analyzed · ' + $store.pvStudio.batchResult.signal_count + ' signals' + ($store.pvStudio.batchResult.rejected ? ' · ' + $store.pvStudio.batchResult.rejected + ' rejected' : '')"></span>
+            </div>
+            <table class="pv-table">
+              <thead><tr><th>Drug–event pair</th><th>cases</th><th>PRR</th><th>ROR (95% CI)</th><th>Signal</th></tr></thead>
+              <tbody>
+                <template x-for="row in ($store.pvStudio.batchResult.ranked_signals || [])" :key="row.label">
+                  <tr :class="{sig: row.signal!=='no_signal'}">
+                    <td x-text="row.label"></td>
+                    <td x-text="row.cases"></td>
+                    <td class="mono" x-text="row.prr ?? '—'"></td>
+                    <td class="mono" x-text="row.ror + ' (' + row.ror_95_ci.join('–') + ')'"></td>
+                    <td><span class="pill" :class="row.signal==='no_signal' ? 'p-no' : 'p-yes'" x-text="row.signal==='no_signal' ? 'no' : 'signal'"></span></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+            <p class="notice" x-text="$store.pvStudio.batchResult.multiplicity_caveat"></p>
+          </div>
+        </template>
+      </div>
+
+      <!-- DDI -->
+      <div x-show="$store.pvStudio.activeTab==='ddi'" class="tab-content">
+        <h3 class="section-title">Screen a medication list</h3>
+        <div class="dock-card">
+          <div class="dock-card-header"><span class="material-symbols-outlined dock-card-icon">medication</span><h4>Drugs (comma or newline separated)</h4></div>
+          <textarea x-model="$store.pvStudio.ddiInput" rows="2" class="mt-textarea" placeholder="warfarin, fluconazole, simvastatin…"></textarea>
+          <div class="row-btns">
+            <button class="btn-run" @click="$store.pvStudio.checkDdi()" :disabled="$store.pvStudio.loading"><span class="material-symbols-outlined">search</span> Check interactions</button>
+            <button class="btn-back" @click="$store.pvStudio.browseDdi()"><span class="material-symbols-outlined">list</span> Browse database</button>
+          </div>
+        </div>
+        <template x-if="$store.pvStudio.ddiResult">
+          <div class="dock-card">
+            <div class="data-info-bar">
+              <span class="material-symbols-outlined" :class="$store.pvStudio.ddiResult.clean ? 'success-icon' : 'warn-icon'">shield</span>
+              <span x-text="$store.pvStudio.ddiResult.clean ? 'No interactions found in the curated database' : ($store.pvStudio.ddiResult.counts['Contraindicated']||0) + ' contraindicated · ' + ($store.pvStudio.ddiResult.counts['Major']||0) + ' major · ' + ($store.pvStudio.ddiResult.counts['Moderate']||0) + ' moderate'"></span>
+            </div>
+            <template x-for="(h, i) in $store.pvStudio.ddiResult.interactions" :key="i">
+              <div class="ddi-row">
+                <span class="sev" :class="$store.pvStudio.sevClass(h.severity)" x-text="h.severity"></span>
+                <div class="ddi-main">
+                  <b x-text="h.drug_1 + ' × ' + h.drug_2"></b>
+                  <span class="mech" x-text="h.mechanism + ' — ' + h.effect"></span>
+                  <span class="act">▸ <span x-text="h.action"></span></span>
+                </div>
+              </div>
+            </template>
+            <p class="notice" x-text="$store.pvStudio.ddiResult.notice"></p>
+          </div>
+        </template>
+        <template x-if="$store.pvStudio.ddiBrowse">
+          <div class="dock-card">
+            <div class="data-info-bar"><span class="material-symbols-outlined success-icon">list</span><span x-text="'Curated database — ' + $store.pvStudio.ddiBrowse.total + ' pairs'"></span></div>
+            <div class="ddi-browse">
+              <template x-for="(h, i) in $store.pvStudio.ddiBrowse.interactions" :key="i">
+                <div class="ddi-row slim"><span class="sev" :class="$store.pvStudio.sevClass(h.severity)" x-text="h.severity"></span><b x-text="h.drug_1 + ' × ' + h.drug_2"></b><span class="mech" x-text="h.effect"></span></div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- ICSR -->
+      <div x-show="$store.pvStudio.activeTab==='icsr'" class="tab-content">
+        <h3 class="section-title">ADR case report draft (ICSR-style)</h3>
+        <div class="dock-card">
+          <div class="form-grid">
+            <input class="mt-input" x-model="$store.pvStudio.icsr.patient_id" placeholder="Patient ID / initials" />
+            <input class="mt-input" x-model="$store.pvStudio.icsr.age" placeholder="Age" />
+            <input class="mt-input" x-model="$store.pvStudio.icsr.sex" placeholder="Sex" />
+            <input class="mt-input" x-model="$store.pvStudio.icsr.drug" placeholder="Suspected drug" />
+            <input class="mt-input" x-model="$store.pvStudio.icsr.dose" placeholder="Dose" />
+            <input class="mt-input" x-model="$store.pvStudio.icsr.reaction" placeholder="Reaction (MedDRA term)" />
+            <input class="mt-input" x-model="$store.pvStudio.icsr.onset_date" placeholder="Onset date" />
+            <input class="mt-input" x-model="$store.pvStudio.icsr.outcome" placeholder="Outcome (recovered/ongoing/fatal…)" />
+            <input class="mt-input" x-model="$store.pvStudio.icsr.dechallenge" placeholder="Dechallenge (+/−/?)" />
+            <input class="mt-input" x-model="$store.pvStudio.icsr.rechallenge" placeholder="Rechallenge (+/−/?)" />
+          </div>
+          <button class="btn-run" @click="$store.pvStudio.draftIcsr()" :disabled="$store.pvStudio.loading"><span class="material-symbols-outlined">description</span> Generate structured draft</button>
+        </div>
+        <template x-if="$store.pvStudio.icsrResult">
+          <div class="dock-card">
+            <template x-for="sec in $store.pvStudio.icsrResult.sections" :key="sec.section">
+              <div class="icsr-sec">
+                <h4 x-text="sec.section"></h4>
+                <template x-for="f in sec.fields" :key="f[0]">
+                  <div class="icsr-row"><span class="k" x-text="f[0]"></span><span class="val" x-text="f[1]"></span></div>
+                </template>
+              </div>
+            </template>
+            <p class="notice" x-text="$store.pvStudio.icsrResult.notice"></p>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <style>
+      .dock-panel { display:flex; flex-direction:column; height:100%; overflow:hidden; background:var(--color-background); }
+      .panel-header { padding:14px 20px; border-bottom:1px solid var(--color-border); background:var(--color-panel); flex-shrink:0; display:flex; align-items:center; justify-content:space-between; }
+      .header-left { display:flex; align-items:center; gap:12px; }
+      .header-icon { font-size:28px; color:var(--color-primary); }
+      .panel-header h2 { color:var(--color-text); font-size:1.05rem; margin:0; font-weight:700; }
+      .header-subtitle { color:var(--color-text-muted); font-size:0.7rem; margin:2px 0 0 0; }
+      .badge { padding:3px 10px; border-radius:999px; background:rgba(245,158,11,0.12); color:#b45309; font-size:0.56rem; font-weight:700; border:1px solid rgba(245,158,11,0.25); }
+      .dock-tabs { display:flex; gap:2px; padding:6px 20px; border-bottom:1px solid var(--color-border); background:var(--color-panel); flex-shrink:0; overflow-x:auto; }
+      .dock-tab { display:flex; align-items:center; gap:4px; padding:6px 12px; background:transparent; border:none; border-bottom:2px solid transparent; color:var(--color-text-muted); cursor:pointer; font-size:0.68rem; font-weight:500; white-space:nowrap; }
+      .dock-tab.active { color:var(--color-primary); border-bottom-color:var(--color-primary); }
+      .dock-tab .material-symbols-outlined { font-size:15px; }
+      .panel-body { flex:1; overflow-y:auto; padding:16px 20px; }
+      .tab-content { min-height:120px; }
+      .section-title { font-size:0.78rem; font-weight:700; color:var(--color-text); margin:0 0 8px 0; padding-bottom:6px; border-bottom:1px solid var(--color-border); }
+      .dock-card { padding:13px; background:var(--color-panel); border:1px solid var(--color-border); border-radius:11px; display:flex; flex-direction:column; gap:9px; margin-bottom:10px; }
+      .dock-card-header { display:flex; align-items:center; gap:8px; }
+      .dock-card-icon { font-size:19px; color:var(--color-primary); }
+      .dock-card h4 { color:var(--color-text); font-size:0.76rem; font-weight:600; margin:0; }
+      .mt-input { width:100%; padding:8px 10px; border:1px solid var(--color-border); border-radius:7px; background:var(--color-background); color:var(--color-text); font-size:0.74rem; }
+      .mt-input:focus { outline:none; border-color:var(--color-primary); }
+      .mt-textarea { width:100%; min-height:54px; padding:8px 10px; border:1px solid var(--color-border); border-radius:7px; background:var(--color-background); color:var(--color-text); font-size:0.7rem; font-family:var(--font-mono, monospace); resize:vertical; }
+      .mt-textarea:focus { outline:none; border-color:var(--color-primary); }
+      .btn-run { display:flex; align-items:center; justify-content:center; gap:6px; width:100%; padding:10px; background:var(--color-primary); border:none; border-radius:8px; color:white; cursor:pointer; font-size:0.8rem; font-weight:600; }
+      .btn-run:disabled { opacity:0.45; cursor:not-allowed; }
+      .btn-back { display:flex; align-items:center; gap:5px; padding:9px 14px; background:none; border:1px solid var(--color-border); border-radius:8px; color:var(--color-text-muted); cursor:pointer; font-size:0.72rem; white-space:nowrap; }
+      .row-btns { display:flex; gap:8px; }
+      .dock-error { padding:8px 10px; background:rgba(255,107,107,0.1); border:1px solid rgba(255,107,107,0.2); border-radius:6px; color:#ff6b6b; font-size:0.68rem; margin-bottom:8px; }
+      .dock-msg { padding:8px 10px; background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.2); border-radius:6px; color:#22c55e; font-size:0.68rem; margin-bottom:8px; }
+      .dock-loading { display:flex; align-items:center; gap:6px; padding:6px 0; font-size:0.7rem; color:var(--color-text-muted); }
+      .loading-spinner { width:14px; height:14px; border:2px solid var(--color-border); border-top:2px solid var(--color-primary); border-radius:50%; animation:spin 0.8s linear infinite; }
+      @keyframes spin { to { transform:rotate(360deg); } }
+      .grid2x2 { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+      .cell.input { padding:8px; background:var(--color-background); border:1px solid var(--color-border); border-radius:8px; display:flex; flex-direction:column; gap:4px; }
+      .cell.input label { font-size:0.58rem; color:var(--color-text-muted); font-weight:600; }
+      .cell.input input { width:100%; border:none; background:transparent; color:var(--color-text); font-size:0.9rem; font-weight:700; font-family:var(--font-mono, monospace); outline:none; }
+      .stat-row { display:flex; gap:8px; flex-wrap:wrap; }
+      .stat { flex:1; min-width:110px; display:flex; flex-direction:column; align-items:center; padding:10px; background:var(--color-background); border:1px solid var(--color-border); border-radius:9px; gap:1px; }
+      .stat .v { font-size:1.15rem; font-weight:800; color:var(--color-primary); font-family:var(--font-mono, monospace); }
+      .stat .l { font-size:0.6rem; color:var(--color-text-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.04em; }
+      .stat .ci { font-size:0.56rem; color:var(--color-text-muted); font-family:var(--font-mono, monospace); }
+      .verdict { display:flex; align-items:center; gap:7px; padding:8px 12px; border-radius:8px; font-size:0.78rem; font-weight:700; }
+      .verdict.no_signal { background:rgba(34,197,94,0.08); color:#22c55e; }
+      .verdict.signal_by_one_criterion { background:rgba(245,158,11,0.12); color:#d97706; }
+      .verdict.signal_by_both_criteria { background:rgba(255,107,107,0.12); color:#ef4444; }
+      .interp { font-size:0.68rem; color:var(--color-text); margin:0; line-height:1.45; }
+      .notice { font-size:0.6rem; color:var(--color-text-muted); margin:0; font-style:italic; }
+      .btn-agent { display:flex; align-items:center; justify-content:center; gap:6px; padding:8px; background:none; border:1px dashed var(--color-primary); border-radius:8px; color:var(--color-primary); cursor:pointer; font-size:0.7rem; font-weight:600; width:100%; }
+      .data-info-bar { display:flex; align-items:center; gap:8px; padding:7px 11px; background:var(--color-background); border:1px solid var(--color-border); border-radius:8px; font-size:0.7rem; }
+      .success-icon { color:#22c55e; font-size:16px; } .warn-icon { color:#f59e0b; font-size:16px; }
+      .pv-table { width:100%; border-collapse:collapse; font-size:0.64rem; }
+      .pv-table th { text-align:left; color:var(--color-text-muted); font-size:0.56rem; text-transform:uppercase; letter-spacing:0.03em; padding:4px 8px; border-bottom:1px solid var(--color-border); }
+      .pv-table td { padding:4px 8px; border-bottom:1px dotted var(--color-border); color:var(--color-text); }
+      .pv-table tr.sig td { background:rgba(239,68,68,0.05); }
+      .mono { font-family:var(--font-mono, monospace); }
+      .pill { padding:1px 8px; border-radius:999px; font-size:0.56rem; font-weight:700; }
+      .p-no { background:rgba(34,197,94,0.1); color:#22c55e; } .p-yes { background:rgba(239,68,68,0.12); color:#ef4444; }
+      .ddi-row { display:flex; align-items:flex-start; gap:9px; padding:8px 10px; background:var(--color-background); border:1px solid var(--color-border); border-radius:8px; margin-bottom:5px; }
+      .ddi-row.slim { padding:5px 8px; align-items:center; font-size:0.64rem; }
+      .sev { flex-shrink:0; padding:2px 8px; border-radius:4px; font-size:0.55rem; font-weight:700; min-width:72px; text-align:center; }
+      .sev-ci { background:rgba(239,68,68,0.15); color:#ef4444; } .sev-maj { background:rgba(249,115,22,0.14); color:#f97316; }
+      .sev-mod { background:rgba(245,158,11,0.14); color:#d97706; } .sev-min { background:rgba(34,197,94,0.1); color:#22c55e; }
+      .ddi-main { display:flex; flex-direction:column; gap:2px; font-size:0.68rem; }
+      .ddi-main b { color:var(--color-text); }
+      .mech { color:var(--color-text-muted); font-size:0.62rem; }
+      .act { color:var(--color-primary); font-size:0.62rem; font-weight:600; }
+      .ddi-browse { max-height:300px; overflow-y:auto; }
+      .form-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:6px; }
+      .icsr-sec h4 { margin:8px 0 4px 0; font-size:0.7rem; color:var(--color-primary); }
+      .icsr-row { display:flex; gap:10px; padding:3px 0; border-bottom:1px dotted var(--color-border); font-size:0.66rem; }
+      .icsr-row .k { width:200px; color:var(--color-text-muted); flex-shrink:0; }
+      .icsr-row .val { color:var(--color-text); }
+    </style>
+  </div>
+</body>
+</html>

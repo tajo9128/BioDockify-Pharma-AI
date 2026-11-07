@@ -1,0 +1,382 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+
+    export const store = createStore("preform", {
+      activeTab: "profile",
+      loading: false, error: "", message: "",
+
+      // Preformulation
+      name: "", smiles: "CC(=O)Nc1ccc(O)cc1",
+      profileResult: null, compatResult: null,
+
+      // Delivery
+      lipo: { drug_mg: 50, lipid_conc_mmol: 100, volume_ml: 10, entrapment_pct: 80, lipid_mw: 750 },
+      lipoResult: null,
+      nano: { mg_kg: 5, bodyweight_kg: 60, conc_mg_ml: 10, pdi: 0.18 },
+      nanoResult: null,
+      muco: { polymer: "chitosan", conc_pct: 2, mw_band: "high" },
+      mucoResult: null,
+      td: { area_cm2: 10, concentration_mg_ml: 50, thickness_cm: 0.002, partition_k: 1, diffusion_cm2_s: 1e-9 },
+      tdResult: null,
+
+      // DoE
+      doeFactors: [
+        { name: "Binder %", low: 1, high: 5, unit: "%w/w" },
+        { name: "Compression force", low: 8, high: 20, unit: "kN" },
+        { name: "MCC ratio", low: 20, high: 60, unit: "%" },
+      ],
+      doeDesign: "central_composite",
+      doeResult: null,
+      mixtureComponents: [
+        { name: "API", low: 5, high: 30, unit: "mg" },
+        { name: "Polymer", low: 20, high: 60, unit: "mg" },
+        { name: "Filler", low: 10, high: 50, unit: "mg" },
+      ],
+      mixtureResult: null,
+
+      designs: [
+        ["central_composite", "Central Composite (RSM)"],
+        ["box_behnken", "Box-Behnken (RSM, 3 factors)"],
+        ["full_factorial", "Full Factorial (2^k)"],
+        ["fractional_screening", "Fractional (screening)"],
+        ["plackett_burman", "Plackett-Burman (screening)"],
+      ],
+
+      flash(m) { this.message = m; setTimeout(() => this.message = "", 2500); },
+
+      async runProfile() {
+        this.loading = true; this.error = ""; this.profileResult = null;
+        try {
+          const r = await callJsonApi("preformulation", { action: "profile", smiles: this.smiles, name: this.name });
+          if (r.error) this.error = r.error;
+          else {
+            this.profileResult = r;
+            const flags = [...r.excipient_alerts, r.ionization, r.flags.hygroscopicity, `logP ${r.descriptors.logP}`, r.flags.absorption];
+            const c = await callJsonApi("preformulation", { action: "compatibility", flags });
+            this.compatResult = c.error ? null : c;
+          }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async calcLipo() { await this._calc("liposome", { ...this.lipo }, "lipoResult"); },
+      async calcNano() { await this._calc("nanoparticle", { ...this.nano }, "nanoResult"); },
+      async calcMuco() { await this._calc("mucoadhesion", { ...this.muco }, "mucoResult"); },
+      async calcTd() { await this._calc("transdermal", { ...this.td }, "tdResult"); },
+
+      async _calc(action, body, key) {
+        this.loading = true; this.error = ""; this[key] = null;
+        try {
+          const r = await callJsonApi("preformulation", { action, ...body });
+          if (r.error) this.error = r.error; else this[key] = r;
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      addFactor() { if (this.doeFactors.length < 6) this.doeFactors.push({ name: `Factor ${this.doeFactors.length+1}`, low: -1, high: 1, unit: "" }); },
+      removeFactor(i) { if (this.doeFactors.length > 2) this.doeFactors.splice(i, 1); },
+
+      async genDesign() {
+        this.loading = true; this.error = ""; this.doeResult = null;
+        try {
+          const r = await callJsonApi("preformulation", { action: "doe_design", factors: this.doeFactors, design_type: this.doeDesign, randomize: false });
+          if (r.error) this.error = r.error; else { this.doeResult = r; this.flash((r.runs?.length || r.matrix?.length || '?') + ' runs generated'); }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      async genMixture() {
+        this.loading = true; this.error = ""; this.mixtureResult = null;
+        try {
+          const r = await callJsonApi("preformulation", { action: "doe_mixture", components: this.mixtureComponents, randomize: false });
+          if (r.error) this.error = r.error; else { this.mixtureResult = r; this.flash('mixture design ready'); }
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+
+      riskClass(r) { return { high: "rk-hi", check: "rk-ck", low: "rk-lo" }[r] || "rk-lo"; },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="dock-panel">
+
+    <div class="panel-header">
+      <div class="header-left">
+        <span class="material-symbols-outlined header-icon">science</span>
+        <div>
+          <h2>Preformulation &amp; Drug Delivery</h2>
+          <p class="header-subtitle">Preformulation panel · excipient compatibility · delivery calculators · QbD DoE</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="dock-tabs">
+      <button class="dock-tab" :class="{active: $store.preform.activeTab==='profile'}" @click="$store.preform.activeTab='profile'"><span class="material-symbols-outlined">biotech</span> Preformulation</button>
+      <button class="dock-tab" :class="{active: $store.preform.activeTab==='delivery'}" @click="$store.preform.activeTab='delivery'"><span class="material-symbols-outlined">medication_liquid</span> Delivery Systems</button>
+      <button class="dock-tab" :class="{active: $store.preform.activeTab==='doe'}" @click="$store.preform.activeTab='doe'"><span class="material-symbols-outlined">grid_on</span> DoE Designer</button>
+    </div>
+
+    <div class="panel-body">
+      <div x-show="$store.preform.error" class="dock-error" x-text="$store.preform.error"></div>
+      <div x-show="$store.preform.message" class="dock-msg" x-text="$store.preform.message"></div>
+      <div x-show="$store.preform.loading" class="dock-loading"><div class="loading-spinner"></div><span>Computing…</span></div>
+
+      <!-- PREFORMULATION -->
+      <div x-show="$store.preform.activeTab==='profile'" class="tab-content">
+        <h3 class="section-title">API preformulation profile</h3>
+        <div class="dock-card">
+          <div class="row2">
+            <input type="text" x-model="$store.preform.name" class="mt-input" placeholder="Drug name (e.g. Paracetamol)" />
+            <input type="text" x-model="$store.preform.smiles" class="mt-input mono" placeholder="SMILES" />
+          </div>
+          <button class="btn-run" @click="$store.preform.runProfile()" :disabled="$store.preform.loading"><span class="material-symbols-outlined">play_arrow</span> Profile this API</button>
+        </div>
+        <template x-if="$store.preform.profileResult">
+          <div>
+            <div class="stat-row">
+              <template x-for="(v, k) in $store.preform.profileResult.descriptors" :key="k">
+                <div class="stat"><span class="v" x-text="v"></span><span class="l" x-text="k"></span></div>
+              </template>
+            </div>
+            <div class="dock-card">
+              <h4>Estimated solubility &amp; ionization</h4>
+              <p class="kv"><b x-text="$store.preform.profileResult.estimated_solubility.class"></b> solubility (logS est <span x-text="$store.preform.profileResult.estimated_solubility.logS_est"></span>) · <span x-text="$store.preform.profileResult.ionization"></span></p>
+            </div>
+            <div class="dock-card">
+              <h4>Development flags</h4>
+              <template x-for="(v, k) in $store.preform.profileResult.flags" :key="k">
+                <p class="kv"><span class="k" x-text="k"></span><span x-text="v"></span></p>
+              </template>
+            </div>
+            <div class="dock-card">
+              <h4>Excipient alerts</h4>
+              <template x-for="a in $store.preform.profileResult.excipient_alerts" :key="a">
+                <p class="kv warn">▸ <span x-text="a"></span></p>
+              </template>
+            </div>
+            <template x-if="$store.preform.compatResult">
+              <div class="dock-card">
+                <h4>Excipient compatibility screen <span class="sub">— triggered by this API's flags</span></h4>
+                <template x-for="row in $store.preform.compatResult.rows" :key="row.excipient">
+                  <div class="comp-row">
+                    <span class="rk" :class="$store.preform.riskClass(row.risk)" x-text="row.risk"></span>
+                    <div>
+                      <b x-text="row.excipient"></b>
+                      <span class="trig" x-show="row.triggered.length" x-text="'⚠ ' + row.triggered.join('; ')"></span>
+                      <span class="mgmt" x-text="'▸ ' + row.management"></span>
+                    </div>
+                  </div>
+                </template>
+                <p class="notice" x-text="$store.preform.compatResult.note"></p>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+
+      <!-- DELIVERY -->
+      <div x-show="$store.preform.activeTab==='delivery'" class="tab-content">
+        <h3 class="section-title">Delivery-system calculators</h3>
+        <div class="calc-grid">
+          <div class="dock-card">
+            <h4>💊 Liposome batch</h4>
+            <div class="form-grid">
+              <label class="f">Drug (mg)<input type="number" x-model.number="$store.preform.lipo.drug_mg" /></label>
+              <label class="f">Lipid (mM)<input type="number" x-model.number="$store.preform.lipo.lipid_conc_mmol" /></label>
+              <label class="f">Volume (mL)<input type="number" x-model.number="$store.preform.lipo.volume_ml" /></label>
+              <label class="f">Entrapment %<input type="number" x-model.number="$store.preform.lipo.entrapment_pct" /></label>
+            </div>
+            <button class="btn-sm" @click="$store.preform.calcLipo()">Calculate</button>
+            <template x-if="$store.preform.lipoResult">
+              <div class="mini-res">
+                <p><b x-text="$store.preform.lipoResult.entrapped_drug_mg"></b> mg entrapped (<span x-text="$store.preform.lipoResult.drug_lipid_w_w"></span> w/w) · <span x-text="$store.preform.lipoResult.flag"></span></p>
+              </div>
+            </template>
+          </div>
+          <div class="dock-card">
+            <h4>⚡ Nanoparticle dose</h4>
+            <div class="form-grid">
+              <label class="f">mg/kg<input type="number" step="0.1" x-model.number="$store.preform.nano.mg_kg" /></label>
+              <label class="f">Body weight (kg)<input type="number" x-model.number="$store.preform.nano.bodyweight_kg" /></label>
+              <label class="f">Conc. (mg/mL)<input type="number" x-model.number="$store.preform.nano.conc_mg_ml" /></label>
+              <label class="f">PDI<input type="number" step="0.01" x-model.number="$store.preform.nano.pdi" /></label>
+            </div>
+            <button class="btn-sm" @click="$store.preform.calcNano()">Calculate</button>
+            <template x-if="$store.preform.nanoResult">
+              <div class="mini-res"><p><b x-text="$store.preform.nanoResult.total_dose_mg"></b> mg = <b x-text="$store.preform.nanoResult.volume_ml"></b> mL · <span x-text="$store.preform.nanoResult.pdi_assessment"></span></p></div>
+            </template>
+          </div>
+          <div class="dock-card">
+            <h4>🧲 Mucoadhesion potential</h4>
+            <div class="form-grid">
+              <label class="f">Polymer<input type="text" x-model="$store.preform.muco.polymer" /></label>
+              <label class="f">Conc %<input type="number" x-model.number="$store.preform.muco.conc_pct" /></label>
+              <label class="f">MW band<select x-model="$store.preform.muco.mw_band"><option>high</option><option>medium</option><option>low</option></select></label>
+            </div>
+            <button class="btn-sm" @click="$store.preform.calcMuco()">Score</button>
+            <template x-if="$store.preform.mucoResult">
+              <div class="mini-res"><p>Score <b x-text="$store.preform.mucoResult.score_10 + '/10'"></b> — <b x-text="$store.preform.mucoResult.verdict"></b> · <span x-text="($store.preform.mucoResult.notes[0]||'')"></span></p></div>
+            </template>
+          </div>
+          <div class="dock-card">
+            <h4>🩹 Transdermal flux (Fick)</h4>
+            <div class="form-grid">
+              <label class="f">Area cm²<input type="number" step="0.1" x-model.number="$store.preform.td.area_cm2" /></label>
+              <label class="f">C (mg/mL)<input type="number" x-model.number="$store.preform.td.concentration_mg_ml" /></label>
+              <label class="f">h (cm)<input type="number" step="0.0001" x-model.number="$store.preform.td.thickness_cm" /></label>
+              <label class="f">D (cm²/s)<input type="number" step="1e-11" x-model.number="$store.preform.td.diffusion_cm2_s" /></label>
+            </div>
+            <button class="btn-sm" @click="$store.preform.calcTd()">Calculate</button>
+            <template x-if="$store.preform.tdResult">
+              <div class="mini-res"><p>Flux <b x-text="$store.preform.tdResult.flux_mg_cm2_day"></b> mg/cm²/day → <b x-text="$store.preform.tdResult.total_daily_mg"></b> mg/day · lag <span x-text="$store.preform.tdResult.lag_time_hours"></span> h</p></div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- DoE -->
+      <div x-show="$store.preform.activeTab==='doe'" class="tab-content">
+        <h3 class="section-title">QbD Design of Experiments</h3>
+        <div class="dock-card">
+          <h4>Factors</h4>
+          <template x-for="(f, i) in $store.preform.doeFactors" :key="i">
+            <div class="factor-row">
+              <input type="text" x-model="f.name" class="mt-input" placeholder="Name" />
+              <input type="number" x-model.number="f.low" class="mt-input sm" placeholder="low" />
+              <input type="number" x-model.number="f.high" class="mt-input sm" placeholder="high" />
+              <input type="text" x-model="f.unit" class="mt-input sm" placeholder="unit" />
+              <button class="del" @click="$store.preform.removeFactor(i)">✕</button>
+            </div>
+          </template>
+          <div class="row-btns">
+            <button class="btn-back" @click="$store.preform.addFactor()">+ factor</button>
+            <select x-model="$store.preform.doeDesign" class="mt-input sel">
+              <template x-for="d in $store.preform.designs" :key="d[0]"><option :value="d[0]" x-text="d[1]"></option></template>
+            </select>
+            <button class="btn-run" @click="$store.preform.genDesign()"><span class="material-symbols-outlined">grid_on</span> Generate design</button>
+          </div>
+        </div>
+        <template x-if="$store.preform.doeResult">
+          <div class="dock-card">
+            <div class="data-info-bar"><span class="material-symbols-outlined success-icon">check_circle</span><span x-text="($store.preform.doeResult.runs || $store.preform.doeResult.matrix || []).length + ' runs · ' + ($store.preform.doeResult.design_type || $store.preform.doeDesign)"></span></div>
+            <table class="pv-table">
+              <thead><tr>
+                <th>#</th>
+                <template x-for="f in $store.preform.doeFactors" :key="f.name"><th x-text="f.name + (f.unit ? ' ('+f.unit+')' : '')"></th></template>
+              </tr></thead>
+              <tbody>
+                <template x-for="(run, i) in ($store.preform.doeResult.runs || $store.preform.doeResult.matrix || []).slice(0, 60)" :key="i">
+                  <tr>
+                    <td x-text="i+1"></td>
+                    <template x-if="run.actual">
+                      <template x-for="f in $store.preform.doeFactors" :key="f.name"><td class="mono" x-text="(run.actual[f.name] ?? '—')"></td></template>
+                    </template>
+                    <template x-if="!run.actual">
+                      <template x-for="(c, j) in (run.coded || run)" :key="j"><td class="mono" x-text="typeof c === 'number' ? c.toFixed(2) : (c ?? '—')"></td></template>
+                    </template>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+            <p class="notice">Run the experiments, then use action=doe_analyze (API) to fit the RSM model &amp; ANOVA.</p>
+          </div>
+        </template>
+        <div class="dock-card">
+          <h4>Mixture designs (formulation proportions)</h4>
+          <template x-for="(c, i) in $store.preform.mixtureComponents" :key="i">
+            <div class="factor-row">
+              <input type="text" x-model="c.name" class="mt-input" placeholder="Component" />
+              <input type="number" x-model.number="c.low" class="mt-input sm" />
+              <input type="number" x-model.number="c.high" class="mt-input sm" />
+              <input type="text" x-model="c.unit" class="mt-input sm" placeholder="unit" />
+            </div>
+          </template>
+          <button class="btn-run" @click="$store.preform.genMixture()"><span class="material-symbols-outlined">change_history</span> Generate simplex-centroid</button>
+        </div>
+        <template x-if="$store.preform.mixtureResult">
+          <div class="dock-card">
+            <div class="data-info-bar"><span class="material-symbols-outlined success-icon">check_circle</span><span x-text="($store.preform.mixtureResult.runs || []).length + ' mixture runs'"></span></div>
+            <table class="pv-table">
+              <thead><tr><th>#</th><template x-for="c in $store.preform.mixtureComponents" :key="c.name"><th x-text="c.name"></th></template></tr></thead>
+              <tbody>
+                <template x-for="(run, i) in ($store.preform.mixtureResult.runs || []).slice(0, 40)" :key="i">
+                  <tr><td x-text="i+1"></td>
+                    <template x-for="c in $store.preform.mixtureComponents" :key="c.name">
+                      <td class="mono" x-text="((run.actual || run.proportions || {})[c.name] ?? '—')"></td>
+                    </template>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <style>
+      .dock-panel { display:flex; flex-direction:column; height:100%; overflow:hidden; background:var(--color-background); }
+      .panel-header { padding:14px 20px; border-bottom:1px solid var(--color-border); background:var(--color-panel); flex-shrink:0; }
+      .header-left { display:flex; align-items:center; gap:12px; }
+      .header-icon { font-size:28px; color:var(--color-primary); }
+      .panel-header h2 { color:var(--color-text); font-size:1.05rem; margin:0; font-weight:700; }
+      .header-subtitle { color:var(--color-text-muted); font-size:0.7rem; margin:2px 0 0 0; }
+      .dock-tabs { display:flex; gap:2px; padding:6px 20px; border-bottom:1px solid var(--color-border); background:var(--color-panel); flex-shrink:0; overflow-x:auto; }
+      .dock-tab { display:flex; align-items:center; gap:4px; padding:6px 12px; background:transparent; border:none; border-bottom:2px solid transparent; color:var(--color-text-muted); cursor:pointer; font-size:0.68rem; font-weight:500; white-space:nowrap; }
+      .dock-tab.active { color:var(--color-primary); border-bottom-color:var(--color-primary); }
+      .dock-tab .material-symbols-outlined { font-size:15px; }
+      .panel-body { flex:1; overflow-y:auto; padding:16px 20px; }
+      .tab-content { min-height:120px; }
+      .section-title { font-size:0.78rem; font-weight:700; color:var(--color-text); margin:0 0 8px 0; padding-bottom:6px; border-bottom:1px solid var(--color-border); }
+      .dock-card { padding:13px; background:var(--color-panel); border:1px solid var(--color-border); border-radius:11px; display:flex; flex-direction:column; gap:7px; margin-bottom:10px; }
+      .dock-card h4 { color:var(--color-text); font-size:0.74rem; font-weight:700; margin:0; }
+      .dock-card h4 .sub { font-weight:400; color:var(--color-text-muted); font-size:0.62rem; }
+      .row2 { display:grid; grid-template-columns:1fr 2fr; gap:6px; }
+      .mt-input { width:100%; padding:7px 9px; border:1px solid var(--color-border); border-radius:7px; background:var(--color-background); color:var(--color-text); font-size:0.72rem; }
+      .mt-input.mono { font-family:var(--font-mono, monospace); }
+      .mt-input.sm { max-width:90px; }
+      .sel { flex:1; }
+      .btn-run { display:flex; align-items:center; justify-content:center; gap:6px; padding:9px; background:var(--color-primary); border:none; border-radius:8px; color:white; cursor:pointer; font-size:0.78rem; font-weight:600; }
+      .btn-run:disabled { opacity:0.45; }
+      .btn-back { display:flex; align-items:center; padding:8px 12px; background:none; border:1px solid var(--color-border); border-radius:8px; color:var(--color-text-muted); cursor:pointer; font-size:0.7rem; white-space:nowrap; }
+      .btn-sm { padding:7px 14px; background:var(--color-primary); border:none; border-radius:7px; color:white; cursor:pointer; font-size:0.7rem; font-weight:600; align-self:flex-start; }
+      .row-btns { display:flex; gap:8px; align-items:center; }
+      .dock-error { padding:8px 10px; background:rgba(255,107,107,0.1); border:1px solid rgba(255,107,107,0.2); border-radius:6px; color:#ff6b6b; font-size:0.68rem; margin-bottom:8px; }
+      .dock-msg { padding:8px 10px; background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.2); border-radius:6px; color:#22c55e; font-size:0.68rem; margin-bottom:8px; }
+      .dock-loading { display:flex; align-items:center; gap:6px; padding:6px 0; font-size:0.7rem; color:var(--color-text-muted); }
+      .loading-spinner { width:14px; height:14px; border:2px solid var(--color-border); border-top:2px solid var(--color-primary); border-radius:50%; animation:spin 0.8s linear infinite; }
+      @keyframes spin { to { transform:rotate(360deg); } }
+      .stat-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+      .stat { flex:1; min-width:90px; display:flex; flex-direction:column; align-items:center; padding:8px 6px; background:var(--color-panel); border:1px solid var(--color-border); border-radius:9px; gap:1px; }
+      .stat .v { font-size:0.95rem; font-weight:800; color:var(--color-primary); font-family:var(--font-mono, monospace); }
+      .stat .l { font-size:0.55rem; color:var(--color-text-muted); font-weight:700; text-transform:uppercase; }
+      .kv { font-size:0.68rem; color:var(--color-text); margin:0; line-height:1.45; display:flex; gap:8px; }
+      .kv .k { min-width:95px; color:var(--color-text-muted); font-weight:700; text-transform:capitalize; }
+      .kv.warn { color:#b45309; }
+      .comp-row { display:flex; gap:8px; align-items:flex-start; padding:6px 9px; background:var(--color-background); border:1px solid var(--color-border); border-radius:8px; margin-bottom:4px; font-size:0.66rem; }
+      .comp-row b { color:var(--color-text); display:block; }
+      .rk { flex-shrink:0; padding:2px 8px; border-radius:4px; font-size:0.55rem; font-weight:700; min-width:52px; text-align:center; }
+      .rk-hi { background:rgba(239,68,68,0.14); color:#ef4444; } .rk-ck { background:rgba(245,158,11,0.14); color:#d97706; } .rk-lo { background:rgba(34,197,94,0.1); color:#22c55e; }
+      .trig { display:block; color:#ef4444; font-size:0.6rem; } .mgmt { display:block; color:var(--color-text-muted); font-size:0.6rem; }
+      .notice { font-size:0.6rem; color:var(--color-text-muted); margin:0; font-style:italic; }
+      .calc-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:10px; }
+      .form-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:6px; }
+      .f { display:flex; flex-direction:column; gap:3px; font-size:0.6rem; color:var(--color-text-muted); font-weight:600; }
+      .f input, .f select { padding:6px 8px; border:1px solid var(--color-border); border-radius:6px; background:var(--color-background); color:var(--color-text); font-size:0.75rem; }
+      .mini-res { padding:7px 10px; background:var(--color-background); border:1px solid var(--color-border); border-radius:7px; font-size:0.66rem; color:var(--color-text); }
+      .mini-res b { color:var(--color-primary); }
+      .data-info-bar { display:flex; align-items:center; gap:8px; padding:7px 11px; background:var(--color-background); border:1px solid var(--color-border); border-radius:8px; font-size:0.7rem; }
+      .success-icon { color:#22c55e; font-size:16px; }
+      .pv-table { width:100%; border-collapse:collapse; font-size:0.64rem; }
+      .pv-table th { text-align:left; color:var(--color-text-muted); font-size:0.56rem; text-transform:uppercase; padding:4px 8px; border-bottom:1px solid var(--color-border); }
+      .pv-table td { padding:3px 8px; border-bottom:1px dotted var(--color-border); color:var(--color-text); }
+      .mono { font-family:var(--font-mono, monospace); }
+      .factor-row { display:flex; gap:6px; align-items:center; }
+      .del { border:none; background:rgba(255,107,107,0.1); color:#ff6b6b; border-radius:6px; width:26px; height:26px; cursor:pointer; flex-shrink:0; }
+    </style>
+  </div>
+</body>
+</html>

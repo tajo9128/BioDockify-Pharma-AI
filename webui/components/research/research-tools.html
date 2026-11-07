@@ -18,6 +18,14 @@
         <span class="material-symbols-outlined">biotech</span>
         <span class="tool-label">Mol Toolkit</span>
       </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('pharmacovigilance')">
+        <span class="material-symbols-outlined">monitor_heart</span>
+        <span class="tool-label">PvStudio</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('preformulation')">
+        <span class="material-symbols-outlined">science</span>
+        <span class="tool-label">Preform</span>
+      </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('chem-canvas')">
         <span class="material-symbols-outlined">draw</span>
         <span class="tool-label">Draw</span>
