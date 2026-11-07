@@ -29,7 +29,7 @@
         { name: "MCC ratio", low: 20, high: 60, unit: "%" },
       ],
       doeDesign: "central_composite",
-      doeResult: null,
+      doeResult: null, doeRunsJson: '', doeAnaLoading: false, doeAnaResult: null,
       mixtureComponents: [
         { name: "API", low: 5, high: 30, unit: "mg" },
         { name: "Polymer", low: 20, high: 60, unit: "mg" },
@@ -78,6 +78,17 @@
 
       addFactor() { if (this.doeFactors.length < 6) this.doeFactors.push({ name: `Factor ${this.doeFactors.length+1}`, low: -1, high: 1, unit: "" }); },
       removeFactor(i) { if (this.doeFactors.length > 2) this.doeFactors.splice(i, 1); },
+
+      async analyzeDoe() {
+        this.doeAnaLoading = true; this.doeAnaResult = null; this.error = "";
+        try {
+          const runs = JSON.parse(this.doeRunsJson);
+          if (!Array.isArray(runs) || runs.length < 4) { this.error = "Need ≥4 completed runs"; return; }
+          const r = await callJsonApi("preformulation", { action: "doe_analyze", runs, responses: [{name: "y"}] });
+          this.doeAnaResult = r;
+        } catch (e) { this.error = e.message.includes("JSON") ? "Invalid JSON format" : e.message; }
+        this.doeAnaLoading = false;
+      },
 
       async genDesign() {
         this.loading = true; this.error = ""; this.doeResult = null;
@@ -282,7 +293,29 @@
                 </template>
               </tbody>
             </table>
-            <p class="notice">Run the experiments, then use action=doe_analyze (API) to fit the RSM model &amp; ANOVA.</p>
+            <p class="notice"><div class="dock-card" style="margin-top:8px">
+              <h4>Analyze completed runs (RSM + ANOVA)</h4>
+              <textarea x-model="$store.preform.doeRunsJson" rows="4" class="mt-textarea mono" placeholder='[{"Binder":3,"Force":14,"MCC":40,"y":85}]'></textarea>
+              <button class="btn-sm" @click="$store.preform.analyzeDoe()" :disabled="$store.preform.doeAnaLoading" x-text="$store.preform.doeAnaLoading ? 'Fitting...' : 'Fit RSM Model'"></button>
+              <template x-if="$store.preform.doeAnaResult && !$store.preform.doeAnaResult.error">
+                <div style="font-size:0.66rem;margin-top:8px">
+                  <template x-for="(resp, rn) in ($store.preform.doeAnaResult.responses || {})" :key="rn">
+                    <div style="padding:8px;background:var(--color-background);border:1px solid var(--color-border);border-radius:7px;margin-bottom:6px">
+                      <b x-text="'Response: ' + rn"></b>
+                      <template x-if="resp.model_summary">
+                        <p style="margin:4px 0;color:var(--color-text)">R²: <b x-text="resp.model_summary.r_squared"></b> | adj R²: <b x-text="resp.model_summary.adj_r_squared"></b> | lack-of-fit p: <b x-text="resp.model_summary.lack_of_fit_p || '—'"></b></p>
+                      </template>
+                      <template x-for="(sig, sn) in (resp.significance || {})" :key="sn">
+                        <p style="margin:2px 0;font-size:0.6rem;color:var(--color-text-muted)" x-text="sn + ': p=' + (sig.p_value?.toFixed(4) || '—') + (sig.p_value < 0.05 ? ' ✓' : '')"></p>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+              </template>
+              <template x-if="$store.preform.doeAnaResult?.error">
+                <p style="color:#ef4444;font-size:0.66rem;margin:4px 0" x-text="$store.preform.doeAnaResult.error"></p>
+              </template>
+            </div></p>
           </div>
         </template>
         <div class="dock-card">

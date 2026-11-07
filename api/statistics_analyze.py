@@ -204,6 +204,7 @@ class StatisticsAnalyze(ApiHandler):
         elif action == "homogeneity":       return self._homogeneity(input)
         elif action == "roc":               return self._roc(input)
         elif action == "power":             return self._power(input)
+        elif action == "posthoc_power":  return self._posthoc_power(input)
         elif action == "survival":          return self._survival(input)
         elif action == "pdf_report":        return self._pdf_report(input)
 
@@ -1631,6 +1632,26 @@ class StatisticsAnalyze(ApiHandler):
             return {"status": "ok", "action": "roc", "auc": auc_val, "optimal_cutoff": round(float(thresholds[best_idx]), 4), "fpr": [round(float(x), 4) for x in fpr[:100]], "tpr": [round(float(x), 4) for x in tpr[:100]], "n_pos": int(np.sum(yt == 1)), "n_neg": int(np.sum(yt == 0))}
         except Exception as e:
             return {"status": "error", "error": str(e)}
+
+    def _posthoc_power(self, input: dict) -> dict:
+        """Post-hoc achieved power from observed effect size and n."""
+        try:
+            from statsmodels.stats.power import TTestIndPower, TTestPower
+            effect = float(input.get("effect_size", 0))
+            n1 = int(input.get("n1", 0))
+            n2 = int(input.get("n2", 0))
+            alpha = float(input.get("alpha", 0.05))
+            if effect <= 0 or n1 < 2:
+                return {"error": "effect_size > 0 and n1 >= 2 required"}
+            if n2 > 1:
+                power = TTestIndPower().power(effect_size=abs(effect), nobs1=n1, ratio=n2/n1, alpha=alpha)
+            else:
+                power = TTestPower().power(effect_size=abs(effect), nobs=n1, alpha=alpha)
+            return {"success": True, "achieved_power": round(float(power), 4),
+                    "verdict": "adequate" if power >= 0.80 else "underpowered" if power >= 0.50 else "severely underpowered",
+                    "note": "Post-hoc power depends on observed effect; report with caution."}
+        except Exception as e:
+            return {"error": str(e)[:200]}
 
     def _power(self, input: dict) -> dict:
         effect_size = float(input.get("effect_size", 0.5))

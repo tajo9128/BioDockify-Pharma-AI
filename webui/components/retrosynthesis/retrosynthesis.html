@@ -192,7 +192,19 @@
                 <strong x-text="route.first_step?.reaction || 'Disconnection'"></strong>
                 <span class="rs-reliability" x-text="'Reliability: ' + Math.round((route.first_step?.reliability || 0) * 100) + '%'"></span>
               </div>
-              <div class="rs-precursors" x-show="route.precursors">
+              <div class="rs-all-steps" x-show="route.steps && route.steps.length > 1" style="margin-top:6px">
+              <template x-for="(step, si) in (route.steps || [route.first_step].filter(Boolean))" :key="si">
+                <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--color-background);border:1px solid var(--color-border);border-radius:6px;margin:3px 0;font-size:0.62rem">
+                  <span style="min-width:22px;height:22px;border-radius:50%;background:var(--color-primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.58rem;font-weight:700" x-text="si+1"></span>
+                  <b x-text="step?.reaction || 'Disconnection'"></b>
+                  <span class="rs-reliability" x-text="step?.reliability ? Math.round(step.reliability * 100) + '%' : ''"></span>
+                  <template x-if="step?.precursors">
+                    <span style="color:var(--color-primary);font-family:monospace;font-size:0.58rem" x-text="step.precursors.map(p => p.smiles || p).join(' + ')"></span>
+                  </template>
+                </div>
+              </template>
+            </div>
+            <div class="rs-precursors" x-show="route.precursors">
                 <span class="rs-label-sm">Precursors:</span>
                 <template x-for="p in (route.precursors || [])" :key="p.smiles">
                   <code class="rs-smi" x-text="p.smiles"></code>

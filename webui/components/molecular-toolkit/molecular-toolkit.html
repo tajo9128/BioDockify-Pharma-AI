@@ -39,6 +39,8 @@
       dockingLigandFormat: "",
       dockingCenter: null,
       dockingSize: { x: 20, y: 20, z: 20 },
+      dockingExhaustiveness: 8,
+      dockingSeed: 42,
       dockingPoses: [],
       dockingStatus: "",
       dockingError: "",
@@ -85,7 +87,10 @@
         r.onload = () => {
           const t = r.result;
           if (ext === 'smi' || ext === 'smiles') {
-            this.dockingLigand = t.split('\n').find(l => l.trim() && !l.startsWith('#'))?.trim() || t;
+            const smilesList = t.split('\n').map(l => l.trim().split(/\s+/)[0]).filter(l => l && !l.startsWith('#'));
+            this.dockingLigand = smilesList[0] || t.trim();
+            if (smilesList.length > 1) this.error = smilesList.length + ' molecules in file — docking first. Batch: send each to agent.';
+            else this.error = '';
             this.dockingLigandFormat = 'smiles';
           } else {
             this.dockingLigand = t;
@@ -422,6 +427,15 @@
           </div>
         </div>
 
+        <!-- Advanced Vina Parameters -->
+          <details style="margin:6px 0">
+            <summary style="font-size:0.66rem;color:var(--color-text-muted);cursor:pointer;padding:4px 0">⚙ Advanced parameters</summary>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px 0">
+              <label style="font-size:0.6rem;color:var(--color-text-muted)">Exhaustiveness<input type="number" x-model.number="$store.molecularToolkit.dockingExhaustiveness" min="1" max="32" style="width:100%;padding:4px;border:1px solid var(--color-border);border-radius:5px;background:var(--color-background);color:var(--color-text);font-size:0.7rem"></label>
+              <label style="font-size:0.6rem;color:var(--color-text-muted)">Seed (0=random)<input type="number" x-model.number="$store.molecularToolkit.dockingSeed" style="width:100%;padding:4px;border:1px solid var(--color-border);border-radius:5px;background:var(--color-background);color:var(--color-text);font-size:0.7rem"></label>
+              <label style="font-size:0.6rem;color:var(--color-text-muted)">Box size (Å)<input type="number" x-model.number="$store.molecularToolkit.dockingSize.x" min="10" max="40" style="width:100%;padding:4px;border:1px solid var(--color-border);border-radius:5px;background:var(--color-background);color:var(--color-text);font-size:0.7rem"></label>
+            </div>
+          </details>
         <!-- Run Button -->
         <button class="btn-run" @click="$store.molecularToolkit.dockingPrepare()" :disabled="$store.molecularToolkit.loading || !$store.molecularToolkit.dockingPdb || !$store.molecularToolkit.dockingLigand">
           <span class="material-symbols-outlined">precision_manufacturing</span>

@@ -373,17 +373,16 @@ class StatisticsAuto(ApiHandler):
         # 2. Correlation matrix (all numeric columns)
         if len(numeric) >= 2:
             try:
-                arrs = []
+                # Pairwise-complete: keep NaN mask per column so pairs align correctly
+                # (old positional truncation [:min_len] silently misaligned rows)
+                raw = {}
                 valid_cols = []
                 for col in numeric:
                     a = _col_values(rows, col, cols)
-                    a = a[~np.isnan(a)]
-                    if len(a) > 2:
-                        arrs.append(a)
+                    if np.sum(~np.isnan(a)) > 2:
+                        raw[col] = a
                         valid_cols.append(col)
-                min_len = min(len(a) for a in arrs) if arrs else 0
-                if min_len > 2:
-                    arrs = [a[:min_len] for a in arrs]
+                if len(valid_cols) > 1:
                     n = len(valid_cols)
                     corr = np.zeros((n, n))
                     pvals = np.zeros((n, n))
@@ -393,9 +392,15 @@ class StatisticsAuto(ApiHandler):
                                 corr[i, j] = 1.0
                                 pvals[i, j] = 0.0
                             else:
-                                c, p = scipy_stats.pearsonr(arrs[i], arrs[j])
-                                corr[i, j] = round(float(c), 4)
-                                pvals[i, j] = round(float(p), 6)
+                                # pairwise-complete: use rows where BOTH columns have values
+                                mask = ~np.isnan(raw[valid_cols[i]]) & ~np.isnan(raw[valid_cols[j]])
+                                if np.sum(mask) > 2:
+                                    c, p = scipy_stats.pearsonr(raw[valid_cols[i]][mask], raw[valid_cols[j]][mask])
+                                    corr[i, j] = round(float(c), 4)
+                                    pvals[i, j] = round(float(p), 6)
+                                else:
+                                    corr[i, j] = float("nan")
+                                    pvals[i, j] = float("nan")
                     report["correlation"] = {
                         "method": "pearson",
                         "columns": valid_cols,

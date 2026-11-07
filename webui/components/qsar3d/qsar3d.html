@@ -26,9 +26,9 @@
           name: "ACE Inhibitors QSAR",
         },
         "statins": {
-          label: "Statins (8 compounds, pIC50)",
-          smiles: "CC(C)C1=C(C(=O)OC2CC(CC=C2C)C=C(C)CCC(CC)OC(=O)C)C(=C(C(=O)O1)O)O\nCC(C)C1=C(C(=O)OC2CC(CC=C2C)C=C(C)CCC(CC)OC(=O)C)C(=C(C(=O)O1)CC=O)O\nCC(C)C1=C(C(=O)OC2CC(CC=C2C)C=C(C)CCCC(C)O)C(=C(C(=O)O1)O)O\nCC(C)C1=C(C(=O)OC2CC(CC=C2C)C=C(C)CCCC(C)O)C(=C(C(=O)O1)CC=O)O\nCC(C)C1=C(C(=O)O)C(=C(C(=O)O1)O)C2=CC=C(C=C2)F\nCC(C)C1=C(C(=O)O)C(=C(C(=O)O1)CC=O)C2=CC=C(C=C2)F\nCC(C)C1=C(C(=O)O)C(=C(C(=O)O1)O)C2=CC=C(C=C2)Cl\nCC(C)C1=C(C(=O)O)C(=C(C(=O)O1)CC=O)C2=CC=C(C=C2)Cl",
-          activity: "9.2\n9.5\n8.8\n9.1\n8.5\n8.9\n8.2\n8.6",
+          label: "Statins (10 compounds, pIC50)",
+          smiles: "CC(C)C1=C(C(=O)OC2CC(CC=C2C)C=C(C)CCC(CC)OC(=O)C)C(=C(C(=O)O1)O)O\nCC(C)C1=C(C(=O)OC2CC(CC=C2C)C=C(C)CCC(CC)OC(=O)C)C(=C(C(=O)O1)CC=O)O\nCC(C)C1=C(C(=O)OC2CC(CC=C2C)C=C(C)CCCC(C)O)C(=C(C(=O)O1)O)O\nCC(C)C1=C(C(=O)OC2CC(CC=C2C)C=C(C)CCCC(C)O)C(=C(C(=O)O1)CC=O)O\nCC(C)C1=C(C(=O)O)C(=C(C(=O)O1)O)C2=CC=C(C=C2)F\nCC(C)C1=C(C(=O)O)C(=C(C(=O)O1)CC=O)C2=CC=C(C=C2)F\nCC(C)C1=C(C(=O)O)C(=C(C(=O)O1)O)C2=CC=C(C=C2)Cl\nCC(C)C1=C(C(=O)O)C(=C(C(=O)O1)CC=O)C2=CC=C(C=C2)Cl\nCC(C)C1=C(C(=O)O)C(=C(C(=O)O1)O)C2=CC=C(C=C2)OC\nCC(C)C1=C(C(=O)O)C(=C(C(=O)O1)CC=O)C2=CC=C(C=C2)OC",
+          activity: "9.2\n9.5\n8.8\n9.1\n8.5\n8.9\n8.2\n8.6\n8.8\n9.0",
           name: "Statins QSAR",
         },
         "benzodiazepines": {
@@ -111,11 +111,23 @@
         this.loading = true;
         this.error = "";
         try {
-          const smilesList = this.smiles.split("\n").map(s => s.trim()).filter(s => s);
-          const activityList = this.activity.split("\n").map(a => parseFloat(a.trim())).filter(a => !isNaN(a));
-          
-          if (smilesList.length !== activityList.length) {
-            this.error = "SMILES and activity lists must have equal length";
+          // Joint pair filtering: drop incomplete pairs (SMILES without activity or vice versa)
+          const rawPairs = [];
+          const sLines = this.smiles.split("
+");
+          const aLines = this.activity.split("
+");
+          for (let i = 0; i < Math.max(sLines.length, aLines.length); i++) {
+            const smi = (sLines[i] || "").trim();
+            const act = parseFloat((aLines[i] || "").trim());
+            if (smi && !isNaN(act)) rawPairs.push([smi, act]);
+          }
+          const smilesList = rawPairs.map(p => p[0]);
+          const activityList = rawPairs.map(p => p[1]);
+          const dropped = Math.max(sLines.length, aLines.length) - rawPairs.length;
+          if (dropped > 0) this.error = `Dropped ${dropped} incomplete pair(s)`;
+          if (smilesList.length < 3) {
+            this.error = "Need at least 3 valid SMILES+activity pairs";
             return;
           }
           

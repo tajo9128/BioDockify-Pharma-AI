@@ -575,16 +575,15 @@ class LiteratureSearch(ApiHandler):
                     break
 
                 issns = item.get("ISSN", [])
-                in_publisher = not has_db
-                for issn_val in (issns if isinstance(issns, list) else [issns]):
-                    if str(issn_val).strip().upper() in publisher_issns:
-                        in_publisher = True
-                        break
-                    # Also check publisher from CrossRef response
-                    pub = (item.get("publisher", "") or "").lower()
-                    if publisher_name.lower() in pub:
-                        in_publisher = True
-                        break
+                # Fail closed: check publisher field from Crossref directly,
+                # then ISSN list only if we have a journal DB to match against
+                pub = (item.get("publisher", "") or "").lower()
+                in_publisher = publisher_name.lower() in pub
+                if not in_publisher and has_db:
+                    for issn_val in (issns if isinstance(issns, list) else [issns]):
+                        if str(issn_val).strip().upper() in publisher_issns:
+                            in_publisher = True
+                            break
 
                 if not in_publisher:
                     continue

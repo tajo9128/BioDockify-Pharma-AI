@@ -11,6 +11,8 @@
       message: "",
 
       // Design tab
+      weights: { qed: 0.25, sa: 0.15, lipinski: 0.15, admet: 0.20 },
+      genStats: null,
       seedSmiles: "CC(=O)OC1=CC=CC=C1C(=O)O\nCC(C)Cc1ccc(cc1)C(C)C(=O)O",
       method: "brics",
       nCandidates: 50,
@@ -216,7 +218,13 @@
       </div>
 
       <button class="gc-btn-primary" @click="$store.genChem.generate()" :disabled="$store.genChem.loading || !$store.genChem.seedSmiles.trim()">
-        <span class="material-symbols-outlined">auto_awesome</span> Generate Molecules
+        <span class="material-symbols-outlined">auto_awesome</span> <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0">
+            <label style="font-size:0.58rem;color:var(--color-text-muted)">QED: <b x-text="$store.genChem.weights.qed.toFixed(2)"></b><input type="range" min="0" max="0.5" step="0.05" x-model.number="$store.genChem.weights.qed" style="width:100%"></label>
+            <label style="font-size:0.58rem;color:var(--color-text-muted)">SA: <b x-text="$store.genChem.weights.sa.toFixed(2)"></b><input type="range" min="0" max="0.5" step="0.05" x-model.number="$store.genChem.weights.sa" style="width:100%"></label>
+            <label style="font-size:0.58rem;color:var(--color-text-muted)">Lipinski: <b x-text="$store.genChem.weights.lipinski.toFixed(2)"></b><input type="range" min="0" max="0.5" step="0.05" x-model.number="$store.genChem.weights.lipinski" style="width:100%"></label>
+            <label style="font-size:0.58rem;color:var(--color-text-muted)">ADMET: <b x-text="$store.genChem.weights.admet.toFixed(2)"></b><input type="range" min="0" max="0.5" step="0.05" x-model.number="$store.genChem.weights.admet" style="width:100%"></label>
+          </div>
+          Generate Molecules
       </button>
     </div>
 

@@ -194,6 +194,11 @@ class DeepResearchHandler(ApiHandler):
             except Exception:
                 pass
 
+        # Initialize counters before the closure references them
+        kb_stored = 0
+        kb_skipped = 0
+        full_text_count = 0
+
         # Start background fetch (don't await)
         import threading
         threading.Thread(target=_fetch_and_store, daemon=True).start()
