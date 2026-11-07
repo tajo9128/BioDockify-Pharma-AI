@@ -1,0 +1,138 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+    export const store = createStore("netpro", {
+      activeTab: "ora", loading: false, error: "",
+      genesText: "TP53, TNF, IL6, AKT1, MAPK1, NFKB1, PTGS2, BCL2, CASP3, HMOX1, NFE2L2, IL1B",
+      oraResult: null,
+      edgesText: "TP53,TNF\nTP53,BCL2\nTNF,NFKB1\nIL6,TNF\nAKT1,MTOR\nAKT1,PIK3CA\nMAPK1,EGFR\nNFKB1,IL1B\nTNF,PTGS2\nBAX,CASP3\nTP53,BAX\nMAPK1,AKT1",
+      netResult: null,
+      herbs: [
+        { herb: "Curcuma longa (Turmeric)", compounds: "curcumin" },
+        { herb: "Withania somnifera (Ashwagandha)", compounds: "withaferin-a" },
+      ],
+      herbResult: null,
+      async run(action, body, key) {
+        this.loading = true; this.error = ""; this[key] = null;
+        try { const r = await callJsonApi("netpharm_pro", { action, ...body }); if (r.error) this.error = r.error; else this[key] = r; }
+        catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async ora() { const genes = this.genesText.split(/[,\n;]+/).map(s => s.trim()).filter(Boolean); await this.run("pathway_ora", { genes }, "oraResult"); },
+      async net() {
+        const edges = this.edgesText.split("\n").map(l => l.split(",").map(s => s.trim())).filter(p => p.length >= 2);
+        await this.run("network_analysis", { edges }, "netResult");
+      },
+      async herb() {
+        const herbs = this.herbs.filter(h => h.herb.trim()).map(h => ({ herb: h.herb, compounds: h.compounds.split(",").map(s => s.trim()).filter(Boolean) }));
+        await this.run("herb_network", { herbs }, "herbResult");
+      },
+      dl() {
+        if (!this.herbResult?.cytoscape_json) return;
+        const blob = new Blob([JSON.stringify(this.herbResult.cytoscape_json, null, 1)], { type: "application/json" });
+        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "herb_network.cyjs.json"; a.click();
+      },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="dock-panel">
+    <div class="panel-header"><div class="header-left">
+      <span class="material-symbols-outlined header-icon">hub</span>
+      <div><h2>Network Pharmacology Pro</h2><p class="sub">Pathway ORA (FDR) · PPI hubs · herb–compound–target · Cytoscape</p></div>
+    </div></div>
+    <div class="dock-tabs">
+      <button class="dock-tab" :class="{active:$store.netpro.activeTab==='ora'}" @click="$store.netpro.activeTab='ora'"><span class="material-symbols-outlined">insights</span> Pathway ORA</button>
+      <button class="dock-tab" :class="{active:$store.netpro.activeTab==='ppi'}" @click="$store.netpro.activeTab='ppi'"><span class="material-symbols-outlined">share</span> PPI Topology</button>
+      <button class="dock-tab" :class="{active:$store.netpro.activeTab==='herb'}" @click="$store.netpro.activeTab='herb'"><span class="material-symbols-outlined">grass</span> Herb Network</button>
+    </div>
+    <div class="panel-body">
+      <div x-show="$store.netpro.error" class="err" x-text="$store.netpro.error"></div>
+      <div x-show="$store.netpro.loading" class="ld"><div class="sp"></div> Computing…</div>
+
+      <!-- ORA -->
+      <div x-show="$store.netpro.activeTab==='ora'" class="tc">
+        <h3 class="st">Gene list → pathway over-representation</h3>
+        <div class="card"><textarea x-model="$store.netpro.genesText" rows="3" class="ta mono" placeholder="genes, comma or newline"></textarea>
+        <button class="run" @click="$store.netpro.ora()">Run ORA (BH-FDR)</button></div>
+        <template x-if="$store.netpro.oraResult && !$store.netpro.oraResult.error">
+          <div class="card">
+            <div class="bar"><span class="material-symbols-outlined ok">check_circle</span><span x-text="$store.netpro.oraResult.query_size + ' genes → ' + $store.netpro.oraResult.pathways_tested + ' pathways tested, ' + $store.netpro.oraResult.significant_fdr05 + ' significant (FDR<0.05)'"></span></div>
+            <table class="tbl"><thead><tr><th>Pathway</th><th>size</th><th>hits</th><th>fold</th><th>p</th><th>FDR</th><th></th></tr></thead>
+            <tbody><template x-for="r in $store.netpro.oraResult.results" :key="r.pathway">
+              <tr :class="{sig: r.bh_fdr < 0.05}"><td x-text="r.pathway"></td><td x-text="r.pathway_size"></td><td x-text="r.hits + ' (' + r.hit_genes.slice(0,4).join(',') + (r.hit_genes.length>4?'…':'') + ')'"></td><td class="mono" x-text="r.fold_enrichment + '×'"></td><td class="mono" x-text="r.p_value.toExponential(1)"></td><td class="mono" x-text="r.bh_fdr"></td><td><span class="pill" :class="r.bh_fdr<0.05?'p-yes':'p-no'" x-text="r.bh_fdr<0.05?'SIG':''"></span></td></tr>
+            </template></tbody></table>
+            <p class="note" x-text="$store.netpro.oraResult.note"></p>
+          </div>
+        </template>
+      </div>
+
+      <!-- PPI -->
+      <div x-show="$store.netpro.activeTab==='ppi'" class="tc">
+        <h3 class="st">Edge list → hubs &amp; topology</h3>
+        <div class="card"><textarea x-model="$store.netpro.edgesText" rows="5" class="ta mono" placeholder="GENE1,GENE2 — one edge per line"></textarea>
+        <button class="run" @click="$store.netpro.net()">Analyze network</button></div>
+        <template x-if="$store.netpro.netResult && !$store.netpro.netResult.error">
+          <div>
+            <div class="srow">
+              <div class="st-c"><span class="v" x-text="$store.netpro.netResult.nodes"></span><span class="l">nodes</span></div>
+              <div class="st-c"><span class="v" x-text="$store.netpro.netResult.edges"></span><span class="l">edges</span></div>
+              <div class="st-c"><span class="v" x-text="$store.netpro.netResult.density"></span><span class="l">density</span></div>
+              <div class="st-c"><span class="v" x-text="$store.netpro.netResult.avg_degree"></span><span class="l">avg deg</span></div>
+            </div>
+            <div class="card"><h4>Hubs (degree ranking)</h4>
+              <template x-for="h in $store.netpro.netResult.hubs" :key="h.gene">
+                <div class="hub"><b class="mono" x-text="h.gene"></b><span class="deg"><span class="bar-f" :style="'width:' + Math.min(100, h.degree * 18) + '%'"></span></span><b x-text="h.degree"></b></div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- HERB -->
+      <div x-show="$store.netpro.activeTab==='herb'" class="tc">
+        <h3 class="st">Herb → compounds → targets multilayer</h3>
+        <div class="card">
+          <template x-for="(h, i) in $store.netpro.herbs" :key="i">
+            <div class="hrow"><input class="inp" x-model="h.herb" placeholder="Herb name" /><input class="inp mono" x-model="h.compounds" placeholder="compounds (comma-sep)" /><button class="del" @click="$store.netpro.herbs.splice(i,1)">✕</button></div>
+          </template>
+          <div class="rowb"><button class="bk" @click="$store.netpro.herbs.push({herb:'',compounds:''})">+ herb</button><button class="run" @click="$store.netpro.herb()">Build network</button></div>
+        </div>
+        <template x-if="$store.netpro.herbResult && !$store.netpro.herbResult.error">
+          <div>
+            <div class="srow">
+              <div class="st-c"><span class="v" x-text="$store.netpro.herbResult.layers.herbs"></span><span class="l">herbs</span></div>
+              <div class="st-c"><span class="v" x-text="$store.netpro.herbResult.layers.compounds"></span><span class="l">compounds</span></div>
+              <div class="st-c"><span class="v" x-text="$store.netpro.herbResult.layers.targets"></span><span class="l">targets</span></div>
+              <div class="st-c"><span class="v" x-text="$store.netpro.herbResult.edges"></span><span class="l">edges</span></div>
+            </div>
+            <div class="card" x-show="$store.netpro.herbResult.shared_targets.length"><h4>Shared targets (multi-herb convergence)</h4>
+              <template x-for="t in $store.netpro.herbResult.shared_targets" :key="t[0]"><div class="hub"><b class="mono" x-text="t[0]"></b><span class="deg"><span class="bar-f" :style="'width:' + t[1]*30 + '%'"></span></span><b x-text="t[1] + ' herbs'"></b></div></template>
+            </div>
+            <p class="kv" x-show="$store.netpro.herbResult.compounds_unmapped.length"><b>Unmapped compounds:</b> <span x-text="$store.netpro.herbResult.compounds_unmapped.join(', ')"></span></p>
+            <button class="run" @click="$store.netpro.dl()"><span class="material-symbols-outlined">download</span> Export Cytoscape JSON</button>
+            <p class="note" x-text="$store.netpro.herbResult.note"></p>
+          </div>
+        </template>
+      </div>
+    </div>
+    <style>
+      .dock-panel{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background)}.panel-header{padding:14px 20px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0}.header-left{display:flex;align-items:center;gap:12px}.header-icon{font-size:28px;color:var(--color-primary)}h2{color:var(--color-text);font-size:1.05rem;margin:0;font-weight:700}.sub{color:var(--color-text-muted);font-size:.7rem;margin:2px 0 0 0}
+      .dock-tabs{display:flex;gap:2px;padding:6px 20px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0;overflow-x:auto}.dock-tab{display:flex;align-items:center;gap:4px;padding:6px 12px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--color-text-muted);cursor:pointer;font-size:.68rem;font-weight:500;white-space:nowrap}.dock-tab.active{color:var(--color-primary);border-bottom-color:var(--color-primary)}.dock-tab .material-symbols-outlined{font-size:15px}
+      .panel-body{flex:1;overflow-y:auto;padding:16px 20px}.tc{min-height:120px}.st{font-size:.78rem;font-weight:700;color:var(--color-text);margin:0 0 8px 0;padding-bottom:6px;border-bottom:1px solid var(--color-border)}
+      .card{padding:13px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:11px;display:flex;flex-direction:column;gap:7px;margin-bottom:10px}.card h4{font-size:.74rem;margin:0;color:var(--color-text)}
+      .ta{width:100%;min-height:50px;padding:8px 10px;border:1px solid var(--color-border);border-radius:7px;background:var(--color-background);color:var(--color-text);font-size:.7rem;font-family:var(--font-mono,monospace);resize:vertical}.inp{flex:1;padding:8px 10px;border:1px solid var(--color-border);border-radius:7px;background:var(--color-background);color:var(--color-text);font-size:.72rem}.inp.mono{font-family:var(--font-mono,monospace)}
+      .run{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px;background:var(--color-primary);border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:.78rem;font-weight:600}.bk{display:flex;align-items:center;padding:8px 12px;background:none;border:1px solid var(--color-border);border-radius:8px;color:var(--color-text-muted);cursor:pointer;font-size:.7rem}.rowb{display:flex;gap:8px}
+      .err{padding:8px 10px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.2);border-radius:6px;color:#ff6b6b;font-size:.68rem;margin-bottom:8px}.ld{display:flex;align-items:center;gap:6px;padding:6px 0;font-size:.7rem;color:var(--color-text-muted)}.sp{width:14px;height:14px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+      .bar{display:flex;align-items:center;gap:8px;padding:7px 11px;background:var(--color-background);border:1px solid var(--color-border);border-radius:8px;font-size:.7rem}.ok{color:#22c55e;font-size:16px}
+      .tbl{width:100%;border-collapse:collapse;font-size:.64rem}.tbl th{text-align:left;color:var(--color-text-muted);font-size:.56rem;text-transform:uppercase;padding:4px 8px;border-bottom:1px solid var(--color-border)}.tbl td{padding:3px 8px;border-bottom:1px dotted var(--color-border);color:var(--color-text)}.tbl tr.sig td{background:color-mix(in srgb,var(--color-primary) 5%,transparent)}.mono{font-family:var(--font-mono,monospace)}.pill{padding:1px 7px;border-radius:999px;font-size:.54rem;font-weight:700}.p-yes{background:rgba(34,197,94,.12);color:#22c55e}.p-no{background:rgba(107,114,128,.12);color:#6b7280}
+      .srow{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}.st-c{flex:1;min-width:90px;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:9px}.st-c .v{font-size:1rem;font-weight:800;color:var(--color-primary);font-family:var(--font-mono,monospace)}.st-c .l{font-size:.56rem;color:var(--color-text-muted);font-weight:700;text-transform:uppercase}
+      .hub{display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--color-background);border:1px solid var(--color-border);border-radius:7px;margin-bottom:3px;font-size:.66rem}.hub b{color:var(--color-text);min-width:70px}.deg{flex:1;height:8px;background:var(--color-border);border-radius:4px;overflow:hidden}.bar-f{display:block;height:100%;background:var(--color-primary);border-radius:4px}
+      .hrow{display:flex;gap:6px}.del{border:none;background:rgba(255,107,107,.1);color:#ff6b6b;border-radius:6px;width:26px;height:26px;cursor:pointer;flex-shrink:0}
+      .kv{font-size:.68rem;margin:0;color:var(--color-text)}.kv b{color:var(--color-text)}.note{font-size:.6rem;color:var(--color-text-muted);font-style:italic;margin:0}
+    </style>
+  </div>
+</body>
+</html>

@@ -1,0 +1,166 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+    export const store = createStore("pharmEco", {
+      activeTab: "cea", loading: false, error: "",
+      cea: { cost_new: 45000, cost_comparator: 12000, effect_new: 6.2, effect_comparator: 5.0, wtp_threshold: 100000 },
+      ceaResult: null,
+      q: { utility_before: 0.65, utility_after: 0.82, years: 5, discount: 0.03 },
+      qResult: null,
+      nnt: { arr_control: 0.12, arr_treatment: 0.22, cost_per_patient_treatment: 8000, cost_per_patient_control: 500 },
+      nntResult: null,
+      bi: { population: 1000000, patients_diagnosed_pct: 8, treated_pct_current: 40, treated_pct_new: 55, cost_per_patient_current: 12000, cost_per_patient_new: 15000, years: 1 },
+      biResult: null,
+      sensResult: null,
+      async run(action, body, key) {
+        this.loading = true; this.error = ""; this[key] = null;
+        try { const r = await callJsonApi("pharmacoeconomics", { action, ...body }); if (r.error) this.error = r.error; else this[key] = r; }
+        catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async goCea() { await this.run("cea", { ...this.cea }, "ceaResult"); if (this.ceaResult) await this.run("sensitivity", { ...this.cea, wtp_low: 0, wtp_high: Math.max(this.cea.wtp_threshold * 2, 100000) }, "sensResult"); },
+      async goQ() { await this.run("qaly", { ...this.q }, "qResult"); },
+      async goN() { await this.run("nnt", { ...this.nnt }, "nntResult"); },
+      async goB() { await this.run("budget", { ...this.bi }, "biResult"); },
+      verdictClass(v) { return v?.includes("DOMINANT") ? "v-good" : v?.includes("reject") ? "v-bad" : v?.includes("NOT") ? "v-bad" : "v-ok"; },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="dock-panel">
+    <div class="panel-header"><div class="header-left">
+      <span class="material-symbols-outlined header-icon">payments</span>
+      <div><h2>Pharmacoeconomics Mini-Lab</h2><p class="sub">ICER/CEA · QALYs · NNT cost · budget impact · sensitivity</p></div>
+    </div></div>
+    <div class="dock-tabs">
+      <button class="dock-tab" :class="{active:$store.pharmEco.activeTab==='cea'}" @click="$store.pharmEco.activeTab='cea'"><span class="material-symbols-outlined">balance</span> Cost-Effectiveness</button>
+      <button class="dock-tab" :class="{active:$store.pharmEco.activeTab==='qaly'}" @click="$store.pharmEco.activeTab='qaly'"><span class="material-symbols-outlined">favorite</span> QALY</button>
+      <button class="dock-tab" :class="{active:$store.pharmEco.activeTab==='nnt'}" @click="$store.pharmEco.activeTab='nnt'"><span class="material-symbols-outlined">group</span> NNT</button>
+      <button class="dock-tab" :class="{active:$store.pharmEco.activeTab==='budget'}" @click="$store.pharmEco.activeTab='budget'"><span class="material-symbols-outlined">account_balance_wallet</span> Budget Impact</button>
+    </div>
+    <div class="panel-body">
+      <div x-show="$store.pharmEco.error" class="err" x-text="$store.pharmEco.error"></div>
+      <div x-show="$store.pharmEco.loading" class="ld"><div class="sp"></div> Computing…</div>
+
+      <!-- CEA -->
+      <div x-show="$store.pharmEco.activeTab==='cea'" class="tc">
+        <h3 class="st">Incremental cost-effectiveness (ICER)</h3>
+        <div class="card">
+          <div class="fg">
+            <label class="f">Cost — new (₹)<input type="number" x-model.number="$store.pharmEco.cea.cost_new" /></label>
+            <label class="f">Cost — comparator (₹)<input type="number" x-model.number="$store.pharmEco.cea.cost_comparator" /></label>
+            <label class="f">Effect — new (QALY)<input type="number" step="0.1" x-model.number="$store.pharmEco.cea.effect_new" /></label>
+            <label class="f">Effect — comparator<input type="number" step="0.1" x-model.number="$store.pharmEco.cea.effect_comparator" /></label>
+            <label class="f">WTP threshold (₹/QALY)<input type="number" x-model.number="$store.pharmEco.cea.wtp_threshold" /></label>
+          </div>
+          <button class="run" @click="$store.pharmEco.goCea()">Compute ICER + sensitivity</button>
+        </div>
+        <template x-if="$store.pharmEco.ceaResult && !$store.pharmEco.ceaResult.error">
+          <div>
+            <div class="verdict" :class="$store.pharmEco.verdictClass($store.pharmEco.ceaResult.verdict)">
+              <span class="material-symbols-outlined" x-text="$store.pharmEco.ceaResult.verdict.includes('DOMINANT') ? 'trending_up' : 'gavel'"></span>
+              <span x-text="$store.pharmEco.ceaResult.verdict + ' — ICER ₹' + $store.pharmEco.ceaResult.icer_per_qaly_or_unit.toLocaleString() + '/QALY'"></span>
+            </div>
+            <div class="srow">
+              <div class="st-c"><span class="v" x-text="'₹' + $store.pharmEco.ceaResult.incremental_cost.toLocaleString()"></span><span class="l">Δ cost</span></div>
+              <div class="st-c"><span class="v" x-text="$store.pharmEco.ceaResult.incremental_effect"></span><span class="l">Δ effect</span></div>
+            </div>
+            <template x-if="$store.pharmEco.sensResult && !$store.pharmEco.sensResult.error">
+              <div class="card"><h4>Willingness-to-pay grid</h4>
+                <table class="tbl"><thead><tr><th>WTP ₹/QALY</th><th>ICER</th><th>Acceptable?</th></tr></thead>
+                <tbody><template x-for="r in $store.pharmEco.sensResult.wtp_grid" :key="r.wtp">
+                  <tr :class="{sig: r.acceptable}"><td class="mono" x-text="'₹' + r.wtp.toLocaleString()"></td><td class="mono" x-text="'₹' + r.icer"></td><td><span class="pill" :class="r.acceptable ? 'p-ok' : 'p-no'" x-text="r.acceptable ? 'yes' : 'no'"></span></td></tr>
+                </template></tbody></table>
+              </div>
+            </template>
+            <p class="note" x-text="$store.pharmEco.ceaResult.note"></p>
+          </div>
+        </template>
+      </div>
+
+      <!-- QALY -->
+      <div x-show="$store.pharmEco.activeTab==='qaly'" class="tc">
+        <h3 class="st">QALYs gained</h3>
+        <div class="card"><div class="fg">
+          <label class="f">Utility before<input type="number" step="0.01" x-model.number="$store.pharmEco.q.utility_before" /></label>
+          <label class="f">Utility after<input type="number" step="0.01" x-model.number="$store.pharmEco.q.utility_after" /></label>
+          <label class="f">Years<input type="number" x-model.number="$store.pharmEco.q.years" /></label>
+          <label class="f">Discount %<input type="number" step="0.005" x-model.number="$store.pharmEco.q.discount" /></label>
+        </div>
+        <button class="run" @click="$store.pharmEco.goQ()">Compute QALYs</button></div>
+        <template x-if="$store.pharmEco.qResult && !$store.pharmEco.qResult.error">
+          <div class="srow">
+            <div class="st-c"><span class="v" x-text="$store.pharmEco.qResult.qaly_gained_undiscounted"></span><span class="l">QALYs (raw)</span></div>
+            <div class="st-c"><span class="v" x-text="$store.pharmEco.qResult.qaly_gained_discounted"></span><span class="l">QALYs (disc.)</span></div>
+            <div class="st-c"><span class="v" x-text="($store.pharmEco.qResult.discount_rate * 100) + '%'"></span><span class="l">discount</span></div>
+          </div>
+        </template>
+      </div>
+
+      <!-- NNT -->
+      <div x-show="$store.pharmEco.activeTab==='nnt'" class="tc">
+        <h3 class="st">NNT &amp; cost per responder</h3>
+        <div class="card"><div class="fg">
+          <label class="f">ARR — control (0–1)<input type="number" step="0.01" x-model.number="$store.pharmEco.nnt.arr_control" /></label>
+          <label class="f">ARR — treatment<input type="number" step="0.01" x-model.number="$store.pharmEco.nnt.arr_treatment" /></label>
+          <label class="f">Cost/patient — treatment ₹<input type="number" x-model.number="$store.pharmEco.nnt.cost_per_patient_treatment" /></label>
+          <label class="f">Cost/patient — control ₹<input type="number" x-model.number="$store.pharmEco.nnt.cost_per_patient_control" /></label>
+        </div>
+        <button class="run" @click="$store.pharmEco.goN()">Compute NNT</button></div>
+        <template x-if="$store.pharmEco.nntResult && !$store.pharmEco.nntResult.error">
+          <div class="srow">
+            <div class="st-c"><span class="v" x-text="$store.pharmEco.nntResult.nnt"></span><span class="l">NNT</span></div>
+            <div class="st-c"><span class="v" x-text="$store.pharmEco.nntResult.absolute_risk_reduction"></span><span class="l">ARR</span></div>
+            <div class="st-c"><span class="v" x-text="'₹' + $store.pharmEco.nntResult.cost_per_additional_responder.toLocaleString()"></span><span class="l">cost/responder</span></div>
+          </div>
+        </template>
+      </div>
+
+      <!-- BUDGET -->
+      <div x-show="$store.pharmEco.activeTab==='budget'" class="tc">
+        <h3 class="st">Budget impact (formulary change)</h3>
+        <div class="card"><div class="fg">
+          <label class="f">Population<input type="number" x-model.number="$store.pharmEco.bi.population" /></label>
+          <label class="f">Diagnosed %<input type="number" step="0.5" x-model.number="$store.pharmEco.bi.patients_diagnosed_pct" /></label>
+          <label class="f">Treated % — current<input type="number" step="0.5" x-model.number="$store.pharmEco.bi.treated_pct_current" /></label>
+          <label class="f">Treated % — projected<input type="number" step="0.5" x-model.number="$store.pharmEco.bi.treated_pct_new" /></label>
+          <label class="f">Cost/pt — current ₹<input type="number" x-model.number="$store.pharmEco.bi.cost_per_patient_current" /></label>
+          <label class="f">Cost/pt — new ₹<input type="number" x-model.number="$store.pharmEco.bi.cost_per_patient_new" /></label>
+          <label class="f">Years<input type="number" x-model.number="$store.pharmEco.bi.years" /></label>
+        </div>
+        <button class="run" @click="$store.pharmEco.goB()">Compute impact</button></div>
+        <template x-if="$store.pharmEco.biResult && !$store.pharmEco.biResult.error">
+          <div>
+            <div class="verdict" :class="$store.pharmEco.biResult.annual_budget_delta < 0 ? 'v-good' : 'v-warn'">
+              <span class="material-symbols-outlined" x-text="$store.pharmEco.biResult.annual_budget_delta < 0 ? 'savings' : 'warning'"></span>
+              <span x-text="'₹' + Math.abs($store.pharmEco.biResult.annual_budget_delta).toLocaleString() + ' / year — ' + $store.pharmEco.biResult.verdict"></span>
+            </div>
+            <div class="srow">
+              <div class="st-c"><span class="v" x-text="$store.pharmEco.biResult.eligible_patients.toLocaleString()"></span><span class="l">eligible</span></div>
+              <div class="st-c"><span class="v" x-text="$store.pharmEco.biResult.current_users.toLocaleString()"></span><span class="l">users now</span></div>
+              <div class="st-c"><span class="v" x-text="$store.pharmEco.biResult.projected_users.toLocaleString()"></span><span class="l">users new</span></div>
+            </div>
+            <p class="note" x-text="$store.pharmEco.biResult.note"></p>
+          </div>
+        </template>
+      </div>
+    </div>
+    <style>
+      .dock-panel{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background)}.panel-header{padding:14px 20px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0}.header-left{display:flex;align-items:center;gap:12px}.header-icon{font-size:28px;color:var(--color-primary)}h2{color:var(--color-text);font-size:1.05rem;margin:0;font-weight:700}.sub{color:var(--color-text-muted);font-size:.7rem;margin:2px 0 0 0}
+      .dock-tabs{display:flex;gap:2px;padding:6px 20px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0;overflow-x:auto}.dock-tab{display:flex;align-items:center;gap:4px;padding:6px 12px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--color-text-muted);cursor:pointer;font-size:.68rem;font-weight:500;white-space:nowrap}.dock-tab.active{color:var(--color-primary);border-bottom-color:var(--color-primary)}.dock-tab .material-symbols-outlined{font-size:15px}
+      .panel-body{flex:1;overflow-y:auto;padding:16px 20px}.tc{min-height:120px}.st{font-size:.78rem;font-weight:700;color:var(--color-text);margin:0 0 8px 0;padding-bottom:6px;border-bottom:1px solid var(--color-border)}
+      .card{padding:13px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:11px;display:flex;flex-direction:column;gap:7px;margin-bottom:10px}.card h4{font-size:.74rem;margin:0;color:var(--color-text)}
+      .fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}.f{display:flex;flex-direction:column;gap:3px;font-size:.58rem;color:var(--color-text-muted);font-weight:600}.f input{padding:6px 8px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-background);color:var(--color-text);font-size:.75rem}
+      .run{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px;background:var(--color-primary);border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:.78rem;font-weight:600}
+      .err{padding:8px 10px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.2);border-radius:6px;color:#ff6b6b;font-size:.68rem;margin-bottom:8px}.ld{display:flex;align-items:center;gap:6px;padding:6px 0;font-size:.7rem;color:var(--color-text-muted)}.sp{width:14px;height:14px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+      .verdict{display:flex;align-items:center;gap:7px;padding:10px 12px;border-radius:8px;font-size:.76rem;font-weight:700;margin-bottom:10px;flex-wrap:wrap}.v-good{background:rgba(34,197,94,.08);color:#22c55e}.v-ok{background:rgba(59,130,246,.08);color:#3b82f6}.v-bad{background:rgba(239,68,68,.1);color:#ef4444}.v-warn{background:rgba(245,158,11,.12);color:#d97706}
+      .srow{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}.st-c{flex:1;min-width:110px;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:9px}.st-c .v{font-size:.92rem;font-weight:800;color:var(--color-primary);font-family:var(--font-mono,monospace)}.st-c .l{font-size:.56rem;color:var(--color-text-muted);font-weight:700;text-transform:uppercase}
+      .tbl{width:100%;border-collapse:collapse;font-size:.64rem}.tbl th{text-align:left;color:var(--color-text-muted);font-size:.56rem;text-transform:uppercase;padding:4px 8px;border-bottom:1px solid var(--color-border)}.tbl td{padding:3px 8px;border-bottom:1px dotted var(--color-border);color:var(--color-text)}.tbl tr.sig td{background:color-mix(in srgb,var(--color-primary) 5%,transparent)}.mono{font-family:var(--font-mono,monospace)}
+      .pill{padding:1px 8px;border-radius:999px;font-size:.55rem;font-weight:700}.p-ok{background:rgba(34,197,94,.12);color:#22c55e}.p-no{background:rgba(107,114,128,.12);color:#6b7280}
+      .note{font-size:.6rem;color:var(--color-text-muted);font-style:italic;margin:0}
+    </style>
+  </div>
+</body>
+</html>

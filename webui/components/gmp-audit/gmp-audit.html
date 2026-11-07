@@ -1,0 +1,170 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+    export const store = createStore("gmpAudit", {
+      activeTab: "checklist", loading: false, error: "",
+      checklistResult: null, checks: {},
+      emLimits: null, waterLimits: null,
+      dash: null,
+      newRec: { kind: "deviation", title: "", area: "", severity: "minor", due_days: 30, description: "" },
+      plan: null,
+      async run(action, body, key) {
+        this.loading = true; this.error = ""; this[key] = null;
+        try { const r = await callJsonApi("gmp_audit", { action, ...body }); if (r.error) this.error = r.error; else this[key] = r; }
+        catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async loadChecklist(std) { this.checks = {}; await this.run("checklist", { standard: std }, "checklistResult"); },
+      async loadEm() { if (!this.emLimits) await this.run("em_limits", {}, "emLimits"); },
+      async loadWater() { if (!this.waterLimits) await this.run("water_limits", {}, "waterLimits"); },
+      async loadDash() { await this.run("dashboard", {}, "dash"); },
+      async addRec() {
+        this.loading = true; this.error = "";
+        try { const r = await callJsonApi("gmp_audit", { action: "add_record", ...this.newRec }); if (r.error) this.error = r.error; else { this.newRec.title = ""; this.loadDash(); } }
+        catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async setStat(id, status) { await callJsonApi("gmp_audit", { action: "update_record", id, status }); this.loadDash(); },
+      sev(s) { return { major: "sv-maj", critical: "sv-cri", minor: "sv-min" }[s] || "sv-min"; },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="dock-panel">
+    <div class="panel-header"><div class="header-left">
+      <span class="material-symbols-outlined header-icon">verified_user</span>
+      <div><h2>GMP &amp; Quality Audit Suite</h2><p class="sub">WHO · EU GMP · 21 CFR 211 · PIC/S — checklists, EM/water limits, deviation–CAPA, inspections</p></div>
+    </div></div>
+    <div class="dock-tabs">
+      <button class="dock-tab" :class="{active:$store.gmpAudit.activeTab==='checklist'}" @click="$store.gmpAudit.activeTab='checklist'"><span class="material-symbols-outlined">checklist</span> Audit Checklist</button>
+      <button class="dock-tab" :class="{active:$store.gmpAudit.activeTab==='env'}" @click="$store.gmpAudit.activeTab='env'; $store.gmpAudit.loadEm()"><span class="material-symbols-outlined">air</span> EM &amp; Water</button>
+      <button class="dock-tab" :class="{active:$store.gmpAudit.activeTab==='capa'}" @click="$store.gmpAudit.activeTab='capa'; $store.gmpAudit.loadDash()"><span class="material-symbols-outlined">assignment_late</span> Deviation/CAPA</button>
+      <button class="dock-tab" :class="{active:$store.gmpAudit.activeTab==='plan'}" @click="$store.gmpAudit.activeTab='plan'; if(!$store.gmpAudit.plan) $store.gmpAudit.run('inspection_plan',{},'plan')"><span class="material-symbols-outlined">event_repeat</span> Inspection Plan</button>
+    </div>
+    <div class="panel-body">
+      <div x-show="$store.gmpAudit.error" class="err" x-text="$store.gmpAudit.error"></div>
+      <div x-show="$store.gmpAudit.loading" class="ld"><div class="sp"></div> Loading…</div>
+
+      <!-- CHECKLIST -->
+      <div x-show="$store.gmpAudit.activeTab==='checklist'" class="tc">
+        <h3 class="st">Pick a standard and run the audit</h3>
+        <div class="rowb">
+          <button class="bk" @click="$store.gmpAudit.loadChecklist('EU GMP')">EU GMP Part I</button>
+          <button class="bk" @click="$store.gmpAudit.loadChecklist('WHO')">WHO TRS 986</button>
+          <button class="bk" @click="$store.gmpAudit.loadChecklist('21 CFR')">US 21 CFR 211</button>
+          <button class="bk" @click="$store.gmpAudit.loadChecklist('PIC')">PIC/S PE 009</button>
+        </div>
+        <template x-if="$store.gmpAudit.checklistResult">
+          <div class="card">
+            <h4 x-text="$store.gmpAudit.checklistResult.standard"></h4>
+            <template x-for="(item, i) in $store.gmpAudit.checklistResult.items" :key="i">
+              <label class="chk"><input type="checkbox" x-model="$store.gmpAudit.checks[i]" />
+                <span class="ref" x-text="item.ref"></span> <span x-text="item.item"></span></label>
+            </template>
+            <p class="kv"><b x-text="Object.values($store.gmpAudit.checks).filter(Boolean).length + '/' + $store.gmpAudit.checklistResult.items.length + ' checked'"></b></p>
+          </div>
+        </template>
+      </div>
+
+      <!-- ENV -->
+      <div x-show="$store.gmpAudit.activeTab==='env'" class="tc">
+        <h3 class="st">Environmental monitoring — Annex 1 grades</h3>
+        <template x-if="$store.gmpAudit.emLimits">
+          <div class="card">
+            <table class="tbl"><thead><tr><th>Zone</th><th>Air CFU/m³</th><th>Settle 90mm</th><th>Contact 55mm</th><th>Glove 5F</th></tr></thead>
+            <tbody><template x-for="r in $store.gmpAudit.emLimits.limits" :key="r.zone"><tr><td x-text="r.zone"></td><td class="mono" x-text="r.cfu_m3_air"></td><td class="mono" x-text="r.cfu_settle_90mm"></td><td class="mono" x-text="r.cfu_contact_55mm"></td><td class="mono" x-text="r.glove_5f"></td></tr></template></tbody></table>
+            <p class="note" x-text="$store.gmpAudit.emLimits.note"></p>
+          </div>
+        </template>
+        <template x-if="$store.gmpAudit.waterLimits">
+          <div class="card"><h4>Water systems</h4>
+            <table class="tbl"><thead><tr><th>System</th><th>Conductivity</th><th>TOC ppb</th><th>Bioburden</th><th>Notes</th></tr></thead>
+            <tbody><template x-for="r in $store.gmpAudit.waterLimits.limits" :key="r.system"><tr><td x-text="r.system"></td><td class="mono" x-text="r.conductivity_us_cm"></td><td class="mono" x-text="r.toc_ppb"></td><td class="mono" x-text="r.bioburden_cfu_ml"></td><td class="dim" x-text="r.notes"></td></tr></template></tbody></table>
+          </div>
+        </template>
+      </div>
+
+      <!-- CAPA -->
+      <div x-show="$store.gmpAudit.activeTab==='capa'" class="tc">
+        <h3 class="st">Log a deviation or CAPA</h3>
+        <div class="card">
+          <div class="fg">
+            <select class="inp" x-model="$store.gmpAudit.newRec.kind"><option value="deviation">Deviation</option><option value="capa">CAPA</option></select>
+            <input class="inp" placeholder="Title" x-model="$store.gmpAudit.newRec.title" />
+            <input class="inp" placeholder="Area (e.g. Production)" x-model="$store.gmpAudit.newRec.area" />
+            <select class="inp" x-model="$store.gmpAudit.newRec.severity"><option>minor</option><option>major</option><option>critical</option></select>
+            <input class="inp sm" type="number" placeholder="due days" x-model.number="$store.gmpAudit.newRec.due_days" />
+          </div>
+          <button class="run" @click="$store.gmpAudit.addRec()" :disabled="!$store.gmpAudit.newRec.title.trim()">Add record</button>
+        </div>
+        <template x-if="$store.gmpAudit.dash">
+          <div>
+            <div class="srow">
+              <div class="st-c"><span class="v" x-text="$store.gmpAudit.dash.deviations.open + '/' + $store.gmpAudit.dash.deviations.total"></span><span class="l">deviations open</span></div>
+              <div class="st-c warn" x-show="$store.gmpAudit.dash.deviations.overdue"><span class="v" x-text="$store.gmpAudit.dash.deviations.overdue"></span><span class="l">OVERDUE</span></div>
+              <div class="st-c"><span class="v" x-text="$store.gmpAudit.dash.capas.open + '/' + $store.gmpAudit.dash.capas.total"></span><span class="l">CAPAs open</span></div>
+            </div>
+            <template x-for="sec in ['deviations','capas']" :key="sec">
+              <div class="card" x-show="$store.gmpAudit.dash[sec].records.length">
+                <h4 x-text="sec === 'deviations' ? 'Deviations' : 'CAPAs'"></h4>
+                <template x-for="r in $store.gmpAudit.dash[sec].records" :key="r.id">
+                  <div class="rec" :class="{od: r.overdue}">
+                    <span class="rid mono" x-text="r.id"></span>
+                    <span class="sev" :class="$store.gmpAudit.sev(r.severity)" x-text="r.severity"></span>
+                    <span class="rt" x-text="r.title"></span>
+                    <span class="dim" x-text="'due ' + r.due"></span>
+                    <span class="pill" :class="r.status === 'closed' ? 'p-no' : 'p-yes'" x-text="r.status"></span>
+                    <span class="od-warn" x-show="r.overdue">OVERDUE</span>
+                    <template x-if="r.status !== 'closed'">
+                      <span class="st-acts"><button class="mini" @click="$store.gmpAudit.setStat(r.id,'in_progress')">▶</button><button class="mini ok" @click="$store.gmpAudit.setStat(r.id,'closed')">✓</button></span>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
+            <p class="note" x-text="$store.gmpAudit.dash.note"></p>
+          </div>
+        </template>
+      </div>
+
+      <!-- PLAN -->
+      <div x-show="$store.gmpAudit.activeTab==='plan'" class="tc">
+        <h3 class="st">Self-inspection rotation</h3>
+        <template x-if="$store.gmpAudit.plan">
+          <div class="card">
+            <template x-for="r in $store.gmpAudit.plan.areas" :key="r.area">
+              <div class="rec">
+                <span class="rt" x-text="r.area"></span>
+                <span class="dim" x-text="'last: ' + r.last_done"></span>
+                <span class="dim" x-text="'next: ' + r.next_due"></span>
+                <span class="pill" :class="r.status === 'OVERDUE' ? 'p-yes' : r.status === 'never audited' ? 'p-warn' : 'p-no'" x-text="r.status"></span>
+              </div>
+            </template>
+            <p class="note" x-text="$store.gmpAudit.plan.note"></p>
+          </div>
+        </template>
+      </div>
+    </div>
+    <style>
+      .dock-panel{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background)}.panel-header{padding:14px 20px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0}.header-left{display:flex;align-items:center;gap:12px}.header-icon{font-size:28px;color:var(--color-primary)}h2{color:var(--color-text);font-size:1.05rem;margin:0;font-weight:700}.sub{color:var(--color-text-muted);font-size:.7rem;margin:2px 0 0 0}
+      .dock-tabs{display:flex;gap:2px;padding:6px 20px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0;overflow-x:auto}.dock-tab{display:flex;align-items:center;gap:4px;padding:6px 12px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--color-text-muted);cursor:pointer;font-size:.68rem;font-weight:500;white-space:nowrap}.dock-tab.active{color:var(--color-primary);border-bottom-color:var(--color-primary)}.dock-tab .material-symbols-outlined{font-size:15px}
+      .panel-body{flex:1;overflow-y:auto;padding:16px 20px}.tc{min-height:120px}.st{font-size:.78rem;font-weight:700;color:var(--color-text);margin:0 0 8px 0;padding-bottom:6px;border-bottom:1px solid var(--color-border)}
+      .card{padding:13px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:11px;display:flex;flex-direction:column;gap:6px;margin-bottom:10px}.card h4{font-size:.74rem;margin:0;color:var(--color-text)}
+      .inp{flex:1;min-width:100px;padding:8px 10px;border:1px solid var(--color-border);border-radius:7px;background:var(--color-background);color:var(--color-text);font-size:.72rem}.inp.sm{max-width:90px}
+      .run{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px;background:var(--color-primary);border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:.78rem;font-weight:600}.run:disabled{opacity:.45}.bk{display:flex;align-items:center;padding:8px 14px;background:none;border:1px solid var(--color-border);border-radius:8px;color:var(--color-text-muted);cursor:pointer;font-size:.7rem;white-space:nowrap}.bk:hover{color:var(--color-primary);border-color:var(--color-primary)}.rowb{display:flex;gap:8px;flex-wrap:wrap}
+      .err{padding:8px 10px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.2);border-radius:6px;color:#ff6b6b;font-size:.68rem;margin-bottom:8px}.ld{display:flex;align-items:center;gap:6px;padding:6px 0;font-size:.7rem;color:var(--color-text-muted)}.sp{width:14px;height:14px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+      .chk{display:flex;align-items:flex-start;gap:7px;font-size:.66rem;color:var(--color-text);cursor:pointer;padding:4px 6px;border-radius:6px}.chk:hover{background:color-mix(in srgb,var(--color-primary) 4%,transparent)}.chk input{accent-color:var(--color-primary);margin-top:2px}.ref{color:var(--color-primary);font-weight:700;font-size:.6rem;min-width:64px;font-family:var(--font-mono,monospace)}
+      .tbl{width:100%;border-collapse:collapse;font-size:.64rem}.tbl th{text-align:left;color:var(--color-text-muted);font-size:.56rem;text-transform:uppercase;padding:4px 8px;border-bottom:1px solid var(--color-border)}.tbl td{padding:3px 8px;border-bottom:1px dotted var(--color-border);color:var(--color-text)}.mono{font-family:var(--font-mono,monospace)}.dim{color:var(--color-text-muted);font-size:.6rem}
+      .fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}
+      .srow{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}.st-c{flex:1;min-width:100px;display:flex;flex-direction:column;align-items:center;padding:10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:9px}.st-c .v{font-size:1rem;font-weight:800;color:var(--color-primary);font-family:var(--font-mono,monospace)}.st-c .l{font-size:.56rem;color:var(--color-text-muted);font-weight:700;text-transform:uppercase}.st-c.warn .v{color:#ef4444}
+      .rec{display:flex;align-items:center;gap:7px;padding:6px 9px;background:var(--color-background);border:1px solid var(--color-border);border-radius:7px;margin-bottom:3px;font-size:.66rem;flex-wrap:wrap}.rec.od{border-color:rgba(239,68,68,.4)}.rid{color:var(--color-primary);font-weight:700}.rt{flex:1;color:var(--color-text)}
+      .sev{padding:1px 7px;border-radius:4px;font-size:.55rem;font-weight:700}.sv-maj{background:rgba(249,115,22,.14);color:#f97316}.sv-cri{background:rgba(239,68,68,.15);color:#ef4444}.sv-min{background:rgba(34,197,94,.1);color:#22c55e}
+      .pill{padding:1px 8px;border-radius:999px;font-size:.55rem;font-weight:700}.p-yes{background:rgba(245,158,11,.14);color:#d97706}.p-no{background:rgba(34,197,94,.1);color:#22c55e}.p-warn{background:rgba(245,158,11,.12);color:#d97706}
+      .od-warn{color:#ef4444;font-weight:800;font-size:.58rem}.st-acts{display:flex;gap:3px}.mini{border:1px solid var(--color-border);background:none;border-radius:4px;color:var(--color-text-muted);cursor:pointer;font-size:.6rem;padding:1px 6px}.mini.ok{color:#22c55e}
+      .kv{font-size:.68rem;margin:0;color:var(--color-text)}.note{font-size:.6rem;color:var(--color-text-muted);font-style:italic;margin:0}
+    </style>
+  </div>
+</body>
+</html>

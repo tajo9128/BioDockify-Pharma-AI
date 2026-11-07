@@ -18,6 +18,18 @@
         <span class="material-symbols-outlined">biotech</span>
         <span class="tool-label">Mol Toolkit</span>
       </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('netpharm-pro')">
+        <span class="material-symbols-outlined">hub</span>
+        <span class="tool-label">NetPro</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('gmp-audit')">
+        <span class="material-symbols-outlined">verified_user</span>
+        <span class="tool-label">GMP</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('pharmacoeconomics')">
+        <span class="material-symbols-outlined">payments</span>
+        <span class="tool-label">Economics</span>
+      </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('spectra-lab')">
         <span class="material-symbols-outlined">ssid_chart</span>
         <span class="tool-label">Spectra</span>
