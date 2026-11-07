@@ -97,6 +97,39 @@ def _parse_pdb_atoms(pdb_text: str) -> list:
     return atoms
 
 
+_PDBQT_TYPE_MAP = {"A": "C", "NA": "N", "OA": "O", "SA": "S", "OS": "O",
+                   "NS": "N", "HD": "H", "HS": "H", "CG0": "C"}
+
+
+def _norm_element(el: str) -> str:
+    """Normalize a PDB/PDBQT element field to a real chemical symbol.
+
+    Vina's docked PDBQT writes AutoDock atom TYPES (A=aromatic C, NA, OA,
+    HD...) in the element column — Chem.Atom('A') raises, which used to kill
+    ligand reconstruction and drop the 2D diagram to the text fallback.
+    """
+    el = (el or "").strip()
+    if el in _PDBQT_TYPE_MAP:
+        return _PDBQT_TYPE_MAP[el]
+    if len(el) == 2 and el[1].isdigit():
+        el = el[0]
+    if len(el) > 1:
+        el = el[0].upper() + el[1:].lower()
+    else:
+        el = el.upper()
+    try:
+        from rdkit.Chem import GetPeriodicTable
+        GetPeriodicTable().GetAtomicNumber(el)
+        return el
+    except Exception:
+        try:
+            from rdkit.Chem import GetPeriodicTable
+            GetPeriodicTable().GetAtomicNumber(el[:1].upper())
+            return el[:1].upper()
+        except Exception:
+            return "C"
+
+
 def _parse_pdbqt_models(pdbqt_text: str) -> list:
     models, current = [], []
     for line in pdbqt_text.split("\n"):
@@ -108,7 +141,7 @@ def _parse_pdbqt_models(pdbqt_text: str) -> list:
             current = []
         elif line.startswith("ATOM") or line.startswith("HETATM"):
             try:
-                current.append({"serial": int(line[6:11]), "name": line[12:16].strip(), "resname": line[17:20].strip(), "chain": line[21:22].strip() or "L", "resseq": int(line[22:26]) if line[22:26].strip() else 1, "x": float(line[30:38]), "y": float(line[38:46]), "z": float(line[46:54]), "element": (line[76:78] or line[12:14]).strip(), "charge": float(line[70:76]) if line[70:76].strip() else 0.0})
+                current.append({"serial": int(line[6:11]), "name": line[12:16].strip(), "resname": line[17:20].strip(), "chain": line[21:22].strip() or "L", "resseq": int(line[22:26]) if line[22:26].strip() else 1, "x": float(line[30:38]), "y": float(line[38:46]), "z": float(line[46:54]), "element": _norm_element(line[76:78] or line[12:14]), "charge": float(line[70:76]) if line[70:76].strip() else 0.0})
             except (ValueError, IndexError):
                 pass
     return models
@@ -283,12 +316,14 @@ def _generate_interaction_svg(job_id, pose_index, receptor_text, ligand_models, 
                 # coordinates — atoms alone (no bonds) yield no drawable molecule.
                 from rdkit.Chem import rdDetermineBonds
                 lig_coords = np.array([[a["x"], a["y"], a["z"]] for a in latoms])
-                lig_symbols = [a["element"] for a in latoms]
+                lig_symbols = [_norm_element(a.get("element", "")) for a in latoms]
                 rw = Chem.RWMol()
                 conf = Chem.Conformer(len(latoms))
                 for i, (sym, pos) in enumerate(zip(lig_symbols, lig_coords)):
-                    atom = Chem.Atom(sym)
-                    rw.AddAtom(atom)
+                    try:
+                        rw.AddAtom(Chem.Atom(sym))
+                    except Exception:
+                        rw.AddAtom(Chem.Atom("C"))
                     conf.SetAtomPosition(i, [float(pos[0]), float(pos[1]), float(pos[2])])
                 mol = rw.GetMol()
                 mol.AddConformer(conf)
