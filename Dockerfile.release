@@ -78,17 +78,24 @@ RUN curl -fsSL https://github.com/mamba-org/micromamba-releases/releases/latest/
     # 2. Copy conda's openmm Python package into the venv (version-matched 3.12)
     cp -a /tmp/mamba/envs/omm/lib/python3.12/site-packages/openmm \
           /opt/venv-a0/lib/python3.12/site-packages/ && \
-    # 3. Copy ALL shared libraries to system path (core + linked + plugins)
+    # 3. Copy ALL shared libraries to system path (core + linked + plugins).
+    # libcufft + libnvrtc are REQUIRED by libOpenMMCUDA.so — without them the
+    # CUDA platform never registers and MD Lite fails on every user's GPU.
     cp -a /tmp/mamba/envs/omm/lib/libOpenMM*.so* /usr/local/lib/ && \
     cp -a /tmp/mamba/envs/omm/lib/libcudart.so* /usr/local/lib/ && \
+    cp -a /tmp/mamba/envs/omm/lib/libcufft.so* /usr/local/lib/ && \
+    cp -a /tmp/mamba/envs/omm/lib/libnvrtc.so* /usr/local/lib/ && \
+    (cp -a /tmp/mamba/envs/omm/lib/libnvvm*.so* /usr/local/lib/ || true) && \
     mkdir -p /opt/openmm-plugins && \
     cp /tmp/mamba/envs/omm/lib/plugins/libOpenMM*.so /opt/openmm-plugins/ && \
     ldconfig && \
     rm -rf /tmp/mamba /usr/local/bin/micromamba && \
     echo "=== Installed plugins ===" && \
     ls /opt/openmm-plugins/ && \
-    echo "=== System libs ===" && \
-    ldconfig -p | grep -E "OpenMM|cudart"
+    echo "=== CUDA plugin dependency check ===" && \
+    MISSING_DEPS=$(ldd /opt/openmm-plugins/libOpenMMCUDA.so 2>/dev/null | grep "not found" | grep -v "libcuda.so.1" || true) && \
+    if [ -n "$MISSING_DEPS" ]; then echo "ERROR: CUDA plugin deps missing (libcuda.so.1 is expected-missing until runtime): $MISSING_DEPS"; exit 1; fi && \
+    echo "CUDA plugin deps OK (only libcuda.so.1 pending — injected by --gpus all at runtime)"
 
 # Tell OpenMM where to find platform plugins + ensure linker finds libs
 ENV OPENMM_PLUGIN_DIR=/opt/openmm-plugins
