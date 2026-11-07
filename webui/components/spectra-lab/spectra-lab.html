@@ -1,0 +1,235 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+    export const store = createStore("spectraLab", {
+      activeTab: "ir", loading: false, error: "",
+      // IR
+      irPeaksText: "3350 (broad), 2950, 1705, 1600, 1510, 1240, 830",
+      irResult: null,
+      // NMR
+      nmrSmiles: "CC(=O)Nc1ccc(O)cc1", nmrResult: null,
+      // Multiplets
+      peaksText: "1.3, t, 3, 7.1\n2.1, s, 3\n4.0, q, 2, 7.1\n7.4, d, 2, 8.6\n7.9, d, 2, 8.6",
+      multResult: null,
+      // MS
+      msSmiles: "CC(=O)Nc1ccc(O)cc1", msIon: "ESI+", msResult: null,
+      // UV
+      uvSmiles: "O=Cc1ccc(O)cc1", uvResult: null,
+
+      async run(action, body, key) {
+        this.loading = true; this.error = ""; this[key] = null;
+        try {
+          const r = await callJsonApi("spectra_lab", { action, ...body });
+          if (r.error) this.error = r.error; else this[key] = r;
+        } catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async ir() {
+        const peaks = this.irPeaksText.split(/[,\n;]+/).map(s => {
+          const parts = s.trim().split(/\s+/);
+          return { wavenumber: parseFloat(parts[0]), note: parts.slice(1).join(" ") };
+        }).filter(p => !isNaN(p.wavenumber));
+        await this.run("ir_match", { peaks }, "irResult");
+      },
+      parsePeaks() {
+        return this.peaksText.split("\n").map(l => {
+          const p = l.split(",").map(s => s.trim());
+          return { shift: parseFloat(p[0]), multiplicity: p[1] || "m", integration: parseFloat(p[2] || 0), j_hz: parseFloat(p[3] || 0) };
+        }).filter(p => !isNaN(p.shift));
+      },
+      async mults() { await this.run("multiplets", { peaks: this.parsePeaks() }, "multResult"); },
+      async nmr() { await this.run("nmr_estimate", { smiles: this.nmrSmiles }, "nmrResult"); },
+      async ms() { await this.run("ms_fragments", { smiles: this.msSmiles, ionization: this.msIon }, "msResult"); },
+      async uv() { await this.run("uv_rules", { smiles: this.uvSmiles }, "uvResult"); },
+      conf(c) { return { high: "cf-hi", ambiguous: "cf-am", none: "cf-no" }[c] || "cf-no"; },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="dock-panel">
+    <div class="panel-header">
+      <div class="header-left">
+        <span class="material-symbols-outlined header-icon">ssid_chart</span>
+        <div><h2>Spectra &amp; Elucidation Lab</h2>
+        <p class="header-subtitle">IR matcher · NMR estimate &amp; multiplets · MS fragments · UV rules</p></div>
+      </div>
+    </div>
+    <div class="dock-tabs">
+      <button class="dock-tab" :class="{active: $store.spectraLab.activeTab==='ir'}" @click="$store.spectraLab.activeTab='ir'"><span class="material-symbols-outlined">waves</span> IR</button>
+      <button class="dock-tab" :class="{active: $store.spectraLab.activeTab==='h1'}" @click="$store.spectraLab.activeTab='h1'"><span class="material-symbols-outlined">stacked_line_chart</span> ¹H Multiplets</button>
+      <button class="dock-tab" :class="{active: $store.spectraLab.activeTab==='predict'}" @click="$store.spectraLab.activeTab='predict'"><span class="material-symbols-outlined">science</span> NMR Predict</button>
+      <button class="dock-tab" :class="{active: $store.spectraLab.activeTab==='ms'}" @click="$store.spectraLab.activeTab='ms'"><span class="material-symbols-outlined">bubble_chart</span> MS</button>
+      <button class="dock-tab" :class="{active: $store.spectraLab.activeTab==='uv'}" @click="$store.spectraLab.activeTab='uv'"><span class="material-symbols-outlined">flare</span> UV</button>
+    </div>
+    <div class="panel-body">
+      <div x-show="$store.spectraLab.error" class="dock-error" x-text="$store.spectraLab.error"></div>
+      <div x-show="$store.spectraLab.loading" class="dock-loading"><div class="sp"></div> Matching…</div>
+
+      <!-- IR -->
+      <div x-show="$store.spectraLab.activeTab==='ir'" class="tab-content">
+        <h3 class="st">Enter IR peaks (cm⁻¹)</h3>
+        <div class="card">
+          <textarea x-model="$store.spectraLab.irPeaksText" rows="3" class="ta" placeholder="3350 broad, 1705, 1240 …"></textarea>
+          <button class="run" @click="$store.spectraLab.ir()">Match functional groups</button>
+        </div>
+        <template x-if="$store.spectraLab.irResult">
+          <div class="card">
+            <template x-for="p in $store.spectraLab.irResult.peaks" :key="p.wavenumber">
+              <div class="peak-row">
+                <b class="mono" x-text="p.wavenumber"></b>
+                <span class="cf" :class="$store.spectraLab.conf(p.confidence)" x-text="p.confidence"></span>
+                <span x-text="p.assignments.join('  |  ')"></span>
+              </div>
+            </template>
+            <p class="kv"><b>Groups present:</b> <span x-text="$store.spectraLab.irResult.groups_present.join(', ') || '—'"></span></p>
+            <p class="note" x-text="$store.spectraLab.irResult.note"></p>
+          </div>
+        </template>
+      </div>
+
+      <!-- H1 -->
+      <div x-show="$store.spectraLab.activeTab==='h1'" class="tab-content">
+        <h3 class="st">Measured ¹H peaks — shift, mult, integration, J(Hz)</h3>
+        <div class="card">
+          <textarea x-model="$store.spectraLab.peaksText" rows="6" class="ta mono" placeholder="one peak per line"></textarea>
+          <button class="run" @click="$store.spectraLab.mults()">Interpret multiplets</button>
+        </div>
+        <template x-if="$store.spectraLab.multResult">
+          <div class="card">
+            <table class="tbl">
+              <thead><tr><th>δ</th><th>mult</th><th>int</th><th>J</th><th>environment</th><th>neighbors</th></tr></thead>
+              <tbody>
+                <template x-for="p in $store.spectraLab.multResult.peaks" :key="p.shift">
+                  <tr><td class="mono" x-text="p.shift"></td><td x-text="p.multiplicity"></td><td x-text="p.integration || '—'"></td><td x-text="p.j_hz || '—'"></td><td x-text="p.likely_env"></td><td class="dim" x-text="p.neighbors"></td></tr>
+                </template>
+              </tbody>
+            </table>
+            <p class="kv" x-show="$store.spectraLab.multResult.total_integrated_H"><b>Total H:</b> <span x-text="$store.spectraLab.multResult.total_integrated_H"></span></p>
+          </div>
+        </template>
+      </div>
+
+      <!-- PREDICT -->
+      <div x-show="$store.spectraLab.activeTab==='predict'" class="tab-content">
+        <h3 class="st">Estimated shifts from SMILES</h3>
+        <div class="card">
+          <input type="text" x-model="$store.spectraLab.nmrSmiles" class="inp mono" placeholder="SMILES" />
+          <button class="run" @click="$store.spectraLab.nmr()">Estimate ¹H &amp; ¹³C</button>
+        </div>
+        <template x-if="$store.spectraLab.nmrResult">
+          <div>
+            <div class="card">
+              <h4>¹H estimates — <span x-text="$store.spectraLab.nmrResult.formula"></span></h4>
+              <template x-for="h in $store.spectraLab.nmrResult.h1" :key="h.shift_ppm">
+                <div class="peak-row"><b class="mono" x-text="h.shift_ppm.toFixed(1)"></b><span x-text="h.group"></span><span class="dim" x-text="'~' + h.approx_H + 'H'"></span></div>
+              </template>
+            </div>
+            <div class="card">
+              <h4>¹³C estimates</h4>
+              <div class="c13-grid">
+                <template x-for="c in $store.spectraLab.nmrResult.c13" :key="c.idx">
+                  <span class="c13 mono" x-text="c.d13_est"></span>
+                </template>
+              </div>
+            </div>
+            <p class="note" x-text="$store.spectraLab.nmrResult.note"></p>
+          </div>
+        </template>
+      </div>
+
+      <!-- MS -->
+      <div x-show="$store.spectraLab.activeTab==='ms'" class="tab-content">
+        <h3 class="st">Fragmentation predictor</h3>
+        <div class="card">
+          <div class="row">
+            <input type="text" x-model="$store.spectraLab.msSmiles" class="inp mono" placeholder="SMILES" />
+            <select x-model="$store.spectraLab.msIon" class="inp sel"><option>ESI+</option><option>ESI-</option><option>EI (GC-MS)</option></select>
+          </div>
+          <button class="run" @click="$store.spectraLab.ms()">Predict fragments</button>
+        </div>
+        <template x-if="$store.spectraLab.msResult">
+          <div>
+            <div class="stat-row">
+              <div class="stat"><span class="v" x-text="$store.spectraLab.msResult.mw"></span><span class="l">MW</span></div>
+              <div class="stat"><span class="v" x-text="$store.spectraLab.msResult.precursor_mz"></span><span class="l" x-text="$store.spectraLab.msResult.ionization + ' m/z'"></span></div>
+            </div>
+            <div class="card"><h4>Neutral losses</h4>
+              <template x-for="nl in $store.spectraLab.msResult.common_neutral_losses" :key="nl.mz">
+                <div class="peak-row"><b class="mono" x-text="nl.mz"></b><span class="loss" x-text="'−' + nl.loss"></span><span class="dim" x-text="nl.hint"></span></div>
+              </template>
+            </div>
+            <div class="card" x-show="$store.spectraLab.msResult.diagnostic_ions.length"><h4>Diagnostic ions</h4>
+              <template x-for="d in $store.spectraLab.msResult.diagnostic_ions" :key="d.mz">
+                <div class="peak-row"><b class="mono" x-text="d.mz"></b><span x-text="d.ion"></span></div>
+              </template>
+            </div>
+            <p class="kv"><b>Isotope pattern:</b> <span x-text="$store.spectraLab.msResult.isotope_pattern.join(' · ')"></span></p>
+            <p class="note" x-text="$store.spectraLab.msResult.note"></p>
+          </div>
+        </template>
+      </div>
+
+      <!-- UV -->
+      <div x-show="$store.spectraLab.activeTab==='uv'" class="tab-content">
+        <h3 class="st">UV λmax rules (Woodward–Fieser)</h3>
+        <div class="card">
+          <input type="text" x-model="$store.spectraLab.uvSmiles" class="inp mono" placeholder="SMILES" />
+          <button class="run" @click="$store.spectraLab.uv()">Apply rules</button>
+        </div>
+        <template x-if="$store.spectraLab.uvResult">
+          <div class="card">
+            <template x-for="c in $store.spectraLab.uvResult.chromophores" :key="c.chromophore">
+              <div class="peak-row"><b class="mono" x-text="c.base_nm + ' nm'"></b><b x-text="c.chromophore"></b><span class="dim" x-text="c.lmax_rule"></span></div>
+            </template>
+            <p class="note" x-text="$store.spectraLab.uvResult.note"></p>
+          </div>
+        </template>
+      </div>
+    </div>
+    <style>
+      .dock-panel{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background)}
+      .panel-header{padding:14px 20px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0}
+      .header-left{display:flex;align-items:center;gap:12px}
+      .header-icon{font-size:28px;color:var(--color-primary)}
+      .panel-header h2{color:var(--color-text);font-size:1.05rem;margin:0;font-weight:700}
+      .header-subtitle{color:var(--color-text-muted);font-size:.7rem;margin:2px 0 0 0}
+      .dock-tabs{display:flex;gap:2px;padding:6px 20px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0;overflow-x:auto}
+      .dock-tab{display:flex;align-items:center;gap:4px;padding:6px 12px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--color-text-muted);cursor:pointer;font-size:.68rem;font-weight:500;white-space:nowrap}
+      .dock-tab.active{color:var(--color-primary);border-bottom-color:var(--color-primary)}
+      .dock-tab .material-symbols-outlined{font-size:15px}
+      .panel-body{flex:1;overflow-y:auto;padding:16px 20px}
+      .tab-content{min-height:120px}
+      .st{font-size:.78rem;font-weight:700;color:var(--color-text);margin:0 0 8px 0;padding-bottom:6px;border-bottom:1px solid var(--color-border)}
+      .card{padding:13px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:11px;display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+      .card h4{font-size:.74rem;margin:0;color:var(--color-text)}
+      .inp{flex:1;padding:8px 10px;border:1px solid var(--color-border);border-radius:7px;background:var(--color-background);color:var(--color-text);font-size:.74rem}
+      .inp.mono{font-family:var(--font-mono,monospace)}.sel{max-width:120px}
+      .ta{width:100%;min-height:54px;padding:8px 10px;border:1px solid var(--color-border);border-radius:7px;background:var(--color-background);color:var(--color-text);font-size:.72rem;font-family:var(--font-mono,monospace);resize:vertical}
+      .run{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px;background:var(--color-primary);border:none;border-radius:8px;color:white;cursor:pointer;font-size:.78rem;font-weight:600}
+      .dock-error{padding:8px 10px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.2);border-radius:6px;color:#ff6b6b;font-size:.68rem;margin-bottom:8px}
+      .dock-loading{display:flex;align-items:center;gap:6px;padding:6px 0;font-size:.7rem;color:var(--color-text-muted)}
+      .sp{width:14px;height:14px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin .8s linear infinite}
+      @keyframes spin{to{transform:rotate(360deg)}}
+      .peak-row{display:flex;align-items:baseline;gap:8px;padding:5px 8px;background:var(--color-background);border:1px solid var(--color-border);border-radius:7px;margin-bottom:3px;font-size:.68rem;flex-wrap:wrap}
+      .peak-row b{color:var(--color-text)}
+      .mono{font-family:var(--font-mono,monospace)}
+      .cf{padding:1px 7px;border-radius:4px;font-size:.55rem;font-weight:700}
+      .cf-hi{background:rgba(34,197,94,.12);color:#22c55e}.cf-am{background:rgba(245,158,11,.12);color:#d97706}.cf-no{background:rgba(107,114,128,.12);color:#6b7280}
+      .kv{font-size:.68rem;margin:0;color:var(--color-text)}.dim{color:var(--color-text-muted);font-size:.62rem}
+      .note{font-size:.6rem;color:var(--color-text-muted);font-style:italic;margin:0}
+      .tbl{width:100%;border-collapse:collapse;font-size:.66rem}
+      .tbl th{text-align:left;color:var(--color-text-muted);font-size:.56rem;text-transform:uppercase;padding:4px 8px;border-bottom:1px solid var(--color-border)}
+      .tbl td{padding:3px 8px;border-bottom:1px dotted var(--color-border);color:var(--color-text)}
+      .stat-row{display:flex;gap:8px;margin-bottom:10px}
+      .stat{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:9px}
+      .stat .v{font-size:1.1rem;font-weight:800;color:var(--color-primary);font-family:var(--font-mono,monospace)}
+      .stat .l{font-size:.58rem;color:var(--color-text-muted);font-weight:700;text-transform:uppercase}
+      .c13-grid{display:flex;flex-wrap:wrap;gap:5px}
+      .c13{padding:3px 8px;background:var(--color-background);border:1px solid var(--color-border);border-radius:5px;font-size:.66rem;font-weight:700;color:var(--color-primary)}
+      .row{display:flex;gap:8px}.loss{color:var(--color-primary);font-weight:700;font-size:.64rem}
+    </style>
+  </div>
+</body>
+</html>

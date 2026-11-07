@@ -18,6 +18,18 @@
         <span class="material-symbols-outlined">biotech</span>
         <span class="tool-label">Mol Toolkit</span>
       </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('spectra-lab')">
+        <span class="material-symbols-outlined">ssid_chart</span>
+        <span class="tool-label">Spectra</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('bioprocess')">
+        <span class="material-symbols-outlined">genetics</span>
+        <span class="tool-label">BioProc</span>
+      </button>
+      <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('phytochem')">
+        <span class="material-symbols-outlined">local_florist</span>
+        <span class="tool-label">Phyto</span>
+      </button>
       <button class="tool-card" @click="$store.desktopWorkspace?.openWindow('pharmacovigilance')">
         <span class="material-symbols-outlined">monitor_heart</span>
         <span class="tool-label">PvStudio</span>

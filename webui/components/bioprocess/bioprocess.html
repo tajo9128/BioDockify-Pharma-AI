@@ -1,0 +1,219 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+    export const store = createStore("bioproc", {
+      activeTab: "protein", loading: false, error: "",
+      seq: "MKTAYIAKQRQISFVKSHFSRQ", seqName: "",
+      protResult: null, antResult: null,
+      br: { mu_max: 0.5, ks: 0.2, s0: 20, yxs: 0.5, f_rate: 0.15, volume: 1.0 },
+      brResult: null,
+      media: { carbon_source: "glucose", carbon_g_l: 20, nitrogen_source: "ammonium sulfate", nitrogen_g_l: 5 },
+      mediaResult: null,
+      clone: { insert_bp: 1000, vector_bp: 5000, insert_mass_ng: 100, vector_mass_ng: 100, ratio: 3 },
+      cloneResult: null,
+      checklist: null,
+      async run(action, body, key) {
+        this.loading = true; this.error = ""; this[key] = null;
+        try { const r = await callJsonApi("bioprocess", { action, ...body }); if (r.error) this.error = r.error; else this[key] = r; }
+        catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+      async protein() { await this.run("protein", { sequence: this.seq, name: this.seqName }, "protResult"); if (this.protResult) await this.run("antigenicity", { sequence: this.seq }, "antResult"); },
+      async bioreactor() { await this.run("bioreactor", { ...this.br }, "brResult"); },
+      async mediaCalc() { await this.run("media_cn", { ...this.media }, "mediaResult"); },
+      async cloneCalc() { await this.run("cloning", { ...this.clone }, "cloneResult"); },
+      async loadChecklist() { if (!this.checklist) await this.run("biosimilar_checklist", {}, "checklist"); },
+      warn(v) { return v && v.includes("WASHOUT") ? "w-warn" : v && v.includes("marginal") ? "w-marg" : "w-ok"; },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="dock-panel">
+    <div class="panel-header">
+      <div class="header-left">
+        <span class="material-symbols-outlined header-icon">genetics</span>
+        <div><h2>Bioprocess &amp; Protein Studio</h2>
+        <p class="header-subtitle">Protein properties · epitope screen · bioreactor · media · cloning · biosimilar CMC</p></div>
+      </div>
+    </div>
+    <div class="dock-tabs">
+      <button class="dock-tab" :class="{active: $store.bioproc.activeTab==='protein'}" @click="$store.bioproc.activeTab='protein'"><span class="material-symbols-outlined">biotech</span> Protein</button>
+      <button class="dock-tab" :class="{active: $store.bioproc.activeTab==='reactor'}" @click="$store.bioproc.activeTab='reactor'"><span class="material-symbols-outlined">propane_tank</span> Bioreactor</button>
+      <button class="dock-tab" :class="{active: $store.bioproc.activeTab==='media'}" @click="$store.bioproc.activeTab='media'"><span class="material-symbols-outlined">water_drop</span> Media C:N</button>
+      <button class="dock-tab" :class="{active: $store.bioproc.activeTab==='clone'}" @click="$store.bioproc.activeTab='clone'"><span class="material-symbols-outlined">content_cut</span> Cloning</button>
+      <button class="dock-tab" :class="{active: $store.bioproc.activeTab==='biosim'}" @click="$store.bioproc.activeTab='biosim'; $store.bioproc.loadChecklist()"><span class="material-symbols-outlined">fact_check</span> Biosimilar</button>
+    </div>
+    <div class="panel-body">
+      <div x-show="$store.bioproc.error" class="dock-error" x-text="$store.bioproc.error"></div>
+      <div x-show="$store.bioproc.loading" class="dock-loading"><div class="sp"></div> Computing…</div>
+
+      <!-- PROTEIN -->
+      <div x-show="$store.bioproc.activeTab==='protein'" class="tab-content">
+        <h3 class="st">Protein / peptide workbench</h3>
+        <div class="card">
+          <input type="text" x-model="$store.bioproc.seqName" class="inp" placeholder="Protein name (optional)" />
+          <textarea x-model="$store.bioproc.seq" rows="3" class="ta mono" placeholder="Single-letter sequence (ACDEFGHIKLMNPQRSTVWY)"></textarea>
+          <button class="run" @click="$store.bioproc.protein()">Compute properties + epitope screen</button>
+        </div>
+        <template x-if="$store.bioproc.protResult && !$store.bioproc.protResult.error">
+          <div>
+            <div class="stat-row">
+              <div class="stat"><span class="v" x-text="$store.bioproc.protResult.molecular_weight_kDa"></span><span class="l">kDa</span></div>
+              <div class="stat"><span class="v" x-text="$store.bioproc.protResult.isoelectric_point_pI"></span><span class="l">pI</span></div>
+              <div class="stat"><span class="v" x-text="$store.bioproc.protResult.extinction_coeff_280"></span><span class="l">ε₂₈₀</span></div>
+              <div class="stat"><span class="v" x-text="$store.bioproc.protResult.gravy_hydropathy"></span><span class="l">GRAVY</span></div>
+              <div class="stat"><span class="v" x-text="$store.bioproc.protResult.length"></span><span class="l">residues</span></div>
+            </div>
+            <div class="card">
+              <p class="kv"><span class="dim">hydropathy:</span> <b x-text="$store.bioproc.protResult.hydropathy_verdict"></b> · <span class="dim">A280:</span> <span x-text="$store.bioproc.protResult.extinction_note"></span> · <span x-text="$store.bioproc.protResult.formula_hint"></span></p>
+              <p class="kv"><span class="dim">aromatics:</span> <span x-text="JSON.stringify($store.bioproc.protResult.aromatics)"></span> · <span class="dim">charged:</span> <span x-text="JSON.stringify($store.bioproc.protResult.charged_groups)"></span></p>
+            </div>
+            <template x-if="$store.bioproc.antResult && !$store.bioproc.antResult.error">
+              <div class="card"><h4>Top B-cell epitope 8-mer candidates</h4>
+                <template x-for="t in $store.bioproc.antResult.top_epitope_candidates" :key="t.start">
+                  <div class="row-line"><b class="mono" x-text="t.start + '–' + (t.start+7)"></b><span class="mono seq" x-text="t.window"></span><span class="pill" x-text="'score ' + t.score"></span></div>
+                </template>
+                <p class="note" x-text="$store.bioproc.antResult.advice"></p>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+
+      <!-- REACTOR -->
+      <div x-show="$store.bioproc.activeTab==='reactor'" class="tab-content">
+        <h3 class="st">Chemostat / Monod kinetics</h3>
+        <div class="card">
+          <div class="fgrid">
+            <label class="f">μmax (1/h)<input type="number" step="0.01" x-model.number="$store.bioproc.br.mu_max" /></label>
+            <label class="f">Ks (g/L)<input type="number" step="0.01" x-model.number="$store.bioproc.br.ks" /></label>
+            <label class="f">S₀ (g/L)<input type="number" x-model.number="$store.bioproc.br.s0" /></label>
+            <label class="f">Yxs (g/g)<input type="number" step="0.01" x-model.number="$store.bioproc.br.yxs" /></label>
+            <label class="f">Feed (L/h)<input type="number" step="0.01" x-model.number="$store.bioproc.br.f_rate" /></label>
+            <label class="f">Volume (L)<input type="number" step="0.1" x-model.number="$store.bioproc.br.volume" /></label>
+          </div>
+          <button class="run" @click="$store.bioproc.bioreactor()">Compute steady state</button>
+        </div>
+        <template x-if="$store.bioproc.brResult && !$store.bioproc.brResult.error">
+          <div>
+            <div class="verdict" :class="$store.bioproc.warn($store.bioproc.brResult.washout_risk)"><span class="material-symbols-outlined" x-text="$store.bioproc.brResult.washout_risk.includes('WASHOUT') ? 'dangerous' : 'check_circle'"></span><span x-text="$store.bioproc.brResult.washout_risk"></span></div>
+            <div class="stat-row">
+              <div class="stat"><span class="v" x-text="$store.bioproc.brResult.doubling_time_min"></span><span class="l">t dbl (min)</span></div>
+              <div class="stat"><span class="v" x-text="$store.bioproc.brResult.critical_dilution_rate_per_h"></span><span class="l">Dcrit</span></div>
+              <div class="stat"><span class="v" x-text="$store.bioproc.brResult.steady_state?.biomass_g_L ?? '—'"></span><span class="l">X ss (g/L)</span></div>
+              <div class="stat"><span class="v" x-text="$store.bioproc.brResult.batch_biomass_potential_g_L"></span><span class="l">batch X max</span></div>
+            </div>
+            <p class="note" x-text="$store.bioproc.brResult.note"></p>
+          </div>
+        </template>
+      </div>
+
+      <!-- MEDIA -->
+      <div x-show="$store.bioproc.activeTab==='media'" class="tab-content">
+        <h3 class="st">Fermentation media C:N</h3>
+        <div class="card">
+          <div class="fgrid">
+            <label class="f wide">Carbon source<select x-model="$store.bioproc.media.carbon_source"><option>glucose</option><option>glycerol</option><option>methanol</option><option>yeast extract</option><option>peptone</option><option>corn steep liquor</option></select></label>
+            <label class="f">C (g/L)<input type="number" x-model.number="$store.bioproc.media.carbon_g_l" /></label>
+            <label class="f wide">N source<select x-model="$store.bioproc.media.nitrogen_source"><option>ammonium sulfate</option><option>ammonium chloride</option><option>urea</option><option>yeast extract</option><option>peptone</option><option>corn steep liquor</option></select></label>
+            <label class="f">N (g/L)<input type="number" x-model.number="$store.bioproc.media.nitrogen_g_l" /></label>
+          </div>
+          <button class="run" @click="$store.bioproc.mediaCalc()">Compute C:N</button>
+        </div>
+        <template x-if="$store.bioproc.mediaResult && !$store.bioproc.mediaResult.error">
+          <div class="stat-row">
+            <div class="stat"><span class="v" x-text="$store.bioproc.mediaResult.C_N_ratio"></span><span class="l">C:N</span></div>
+            <div class="stat"><span class="v" x-text="$store.bioproc.mediaResult.carbon_mmol_L"></span><span class="l">C mmol/L</span></div>
+            <div class="stat"><span class="v" x-text="$store.bioproc.mediaResult.nitrogen_mmol_L"></span><span class="l">N mmol/L</span></div>
+            <div class="stat wide-s"><span class="v sm" x-text="$store.bioproc.mediaResult.verdict"></span></div>
+          </div>
+        </template>
+      </div>
+
+      <!-- CLONING -->
+      <div x-show="$store.bioproc.activeTab==='clone'" class="tab-content">
+        <h3 class="st">Ligation &amp; plasmid math</h3>
+        <div class="card">
+          <div class="fgrid">
+            <label class="f">Insert (bp)<input type="number" x-model.number="$store.bioproc.clone.insert_bp" /></label>
+            <label class="f">Vector (bp)<input type="number" x-model.number="$store.bioproc.clone.vector_bp" /></label>
+            <label class="f">Insert (ng)<input type="number" x-model.number="$store.bioproc.clone.insert_mass_ng" /></label>
+            <label class="f">Vector (ng)<input type="number" x-model.number="$store.bioproc.clone.vector_mass_ng" /></label>
+            <label class="f">Target ratio<select x-model.number="$store.bioproc.clone.ratio"><option>3</option><option>5</option><option>1</option></select></label>
+          </div>
+          <button class="run" @click="$store.bioproc.cloneCalc()">Calculate</button>
+        </div>
+        <template x-if="$store.bioproc.cloneResult && !$store.bioproc.cloneResult.error">
+          <div class="stat-row">
+            <div class="stat"><span class="v" x-text="$store.bioproc.cloneResult.current_ratio"></span><span class="l">current ratio</span></div>
+            <div class="stat"><span class="v" x-text="$store.bioproc.cloneResult.insert_ng_needed_for_target"></span><span class="l">ng needed</span></div>
+            <div class="stat"><span class="v" x-text="$store.bioproc.cloneResult.plasmid_size_bp"></span><span class="l">plasmid bp</span></div>
+          </div>
+        </template>
+      </div>
+
+      <!-- BIOSIMILAR -->
+      <div x-show="$store.bioproc.activeTab==='biosim'" class="tab-content">
+        <h3 class="st">Biosimilar comparability checklist</h3>
+        <template x-if="$store.bioproc.checklist">
+          <div>
+            <template x-for="sec in $store.bioproc.checklist.sections" :key="sec.section">
+              <div class="card"><h4 x-text="sec.section"></h4>
+                <template x-for="item in sec.items" :key="item">
+                  <label class="chk"><input type="checkbox" /> <span x-text="item"></span></label>
+                </template>
+              </div>
+            </template>
+            <p class="note" x-text="'Refs: ' + ($store.bioproc.checklist.reference || '')"></p>
+          </div>
+        </template>
+      </div>
+    </div>
+    <style>
+      .dock-panel{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background)}
+      .panel-header{padding:14px 20px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0}
+      .header-left{display:flex;align-items:center;gap:12px}
+      .header-icon{font-size:28px;color:var(--color-primary)}
+      .panel-header h2{color:var(--color-text);font-size:1.05rem;margin:0;font-weight:700}
+      .header-subtitle{color:var(--color-text-muted);font-size:.7rem;margin:2px 0 0 0}
+      .dock-tabs{display:flex;gap:2px;padding:6px 20px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0;overflow-x:auto}
+      .dock-tab{display:flex;align-items:center;gap:4px;padding:6px 12px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--color-text-muted);cursor:pointer;font-size:.68rem;font-weight:500;white-space:nowrap}
+      .dock-tab.active{color:var(--color-primary);border-bottom-color:var(--color-primary)}
+      .dock-tab .material-symbols-outlined{font-size:15px}
+      .panel-body{flex:1;overflow-y:auto;padding:16px 20px}
+      .tab-content{min-height:120px}
+      .st{font-size:.78rem;font-weight:700;color:var(--color-text);margin:0 0 8px 0;padding-bottom:6px;border-bottom:1px solid var(--color-border)}
+      .card{padding:13px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:11px;display:flex;flex-direction:column;gap:7px;margin-bottom:10px}
+      .card h4{font-size:.74rem;margin:0;color:var(--color-text)}
+      .inp{padding:8px 10px;border:1px solid var(--color-border);border-radius:7px;background:var(--color-background);color:var(--color-text);font-size:.74rem}
+      .ta{width:100%;min-height:50px;padding:8px 10px;border:1px solid var(--color-border);border-radius:7px;background:var(--color-background);color:var(--color-text);font-size:.72rem;font-family:var(--font-mono,monospace);resize:vertical}
+      .run{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px;background:var(--color-primary);border:none;border-radius:8px;color:white;cursor:pointer;font-size:.78rem;font-weight:600}
+      .dock-error{padding:8px 10px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.2);border-radius:6px;color:#ff6b6b;font-size:.68rem;margin-bottom:8px}
+      .dock-loading{display:flex;align-items:center;gap:6px;padding:6px 0;font-size:.7rem;color:var(--color-text-muted)}
+      .sp{width:14px;height:14px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin .8s linear infinite}
+      @keyframes spin{to{transform:rotate(360deg)}}
+      .fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}
+      .f{display:flex;flex-direction:column;gap:3px;font-size:.6rem;color:var(--color-text-muted);font-weight:600}
+      .f.wide{grid-column:span 2}
+      .f input,.f select{padding:6px 8px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-background);color:var(--color-text);font-size:.75rem}
+      .stat-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+      .stat{flex:1;min-width:100px;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:9px}
+      .stat .v{font-size:1.05rem;font-weight:800;color:var(--color-primary);font-family:var(--font-mono,monospace)}
+      .stat .v.sm{font-size:.68rem;text-align:center}
+      .stat .l{font-size:.56rem;color:var(--color-text-muted);font-weight:700;text-transform:uppercase}
+      .verdict{display:flex;align-items:center;gap:7px;padding:9px 12px;border-radius:8px;font-size:.78rem;font-weight:700;margin-bottom:10px}
+      .w-ok{background:rgba(34,197,94,.08);color:#22c55e}.w-marg{background:rgba(245,158,11,.12);color:#d97706}.w-warn{background:rgba(239,68,68,.12);color:#ef4444}
+      .kv{font-size:.68rem;margin:0;color:var(--color-text)}.dim{color:var(--color-text-muted)}
+      .note{font-size:.6rem;color:var(--color-text-muted);font-style:italic;margin:0}
+      .row-line{display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--color-background);border:1px solid var(--color-border);border-radius:7px;margin-bottom:3px;font-size:.66rem}
+      .seq{letter-spacing:.08em;color:var(--color-primary);font-weight:700}
+      .pill{margin-left:auto;padding:1px 8px;border-radius:999px;background:color-mix(in srgb,var(--color-primary) 10%,transparent);color:var(--color-primary);font-size:.56rem;font-weight:700}
+      .chk{display:flex;align-items:center;gap:7px;font-size:.68rem;color:var(--color-text);cursor:pointer}
+      .chk input{accent-color:var(--color-primary)}
+      .mono{font-family:var(--font-mono,monospace)}
+    </style>
+  </div>
+</body>
+</html>

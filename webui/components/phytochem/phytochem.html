@@ -1,0 +1,229 @@
+<html>
+<head>
+  <script type="module">
+    import { createStore } from "/js/AlpineStore.js";
+    import { callJsonApi } from "/js/api.js";
+    export const store = createStore("phyto", {
+      activeTab: "fingerprint", loading: false, error: "",
+      // Fingerprint
+      faText: "12.5, 8.3, 25.1, 15.6, 9.2, 18.4",
+      fbText: "11.8, 8.9, 24.3, 14.9, 10.1, 18.9",
+      fpResult: null,
+      // Assay
+      calText: "2, 12500\n5, 31000\n10, 62000\n20, 125000\n40, 248000",
+      assay: { sample_area: 98000, sample_weight_mg: 100, dilution: 10, volume_ml: 10 },
+      assayResult: null,
+      // Limits
+      lim: { analyte: "Lead (Pb)", value: 4.2, standard: "WHO/API herbal" },
+      limResult: null, limRef: null,
+      // Plants
+      plantQuery: "", plantResult: null,
+      async run(action, body, key) {
+        this.loading = true; this.error = ""; this[key] = null;
+        try { const r = await callJsonApi("phytochem", { action, ...body }); if (r.error) this.error = r.error; else this[key] = r; }
+        catch (e) { this.error = e.message; }
+        this.loading = false;
+      },
+      parseNums(t) { return t.split(/[,\n;]+/).map(s => parseFloat(s.trim())).filter(x => !isNaN(x)); },
+      async fp() { await this.run("fingerprint", { profile_a: this.parseNums(this.faText), profile_b: this.parseNums(this.fbText) }, "fpResult"); },
+      parseCal() {
+        return this.calText.split("\n").map(l => l.split(",").map(s => parseFloat(s.trim()))).filter(p => p.length === 2 && !isNaN(p[0]) && !isNaN(p[1]));
+      },
+      async assayRun() {
+        const cal = this.parseCal();
+        await this.run("assay", { calibration_conc: cal.map(c => c[0]), calibration_area: cal.map(c => c[1]), ...this.assay }, "assayResult");
+      },
+      async limCheck() { await this.run("check_limit", { ...this.lim }, "limResult"); },
+      async limLoad() { if (!this.limRef) await this.run("limits_reference", {}, "limRef"); },
+      async plants() { await this.run("plants", { query: this.plantQuery }, "plantResult"); },
+      passCls(s) { return s === "PASS" ? "pass" : "fail"; },
+    });
+  </script>
+</head>
+<body>
+  <div x-data class="dock-panel">
+    <div class="panel-header">
+      <div class="header-left">
+        <span class="material-symbols-outlined header-icon">local_florist</span>
+        <div><h2>Phytochemistry Deep-Dive</h2>
+        <p class="header-subtitle">Fingerprint similarity · marker assay w/ LOD-LOQ · limits checker · ethnobotany</p></div>
+      </div>
+    </div>
+    <div class="dock-tabs">
+      <button class="dock-tab" :class="{active: $store.phyto.activeTab==='fingerprint'}" @click="$store.phyto.activeTab='fingerprint'"><span class="material-symbols-outlined">fingerprint</span> Fingerprint</button>
+      <button class="dock-tab" :class="{active: $store.phyto.activeTab==='assay'}" @click="$store.phyto.activeTab='assay'"><span class="material-symbols-outlined">analytics</span> Marker Assay</button>
+      <button class="dock-tab" :class="{active: $store.phyto.activeTab==='limits'}" @click="$store.phyto.activeTab='limits'; $store.phyto.limLoad()"><span class="material-symbols-outlined">gavel</span> Limits</button>
+      <button class="dock-tab" :class="{active: $store.phyto.activeTab==='plants'}" @click="$store.phyto.activeTab='plants'; if(!$store.phyto.plantResult) $store.phyto.plants()"><span class="material-symbols-outlined">eco</span> Plants</button>
+    </div>
+    <div class="panel-body">
+      <div x-show="$store.phyto.error" class="dock-error" x-text="$store.phyto.error"></div>
+      <div x-show="$store.phyto.loading" class="dock-loading"><div class="sp"></div> Computing…</div>
+
+      <!-- FINGERPRINT -->
+      <div x-show="$store.phyto.activeTab==='fingerprint'" class="tab-content">
+        <h3 class="st">Chromatographic fingerprint comparison</h3>
+        <div class="card">
+          <label class="lbl">Sample A — peak areas (aligned by Rt)</label>
+          <textarea x-model="$store.phyto.faText" rows="2" class="ta mono"></textarea>
+          <label class="lbl">Sample B — peak areas (same Rt windows)</label>
+          <textarea x-model="$store.phyto.fbText" rows="2" class="ta mono"></textarea>
+          <button class="run" @click="$store.phyto.fp()">Compare profiles</button>
+        </div>
+        <template x-if="$store.phyto.fpResult && !$store.phyto.fpResult.error">
+          <div>
+            <div class="verdict" :class="$store.phyto.fpResult.cosine_similarity >= 0.95 ? 'v-ok' : $store.phyto.fpResult.cosine_similarity >= 0.85 ? 'v-marg' : 'v-bad'">
+              <span class="material-symbols-outlined">fingerprint</span>
+              <span x-text="$store.phyto.fpResult.verdict + ' — cos ' + $store.phyto.fpResult.cosine_similarity + ', r=' + $store.phyto.fpResult.pearson_r + ', ' + $store.phyto.fpResult.matched_peaks + ' peaks matched'"></span>
+            </div>
+            <p class="note" x-text="$store.phyto.fpResult.note"></p>
+          </div>
+        </template>
+      </div>
+
+      <!-- ASSAY -->
+      <div x-show="$store.phyto.activeTab==='assay'" class="tab-content">
+        <h3 class="st">Marker-compound assay (ICH Q2)</h3>
+        <div class="card">
+          <label class="lbl">Calibration — conc (µg/mL), area — one per line</label>
+          <textarea x-model="$store.phyto.calText" rows="5" class="ta mono"></textarea>
+          <div class="fgrid">
+            <label class="f">Sample area<input type="number" x-model.number="$store.phyto.assay.sample_area" /></label>
+            <label class="f">Sample wt (mg)<input type="number" x-model.number="$store.phyto.assay.sample_weight_mg" /></label>
+            <label class="f">Dilution<input type="number" x-model.number="$store.phyto.assay.dilution" /></label>
+            <label class="f">Volume (mL)<input type="number" x-model.number="$store.phyto.assay.volume_ml" /></label>
+          </div>
+          <button class="run" @click="$store.phyto.assayRun()">Compute assay %</button>
+        </div>
+        <template x-if="$store.phyto.assayResult && !$store.phyto.assayResult.error">
+          <div>
+            <div class="stat-row">
+              <div class="stat big"><span class="v" x-text="$store.phyto.assayResult.assay_percent_w_w + '%'"></span><span class="l">assay w/w</span></div>
+              <div class="stat"><span class="v" x-text="$store.phyto.assayResult.regression.r2"></span><span class="l">r²</span></div>
+              <div class="stat"><span class="v" x-text="$store.phyto.assayResult.sample_conc_ug_ml"></span><span class="l">µg/mL</span></div>
+              <div class="stat"><span class="v" x-text="$store.phyto.assayResult.lod_ug_ml"></span><span class="l">LOD</span></div>
+              <div class="stat"><span class="v" x-text="$store.phyto.assayResult.loq_ug_ml"></span><span class="l">LOQ</span></div>
+            </div>
+            <p class="kv"><b x-text="$store.phyto.assayResult.validation_hint"></b></p>
+            <p class="note" x-text="$store.phyto.assayResult.note"></p>
+          </div>
+        </template>
+      </div>
+
+      <!-- LIMITS -->
+      <div x-show="$store.phyto.activeTab==='limits'" class="tab-content">
+        <h3 class="st">Heavy metals &amp; mycotoxins limits</h3>
+        <div class="card">
+          <div class="fgrid">
+            <label class="f wide">Analyte<select x-model="$store.phyto.lim.analyte"><option>Lead (Pb)</option><option>Cadmium (Cd)</option><option>Mercury (Hg)</option><option>Arsenic (As, inorganic)</option><option>Aflatoxin B1</option><option>Aflatoxins total (B1+B2+G1+G2)</option><option>Ochratoxin A</option></select></label>
+            <label class="f">Value<input type="number" step="0.01" x-model.number="$store.phyto.lim.value" /></label>
+            <label class="f wide">Standard<select x-model="$store.phyto.lim.standard"><option>WHO/API herbal</option><option>EU traditional herbal</option><option>AYUSH (India)</option><option>USP &lt;232&gt; oral</option><option>Ph.Eur/API</option><option>EU food</option><option>FSSAI</option><option>FSSAI total</option></select></label>
+          </div>
+          <button class="run" @click="$store.phyto.limCheck()">Check against limit</button>
+        </div>
+        <template x-if="$store.phyto.limResult && !$store.phyto.limResult.error">
+          <div class="verdict" :class="$store.phyto.limResult.status === 'PASS' ? 'v-ok' : 'v-bad'">
+            <span class="material-symbols-outlined" x-text="$store.phyto.limResult.status === 'PASS' ? 'check_circle' : 'cancel'"></span>
+            <span x-text="$store.phyto.limResult.analyte + ': ' + $store.phyto.limResult.value + ' ' + $store.phyto.limResult.unit + ' vs limit ' + $store.phyto.limResult.limit + ' (' + $store.phyto.limResult.standard + ') — ' + $store.phyto.limResult.status + ($store.phyto.limResult.margin_pct !== null ? ' (margin ' + $store.phyto.limResult.margin_pct + '%)' : '')"></span>
+          </div>
+        </template>
+        <template x-if="$store.phyto.limRef">
+          <div class="card"><h4>Reference tables</h4>
+            <table class="tbl">
+              <thead><tr><th>Analyte</th><th>Standard</th><th>Limit</th><th>Unit</th></tr></thead>
+              <tbody>
+                <template x-for="row in $store.phyto.limRef.tables" :key="row.analyte">
+                  <template x-for="(lim, std) in row.limits" :key="std">
+                    <tr><td x-text="row.analyte"></td><td x-text="std"></td><td class="mono" x-text="lim"></td><td x-text="row.unit"></td></tr>
+                  </template>
+                </template>
+              </tbody>
+            </table>
+            <p class="note" x-text="$store.phyto.limRef.note"></p>
+          </div>
+        </template>
+      </div>
+
+      <!-- PLANTS -->
+      <div x-show="$store.phyto.activeTab==='plants'" class="tab-content">
+        <h3 class="st">Ethnobotany &amp; marker reference</h3>
+        <div class="card">
+          <div class="search-row">
+            <input type="text" x-model="$store.phyto.plantQuery" class="inp" placeholder="Search plant, constituent, or use (blank = all)" @keyup.enter="$store.phyto.plants()" />
+            <button class="run sm" @click="$store.phyto.plants()">Search</button>
+          </div>
+        </div>
+        <template x-if="$store.phyto.plantResult">
+          <div>
+            <template x-for="p in $store.phyto.plantResult.results" :key="p.name">
+              <div class="plant-card">
+                <div class="plant-head">
+                  <b x-text="p.name"></b>
+                  <span class="common" x-text="p.common"></span>
+                  <span class="fam" x-text="p.family"></span>
+                </div>
+                <div class="plant-body">
+                  <span class="kv"><b>Part:</b> <span x-text="p.part"></span></span>
+                  <span class="kv"><b>Markers:</b> <span x-text="p.markers"></span></span>
+                  <span class="kv"><b>Class:</b> <span x-text="p.class_of_compounds"></span></span>
+                  <span class="kv"><b>Uses:</b> <span x-text="p.traditional_uses"></span></span>
+                </div>
+              </div>
+            </template>
+            <p class="note" x-text="$store.phyto.plantResult.total_db + ' plants in seed database — ' + $store.phyto.plantResult.note"></p>
+          </div>
+        </template>
+      </div>
+    </div>
+    <style>
+      .dock-panel{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--color-background)}
+      .panel-header{padding:14px 20px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0}
+      .header-left{display:flex;align-items:center;gap:12px}
+      .header-icon{font-size:28px;color:var(--color-primary)}
+      .panel-header h2{color:var(--color-text);font-size:1.05rem;margin:0;font-weight:700}
+      .header-subtitle{color:var(--color-text-muted);font-size:.7rem;margin:2px 0 0 0}
+      .dock-tabs{display:flex;gap:2px;padding:6px 20px;border-bottom:1px solid var(--color-border);background:var(--color-panel);flex-shrink:0;overflow-x:auto}
+      .dock-tab{display:flex;align-items:center;gap:4px;padding:6px 12px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--color-text-muted);cursor:pointer;font-size:.68rem;font-weight:500;white-space:nowrap}
+      .dock-tab.active{color:var(--color-primary);border-bottom-color:var(--color-primary)}
+      .dock-tab .material-symbols-outlined{font-size:15px}
+      .panel-body{flex:1;overflow-y:auto;padding:16px 20px}
+      .tab-content{min-height:120px}
+      .st{font-size:.78rem;font-weight:700;color:var(--color-text);margin:0 0 8px 0;padding-bottom:6px;border-bottom:1px solid var(--color-border)}
+      .card{padding:13px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:11px;display:flex;flex-direction:column;gap:7px;margin-bottom:10px}
+      .card h4{font-size:.74rem;margin:0;color:var(--color-text)}
+      .lbl{font-size:.62rem;color:var(--color-text-muted);font-weight:600}
+      .ta{width:100%;min-height:44px;padding:8px 10px;border:1px solid var(--color-border);border-radius:7px;background:var(--color-background);color:var(--color-text);font-size:.7rem;font-family:var(--font-mono,monospace);resize:vertical}
+      .inp{flex:1;padding:8px 10px;border:1px solid var(--color-border);border-radius:7px;background:var(--color-background);color:var(--color-text);font-size:.74rem}
+      .run{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px;background:var(--color-primary);border:none;border-radius:8px;color:white;cursor:pointer;font-size:.78rem;font-weight:600}
+      .run.sm{padding:8px 14px;font-size:.7rem;flex:none}
+      .dock-error{padding:8px 10px;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.2);border-radius:6px;color:#ff6b6b;font-size:.68rem;margin-bottom:8px}
+      .dock-loading{display:flex;align-items:center;gap:6px;padding:6px 0;font-size:.7rem;color:var(--color-text-muted)}
+      .sp{width:14px;height:14px;border:2px solid var(--color-border);border-top:2px solid var(--color-primary);border-radius:50%;animation:spin .8s linear infinite}
+      @keyframes spin{to{transform:rotate(360deg)}}
+      .fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}
+      .f{display:flex;flex-direction:column;gap:3px;font-size:.6rem;color:var(--color-text-muted);font-weight:600}
+      .f.wide{grid-column:span 2}
+      .f input,.f select{padding:6px 8px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-background);color:var(--color-text);font-size:.75rem}
+      .stat-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+      .stat{flex:1;min-width:95px;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:9px}
+      .stat.big .v{font-size:1.35rem}
+      .stat .v{font-size:.95rem;font-weight:800;color:var(--color-primary);font-family:var(--font-mono,monospace)}
+      .stat .l{font-size:.56rem;color:var(--color-text-muted);font-weight:700;text-transform:uppercase}
+      .verdict{display:flex;align-items:center;gap:7px;padding:10px 12px;border-radius:8px;font-size:.74rem;font-weight:700;margin-bottom:8px;flex-wrap:wrap}
+      .v-ok{background:rgba(34,197,94,.08);color:#22c55e}.v-marg{background:rgba(245,158,11,.12);color:#d97706}.v-bad{background:rgba(239,68,68,.12);color:#ef4444}
+      .kv{font-size:.66rem;color:var(--color-text)}.kv b{color:var(--color-text)}
+      .note{font-size:.6rem;color:var(--color-text-muted);font-style:italic;margin:0}
+      .tbl{width:100%;border-collapse:collapse;font-size:.64rem}
+      .tbl th{text-align:left;color:var(--color-text-muted);font-size:.56rem;text-transform:uppercase;padding:4px 8px;border-bottom:1px solid var(--color-border)}
+      .tbl td{padding:3px 8px;border-bottom:1px dotted var(--color-border);color:var(--color-text)}
+      .mono{font-family:var(--font-mono,monospace)}
+      .search-row{display:flex;gap:8px}
+      .plant-card{padding:10px 12px;background:var(--color-panel);border:1px solid var(--color-border);border-radius:10px;margin-bottom:6px}
+      .plant-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:5px}
+      .plant-head b{font-size:.74rem;color:var(--color-primary);font-style:italic}
+      .common{font-size:.68rem;color:var(--color-text);font-weight:600}
+      .fam{font-size:.6rem;color:var(--color-text-muted)}
+      .plant-body{display:flex;flex-direction:column;gap:2px}
+    </style>
+  </div>
+</body>
+</html>
