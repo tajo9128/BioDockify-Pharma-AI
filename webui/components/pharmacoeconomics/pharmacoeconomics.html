@@ -4,7 +4,8 @@
     import { createStore } from "/js/AlpineStore.js";
     import { callJsonApi } from "/js/api.js";
     export const store = createStore("pharmEco", {
-      activeTab: "cea", loading: false, error: "",
+      activeTab: "cea",
+      currency: (window.BioDockifyLocale?.currencySymbol) || '₹', loading: false, error: "",
       cea: { cost_new: 45000, cost_comparator: 12000, effect_new: 6.2, effect_comparator: 5.0, wtp_threshold: 100000 },
       ceaResult: null,
       q: { utility_before: 0.65, utility_after: 0.82, years: 5, discount: 0.03 },
@@ -49,11 +50,11 @@
         <h3 class="st">Incremental cost-effectiveness (ICER)</h3>
         <div class="card">
           <div class="fg">
-            <label class="f">Cost — new (₹)<input type="number" x-model.number="$store.pharmEco.cea.cost_new" /></label>
-            <label class="f">Cost — comparator (₹)<input type="number" x-model.number="$store.pharmEco.cea.cost_comparator" /></label>
+            <label class="f">Cost — new<input type="number" x-model.number="$store.pharmEco.cea.cost_new" /></label>
+            <label class="f">Cost — comparator<input type="number" x-model.number="$store.pharmEco.cea.cost_comparator" /></label>
             <label class="f">Effect — new (QALY)<input type="number" step="0.1" x-model.number="$store.pharmEco.cea.effect_new" /></label>
             <label class="f">Effect — comparator<input type="number" step="0.1" x-model.number="$store.pharmEco.cea.effect_comparator" /></label>
-            <label class="f">WTP threshold (₹/QALY)<input type="number" x-model.number="$store.pharmEco.cea.wtp_threshold" /></label>
+            <label class="f">WTP threshold (${currency}/QALY)<input type="number" x-model.number="$store.pharmEco.cea.wtp_threshold" /></label>
           </div>
           <button class="run" @click="$store.pharmEco.goCea()">Compute ICER + sensitivity</button>
         </div>
@@ -64,14 +65,14 @@
               <span x-text="$store.pharmEco.ceaResult.verdict + ' — ICER ₹' + $store.pharmEco.ceaResult.icer_per_qaly_or_unit.toLocaleString() + '/QALY'"></span>
             </div>
             <div class="srow">
-              <div class="st-c"><span class="v" x-text="'₹' + $store.pharmEco.ceaResult.incremental_cost.toLocaleString()"></span><span class="l">Δ cost</span></div>
+              <div class="st-c"><span class="v" x-text="currency + $store.pharmEco.ceaResult.incremental_cost.toLocaleString()"></span><span class="l">Δ cost</span></div>
               <div class="st-c"><span class="v" x-text="$store.pharmEco.ceaResult.incremental_effect"></span><span class="l">Δ effect</span></div>
             </div>
             <template x-if="$store.pharmEco.sensResult && !$store.pharmEco.sensResult.error">
               <div class="card"><h4>Willingness-to-pay grid</h4>
-                <table class="tbl"><thead><tr><th>WTP ₹/QALY</th><th>ICER</th><th>Acceptable?</th></tr></thead>
+                <table class="tbl"><thead><tr><th>WTP ${currency}/QALY</th><th>ICER</th><th>Acceptable?</th></tr></thead>
                 <tbody><template x-for="r in $store.pharmEco.sensResult.wtp_grid" :key="r.wtp">
-                  <tr :class="{sig: r.acceptable}"><td class="mono" x-text="'₹' + r.wtp.toLocaleString()"></td><td class="mono" x-text="'₹' + r.icer"></td><td><span class="pill" :class="r.acceptable ? 'p-ok' : 'p-no'" x-text="r.acceptable ? 'yes' : 'no'"></span></td></tr>
+                  <tr :class="{sig: r.acceptable}"><td class="mono" x-text="currency + r.wtp.toLocaleString()"></td><td class="mono" x-text="currency + r.icer"></td><td><span class="pill" :class="r.acceptable ? 'p-ok' : 'p-no'" x-text="r.acceptable ? 'yes' : 'no'"></span></td></tr>
                 </template></tbody></table>
               </div>
             </template>
@@ -105,15 +106,15 @@
         <div class="card"><div class="fg">
           <label class="f">ARR — control (0–1)<input type="number" step="0.01" x-model.number="$store.pharmEco.nnt.arr_control" /></label>
           <label class="f">ARR — treatment<input type="number" step="0.01" x-model.number="$store.pharmEco.nnt.arr_treatment" /></label>
-          <label class="f">Cost/patient — treatment ₹<input type="number" x-model.number="$store.pharmEco.nnt.cost_per_patient_treatment" /></label>
-          <label class="f">Cost/patient — control ₹<input type="number" x-model.number="$store.pharmEco.nnt.cost_per_patient_control" /></label>
+          <label class="f">Cost/patient — treatment <input type="number" x-model.number="$store.pharmEco.nnt.cost_per_patient_treatment" /></label>
+          <label class="f">Cost/patient — control <input type="number" x-model.number="$store.pharmEco.nnt.cost_per_patient_control" /></label>
         </div>
         <button class="run" @click="$store.pharmEco.goN()">Compute NNT</button></div>
         <template x-if="$store.pharmEco.nntResult && !$store.pharmEco.nntResult.error">
           <div class="srow">
             <div class="st-c"><span class="v" x-text="$store.pharmEco.nntResult.nnt"></span><span class="l">NNT</span></div>
             <div class="st-c"><span class="v" x-text="$store.pharmEco.nntResult.absolute_risk_reduction"></span><span class="l">ARR</span></div>
-            <div class="st-c"><span class="v" x-text="'₹' + $store.pharmEco.nntResult.cost_per_additional_responder.toLocaleString()"></span><span class="l">cost/responder</span></div>
+            <div class="st-c"><span class="v" x-text="currency + $store.pharmEco.nntResult.cost_per_additional_responder.toLocaleString()"></span><span class="l">cost/responder</span></div>
           </div>
         </template>
       </div>
@@ -135,7 +136,7 @@
           <div>
             <div class="verdict" :class="$store.pharmEco.biResult.annual_budget_delta < 0 ? 'v-good' : 'v-warn'">
               <span class="material-symbols-outlined" x-text="$store.pharmEco.biResult.annual_budget_delta < 0 ? 'savings' : 'warning'"></span>
-              <span x-text="'₹' + Math.abs($store.pharmEco.biResult.annual_budget_delta).toLocaleString() + ' / year — ' + $store.pharmEco.biResult.verdict"></span>
+              <span x-text="currency + Math.abs($store.pharmEco.biResult.annual_budget_delta).toLocaleString() + ' / year — ' + $store.pharmEco.biResult.verdict"></span>
             </div>
             <div class="srow">
               <div class="st-c"><span class="v" x-text="$store.pharmEco.biResult.eligible_patients.toLocaleString()"></span><span class="l">eligible</span></div>

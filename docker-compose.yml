@@ -58,7 +58,7 @@ services:
 
     environment:
       - PORT=50001
-      - TZ=Asia/Kolkata
+      - TZ=${BIODOCKIFY_TZ:-UTC}
 
       # === OPTIONAL: LLM PROVIDERS (cloud — fully optional) ===
       # - OPENAI_API_KEY=sk-your-key-here
