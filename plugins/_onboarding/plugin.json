@@ -1,7 +1,0 @@
-{
-  "name": "Onboarding Wizard",
-  "description": "First-run setup wizard: LLM configuration, API key entry, connection test",
-  "version": "1.0.0",
-  "author": "BioDockify",
-  "webui": true
-}

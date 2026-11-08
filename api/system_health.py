@@ -68,15 +68,6 @@ class SystemHealth(ApiHandler):
                 pass
         result["checks"].append({"name": "RDKit", "status": "ok" if rdkit_ok else "warn", "detail": "Docking available (RDKit)" if rdkit_ok else "Docking disabled"})
 
-        # GPU (CUDA) — for MD Lite molecular dynamics
-        try:
-            from modules.md_lite.engine import _check_gpu
-            gpu_ok, gpu_warn = _check_gpu()
-            result["checks"].append({"name": "GPU (CUDA)", "status": "ok" if gpu_ok else "warn",
-                                     "detail": "GPU ready for MD Lite" if gpu_ok else (gpu_warn[:80] if gpu_warn else "Not available")})
-        except Exception:
-            result["checks"].append({"name": "GPU (CUDA)", "status": "warn", "detail": "Check unavailable"})
-
         # Docking dependencies
         import subprocess
         def _check_binary(bin_name):
