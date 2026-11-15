@@ -39,7 +39,7 @@
     </div></div>
     <div class="dock-tabs">
       <button class="dock-tab" :class="{active:$store.gmpAudit.activeTab==='checklist'}" @click="$store.gmpAudit.activeTab='checklist'"><span class="material-symbols-outlined">checklist</span> Audit Checklist</button>
-      <button class="dock-tab" :class="{active:$store.gmpAudit.activeTab==='env'}" @click="$store.gmpAudit.activeTab='env'; $store.gmpAudit.loadEm()"><span class="material-symbols-outlined">air</span> EM &amp; Water</button>
+      <button class="dock-tab" :class="{active:$store.gmpAudit.activeTab==='env'}" @click="$store.gmpAudit.activeTab='env'; $store.gmpAudit.loadEm(); $store.gmpAudit.loadWater()"><span class="material-symbols-outlined">air</span> EM &amp; Water</button>
       <button class="dock-tab" :class="{active:$store.gmpAudit.activeTab==='capa'}" @click="$store.gmpAudit.activeTab='capa'; $store.gmpAudit.loadDash()"><span class="material-symbols-outlined">assignment_late</span> Deviation/CAPA</button>
       <button class="dock-tab" :class="{active:$store.gmpAudit.activeTab==='plan'}" @click="$store.gmpAudit.activeTab='plan'; if(!$store.gmpAudit.plan) $store.gmpAudit.run('inspection_plan',{},'plan')"><span class="material-symbols-outlined">event_repeat</span> Inspection Plan</button>
     </div>

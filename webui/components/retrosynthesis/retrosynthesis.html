@@ -243,7 +243,7 @@
                   </template>
                 </div>
                 <span class="rs-reliability" x-show="d.reliability" x-text="'Reliability: ' + Math.round((d.reliability || 0) * 100) + '%'"></span>
-<div x-html="window.sendHandoffBar && (route.precursors || [])[0]?.smiles ? sendHandoffBar(route.precursors[0].smiles, ['react','admet','dock']) : ''" style="margin-top:4px"></div>
+<div x-html="window.sendHandoffBar && (d.precursors || d.fragments || [])[0] ? sendHandoffBar((d.precursors || d.fragments)[0]?.smiles || (d.precursors || d.fragments)[0], ['react','admet','dock']) : ''" style="margin-top:4px"></div>
               </div>
             </template>
           </div>

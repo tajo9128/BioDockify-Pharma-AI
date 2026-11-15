@@ -186,7 +186,11 @@ def reverse_reaction(smarts: str, product: str) -> List[List[str]]:
         return results[:10]
     except Exception as e:
         log.debug(f"reverse_reaction failed: {e}")
-        return [    # ── Additional templates (v7.39) ──
+        return []
+
+
+# ── Additional templates (v7.39) ──
+REACTION_TEMPLATES += [
     {
         "name": "Heck Coupling",
         "category": "C-C bond",

@@ -93,7 +93,7 @@ class PptMasterHandler(ApiHandler):
             data = f.read()
         fname = re.sub(r"[^A-Za-z0-9_\- ]", "", st.get("title", "deck"))[:60].strip().replace(" ", "_") or "deck"
         safe = os.path.basename(path)
-        return Response(content=data, content_type="application/vnd.openxmlformats-officedocument"
+        return Response(response=data, mimetype="application/vnd.openxmlformats-officedocument"
                         ".presentationml.presentation", headers={"Content-Disposition": f'attachment; filename="{fname}.pptx"'})
 
 

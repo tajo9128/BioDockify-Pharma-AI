@@ -72,6 +72,13 @@ CC(C)Cc1ccc(cc1)C(C)C(=O)O",
         this.loading = false;
       },
 
+      loadNciLibrary() {
+        if (typeof NCI_DIVERSITY !== "undefined") {
+          this.screenLibrary = NCI_DIVERSITY.join("\n");
+          this.flash("NCI Diversity Set loaded — click Screen to run");
+        }
+      },
+
       async screen() {
         if (!this.screenSmiles || !this.screenLibrary) return;
         this.loading = true; this.error = "";
@@ -212,7 +219,8 @@ CC(C)Cc1ccc(cc1)C(C)C(=O)O",
       _scoreBarWidth(score) { return Math.min(100, Math.max(0, (score || 0) * 100)); },
     });
   </script>
-<script src="/js/handoff.js">
+<script src="/js/handoff.js"></script>
+<script>
 const NCI_DIVERSITY = [
   "CC(=O)Nc1ccc(O)cc1", "CC(=O)OC1=CC=CC=C1C(=O)O", "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
   "CN1CCC[C@H]1c1cccnc1", "CC(=O)Nc1ccc(cc1)S(N)(=O)=O", "COc1cc2c(cc1OC)C(=O)C=CC2=O",
@@ -256,10 +264,7 @@ const NCI_DIVERSITY = [
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'generate'}" @click="$store.pharmacophoreModal.activeTab = 'generate'">Detect</button>
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'complete'}" @click="$store.pharmacophoreModal.activeTab = 'complete'">Analyze</button>
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'model'}" @click="$store.pharmacophoreModal.activeTab = 'model'">Model</button>
-        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'screen'"><div style="display:flex;gap:6px;margin:6px 0">
-            <button @click="$store.pharmacophoreModal.loadNciLibrary()" style="padding:5px 12px;background:var(--color-background);border:1px solid var(--color-primary);border-radius:6px;color:var(--color-primary);cursor:pointer;font-size:0.62rem;font-weight:600">Load NCI Diversity Set (49)</button>
-            <span style="font-size:0.6rem;color:var(--color-text-muted);align-self:center" x-text="($store.pharmacophoreModal.screenResult?.total_hits || 0) + ' hits'"></span>
-          </div> @click="$store.pharmacophoreModal.activeTab = 'screen'">Screen</button>
+        <button :class="{'active': $store.pharmacophoreModal.activeTab === 'screen'}" @click="$store.pharmacophoreModal.activeTab = 'screen'">Screen</button>
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'compare'}" @click="$store.pharmacophoreModal.activeTab = 'compare'">Compare</button>
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'interactions'}" @click="$store.pharmacophoreModal.activeTab = 'interactions'">Interactions</button>
         <button :class="{'active': $store.pharmacophoreModal.activeTab === 'protein'}" @click="$store.pharmacophoreModal.activeTab = 'protein'">Protein</button>
@@ -288,13 +293,6 @@ const NCI_DIVERSITY = [
             <div class="source-breakdown" x-data="{
               get smartsCount() { return ($store.pharmacophoreModal.result.features || []).filter(f => f.source === 'functional_group').length },
               get rdkitCount() { return ($store.pharmacophoreModal.result.features || []).filter(f => f.source === 'rdkit_factory').length },
-      async loadNciLibrary() {
-        // 49-compound NCI Diversity Set subset (pharma-relevant, offline)
-        this.screenLibrary = NCI_DIVERSITY.join('
-');
-        this.flash('NCI Diversity Set loaded — click Screen to run');
-      },
-
             }">
               <span class="source-pill smarts" x-text="smartsCount + ' SMARTS'"></span>
               <span class="source-pill rdkit" x-text="rdkitCount + ' RDKit'"></span>
@@ -502,7 +500,10 @@ const NCI_DIVERSITY = [
           <input type="text" x-model="$store.pharmacophoreModal.screenSmiles" class="mt-input" placeholder="CC(=O)OC1=CC=CC=C1C(=O)O" />
         </div>
         <div class="input-group">
-          <label>Library SMILES (one per line):</label>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <label>Library SMILES (one per line):</label>
+            <button @click="$store.pharmacophoreModal.loadNciLibrary()" style="padding:4px 10px;background:var(--color-background);border:1px solid var(--color-primary);border-radius:6px;color:var(--color-primary);cursor:pointer;font-size:0.62rem;font-weight:600">Load NCI Diversity Set (49)</button>
+          </div>
           <textarea x-model="$store.pharmacophoreModal.screenLibrary" class="mt-input" rows="6" placeholder="CC(C)CC1=CC=C(C=C1)C(C)C(=O)O&#10;COC1=CC2=CC(=CC2=CC1)C(C)C(=O)O&#10;C1CCCCC1"></textarea>
         </div>
         <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
@@ -520,7 +521,8 @@ const NCI_DIVERSITY = [
         </button>
 
         <template x-if="$store.pharmacophoreModal.screenResult">
-<div x-html="window.sendHandoffBar ? sendHandoffBar($store.pharmacophore.screenSmiles, ['admet','dock','bioact','retro']) : ''" style="margin-top:6px"></div>
+          <div>
+<div x-html="window.sendHandoffBar ? sendHandoffBar($store.pharmacophoreModal.screenSmiles, ['admet','dock','bioact','retro']) : ''" style="margin-top:6px"></div>
           <div class="result-card">
             <h3>Screening Results</h3>
             <div class="stats-row">
@@ -552,6 +554,7 @@ const NCI_DIVERSITY = [
                 </tbody>
               </table>
             </div>
+          </div>
           </div>
         </template>
       </div>

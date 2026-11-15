@@ -48,12 +48,12 @@ def _to_json_safe(obj):
 def _apa_table(caption, headers, rows, note="", sig_cols=None):
     return {"caption": caption, "headers": headers, "rows": rows, "note": note, "sig": sig_cols}
 
-def _fmt(v, d=2): return f"{v:.{d}f}" if isinstance(v, (int, float, np.floating)) else str(v)
+def _fmt(v, d=2): return f"{v:.{d}f}" if isinstance(v, (int, float)) or (np is not None and isinstance(v, np.floating)) else str(v)
 
 def _p_str(p, alpha=0.05):
     if p < 0.001: return "< .001"
     if p < 0.01: return f"{p:.3f}"
-    if isinstance(p, (float, np.floating)): return f"{p:.{2 if p >= 0.05 else 3}f}"
+    if isinstance(p, float) or (np is not None and isinstance(p, np.floating)): return f"{p:.{2 if p >= 0.05 else 3}f}"
     return str(p)
 
 def _effect_interpretation(d):
@@ -1222,7 +1222,7 @@ class StatisticsAnalyze(ApiHandler):
 
     def _correlation(self, input: dict) -> dict:
         data = input.get("data", [])
-        columns = input.get("columns", [])
+        columns = input.get("selected_cols") or input.get("columns", [])
         method = input.get("method", "pearson")
         if len(columns) < 2:
             return {"status": "error", "error": "Select at least 2 columns"}
@@ -1525,7 +1525,7 @@ class StatisticsAnalyze(ApiHandler):
 
     def _friedman(self, input: dict) -> dict:
         data = input.get("data", [])
-        columns = input.get("columns", [])
+        columns = input.get("selected_cols") or input.get("columns", [])
         if len(columns) < 3:
             return {"status": "error", "error": "Friedman requires at least 3 numeric columns"}
         try:

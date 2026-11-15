@@ -223,8 +223,8 @@ def pediatric_dose(drug: str, weight_kg: float, age_months: int = None) -> Dict[
     daily_max = min(info["max_daily"] * weight_kg, info["max_single"] * (24 // info["interval_h"]))
     # BSA method (Mosteller) for chemotherapy-type dosing reference
     if weight_kg > 0:
-        height_m = (weight_kg * 3.6 + 0.15) ** 0.5 if weight_kg < 30 else 1.5  # rough estimate
-        bsa = math.sqrt(height_m * weight_kg / 3600)
+        height_cm = (weight_kg * 3.6 + 15) ** 0.5 * 10 if weight_kg < 30 else 150
+        bsa = math.sqrt(height_cm * weight_kg / 3600)
     else:
         bsa = 0
     age_warn = ""

@@ -118,14 +118,14 @@ def icon_svg_bytes(path: Path, color: str = "#4C2A85", size: int = 128) -> bytes
 def add_process_diagram(slide, prs, steps: list[str], x: float, y: float, w: float, h: float,
                         color: str = "4C2A85", accent: str = "F97362") -> None:
     """Chevron-style process flow built from native PPT shapes (fully editable)."""
-    from pptx.util import Emu, Pt
+    from pptx.util import Inches, Pt
     n = max(len(steps), 1)
-    gap = Emu(int(w * 0.012))
-    bw = Emu(int((w - gap * (n - 1)) / n))
-    bh = Emu(int(h * 0.55))
+    gap_in = w * 0.012
+    bw_in = (w - gap_in * (n - 1)) / n
+    bh_in = h * 0.55
     from pptx.enum.shapes import MSO_SHAPE
     for i, s in enumerate(steps[:7]):
-        shp = slide.shapes.add_shape(MSO_SHAPE.PENTAGON, Emu(int(x + i * (bw + gap))), Emu(int(y + h * 0.22)), bw, bh)
+        shp = slide.shapes.add_shape(MSO_SHAPE.PENTAGON, Inches(x + i * (bw_in + gap_in)), Inches(y + h * 0.22), Inches(bw_in), Inches(bh_in))
         shp.fill.solid()
         shp.fill.fore_color.rgb = __import__("pptx.dml.color", fromlist=["RGBColor"]).RGBColor.from_string(accent if i == n - 1 else color)
         shp.line.fill.background()
@@ -142,21 +142,21 @@ def add_process_diagram(slide, prs, steps: list[str], x: float, y: float, w: flo
 def add_stat_card(slide, prs, value: str, label: str, x: float, y: float, w: float, h: float,
                   color: str = "4C2A85") -> None:
     """Big-number stat card from native rounded-rect + text frames."""
-    from pptx.util import Emu, Pt
+    from pptx.util import Inches, Pt
     from pptx.enum.shapes import MSO_SHAPE
     from pptx.dml.color import RGBColor
-    card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Emu(int(x)), Emu(int(y)), Emu(int(w)), Emu(int(h)))
+    card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(x), Inches(y), Inches(w), Inches(h))
     card.fill.solid()
     card.fill.fore_color.rgb = RGBColor.from_string("FFFFFF")
     card.line.color.rgb = RGBColor.from_string("E4DCF5")
     card.shadow.inherit = False
-    tv = slide.shapes.add_textbox(Emu(int(x + w * 0.05)), Emu(int(y + h * 0.08)), Emu(int(w * 0.9)), Emu(int(h * 0.5)))
+    tv = slide.shapes.add_textbox(Inches(x + w * 0.05), Inches(y + h * 0.08), Inches(w * 0.9), Inches(h * 0.5))
     pv = tv.text_frame.paragraphs[0]
     pv.text = value[:12]
     pv.font.size = Pt(30)
     pv.font.bold = True
     pv.font.color.rgb = RGBColor.from_string(color)
-    tl = slide.shapes.add_textbox(Emu(int(x + w * 0.05)), Emu(int(y + h * 0.58)), Emu(int(w * 0.9)), Emu(int(h * 0.38)))
+    tl = slide.shapes.add_textbox(Inches(x + w * 0.05), Inches(y + h * 0.58), Inches(w * 0.9), Inches(h * 0.38))
     pl = tl.text_frame.paragraphs[0]
     pl.text = label[:60]
     pl.font.size = Pt(11)

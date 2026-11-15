@@ -130,9 +130,10 @@ def estimate_nmr(smiles: str) -> Dict[str, Any]:
             # α to carbonyl/aryl? (heavy neighbor C has O double-bond or is aromatic)
             alpha_carbonyl = any(
                 n.GetSymbol() == "O" and any(b.GetBondTypeAsDouble() == 2 for b in n.GetBonds())
-                for nb in h_atom.GetNeighbors() for n in nb.GetNeighbors() if nb.GetSymbol() == "C"
-                for b in nb.GetBonds()) if False else False
-            shift = 0.9 + 0.55 * n_elec
+                for nb in h_atom.GetNeighbors() if nb.GetSymbol() == "C"
+                for n in nb.GetNeighbors()
+            )
+            shift = (2.0 + 0.3 * n_elec) if alpha_carbonyl else (0.9 + 0.55 * n_elec)
             hn = h_atom.GetTotalNumHs()
             kind = f"alkyl H ({'CH3' if hn >= 3 else 'CH2' if hn >= 2 else 'CH'})"
         h1.append({"env": kind, "d1_est": round(min(12, max(0.5, shift)), 2)})

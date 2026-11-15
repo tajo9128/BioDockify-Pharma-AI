@@ -298,7 +298,7 @@ def _generate_content(job_id, outline, sources, topic, st) -> list[dict]:
         if pending:
             sys_p = ("You write DETAILED teaching-slide content. Reply with ONLY a JSON array — no prose, "
                      "no markdown fences. Text must be plain (no markdown symbols).")
-            brief = "\n".join(f"{i}. \"{s['title']}' [{s['type']}]" for i, s in enumerate(pending))
+            brief = "\n".join(f"{i}. \"{s['title']}\" [{s['type']}]" for i, s in enumerate(pending))
             user = (f"Deck topic: {topic}. Audience: {st.get('audience','students')}.\n"
                     f"Researched material (cite facts from it where relevant):\n"
                     f"{_source_excerpt_for(sources, b0 // BATCH, total)}\n\n"

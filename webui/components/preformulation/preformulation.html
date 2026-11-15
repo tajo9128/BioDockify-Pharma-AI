@@ -293,7 +293,7 @@
                 </template>
               </tbody>
             </table>
-            <p class="notice"><div class="dock-card" style="margin-top:8px">
+            <div class="notice"><div class="dock-card" style="margin-top:8px">
               <h4>Analyze completed runs (RSM + ANOVA)</h4>
               <textarea x-model="$store.preform.doeRunsJson" rows="4" class="mt-textarea mono" placeholder='[{"Binder":3,"Force":14,"MCC":40,"y":85}]'></textarea>
               <button class="btn-sm" @click="$store.preform.analyzeDoe()" :disabled="$store.preform.doeAnaLoading" x-text="$store.preform.doeAnaLoading ? 'Fitting...' : 'Fit RSM Model'"></button>
@@ -315,7 +315,7 @@
               <template x-if="$store.preform.doeAnaResult?.error">
                 <p style="color:#ef4444;font-size:0.66rem;margin:4px 0" x-text="$store.preform.doeAnaResult.error"></p>
               </template>
-            </div></p>
+            </div></div>
           </div>
         </template>
         <div class="dock-card">
