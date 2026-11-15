@@ -104,8 +104,10 @@ LIMITS = [
 
 
 def check_limits(analyte: str, value: float, standard: str = "WHO/API herbal") -> Dict[str, Any]:
-    key = analyte.lower()
-    row = next((r for r in LIMITS if r["analyte"].lower().startswith(key[:6])), None)
+    key = analyte.lower().strip()
+    row = next((r for r in LIMITS if key in r["analyte"].lower()), None)
+    if not row:
+        row = next((r for r in LIMITS if r["analyte"].lower().startswith(key[:6])), None)
     if not row:
         return {"error": f"known analytes: {', '.join(r['analyte'] for r in LIMITS)}"}
     lim = row["limits"].get(standard)

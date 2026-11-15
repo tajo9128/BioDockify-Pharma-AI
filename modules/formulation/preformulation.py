@@ -31,7 +31,7 @@ def preformulation_profile(smiles: str, drug_name: str = "") -> Dict[str, Any]:
     tpsa = rdMolDescriptors.CalcTPSA(mol)
     rotb = rdMolDescriptors.CalcNumRotatableBonds(mol)
     aromatics = rdMolDescriptors.CalcNumAromaticRings(mol)
-    pka_basic = max((Crippen._GetAtomContribs and 0) or 0, 0)  # placeholder, rule-based below
+    # ionization classification is rule-based below (no RDKit pKa predictor)
 
     # rule-of-thumb ionization class (pharma heuristic, not a pKa predictor)
     from rdkit.Chem import rdMolDescriptors as rdmd
@@ -51,7 +51,8 @@ def preformulation_profile(smiles: str, drug_name: str = "") -> Dict[str, Any]:
         ion_class = "essentially neutral"
 
     # solubility heuristic: ESOL-style (Delaney) without needing the full model
-    esol_logs = 0.16 - 0.63 * logp - 0.0062 * mw + 0.066 * has_acid - 0.74 * (rotb > 6)
+    arom_ratio = aromatics / max(1, rdMolDescriptors.CalcNumRings(mol)) if rdMolDescriptors.CalcNumRings(mol) else 0
+    esol_logs = 0.16 - 0.63 * logp - 0.0062 * mw + 0.066 * rotb - 0.74 * arom_ratio
     logs_class = ("high" if esol_logs > -1 else "moderate" if esol_logs > -3 else "low" if esol_logs > -5 else "very low")
 
     bdd_flag = "likely BBB-permeable" if tpsa < 90 and logp < 3.5 else "BBD restricted (TPSA ≥ 90 or logP ≥ 3.5)"
@@ -223,5 +224,5 @@ def release_half_life(rate_constant: float, order: str = "first") -> Dict[str, A
         return {"order": "zero", "t50_factor": "0.5/k (with C0=1)", "formula": "t = fraction/k",
                 "note": "needs C0 — use release_kinetics module for real fits"}
     t_half = 0.693 / rate_constant
-    t90 = -0.105 / rate_constant if rate_constant > 0 else None
-    return {"order": "first", "t_half": round(t_half, 3), "t90": round(abs(t90), 3) if t90 else None}
+    t90 = 0.1054 / rate_constant
+    return {"order": "first", "t_half": round(t_half, 3), "t90": round(t90, 3)}

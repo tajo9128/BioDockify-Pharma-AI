@@ -94,8 +94,8 @@
             this.dockingLigandFormat = 'smiles';
           } else {
             this.dockingLigand = t;
+            this.error = "";
           }
-          this.error = "";
         };
         r.onerror = () => { this.error = "Failed to read ligand file"; };
         r.readAsText(f);

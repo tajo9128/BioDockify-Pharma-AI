@@ -37,7 +37,10 @@ def pathway_ora(gene_list: List[str]) -> Dict[str, Any]:
     if len(genes) < 3:
         return {"error": "provide ≥3 genes for ORA"}
     N = len(ALL_GENES)               # background size
-    n = len(genes)                   # query size
+    genes_in_bg = sorted(set(genes) & set(ALL_GENES))
+    n = len(genes_in_bg) if genes_in_bg else len(genes)
+    if n < 1:
+        return {"error": "none of the provided genes are in the background set"}
     rows = []
     for pw, pw_genes in PATHWAYS.items():
         hit = sorted(set(pw_genes) & set(genes))

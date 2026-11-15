@@ -4,6 +4,13 @@ Based on github.com/hugohe3/ppt-master."""
 from helpers.api import ApiHandler, Request, Response
 import logging, os, json, io, asyncio, re
 
+try:
+    from pptx.util import Inches, Pt, Emu
+    from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+    from pptx.dml.color import RGBColor
+except ImportError:
+    Inches = Pt = Emu = PP_ALIGN = MSO_ANCHOR = RGBColor = None
+
 log = logging.getLogger("ppt_master")
 
 SKILL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "skills", "ppt-master")
@@ -211,10 +218,9 @@ class PptMasterHandler(ApiHandler):
         """Generate editable PPTX directly from structured slide data using python-pptx."""
         try:
             from pptx import Presentation
-            from pptx.util import Inches, Pt, Emu
-            from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
-            from pptx.dml.color import RGBColor
         except ImportError:
+            return {"success": False, "error": "python-pptx not installed"}
+        if RGBColor is None:
             return {"success": False, "error": "python-pptx not installed"}
 
         themes = {

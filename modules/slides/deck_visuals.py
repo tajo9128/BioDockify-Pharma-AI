@@ -118,7 +118,7 @@ def icon_svg_bytes(path: Path, color: str = "#4C2A85", size: int = 128) -> bytes
 def add_process_diagram(slide, prs, steps: list[str], x: float, y: float, w: float, h: float,
                         color: str = "4C2A85", accent: str = "F97362") -> None:
     """Chevron-style process flow built from native PPT shapes (fully editable)."""
-    from pptx.util import Inches, Pt
+    from pptx.util import Inches, Pt, Emu
     n = max(len(steps), 1)
     gap_in = w * 0.012
     bw_in = (w - gap_in * (n - 1)) / n

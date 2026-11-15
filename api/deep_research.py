@@ -355,7 +355,7 @@ class DeepResearchHandler(ApiHandler):
         sources = session.get("scanned_sources") or session.get("sources", [])
         counts = self._count_screen_decisions(sources)
         # Duplicates removed during collect
-        duplicates = session.get("duplicates_removed", 0)
+        duplicates = session.get("stats", {}).get("duplicates_removed", 0)
         identification = len(sources) + duplicates
 
         return {
@@ -903,7 +903,7 @@ class DeepResearchHandler(ApiHandler):
                 # similar: co-cited papers (cited_by the same sources)
                 elif endpoint_key == "concepts" and seed_concepts:
                     # Use top concepts to find similar work
-                    concept_filter = ",".join(f"concepts.id:{c}" for c in seed.get("concepts", [])[:3] if c.get("id"))
+                    concept_filter = ",".join(f"concepts.id:{c.get('id')}" for c in seed.get("concepts", [])[:3] if c.get("id"))
                     if concept_filter:
                         url = (f"https://api.openalex.org/works?filter={concept_filter}"
                                f"&per_page={limit}&sort=cited_by_count:desc")

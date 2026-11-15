@@ -127,11 +127,11 @@ def _to_json_safe(obj):
         return {k: _to_json_safe(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
         return [_to_json_safe(v) for v in obj]
-    if isinstance(obj, np.ndarray):
+    if np is not None and isinstance(obj, np.ndarray):
         return _to_json_safe(obj.tolist())
-    if isinstance(obj, (np.integer, np.floating)):
+    if np is not None and isinstance(obj, (np.integer, np.floating)):
         return obj.item()
-    if isinstance(obj, np.bool_):
+    if np is not None and isinstance(obj, np.bool_):
         return bool(obj)
     if isinstance(obj, float):
         return float(obj)

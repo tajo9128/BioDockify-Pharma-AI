@@ -83,7 +83,7 @@
         this.doeAnaLoading = true; this.doeAnaResult = null; this.error = "";
         try {
           const runs = JSON.parse(this.doeRunsJson);
-          if (!Array.isArray(runs) || runs.length < 4) { this.error = "Need ≥4 completed runs"; return; }
+          if (!Array.isArray(runs) || runs.length < 4) { this.error = "Need ≥4 completed runs"; this.doeAnaLoading = false; return; }
           const r = await callJsonApi("preformulation", { action: "doe_analyze", runs, responses: [{name: "y"}] });
           this.doeAnaResult = r;
         } catch (e) { this.error = e.message.includes("JSON") ? "Invalid JSON format" : e.message; }

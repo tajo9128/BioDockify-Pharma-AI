@@ -29,17 +29,23 @@ class PhytochemHandler(ApiHandler):
     @staticmethod
     def _fingerprint(input: dict) -> dict:
         from modules.phytochem import fingerprint_similarity
-        r = fingerprint_similarity(input.get("profile_a") or [], input.get("profile_b") or [])
+        try:
+            r = fingerprint_similarity(input.get("profile_a") or [], input.get("profile_b") or [])
+        except (TypeError, ValueError):
+            return {"error": "profile values must be numeric"}
         return {"success": "error" not in r, **r}
 
     @staticmethod
     def _assay(input: dict) -> dict:
         from modules.phytochem import marker_assay
-        r = marker_assay(input.get("calibration_conc") or [], input.get("calibration_area") or [],
-                         float(input.get("sample_area", 0) or 0),
-                         float(input.get("sample_weight_mg", 0) or 0),
-                         float(input.get("dilution", 1) or 1),
-                         float(input.get("volume_ml", 10) or 10))
+        try:
+            r = marker_assay(input.get("calibration_conc") or [], input.get("calibration_area") or [],
+                             float(input.get("sample_area", 0) or 0),
+                             float(input.get("sample_weight_mg", 0) or 0),
+                             float(input.get("dilution", 1) or 1),
+                             float(input.get("volume_ml", 10) or 10))
+        except (TypeError, ValueError):
+            return {"error": "all numeric fields must be valid numbers"}
         return {"success": "error" not in r, **r}
 
     @staticmethod

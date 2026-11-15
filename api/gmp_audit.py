@@ -35,7 +35,7 @@ class GmpAuditHandler(ApiHandler):
             status = input.get("status")
             if status and str(status) not in ("open", "in_progress", "closed"):
                 return {"error": "status: open | in_progress | closed"}
-            return update_record(rid, status, input.get("action"))
+            return update_record(rid, status, input.get("note"))
         elif action == "dashboard":
             from modules.gmp_audit import dashboard
             return {"success": True, **dashboard()}

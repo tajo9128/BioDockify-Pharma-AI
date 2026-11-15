@@ -89,7 +89,8 @@ def _load() -> Dict[str, List[Dict[str, Any]]]:
     p = os.path.join(_STORE_DIR, "records.json")
     if os.path.exists(p):
         try:
-            return json.loads(open(p, encoding="utf-8").read())
+            with open(p, encoding="utf-8") as f:
+                return json.loads(f.read())
         except Exception:
             pass
     return {"deviations": [], "capas": []}

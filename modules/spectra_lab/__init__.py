@@ -70,14 +70,14 @@ def match_ir(peaks: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 # ── NMR shift estimation (environment-based, RDKit) ──────────────────────────
 
-def _atom_env(mol, idx: int) -> str:
+def _atom_env(mol, idx: int) -> tuple:
     from rdkit import Chem
     a = mol.GetAtomWithIdx(idx)
     sym = a.GetSymbol()
     hyb = str(a.GetHybridization())
     aromatic = a.GetIsAromatic()
     # neighbor hetero/electronegative count
-    n_o = sum(1 for n in a.GetNeighbors() if n.GetSymbol() in ("O", "N", "halogen".replace("halogen", "F")))
+    n_o = sum(1 for n in a.GetNeighbors() if n.GetSymbol() in ("O", "N"))
     n_x = sum(1 for n in a.GetNeighbors() if n.GetSymbol() in ("F", "Cl", "Br", "I"))
     return sym, hyb, aromatic, n_o + n_x
 
@@ -100,7 +100,7 @@ def estimate_nmr(smiles: str) -> Dict[str, Any]:
         shift = 125.0 if arom else base_c.get("sp2" if "SP2" in hyb.upper() else ("sp" if "SP" == hyb.upper()[:2] else "sp3"), 0)
         if not arom and "SP3" in hyb.upper():
             shift = 10 + 25 * n_elec
-        elif "SP" == hyb.upper()[:2]:
+        elif hyb.upper() == "SP":
             shift = 70 + 10 * n_elec
         shift += 8 * n_elec if (arom or "SP2" in hyb.upper()) and n_elec else 0
         c13.append({"idx": atom.GetIdx(), "env": f"C-{hyb}{'+X'*n_elec if n_elec else ''}{' (arom)' if arom else ''}",
@@ -175,7 +175,7 @@ def analyze_multiplets(peaks: List[Dict[str, Any]]) -> Dict[str, Any]:
         except (TypeError, ValueError):
             continue
         env = next((e[2] for e in env_table if e[0] <= s <= e[1]), "unassigned region")
-        mult = str(p.get("multiplet", "m")).lower().strip()
+        mult = str(p.get("multiplicity") or p.get("multiplet", "m")).lower().strip()
         n = mult_n.get(mult)
         try:
             integ = float(p.get("integration", 0) or 0)

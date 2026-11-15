@@ -109,7 +109,7 @@
               <div class="st-c"><span class="v" x-text="$store.netpro.herbResult.edges"></span><span class="l">edges</span></div>
             </div>
             <div class="card" x-show="$store.netpro.herbResult.shared_targets.length"><h4>Shared targets (multi-herb convergence)</h4>
-              <template x-for="t in $store.netpro.herbResult.shared_targets" :key="t[0]"><div class="hub"><b class="mono" x-text="t[0]"></b><span class="deg"><span class="bar-f" :style="'width:' + t[1]*30 + '%'"></span></span><b x-text="t[1] + ' herbs'"></b></div></template>
+              <template x-for="t in $store.netpro.herbResult.shared_targets" :key="t[0]"><div class="hub"><b class="mono" x-text="t[0]"></b><span class="deg"><span class="bar-f" :style="'width:' + t[1]*30 + '%'"></span></span><b x-text="t[1] + ' compounds'"></b></div></template>
             </div>
             <p class="kv" x-show="$store.netpro.herbResult.compounds_unmapped.length"><b>Unmapped compounds:</b> <span x-text="$store.netpro.herbResult.compounds_unmapped.join(', ')"></span></p>
             <button class="run" @click="$store.netpro.dl()"><span class="material-symbols-outlined">download</span> Export Cytoscape JSON</button>
